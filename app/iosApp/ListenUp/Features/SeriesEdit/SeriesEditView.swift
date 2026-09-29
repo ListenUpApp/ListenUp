@@ -25,7 +25,7 @@ struct SeriesEditView: View {
                     onCancel: { observer.onCancel(); dismiss() },
                     onSave: { observer.onSave() }
                 ) {
-                    VStack(spacing: 20) {
+                    Section {
                         ImageEditHeader(
                             shape: .rounded,
                             size: 120,
@@ -36,17 +36,17 @@ struct SeriesEditView: View {
                         ) {
                             BookCoverImage(coverPath: observer.displayCoverPath)
                         }
-                        .padding(.top, 8)
+                        .frame(maxWidth: .infinity)
+                        .listRowBackground(Color.clear)
+                    }
 
+                    Section {
                         AppTextField(
                             placeholder: "",
                             text: Binding(get: { observer.name }, set: { observer.onNameChanged($0) }),
                             entry: .words,
                             label: String(localized: "series.edit_name")
                         )
-                        .fieldCard()
-                        .padding(.horizontal)
-
                         AppTextField(
                             placeholder: String(localized: "series.edit_description_placeholder"),
                             text: Binding(
@@ -57,23 +57,18 @@ struct SeriesEditView: View {
                             label: String(localized: "series.edit_description"),
                             axis: .vertical
                         )
-                        .fieldCard()
-                        .padding(.horizontal)
+                    }
 
+                    Section {
                         mergeSection(observer)
-                            .fieldCard()
-                            .padding(.horizontal)
+                    }
 
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text(String(localized: "merge_history.section_title")).font(.headline)
-                            MergeHistoryListView(
-                                model: observer.mergeHistory,
-                                onUndo: { observer.onUndoMerge($0) },
-                                onRetry: { observer.onRetryMergeHistory() }
-                            )
-                        }
-                        .fieldCard()
-                        .padding(.horizontal)
+                    Section(String(localized: "merge_history.section_title")) {
+                        MergeHistoryListView(
+                            model: observer.mergeHistory,
+                            onUndo: { observer.onUndoMerge($0) },
+                            onRetry: { observer.onRetryMergeHistory() }
+                        )
                     }
                 }
                 .sheet(isPresented: $showMergeSheet, onDismiss: { observer.onMergeDialogDismissed() }) {

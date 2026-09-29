@@ -21,7 +21,9 @@ struct EditSheetDismissal: Equatable {
     var blocksInteractiveDismiss: Bool { hasChanges }
 }
 
-/// Standard edit-sheet chrome: a `NavigationStack` with Cancel and Done in the system's cancellation
+/// Standard edit-sheet chrome: a `NavigationStack` over a grouped `Form` — the content is `Section`s,
+/// so fields get the list's insets, separators, Dynamic Type metrics and keyboard avoidance (HIG,
+/// Lists and tables) — with Cancel and Done in the system's cancellation
 /// and confirmation placements (HIG, Sheets: "the Cancel button belongs on the leading edge of the
 /// top toolbar … the Done button belongs on the trailing edge"). Done is gated on `canSave` and shows
 /// a spinner while `isSaving`.
@@ -47,13 +49,12 @@ struct EditSheetScaffold<Content: View>: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
+            Form {
                 content()
-                    .padding(.vertical, 12)
             }
             // Dragging the form down pulls the keyboard with it, the way Notes and Mail do.
             .scrollDismissesKeyboard(.interactively)
-            .background(Color.luSurface)
+            .readableListWidth()
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -102,6 +103,6 @@ struct EditSheetScaffold<Content: View>: View {
         onCancel: {},
         onSave: {}
     ) {
-        Text("content").frame(maxWidth: .infinity).padding()
+        Section { Text("content") }
     }
 }

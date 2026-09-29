@@ -15,14 +15,6 @@ struct EditProfileView: View {
     @State private var observer: EditProfileObserver?
     @FocusState private var focusedField: EditProfileFocusField?
 
-    /// The two-column layout kicks in past this width — wide enough to hold Tagline and
-    /// Name side by side with comfortable margins, narrow enough that every iPhone and
-    /// narrow Split View stays single-column.
-    private static let wideThreshold: CGFloat = 700
-    private static let readableMaxWidth: CGFloat = 820
-
-    @State private var width: CGFloat = 0
-
     var body: some View {
         Group {
             if let observer {
@@ -48,10 +40,6 @@ struct EditProfileView: View {
             onSave: { observer.save() }
         ) {
             sections(observer)
-                .frame(maxWidth: Self.readableMaxWidth)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal)
-                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         }
         .alert(
             String(localized: "common.error"),
@@ -66,28 +54,13 @@ struct EditProfileView: View {
 
     // MARK: - Layout
 
-    /// Single column on narrow widths; on a wide width Tagline and Name sit side by side
-    /// while Avatar and Password span full width. Driven off the measured content width,
-    /// not the horizontal size class (so narrow Split View reads as compact).
+    /// One column of grouped `Form` sections, in the scaffold's readable column at every width.
     @ViewBuilder
     private func sections(_ observer: EditProfileObserver) -> some View {
-        let isWide = width >= Self.wideThreshold
-
-        VStack(spacing: 22) {
-            avatarSection(observer)
-
-            if isWide {
-                HStack(alignment: .top, spacing: 16) {
-                    taglineSection(observer)
-                    nameSection(observer)
-                }
-            } else {
-                taglineSection(observer)
-                nameSection(observer)
-            }
-
-            passwordSection(observer)
-        }
+        avatarSection(observer)
+        taglineSection(observer)
+        nameSection(observer)
+        passwordSection(observer)
     }
 
     // MARK: - Sections
@@ -109,6 +82,7 @@ struct EditProfileView: View {
                 avatarPreview(observer)
             }
             .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
         }
     }
 
@@ -147,12 +121,10 @@ struct EditProfileView: View {
                     onSubmit: { advance(from: .tagline) }
                 )
                 .focused($focusedField, equals: .tagline)
-                .fieldCard()
 
                 Text(taglineCount(observer.tagline))
                     .font(.caption2)
                     .foregroundStyle(Color.luLabel3)
-                    .padding(.trailing, 6)
             }
         }
     }
@@ -163,13 +135,12 @@ struct EditProfileView: View {
             title: String(localized: "profile.name"),
             subtitle: String(localized: "profile.name_description")
         ) {
-            VStack(spacing: 0) {
+            Group {
                 AppTextField(
                     placeholder: String(localized: "auth.first_name_placeholder"),
                     text: binding(observer.firstName, observer.setFirstName),
                     entry: .givenName,
                     label: String(localized: "auth.first_name"),
-                    isLast: false,
                     submitLabel: EditProfileFocusField.firstName.submitLabel(last: .done),
                     onSubmit: { advance(from: .firstName) }
                 )
@@ -184,7 +155,6 @@ struct EditProfileView: View {
                 )
                 .focused($focusedField, equals: .lastName)
             }
-            .fieldCard()
         }
     }
 
@@ -194,14 +164,13 @@ struct EditProfileView: View {
             title: String(localized: "profile.change_password"),
             subtitle: String(localized: "profile.password_description")
         ) {
-            VStack(spacing: 0) {
+            Group {
                 AppTextField(
                     placeholder: String(localized: "profile.current_password"),
                     text: binding(observer.currentPassword, observer.setCurrentPassword),
                     entry: .password,
                     label: String(localized: "profile.current_password"),
                     kind: .secure,
-                    isLast: false,
                     submitLabel: EditProfileFocusField.currentPassword.submitLabel(last: .done),
                     onSubmit: { advance(from: .currentPassword) }
                 )
@@ -212,7 +181,6 @@ struct EditProfileView: View {
                     entry: .newPassword,
                     label: String(localized: "profile.new_password"),
                     kind: .secure,
-                    isLast: false,
                     submitLabel: EditProfileFocusField.newPassword.submitLabel(last: .done),
                     onSubmit: { advance(from: .newPassword) }
                 )
@@ -228,7 +196,6 @@ struct EditProfileView: View {
                 )
                 .focused($focusedField, equals: .confirmPassword)
             }
-            .fieldCard()
         }
     }
 
@@ -275,26 +242,20 @@ struct EditProfileView: View {
 
 // MARK: - Section helper
 
-/// A titled profile-edit section: a `.headline` header, a secondary `.subheadline`
-/// subtitle, then `.fieldCard()`-wrapped content. The iOS realization of the mockup's
-/// titled cards — no Android card chrome, just the native edit-sheet look.
+/// A titled profile-edit `Form` section: the system header names it, the footer explains it.
 private struct ProfileEditSection<Content: View>: View {
     let title: String
     let subtitle: String
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.headline)
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+        Section {
             content()
+        } header: {
+            Text(title)
+        } footer: {
+            Text(subtitle)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

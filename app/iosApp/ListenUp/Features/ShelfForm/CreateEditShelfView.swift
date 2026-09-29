@@ -113,7 +113,11 @@ struct CreateEditShelfView: View {
     private func formContent(_ observer: CreateEditShelfObserver) -> some View {
         switch observer.phase {
         case .loadingExisting:
-            LoadingStateView()
+            Section {
+                LoadingStateView()
+                    .frame(minHeight: 200)
+                    .listRowBackground(Color.clear)
+            }
         default:
             formFields()
         }
@@ -121,135 +125,105 @@ struct CreateEditShelfView: View {
 
     @ViewBuilder
     private func formFields() -> some View {
-        VStack(spacing: 20) {
-            // Name + description
-            VStack(alignment: .leading, spacing: 6) {
-                Text(String(localized: "shelf.shelf_details"))
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Color.luLabel2)
-                    .textCase(.uppercase)
-                    .padding(.horizontal, 4)
+        Section(String(localized: "shelf.shelf_details")) {
+            AppTextField(
+                placeholder: String(localized: "common.shelf_name_hint"),
+                text: $name,
+                entry: .words,
+                label: String(localized: "shelf.form_name")
+            )
+            AppTextField(
+                placeholder: String(localized: "shelf.whats_this_shelf_for"),
+                text: $description,
+                entry: .sentences,
+                label: String(localized: "shelf.description_optional"),
+                axis: .vertical
+            )
+        }
 
-                AppTextField(
-                    placeholder: String(localized: "common.shelf_name_hint"),
-                    text: $name,
-                    entry: .words,
-                    label: String(localized: "shelf.form_name"),
-                    isLast: false
-                )
-                AppTextField(
-                    placeholder: String(localized: "shelf.whats_this_shelf_for"),
-                    text: $description,
-                    entry: .sentences,
-                    label: String(localized: "shelf.description_optional"),
-                    axis: .vertical,
-                    isLast: true
-                )
-            }
-            .fieldCard()
-
-            // Privacy toggle
+        Section {
             privacyRow()
+        }
 
-            // Preview card
-            previewSection()
+        Section(String(localized: "shelf.preview")) {
+            previewRow()
+        }
 
-            // Delete button (edit mode only)
-            if isEditMode {
+        // Delete (edit mode only): a destructive list button, confirmed before it runs.
+        if isEditMode {
+            Section {
                 Button(role: .destructive) {
                     showDeleteConfirmation = true
                 } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "trash")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text(String(localized: "shelf.delete_shelf"))
-                            .font(.body.weight(.medium))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 4)
+                    Label(String(localized: "shelf.delete_shelf"), systemImage: "trash")
+                        .font(.body.weight(.medium))
+                        .frame(maxWidth: .infinity)
                 }
-                .fieldCard()
-                .padding(.bottom, 8)
             }
         }
-        .padding(.horizontal)
-        .readableWidth()
     }
 
-    @ViewBuilder
     private func privacyRow() -> some View {
-        HStack(spacing: 13) {
-            IconTile(
-                systemImage: isPrivate ? "lock.fill" : "globe",
-                isActive: isPrivate,
-                size: 32
-            )
-            VStack(alignment: .leading, spacing: 2) {
-                Text(String(localized: "shelf.private_shelf"))
-                    .font(.body)
-                    .foregroundStyle(.primary)
+        Toggle(isOn: $isPrivate) {
+            HStack(spacing: 13) {
+                IconTile(
+                    systemImage: isPrivate ? "lock.fill" : "globe",
+                    isActive: isPrivate,
+                    size: 32
+                )
+                .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "shelf.private_shelf"))
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                    Text(
+                        isPrivate
+                            ? String(localized: "shelf.private_shelf_description")
+                            : String(localized: "shelf.visible_to_anyone")
+                    )
+                    .font(.caption)
+                    .foregroundStyle(Color.luLabel2)
+                }
+            }
+        }
+        .tint(.green)
+    }
+
+    private func previewRow() -> some View {
+        HStack(spacing: 16) {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.luFill)
+                .frame(width: 56, height: 56)
+                .overlay {
+                    Image(systemName: "bookmark")
+                        .font(.system(size: 22, weight: .semibold)) // decorative fixed size
+                        .foregroundStyle(Color.luLabel3)
+                }
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(trimmedName.isEmpty ? String(localized: "shelf.form_name") : trimmedName)
+                        .font(.headline)
+                        .foregroundStyle(trimmedName.isEmpty ? Color.luLabel3 : Color.primary)
+                        .lineLimit(1)
+                    if isPrivate {
+                        Image(systemName: "lock.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color.luLabel2)
+                    }
+                }
                 Text(
                     isPrivate
-                        ? String(localized: "shelf.private_shelf_description")
-                        : String(localized: "shelf.visible_to_anyone")
+                        ? String(localized: "shelf.private_shelf")
+                        : String(localized: "shelf.visibility")
                 )
-                .font(.caption)
+                .font(.footnote)
                 .foregroundStyle(Color.luLabel2)
             }
             Spacer()
-            Toggle("", isOn: $isPrivate)
-                .labelsHidden()
-                .tint(.green)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 9)
-        .fieldCard()
-    }
-
-    @ViewBuilder
-    private func previewSection() -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(String(localized: "shelf.preview"))
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Color.luLabel2)
-                .textCase(.uppercase)
-                .padding(.horizontal, 4)
-
-            HStack(spacing: 16) {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.luFill)
-                    .frame(width: 56, height: 56)
-                    .overlay {
-                        Image(systemName: "bookmark")
-                            .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(Color.luLabel3)
-                    }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Text(trimmedName.isEmpty ? String(localized: "shelf.form_name") : trimmedName)
-                            .font(.headline)
-                            .foregroundStyle(trimmedName.isEmpty ? Color.luLabel3 : Color.primary)
-                            .lineLimit(1)
-                        if isPrivate {
-                            Image(systemName: "lock.fill")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(Color.luLabel2)
-                        }
-                    }
-                    Text(
-                        isPrivate
-                            ? String(localized: "shelf.private_shelf")
-                            : String(localized: "shelf.visibility")
-                    )
-                    .font(.footnote)
-                    .foregroundStyle(Color.luLabel2)
-                }
-                Spacer()
-            }
-            .padding(16)
-            .fieldCard()
-        }
+        .padding(.vertical, 6)
+        .accessibilityElement(children: .combine)
     }
 }
 

@@ -45,52 +45,53 @@ struct RateBookSheet: View {
                 onClose()
             }
         ) {
-            VStack(spacing: 20) {
+            Section {
                 RatingStarsView(halfStars: halfStars) { halfStars = $0 }
+                    .frame(maxWidth: .infinity)
+                    .listRowBackground(Color.clear)
+            }
 
+            Section {
                 noteField
+            } footer: {
+                Text(String(
+                    format: String(localized: "book.detail_rating_note_counter"),
+                    RatingNote.length(note),
+                    RatingNote.maxLength
+                ))
+                .font(.caption.monospacedDigit())
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
 
-                if current != nil {
+            if current != nil {
+                Section {
                     Button(role: .destructive) {
                         onClear()
                         onClose()
                     } label: {
                         Text(String(localized: "book.detail_rating_clear"))
                             .font(.body.weight(.medium))
-                            .frame(minHeight: 44)
+                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderless)
                 }
             }
-            .padding(.horizontal)
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
 
     private var noteField: some View {
-        VStack(alignment: .trailing, spacing: 6) {
-            AppTextField(
-                placeholder: String(localized: "book.detail_rating_note_hint"),
-                text: $note,
-                entry: .sentences,
-                axis: .vertical
-            )
-            .fieldCard()
-            // Re-assigning a different value is what makes the field redraw; a binding setter that
-            // quietly kept the old value would leave the refused text on screen.
-            .onChange(of: note) { previous, proposed in
-                let limited = RatingNote.limited(proposed, previous: previous, maxLength: RatingNote.maxLength)
-                if limited != proposed { note = limited }
-            }
-
-            Text(String(
-                format: String(localized: "book.detail_rating_note_counter"),
-                RatingNote.length(note),
-                RatingNote.maxLength
-            ))
-            .font(.caption.monospacedDigit())
-            .foregroundStyle(.secondary)
+        AppTextField(
+            placeholder: String(localized: "book.detail_rating_note_hint"),
+            text: $note,
+            entry: .sentences,
+            axis: .vertical
+        )
+        // Re-assigning a different value is what makes the field redraw; a binding setter that
+        // quietly kept the old value would leave the refused text on screen.
+        .onChange(of: note) { previous, proposed in
+            let limited = RatingNote.limited(proposed, previous: previous, maxLength: RatingNote.maxLength)
+            if limited != proposed { note = limited }
         }
     }
 }

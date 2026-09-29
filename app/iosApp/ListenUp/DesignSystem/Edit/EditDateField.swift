@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// An optional ISO (`yyyy-MM-dd`) date on a single inset card: shows the formatted date
-/// or "Not set", a native `DatePicker` to set it, and a Clear affordance. The bound value
-/// is the ISO string (`""` when unset).
+/// An optional ISO (`yyyy-MM-dd`) date as one `Form` row: the label, then the date (a native
+/// compact `DatePicker`) with a Clear affordance, or "Not set" with a Set affordance. The bound
+/// value is the ISO string (`""` when unset).
 struct EditDateField: View {
     let label: String
     @Binding var isoDate: String
@@ -10,15 +10,11 @@ struct EditDateField: View {
     private var parsed: Date? { ISODate.parse(isoDate) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(Color.luLabel2)
-
-            HStack {
+        LabeledContent(label) {
+            HStack(spacing: 12) {
                 if let parsed {
                     DatePicker(
-                        "",
+                        label,
                         selection: Binding(
                             get: { parsed },
                             set: { isoDate = ISODate.format($0) }
@@ -26,36 +22,24 @@ struct EditDateField: View {
                         displayedComponents: .date
                     )
                     .labelsHidden()
-                    Spacer()
                     Button(String(localized: "edit.clear_date")) { isoDate = "" }
-                        .font(.subheadline)
-                        .foregroundStyle(Color.luTint)
+                        .buttonStyle(.borderless)
                 } else {
                     Text(String(localized: "edit.not_set"))
-                        .font(.body)
                         .foregroundStyle(Color.luLabel3)
-                    Spacer()
                     Button(String(localized: "edit.set_date")) { isoDate = ISODate.format(Date()) }
-                        .font(.subheadline)
-                        .foregroundStyle(Color.luTint)
+                        .buttonStyle(.borderless)
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .fieldCard()
     }
 }
 
 #Preview("EditDateField") {
     @Previewable @State var born = "1947-09-21"
     @Previewable @State var died = ""
-    return VStack(spacing: 16) {
+    return Form {
         EditDateField(label: "Born", isoDate: $born)
         EditDateField(label: "Died", isoDate: $died)
     }
-    .padding()
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(Color.luSurface)
 }
