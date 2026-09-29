@@ -79,8 +79,8 @@ struct DevicesView: View {
     /// and signing out a single device used to live on a swipe that could never trigger. The swipe
     /// is a shortcut; the row's context menu is the path everyone can find. HIG, Lists and tables;
     /// Gestures ("Use shortcut gestures to supplement standard gestures, not replace them").
-    /// The system list is width-responsive on its own (readable margins on iPad), so the old
-    /// two-pane iPad HStack goes with the cards.
+    /// On a wide iPad the list keeps a readable column (`readableListWidth`) rather than the old
+    /// two-pane HStack, which went with the cards.
     private func readyBody(observer: DevicesObserver, devices: [DeviceRowModel], signingOut: Set<String>) -> some View {
         let currentDevice = devices.first { $0.isCurrent }
         let otherDevices = devices.filter { !$0.isCurrent }
@@ -118,6 +118,7 @@ struct DevicesView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .readableListWidth()
         .confirmationDialog(
             String(localized: "devices.sign_out_device"),
             isPresented: revokeConfirmationPresented,

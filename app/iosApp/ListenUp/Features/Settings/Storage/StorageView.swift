@@ -86,7 +86,7 @@ struct StorageView: View {
                     }
                 }
             }
-            .readableWidth(720)
+            .readableListWidth(720)
             .alert(
                 deletionTitle(observer.pendingDeletion),
                 isPresented: pendingBinding(observer),

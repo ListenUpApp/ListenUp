@@ -128,7 +128,7 @@ private struct HardcoverNotConnectedPhase: View {
                 )
             }
         }
-        .readableWidth(720)
+        .readableListWidth(720)
         .safeAreaInset(edge: .bottom) {
             HardcoverActions {
                 HardcoverPrimaryButton(
@@ -182,7 +182,7 @@ private struct HardcoverLinkingPhase: View {
                 .accessibilityElement(children: .combine)
             }
         }
-        .readableWidth(720)
+        .readableListWidth(720)
         .safeAreaInset(edge: .bottom) {
             HardcoverActions {
                 HardcoverPrimaryButton(
@@ -295,7 +295,7 @@ private struct HardcoverConnectedPhase: View {
                 .disabled(model.isDisconnecting)
             }
         }
-        .readableWidth(720)
+        .readableListWidth(720)
     }
 
     private var sinceText: String {
@@ -328,7 +328,7 @@ private struct HardcoverBrokenPhase: View {
                 }
             }
         }
-        .readableWidth(720)
+        .readableListWidth(720)
         .safeAreaInset(edge: .bottom) {
             HardcoverActions {
                 HardcoverPrimaryButton(

@@ -41,9 +41,10 @@ struct SettingsView: View {
         }
         .navigationTitle(String(localized: "common.settings"))
         .navigationBarTitleDisplayMode(.large)
-        // No width cap: a grouped `Form` already insets its rows to the system margins at every
-        // width, and a cap on the Form itself clipped its background into a floating column inside
-        // the iPad detail pane (HIG, Layout: respect system-defined margins and guides).
+        // A grouped `Form` does not cap its own width on iOS 26, so a wide iPad pane stretched every
+        // row; the readable column widens the scroll margins instead of framing the Form, which
+        // clipped its background into a floating column. Matches Admin's 720.
+        .readableListWidth(720)
         .onAppear {
             if observer == nil {
                 observer = SettingsObserver(
