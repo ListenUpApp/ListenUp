@@ -30,6 +30,15 @@ value class MetadataProviderId(
         /** The Audnexus aggregator (contributor profiles, chapters, genres). */
         val AUDNEXUS = MetadataProviderId("audnexus")
 
+        /**
+         * Hardcover, as a rating-only source. Deliberately not in [known]: it is no metadata provider,
+         * so an enrichment route may not name it.
+         */
+        val HARDCOVER = MetadataProviderId("hardcover")
+
+        /** Goodreads, as a rating-only source. Not in [known], for the same reason as [HARDCOVER]. */
+        val GOODREADS = MetadataProviderId("goodreads")
+
         /** Every built-in id the router recognizes from config tokens. */
         val known: List<MetadataProviderId> = listOf(AUDIBLE, ITUNES, AUDNEXUS)
 
@@ -82,6 +91,14 @@ fun MetadataProviderId.displayLabel(): String =
 
         MetadataProviderId.AUDNEXUS -> {
             "Audnexus"
+        }
+
+        MetadataProviderId.HARDCOVER -> {
+            "Hardcover"
+        }
+
+        MetadataProviderId.GOODREADS -> {
+            "Goodreads"
         }
 
         else -> {

@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.hardcover.HardcoverRatingConnection
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.metadata.spi.RatingSource
 import com.calypsan.listenup.server.metadata.spi.RatingSourceAvailability
@@ -50,6 +51,8 @@ internal class AdminSettingsServiceImpl(
     private val externalRatings: BookExternalRatingRepository? = null,
     /** Every registered [RatingSource] — what [getRatingSources] enumerates. */
     private val providerRegistry: MetadataProviderRegistry? = null,
+    /** Whose Hardcover account [getRatingSources] names on the Hardcover row. */
+    private val hardcoverConnection: HardcoverRatingConnection? = null,
 ) : AdminSettingsService {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): AdminSettingsServiceImpl =
@@ -62,6 +65,7 @@ internal class AdminSettingsServiceImpl(
             sourceSettings,
             externalRatings,
             providerRegistry,
+            hardcoverConnection,
         )
 
     override suspend fun getServerSettings(): AppResult<AdminServerSettings> {
@@ -138,6 +142,12 @@ internal class AdminSettingsServiceImpl(
                 lastError = lastError,
                 pausedUntil = sources.pausedUntil(source.ratingSource, now),
                 unavailable = (source.availability() as? RatingSourceAvailability.Unavailable)?.reason,
+                connectionUsername =
+                    if (source.ratingSource == ExternalRatingSource.HARDCOVER) {
+                        hardcoverConnection?.pick()?.hardcoverUsername
+                    } else {
+                        null
+                    },
             )
         }
     }
