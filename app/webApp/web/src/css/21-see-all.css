@@ -3,7 +3,7 @@
    ============================================================ */
 /* ⛔ A "See all" appears only when hits are actually being withheld, so its presence is itself the
    signal that the group above it is capped. Pushed to the header's trailing edge. */
-.luw .search-seeall { margin-left: auto; padding: 3px 9px; border: none; border-radius: 8px; background: transparent; color: var(--coral); font-family: inherit; font-size: 0.76rem; font-weight: 750; cursor: pointer; }
+.luw .search-seeall { margin-left: auto; padding: 3px 9px; border: none; border-radius: 8px; background: transparent; color: var(--coral-text); font-family: inherit; font-size: 0.76rem; font-weight: 750; cursor: pointer; }
 @media (hover: hover) { .luw .search-seeall:hover { background: var(--coral-soft); } }
 .luw .search-seeall:active { transform: translateY(1px); }
 .luw .search-seeall:focus { outline: none; }

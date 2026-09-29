@@ -17,7 +17,7 @@
 }
 .luw .upl-done { display: flex; flex-direction: column; gap: var(--gap); }
 .luw .upl-sum { margin: 0; font-size: 1rem; font-weight: 700; color: var(--ink); }
-.luw .upl-err { margin: 0 0 12px; font-size: 0.9rem; color: var(--coral-deep); }
+.luw .upl-err { margin: 0 0 12px; font-size: 0.9rem; color: var(--coral-text); }
 .luw .upl-row { display: flex; flex-direction: column; gap: 1px; padding: 5px 0; }
 .luw .upl-n { font-size: 0.86rem; font-weight: 650; color: var(--ink); overflow-wrap: anywhere; }
 .luw .upl-d { font-size: 0.74rem; color: var(--ink-3); overflow-wrap: anywhere; }
@@ -34,7 +34,7 @@
    an already-loaded book still plays, so replacing the page would remove everything that works in
    order to report the one thing that does not. Not dismissible: it is the only route back in. */
 .luw .lapse { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 16px; background: var(--coral-soft); border-bottom: 1px solid var(--line); }
-.luw .lapse-ico { flex: none; display: inline-flex; color: var(--coral); }
+.luw .lapse-ico { flex: none; display: inline-flex; color: var(--coral-text); }
 /* The update hint shares the banner's shape but not its urgency: a lapsed session is the only way
    back in, where a version mismatch is information. Neutral ground, not the coral alarm. */
 .luw .lapse.is-hint { background: var(--surface-3); }
@@ -48,7 +48,7 @@
    this client shows no in-flight sync chrome at all, but a change that was silently lost is not
    chrome — it is the reader's own work, and the only routes out are retry and accept-the-server. */
 .luw .dlq { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); margin: 0 var(--pad) 10px; }
-.luw .dlq-ico { flex: none; display: inline-flex; color: var(--coral); }
+.luw .dlq-ico { flex: none; display: inline-flex; color: var(--coral-text); }
 .luw .dlq-t { flex: 1; min-width: 0; font-size: 0.84rem; font-weight: 650; color: var(--ink); }
 .luw .dlq-go { flex: none; }
 .luw .dlq-list { display: flex; flex-direction: column; gap: 6px; max-height: 16rem; overflow-y: auto; margin: 12px 0; }
@@ -61,12 +61,12 @@
 /* Every name on Discover is the way to that person. A button rather than the span it replaced, so
    it is focusable and announced; inherits its neighbour's type so only the behaviour changed. */
 .luw .disc-person { border: none; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
-@media (hover: hover) { .luw .disc-person:hover { color: var(--coral); text-decoration: underline; } }
+@media (hover: hover) { .luw .disc-person:hover { color: var(--coral-text); text-decoration: underline; } }
 .luw .disc-person:active { transform: translateY(1px); }
 .luw .disc-person:focus { outline: none; }
 .luw .disc-person:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; border-radius: 4px; }
 
 /* A refused filing, reported under the header rather than inside the picker — the picker closes on
    a successful pick, so a failure shown only there would vanish with it. Click to dismiss. */
-.luw .bd-pick-err { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0 0; padding: 8px 12px; border-radius: 10px; background: var(--coral-soft); color: var(--coral-deep); font-size: 0.82rem; font-weight: 600; }
+.luw .bd-pick-err { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0 0; padding: 8px 12px; border-radius: 10px; background: var(--coral-soft); color: var(--coral-text); font-size: 0.82rem; font-weight: 600; }
 .luw .bd-pick-x { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; cursor: pointer; }

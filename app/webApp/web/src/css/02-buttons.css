@@ -5,12 +5,12 @@
   display: inline-flex; align-items: center; justify-content: center; gap: 9px;
   width: 100%; height: 52px; border: none; cursor: pointer;
   font-family: inherit; font-size: 1rem; font-weight: 700; letter-spacing: -0.01em;
-  border-radius: 13px; background: var(--coral); color: var(--on-coral); white-space: nowrap;
-  box-shadow: 0 6px 18px rgba(240,81,47,0.28);
+  border-radius: 13px; background: var(--coral-fill); color: var(--on-coral); white-space: nowrap;
+  box-shadow: var(--shadow-glow);
   transition: background .15s, transform .08s, box-shadow .15s;
 }
-@media (hover: hover) { .btn:hover { background: var(--coral-press); box-shadow: 0 8px 22px rgba(240,81,47,0.36); } }
-.btn:active { transform: translateY(1px); box-shadow: 0 4px 12px rgba(240,81,47,0.3); }
+@media (hover: hover) { .btn:hover { background: var(--coral-fill-press); box-shadow: var(--shadow-glow-hover); } }
+.btn:active { transform: translateY(1px); box-shadow: var(--shadow-glow); }
 .dir-b .btn { border-radius: 9px; font-weight: 600; }
 
 .btn-ghost {

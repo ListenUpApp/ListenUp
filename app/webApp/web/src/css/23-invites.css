@@ -4,7 +4,7 @@
 .luw .inv { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; max-width: 640px; }
 .luw .inv-t { margin: 0; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
 .luw .inv-lede { margin: 0; font-size: 0.9rem; line-height: 1.55; color: var(--ink-2); }
-.luw .inv-err { margin: 8px 0 0; font-size: 0.8rem; font-weight: 600; color: var(--coral-deep); }
+.luw .inv-err { margin: 8px 0 0; font-size: 0.8rem; font-weight: 600; color: var(--coral-text); }
 .luw .inv-opts { display: flex; flex-direction: column; gap: 8px; }
 /* A pressed-state card rather than a radio: the two levels want a sentence of explanation each,
    which a radio label cannot carry without wrapping badly at every width. */
@@ -16,11 +16,11 @@
 .luw .inv-opt.on { border-color: var(--coral); background: var(--coral-soft); }
 .luw .inv-opt-t { font-size: 0.9rem; font-weight: 700; }
 .luw .inv-opt-s { font-size: 0.78rem; color: var(--ink-3); }
-.luw .inv-opt.on .inv-opt-s { color: var(--coral); }
+.luw .inv-opt.on .inv-opt-s { color: var(--coral-text); }
 .luw .inv-days { display: flex; flex-wrap: wrap; gap: 8px; }
 .luw .inv-go { align-self: flex-start; }
 .luw .inv-done { display: flex; flex-direction: column; gap: 12px; }
-.luw .inv-done-e { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--coral); }
+.luw .inv-done-e { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--coral-text); }
 /* ⛔ The URL is selectable text, never a button's label. `navigator.clipboard` is absent outside a
    secure context, so hand-selecting it has to stay possible — `user-select` and the wrap below are
    what make that the fallback rather than a dead end. */

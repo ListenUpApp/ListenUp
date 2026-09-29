@@ -23,9 +23,9 @@
 }
 .f-box.err { border-color: var(--coral); }
 .f-box.err:focus-within { box-shadow: 0 0 0 4px var(--coral-ring); }
-.f-err { margin: 7px 0 0 2px; font-size: 0.8125rem; font-weight: 600; color: var(--coral); }
+.f-err { margin: 7px 0 0 2px; font-size: 0.8125rem; font-weight: 600; color: var(--coral-text); }
 .f-box .f-ico { color: var(--ink-3); flex-shrink: 0; transition: color .15s; }
-.f-box:focus-within .f-ico { color: var(--coral); }
+.f-box:focus-within .f-ico { color: var(--coral-text); }
 .f-input {
   flex: 1; min-width: 0; height: 100%; border: none; background: none; outline: none;
   font-family: inherit; font-size: 1rem; font-weight: 500; color: var(--ink);

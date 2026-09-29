@@ -86,13 +86,13 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .lsetup-skel { height: 16rem; border-radius: 16px; }
 .luw .lsetup-empty { padding: 2rem 1rem; text-align: center; color: var(--ink-2); font-size: 0.9rem; }
 
-.luw .lsetup-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .lsetup-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral-text); font-size: 0.88rem; font-weight: 600; }
 .luw .lsetup-err-t { flex: 1; min-width: 0; }
 .luw .lsetup-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 
 .luw .lsetup-crumb { display: flex; align-items: center; gap: 10px; }
 .luw .lsetup-up { flex: none; width: 34px; height: 34px; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink-2); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
-@media (hover: hover) { .luw .lsetup-up:not(:disabled):hover { border-color: var(--coral); color: var(--coral); } }
+@media (hover: hover) { .luw .lsetup-up:not(:disabled):hover { border-color: var(--coral); color: var(--coral-text); } }
 /* At the root there is nowhere up to go, and the control says so rather than sitting inert. */
 .luw .lsetup-up:disabled { opacity: 0.35; cursor: default; }
 .luw .lsetup-path { flex: 1; min-width: 0; font-size: 0.82rem; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
@@ -102,7 +102,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .lsetup-row.on { border-color: var(--coral); background: var(--coral-soft); }
 /* The two halves of the row are separate controls on purpose — drilling down must not select. */
 .luw .lsetup-check { flex: none; width: 24px; height: 24px; padding: 0; border-radius: 7px; border: 2px solid var(--line-2); background: transparent; color: var(--on-coral); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
-.luw .lsetup-row.on .lsetup-check { background: var(--coral); border-color: var(--coral); }
+.luw .lsetup-row.on .lsetup-check { background: var(--coral-fill); border-color: var(--coral-fill); }
 .luw .lsetup-check:focus { outline: none; }
 .luw .lsetup-check:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
 .luw .lsetup-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 4px 0; border: none; background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; }
@@ -143,7 +143,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   padding: 0; border: none; background: transparent; font: inherit; color: inherit;
   text-align: left; cursor: pointer;
 }
-@media (hover: hover) { .luw .prof-book:hover .prof-book-t { color: var(--coral); } }
+@media (hover: hover) { .luw .prof-book:hover .prof-book-t { color: var(--coral-text); } }
 .luw .prof-book:focus { outline: none; }
 .luw .prof-book:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
 .luw .prof-book-t { font-size: 0.8rem; font-weight: 600; color: var(--ink-2); line-height: 1.25; }
@@ -184,7 +184,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .lset-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
 .luw .lset-skel, .luw .lset-browse-skel { height: 12rem; border-radius: 16px; }
 .luw .lset-empty { padding: 1.4rem 0.4rem; color: var(--ink-2); font-size: 0.9rem; }
-.luw .lset-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .lset-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral-text); font-size: 0.88rem; font-weight: 600; }
 .luw .lset-err-t { flex: 1; min-width: 0; }
 .luw .lset-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .luw .lset-note { padding: 10px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2); font-size: 0.86rem; font-weight: 600; }
@@ -195,13 +195,13 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
    which folder this is, and "/mnt/storage/media/aud…" tells you nothing. */
 .luw .lset-path { flex: 1; min-width: 0; font-size: 0.82rem; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
 .luw .lset-x { flex: none; width: 30px; height: 30px; padding: 0; border: none; border-radius: 9px; background: transparent; color: var(--ink-3); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
-@media (hover: hover) { .luw .lset-x:not(:disabled):hover { background: var(--coral-soft); color: var(--coral); } }
+@media (hover: hover) { .luw .lset-x:not(:disabled):hover { background: var(--coral-soft); color: var(--coral-text); } }
 .luw .lset-x:disabled { opacity: 0.4; cursor: default; }
 .luw .lset-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
 .luw .lset-crumb { display: flex; align-items: center; gap: 10px; padding-bottom: 10px; }
 .luw .lset-up { flex: none; width: 32px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink-2); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
-@media (hover: hover) { .luw .lset-up:not(:disabled):hover { border-color: var(--coral); color: var(--coral); } }
+@media (hover: hover) { .luw .lset-up:not(:disabled):hover { border-color: var(--coral); color: var(--coral-text); } }
 .luw .lset-up:disabled { opacity: 0.35; cursor: default; }
 .luw .lset-crumb-p { flex: 1; min-width: 0; font-size: 0.8rem; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
 .luw .lset-browse { display: flex; flex-direction: column; gap: 5px; max-height: 40vh; overflow-y: auto; }
@@ -211,7 +211,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 /* Adding is one folder at a time here, so this is a button that commits rather than a checkbox
    that accumulates — the opposite of the setup wizard, where several are ticked before Continue. */
 .luw .lset-brow-add { flex: none; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: transparent; font: inherit; font-size: 0.76rem; font-weight: 700; color: var(--ink-2); cursor: pointer; }
-@media (hover: hover) { .luw .lset-brow-add:hover { border-color: var(--coral); color: var(--coral); } }
+@media (hover: hover) { .luw .lset-brow-add:hover { border-color: var(--coral); color: var(--coral-text); } }
 .luw .adm-links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
 .luw .adm-link { align-self: flex-start; }
 
@@ -257,13 +257,13 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .adm-badge {
   align-self: flex-start; margin-top: 0.2rem; padding: 0.1rem 0.5rem; border-radius: 99px;
   font-size: 0.7rem; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase;
-  background: var(--coral-soft); color: var(--coral);
+  background: var(--coral-soft); color: var(--coral-text);
 }
 .luw .adm-error {
   display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap;
   padding: 0.7rem 1rem; border-radius: 12px;
   background: var(--coral-soft); border: 1px solid var(--coral-ring);
-  font-size: 0.88rem; font-weight: 600; color: var(--coral);
+  font-size: 0.88rem; font-weight: 600; color: var(--coral-text);
 }
 .luw .adm-error-t { flex: 1; min-width: 12rem; }
 
@@ -336,7 +336,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   display: flex; align-items: center; gap: 0.9rem; flex: 1; min-width: 0;
   padding: 0; border: none; background: transparent; cursor: pointer; text-align: left;
 }
-@media (hover: hover) { .luw .shelf-book-open:hover .shelf-book-t { color: var(--coral); } }
+@media (hover: hover) { .luw .shelf-book-open:hover .shelf-book-t { color: var(--coral-text); } }
 .luw .shelf-book-text { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; overflow-wrap: anywhere; }
 .luw .shelf-book-t { font-size: 0.95rem; font-weight: 700; color: var(--ink); }
 .luw .shelf-book-sub { font-size: 0.82rem; color: var(--ink-2); }
@@ -355,7 +355,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   background: transparent; color: var(--ink-3); cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
 }
-@media (hover: hover) { .luw .shelf-book-x:hover { background: var(--surface-2); color: var(--coral); } }
+@media (hover: hover) { .luw .shelf-book-x:hover { background: var(--surface-2); color: var(--coral-text); } }
 /* Move earlier / Move later, then remove: the row's trailing controls, kept together so a phone can
    give them a line of their own. */
 .luw .shelf-book-acts { flex: none; display: flex; align-items: center; gap: 2px; }
@@ -385,7 +385,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   display: flex; align-items: center; gap: 0.7rem;
   padding: 0.7rem 1rem; border-radius: 12px;
   background: var(--coral-soft); border: 1px solid var(--coral-ring);
-  font-size: 0.88rem; font-weight: 600; color: var(--coral);
+  font-size: 0.88rem; font-weight: 600; color: var(--coral-text);
 }
 .luw .shelf-notice-t { flex: 1; min-width: 0; }
 .luw .shelf-notice-x {
@@ -398,7 +398,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .shelf-edit { display: flex; flex-direction: column; gap: 1.4rem; max-width: 34rem; }
 .luw .shelf-form { display: flex; flex-direction: column; gap: 1.1rem; }
 .luw .shelf-form-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
-.luw .shelf-form-error { margin: 0; font-size: 0.9rem; color: var(--coral); }
+.luw .shelf-form-error { margin: 0; font-size: 0.9rem; color: var(--coral-text); }
 /* Set apart from the form above it: deleting is not one of the form's actions, and putting it in
    the same row as Save is how someone deletes a shelf they meant to rename. */
 .luw .shelf-danger {
@@ -416,7 +416,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   background: var(--surface); border: 1px solid var(--line);
 }
 @media (hover: hover) { .luw .home-shelf:hover { border-color: var(--coral-ring); } }
-@media (hover: hover) { .luw .home-shelf:hover .home-shelf-t { color: var(--coral); } }
+@media (hover: hover) { .luw .home-shelf:hover .home-shelf-t { color: var(--coral-text); } }
 .luw .home-shelf-t { font-size: 0.92rem; font-weight: 700; color: var(--ink); }
 .luw .home-shelf-sub { font-size: 0.8rem; color: var(--ink-3); }
 
@@ -430,7 +430,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   background: var(--surface); border: 1px solid var(--line);
 }
 @media (hover: hover) { .luw .disc-shelf:hover { border-color: var(--coral-ring); } }
-@media (hover: hover) { .luw .disc-shelf:hover .disc-shelf-t { color: var(--coral); } }
+@media (hover: hover) { .luw .disc-shelf:hover .disc-shelf-t { color: var(--coral-text); } }
 .luw .disc-shelf-t { font-size: 0.9rem; font-weight: 700; color: var(--ink); }
 .luw .disc-shelf-sub { font-size: 0.78rem; color: var(--ink-3); }
 
@@ -445,7 +445,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 /* One height for every section's placeholder: a skeleton that matches its section's real height
    would make the page jump less, but five different ones is five things to keep in sync. */
 .luw .disc-skel { height: 9rem; border-radius: 16px; }
-.luw .disc-error { margin: 0; font-size: 0.9rem; color: var(--coral); }
+.luw .disc-error { margin: 0; font-size: 0.9rem; color: var(--coral-text); }
 
 /* Book grids — Something new, Recently added. Auto-fill so the row count follows the viewport
    rather than a breakpoint table. */
@@ -456,7 +456,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   display: flex; flex-direction: column; gap: 0.45rem; align-items: flex-start;
   padding: 0; border: none; background: transparent; cursor: pointer; text-align: left;
 }
-@media (hover: hover) { .luw .disc-card:hover .disc-card-t { color: var(--coral); } }
+@media (hover: hover) { .luw .disc-card:hover .disc-card-t { color: var(--coral-text); } }
 .luw .disc-card-t {
   font-size: 0.9rem; font-weight: 700; color: var(--ink); line-height: 1.3;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
@@ -478,7 +478,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   font-size: 0.82rem; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 /* The live marker earns the brand colour: it is the only thing on this page that is true *now*. */
-.luw .disc-live { font-size: 0.75rem; font-weight: 700; color: var(--coral); }
+.luw .disc-live { font-size: 0.75rem; font-weight: 700; color: var(--coral-text); }
 .luw .disc-when { font-size: 0.75rem; color: var(--ink-3); }
 
 /* Leaderboard */
@@ -490,7 +490,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   background: transparent; border: 1px solid var(--line);
 }
 @media (hover: hover) { .luw .disc-chip:hover { color: var(--ink); background: var(--surface-2); } }
-.luw .disc-chip.is-on { color: var(--on-coral); background: var(--coral); border-color: var(--coral); }
+.luw .disc-chip.is-on { color: var(--on-coral); background: var(--coral-fill); border-color: var(--coral-fill); }
 .luw .disc-lb {
   display: flex; flex-direction: column;
   border-radius: 16px; background: var(--surface); border: 1px solid var(--line); overflow: hidden;
@@ -527,7 +527,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 @media (hover: hover) { .luw .disc-feed-row.is-open:hover { background: var(--surface-2); } }
 .luw .disc-feed-line { font-size: 0.9rem; color: var(--ink-2); line-height: 1.45; min-width: 0; }
 .luw .disc-feed-who { font-weight: 700; color: var(--ink); }
-.luw .disc-feed-hi { font-weight: 700; color: var(--coral); }
+.luw .disc-feed-hi { font-weight: 700; color: var(--coral-text); }
 
 @media (max-width: 759px) {
   .luw .disc-lb-controls { justify-content: flex-start; }
@@ -551,7 +551,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
    lands, which reads as the page flinching. */
 .luw .home-card-cover-skel { width: 100%; aspect-ratio: 1 / 1; border-radius: 10px; }
 .luw .home-card:focus { outline: none; }
-@media (hover: hover) { .luw .home-card:hover .home-card-t { color: var(--coral); } }
+@media (hover: hover) { .luw .home-card:hover .home-card-t { color: var(--coral-text); } }
 .luw .home-card-progress {
   height: 4px; border-radius: 99px; background: var(--surface-3); overflow: hidden;
 }
@@ -600,7 +600,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .home-streak-mark {
   width: 46px; height: 46px; border-radius: 14px; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  background: var(--coral-soft); color: var(--coral);
+  background: var(--coral-soft); color: var(--coral-text);
 }
 .luw .home-streak-text { display: flex; flex-direction: column; }
 .luw .home-streak-t {
@@ -659,8 +659,8 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .inbox-book-by { font-size: 0.82rem; color: var(--ink-2); }
 .luw .inbox-book-dur { flex: none; font-size: 0.8rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 /* Always present, so selecting a row never changes its height and the queue never reflows. */
-.luw .inbox-tick { flex: none; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--coral); }
-.luw .inbox-book.is-sel .inbox-tick { background: var(--coral); color: var(--on-coral, #fff); }
+.luw .inbox-tick { flex: none; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--coral-text); }
+.luw .inbox-book.is-sel .inbox-tick { background: var(--coral-fill); color: var(--on-coral); }
 
 .luw .inbox-issues { display: flex; flex-direction: column; gap: 0.6rem; }
 .luw .inbox-issue { display: flex; align-items: flex-start; gap: 0.9rem; padding: 0.7rem 0.8rem; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
@@ -672,7 +672,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .inbox-issue-x { flex: none; padding: 4px 10px; font-size: 0.78rem; }
 
 .luw .inbox-err, .luw .inbox-note { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; font-size: 0.88rem; font-weight: 600; }
-.luw .inbox-err { background: var(--coral-soft); color: var(--coral); }
+.luw .inbox-err { background: var(--coral-soft); color: var(--coral-text); }
 .luw .inbox-note { background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2); }
 .luw .inbox-notice-t { flex: 1; min-width: 0; }
 .luw .inbox-notice-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
@@ -690,7 +690,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
    edge and the eye can run the settings without reading every sentence. */
 .luw .srv-toggle { display: flex; align-items: center; justify-content: space-between; gap: 1.2rem; }
 .luw .srv-toggle-d { flex: 1; min-width: 0; font-size: 0.86rem; color: var(--ink-2); line-height: 1.45; }
-.luw .srv-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .srv-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral-text); font-size: 0.88rem; font-weight: 600; }
 .luw .srv-err-t { flex: 1; min-width: 0; margin: 0; }
 .luw .srv-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 @media (hover: hover) { .luw .srv-err-x:hover { background: var(--surface-3); } }
@@ -707,7 +707,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .cat-tree { display: flex; flex-direction: column; gap: 2px; }
 .luw .cat-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.5rem; border-radius: 10px; }
 .luw .cat-twist { width: 24px; height: 24px; flex: none; padding: 0; border: none; border-radius: 6px; background: transparent; color: var(--ink-3); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
-@media (hover: hover) { .luw .cat-twist:hover { color: var(--coral); } }
+@media (hover: hover) { .luw .cat-twist:hover { color: var(--coral-text); } }
 /* Same width as the twisty, so a leaf's name lines up with its siblings' instead of shifting
    left by exactly one control. */
 .luw .cat-twist-gap { width: 24px; height: 24px; flex: none; }
@@ -718,7 +718,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
    catch exactly that. Restraint comes from the icons being small and `--ink-3` instead. */
 .luw .cat-acts { flex: none; display: flex; gap: 1px; }
 .luw .cat-act { width: 26px; height: 26px; }
-.luw .cat-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .cat-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral-text); font-size: 0.88rem; font-weight: 600; }
 .luw .cat-err-t { flex: 1; min-width: 0; margin: 0; }
 .luw .cat-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 @media (hover: hover) { .luw .cat-err-x:hover { background: var(--surface-3); } }
@@ -734,7 +734,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .coll-list { display: flex; flex-direction: column; gap: 0.5rem; }
 .luw .coll-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.15rem 0.6rem 0.15rem 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
 .luw .coll-open { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 0.7rem; padding: 0.6rem 0.8rem; border: none; background: none; text-align: left; cursor: pointer; border-radius: 12px; }
-@media (hover: hover) { .luw .coll-open:hover .coll-name { color: var(--coral); } }
+@media (hover: hover) { .luw .coll-open:hover .coll-name { color: var(--coral-text); } }
 .luw .coll-open:focus { outline: none; }
 .luw .coll-open:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
 .luw .coll-name { font-size: 0.95rem; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -743,7 +743,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .coll-lock { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; background: var(--surface-3); color: var(--ink-3); }
 .luw .coll-lock-t { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
 .luw .coll-del { flex: none; }
-.luw .coll-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .coll-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral-text); font-size: 0.88rem; font-weight: 600; }
 .luw .coll-err-t { flex: 1; min-width: 0; margin: 0; }
 .luw .coll-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 @media (hover: hover) { .luw .coll-err-x:hover { background: var(--surface-3); } }
@@ -784,7 +784,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .bkp-size { font-size: 0.79rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .luw .bkp-act { flex: none; }
 .luw .bkp-restore { flex: none; padding: 4px 11px; font-size: 0.78rem; }
-.luw .bkp-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .bkp-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral-text); font-size: 0.88rem; font-weight: 600; }
 .luw .bkp-err-t { flex: 1; min-width: 0; margin: 0; }
 .luw .bkp-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 @media (hover: hover) { .luw .bkp-err-x:hover { background: var(--surface-3); } }
@@ -793,7 +793,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .rst { width: 100%; max-width: 560px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 16px; }
 .luw .rst-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
 .luw .rst-body { margin: 0; font-size: 0.95rem; color: var(--ink-2); line-height: 1.6; }
-.luw .rst-err { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .rst-err { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral-text); font-size: 0.88rem; font-weight: 600; }
 .luw .rst-schema { margin: 0; font-size: 0.82rem; color: var(--ink-3); }
 .luw .rst-live { display: flex; flex-direction: column; gap: 0.6rem; }
 .luw .rst-bar { height: 6px; border-radius: 999px; }
@@ -815,7 +815,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .imp-what { font-size: 0.79rem; color: var(--ink-3); }
 .luw .imp-status { flex: none; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: var(--ink-3); }
 .luw .imp-del { flex: none; }
-.luw .imp-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .imp-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral-text); font-size: 0.88rem; font-weight: 600; }
 .luw .imp-err-t { flex: 1; min-width: 0; margin: 0; }
 .luw .imp-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 @media (hover: hover) { .luw .imp-err-x:hover { background: var(--surface-3); } }
@@ -867,7 +867,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .ced-result { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.5rem 0.6rem; border: none; border-radius: 10px; background: var(--surface-2); color: var(--ink); text-align: left; cursor: pointer; }
 @media (hover: hover) { .luw .ced-result:hover { background: var(--surface-3); } }
 .luw .ced-result-n { flex: 1; min-width: 0; font-size: 0.88rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.luw .ced-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .ced-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral-text); font-size: 0.88rem; font-weight: 600; }
 .luw .ced-err-t { flex: 1; min-width: 0; margin: 0; }
 .luw .ced-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 @media (hover: hover) { .luw .ced-err-x:hover { background: var(--surface-3); } }
@@ -886,7 +886,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 /* The one irreversible thing this page does says so in the colour the rest of the app reserves
    for it, above the list rather than beside the button — it is a fact about the operation, not a
    label on a control. */
-.luw .sed-warn { margin: 0 0 12px; font-size: 0.86rem; font-weight: 700; color: var(--coral); }
+.luw .sed-warn { margin: 0 0 12px; font-size: 0.86rem; font-weight: 700; color: var(--coral-text); }
 .luw .sed-trunc { margin: 10px 0 0; font-size: 0.78rem; color: var(--ink-3); }
 .luw .sed-results { display: flex; flex-direction: column; gap: 2px; max-height: 15rem; overflow-y: auto; margin: 12px 0; }
 .luw .sed-result { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.5rem 0.6rem; border: 1.5px solid transparent; border-radius: 10px; background: var(--surface-2); color: var(--ink); text-align: left; cursor: pointer; }
@@ -895,7 +895,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
    other half of the same signal, and one of the two has to survive a reader who cannot see it. */
 .luw .sed-result.on { border-color: var(--coral); background: var(--coral-soft); }
 .luw .sed-result-n { flex: 1; min-width: 0; font-size: 0.88rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.luw .sed-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .sed-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral-text); font-size: 0.88rem; font-weight: 600; }
 .luw .sed-err-t { flex: 1; min-width: 0; margin: 0; }
 .luw .sed-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 @media (hover: hover) { .luw .sed-err-x:hover { background: var(--surface-3); } }
@@ -910,12 +910,12 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .ched-sub { display: flex; align-items: center; gap: 10px; margin-top: 4px; font-size: 0.86rem; color: var(--ink-3); }
 .luw .ched-status { padding: 2px 9px; border-radius: 999px; background: var(--surface-3); font-weight: 700; font-size: 0.74rem; }
 /* Unsaved is the one that has to catch the eye: it is the only state where leaving costs work. */
-.luw .ched-status.on { background: var(--coral-soft); color: var(--coral); }
+.luw .ched-status.on { background: var(--coral-soft); color: var(--coral-text); }
 .luw .ched-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .luw .ched-elsewhere { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-radius: 12px; background: var(--surface-3); }
 .luw .ched-elsewhere-t { font-size: 0.88rem; font-weight: 700; color: var(--ink); }
 .luw .ched-elsewhere-b { font-size: 0.82rem; color: var(--ink-3); }
-.luw .ched-problem { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .ched-problem { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral-text); font-size: 0.88rem; font-weight: 600; }
 .luw .ched-tools { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
 .luw .ched-tools .f-wrap { flex: 1; min-width: 12rem; }
 .luw .ched-add { flex: none; }
@@ -939,13 +939,13 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .chr-time { padding: 1px 4px; margin: 0 -4px; border: none; border-radius: 6px; background: transparent; color: inherit; font: inherit; font-variant-numeric: tabular-nums; cursor: text; }
 @media (hover: hover) { .luw .chr-time:hover { background: var(--surface); color: var(--ink); } }
 .luw .chr-time:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
-.luw .chr-now { padding: 1px 6px; border-radius: 999px; background: var(--coral); color: #fff; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; }
+.luw .chr-now { padding: 1px 6px; border-radius: 999px; background: var(--coral-fill); color: var(--on-coral); font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; }
 /* ⛔ Always visible, never revealed on hover. A finger has no hover, so a dim-until-hover strip
    would hide six controls per row from every touch reader — the same rule `.cat-row` learned. */
 .luw .chr-acts { flex: none; display: flex; align-items: center; gap: 2px; }
 .luw .chr-a { width: 30px; height: 30px; padding: 0; border: none; border-radius: 9px; background: transparent; color: var(--ink-3); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 @media (hover: hover) { .luw .chr-a:hover { background: var(--surface); color: var(--ink); } }
-.luw .chr-a.on { background: var(--coral-soft); color: var(--coral); }
+.luw .chr-a.on { background: var(--coral-soft); color: var(--coral-text); }
 .luw .chr-a[disabled] { opacity: .4; cursor: default; }
 
 /* The chapter timeline (spec 7.3): the whole-book minimap over the draggable detail lane. Two
@@ -978,9 +978,9 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .ctl-mk.locked { background: var(--ink-3); }
 .luw .ctl-mk.ctl-ghost { background: transparent; border-left: 2px dotted var(--coral); }
 .luw .ctl-mk-n { position: absolute; top: 4px; left: 5px; font-size: 0.7rem; font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.luw .ctl-mk.on .ctl-mk-n { color: var(--coral); }
+.luw .ctl-mk.on .ctl-mk-n { color: var(--coral-text); }
 .luw .ctl-ph { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--ink); pointer-events: none; }
-.luw .ctl-hud { position: absolute; top: 8px; right: 8px; padding: 3px 8px; border-radius: 8px; background: var(--coral); color: #fff; font-size: 0.78rem; font-weight: 700; font-variant-numeric: tabular-nums; pointer-events: none; }
+.luw .ctl-hud { position: absolute; top: 8px; right: 8px; padding: 3px 8px; border-radius: 8px; background: var(--coral-fill); color: var(--on-coral); font-size: 0.78rem; font-weight: 700; font-variant-numeric: tabular-nums; pointer-events: none; }
 
 /* A phone-width row cannot hold a title and seven controls side by side: the controls take their own
    line under the title rather than pushing it off the edge. */
@@ -1001,7 +1001,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .drift-need { margin: 0; font-size: 0.84rem; color: var(--ink-3); }
 .luw .drift-pin { align-self: flex-start; }
 .luw .drift-sum { margin: 0; font-size: 0.88rem; font-weight: 650; color: var(--ink); }
-.luw .drift-refused { margin: 0; font-size: 0.88rem; font-weight: 650; color: var(--coral); }
+.luw .drift-refused { margin: 0; font-size: 0.88rem; font-weight: 650; color: var(--coral-text); }
 .luw .drift-acts { display: flex; justify-content: flex-end; gap: 8px; }
 
 /* Match metadata — the Audible wizard. Two phases, one page: find the edition, then choose what
@@ -1011,7 +1011,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .mdx-t { flex: 1; margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
 .luw .mdx-skel { height: 22rem; border-radius: 16px; }
 .luw .mdx-none { margin: 0; font-size: 0.86rem; color: var(--ink-3); }
-.luw .mdx-err { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .mdx-err { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral-text); font-size: 0.88rem; font-weight: 600; }
 .luw .mdx-count { margin: 0; font-size: 0.82rem; color: var(--ink-3); }
 .luw .mdx-empty { display: flex; flex-direction: column; gap: 6px; padding: 24px; border-radius: 16px; background: var(--surface-2); }
 .luw .mdx-empty h2 { margin: 0; font-size: 1.1rem; font-weight: 750; color: var(--ink); }
@@ -1089,7 +1089,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .cmx-t { flex: 1; margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
 .luw .cmx-skel { height: 18rem; border-radius: 16px; }
 .luw .cmx-none { margin: 0; font-size: 0.86rem; color: var(--ink-3); }
-.luw .cmx-err { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .cmx-err { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral-text); font-size: 0.88rem; font-weight: 600; }
 .luw .cmx-ctx { display: flex; align-items: baseline; gap: 8px; }
 .luw .cmx-ctx-l { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
 .luw .cmx-ctx-n { font-size: 1rem; font-weight: 700; color: var(--ink); }
@@ -1111,7 +1111,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .cmx-cmp-l { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
 .luw .cmx-side { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
 /* The incoming side is the one that will win, so it carries the accent. */
-.luw .cmx-side.on { color: var(--coral); }
+.luw .cmx-side.on { color: var(--coral-text); }
 .luw .cmx-side-v { display: flex; flex-direction: column; gap: 2px; }
 .luw .cmx-bio { margin: 0; font-size: 0.88rem; color: var(--ink-2); line-height: 1.5; }
 .luw .cmx-photos { display: flex; gap: 16px; }
@@ -1139,7 +1139,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .disc-card.is-sel,
 .luw .disc-listener.is-sel { outline: 2px solid var(--coral); outline-offset: 2px; }
 .lib-tick { position: absolute; top: 6px; left: 6px; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; background: rgba(0, 0, 0, .35); display: flex; align-items: center; justify-content: center; color: #fff; box-shadow: var(--shadow-card); }
-.lib-tick.on { background: var(--coral); border-color: var(--coral); }
+.lib-tick.on { background: var(--coral-fill); border-color: var(--coral-fill); }
 .luw .sel-none { margin: 0 0 10px; font-size: 0.86rem; color: var(--ink-3); }
 .luw .sel-targets { display: flex; flex-direction: column; gap: 3px; max-height: 15rem; overflow-y: auto; margin: 10px 0; }
 .luw .sel-target { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 8px 10px; border: none; border-radius: 10px; background: var(--surface-2); color: var(--ink); text-align: left; cursor: pointer; font-family: inherit; }
@@ -1158,7 +1158,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .bke-t { margin: 2px 0 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
 .luw .bke-note { margin: 0 0 12px; font-size: 0.82rem; color: var(--ink-3); line-height: 1.5; }
 .luw .bke-warn { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--surface-3); font-size: 0.86rem; color: var(--ink-2); }
-.luw .bke-notice { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .bke-notice { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral-text); font-size: 0.88rem; font-weight: 600; }
 
 /* ⛔ An armed field and a resting one differ on more than one signal: the rail's colour, the
    sentence's colour, and the presence of a clear button. One signal can be missed. */
@@ -1169,7 +1169,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .bke-clear { flex: none; width: 30px; height: 30px; margin-bottom: 5px; padding: 0; border: none; border-radius: 9px; background: transparent; color: var(--ink-3); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 @media (hover: hover) { .luw .bke-clear:hover { background: var(--surface-3); color: var(--ink); } }
 .luw .bke-consequence { margin: 6px 0 0; font-size: 0.78rem; color: var(--ink-3); }
-.luw .bke-field.armed .bke-consequence { color: var(--coral); font-weight: 650; }
+.luw .bke-field.armed .bke-consequence { color: var(--coral-text); font-weight: 650; }
 
 .luw .bke-empty { display: flex; flex-direction: column; gap: 6px; padding: 20px; border-radius: 14px; background: var(--surface-2); }
 .luw .bke-empty h2 { margin: 0; font-size: 1.05rem; font-weight: 750; color: var(--ink); }
@@ -1179,7 +1179,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .bke-row.off { opacity: 0.6; }
 .luw .bke-row-head { display: flex; align-items: baseline; gap: 12px; }
 .luw .bke-row-l { flex: 1; min-width: 0; font-size: 0.92rem; font-weight: 700; color: var(--ink); }
-.luw .bke-row-c { font-size: 0.8rem; font-weight: 700; color: var(--coral); font-variant-numeric: tabular-nums; }
+.luw .bke-row-c { font-size: 0.8rem; font-weight: 700; color: var(--coral-text); font-variant-numeric: tabular-nums; }
 .luw .bke-row.off .bke-row-c { color: var(--ink-3); }
 /* The count again, in a form nobody has to count. `role=presentation` because the number beside it
    already says this — a screen reader should not hear it twice. */

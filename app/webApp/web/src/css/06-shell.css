@@ -34,13 +34,13 @@
 .sb-nav { display:flex; flex-direction:column; gap:3px; }
 .nav-i { display:flex; align-items:center; gap:13px; height:44px; padding:0 13px; border-radius:12px; cursor:pointer; font-size:0.90625rem; font-weight:600; letter-spacing:-.01em; color:var(--ink-2); transition:background .14s, color .14s; white-space:nowrap; }
 @media (hover: hover) { .nav-i:hover, .sb-more:hover { background:var(--surface-2); color:var(--ink); } }
-.nav-i.on { background:var(--coral-soft); color:var(--coral); font-weight:700; }
+.nav-i.on { background:var(--coral-soft); color:var(--coral-text); font-weight:700; }
 .nav-i .lb { display:block; flex:1; overflow:hidden; text-overflow:ellipsis; }
 /* The unread badge. `min-width` with a pill radius rather than a fixed circle, so "99+" widens
    instead of clipping — the count is the point, and a truncated number is worse than a wide one. */
 .nav-badge {
   flex:none; min-width:20px; height:20px; padding:0 6px; border-radius:999px;
-  background:var(--coral); color:var(--on-coral);
+  background:var(--coral-fill); color:var(--on-coral);
   font-size:11px; font-weight:800; font-variant-numeric:tabular-nums;
   display:inline-flex; align-items:center; justify-content:center;
 }
@@ -73,9 +73,9 @@
    Sticky rather than fixed: it belongs to the content region, so it never
    overlaps the sidebar and never needs a width computed from it. It renders
    only when a book is loaded, which is why nothing here reserves space. */
-.tport { position:sticky; bottom:0; z-index:5; display:flex; align-items:center; gap:14px; margin:24px -28px -24px; padding:14px 22px; min-height:76px; background:var(--surface); border-top:1px solid var(--line); box-shadow:0 -10px 30px rgba(20,12,6,.06); }
-.tport-b { width:40px; height:40px; flex:none; border:none; border-radius:50%; cursor:pointer; background:var(--coral); color:var(--on-coral); display:inline-flex; align-items:center; justify-content:center; }
-@media (hover: hover) { .tport-b:hover { background:var(--coral-press); } }
+.tport { position:sticky; bottom:0; z-index:5; display:flex; align-items:center; gap:14px; margin:24px -28px -24px; padding:14px 22px; min-height:76px; background:var(--surface); border-top:1px solid var(--line); box-shadow:var(--shadow-up); }
+.tport-b { width:40px; height:40px; flex:none; border:none; border-radius:50%; cursor:pointer; background:var(--coral-fill); color:var(--on-coral); display:inline-flex; align-items:center; justify-content:center; }
+@media (hover: hover) { .tport-b:hover { background:var(--coral-fill-press); } }
 /* Shrinks before anything else does: on a tablet the rail leaves ~690px, and a title that refused
    to give way pushed the sleep timer out past the edge of the bar. */
 .tport-t { font-size:0.875rem; font-weight:700; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:26ch; flex:0 1 auto; min-width:0; }
@@ -94,7 +94,7 @@
 @media (hover: hover) { .tport-speed:hover { background:var(--surface-2); color:var(--ink); } }
 /* The playback failure notice. Sits directly above the bar and, more often, alone — the failures
    worth reporting are the ones that leave nothing playing. */
-.tport-note { position:sticky; bottom:76px; z-index:6; display:flex; align-items:center; gap:10px; margin:16px -28px 0; padding:10px 22px; background:var(--coral-soft); color:var(--coral); border-top:1px solid var(--line); font-size:0.84375rem; font-weight:600; }
+.tport-note { position:sticky; bottom:76px; z-index:6; display:flex; align-items:center; gap:10px; margin:16px -28px 0; padding:10px 22px; background:var(--coral-soft); color:var(--coral-text); border-top:1px solid var(--line); font-size:0.84375rem; font-weight:600; }
 .tport-note-t { flex:1; min-width:0; }
 .tport-note-x { width:28px; height:28px; flex:none; border:none; border-radius:8px; background:transparent; color:inherit; opacity:.7; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
 @media (hover: hover) { .tport-note-x:hover { opacity:1; background:var(--surface-2); } }
@@ -160,7 +160,7 @@
   }
   /* Where you are is a pill behind the icon, so the label stays at full contrast. */
   .sidebar .sb-nav:not(.sb-foot) .nav-i svg, .sidebar .sb-more svg { box-sizing:content-box; padding:3px 16px; border-radius:999px; }
-  .sidebar .sb-nav:not(.sb-foot) .nav-i.on, .sidebar .sb-more.on { background:none; color:var(--coral); font-weight:700; }
+  .sidebar .sb-nav:not(.sb-foot) .nav-i.on, .sidebar .sb-more.on { background:none; color:var(--coral-text); font-weight:700; }
   .sidebar .sb-nav:not(.sb-foot) .nav-i.on svg, .sidebar .sb-more.on svg { background:var(--coral-soft); }
   .sidebar .sb-nav:not(.sb-foot) .nav-badge, .sidebar .sb-more .nav-badge {
     position:absolute; top:3px; left:calc(50% + 7px); min-width:17px; height:17px; padding:0 4px; font-size:10px;
@@ -205,7 +205,7 @@
       "scrub scrub scrub scrub scrub scrub"
       "play  title title sleep ch    expand"
       "play  now   end   sleep ch    expand";
-    box-shadow:0 -6px 20px rgba(20,12,6,.06);
+    box-shadow:var(--shadow-up);
   }
   .tport-scrub { grid-area:scrub; width:100%; min-width:0; height:28px; }
   .tport-b { grid-area:play; width:44px; height:44px; }
@@ -247,7 +247,7 @@
 .bd-by { font-size:0.9375rem; font-weight:600; color:var(--ink-2); }
 /* A byline name is a control, not decoration — same activation contract as `.contrib-row`. */
 .bd-by-name { cursor:pointer; border-radius:4px; }
-@media (hover: hover) { .bd-by-name:hover { color:var(--coral); text-decoration:underline; } }
+@media (hover: hover) { .bd-by-name:hover { color:var(--coral-text); text-decoration:underline; } }
 .bd-by-name:focus { outline:none; }
 .bd-by-name:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
 /* One action, deliberately: a browser cannot finish a download, so Play stands alone. */
@@ -257,7 +257,7 @@
 .bd-desc { font-size:0.90625rem; line-height:1.6; color:var(--ink-2); }
 .bd-desc p { margin:0 0 14px; }
 .bd-desc p:last-child { margin-bottom:0; }
-.bd-desc a { color:var(--coral); }
+.bd-desc a { color:var(--coral-text); }
 /* ---- book edit form ---- */
 /* Two fields to a row where they are short, one where they are not. `minmax(0,1fr)` rather than
    `1fr` so a long placeholder cannot push the column wider than its share. */
@@ -273,14 +273,14 @@
   align-self:flex-start; padding:4px 0; border:none; background:none; cursor:pointer;
   font-family:inherit; font-size:0.78125rem; font-weight:600; color:var(--ink-3);
 }
-@media (hover: hover) { .rel-drop:hover { color:var(--coral); } }
+@media (hover: hover) { .rel-drop:hover { color:var(--coral-text); } }
 .rel-add-roles { display:flex; flex-wrap:wrap; gap:8px; }
 .rel-add-role {
   padding:6px 12px; border-radius:999px; cursor:pointer;
   border:1.5px dashed var(--line); background:none; color:var(--ink-2);
   font-family:inherit; font-size:0.8125rem; font-weight:600;
 }
-@media (hover: hover) { .rel-add-role:hover { border-style:solid; border-color:var(--coral); color:var(--coral); } }
+@media (hover: hover) { .rel-add-role:hover { border-style:solid; border-color:var(--coral); color:var(--coral-text); } }
 /* Free text, not a number input: "1.5", "0" and "Prequel" are all real positions. */
 .rel-seq {
   width:52px; padding:2px 6px; border-radius:7px;
@@ -302,7 +302,7 @@
   background:var(--surface-3); color:var(--ink-2);
   font-family:inherit; font-size:0.875rem; line-height:1; cursor:pointer;
 }
-@media (hover: hover) { .rel-x:hover { background:var(--coral); color:var(--on-coral); } }
+@media (hover: hover) { .rel-x:hover { background:var(--coral-fill); color:var(--on-coral); } }
 .rel-results {
   display:flex; flex-direction:column; margin-top:8px;
   border:1.5px solid var(--line); border-radius:12px; overflow:hidden;
@@ -316,7 +316,7 @@
    hover half is gated below. */
 .rel-result:focus-visible { background:var(--surface-3); outline:none; }
 @media (hover: hover) { .rel-result:hover { background:var(--surface-3); outline:none; } }
-.rel-create { font-weight:700; color:var(--coral); }
+.rel-create { font-weight:700; color:var(--coral-text); }
 .rel-hint { padding:10px 14px; font-size:0.84375rem; color:var(--ink-3); }
 
 /* A search hit's two lines: the name, and what tells it apart from an identically-named record.
@@ -343,7 +343,7 @@
 .cover-pick.cover-drag { border-color:var(--coral); background:var(--surface); }
 @media (hover: hover) { .cover-pick:hover { border-color:var(--coral); background:var(--surface); } }
 .cover-pick[disabled] { opacity:.55; cursor:default; }
-.cover-pick-disc { width:44px; height:44px; border-radius:50%; background:var(--coral-soft); color:var(--coral); display:flex; align-items:center; justify-content:center; }
+.cover-pick-disc { width:44px; height:44px; border-radius:50%; background:var(--coral-soft); color:var(--coral-text); display:flex; align-items:center; justify-content:center; }
 .cover-pick-main { font-size:0.9375rem; font-weight:600; color:var(--ink); }
 .cover-pick-sub { font-size:0.8125rem; font-weight:500; color:var(--ink-3); }
 .edit-error {
@@ -366,7 +366,7 @@
   position:absolute; right:15px; top:50%; transform:translateY(-50%);
   display:flex; pointer-events:none; color:var(--ink-3); transition:color .15s;
 }
-.f-box-select:focus-within .f-caret { color:var(--coral); }
+.f-box-select:focus-within .f-caret { color:var(--coral-text); }
 .f-check {
   display:inline-flex; align-items:center; gap:10px; cursor:pointer;
   font-size:0.875rem; font-weight:600; color:var(--ink-2);
@@ -399,9 +399,9 @@
 
 /* ---- checkbox (table select) ---- */
 .cbx { width:17px; height:17px; border-radius:5px; border:1.5px solid var(--hairline); background:var(--surface); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
-.cbx.on { background:var(--coral); border-color:var(--coral); }
-.cbx.ind { background:var(--coral); border-color:var(--coral); }
-.cbx.ind::after { content:""; width:9px; height:2px; border-radius:2px; background:#fff; }
+.cbx.on { background:var(--coral-fill); border-color:var(--coral-fill); }
+.cbx.ind { background:var(--coral-fill); border-color:var(--coral-fill); }
+.cbx.ind::after { content:""; width:9px; height:2px; border-radius:2px; background:var(--on-coral); }
 /* The native checkbox sits invisibly over the drawn box: it takes the click, the Tab stop, Space and
    the screen reader; `.cbx` is only its picture. */
 .cbx-hit { position:relative; display:inline-flex; vertical-align:middle; cursor:pointer; }

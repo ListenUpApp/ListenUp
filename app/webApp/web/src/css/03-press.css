@@ -151,7 +151,7 @@
 
 /* ---- links ---- */
 .lnk {
-  color: var(--coral); font-weight: 600; cursor: pointer; text-decoration: none;
+  color: var(--coral-text); font-weight: 600; cursor: pointer; text-decoration: none;
   font-size: 0.90625rem; letter-spacing: -0.01em; white-space: nowrap;
   border-bottom: 1px solid transparent; transition: border-color .15s;
 }
@@ -165,7 +165,7 @@
   background: var(--surface-2); display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0; transition: background .15s, border-color .15s;
 }
-.chk.on .box { background: var(--coral); border-color: var(--coral); }
+.chk.on .box { background: var(--coral-fill); border-color: var(--coral-fill); }
 .chk .box svg { opacity: 0; transition: opacity .12s; }
 .chk.on .box svg { opacity: 1; }
 .chk span { font-size: 0.90625rem; color: var(--ink-2); font-weight: 500; white-space: nowrap; }
@@ -185,7 +185,7 @@
 }
 .sw-thumb {
   width: 16px; height: 16px; border-radius: 50%; background: var(--surface);
-  box-shadow: 0 1px 3px rgba(20,12,6,.3); transition: transform .15s;
+  box-shadow: var(--shadow-raise); transition: transform .15s;
 }
 .sw-in:checked ~ .sw-track { background: var(--coral); border-color: var(--coral); }
 .sw-in:checked ~ .sw-track .sw-thumb { transform: translateX(18px); }
@@ -205,8 +205,8 @@
   background: var(--surface-2); border: 1px solid var(--line);
 }
 .dir-b .srv-chip { border-radius: 8px; background: var(--surface); }
-.srv-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 22%, transparent); flex-shrink: 0; }
+.srv-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 22%, transparent); flex-shrink: 0; }
 .srv-chip { white-space: nowrap; }
 .srv-host { font-family: var(--mono); font-size: 0.78125rem; color: var(--ink); font-weight: 500; }
 .srv-sub { font-size: 0.78125rem; color: var(--ink-2); font-weight: 500; }
@@ -215,7 +215,7 @@
 .badge {
   display: inline-flex; align-items: center; gap: 7px; height: 30px;
   padding: 0 13px 0 10px; border-radius: 999px;
-  background: var(--coral-soft); color: var(--coral); font-weight: 600; font-size: 0.8125rem; white-space: nowrap;
+  background: var(--coral-soft); color: var(--coral-text); font-weight: 600; font-size: 0.8125rem; white-space: nowrap;
 }
 .dir-b .badge { border-radius: 7px; font-family: var(--mono); text-transform: uppercase;
   font-size: 0.6875rem; letter-spacing: 0.1em; }

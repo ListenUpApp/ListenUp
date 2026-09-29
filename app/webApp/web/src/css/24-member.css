@@ -9,10 +9,10 @@
 .luw .usr-e { font-size: 0.84rem; color: var(--ink-3); }
 .luw .usr-none { margin: 0; font-size: 0.9rem; color: var(--ink-3); }
 .luw .usr-note { margin: 0 0 10px; font-size: 0.8rem; color: var(--ink-3); }
-.luw .usr-err { margin: 10px 0 0; font-size: 0.8rem; font-weight: 600; color: var(--coral-deep); }
+.luw .usr-err { margin: 10px 0 0; font-size: 0.8rem; font-weight: 600; color: var(--coral-text); }
 /* The member's name on the People page is the way into their page — a control, so it says so. */
 .luw .adm-row-open { border: none; background: transparent; padding: 0; font-family: inherit; text-align: left; cursor: pointer; border-radius: 8px; }
-@media (hover: hover) { .luw .adm-row-open:hover .adm-row-t { color: var(--coral); text-decoration: underline; } }
+@media (hover: hover) { .luw .adm-row-open:hover .adm-row-t { color: var(--coral-text); text-decoration: underline; } }
 .luw .adm-row-open:active { transform: translateY(1px); }
 .luw .adm-row-open:focus { outline: none; }
 .luw .adm-row-open:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }

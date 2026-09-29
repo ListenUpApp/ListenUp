@@ -6,7 +6,7 @@
 .lic { display: flex; flex-direction: column; gap: 16px; }
 
 .lic-head { display: flex; flex-direction: column; gap: 2px; }
-.lic-overline { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--coral); }
+.lic-overline { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--coral-text); }
 .lic-title { margin: 0; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
 .lic-sub { font-size: 0.88rem; color: var(--ink-2); }
 
@@ -19,7 +19,7 @@
 .lic-ver { font-size: 0.74rem; color: var(--ink-3); }
 
 .lic-badge { font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface-3); color: var(--ink-2); }
-.lic-link { font-size: 0.76rem; font-weight: 600; color: var(--coral); text-decoration: none; }
+.lic-link { font-size: 0.76rem; font-weight: 600; color: var(--coral-text); text-decoration: none; }
 @media (hover: hover) { .lic-link:hover { text-decoration: underline; } }
 
 .lic-footer { font-size: 0.82rem; color: var(--ink-3); margin: 0; }

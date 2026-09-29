@@ -19,7 +19,7 @@
 .kbd { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 5px; font-family:var(--mono); font-size:0.6875rem; font-weight:600; color:var(--ink-2); background:var(--surface); border:1px solid var(--line); border-bottom-width:2px; border-radius:6px; white-space:nowrap; }
 
 /* URL query-string emphasis — deep-linkable state made visible */
-.chrome-url i, .murl i { font-style: normal; color: var(--coral); font-weight: 600; }
+.chrome-url i, .murl i { font-style: normal; color: var(--coral-text); font-weight: 600; }
 
 /* ---- table / data rows ---- */
 /* A data table's columns are there to be compared, so on a narrow screen the table scrolls
@@ -40,7 +40,7 @@
 }
 .tbl { width:100%; border-collapse:separate; border-spacing:0; font-size:var(--fs); }
 .tbl th { height:36px; padding:0 12px; text-align:left; font-family:var(--mono); font-size:0.65625rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); background:var(--surface-2); border-bottom:1px solid var(--line); white-space:nowrap; user-select:none; }
-.tbl th.srt { color:var(--coral); cursor:pointer; }
+.tbl th.srt { color:var(--coral-text); cursor:pointer; }
 .tbl th.can { cursor:pointer; }
 .tbl th.can button { display:inline-flex; align-items:center; gap:5px; cursor:pointer; }
 @media (hover: hover) { .tbl th.can:hover { color:var(--ink); } }
@@ -52,7 +52,7 @@
    query a touchscreen drew a selected row exactly like an unselected one. After the hover rule and
    of equal specificity, so a selected row keeps its colour under the pointer too. */
 .tbl tbody tr.sel { background:var(--coral-soft); }
-.tbl tbody tr.on td { color:var(--coral); font-weight:700; }
+.tbl tbody tr.on td { color:var(--coral-text); font-weight:700; }
 .tbl .num { font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--ink-2); text-align:right; white-space:nowrap; font-size:calc(var(--fs) - 0.0625rem); }
 .tbl .tt { font-weight:700; letter-spacing:-.01em; }
 .tbl .sub { font-size:var(--fxs); color:var(--ink-3); font-weight:500; }
@@ -84,38 +84,37 @@
 @media (hover: hover) { .menu-i:hover { background:var(--surface-2); } }
 .menu-i.hi { background:var(--surface-2); }
 .menu-i .k { margin-left:auto; font-family:var(--mono); font-size:0.6875rem; color:var(--ink-3); }
-.menu-i.danger { color:#C0392B; }
-@media (hover: hover) { .menu-i.danger:hover { background:rgba(192,57,43,.10); } }
-[data-theme="dark"] .menu-i.danger { color:#F08D7C; }
+.menu-i.danger { color:var(--danger); }
+@media (hover: hover) { .menu-i.danger:hover { background:var(--danger-soft); } }
 .menu-sep { height:1px; background:var(--line-2); margin:5px 8px; }
 .menu-lb { padding:9px 9px 5px; font-family:var(--mono); font-size:0.625rem; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3); }
 
 /* ---- dialog ---- */
 .scrim { position:absolute; inset:0; background:rgba(22,15,10,.36); display:flex; align-items:center; justify-content:center; z-index:40; }
 [data-theme="dark"] .scrim { background:rgba(0,0,0,.55); }
-.dlg { width:472px; max-width:88%; background:var(--surface); border:1px solid var(--line); border-radius:20px; box-shadow:0 30px 80px rgba(30,20,12,.42); overflow:hidden; }
+.dlg { width:472px; max-width:88%; background:var(--surface); border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow-modal); overflow:hidden; }
 .dlg-h { padding:22px 24px 0; }
 .dlg-t { margin:0; font-size:1.1875rem; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
 .dlg-b { padding:9px 24px 20px; font-size:0.875rem; color:var(--ink-2); line-height:1.55; }
 .dlg-f { display:flex; justify-content:flex-end; gap:10px; padding:14px 18px; background:var(--surface-2); border-top:1px solid var(--line-2); }
-.btn-c { height:40px; padding:0 18px; border-radius:11px; border:none; cursor:pointer; font-family:inherit; font-size:0.875rem; font-weight:700; letter-spacing:-.01em; background:var(--coral); color:var(--on-coral); display:inline-flex; align-items:center; gap:8px; white-space:nowrap; }
-@media (hover: hover) { .btn-c:hover { background:var(--coral-press); } }
+.btn-c { height:40px; padding:0 18px; border-radius:11px; border:none; cursor:pointer; font-family:inherit; font-size:0.875rem; font-weight:700; letter-spacing:-.01em; background:var(--coral-fill); color:var(--on-coral); display:inline-flex; align-items:center; gap:8px; white-space:nowrap; }
+@media (hover: hover) { .btn-c:hover { background:var(--coral-fill-press); } }
 .btn-o { height:40px; padding:0 16px; border-radius:11px; cursor:pointer; font-family:inherit; font-size:0.875rem; font-weight:600; background:var(--surface); color:var(--ink); border:1.5px solid var(--line); display:inline-flex; align-items:center; gap:8px; white-space:nowrap; }
 @media (hover: hover) { .btn-o:hover { background:var(--surface-3); } }
 /* Square icon-only companion to `.btn` — same height and radius, outline weight, so a primary
    action and its icon sibling read as one row rather than two generations of button. */
 .btn-sq { height:52px; width:52px; flex-shrink:0; padding:0; border-radius:13px; cursor:pointer; background:var(--surface); color:var(--ink); border:1.5px solid var(--line); display:inline-flex; align-items:center; justify-content:center; }
 @media (hover: hover) { .btn-sq:hover { background:var(--surface-3); } }
-.btn-d { background:#C0392B; color:#fff; }
-@media (hover: hover) { .btn-d:hover { background:#A5301F; } }
+.btn-d { background:var(--danger-fill); color:var(--on-danger); }
+@media (hover: hover) { .btn-d:hover { background:var(--danger-fill-press); } }
 
 /* ---- toast ---- */
-.toast { display:flex; align-items:center; gap:12px; min-height:50px; padding:0 8px 0 15px; background:var(--ink); color:var(--paper); border-radius:13px; box-shadow:0 16px 44px rgba(20,12,6,.36); font-size:0.84375rem; font-weight:600; white-space:nowrap; }
+.toast { display:flex; align-items:center; gap:12px; min-height:50px; padding:0 8px 0 15px; background:var(--ink); color:var(--paper); border-radius:13px; box-shadow:var(--shadow-float); font-size:0.84375rem; font-weight:600; white-space:nowrap; }
 [data-theme="dark"] .toast { background:var(--surface-3); color:var(--ink); border:1px solid var(--line); }
 .toast .t-dot { width:9px; height:9px; border-radius:99px; flex-shrink:0; }
 .toast .t-act { color:var(--amber); font-weight:700; cursor:pointer; padding:0 12px; height:34px; display:inline-flex; align-items:center; border-radius:8px; }
 @media (hover: hover) { .toast .t-act:hover { background:rgba(255,255,255,.10); } }
-[data-theme="dark"] .toast .t-act { color:var(--coral); }
+[data-theme="dark"] .toast .t-act { color:var(--coral-text); }
 .toast .t-x { width:32px; height:32px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; opacity:.6; cursor:pointer; }
 @media (hover: hover) { .toast .t-x:hover { opacity:1; background:rgba(255,255,255,.10); } }
 
@@ -157,12 +156,12 @@
 .chap-row:active { background: var(--surface-3); }
 /* The chapter being listened to. Coral rather than a bolder weight: the row is already dense, and
    a weight change reflows the text under the reader's eye as the chapter turns over. */
-.chap-row.on { background: var(--coral-soft); color: var(--coral); }
+.chap-row.on { background: var(--coral-soft); color: var(--coral-text); }
 .chap-n { flex-shrink: 0; width: 2.2em; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.chap-row.on .chap-n { color: var(--coral); }
+.chap-row.on .chap-n { color: var(--coral-text); }
 .chap-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chap-at { flex-shrink: 0; font-size: 0.78125rem; color: var(--ink-3); }
-.chap-row.on .chap-at { color: var(--coral); }
+.chap-row.on .chap-at { color: var(--coral-text); }
 
 /* ---- sleep timer ---- */
 .sleep-dlg { max-width: 420px; width: min(420px, calc(100vw - 32px)); }
@@ -208,7 +207,7 @@
 .speed-opt:active { transform: translateY(1px); }
 /* The rate playing now. Coral fill rather than a heavier weight: the chips sit in a tight row and
    a weight change reflows every one of them as the selection moves. */
-.speed-opt.on { background: var(--coral-soft); border-color: var(--coral); color: var(--coral); }
+.speed-opt.on { background: var(--coral-soft); border-color: var(--coral); color: var(--coral-text); }
 .speed-reset { margin-top: 14px; }
 
 /* ---- volume boost ---- */
@@ -229,7 +228,7 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .np-sep { color:var(--ink-3); }
 /* A byline name is a control, not decoration — same contract as `.bd-by-name`. */
 .np-by-name { font:inherit; color:inherit; background:none; border:none; padding:0; cursor:pointer; border-radius:4px; }
-@media (hover: hover) { .np-by-name:hover { color:var(--coral); text-decoration:underline; } }
+@media (hover: hover) { .np-by-name:hover { color:var(--coral-text); text-decoration:underline; } }
 .np-by-name:focus { outline:none; }
 .np-by-name:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
 .np-series { display:flex; flex-wrap:wrap; gap:8px; }
@@ -238,7 +237,7 @@ dialog.dlg .dlg-close { align-self: flex-start; }
   background:var(--surface-2); border:1px solid var(--line);
   font:inherit; font-size:0.78125rem; font-weight:700; color:var(--ink-2); cursor:pointer;
 }
-@media (hover: hover) { .np-series-chip:hover { border-color:var(--coral); color:var(--coral); } }
+@media (hover: hover) { .np-series-chip:hover { border-color:var(--coral); color:var(--coral-text); } }
 .np-series-chip:focus { outline:none; }
 .np-series-chip:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
 .np-series-seq { font-family:var(--mono); font-size:0.6875rem; color:var(--ink-3); }
@@ -249,8 +248,8 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 /* The transport. Centred as one group so the play button sits on the panel's axis — the row is
    read as a unit, not as controls distributed across the width. */
 .np-transport { display:flex; align-items:center; justify-content:center; gap:14px; padding:4px 0 12px; }
-.np-play { width:56px; height:56px; flex:none; border:none; border-radius:50%; cursor:pointer; background:var(--coral); color:var(--on-coral); display:inline-flex; align-items:center; justify-content:center; }
-@media (hover: hover) { .np-play:hover { background:var(--coral-press); } }
+.np-play { width:56px; height:56px; flex:none; border:none; border-radius:50%; cursor:pointer; background:var(--coral-fill); color:var(--on-coral); display:inline-flex; align-items:center; justify-content:center; }
+@media (hover: hover) { .np-play:hover { background:var(--coral-fill-press); } }
 .np-b, .np-chstep {
   width:40px; height:40px; flex:none; border:none; border-radius:50%; cursor:pointer;
   background:transparent; color:var(--ink-2); display:inline-flex; align-items:center; justify-content:center;
@@ -272,7 +271,7 @@ dialog.dlg .dlg-close { align-self: flex-start; }
   font-variant-numeric:tabular-nums;
 }
 @media (hover: hover) { .np-chip:hover { background:var(--surface-2); color:var(--ink); } }
-.np-chip.on { border-color:var(--coral); color:var(--coral); }
+.np-chip.on { border-color:var(--coral); color:var(--coral-text); }
 .np-chip:focus { outline:none; }
 .np-chip:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
 /* The one control that leaves the player, so it sits apart from the four that do not. */
@@ -281,7 +280,7 @@ dialog.dlg .dlg-close { align-self: flex-start; }
   padding:7px 13px; border-radius:999px; border:1px solid var(--line); background:transparent;
   font:inherit; font-size:0.78125rem; font-weight:700; color:var(--ink-2); cursor:pointer;
 }
-@media (hover: hover) { .np-goto:hover { border-color:var(--coral); color:var(--coral); } }
+@media (hover: hover) { .np-goto:hover { border-color:var(--coral); color:var(--coral-text); } }
 .np-goto:focus { outline:none; }
 .np-goto:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
 
@@ -325,28 +324,26 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 }
 @media (hover: hover) { .boost-opt:hover { background: var(--surface-2); border-color: var(--ink-3); } }
 .boost-opt:active { transform: translateY(1px); }
-.boost-opt.on { background: var(--coral-soft); border-color: var(--coral); color: var(--coral); }
+.boost-opt.on { background: var(--coral-soft); border-color: var(--coral); color: var(--coral-text); }
 .boost-reset { margin-top: 14px; }
 
 /* An armed timer, said on the control itself rather than only inside the dialog. */
-.tport-sleep.on { color: var(--coral); }
+.tport-sleep.on { color: var(--coral-text); }
 
 /* A boost in force, same idea: it changes how the book sounds, so it has to be visible without
    opening a panel to ask. */
-.tport-boost.on { color: var(--coral); }
+.tport-boost.on { color: var(--coral-text); }
 
 /* ---- banners ---- */
 .banner { display:flex; align-items:center; gap:11px; padding:0 16px; min-height:44px; font-size:0.84375rem; font-weight:600; border-bottom:1px solid; }
-.banner.warn { background:#FBF1D8; color:#7A5A11; border-color:#EEDDB0; }
-.banner.err  { background:#FBE9E6; color:#8E2F20; border-color:#F1CFC9; }
+.banner.warn { background:var(--warn-soft); color:var(--warn); border-color:color-mix(in srgb, var(--warn) 22%, var(--warn-soft)); }
+.banner.err  { background:var(--danger-soft); color:var(--danger); border-color:color-mix(in srgb, var(--danger) 22%, var(--danger-soft)); }
 .banner.info { background:var(--surface-2); color:var(--ink-2); border-color:var(--line); }
-[data-theme="dark"] .banner.warn { background:#2A2110; color:#F3D492; border-color:#453619; }
-[data-theme="dark"] .banner.err  { background:#2B1512; color:#F5B5A8; border-color:#4A211B; }
 .banner .b-act { margin-left:auto; font-weight:700; text-decoration:underline; cursor:pointer; white-space:nowrap; }
 
 /* ---- server chip states ---- */
 .srv-chip.warn .srv-dot { background:var(--amber); box-shadow:0 0 0 3px color-mix(in srgb, var(--amber) 24%, transparent); }
-.srv-chip.down .srv-dot { background:#C0392B; box-shadow:0 0 0 3px rgba(192,57,43,.24); }
+.srv-chip.down .srv-dot { background:var(--danger); box-shadow:0 0 0 3px color-mix(in srgb, var(--danger) 24%, transparent); }
 @media (prefers-reduced-motion: no-preference) { .srv-chip.warn .srv-dot { animation: scanPulse 1.2s ease-in-out infinite; } }
 
 /* ---- states ---- */
@@ -362,9 +359,9 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .tabs { display:flex; gap:2px; border-bottom:1px solid var(--line); }
 .tab { height:42px; padding:0 14px; display:inline-flex; align-items:center; gap:8px; font-size:0.84375rem; font-weight:600; color:var(--ink-2); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; white-space:nowrap; }
 @media (hover: hover) { .tab:hover { color:var(--ink); } }
-.tab.on { color:var(--coral); border-bottom-color:var(--coral); font-weight:700; }
+.tab.on { color:var(--coral-text); border-bottom-color:var(--coral); font-weight:700; }
 .tab .ct { font-family:var(--mono); font-size:0.6875rem; color:var(--ink-3); }
-.tab.on .ct { color:var(--coral); }
+.tab.on .ct { color:var(--coral-text); }
 /* The panel a tab strip switches. A pane may emit several panels, so the wrapper keeps the page
    column's own spacing rather than collapsing them together. */
 .tabpanel { display:flex; flex-direction:column; gap:inherit; min-width:0; }
@@ -372,15 +369,15 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 /* ---- segmented ---- */
 .seg { display:inline-flex; padding:3px; background:var(--surface-2); border:1px solid var(--line); border-radius:11px; gap:2px; }
 .seg button { height:30px; padding:0 11px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; font-size:0.78125rem; font-weight:600; color:var(--ink-2); cursor:pointer; white-space:nowrap; }
-.seg button.on { background:var(--surface); color:var(--ink); box-shadow:0 1px 3px rgba(40,28,18,.14); }
+.seg button.on { background:var(--surface); color:var(--ink); box-shadow:var(--shadow-raise); }
 
 /* ---- facet rail ---- */
 .facet-h { font-family:var(--mono); font-size:0.65625rem; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3); margin:0 0 7px 3px; }
 .facet { display:flex; align-items:center; gap:9px; height:30px; padding:0 9px; border-radius:8px; font-size:0.84375rem; font-weight:600; color:var(--ink-2); cursor:pointer; white-space:nowrap; }
 @media (hover: hover) { .facet:hover { background:var(--surface-2); color:var(--ink); } }
-.facet.on { background:var(--coral-soft); color:var(--coral); }
+.facet.on { background:var(--coral-soft); color:var(--coral-text); }
 .facet .n { margin-left:auto; font-family:var(--mono); font-size:0.71875rem; color:var(--ink-3); }
-.facet.on .n { color:var(--coral); }
+.facet.on .n { color:var(--coral-text); }
 
 /* ---- bulk action bar ---- */
 /* ⛔ STICKY, and that is the bug this fixes. The bar had every other floating-pill property —
@@ -391,7 +388,7 @@ dialog.dlg .dlg-close { align-self: flex-start; }
    Sticky rather than fixed so it stays in flow and cannot cover the transport bar, which is
    itself a flex sticky-footer rather than a fixed element. Below .scrim's z-index:40 so a modal
    still covers it. */
-.bulk { position:sticky; bottom:16px; z-index:35; width:max-content; max-width:calc(100% - 32px); margin:16px auto 0; display:flex; align-items:center; gap:10px; height:54px; padding:0 10px 0 18px; background:var(--ink); color:var(--paper); border-radius:15px; box-shadow:0 18px 48px rgba(20,12,6,.38); white-space:nowrap; }
+.bulk { position:sticky; bottom:16px; z-index:35; width:max-content; max-width:calc(100% - 32px); margin:16px auto 0; display:flex; align-items:center; gap:10px; height:54px; padding:0 10px 0 18px; background:var(--ink); color:var(--paper); border-radius:15px; box-shadow:var(--shadow-float); white-space:nowrap; }
 [data-theme="dark"] .bulk { background:var(--surface-3); color:var(--ink); border:1px solid var(--line); }
 .bulk-b { height:36px; padding:0 13px; border-radius:9px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.09); color:inherit; font-family:inherit; font-size:0.8125rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
 [data-theme="dark"] .bulk-b { border-color:var(--line); background:var(--surface-2); }
@@ -411,7 +408,7 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 /* ---- breadcrumb ---- */
 .crumb { display:flex; align-items:center; gap:7px; font-size:0.78125rem; font-weight:600; color:var(--ink-3); white-space:nowrap; }
 .crumb a { color:var(--ink-2); text-decoration:none; cursor:pointer; }
-@media (hover: hover) { .crumb a:hover { color:var(--coral); } }
+@media (hover: hover) { .crumb a:hover { color:var(--coral-text); } }
 .crumb .cur { color:var(--ink); }
 
 /* ---- meta list (mono technical facts) ---- */
@@ -424,6 +421,6 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 /* ---- pill / tag ---- */
 .pill { display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 11px; border-radius:999px; background:var(--surface-2); border:1px solid var(--line); font-size:0.78125rem; font-weight:600; color:var(--ink-2); cursor:pointer; white-space:nowrap; }
 @media (hover: hover) { .pill:hover { background:var(--surface-3); color:var(--ink); } }
-.pill.on { background:var(--coral-soft); border-color:transparent; color:var(--coral); }
+.pill.on { background:var(--coral-soft); border-color:transparent; color:var(--coral-text); }
 .pill .x { display:inline-flex; align-items:center; opacity:.6; cursor:pointer; border-radius:999px; }
 

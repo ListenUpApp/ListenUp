@@ -20,4 +20,4 @@
 .srs-name { font-size: 0.9rem; font-weight: 650; line-height: 1.25; }
 .srs-count { font-size: 0.76rem; color: var(--ink-3); }
 /* Only rendered once a series has been started, so it can afford to be the accent. */
-.srs-progress { font-size: 0.76rem; font-weight: 600; color: var(--coral); }
+.srs-progress { font-size: 0.76rem; font-weight: 600; color: var(--coral-text); }
