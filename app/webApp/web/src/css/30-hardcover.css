@@ -5,32 +5,29 @@
    the same 1023px line the book detail page folds at. */
 
 .luw .hc { display: flex; flex-direction: column; gap: 1.4rem; max-width: 56rem; }
-.luw .hc-head { display: flex; flex-direction: column; gap: 0.5rem; }
-.luw .hc-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
 .luw .hc-lede { margin: 0; font-size: 0.95rem; line-height: 1.55; color: var(--ink-2); text-wrap: pretty; }
 .luw .hc-lede b { color: var(--ink); }
-.luw .hc-skel { height: 12rem; border-radius: 16px; }
 
 .luw .hc-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2rem; align-items: stretch; }
 @media (max-width: 1023px) { .luw .hc-cols { grid-template-columns: minmax(0, 1fr); } }
 
 .luw .hc-card {
   display: flex; flex-direction: column; gap: 1rem; min-width: 0;
-  padding: 1.5rem; border-radius: 20px;
+  padding: 1.5rem; border-radius: var(--r-xl);
   background: var(--surface); border: 1px solid var(--line);
 }
 .luw .hc-hero { background: var(--coral-soft); border-color: var(--coral-ring); }
 .luw .hc-card-h { margin: 0; font-size: 1.1rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
 .luw .hc-glyph {
   display: inline-flex; align-items: center; justify-content: center; flex: none;
-  width: 56px; height: 56px; border-radius: 17px; background: var(--surface); color: var(--coral);
+  width: 56px; height: 56px; border-radius: var(--r-lg); background: var(--surface); color: var(--coral-text);
 }
 
 .luw .hc-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.8rem; }
 .luw .hc-item { display: flex; align-items: flex-start; gap: 0.7rem; font-size: 0.95rem; line-height: 1.45; color: var(--ink); }
-.luw .hc-item-i { display: inline-flex; flex: none; color: var(--coral); padding-top: 1px; }
+.luw .hc-item-i { display: inline-flex; flex: none; color: var(--coral-text); padding-top: 1px; }
 .luw .hc-note {
-  margin: 0; padding: 0.7rem 1rem; border-radius: 12px;
+  margin: 0; padding: 0.7rem 1rem; border-radius: var(--r-md);
   background: var(--surface-2); font-size: 0.88rem; line-height: 1.5; color: var(--ink-2);
 }
 .luw .hc-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: auto; }
@@ -49,19 +46,19 @@
 .luw .hc-step-n {
   display: inline-flex; align-items: center; justify-content: center; flex: none;
   width: 28px; height: 28px; border-radius: 50%;
-  background: var(--coral-soft); color: var(--coral); font-size: 0.82rem; font-weight: 800;
+  background: var(--coral-soft); color: var(--coral-text); font-size: 0.82rem; font-weight: 800;
 }
 .luw .hc-open { align-self: flex-start; margin-top: auto; text-decoration: none; }
 
 .luw .hc-wait {
   display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap;
-  padding: 1rem 1.2rem; border-radius: 16px; background: var(--surface-2);
+  padding: 1rem 1.2rem; border-radius: var(--r-lg); background: var(--surface-2);
 }
 .luw .hc-wait-text { display: flex; flex-direction: column; gap: 0.1rem; flex: 1; min-width: 12rem; font-size: 0.88rem; color: var(--ink-2); }
 .luw .hc-wait-text b { color: var(--ink); font-size: 0.95rem; }
 .luw .hc-spin {
   flex: none; width: 22px; height: 22px; border-radius: 50%;
-  border: 3px solid var(--line); border-top-color: var(--coral);
+  border: 3px solid var(--line); border-top-color: var(--coral-fill);
 }
 @media (prefers-reduced-motion: no-preference) {
   .luw .hc-spin { animation: hc-spin 0.9s linear infinite; }
@@ -74,10 +71,10 @@
 .luw .hc-avatar {
   display: inline-flex; align-items: center; justify-content: center; flex: none;
   width: 64px; height: 64px; border-radius: 50%;
-  background: var(--coral); color: var(--on-coral); font-size: 1.6rem; font-weight: 800;
+  background: var(--coral-fill); color: var(--on-coral); font-size: 1.6rem; font-weight: 800;
 }
-.luw .hc-badge { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; font-weight: 700; color: var(--green); }
-.luw .hc-user { margin: 0; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); overflow-wrap: anywhere; }
+.luw .hc-badge { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; font-weight: 700; color: var(--success); }
+.luw .hc-user { margin: 0; font-size: var(--fs-h2); font-weight: 800; letter-spacing: -0.02em; color: var(--ink); overflow-wrap: anywhere; }
 .luw .hc-since { font-size: 0.88rem; color: var(--ink-2); }
 
 /* Broken — one card: why, who it was, and the way back. */

@@ -11,17 +11,19 @@ import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsUiSta
 import com.calypsan.listenup.client.util.formatDateLong
 import com.calypsan.listenup.web.copyToClipboard
 import com.calypsan.listenup.web.design.Breadcrumb
+import com.calypsan.listenup.web.design.Button
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.ButtonLink
 import com.calypsan.listenup.web.design.ConfirmDialog
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.LoadingState
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
-import com.calypsan.listenup.web.design.disabledWhen
-import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.B
-import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.H2
-import org.jetbrains.compose.web.dom.Header
 import org.jetbrains.compose.web.dom.Li
 import org.jetbrains.compose.web.dom.Ol
 import org.jetbrains.compose.web.dom.P
@@ -63,17 +65,13 @@ fun HardcoverPage(
 
         when (state) {
             HardcoverSettingsUiState.Loading -> {
-                Title(SCREEN_TITLE)
-                P(attrs = {
-                    classes(LEDE)
-                    attr("role", "status")
-                }) { Text("Checking your Hardcover connection…") }
-                Div(attrs = { classes("skel", "hc-skel") })
+                PageHeader(title = SCREEN_TITLE)
+                LoadingState(label = "Checking your Hardcover connection…")
             }
 
             HardcoverSettingsUiState.NotOffered -> {
-                Title(SCREEN_TITLE)
-                P(attrs = { classes(LEDE) }) { Text("Hardcover isn't set up on this server.") }
+                PageHeader(title = SCREEN_TITLE)
+                EmptyState(title = "Hardcover isn't set up on this server.", look = EmptyLook.Inline)
             }
 
             is HardcoverSettingsUiState.NotConnected -> {
@@ -96,22 +94,22 @@ fun HardcoverPage(
 }
 
 @Composable
-private fun Title(text: String) {
-    H1(attrs = { classes("hc-title") }) { Text(text) }
-}
-
-@Composable
 private fun NotConnected(
     state: HardcoverSettingsUiState.NotConnected,
     onConnect: () -> Unit,
 ) {
     Div(attrs = { classes("hc-cols") }) {
         Section(attrs = { classes(CARD, "hc-hero") }) {
-            Span(attrs = { classes("hc-glyph") }) { Icon(WebIcon.Book, size = GLYPH_ICON) }
-            Title("Share what you finish")
-            P(attrs = { classes(LEDE) }) {
-                Text("Connect your Hardcover account and ListenUp will mark what you listen to as read there.")
-            }
+            Span(attrs = {
+                classes("hc-glyph")
+                attr(ARIA_HIDDEN, "true")
+            }) { Icon(WebIcon.Book, size = GLYPH_ICON) }
+            // The hero's line is the page's title; the tab still says where you are.
+            PageHeader(
+                title = "Share what you finish",
+                subtitle = "Connect your Hardcover account and ListenUp will mark what you listen to as read there.",
+                documentTitle = SCREEN_TITLE,
+            )
         }
 
         Section(attrs = { classes(CARD) }) {
@@ -127,13 +125,12 @@ private fun NotConnected(
                 }) { Text(failure.message()) }
             }
             Div(attrs = { classes("hc-actions") }) {
-                Button(attrs = {
-                    classes("btn-c")
-                    attr("type", TYPE_BUTTON)
-                    disabledWhen(state.isStarting)
-                    if (state.isStarting) attr("aria-busy", "true")
-                    onClick { onConnect() }
-                }) { Text("Connect Hardcover") }
+                Button(
+                    kind = ButtonKind.Primary,
+                    onClick = onConnect,
+                    enabled = !state.isStarting,
+                    attrs = { if (state.isStarting) attr("aria-busy", "true") },
+                ) { Text("Connect Hardcover") }
             }
         }
     }
@@ -163,12 +160,11 @@ private fun Linking(
     // Reset per code: a fresh code that reads "Copied" would claim a copy that never happened.
     var copied by remember(state.userCode) { mutableStateOf(false) }
 
-    Header(attrs = { classes("hc-head") }) {
-        Title("Approve ListenUp on Hardcover")
-        P(attrs = { classes(LEDE) }) {
-            Text("We opened the page for you. On another device, go to $address and enter this code.")
-        }
-    }
+    PageHeader(
+        title = "Approve ListenUp on Hardcover",
+        subtitle = "We opened the page for you. On another device, go to $address and enter this code.",
+        documentTitle = SCREEN_TITLE,
+    )
 
     Div(attrs = { classes("hc-cols") }) {
         Section(attrs = {
@@ -180,11 +176,11 @@ private fun Linking(
                 id(CODE_HEADING_ID)
             }) { Text("Your code") }
             Span(attrs = { classes("hc-code", "mono") }) { Text(state.userCode) }
-            Button(attrs = {
-                classes(BUTTON_OUTLINED, "hc-copy")
-                attr("type", TYPE_BUTTON)
-                onClick { copyText(state.userCode) { landed -> copied = landed } }
-            }) {
+            Button(
+                kind = ButtonKind.Secondary,
+                onClick = { copyText(state.userCode) { landed -> copied = landed } },
+                attrs = { classes("hc-copy") },
+            ) {
                 if (copied) {
                     Icon(WebIcon.Check, size = ITEM_ICON)
                     Text("Copied")
@@ -203,8 +199,8 @@ private fun Linking(
                 Step(2) { Text("Enter the code and approve ListenUp") }
                 Step(STEP_THREE) { Text("This page updates on its own") }
             }
-            A(href = state.verificationUriComplete, attrs = {
-                classes("btn-c", "hc-open")
+            ButtonLink(href = state.verificationUriComplete, kind = ButtonKind.Primary, attrs = {
+                classes("hc-open")
                 attr("target", "_blank")
                 attr("rel", "noopener noreferrer")
             }) {
@@ -228,11 +224,7 @@ private fun Linking(
             Span { Text("This screen updates by itself. The code works for about 15 minutes.") }
         }
         // No confirmation: cancelling a code nobody has approved loses nothing.
-        Button(attrs = {
-            classes(BUTTON_OUTLINED)
-            attr("type", TYPE_BUTTON)
-            onClick { onCancel() }
-        }) { Text("Cancel") }
+        Button(kind = ButtonKind.Secondary, onClick = onCancel) { Text("Cancel") }
     }
 }
 
@@ -257,7 +249,7 @@ private fun Connected(
 ) {
     var confirming by remember { mutableStateOf(false) }
 
-    Title(SCREEN_TITLE)
+    PageHeader(title = SCREEN_TITLE)
     Div(attrs = { classes("hc-cols") }) {
         Section(attrs = { classes(CARD, "hc-hero", "hc-who") }) {
             Span(attrs = {
@@ -283,12 +275,11 @@ private fun Connected(
     }
 
     Div(attrs = { classes("hc-actions") }) {
-        Button(attrs = {
-            classes(BUTTON_OUTLINED)
-            attr("type", TYPE_BUTTON)
-            disabledWhen(state.isDisconnecting)
-            onClick { confirming = true }
-        }) { Text("Disconnect") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { confirming = true },
+            enabled = !state.isDisconnecting,
+        ) { Text("Disconnect") }
     }
 
     DisconnectConfirm(open = confirming, onDisconnect = onDisconnect, onDismiss = { confirming = false })
@@ -302,7 +293,7 @@ private fun Broken(
 ) {
     var confirming by remember { mutableStateOf(false) }
 
-    Title(SCREEN_TITLE)
+    PageHeader(title = SCREEN_TITLE)
     Section(attrs = { classes(CARD, "hc-broken") }) {
         Span(attrs = {
             classes("hc-glyph")
@@ -319,18 +310,13 @@ private fun Broken(
                 }
             }
             Div(attrs = { classes("hc-actions") }) {
-                Button(attrs = {
-                    classes("btn-c")
-                    attr("type", TYPE_BUTTON)
-                    disabledWhen(state.isStarting)
-                    if (state.isStarting) attr("aria-busy", "true")
-                    onClick { onReconnect() }
-                }) { Text("Reconnect") }
-                Button(attrs = {
-                    classes(BUTTON_OUTLINED)
-                    attr("type", TYPE_BUTTON)
-                    onClick { confirming = true }
-                }) { Text("Disconnect") }
+                Button(
+                    kind = ButtonKind.Primary,
+                    onClick = onReconnect,
+                    enabled = !state.isStarting,
+                    attrs = { if (state.isStarting) attr("aria-busy", "true") },
+                ) { Text("Reconnect") }
+                Button(kind = ButtonKind.Secondary, onClick = { confirming = true }) { Text("Disconnect") }
             }
         }
     }
@@ -387,9 +373,7 @@ private fun HardcoverBrokenReason.message(): String =
 /** `hardcover.app/link` — the address a person types, without the scheme nobody types. */
 private fun String.withoutScheme(): String = substringAfter("://")
 
-private const val TYPE_BUTTON = "button"
 private const val ARIA_HIDDEN = "aria-hidden"
-private const val BUTTON_OUTLINED = "btn-o"
 private const val CARD = "hc-card"
 private const val LEDE = "hc-lede"
 

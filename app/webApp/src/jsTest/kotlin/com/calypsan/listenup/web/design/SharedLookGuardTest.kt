@@ -59,8 +59,10 @@ private val TITLE_SIZED_ALLOWED =
         ".boost-read",
         ".sleep-left",
         ".luw .home-stats-total",
-        // Glyphs drawn large: a contributor's monogram, and the stars a rating is chosen with.
+        // Glyphs drawn large: a contributor's and a Hardcover account's monogram, and the stars a
+        // rating is chosen with.
         ".cd-avatar",
+        ".luw .hc-avatar",
         ".rs-input",
         // The sign-in screen's brand line, beside the page's own H1 — a poster, not a title.
         ".auth-hd",
