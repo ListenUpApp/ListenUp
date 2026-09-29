@@ -181,3 +181,32 @@ custom_rules:
       Content text follows Dynamic Type: use a text style or `.scaledFont(size:relativeTo:)`. A
       decorative glyph in a fixed-size container keeps its size with `// decorative fixed size`.
     severity: error
+
+  # Seventeen literal corner radii and a padding for nearly every integer from 4 to 36 had reached
+  # the app (2026-09-29 iOS audit, theming). `DesignSystem/LayoutTokens.swift` holds the scales;
+  # these keep the literals from creeping back. A radius or padding off the scale is either
+  # geometry (a circle's `size / 2`, an inset past an icon column — computed, or ≥ 40) or an optical
+  # nudge (1–3pt), and neither matches.
+  literal_corner_radius:
+    name: "Literal corner radius"
+    regex: 'cornerRadius(?::\s*|\()(?:[2-9]|[1-3][0-9])(?![0-9.])'
+    excluded_match_kinds:
+      - comment
+      - doccomment
+      - string
+    message: >-
+      Use a `Radius` token (`DesignSystem/LayoutTokens.swift`), or `.concentric()` for a shape
+      nested inside a `.containerShape`.
+    severity: error
+
+  literal_padding:
+    name: "Literal padding"
+    regex: '\.padding\((?:\.[a-zA-Z]+,\s*)?(?:[4-9]|[1-3][0-9])\)'
+    excluded_match_kinds:
+      - comment
+      - doccomment
+      - string
+    message: >-
+      Use a `Spacing` token (`DesignSystem/LayoutTokens.swift`). Optical nudges (1–3pt), breathing
+      room of 40pt and more, and geometry-derived insets stay literal.
+    severity: error
