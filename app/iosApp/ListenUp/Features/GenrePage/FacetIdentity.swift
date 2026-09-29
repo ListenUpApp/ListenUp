@@ -51,12 +51,6 @@ func sfSymbol(for icon: FacetIcon) -> String {
 }
 // swiftlint:enable cyclomatic_complexity
 
-/// Parses a facet's accent-hue hex string (e.g. `"#2E5AA0"`, from the shared palette hash) into a
-/// `Color`. Thin wrapper over `Color(hex:)` so callers read the domain intent at the call site.
-func hueColor(_ hex: String) -> Color {
-    Color(hex: hex)
-}
-
 /// The tinted, rounded icon tile every clean-coral facet destination page (genre, tag, mood)
 /// renders as its identity mark: the facet's accent hue at low-opacity fill + a faint hue border +
 /// the mapped SF Symbol tinted the same hue. Never a full-bleed color-block hero. Shared by

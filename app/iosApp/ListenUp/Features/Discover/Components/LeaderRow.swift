@@ -51,9 +51,9 @@ struct LeaderRow: View {
     /// Medal colors for the podium; neutral tertiary for the rest.
     private var rankColor: Color {
         switch row.rank {
-        case 1: Color(red: 0.851, green: 0.604, blue: 0.071) // gold
-        case 2: Color(red: 0.557, green: 0.584, blue: 0.639) // silver
-        case 3: Color(red: 0.753, green: 0.478, blue: 0.220) // bronze
+        case 1: Color.luPodiumGold
+        case 2: Color.luPodiumSilver
+        case 3: Color.luPodiumBronze
         default: Color.luLabel3
         }
     }

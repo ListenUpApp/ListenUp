@@ -44,8 +44,8 @@ enum LicenseData {
 
     static func licenseColor(_ spdxId: String) -> Color {
         switch spdxId {
-        case "Apache-2.0": Color(red: 0.165, green: 0.435, blue: 0.859) // #2A6FDB
-        case "MIT":        Color(red: 0.122, green: 0.541, blue: 0.357) // #1F8A5B
+        case "Apache-2.0": Color.luLicenseApache
+        case "MIT":        Color.luLicenseMIT
         default:           Color(.secondaryLabel)
         }
     }
