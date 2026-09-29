@@ -56,9 +56,9 @@ private struct RootView: View {
     /// Resolved lazily on first authentication (see `.authenticated`) — never at launch, so the
     /// shared ConnectionHealthViewModel graph doesn't touch the keychain before the session exists.
     @State private var connectionHealth: ConnectionHealthObserver?
-    /// The app-wide transient message surface. Created eagerly — a plain value holder with no
-    /// dependencies, and any screen may post to it.
-    @State private var messages = AppMessageCenter()
+    /// The app-wide error alert queue. Created eagerly — a plain value holder with no
+    /// dependencies; `GlobalErrorObserver` fills it once a session exists.
+    @State private var errorAlerts = ErrorAlertCenter()
     /// Resolved lazily on first authentication, mirroring `connectionHealth`: the shared graph must
     /// not be touched before a session exists.
     @State private var globalErrors: GlobalErrorObserver?
@@ -80,7 +80,6 @@ private struct RootView: View {
             .environment(hapticsSettings)
             .environment(deepLinkRouter)
             .environment(pushTapRouter)
-            .environment(messages)
             // Universal links: `.onOpenURL` is the reliable SwiftUI App-lifecycle delivery path
             // (cold launch *and* while running). `.onContinueUserActivity(NSUserActivityTypeBrowsingWeb)`
             // does not fire for universal links under the SwiftUI lifecycle — kept only as a
@@ -118,7 +117,7 @@ private struct RootView: View {
                     // rather than at launch — resolving the bus pre-auth would touch the shared
                     // graph before a session exists.
                     if globalErrors == nil {
-                        globalErrors = GlobalErrorObserver(center: messages)
+                        globalErrors = GlobalErrorObserver(center: errorAlerts)
                     }
                 }
                 activateSyncIfAuthenticated()
@@ -261,11 +260,11 @@ private struct RootView: View {
         }
     }
 
-    /// Both the `.authenticated` and `.sessionLapsed` branches render this, so the message host is
+    /// Both the `.authenticated` and `.sessionLapsed` branches render this, so the error alert is
     /// attached here rather than at either call site — neither can be the one that forgets.
     private var authenticatedContent: some View {
         authenticatedPhase
-            .appMessageHost(messages)
+            .errorAlertHost(errorAlerts)
     }
 
     @ViewBuilder

@@ -2,57 +2,97 @@ import Foundation
 import Testing
 @testable import ListenUp
 
-/// The queueing contract.
+/// The queueing contract behind the app-level error alert.
 ///
-/// Timing is not asserted here — a test that sleeps four seconds to prove a four-second timer is a
-/// slow test proving a constant equals itself. What matters is that a second message never silently
-/// replaces a first.
-@Suite("AppMessageCenter")
+/// An alert is modal — one at a time — so the question this pins is what happens to the second
+/// failure while the first is still on screen: it waits, it is never silently swallowed, and the
+/// same sentence is not said twice in a row.
+@Suite("ErrorAlertCenter")
 @MainActor
-struct AppMessageCenterTests {
-    @Test func postShowsTheFirstMessageImmediately() {
-        let center = AppMessageCenter()
-        center.post(.info("8 books updated"))
-        #expect(center.current?.text == "8 books updated")
+struct ErrorAlertCenterTests {
+    @Test func postShowsTheFirstErrorImmediately() {
+        let center = ErrorAlertCenter()
+        center.post("Couldn't add to shelf.")
+        #expect(center.current?.message == "Couldn't add to shelf.")
     }
 
-    /// The bug this prevents: two bulk actions in a row, and the user is told about the second while
+    /// The bug this prevents: two failures in a row, and the user is told about the second while
     /// the first vanishes unread.
-    @Test func aSecondMessageWaitsRatherThanReplacingTheFirst() {
-        let center = AppMessageCenter()
-        center.post(.info("first"))
-        center.post(.info("second"))
-        #expect(center.current?.text == "first")
+    @Test func aSecondErrorWaitsRatherThanReplacingTheFirst() {
+        let center = ErrorAlertCenter()
+        center.post("first.")
+        center.post("second.")
+        #expect(center.current?.message == "first.")
     }
 
-    @Test func dismissingAdvancesToTheWaitingMessage() {
-        let center = AppMessageCenter()
-        center.post(.info("first"))
-        center.post(.info("second"))
+    /// Two steps, so the first alert fully leaves before the second is presented.
+    @Test func dismissingFreesTheSlotAndShowNextPresentsTheWaitingError() {
+        let center = ErrorAlertCenter()
+        center.post("first.")
+        center.post("second.")
         center.dismissCurrent()
-        #expect(center.current?.text == "second")
+        #expect(center.current == nil)
+        #expect(center.hasWaiting)
+        center.showNext()
+        #expect(center.current?.message == "second.")
+        #expect(!center.hasWaiting)
     }
 
-    @Test func dismissingTheLastMessageLeavesNothingShowing() {
-        let center = AppMessageCenter()
-        center.post(.info("only"))
+    /// A failure arriving between a dismissal and the next alert waits its turn behind it.
+    @Test func anErrorPostedMidDismissalQueuesBehindTheWaitingOne() {
+        let center = ErrorAlertCenter()
+        center.post("first.")
+        center.post("second.")
+        center.dismissCurrent()
+        center.post("third.")
+        center.showNext()
+        #expect(center.current?.message == "second.")
+    }
+
+    @Test func dismissingTheLastErrorLeavesNothingShowing() {
+        let center = ErrorAlertCenter()
+        center.post("only.")
         center.dismissCurrent()
         #expect(center.current == nil)
     }
 
-    /// Bounded, and it drops the oldest *waiting* message — the newest is what the user just caused.
-    @Test func theQueueDropsTheOldestWaitingMessageWhenItOverflows() {
-        let center = AppMessageCenter()
-        center.post(.info("showing"))
-        for index in 0...AppMessageCenter.maxQueued {
-            center.post(.info("queued \(index)"))
-        }
+    /// A failure that repeats (a retry that fails the same way) is one alert, not a stack of
+    /// identical ones the user has to dismiss one by one.
+    @Test func theSameSentenceIsNotQueuedTwice() {
+        let center = ErrorAlertCenter()
+        center.post("same.")
+        center.post("same.")
+        center.post("other.")
+        center.post("other.")
         center.dismissCurrent()
-        #expect(center.current?.text == "queued 1")
+        center.showNext()
+        #expect(center.current?.message == "other.")
+        center.dismissCurrent()
+        center.showNext()
+        #expect(center.current == nil)
     }
 
-    @Test func errorAndInfoCarryTheirKind() {
-        #expect(AppMessage.error("nope.").kind == .error)
-        #expect(AppMessage.info("yep").kind == .info)
+    /// Bounded, and it drops the oldest *waiting* error — the newest is what the user just caused.
+    @Test func theQueueDropsTheOldestWaitingErrorWhenItOverflows() {
+        let center = ErrorAlertCenter()
+        center.post("showing.")
+        for index in 0...ErrorAlertCenter.maxQueued {
+            center.post("queued \(index).")
+        }
+        center.dismissCurrent()
+        center.showNext()
+        #expect(center.current?.message == "queued 1.")
+    }
+
+    /// Each presentation is a distinct identity, so SwiftUI re-presents the alert for a repeat of
+    /// an earlier sentence rather than treating it as the alert already dismissed.
+    @Test func aRepeatAfterDismissalIsANewAlert() {
+        let center = ErrorAlertCenter()
+        center.post("again.")
+        let first = center.current?.id
+        center.dismissCurrent()
+        center.post("again.")
+        #expect(center.current?.message == "again.")
+        #expect(center.current?.id != first)
     }
 }

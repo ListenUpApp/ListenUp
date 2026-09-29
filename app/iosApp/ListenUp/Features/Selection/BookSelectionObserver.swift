@@ -22,9 +22,9 @@ struct SelectionCollectionRow: Identifiable, Equatable {
 /// forwards the user's actions. Successful bulk adds dismiss the matching picker and clear the
 /// selection inside the VM (which flips `selectionMode` back to `None`).
 ///
-/// Failures are emitted to the shared `ErrorBus` and surfaced by `GlobalErrorObserver` on the
-/// app-wide message host; successes come back on `events` and become `confirmation`, which the
-/// screen chrome posts. Both halves of a bulk add are therefore visible to the user.
+/// Failures are emitted to the shared `ErrorBus` and surfaced by `GlobalErrorObserver` as the
+/// app-wide error alert; successes come back on `events` and become `confirmation`, which the
+/// screen chrome confirms (haptic + VoiceOver announcement). Both halves of a bulk add are therefore visible to the user.
 @Observable
 @MainActor
 final class BookSelectionObserver {
