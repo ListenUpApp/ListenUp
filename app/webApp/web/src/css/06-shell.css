@@ -395,6 +395,14 @@
   .bd-head { gap:var(--sp-16); }
 
 }
+/* < 640: the cover stands above the title. Beside it, a 390px phone left the title 166px to wrap
+   in and pushed Edit and Match past the screen's edge — and `.shell-main` scrolls sideways, so
+   nothing on the page said they were there. The actions wrap for the same reason. */
+@media (max-width: 639px) {
+  .bd-head { flex-direction:column; align-items:flex-start; }
+  .bd-tblock { width:100%; }
+  .bd-actions { flex-wrap:wrap; }
+}
 
 /* ---- checkbox (table select) ---- */
 .cbx { width:17px; height:17px; border-radius:5px; border:1.5px solid var(--hairline); background:var(--surface); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
