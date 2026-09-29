@@ -81,7 +81,7 @@ struct DevicesView: View {
     /// Gestures ("Use shortcut gestures to supplement standard gestures, not replace them").
     /// The system list is width-responsive on its own (readable margins on iPad), so the old
     /// two-pane iPad HStack goes with the cards.
-    private func readyBody(observer: DevicesObserver, devices: [DeviceRow], signingOut: Set<String>) -> some View {
+    private func readyBody(observer: DevicesObserver, devices: [DeviceRowModel], signingOut: Set<String>) -> some View {
         let currentDevice = devices.first { $0.isCurrent }
         let otherDevices = devices.filter { !$0.isCurrent }
 
@@ -94,7 +94,7 @@ struct DevicesView: View {
 
             if !otherDevices.isEmpty {
                 Section {
-                    ForEach(otherDevices, id: \.sessionId) { device in
+                    ForEach(otherDevices) { device in
                         otherDeviceRow(device, signingOut: signingOut)
                     }
                 } header: {
@@ -137,7 +137,7 @@ struct DevicesView: View {
     // MARK: - This Device
 
     @ViewBuilder
-    private func thisDeviceRow(_ device: DeviceRow) -> some View {
+    private func thisDeviceRow(_ device: DeviceRowModel) -> some View {
         HStack(spacing: 14) {
             IconTile(systemImage: deviceIcon(for: device.secondary), size: 50)
             VStack(alignment: .leading, spacing: 3) {
@@ -179,7 +179,7 @@ struct DevicesView: View {
     // MARK: - Other Devices
 
     @ViewBuilder
-    private func otherDeviceRow(_ device: DeviceRow, signingOut: Set<String>) -> some View {
+    private func otherDeviceRow(_ device: DeviceRowModel, signingOut: Set<String>) -> some View {
         let target = RevokeTarget(sessionId: device.sessionId, displayName: device.displayName)
         HStack(spacing: 13) {
             IconTile(systemImage: deviceIcon(for: device.secondary), size: 44)
@@ -200,7 +200,7 @@ struct DevicesView: View {
                 ProgressView()
                     .controlSize(.small)
             } else {
-                Text(relativeDate(epochMs: device.lastUsedAt))
+                Text(relativeDate(epochMs: device.lastUsedAtMs))
                     .font(.footnote)
                     .foregroundStyle(Color.luLabel2)
                     .lineLimit(1)
