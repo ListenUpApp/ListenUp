@@ -70,6 +70,7 @@ struct LicensesView: View {
             librariesSection
         }
         .listStyle(.insetGrouped)
+        .readableListWidth(720)
     }
 
     // MARK: - Overview panel (regular-width left pane)
