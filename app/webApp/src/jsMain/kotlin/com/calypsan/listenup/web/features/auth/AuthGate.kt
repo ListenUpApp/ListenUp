@@ -79,6 +79,10 @@ import com.calypsan.listenup.web.features.admin.AdminSessions
  *
  * [WebAppSurface] lives here rather than in [WebAppRoot] because every branch needs it and only
  * one of them is the shell.
+ *
+ * [notice] is a banner about the whole app, whichever branch shows — the degraded-storage notice.
+ * It renders inside the surface, above the branch, so beside the shell it takes a share of the one
+ * viewport rather than being added on top of it and scrolling the document.
  */
 @Composable
 fun AuthGate(
@@ -127,6 +131,7 @@ fun AuthGate(
     observeThemeMode: () -> Flow<ThemeMode>,
     initialInviteCode: String? = null,
     observeErrors: () -> Flow<AppError>,
+    notice: @Composable () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val authState by authGraph.authState.collectAsState()
@@ -160,6 +165,7 @@ fun AuthGate(
     }
 
     WebAppSurface {
+        notice()
         when (val state = authState) {
             AuthState.Initializing,
             AuthState.CheckingServer,

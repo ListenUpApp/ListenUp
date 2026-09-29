@@ -172,12 +172,6 @@ fun main() {
 
         val router = Router(beforeRouteChange = ::captureHeroOriginBeforeRouteChange)
         renderComposable(root = mount) {
-            // Above the gate, so it is visible whether or not anyone is signed in — the reason the
-            // library is slow to appear is the same on the sign-in screen as inside the app.
-            if (environment is BrowserStoreEnvironment.Degraded) {
-                var dismissed by remember { mutableStateOf(false) }
-                if (!dismissed) StoreDegradedBanner(environment.reason) { dismissed = true }
-            }
             AuthGate(
                 authGraph = graphAuth(koin),
                 router = router,
@@ -240,6 +234,15 @@ fun main() {
                 observeThemeMode = { koin.get<LocalPreferences>().themeMode },
                 initialInviteCode = inviteCode,
                 observeErrors = { koin.get<ErrorBus>().errors },
+                // The gate's notice, so it is visible whether or not anyone is signed in — the
+                // reason the library is slow to appear is the same on the sign-in screen as inside
+                // the app — and sits inside the surface, sharing the screen with the shell.
+                notice = {
+                    if (environment is BrowserStoreEnvironment.Degraded) {
+                        var dismissed by remember { mutableStateOf(false) }
+                        if (!dismissed) StoreDegradedBanner(environment.reason) { dismissed = true }
+                    }
+                },
             )
         }
     }

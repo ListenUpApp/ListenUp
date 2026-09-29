@@ -1,6 +1,8 @@
 package com.calypsan.listenup.web.features.auth
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
+import androidx.compose.runtime.remember
 import com.calypsan.listenup.web.features.licences.fixedLicences
 import com.calypsan.listenup.web.features.licences.OpenLicences
 import com.calypsan.listenup.web.features.licences.LicencesUiState
@@ -21,6 +23,11 @@ import com.calypsan.listenup.web.features.hardcover.fixedHardcover
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.Flow
 import com.calypsan.listenup.web.awaitFrame
+import com.calypsan.listenup.web.PHONE
+import com.calypsan.listenup.web.StoreDegradedBanner
+import com.calypsan.listenup.web.TABLET
+import com.calypsan.listenup.web.ViewportFrames
+import io.kotest.matchers.doubles.shouldBeLessThanOrEqual
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.web.features.settings.fixedSettings
 import com.calypsan.listenup.web.features.shelf.fixedShelfDetail
@@ -120,6 +127,8 @@ import org.w3c.dom.asList
 import org.w3c.dom.HTMLDialogElement
 import com.calypsan.listenup.web.features.sync.fixedDeadLetters
 
+private const val DESKTOP_WIDTH = 1440
+
 /** A signed-in session. The ids are arbitrary — the gate only ever branches on the state's type. */
 private fun authenticated() = AuthState.Authenticated(UserId("u1"), SessionId("s1"))
 
@@ -142,12 +151,29 @@ private fun mountGate(
     errors: Flow<AppError> = emptyFlow(),
     openLibrarySetup: OpenLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
     openConnectionHealth: OpenConnectionHealth = fixedConnectionHealth(),
+    notice: @Composable () -> Unit = {},
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
-    val router = Router().also { routers += it }
     compositions +=
         renderComposable(root = host) {
+            Gate(graph, themeMode, inviteCode, errors, openLibrarySetup, openConnectionHealth, notice)
+        }
+    return host
+}
+
+/** The gate with every destination faked — what [mountGate] renders, and a viewport frame can too. */
+@Composable
+private fun Gate(
+    graph: FakeAuthGraph,
+    themeMode: Flow<ThemeMode> = flowOf(ThemeMode.SYSTEM),
+    inviteCode: String? = null,
+    errors: Flow<AppError> = emptyFlow(),
+    openLibrarySetup: OpenLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
+    openConnectionHealth: OpenConnectionHealth = fixedConnectionHealth(),
+    notice: @Composable () -> Unit = {},
+) {
+    val router = remember { Router().also { routers += it } }
             AuthGate(
                 authGraph = graph,
                 router = router,
@@ -210,9 +236,8 @@ private fun mountGate(
                 observeThemeMode = { themeMode },
                 initialInviteCode = inviteCode,
                 observeErrors = { errors },
+                notice = notice,
             )
-        }
-    return host
 }
 
 class AuthGateTest :
@@ -236,6 +261,31 @@ class AuthGateTest :
 
             host.querySelector(".lsetup").shouldNotBeNull()
             host.querySelector(".shell") shouldBe null
+        }
+
+        // ⛔ The storage notice used to render beside the gate, outside the app's surface, so it was
+        // ADDED to a shell that is already one viewport tall: the whole document scrolled by the
+        // notice's height, at every width. Inside the surface it divides the screen with the shell,
+        // the way the lapsed-session banner does.
+        listOf(PHONE, TABLET, DESKTOP_WIDTH).forEach { width ->
+            test("at ${width}px the storage notice and the app share one screen") {
+                val frames = ViewportFrames()
+                try {
+                    val frame =
+                        frames.mount(width) {
+                            Gate(FakeAuthGraph(authenticated()), notice = { StoreDegradedBanner("A reason.") {} })
+                        }
+                    awaitFrame()
+
+                    frame.find(".luw > .lapse.is-hint")
+                    frame.verticalOverflow() shouldBe 0
+                    frame.rect(frame.find(".lapse.is-hint")).bottom shouldBeLessThanOrEqual
+                        frame.rect(frame.find(".shell")).top
+                    frame.rect(frame.find(".shell")).bottom shouldBe frame.height.toDouble()
+                } finally {
+                    frames.disposeAll()
+                }
+            }
         }
 
         test("a lapsed session keeps the app and says how to get back in") {
