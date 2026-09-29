@@ -52,6 +52,9 @@ private val threeCatalogs =
 
 private val priors = SourceCalibration.PRIORS
 
+/** The default priors' reference spread: (0.30 + 0.35 + 0.30) / 3. */
+private const val REFERENCE_SPREAD = 0.95 / 3
+
 /**
  * [listenUpScore] is the headline: every source calibrated to its own curve, small samples shrunk
  * toward that curve, weighted by the log of how many ratings each is over, and put back on one
@@ -61,29 +64,45 @@ private val priors = SourceCalibration.PRIORS
  */
 class ExternalRatingTest :
     FunSpec({
-        test("one source scores its shrunk average") {
+        test("every book sits on one curve: the mean of every known outside source's curve") {
+            // (4.40 + 3.95 + 3.95) / 3 and (0.30 + 0.35 + 0.30) / 3 — listeners excluded.
+            priors.referenceCurve.mean shouldBe (4.10 plusOrMinus 1e-9)
+            priors.referenceCurve.spread shouldBe (0.95 / 3 plusOrMinus 1e-9)
+        }
+
+        test("an exactly-average book scores the reference mean, whichever catalog rated it") {
+            val audibleOnly = listenUpScore(listOf(rating(4.40, 100_000, AUDIBLE)), null, priors)
+            val goodreadsOnly = listenUpScore(listOf(rating(3.95, 100_000, GOODREADS)), null, priors)
+
+            audibleOnly.shouldNotBeNull().average shouldBe (priors.referenceCurve.mean plusOrMinus 1e-9)
+            goodreadsOnly.shouldNotBeNull().average shouldBe (priors.referenceCurve.mean plusOrMinus 1e-9)
+        }
+
+        test("one source scores its shrunk average's place on its own curve, read off the reference curve") {
             val result = listenUpScore(listOf(rating(4.7, 1_007)), listeners = null, calibration = priors)
 
+            val shrunk = (4.7 * 1_007 + 4.40 * 25) / 1_032
             result.shouldNotBeNull()
-            result.average shouldBe ((4.7 * 1_007 + 4.40 * 25) / 1_032 plusOrMinus 1e-9)
+            result.average shouldBe (4.10 + REFERENCE_SPREAD * (shrunk - 4.40) / 0.30 plusOrMinus 1e-9)
             result.count shouldBe 1_007
             result.shares shouldBe mapOf(ScoreSource.Outside(AUDIBLE) to 1.0)
         }
 
-        test("any single outside source scores its shrunk average") {
+        test("any single outside source lands where its z-score says on the reference curve") {
             checkAll(averageArb, Arb.int(1, 100_000)) { average, count ->
                 val result = listenUpScore(listOf(rating(average, count, GOODREADS)), null, priors)
                 val shrunk = (average * count + 3.95 * 25) / (count + 25)
+                val expected = 4.10 + REFERENCE_SPREAD * (shrunk - 3.95) / 0.30
                 result.shouldNotBeNull()
-                result.average shouldBe (shrunk.coerceIn(1.0, 5.0) plusOrMinus 1e-9)
+                result.average shouldBe (expected.coerceIn(1.0, 5.0) plusOrMinus 1e-9)
             }
         }
 
-        test("a tiny sample barely moves off its source's curve") {
+        test("a tiny sample barely moves off the reference curve") {
             val result = listenUpScore(listOf(rating(5.0, 2, HARDCOVER)), null, priors)
 
             result.shouldNotBeNull()
-            result.average shouldBe (3.95 plusOrMinus 0.2)
+            result.average shouldBe (priors.referenceCurve.mean plusOrMinus 0.1)
         }
 
         test("no source drowns the rest by volume") {
@@ -106,7 +125,8 @@ class ExternalRatingTest :
 
             fromGoodreads.shouldNotBeNull()
             fromAudible.shouldNotBeNull()
-            fromGoodreads.average shouldBeGreaterThan fromAudible.average
+            // 4.3 is above Goodreads' curve and below Audible's: a clear gap, not a rounding one.
+            fromGoodreads.average - fromAudible.average shouldBeGreaterThan 0.05
         }
 
         test("the score always lies in 1..5 and the shares always sum to one") {
@@ -152,6 +172,26 @@ class ExternalRatingTest :
             curve.spread shouldBe (0.15 plusOrMinus 1e-9)
         }
 
+        test("the reference curve still counts a catalog with no books in the library, at its prior") {
+            val calibration =
+                SourceCalibration.from(
+                    outside = List(30) { rating(4.6, 500, AUDIBLE) } + List(30) { rating(4.0, 500, GOODREADS) },
+                    listeners = emptyList(),
+                )
+
+            val audible = calibration.curveOf(ScoreSource.Outside(AUDIBLE))
+            val goodreads = calibration.curveOf(ScoreSource.Outside(GOODREADS))
+            // Zero Hardcover rows: Hardcover still sits in the mean, at its prior (3.95, 0.35).
+            calibration.referenceCurve.mean shouldBe ((audible.mean + 3.95 + goodreads.mean) / 3 plusOrMinus 1e-9)
+            calibration.referenceCurve.spread shouldBe ((audible.spread + 0.35 + goodreads.spread) / 3 plusOrMinus 1e-9)
+        }
+
+        test("listeners never move the reference curve") {
+            val calibration = SourceCalibration.from(outside = emptyList(), listeners = List(30) { listeners(5.0, 3) })
+
+            calibration.referenceCurve shouldBe priors.referenceCurve
+        }
+
         test("a source with no books in the library keeps its prior") {
             val calibration =
                 SourceCalibration.from(outside = List(30) { rating(4.6, 500, AUDIBLE) }, listeners = emptyList())
@@ -192,8 +232,9 @@ class ExternalRatingTest :
             val result = listenUpScore(emptyList(), listeners(5.0, 1), priors)
 
             result.shouldNotBeNull()
-            // (5.0 · 1 + 4.0 · 1) / 2: a pseudo-count of one, not twenty-five.
-            result.average shouldBe (4.5 plusOrMinus 1e-9)
+            // Shrunk to (5.0 · 1 + 4.0 · 1) / 2 = 4.5 — a pseudo-count of one, not twenty-five — then
+            // read off the reference curve through the listeners' own curve (4.0, 0.6).
+            result.average shouldBe (4.10 + REFERENCE_SPREAD * (4.5 - 4.0) / 0.6 plusOrMinus 1e-9)
             result.shares.keys shouldBe setOf(ScoreSource.Listeners)
         }
 
