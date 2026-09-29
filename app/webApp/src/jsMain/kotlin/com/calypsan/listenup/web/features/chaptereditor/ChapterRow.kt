@@ -41,14 +41,25 @@ internal fun ChapterRow(
     Div(attrs = {
         classes("chr")
         if (isSelected) classes("on")
-        // The row is not a button: it holds six of them. Selection rides a click on the row's own
-        // body, and the row announces the state a screen reader would otherwise have to infer.
+        // The row is not a button: it holds six of them. A click anywhere on its body selects it —
+        // a mouse convenience — and the title below is the same selection as a real button, which
+        // is the keyboard's way to it.
         attr("aria-current", isSelected.toString())
         onClick { onSelect() }
     }) {
         Span(attrs = { classes("chr-n") }) { Text(numbered.number.toString()) }
         Div(attrs = { classes("chr-main") }) {
-            Div(attrs = { classes("chr-t") }) { Text(chapter.title) }
+            Button(attrs = {
+                classes("chr-t")
+                attr("type", "button")
+                // On the control too: the row's own state is not announced when focus lands here.
+                attr("aria-current", isSelected.toString())
+                onClick { event ->
+                    // The row would report it a second time on the way up.
+                    event.stopPropagation()
+                    onSelect()
+                }
+            }) { Text(chapter.title) }
             Div(attrs = { classes("chr-at") }) {
                 // The time is its own control: press it to type the start to the millisecond (§7.4).
                 Button(attrs = {

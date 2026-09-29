@@ -1,20 +1,25 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Breadcrumb
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionsUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -40,13 +45,9 @@ fun CollectionsPage(
     onOpenAdmin: () -> Unit,
 ) {
     Div(attrs = { classes("coll") }) {
-        Button(attrs = {
-            classes("btn-o", "coll-back")
-            attr("type", VALUE_BUTTON)
-            onClick { onOpenAdmin() }
-        }) { Text("← Admin") }
+        Breadcrumb(trail = listOf("Admin", "Collections"), onNavigate = { onOpenAdmin() })
 
-        H1(attrs = { classes("coll-title") }) { Text("Collections") }
+        PageHeader(title = "Collections")
 
         when (state) {
             AdminCollectionsUiState.Loading -> {
@@ -54,10 +55,7 @@ fun CollectionsPage(
             }
 
             is AdminCollectionsUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H3 { Text("Collections can't be shown") }
-                    P { Text(state.message) }
-                }
+                EmptyState(title = "Collections can't be shown", body = state.message)
             }
 
             is AdminCollectionsUiState.Ready -> {
@@ -84,28 +82,33 @@ private fun ReadyContent(
 
     Div(attrs = { classes("coll-bar") }) {
         Span(attrs = { classes("coll-count") }) { Text(collectionSummary(state.collections.size)) }
-        Button(attrs = {
-            classes("btn-c", "coll-new")
-            attr("type", VALUE_BUTTON)
-            disabledWhen(state.isCreating)
-            onClick { creating = true }
-        }) { Text(if (state.isCreating) "Creating…" else "New collection") }
+        Button(
+            kind = ButtonKind.Primary,
+            size = ButtonSize.Sm,
+            onClick = { creating = true },
+            attrs = {
+                classes("coll-new")
+                disabledWhen(state.isCreating)
+            },
+        ) { Text(if (state.isCreating) "Creating…" else "New collection") }
     }
 
     if (state.collections.isEmpty()) {
-        Div(attrs = { classes("empty") }) {
-            H3 { Text("No collections yet") }
-            P { Text("A collection is a group of books you can hand to one person, or to everyone.") }
-        }
+        EmptyState(
+            title = "No collections yet",
+            body = "A collection is a group of books you can hand to one person, or to everyone.",
+        )
     } else {
         Div(attrs = { classes("coll-list") }) {
             state.collections.forEach { collection ->
-                CollectionRow(
-                    collection = collection,
-                    isDeleting = state.deletingCollectionId == collection.id,
-                    onOpen = { onOpenCollection(collection.id) },
-                    onAskDelete = { pendingDelete = collection },
-                )
+                key(collection.id) {
+                    CollectionRow(
+                        collection = collection,
+                        isDeleting = state.deletingCollectionId == collection.id,
+                        onOpen = { onOpenCollection(collection.id) },
+                        onAskDelete = { pendingDelete = collection },
+                    )
+                }
             }
         }
     }
@@ -169,14 +172,16 @@ private fun CollectionRow(
                 Span(attrs = { classes("coll-lock-t") }) { Text("Managed") }
             }
         } else {
-            Button(attrs = {
-                classes("iconbtn", "coll-del")
-                attr("type", VALUE_BUTTON)
-                attr("aria-label", "Delete ${collection.name}")
-                attr("title", "Delete ${collection.name}")
-                disabledWhen(isDeleting)
-                onClick { onAskDelete() }
-            }) { Icon(WebIcon.Trash, size = SMALL_ICON) }
+            Button(
+                kind = ButtonKind.Icon,
+                size = ButtonSize.Sm,
+                onClick = { onAskDelete() },
+                label = "Delete ${collection.name}",
+                attrs = {
+                    classes("coll-del")
+                    disabledWhen(isDeleting)
+                },
+            ) { Icon(WebIcon.Trash, size = SMALL_ICON) }
         }
     }
 }

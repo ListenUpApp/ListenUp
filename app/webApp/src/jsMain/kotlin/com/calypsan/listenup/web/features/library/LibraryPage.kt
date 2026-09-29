@@ -1,9 +1,12 @@
 package com.calypsan.listenup.web.features.library
 
+import com.calypsan.listenup.web.design.Cover
+import com.calypsan.listenup.web.design.ProgressLook
+import com.calypsan.listenup.web.design.ProgressBar
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
@@ -12,8 +15,12 @@ import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.util.nameLetter
 import com.calypsan.listenup.client.util.sortLetter
+import com.calypsan.listenup.web.design.EmptyState
+import com.calypsan.listenup.web.design.LoadingState
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageHeader
+import com.calypsan.listenup.web.design.SortControl
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.coverUrl
@@ -21,14 +28,8 @@ import com.calypsan.listenup.web.motion.CoverSurface
 import com.calypsan.listenup.web.motion.flyHeroInto
 import com.calypsan.listenup.web.motion.recordHeroOrigin
 import org.w3c.dom.Element
-import org.jetbrains.compose.web.attributes.alt
-import org.jetbrains.compose.web.css.percent
-import org.jetbrains.compose.web.css.width
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H3
-import org.jetbrains.compose.web.dom.Img
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Text
 
 /**
@@ -81,28 +82,31 @@ fun LibraryPage(
     // strand them for good. Sorting is the exception, and stays with the loaded branch: offering to
     // reorder nothing is an affordance whose only outcome is nothing.
     Div(attrs = { classes("lib-header") }) {
-        H3 { Text("Library") }
-        // Offered only once there is something to select. Arming selection over an empty grid is
-        // an affordance whose only outcome is nothing — the same reason Sort stays with the
-        // loaded branch.
-        if (state is LibraryUiState.Loaded && state.books.isNotEmpty() && !selecting && onStartSelecting != null) {
-            Button(attrs = {
-                classes("btn-o", "lib-select")
-                attr("type", "button")
-                onClick { onStartSelecting() }
-            }) { Text("Select") }
+        PageHeader(title = "Library") {
+            // Offered only once there is something to select. Arming selection over an empty grid
+            // is an affordance whose only outcome is nothing — the same reason Sort stays with the
+            // loaded branch.
+            if (state is LibraryUiState.Loaded && state.books.isNotEmpty() && !selecting && onStartSelecting != null) {
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = { onStartSelecting() },
+                    attrs = {
+                        classes("lib-select")
+                    },
+                ) { Text("Select") }
+            }
+            if (state is LibraryUiState.Loaded) BookSortControl(state, onEvent)
         }
-        if (state is LibraryUiState.Loaded) SortControl(state, onEvent)
     }
     FacetRow(active = LibraryFacet.Books, onSelect = onSelectFacet)
 
     when (state) {
         is LibraryUiState.Loading -> {
-            Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+            LoadingState()
         }
 
         is LibraryUiState.Error -> {
-            Div(attrs = { classes("empty") }) { P { Text(state.message) } }
+            EmptyState(title = "Your library can't be shown", body = state.message)
         }
 
         is LibraryUiState.Loaded -> {
@@ -197,14 +201,10 @@ private fun openWithOrigin(
  */
 @Composable
 private fun EmptyLibrary(isBuilding: Boolean) {
-    Div(attrs = { classes("empty") }) {
-        if (isBuilding) {
-            H3 { Text("Syncing your library…") }
-            P { Text("Books will appear here as they arrive.") }
-        } else {
-            H3 { Text("No books yet") }
-            P { Text("Add a folder on the server and run a scan.") }
-        }
+    if (isBuilding) {
+        EmptyState(title = "Syncing your library…", body = "Books will appear here as they arrive.")
+    } else {
+        EmptyState(title = "No books yet", body = "Add a folder on the server and run a scan.")
     }
 }
 
@@ -217,11 +217,6 @@ internal fun BookCard(
     selecting: Boolean = false,
     isSelected: Boolean = false,
 ) {
-    // A library of any size has books the server holds no artwork for, and a bare <img> renders
-    // those as a broken-image icon. The book detail page already falls back to a titled tile; this
-    // is the same treatment, so one missing cover does not look like a broken page.
-    var coverFailed by remember(book.id) { mutableStateOf(false) }
-
     Div(attrs = {
         classes("lib-card")
         if (selecting && isSelected) classes("on")
@@ -258,24 +253,24 @@ internal fun BookCard(
                 }
             }
         }
-        CardCover(book, coverFailed, flyBack) { coverFailed = true }
+        CardCover(book, flyBack)
         Div(attrs = { classes("lib-title") }) { Text(book.title) }
         // Rendered even when empty, and likewise the progress rail below: the grid is virtualised,
         // and that only works because every card is exactly the same height. A card that dropped
         // its author line would be shorter than its neighbours and the row arithmetic would drift.
         Div(attrs = { classes("lib-author") }) { Text(book.authors.joinToString(", ") { it.name }) }
         run {
-            Div(attrs = {
-                classes("lib-progress")
-                // Holds its row so every card is the same height, but shows nothing until there is
-                // progress to show — a rail on an unstarted book would claim the reader had begun it.
-                if (progress <= 0f) classes("is-empty")
-            }) {
-                Div(attrs = {
-                    classes("lib-progress-fill")
-                    style { width((progress * PERCENT).percent) }
-                })
-            }
+            ProgressBar(
+                value = progress,
+                label = "Listening progress",
+                look = ProgressLook.Rail,
+                attrs = {
+                    classes("lib-progress")
+                    // Holds its row so every card is the same height, but shows nothing until there
+                    // is progress — a rail on an unstarted book would claim the reader had begun it.
+                    if (progress <= 0f) classes("is-empty")
+                },
+            )
         }
     }
 }
@@ -295,41 +290,29 @@ private fun SelectionTick(isSelected: Boolean) {
 }
 
 /**
- * The card's artwork, or a titled tile when the server holds none.
+ * The card's artwork, or — when the server holds none — the same titled tile every other page draws
+ * for that book: this is the shared [Cover], fluid to the grid's column.
  *
- * Split out of [BookCard] to keep that function inside the build's branching limit once selection
- * gave it a second job. A library of any size has books with no cover, and a bare `<img>` renders
- * those as a broken-image icon — the same treatment Book Detail gives them.
+ * Decorative, because the title is the card's own text directly below, and naming it in the picture
+ * too made a screen reader say every book twice. Lazy, because a 1200-book library otherwise pulls
+ * 1200 covers on first paint; the `srcset` leaves the rung to the browser, which knows the device's
+ * pixel ratio and we do not.
  */
 @Composable
 private fun CardCover(
     book: BookListItem,
-    coverFailed: Boolean,
     flyBack: (org.jetbrains.compose.web.attributes.AttrsScope<*>) -> Unit,
-    onCoverFailed: () -> Unit,
 ) {
-    if (coverFailed) {
-        Div(attrs = {
-            classes("lib-cover", "lib-cover-fallback")
-            flyBack(this)
-        }) { Text(book.title) }
-        return
-    }
-    Img(
-        src = coverUrl(book.id.value, book.coverHash, GRID_RUNG),
+    Cover(
+        title = book.title,
+        imageUrl = coverUrl(book.id.value, book.coverHash, GRID_RUNG),
+        size = null,
+        radius = CARD_COVER_RADIUS,
+        decorative = true,
+        srcset = coverSrcset(book.id.value, book.coverHash),
         attrs = {
             classes("lib-cover")
             flyBack(this)
-            alt(book.title)
-            // Which rung a display needs is the browser's call, not ours — it knows the device
-            // pixel ratio and we do not. Stating both lets a 1x screen take 300px and a Retina one
-            // take 600px from the same markup.
-            attr("srcset", coverSrcset(book.id.value, book.coverHash))
-            // The browser fetches only what the reader approaches, and decodes off the main
-            // thread. Without these a 1200-book library pulls 1200 covers on first paint.
-            attr("loading", "lazy")
-            attr("decoding", "async")
-            addEventListener("error") { onCoverFailed() }
         },
     )
 }
@@ -341,23 +324,18 @@ private fun CardCover(
  * sort preference of its own, which is what keeps a reader's ordering the same on every device.
  */
 @Composable
-private fun SortControl(
+private fun BookSortControl(
     state: LibraryUiState.Loaded,
     onEvent: (LibraryUiEvent) -> Unit,
 ) {
-    Div(attrs = { classes("lib-sort") }) {
-        BOOK_SORT_CATEGORIES.forEach { category ->
-            Div(attrs = {
-                classes("lib-sort-option")
-                if (state.booksSortState.category == category) classes("is-active")
-                onClick { onEvent(LibraryUiEvent.BooksCategoryChanged(category)) }
-            }) { Text(category.label) }
-        }
-        Div(attrs = {
-            classes("lib-sort-direction")
-            onClick { onEvent(LibraryUiEvent.BooksDirectionToggled) }
-        }) { Text(if (state.booksSortState.direction == SortDirection.ASCENDING) "↑" else "↓") }
-    }
+    SortControl(
+        options = BOOK_SORT_CATEGORIES,
+        active = state.booksSortState.category,
+        labelOf = { it.label },
+        ascending = state.booksSortState.direction == SortDirection.ASCENDING,
+        onSelect = { onEvent(LibraryUiEvent.BooksCategoryChanged(it)) },
+        onToggleDirection = { onEvent(LibraryUiEvent.BooksDirectionToggled) },
+    )
 }
 
 /** The same cover at both rungs, for the browser to choose between by pixel density. */
@@ -368,8 +346,6 @@ private fun coverSrcset(
     "${coverUrl(bookId, coverHash, GRID_RUNG)} 1x, " +
         "${coverUrl(bookId, coverHash, GRID_RUNG_DENSE)} 2x"
 
-private const val PERCENT = 100
-
 private const val TICK_ICON = 14
 
 /** The grid's tiles are `minmax(190px, 1fr)`; 300 is the smallest rung that covers one at 1x. */
@@ -377,3 +353,6 @@ private const val GRID_RUNG = 300
 
 /** The rung a 2x display needs for the same tile. Also the largest the ladder offers. */
 private const val GRID_RUNG_DENSE = 600
+
+/** The house corner (`--r-md`), shared with a contributor's tiles, so a book's tile is one shape everywhere. */
+private const val CARD_COVER_RADIUS = 12

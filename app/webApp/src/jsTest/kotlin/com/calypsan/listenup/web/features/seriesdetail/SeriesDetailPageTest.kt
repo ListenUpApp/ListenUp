@@ -44,7 +44,7 @@ class SeriesDetailPageTest :
         test("the hero renders the series' name and its author") {
             val root = seriesDetailPage(readySeries())
 
-            (root.querySelector(".sd-t") as HTMLElement).textContent shouldBe "The Stormlight Archive"
+            (root.querySelector(".page-t") as HTMLElement).textContent shouldBe "The Stormlight Archive"
             (root.querySelector(".sd-by") as HTMLElement).textContent shouldBe "Brandon Sanderson"
         }
 
@@ -175,7 +175,7 @@ class SeriesDetailPageTest :
                     readySeries(bookProgress = mapOf(BookId("b1") to 0.5f)),
                 )
 
-            root.querySelectorAll(".sd-book-progress").length shouldBe 1
+            root.querySelectorAll(".progress-overlay").length shouldBe 1
         }
 
         test("a finished book is marked finished") {

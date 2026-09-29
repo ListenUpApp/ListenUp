@@ -158,7 +158,7 @@ class CollectionDetailPageTest :
         test("the collection's name is the heading and the field") {
             val host = page(readyDetail(name = "Bedtime"))
 
-            host.querySelector(".cdet-title")?.textContent shouldBe "Bedtime"
+            host.querySelector(".page-t")?.textContent shouldBe "Bedtime"
             (host.querySelector("#cdet-name") as HTMLInputElement).value shouldBe "Bedtime"
         }
 
@@ -411,11 +411,11 @@ class CollectionDetailPageTest :
             cleared shouldBe 1
         }
 
-        test("the way back to the list is offered, and fires") {
+        test("the breadcrumb leads back to the list") {
             var back = 0
             val host = page(readyDetail(), onOpenCollections = { back++ })
 
-            (host.querySelector(".cdet-back") as HTMLElement).click()
+            (host.querySelector(".crumb a") as HTMLElement).click()
             awaitFrame()
 
             back shouldBe 1

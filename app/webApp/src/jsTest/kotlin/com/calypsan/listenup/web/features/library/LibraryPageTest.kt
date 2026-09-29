@@ -65,7 +65,7 @@ class LibraryPageTest :
         test("each card points its cover at the server blob endpoint") {
             val root = render(loadedWith(listOf(bookItem("b1", "Dune"))))
 
-            val img = root.querySelector(".lib-cover") as HTMLImageElement
+            val img = root.querySelector(".lib-cover img") as HTMLImageElement
             img.getAttribute("src")!! shouldContain "/api/v1/books/b1/cover"
         }
 
@@ -75,7 +75,7 @@ class LibraryPageTest :
         test("a cover is requested at the ladder rung the tile needs, not full size") {
             val root = render(loadedWith(listOf(bookItem("b1", "Dune"))))
 
-            val img = root.querySelector(".lib-cover") as HTMLImageElement
+            val img = root.querySelector(".lib-cover img") as HTMLImageElement
             img.getAttribute("src")!! shouldContain "w=300"
         }
 
@@ -84,7 +84,7 @@ class LibraryPageTest :
         test("a cover offers the larger rung to denser displays") {
             val root = render(loadedWith(listOf(bookItem("b1", "Dune"))))
 
-            val srcset = (root.querySelector(".lib-cover") as HTMLImageElement).getAttribute("srcset")!!
+            val srcset = (root.querySelector(".lib-cover img") as HTMLImageElement).getAttribute("srcset")!!
             srcset shouldContain "w=300 1x"
             srcset shouldContain "w=600 2x"
         }
@@ -95,7 +95,7 @@ class LibraryPageTest :
         test("a cover URL carries the artwork hash, so re-covering a book is visible") {
             val root = render(loadedWith(listOf(bookItem("b1", "Dune", coverHash = "abc123"))))
 
-            val img = root.querySelector(".lib-cover") as HTMLImageElement
+            val img = root.querySelector(".lib-cover img") as HTMLImageElement
             img.getAttribute("src")!! shouldContain "v=abc123"
             img.getAttribute("srcset")!! shouldContain "v=abc123"
         }
@@ -103,7 +103,7 @@ class LibraryPageTest :
         test("a cover with no known hash simply omits the version") {
             val root = render(loadedWith(listOf(bookItem("b1", "Dune"))))
 
-            val img = root.querySelector(".lib-cover") as HTMLImageElement
+            val img = root.querySelector(".lib-cover img") as HTMLImageElement
             img.getAttribute("src")!! shouldNotContain "v="
         }
 
@@ -114,8 +114,16 @@ class LibraryPageTest :
         test("covers load lazily, so a large library does not fetch every image at once") {
             val root = render(loadedWith(listOf(bookItem("b1", "Dune"))))
 
-            val img = root.querySelector(".lib-cover") as HTMLImageElement
+            val img = root.querySelector(".lib-cover img") as HTMLImageElement
             img.getAttribute("loading") shouldBe "lazy"
+        }
+
+        test("a card's cover is decorative, because the card already says the title") {
+            // alt = title on the image and the title again underneath made a screen reader say every
+            // book's name twice as it walked the grid.
+            val host = render(loadedWith(listOf(bookItem("b1", "Dune"))))
+
+            (host.querySelector(".lib-cover img") as HTMLElement).getAttribute("alt") shouldBe ""
         }
 
         test("a title-sorted library is split by first letter, as Android is") {

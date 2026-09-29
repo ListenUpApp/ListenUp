@@ -98,12 +98,14 @@ fun CoverPickerField(
                 Div(attrs = { classes("cover-pick-sub") }) { Text("or drag and drop — JPG, PNG or WebP") }
             }
             if (onDiscardPick != null && pendingBytes != null) {
-                Button(attrs = {
-                    classes("btn-o", "cover-undo")
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    disabledWhen(isUploading)
-                    onClick { onDiscardPick() }
-                }) { Text("Keep the current cover") }
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = { onDiscardPick() },
+                    attrs = {
+                        classes("cover-undo")
+                        disabledWhen(isUploading)
+                    },
+                ) { Text("Keep the current cover") }
             }
         }
         Input(type = InputType.File, attrs = {

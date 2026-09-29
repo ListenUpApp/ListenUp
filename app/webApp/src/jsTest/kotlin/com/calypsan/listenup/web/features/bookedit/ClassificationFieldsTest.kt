@@ -43,6 +43,14 @@ class ClassificationFieldsTest :
             root.querySelector(".rel-chip .rel-x")!!.getAttribute("aria-label") shouldBe "Remove Science Fiction"
         }
 
+        test("a chip's remove control draws the shared X icon, not a typed × glyph") {
+            val root = page(ready().copy(genres = listOf(EditableGenre("g1", "Science Fiction", "/sf"))))
+            val remove = root.querySelector(".rel-chip .rel-x")!!
+
+            (remove.querySelector("svg") != null) shouldBe true
+            remove.textContent.orEmpty().trim() shouldBe ""
+        }
+
         test("removing a chip reports the relation it belongs to, not just its label") {
             val genre = EditableGenre("g1", "Science Fiction", "/sf")
             val events = mutableListOf<BookEditUiEvent>()

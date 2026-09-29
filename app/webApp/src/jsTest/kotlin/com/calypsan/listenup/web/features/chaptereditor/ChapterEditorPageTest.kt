@@ -201,7 +201,7 @@ class ChapterEditorPageTest :
         test("the header names the book and counts its chapters") {
             val host = page(editingChapters(bookTitle = "Mistborn"))
 
-            host.querySelector(".ched-t")?.textContent shouldBe "Edit chapters"
+            host.querySelector(".page-t")?.textContent shouldBe "Edit chapters"
             host.querySelector(".ched-sub")?.textContent shouldContain "Mistborn · 3 chapters"
         }
 
@@ -271,7 +271,7 @@ class ChapterEditorPageTest :
             awaitFrame()
 
             rows(host).shouldBeEmptyList()
-            host.querySelector(".ched-none")?.textContent shouldBe "No chapters match “Elantris”."
+            host.querySelector(".empty-line")?.textContent shouldBe "No chapters match “Elantris”."
         }
 
         test("selecting a row reports it, and the row says it is selected") {
@@ -284,6 +284,24 @@ class ChapterEditorPageTest :
             awaitFrame()
 
             selected shouldContainExactly listOf("c1")
+        }
+
+        test("a row's title is the keyboard's way to select it") {
+            // ⛔ Selection rode a click on the row's body alone, so a keyboard reader could press
+            // every control in a row except the one that chooses it.
+            val selected = mutableListOf<String?>()
+            val host = page(editingChapters(selectedChapterId = "c2"), onSelect = { selected += it })
+
+            val titles = rows(host).map { it.querySelector(".chr-t") as HTMLElement }
+            titles.map { it.tagName } shouldContainExactly listOf("BUTTON", "BUTTON", "BUTTON")
+            titles.map { it.getAttribute("type") } shouldContainExactly listOf("button", "button", "button")
+            titles.map { it.getAttribute("aria-current") } shouldContainExactly listOf("false", "true", "false")
+
+            titles[2].click()
+            awaitFrame()
+
+            // Once: the row's own click handler must not report it a second time.
+            selected shouldContainExactly listOf("c3")
         }
 
         test("nudging moves a boundary a second in the direction pressed") {
@@ -451,6 +469,34 @@ class ChapterEditorPageTest :
             host.querySelector(".ctl-hud").shouldBeNull()
         }
 
+        // Capture can end without a release — the element loses it, the tab is backgrounded, the
+        // browser takes the gesture — and then no `pointerup` ever arrives. A drag that waited for
+        // one would stay armed, and the next unrelated release would commit it.
+        test("a drag whose pointer capture is lost ends there, and commits nothing") {
+            val retimes = mutableListOf<Pair<String, Long>>()
+            val host = page(editingChapters(), onRetime = { id, at -> retimes += id to at })
+            val lane = host.querySelector(".ctl-lane") as HTMLElement
+            val box = lane.getBoundingClientRect()
+            val y = box.top + box.height / 2
+            var x = box.left + box.width / 3
+
+            lane.dispatchEvent(pointer("pointerdown", x, y))
+            repeat(5) {
+                x += 4.0
+                lane.dispatchEvent(pointer("pointermove", x, y))
+            }
+            awaitFrame()
+            host.querySelector(".ctl-hud").shouldNotBeNull()
+
+            lane.dispatchEvent(pointer("lostpointercapture", x, y))
+            awaitFrame()
+            host.querySelector(".ctl-hud").shouldBeNull()
+
+            lane.dispatchEvent(pointer("pointerup", x, y))
+            awaitFrame()
+            retimes shouldBe emptyList()
+        }
+
         test("the zoom buttons narrow and widen the window the lane shows") {
             val host = page(editingChapters())
             val range = {
@@ -610,7 +656,7 @@ class ChapterEditorPageTest :
                     onAddAt = { at, title -> added += at to title },
                 )
 
-            host.querySelector(".ched-empty").shouldNotBeNull()
+            host.querySelector(".empty.is-inset").shouldNotBeNull()
             button(host, "Add first chapter at playhead").shouldNotBeNull().click()
             awaitFrame()
 
@@ -621,7 +667,7 @@ class ChapterEditorPageTest :
             val host = page(editingChapters(chapters = emptyList()), playheadMs = null)
 
             button(host, "Add first chapter at playhead").shouldBeNull()
-            host.querySelector(".ched-none")?.textContent shouldBe "Play this book to place the first boundary."
+            host.querySelector(".empty-line")?.textContent shouldBe "Play this book to place the first boundary."
         }
 
         test("a page still loading draws nothing it does not know yet") {

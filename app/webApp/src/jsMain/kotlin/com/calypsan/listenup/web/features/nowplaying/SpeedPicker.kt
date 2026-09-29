@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -105,14 +107,16 @@ internal fun SpeedPicker(
         // is a control whose press changes nothing — and it is the listener's own default from
         // Settings, not a hardcoded 1×, so this offers to undo a choice rather than to overrule one.
         if (!isSamePlaybackSpeed(speed, defaultSpeed)) {
-            Button(attrs = {
-                classes("btn-ghost", "speed-reset")
-                attr("type", "button")
-                onClick {
+            Button(
+                kind = ButtonKind.Secondary,
+                onClick = {
                     dragSpeed = defaultSpeed
                     onReset()
-                }
-            }) {
+                },
+                attrs = {
+                    classes("speed-reset")
+                },
+            ) {
                 Text("Reset to ${formatSpeed(defaultSpeed)}×")
             }
         }

@@ -1,14 +1,18 @@
 package com.calypsan.listenup.web.features.setup
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupUiState
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -43,12 +47,10 @@ fun LibrarySetupPage(
     onDismissError: () -> Unit,
 ) {
     Div(attrs = { classes("lsetup") }) {
-        Div(attrs = { classes("lsetup-head") }) {
-            H1(attrs = { classes("lsetup-t") }) { Text("Choose your audiobook folders") }
-            P(attrs = { classes("lsetup-sub") }) {
-                Text("These folders are on the machine running your ListenUp server.")
-            }
-        }
+        PageHeader(
+            title = "Choose your audiobook folders",
+            subtitle = "These folders are on the machine running your ListenUp server.",
+        )
 
         state.error?.let { message ->
             Div(attrs = {
@@ -73,20 +75,20 @@ fun LibrarySetupPage(
             }
 
             state.directories.isEmpty() -> {
-                Div(attrs = { classes("lsetup-empty") }) {
-                    P { Text("Nothing in this folder. Go up and try another.") }
-                }
+                EmptyState(title = "Nothing in this folder. Go up and try another.", look = EmptyLook.Inline)
             }
 
             else -> {
                 Div(attrs = { classes("lsetup-list") }) {
                     state.directories.forEach { entry ->
-                        FolderRow(
-                            entry = entry,
-                            selected = entry.path in state.selectedPaths,
-                            onOpen = { onOpenFolder(entry.path) },
-                            onToggle = { onToggleFolder(entry.path) },
-                        )
+                        key(entry.path) {
+                            FolderRow(
+                                entry = entry,
+                                selected = entry.path in state.selectedPaths,
+                                onOpen = { onOpenFolder(entry.path) },
+                                onToggle = { onToggleFolder(entry.path) },
+                            )
+                        }
                     }
                 }
             }
@@ -187,12 +189,14 @@ private fun SelectionBar(
     val count = state.selectedPaths.size
     Div(attrs = { classes("lsetup-bar") }) {
         Span(attrs = { classes("lsetup-count") }) { Text(selectionLabel(count)) }
-        Button(attrs = {
-            classes("btn-c", "lsetup-go")
-            attr("type", TYPE_BUTTON)
-            if (count == 0 || state.isCreatingLibrary) attr("disabled", "")
-            onClick { onComplete() }
-        }) {
+        Button(
+            kind = ButtonKind.Primary,
+            onClick = { onComplete() },
+            attrs = {
+                classes("lsetup-go")
+                if (count == 0 || state.isCreatingLibrary) attr("disabled", "")
+            },
+        ) {
             Text(if (state.isCreatingLibrary) "Setting up…" else "Continue")
         }
     }

@@ -94,7 +94,7 @@ class RestorePageTest :
             var requested = 0
             val host = page(RestoreBackupUiState.Idle(), onRequest = { requested++ })
 
-            (host.querySelector(".btn-c") as HTMLElement).click()
+            (host.querySelector(".btn-primary") as HTMLElement).click()
             awaitFrame()
 
             requested shouldBe 1
@@ -135,8 +135,8 @@ class RestorePageTest :
             val running = page(RestoreBackupUiState.Restoring)
             val idle = page(RestoreBackupUiState.Idle())
 
-            running.querySelector(".rst-back").shouldBeNull()
-            idle.querySelector(".rst-back").shouldNotBeNull()
+            running.querySelector(".crumb a").shouldBeNull()
+            idle.querySelector(".crumb a").shouldNotBeNull()
         }
 
         test("the running page announces its phase politely") {

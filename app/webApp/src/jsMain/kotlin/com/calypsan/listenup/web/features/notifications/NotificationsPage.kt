@@ -1,16 +1,16 @@
 package com.calypsan.listenup.web.features.notifications
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.AppNotification
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.client.util.relativeLastActive
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -36,22 +36,21 @@ fun NotificationsPage(
     onOpen: (AppNotification) -> Unit,
 ) {
     Div(attrs = { classes("ntf") }) {
-        H1(attrs = { classes("ntf-title") }) { Text("Notifications") }
+        PageHeader(title = "Notifications")
 
         when (state) {
             is NotificationsUiState.Data -> {
                 Div(attrs = { classes("ntf-list") }) {
                     state.notifications.forEach { notification ->
-                        NotificationRow(notification, nowMs, onOpen)
+                        key(notification.id) {
+                            NotificationRow(notification, nowMs, onOpen)
+                        }
                     }
                 }
             }
 
             NotificationsUiState.Empty -> {
-                Div(attrs = { classes("empty") }) {
-                    H3 { Text("Nothing waiting") }
-                    P { Text("Invitations and account news land here.") }
-                }
+                EmptyState(title = "Nothing waiting", body = "Invitations and account news land here.")
             }
 
             NotificationsUiState.Loading -> {

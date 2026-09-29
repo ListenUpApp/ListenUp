@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.bulkedit
 
+import com.calypsan.listenup.web.design.ProgressBar
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,19 +22,19 @@ import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.presentation.bookedit.displayName
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditPreviewRow
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.RelationChip
 import com.calypsan.listenup.web.design.RelationField
 import com.calypsan.listenup.web.design.SelectField
 import com.calypsan.listenup.web.design.SelectOption
 import com.calypsan.listenup.web.design.WebIcon
-import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -86,8 +89,14 @@ fun BulkEditPage(
 ) {
     Div(attrs = { classes("bke") }) {
         when (state) {
-            BulkEditUiState.Loading -> Div(attrs = { classes("skel", "bke-skel") })
-            is BulkEditUiState.Editing -> EditingContent(state, catalog, actions, notice)
+            BulkEditUiState.Loading -> {
+                PageHeader(title = "Edit books", pending = true)
+                Div(attrs = { classes("skel", "bke-skel") })
+            }
+
+            is BulkEditUiState.Editing -> {
+                EditingContent(state, catalog, actions, notice)
+            }
         }
     }
 }
@@ -99,19 +108,14 @@ private fun EditingContent(
     actions: BulkEditActions,
     notice: String?,
 ) {
-    Div(attrs = { classes("bke-head") }) {
-        Div(attrs = { classes("bke-titles") }) {
-            Span(attrs = { classes("bke-eyebrow") }) { Text("Library · ${state.bookCount} selected") }
-            H1(attrs = { classes("bke-t") }) {
-                Text(if (state.bookCount == 1) "Edit 1 book" else "Edit ${state.bookCount} books")
-            }
-        }
-        Button(attrs = {
-            classes(BTN_SECONDARY)
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            onClick { actions.onLeave() }
-        }) { Text("Cancel") }
-    }
+    PageHeader(
+        title = if (state.bookCount == 1) "Edit 1 book" else "Edit ${state.bookCount} books",
+        eyebrow = "Library · ${state.bookCount} selected",
+        documentTitle = "Edit books",
+        actions = {
+            Button(kind = ButtonKind.Secondary, onClick = { actions.onLeave() }) { Text("Cancel") }
+        },
+    )
 
     // ⛔ Named, not swallowed. A book deleted from another device between the grid and this screen
     // silently drops out of the selection, and editing thirty-nine books after choosing forty
@@ -157,12 +161,11 @@ private fun EditingContent(
     FormSection(title = "What will change") { PreviewPanel(state.preview, state.bookCount) }
 
     Div(attrs = { classes("bke-apply") }) {
-        Button(attrs = {
-            classes("btn-c")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            disabledWhen(state.isApplying || !state.canApply)
-            onClick { actions.onApply() }
-        }) { Text(applyLabel(state.changedBookCount, state.isApplying)) }
+        Button(
+            kind = ButtonKind.Primary,
+            onClick = { actions.onApply() },
+            enabled = !(state.isApplying || !state.canApply),
+        ) { Text(applyLabel(state.changedBookCount, state.isApplying)) }
     }
 }
 
@@ -456,10 +459,11 @@ private fun PreviewPanel(
     if (rows.isEmpty()) {
         // Named rather than blank: an empty panel is indistinguishable from a broken one, and this
         // is the first thing every user of this screen sees.
-        Div(attrs = { classes("bke-empty") }) {
-            H2 { Text("Nothing to change yet") }
-            P { Text("Type into a field above. Every book keeps the values you don’t touch.") }
-        }
+        EmptyState(
+            title = "Nothing to change yet",
+            body = "Type into a field above. Every book keeps the values you don’t touch.",
+            look = EmptyLook.Inset,
+        )
         return
     }
 
@@ -477,15 +481,7 @@ private fun PreviewPanel(
                 }
                 // The count again, in a form nobody has to count: the eye catches "less than a
                 // third" before it parses "12 of 40".
-                Div(attrs = {
-                    classes("bke-bar")
-                    attr("role", "presentation")
-                }) {
-                    Div(attrs = {
-                        classes("bke-bar-fill")
-                        style { property("width", "${(proportionOf(row, bookCount) * PERCENT).toInt()}%") }
-                    })
-                }
+                ProgressBar(value = proportionOf(row, bookCount), decorative = true, attrs = { classes("bke-bar") })
                 leftAloneNote(row.edit, row.affectedCount, bookCount)?.let {
                     P(attrs = { classes("bke-row-note") }) { Text(it) }
                 }
@@ -509,10 +505,6 @@ private const val MIXED = "Multiple values"
 
 private const val ATTR_TYPE = "type"
 
-private const val BTN_SECONDARY = "btn-o"
-
 private const val VALUE_BUTTON = "button"
 
 private const val SMALL_ICON = 14
-
-private const val PERCENT = 100

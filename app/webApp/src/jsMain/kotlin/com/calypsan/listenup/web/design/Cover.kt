@@ -9,10 +9,13 @@ import com.calypsan.listenup.web.motion.flyHeroInto
 import com.calypsan.listenup.web.motion.releaseHero
 import com.calypsan.listenup.web.motion.trackHero
 import androidx.compose.runtime.setValue
+import org.jetbrains.compose.web.attributes.AttrsScope
+import org.jetbrains.compose.web.css.StyleScope
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import org.w3c.dom.HTMLDivElement
 
 /**
  * A book cover.
@@ -33,15 +36,38 @@ import org.jetbrains.compose.web.dom.Text
  * name with it. There was a `height` parameter here once, defaulting to [size] and documented as
  * the way to get "the cover's true 2:3 portrait aspect"; that aspect was never true of this app,
  * and five call sites had taken it up. Deleting the parameter is what stops it coming back.
+ *
+ * [decorative] is for a cover with the book's title printed right beside it — a card, a row, a
+ * hero. Its `alt` is then empty and the fallback's title hidden from assistive technology, because
+ * naming the book in the picture and again in the text makes a screen reader say it twice.
+ *
+ * The image loads lazily and decodes off the main thread, so a page of forty covers fetches the
+ * ones the reader can see rather than all forty at once. [eager] opts out for the cover that IS the
+ * page — Book Detail's hero, Now Playing — where lazy loading would only delay the one image the
+ * reader came for: a lazy image waits for layout before it is even requested. The box is sized
+ * either way, so neither choice shifts the layout when the image lands.
+ *
+ * [size] `null` is a fluid cover: square, as wide as its container — a grid tile whose column the
+ * grid decides. Its fallback title scales with its own width. [srcset] lets the browser pick a rung by
+ * pixel density, which it knows and the page does not. [attrs] is for the caller's placement class
+ * and hooks (the library tile's hero-flight origin) on the cover's own box.
+ *
+ * This is the only cover on web. Library, a contributor's tiles and a series' rows each used to draw
+ * their own `<img>` with their own coverless tile — three fallbacks, so the same book with no artwork
+ * looked different on every page it appeared on.
  */
 @Composable
 fun Cover(
     title: String,
     imageUrl: String? = null,
-    size: Int = DEFAULT_COVER_SIZE,
+    size: Int? = DEFAULT_COVER_SIZE,
     radius: Int = DEFAULT_COVER_RADIUS,
     heroName: String? = null,
     heroBookId: String? = null,
+    decorative: Boolean = false,
+    eager: Boolean = false,
+    srcset: String? = null,
+    attrs: (AttrsScope<HTMLDivElement>.() -> Unit)? = null,
 ) {
     var failed by remember(imageUrl) { mutableStateOf(false) }
     val showImage = imageUrl != null && !failed
@@ -59,70 +85,130 @@ fun Cover(
                 onDispose { releaseHero(element) }
             }
         }
-        style {
-            property("width", "${size}px")
-            property("height", "${size}px")
-            property("border-radius", "${radius}px")
-            property("overflow", "hidden")
-            property("flex-shrink", "0")
-            property("position", "relative")
-            // The shared-element handle. When the grid tile the reader tapped carries the same
-            // name, the browser interpolates between the two boxes instead of crossfading the
-            // pages — the cover appears to fly from the grid into this hero, Flutter-Hero style.
-            // ⛔ A `view-transition-name` must be unique at any instant, which is why only ONE
-            // grid tile is ever named: see `HERO_COVER` in the library grid.
-            heroName?.let { property("view-transition-name", it) }
-            if (!showImage) {
-                property(
-                    "background",
-                    tintGradient(
-                        seed = title,
-                        angleDegrees = COVER_GRADIENT_ANGLE,
-                        firstSaturation = COVER_FIRST_SATURATION,
-                        firstLightness = COVER_FIRST_LIGHTNESS,
-                        secondSaturation = COVER_SECOND_SATURATION,
-                        secondLightness = COVER_SECOND_LIGHTNESS,
-                    ),
-                )
-            }
-        }
+        classes("cover")
+        style { coverBox(size, radius, heroName, if (showImage) null else title) }
+        attrs?.invoke(this)
     }) {
         if (showImage) {
-            Img(
-                src = imageUrl,
-                alt = title,
-                attrs = {
-                    style {
-                        property("width", "100%")
-                        property("height", "100%")
-                        property("object-fit", "cover")
-                        property("display", "block")
-                    }
-                    // A broken cover must not leave a blank tile: fall back to the generated one.
-                    // Compose HTML has no `onError` helper, so the listener is attached by name.
-                    addEventListener("error") { failed = true }
-                },
-            )
-        } else if (size >= MIN_SIZE_FOR_FALLBACK_TITLE) {
-            Span(attrs = {
-                style {
-                    property("position", "absolute")
-                    property("inset", "0")
-                    property("display", "flex")
-                    property("align-items", "flex-end")
-                    property("padding", "${radius / 2 + 4}px")
-                    property("color", "rgba(255,255,255,0.92)")
-                    property("font-size", "${(size / 9).coerceIn(MIN_FALLBACK_TEXT, MAX_FALLBACK_TEXT)}px")
-                    property("font-weight", "800")
-                    property("letter-spacing", "-0.02em")
-                    property("line-height", "1.15")
-                    property("text-wrap", "pretty")
-                }
-            }) {
-                Text(title)
+            CoverImage(url = imageUrl, alt = if (decorative) "" else title, eager = eager, srcset = srcset) {
+                failed = true
             }
+        } else if (size == null || size >= MIN_SIZE_FOR_FALLBACK_TITLE) {
+            FallbackTitle(title, size, radius, decorative)
         }
     }
+}
+
+/**
+ * The cover's box: its size (fixed, or fluid and square), its corner, and what it is filled with —
+ * a quiet waiting tile under an image still loading, or [fallbackSeed]'s gradient when there is none.
+ */
+private fun StyleScope.coverBox(
+    size: Int?,
+    radius: Int,
+    heroName: String?,
+    fallbackSeed: String?,
+) {
+    if (size == null) {
+        property("width", "100%")
+        property("aspect-ratio", "1 / 1")
+        // The fallback title is sized against this box's own width (`cqi`), as a fixed cover sizes
+        // it against its size.
+        property("container-type", "inline-size")
+    } else {
+        property("width", "${size}px")
+        property("height", "${size}px")
+    }
+    property("border-radius", "${radius}px")
+    property("overflow", "hidden")
+    property("flex-shrink", "0")
+    property("position", "relative")
+    // The shared-element handle. When the grid tile the reader tapped carries the same name, the
+    // browser interpolates between the two boxes instead of crossfading the pages — the cover
+    // appears to fly from the grid into this hero, Flutter-Hero style.
+    // ⛔ A `view-transition-name` must be unique at any instant, which is why only ONE grid tile is
+    // ever named: see `HERO_COVER` in the library grid.
+    heroName?.let { property("view-transition-name", it) }
+    property(
+        "background",
+        if (fallbackSeed == null) {
+            // What a lazy cover shows while it is still on its way: a waiting tile, not a hole.
+            "var(--surface-2)"
+        } else {
+            tintGradient(
+                seed = fallbackSeed,
+                angleDegrees = COVER_GRADIENT_ANGLE,
+                firstSaturation = COVER_FIRST_SATURATION,
+                firstLightness = COVER_FIRST_LIGHTNESS,
+                secondSaturation = COVER_SECOND_SATURATION,
+                secondLightness = COVER_SECOND_LIGHTNESS,
+            )
+        },
+    )
+}
+
+/** The title set inside a coverless tile, sized to the tile. See [Cover] on `decorative`. */
+@Composable
+private fun FallbackTitle(
+    title: String,
+    size: Int?,
+    radius: Int,
+    decorative: Boolean,
+) {
+    Span(attrs = {
+        if (decorative) attr("aria-hidden", "true")
+        style {
+            property("position", "absolute")
+            property("inset", "0")
+            property("display", "flex")
+            property("align-items", "flex-end")
+            property("padding", "${radius / 2 + 4}px")
+            property("color", "rgba(255,255,255,0.92)")
+            property(
+                "font-size",
+                if (size == null) {
+                    "clamp(${MIN_FALLBACK_TEXT}px, ${FLUID_FALLBACK_TEXT_CQI}cqi, ${MAX_FALLBACK_TEXT}px)"
+                } else {
+                    "${(size / 9).coerceIn(MIN_FALLBACK_TEXT, MAX_FALLBACK_TEXT)}px"
+                },
+            )
+            property("font-weight", "800")
+            property("letter-spacing", "-0.02em")
+            property("line-height", "1.15")
+            property("text-wrap", "pretty")
+        }
+    }) {
+        Text(title)
+    }
+}
+
+/** The artwork itself, filling the cover's box. See [Cover] on [eager]. */
+@Composable
+private fun CoverImage(
+    url: String,
+    alt: String,
+    eager: Boolean,
+    srcset: String?,
+    onFailed: () -> Unit,
+) {
+    Img(
+        src = url,
+        alt = alt,
+        attrs = {
+            srcset?.let { attr("srcset", it) }
+            attr("loading", if (eager) "eager" else "lazy")
+            attr("decoding", if (eager) "auto" else "async")
+            style {
+                property("width", "100%")
+                property("height", "100%")
+                property("object-fit", "cover")
+                property("display", "block")
+            }
+            // A broken cover must not leave a blank tile: fall back to the generated one.
+            // Compose HTML has no `onError` helper, so the listener is attached by name.
+            addEventListener("error") { onFailed() }
+        },
+    )
 }
 
 private const val DEFAULT_COVER_SIZE = 96
@@ -154,6 +240,9 @@ private const val MIN_SIZE_FOR_FALLBACK_TITLE = 72
 private const val MIN_FALLBACK_TEXT = 10
 
 private const val MAX_FALLBACK_TEXT = 22
+
+/** A fluid cover's fallback title, as a share of its width: the same one-ninth a fixed cover uses. */
+private const val FLUID_FALLBACK_TEXT_CQI = 11
 
 /**
  * A same-origin relative URL, authenticated by the cookie the browser already holds.

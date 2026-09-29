@@ -1,11 +1,18 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Breadcrumb
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.CollectionBookItem
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailUiState
 import com.calypsan.listenup.client.presentation.admin.CollectionShareItem
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.DialogActions
 import com.calypsan.listenup.web.design.DialogText
@@ -13,13 +20,12 @@ import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.ModalDialog
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -53,12 +59,14 @@ fun CollectionDetailPage(
     onClearError: () -> Unit,
     onOpenCollections: () -> Unit,
 ) {
+    val name = (state as? AdminCollectionDetailUiState.Ready)?.collection?.name ?: "Collection"
     Div(attrs = { classes("cdet") }) {
-        Button(attrs = {
-            classes("btn-o", "cdet-back")
-            attr("type", VALUE_BUTTON)
-            onClick { onOpenCollections() }
-        }) { Text("← Collections") }
+        Breadcrumb(trail = listOf("Collections", name), onNavigate = { onOpenCollections() })
+
+        PageHeader(
+            title = name,
+            pending = state is AdminCollectionDetailUiState.Loading,
+        )
 
         when (state) {
             AdminCollectionDetailUiState.Loading -> {
@@ -66,10 +74,7 @@ fun CollectionDetailPage(
             }
 
             is AdminCollectionDetailUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H3 { Text("This collection can't be shown") }
-                    P { Text(state.message) }
-                }
+                EmptyState(title = "This collection can't be shown", body = state.message)
             }
 
             is AdminCollectionDetailUiState.Ready -> {
@@ -112,8 +117,6 @@ private fun ReadyContent(
 ) {
     val managed = state.collection.isSystem
 
-    H1(attrs = { classes("cdet-title") }) { Text(state.collection.name) }
-
     state.error?.let { message -> CollectionNotice(message, onClearError) }
 
     FormSection(title = "Name") {
@@ -137,12 +140,11 @@ private fun ReadyContent(
         // permanently greyed on a screen you did not come here to edit is just furniture.
         if (state.isDirty && !managed) {
             Div(attrs = { classes("edit-actions") }) {
-                Button(attrs = {
-                    classes("btn-c")
-                    attr("type", VALUE_BUTTON)
-                    disabledWhen(state.isSaving)
-                    onClick { onSaveName() }
-                }) { Text(if (state.isSaving) "Saving…" else "Save changes") }
+                Button(
+                    kind = ButtonKind.Primary,
+                    onClick = { onSaveName() },
+                    enabled = !state.isSaving,
+                ) { Text(if (state.isSaving) "Saving…" else "Save changes") }
             }
         }
     }
@@ -150,11 +152,14 @@ private fun ReadyContent(
     FormSection(title = "Books") {
         if (!managed) {
             Div(attrs = { classes("cdet-sec-act") }) {
-                Button(attrs = {
-                    classes("btn-o", "cdet-add")
-                    attr("type", VALUE_BUTTON)
-                    onClick { onOpenAddBooks() }
-                }) { Text("Add books") }
+                Button(
+                    kind = ButtonKind.Secondary,
+                    size = ButtonSize.Sm,
+                    onClick = { onOpenAddBooks() },
+                    attrs = {
+                        classes("cdet-add")
+                    },
+                ) { Text("Add books") }
             }
         }
         if (state.books.isEmpty()) {
@@ -162,12 +167,14 @@ private fun ReadyContent(
         } else {
             Div(attrs = { classes("cdet-books") }) {
                 state.books.forEach { book ->
-                    BookRow(
-                        book = book,
-                        isRemoving = state.removingBookId == book.id,
-                        canRemove = !managed,
-                        onRemove = { onRemoveBook(book.id) },
-                    )
+                    key(book.id) {
+                        BookRow(
+                            book = book,
+                            isRemoving = state.removingBookId == book.id,
+                            canRemove = !managed,
+                            onRemove = { onRemoveBook(book.id) },
+                        )
+                    }
                 }
             }
         }
@@ -175,12 +182,15 @@ private fun ReadyContent(
 
     FormSection(title = "Shared with") {
         Div(attrs = { classes("cdet-sec-act") }) {
-            Button(attrs = {
-                classes("btn-o", "cdet-share")
-                attr("type", VALUE_BUTTON)
-                disabledWhen(state.isSharing)
-                onClick { onShowAddMember() }
-            }) { Text("Share with someone") }
+            Button(
+                kind = ButtonKind.Secondary,
+                size = ButtonSize.Sm,
+                onClick = { onShowAddMember() },
+                attrs = {
+                    classes("cdet-share")
+                    disabledWhen(state.isSharing)
+                },
+            ) { Text("Share with someone") }
         }
         if (state.shares.isEmpty()) {
             // Not "nobody can see this": the owner always can, and the all-books collection is
@@ -189,11 +199,13 @@ private fun ReadyContent(
         } else {
             Div(attrs = { classes("cdet-shares") }) {
                 state.shares.forEach { share ->
-                    ShareRow(
-                        share = share,
-                        isRemoving = state.removingShareUserId == share.userId,
-                        onRevoke = { onRevokeShare(share.userId) },
-                    )
+                    key(share.userId) {
+                        ShareRow(
+                            share = share,
+                            isRemoving = state.removingShareUserId == share.userId,
+                            onRevoke = { onRevokeShare(share.userId) },
+                        )
+                    }
                 }
             }
         }
@@ -234,6 +246,7 @@ private fun BookRow(
             imageUrl = coverUrl(book.id, book.coverHash, width = COVER_RUNG),
             size = COVER_SIZE,
             radius = COVER_RADIUS,
+            decorative = true,
         )
         Div(attrs = { classes("cdet-book-t") }) {
             Span(attrs = { classes("cdet-book-title") }) { Text(book.title) }
@@ -242,14 +255,17 @@ private fun BookRow(
             }
         }
         if (canRemove) {
-            Button(attrs = {
-                classes("iconbtn", "cdet-x")
-                attr("type", VALUE_BUTTON)
-                attr("aria-label", "Remove ${book.title} from this collection")
-                attr("title", "Remove from this collection")
-                disabledWhen(isRemoving)
-                onClick { onRemove() }
-            }) { Icon(WebIcon.X, size = SMALL_ICON) }
+            Button(
+                kind = ButtonKind.Icon,
+                size = ButtonSize.Sm,
+                onClick = { onRemove() },
+                label = "Remove ${book.title} from this collection",
+                attrs = {
+                    classes("cdet-x")
+                    disabledWhen(isRemoving)
+                    attr("title", "Remove from this collection")
+                },
+            ) { Icon(WebIcon.X, size = SMALL_ICON) }
         }
     }
 }
@@ -263,14 +279,17 @@ private fun ShareRow(
     Div(attrs = { classes("cdet-share-row") }) {
         Span(attrs = { classes("cdet-share-n") }) { Text(share.displayName) }
         Span(attrs = { classes("cdet-share-p") }) { Text(share.permission.lowercase()) }
-        Button(attrs = {
-            classes("iconbtn", "cdet-x")
-            attr("type", VALUE_BUTTON)
-            attr("aria-label", "Stop sharing with ${share.displayName}")
-            attr("title", "Stop sharing")
-            disabledWhen(isRemoving)
-            onClick { onRevoke() }
-        }) { Icon(WebIcon.X, size = SMALL_ICON) }
+        Button(
+            kind = ButtonKind.Icon,
+            size = ButtonSize.Sm,
+            onClick = { onRevoke() },
+            label = "Stop sharing with ${share.displayName}",
+            attrs = {
+                classes("cdet-x")
+                disabledWhen(isRemoving)
+                attr("title", "Stop sharing")
+            },
+        ) { Icon(WebIcon.X, size = SMALL_ICON) }
     }
 }
 
@@ -314,13 +333,15 @@ private fun AddBooksDialog(
 
                 else -> {
                     results.forEach { hit ->
-                        Button(attrs = {
-                            classes("cdet-result")
-                            attr("type", VALUE_BUTTON)
-                            onClick { onAdd(hit.id) }
-                        }) {
-                            Span(attrs = { classes("cdet-result-t") }) { Text(hit.name) }
-                            Icon(WebIcon.Plus, size = SMALL_ICON)
+                        key(hit.id) {
+                            Button(attrs = {
+                                classes("cdet-result")
+                                attr("type", VALUE_BUTTON)
+                                onClick { onAdd(hit.id) }
+                            }) {
+                                Span(attrs = { classes("cdet-result-t") }) { Text(hit.name) }
+                                Icon(WebIcon.Plus, size = SMALL_ICON)
+                            }
                         }
                     }
                 }
@@ -329,11 +350,7 @@ private fun AddBooksDialog(
         Div(attrs = { classes("dlg-actions") }) {
             // No confirm: each result adds on click, and the dialog stays open so several books
             // can go in without reopening it. Done is the only way out, so it is the only button.
-            Button(attrs = {
-                classes("btn")
-                attr("type", VALUE_BUTTON)
-                onClick { onDismiss() }
-            }) { Text("Done") }
+            Button(kind = ButtonKind.Primary, onClick = { onDismiss() }) { Text("Done") }
         }
     }
 }
@@ -369,13 +386,15 @@ private fun AddMemberDialog(
             else -> {
                 Div(attrs = { classes("cdet-people") }) {
                     offerable.forEach { user ->
-                        Button(attrs = {
-                            classes("cdet-person")
-                            attr("type", VALUE_BUTTON)
-                            onClick { onShare(user.id) }
-                        }) {
-                            Span(attrs = { classes("cdet-person-n") }) { Text(user.displayName ?: user.email) }
-                            Icon(WebIcon.Plus, size = SMALL_ICON)
+                        key(user.id) {
+                            Button(attrs = {
+                                classes("cdet-person")
+                                attr("type", VALUE_BUTTON)
+                                onClick { onShare(user.id) }
+                            }) {
+                                Span(attrs = { classes("cdet-person-n") }) { Text(user.displayName ?: user.email) }
+                                Icon(WebIcon.Plus, size = SMALL_ICON)
+                            }
                         }
                     }
                 }
@@ -388,7 +407,7 @@ private fun AddMemberDialog(
 /** A line saying there is nothing here — which of the several nothings is the caller's to say. */
 @Composable
 private fun Nothing(text: String) {
-    P(attrs = { classes("cdet-none") }) { Text(text) }
+    EmptyState(title = text, look = EmptyLook.Inline)
 }
 
 private const val VALUE_BUTTON = "button"

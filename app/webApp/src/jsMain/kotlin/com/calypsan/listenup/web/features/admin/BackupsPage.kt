@@ -1,23 +1,28 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Breadcrumb
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.BackupInfo
 import com.calypsan.listenup.client.presentation.admin.AdminBackupUiState
 import com.calypsan.listenup.client.presentation.admin.RestoreFromFileUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.CheckboxField
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -52,13 +57,9 @@ fun BackupsPage(
     onOpenAdmin: () -> Unit,
 ) {
     Div(attrs = { classes("bkp") }) {
-        Button(attrs = {
-            classes("btn-o", "bkp-back")
-            attr("type", VALUE_BUTTON)
-            onClick { onOpenAdmin() }
-        }) { Text("← Admin") }
+        Breadcrumb(trail = listOf("Admin", "Backups"), onNavigate = { onOpenAdmin() })
 
-        H1(attrs = { classes("bkp-title") }) { Text("Backups") }
+        PageHeader(title = "Backups")
 
         when (state) {
             AdminBackupUiState.Loading -> {
@@ -66,14 +67,8 @@ fun BackupsPage(
             }
 
             is AdminBackupUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H3 { Text("Backups can't be shown") }
-                    P { Text(state.error.message) }
-                    Button(attrs = {
-                        classes("btn-c")
-                        attr("type", VALUE_BUTTON)
-                        onClick { onRetry() }
-                    }) { Text("Try again") }
+                EmptyState(title = "Backups can't be shown", body = state.error.message) {
+                    Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
                 }
             }
 
@@ -137,31 +132,32 @@ private fun ReadyContent(
             )
         }
         Div(attrs = { classes("bkp-make-acts") }) {
-            Button(attrs = {
-                classes("btn-c")
-                attr("type", VALUE_BUTTON)
-                disabledWhen(state.isCreating)
-                onClick { onCreate(includeImages) }
-            }) { Text(if (state.isCreating) "Backing up…" else "Back up now") }
+            Button(
+                kind = ButtonKind.Primary,
+                onClick = { onCreate(includeImages) },
+                enabled = !state.isCreating,
+            ) { Text(if (state.isCreating) "Backing up…" else "Back up now") }
             UploadButton(uploading = uploading, onPickFile = onPickFile)
         }
     }
 
     if (state.backups.isEmpty()) {
-        Div(attrs = { classes("empty") }) {
-            H3 { Text("No backups yet") }
-            P { Text("A backup is a single file holding your library's database, and optionally its covers.") }
-        }
+        EmptyState(
+            title = "No backups yet",
+            body = "A backup is a single file holding your library's database, and optionally its covers.",
+        )
     } else {
         Div(attrs = { classes("bkp-list") }) {
             state.backups.forEach { backup ->
-                BackupRow(
-                    backup = backup,
-                    isDeleting = state.isDeleting,
-                    onDownload = { onDownload(backup) },
-                    onRestore = { onRestore(backup) },
-                    onAskDelete = { onAskDelete(backup) },
-                )
+                key(backup.id) {
+                    BackupRow(
+                        backup = backup,
+                        isDeleting = state.isDeleting,
+                        onDownload = { onDownload(backup) },
+                        onRestore = { onRestore(backup) },
+                        onAskDelete = { onAskDelete(backup) },
+                    )
+                }
             }
         }
     }
@@ -193,12 +189,11 @@ private fun UploadButton(
 ) {
     var input by remember { mutableStateOf<HTMLInputElement?>(null) }
 
-    Button(attrs = {
-        classes("btn-o")
-        attr("type", VALUE_BUTTON)
-        disabledWhen(uploading != null)
-        onClick { input?.click() }
-    }) { Text(uploading?.let { "Uploading ${it.filename}…" } ?: "Restore from a file") }
+    Button(
+        kind = ButtonKind.Secondary,
+        onClick = { input?.click() },
+        enabled = !(uploading != null),
+    ) { Text(uploading?.let { "Uploading ${it.filename}…" } ?: "Restore from a file") }
 
     Input(type = InputType.File, attrs = {
         id("bkp-file-input")
@@ -230,26 +225,35 @@ private fun BackupRow(
             Span(attrs = { classes("bkp-when") }) { Text(formatWhen(backup.createdAt.epochMillis)) }
             Span(attrs = { classes("bkp-size") }) { Text(backup.sizeFormatted) }
         }
-        Button(attrs = {
-            classes("iconbtn", "bkp-act")
-            attr("type", VALUE_BUTTON)
-            attr("aria-label", "Download the backup from ${formatWhen(backup.createdAt.epochMillis)}")
-            attr("title", "Download")
-            onClick { onDownload() }
-        }) { Icon(WebIcon.Download, size = SMALL_ICON) }
-        Button(attrs = {
-            classes("btn-o", "bkp-restore")
-            attr("type", VALUE_BUTTON)
-            onClick { onRestore() }
-        }) { Text("Restore") }
-        Button(attrs = {
-            classes("iconbtn", "bkp-act")
-            attr("type", VALUE_BUTTON)
-            attr("aria-label", "Delete the backup from ${formatWhen(backup.createdAt.epochMillis)}")
-            attr("title", "Delete")
-            disabledWhen(isDeleting)
-            onClick { onAskDelete() }
-        }) { Icon(WebIcon.Trash, size = SMALL_ICON) }
+        Button(
+            kind = ButtonKind.Icon,
+            size = ButtonSize.Sm,
+            onClick = { onDownload() },
+            label = "Download the backup from ${formatWhen(backup.createdAt.epochMillis)}",
+            attrs = {
+                classes("bkp-act")
+                attr("title", "Download")
+            },
+        ) { Icon(WebIcon.Download, size = SMALL_ICON) }
+        Button(
+            kind = ButtonKind.Secondary,
+            size = ButtonSize.Sm,
+            onClick = { onRestore() },
+            attrs = {
+                classes("bkp-restore")
+            },
+        ) { Text("Restore") }
+        Button(
+            kind = ButtonKind.Icon,
+            size = ButtonSize.Sm,
+            onClick = { onAskDelete() },
+            label = "Delete the backup from ${formatWhen(backup.createdAt.epochMillis)}",
+            attrs = {
+                classes("bkp-act")
+                disabledWhen(isDeleting)
+                attr("title", "Delete")
+            },
+        ) { Icon(WebIcon.Trash, size = SMALL_ICON) }
     }
 }
 

@@ -1,15 +1,18 @@
 package com.calypsan.listenup.web.features.contributordetail
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksUiState
+import com.calypsan.listenup.web.design.LoadingState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Breadcrumb
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -50,6 +53,8 @@ fun ContributorBooksPage(
             },
         )
 
+        BooksHeader(state)
+
         when (state) {
             is ContributorBooksUiState.Ready -> {
                 ReadyBooks(state, onOpenBook)
@@ -64,10 +69,34 @@ fun ContributorBooksPage(
             }
 
             ContributorBooksUiState.Loading, ContributorBooksUiState.Idle -> {
-                Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+                LoadingState()
             }
         }
     }
+}
+
+/**
+ * The role as the page's title, in every state: named "Books" and drawn as a skeleton while the list
+ * loads, then the role itself, who it belongs to, and — where there is one — the pen name.
+ */
+@Composable
+private fun BooksHeader(state: ContributorBooksUiState) {
+    val ready = state as? ContributorBooksUiState.Ready
+    PageHeader(
+        title = roleCrumb(state),
+        subtitle = ready?.let { byLine(it.totalBooks, it.contributorName) },
+        documentTitle = nameCrumb(state) + ", " + roleCrumb(state),
+        pending = state is ContributorBooksUiState.Loading || state is ContributorBooksUiState.Idle,
+        details =
+            ready?.let { loaded ->
+                // Same line the detail page's hero carries, from the same map: a role list is exactly
+                // where a reader meets the pen name, because the alias is per-book and this is the
+                // whole role.
+                creditedAsLine(loaded.bookCreditedAs)?.let { line ->
+                    { Div(attrs = { classes("cb-alias") }) { Text(line) } }
+                }
+            },
+    )
 }
 
 private fun nameCrumb(state: ContributorBooksUiState): String =
@@ -86,14 +115,8 @@ private fun BooksWayBack(
     body: String,
     onOpenContributor: () -> Unit,
 ) {
-    Div(attrs = { classes("empty") }) {
-        H3 { Text(heading) }
-        P { Text(body) }
-        Button(attrs = {
-            classes("btn-c")
-            attr("type", "button")
-            onClick { onOpenContributor() }
-        }) {
+    EmptyState(title = heading, body = body) {
+        Button(kind = ButtonKind.Primary, onClick = { onOpenContributor() }) {
             Text("Back to contributor")
         }
     }
@@ -104,34 +127,22 @@ private fun ReadyBooks(
     state: ContributorBooksUiState.Ready,
     onOpenBook: (String) -> Unit,
 ) {
-    Div(attrs = { classes("cb-head") }) {
-        H1(attrs = { classes("cb-role") }) { Text(state.roleDisplayName) }
-        Div(attrs = { classes("cb-by") }) { Text(byLine(state.totalBooks, state.contributorName)) }
-        // Same line the detail page's hero carries, from the same map: a role list is exactly where
-        // a reader meets the pen name, because the alias is per-book and this is the whole role.
-        creditedAsLine(state.bookCreditedAs)?.let { line ->
-            Div(attrs = { classes("cb-alias") }) { Text(line) }
-        }
-    }
-
     // A Ready state with nothing in it is reachable: the role's last book can be re-credited while
     // the page is open. Saying so beats a page that is simply blank below its own heading.
     if (state.totalBooks == 0) {
-        Div(attrs = { classes("empty") }) {
-            H3 { Text("No books in this role") }
-            P {
-                Text(
-                    "${state.contributorName} is no longer credited as ${state.roleDisplayName.lowercase()} on any book.",
-                )
-            }
-        }
+        EmptyState(
+            title = "No books in this role",
+            body = "${state.contributorName} is no longer credited as ${state.roleDisplayName.lowercase()} on any book.",
+        )
         return
     }
 
     state.seriesGroups.forEach { group ->
-        Div(attrs = { classes("cb-series") }) {
-            Panel(title = group.seriesName, trailing = { BookCount(group.books.size) }) {
-                BookGrid(group.books, state, onOpenBook)
+        key(group.seriesName) {
+            Div(attrs = { classes("cb-series") }) {
+                Panel(title = group.seriesName, trailing = { BookCount(group.books.size) }) {
+                    BookGrid(group.books, state, onOpenBook)
+                }
             }
         }
     }
@@ -160,14 +171,16 @@ private fun BookGrid(
 ) {
     Div(attrs = { classes("cd-tile-grid") }) {
         books.forEach { book ->
-            // The same tile Contributor Detail's role panels draw, deliberately: this page is that
-            // page's preview continued, and a reader who has just clicked "View all" should land
-            // on more of what they were looking at, not a second way of drawing a book.
-            RoleTile(
-                book = book,
-                progress = state.bookProgress[book.id],
-                onOpen = { onOpenBook(book.id.value) },
-            )
+            key(book.id.value) {
+                // The same tile Contributor Detail's role panels draw, deliberately: this page is that
+                // page's preview continued, and a reader who has just clicked "View all" should land
+                // on more of what they were looking at, not a second way of drawing a book.
+                RoleTile(
+                    book = book,
+                    progress = state.bookProgress[book.id],
+                    onOpen = { onOpenBook(book.id.value) },
+                )
+            }
         }
     }
 }

@@ -105,7 +105,7 @@ class AccountRoutesTest :
 
             try {
                 host.querySelector(".nprefs") shouldBe null
-                host.querySelector(".set-title") shouldBe null
+                host.querySelector(".set") shouldBe null
             } finally {
                 router.dispose()
             }
@@ -185,7 +185,7 @@ class AccountRoutesTest :
                 mountAt("/settings", openSettings = fixedSettings(SettingsUiState(isLoading = false)))
 
             try {
-                val links = host.querySelectorAll(".btn-o")
+                val links = host.querySelectorAll(".btn-secondary")
                 val notifications =
                     (0 until links.length)
                         .map { links.item(it) as HTMLElement }
@@ -377,7 +377,7 @@ class AccountRoutesTest :
                 )
 
             try {
-                (host.querySelector(".cdet-title") as HTMLElement).textContent shouldBe "Bedtime"
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Bedtime"
                 host.querySelector(".coll-list") shouldBe null
             } finally {
                 router.dispose()
@@ -623,7 +623,7 @@ class AccountRoutesTest :
                 )
 
             try {
-                (host.querySelector(".prof-name") as HTMLElement).textContent shouldBe "Simon Hull"
+                (host.querySelector(".prof-hero .page-t") as HTMLElement).textContent shouldBe "Simon Hull"
             } finally {
                 router.dispose()
             }
@@ -754,7 +754,7 @@ class AccountRoutesTest :
             try {
                 // The redirect is decided in a LaunchedEffect, so their page lands a composition
                 // after the route flips — wait for the page, not for a frame count.
-                awaitPresent(host, ".prof-name").textContent shouldBe "Simon Hull"
+                awaitPresent(host, ".prof-hero .page-t").textContent shouldBe "Simon Hull"
 
                 window.location.pathname shouldBe "/profile/u7"
                 host.querySelector(".pedit") shouldBe null

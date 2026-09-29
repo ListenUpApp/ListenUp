@@ -7,14 +7,17 @@ import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
+import com.calypsan.listenup.web.design.LoadingState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Cover
+import com.calypsan.listenup.web.design.PageHeader
+import com.calypsan.listenup.web.design.SortControl
+import com.calypsan.listenup.web.design.VirtualList
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.LibraryFacet
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H3
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -49,18 +52,19 @@ fun SeriesListPage(
     // Header and facets render in every state, for the reason the Books tab gives: they are
     // navigation rather than data, and hiding them during a long first sync strands the reader.
     Div(attrs = { classes("lib-header") }) {
-        H3 { Text("Library") }
-        if (state is LibraryUiState.Loaded) SeriesSortControl(state, onEvent)
+        PageHeader(title = "Series") {
+            if (state is LibraryUiState.Loaded) SeriesSortControl(state, onEvent)
+        }
     }
     FacetRow(active = LibraryFacet.Series, onSelect = onSelectFacet)
 
     when (state) {
         is LibraryUiState.Loading -> {
-            Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+            LoadingState()
         }
 
         is LibraryUiState.Error -> {
-            Div(attrs = { classes("empty") }) { P { Text(state.message) } }
+            EmptyState(title = "Your library can't be shown", body = state.message)
         }
 
         is LibraryUiState.Loaded -> {
@@ -75,29 +79,33 @@ private fun LoadedSeries(
     onOpenSeries: (String) -> Unit,
 ) {
     if (state.series.isEmpty()) {
-        Div(attrs = { classes("empty") }) {
-            H3 { Text(if (state.isBuildingInitialLibrary) "Still reading your library" else "No series yet") }
-            P {
-                Text(
-                    if (state.isBuildingInitialLibrary) {
-                        "Series appear as the scan works through your books."
-                    } else {
-                        "Books grouped into a series will show up here."
-                    },
-                )
-            }
-        }
+        EmptyState(
+            title = if (state.isBuildingInitialLibrary) "Still reading your library" else "No series yet",
+            body =
+                if (state.isBuildingInitialLibrary) {
+                    "Series appear as the scan works through your books."
+                } else {
+                    "Books grouped into a series will show up here."
+                },
+        )
         return
     }
 
-    Div(attrs = { classes("srs-grid") }) {
-        state.series.forEach { entry ->
-            SeriesCard(
-                entry = entry,
-                progress = state.seriesProgress[entry.series.id],
-                onOpen = { onOpenSeries(entry.series.id.value) },
-            )
-        }
+    // Windowed, like the library grid: a big library has hundreds of series. Every card is the same
+    // height — the name is clamped to two lines and the meta block holds its size whether or not
+    // there is progress to show — which is what lets rows be counted rather than measured.
+    VirtualList(
+        items = state.series,
+        key = { it.series.id.value },
+        containerClass = "srs-grid",
+        itemSelector = ".srs-card",
+        label = "Series",
+    ) { entry ->
+        SeriesCard(
+            entry = entry,
+            progress = state.seriesProgress[entry.series.id],
+            onOpen = { onOpenSeries(entry.series.id.value) },
+        )
     }
 }
 
@@ -158,19 +166,14 @@ private fun SeriesSortControl(
     state: LibraryUiState.Loaded,
     onEvent: (LibraryUiEvent) -> Unit,
 ) {
-    Div(attrs = { classes("lib-sort") }) {
-        SERIES_SORT_CATEGORIES.forEach { category ->
-            Div(attrs = {
-                classes("lib-sort-option")
-                if (state.seriesSortState.category == category) classes("is-active")
-                onClick { onEvent(LibraryUiEvent.SeriesCategoryChanged(category)) }
-            }) { Text(category.label) }
-        }
-        Div(attrs = {
-            classes("lib-sort-direction")
-            onClick { onEvent(LibraryUiEvent.SeriesDirectionToggled) }
-        }) { Text(if (state.seriesSortState.direction == SortDirection.ASCENDING) "↑" else "↓") }
-    }
+    SortControl(
+        options = SERIES_SORT_CATEGORIES,
+        active = state.seriesSortState.category,
+        labelOf = { it.label },
+        ascending = state.seriesSortState.direction == SortDirection.ASCENDING,
+        onSelect = { onEvent(LibraryUiEvent.SeriesCategoryChanged(it)) },
+        onToggleDirection = { onEvent(LibraryUiEvent.SeriesDirectionToggled) },
+    )
 }
 
 private fun bookCountLabel(count: Int): String = if (count == 1) "1 book" else "$count books"

@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -10,6 +13,7 @@ import com.calypsan.listenup.client.presentation.auth.LoginField
 import com.calypsan.listenup.client.presentation.auth.LoginUiState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.LinkButton
 import com.calypsan.listenup.web.design.PasswordField
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.attributes.InputType
@@ -52,6 +56,10 @@ fun LoginForm(
 
     val error = (state as? LoginUiState.Error)?.type?.takeUnless { edited }
     val badField = (error as? LoginErrorType.ValidationError)?.field
+    // A validation problem belongs to one field and is spoken by it; anything else is about the
+    // attempt as a whole and is announced once, above the button.
+    val fieldProblem = error?.takeIf { badField != null }?.userMessage()
+    val formProblem = error?.takeIf { badField == null }?.userMessage()
 
     val submit = onSubmit
 
@@ -82,7 +90,7 @@ fun LoginForm(
             leading = WebIcon.Mail,
             placeholder = "you@example.com",
             type = InputType.Email,
-            error = badField == LoginField.EMAIL,
+            errorText = fieldProblem.takeIf { badField == LoginField.EMAIL },
             id = EMAIL_ID,
             autocomplete = "username",
         )
@@ -93,7 +101,7 @@ fun LoginForm(
                 password = it
                 edited = true
             },
-            error = badField == LoginField.PASSWORD,
+            errorText = fieldProblem.takeIf { badField == LoginField.PASSWORD },
             id = PASSWORD_ID,
             autocomplete = "current-password",
         )
@@ -102,21 +110,22 @@ fun LoginForm(
         // links: someone reaching for this has already failed to sign in, and the whole point is
         // that they find it without reading the page again.
         Div(attrs = { classes("auth-aside") }) {
-            Span(attrs = {
-                classes("lnk")
-                onClick { onForgotPassword() }
-            }) { Text("Forgot your password?") }
+            LinkButton("Forgot password?", onClick = onForgotPassword)
         }
 
-        error?.let { Div(attrs = { classes("auth-err") }) { Text(it.userMessage()) } }
+        formProblem?.let { FormAlert(it) }
 
-        Button(attrs = {
-            classes("btn")
-            attr("type", "submit")
-            // No onClick: a submit button inside a form already submits it. Keeping one would
-            // fire the handler twice for a click and once for Enter.
-            if (state is LoginUiState.Loading) disabled()
-        }) {
+        Button(
+            kind = ButtonKind.Primary,
+            size = ButtonSize.Lg,
+            fill = true,
+            submit = true,
+            attrs = {
+                // No onClick: a submit button inside a form already submits it. Keeping one would
+                // fire the handler twice for a click and once for Enter.
+                if (state is LoginUiState.Loading) disabled()
+            },
+        ) {
             Icon(WebIcon.LogIn, size = BUTTON_ICON_SIZE)
             Text(if (state is LoginUiState.Loading) "Signing in…" else "Sign in")
         }
@@ -124,10 +133,7 @@ fun LoginForm(
         if (openRegistration) {
             Div(attrs = { classes("auth-alt") }) {
                 Span { Text("New to ListenUp?") }
-                Span(attrs = {
-                    classes("lnk")
-                    onClick { onRegister() }
-                }) { Text("Create account") }
+                LinkButton("Create account", onClick = onRegister)
             }
         }
 
@@ -136,10 +142,7 @@ fun LoginForm(
         // would leave an invited reader with a code and no field to type it into.
         Div(attrs = { classes("auth-alt") }) {
             Span { Text("Have an invite code?") }
-            Span(attrs = {
-                classes("lnk")
-                onClick { onClaimInvite() }
-            }) { Text("Redeem it") }
+            LinkButton("Redeem it", onClick = onClaimInvite)
         }
     }
 }

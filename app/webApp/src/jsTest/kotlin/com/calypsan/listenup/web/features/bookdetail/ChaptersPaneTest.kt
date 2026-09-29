@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import androidx.compose.runtime.Composition
 import com.calypsan.listenup.web.features.licences.fixedLicences
 import com.calypsan.listenup.web.features.licences.OpenLicences
 import com.calypsan.listenup.web.features.licences.LicencesUiState
@@ -41,6 +42,9 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.browser.window
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.asList
+import org.w3c.dom.events.KeyboardEvent
+import org.w3c.dom.events.KeyboardEventInit
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
@@ -99,6 +103,10 @@ import com.calypsan.listenup.web.features.sync.fixedDeadLetters
 class ChaptersPaneTest :
     FunSpec({
 
+        // Every WebAppRoot owns a window-level keydown listener (the command palette's). Left
+        // undisposed, an orphan answers a LATER spec's ⌘K by opening a modal nobody closes, and
+        // that modal makes the whole document inert for every spec after it.
+        val compositions = mutableListOf<Composition>()
         var originalUrl = ""
 
         beforeTest {
@@ -107,6 +115,7 @@ class ChaptersPaneTest :
 
         afterTest {
             window.history.replaceState(null, "", originalUrl)
+            disposeAll(compositions)
         }
 
         fun mountAt(path: String): Pair<HTMLElement, Router> {
@@ -114,66 +123,67 @@ class ChaptersPaneTest :
             val router = Router()
             val host = document.createElement("div") as HTMLElement
             document.body!!.appendChild(host)
-            renderComposable(root = host) {
-                WebAppRoot(
-                    router = router,
-                    openBookDetail = fixedBookDetail(readyBook()),
-                    openBookEdit = fixedBookEdit(BookEditUiState()),
-                    openChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
-                    openMetadata = fixedMetadata(MetadataUiState.Idle()),
-                    openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
-                    openContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
-                    openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
-                    openContributorMetadata = fixedContributorMetadata(ContributorMetadataUiState.Idle()),
-                    openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
-                    openSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
-                    openNotifications = fixedNotifications(NotificationsUiState.Empty),
-                    openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
-                    openProfile = fixedProfile(UserProfileUiState.Loading),
-                    openEditProfile = fixedEditProfile(EditProfileUiState.Loading),
-                    openHome = fixedHome(HomeUiState.Loading),
-                    openDiscover = fixedDiscover(),
-                    openSettings = fixedSettings(),
-                    openLicences = fixedLicences(LicencesUiState.Ready(emptyList())),
-                    openDevices = fixedDevices(),
-                    openHardcover = fixedHardcover(),
-                    openAdmin = fixedAdmin(),
-                    admin =
-                        AdminSessions(
-                            librarySettings = fixedLibrarySettings(LibrarySettingsUiState.Loading),
-                            inbox = fixedAdminInbox(),
-                            serverSettings = fixedServerSettings(),
-                            categories = fixedCategories(),
-                            collections = fixedCollections(),
-                            collectionDetail = fixedCollectionDetail(),
-                            backups = fixedBackups(),
-                            restore = fixedRestore(),
-                            imports = fixedImports(),
-                            importFlow = fixedImportFlow(),
-                            createInvite = fixedCreateInvite(CreateInviteUiState.Ready()),
-                            userDetail = fixedUserDetail(UserDetailUiState.Loading),
-                            upload = fixedUpload(UploadBooksUiState.Idle),
-                            organize = fixedOrganize(OrganizeSettingsUiState.Loading),
-                        ),
-                    openShelfDetail = fixedShelfDetail(),
-                    openShelfEdit = fixedShelfEdit(),
-                    openLibrary = fakeLibrary(),
-                    openSearch = fixedSearch(SearchUiState.Idle()),
-                    openMultiSelect = fixedMultiSelect(),
-                    openBulkEdit = fixedBulkEdit(BulkEditUiState.Loading),
-                    openBrowseFacet = fixedBrowseFacet(BrowseFacetUiState.Loading),
-                    openGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
-                    openBookReaders = fixedBookReaders(BookReadersUiState.Loading),
-                    openBookRatings = fixedBookRatings(BookRatingsUiState.Loading),
-                    openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
-                    openDeadLetters = fixedDeadLetters(),
-                    onToast = {},
-                    openNotificationBell = fixedNotificationBell(),
-                    openPlayback = fixedPlayback(),
-                    observeIsAdmin = { flowOf(false) },
-                    observeCurrentUserId = { flowOf(null) },
-                )
-            }
+            compositions +=
+                renderComposable(root = host) {
+                    WebAppRoot(
+                        router = router,
+                        openBookDetail = fixedBookDetail(readyBook()),
+                        openBookEdit = fixedBookEdit(BookEditUiState()),
+                        openChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
+                        openMetadata = fixedMetadata(MetadataUiState.Idle()),
+                        openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
+                        openContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
+                        openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
+                        openContributorMetadata = fixedContributorMetadata(ContributorMetadataUiState.Idle()),
+                        openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
+                        openSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
+                        openNotifications = fixedNotifications(NotificationsUiState.Empty),
+                        openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
+                        openProfile = fixedProfile(UserProfileUiState.Loading),
+                        openEditProfile = fixedEditProfile(EditProfileUiState.Loading),
+                        openHome = fixedHome(HomeUiState.Loading),
+                        openDiscover = fixedDiscover(),
+                        openSettings = fixedSettings(),
+                        openLicences = fixedLicences(LicencesUiState.Ready(emptyList())),
+                        openDevices = fixedDevices(),
+                        openHardcover = fixedHardcover(),
+                        openAdmin = fixedAdmin(),
+                        admin =
+                            AdminSessions(
+                                librarySettings = fixedLibrarySettings(LibrarySettingsUiState.Loading),
+                                inbox = fixedAdminInbox(),
+                                serverSettings = fixedServerSettings(),
+                                categories = fixedCategories(),
+                                collections = fixedCollections(),
+                                collectionDetail = fixedCollectionDetail(),
+                                backups = fixedBackups(),
+                                restore = fixedRestore(),
+                                imports = fixedImports(),
+                                importFlow = fixedImportFlow(),
+                                createInvite = fixedCreateInvite(CreateInviteUiState.Ready()),
+                                userDetail = fixedUserDetail(UserDetailUiState.Loading),
+                                upload = fixedUpload(UploadBooksUiState.Idle),
+                                organize = fixedOrganize(OrganizeSettingsUiState.Loading),
+                            ),
+                        openShelfDetail = fixedShelfDetail(),
+                        openShelfEdit = fixedShelfEdit(),
+                        openLibrary = fakeLibrary(),
+                        openSearch = fixedSearch(SearchUiState.Idle()),
+                        openMultiSelect = fixedMultiSelect(),
+                        openBulkEdit = fixedBulkEdit(BulkEditUiState.Loading),
+                        openBrowseFacet = fixedBrowseFacet(BrowseFacetUiState.Loading),
+                        openGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
+                        openBookReaders = fixedBookReaders(BookReadersUiState.Loading),
+                        openBookRatings = fixedBookRatings(BookRatingsUiState.Loading),
+                        openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
+                        openDeadLetters = fixedDeadLetters(),
+                        onToast = {},
+                        openNotificationBell = fixedNotificationBell(),
+                        openPlayback = fixedPlayback(),
+                        observeIsAdmin = { flowOf(false) },
+                        observeCurrentUserId = { flowOf(null) },
+                    )
+                }
             return host to router
         }
 
@@ -183,6 +193,7 @@ class ChaptersPaneTest :
             try {
                 host.querySelectorAll(".tbl tbody tr").length shouldBe CHAPTER_COUNT
                 host.querySelectorAll(".tbl .cbx").length shouldBeGreaterThan CHAPTER_COUNT
+                host.querySelectorAll(".tbl input[type=checkbox]").length shouldBe CHAPTER_COUNT + 1
                 host.querySelectorAll(".bulk").length shouldBe 0
             } finally {
                 router.dispose()
@@ -195,7 +206,7 @@ class ChaptersPaneTest :
             try {
                 host.querySelectorAll(".tbl tbody tr.sel").length shouldBe 2
                 (host.querySelector(".bulk") as HTMLElement).textContent.orEmpty() shouldContain "2 selected"
-                host.querySelectorAll(".chmap i.on").length shouldBe 2
+                host.querySelectorAll(".chmap button.on").length shouldBe 2
             } finally {
                 router.dispose()
             }
@@ -206,9 +217,9 @@ class ChaptersPaneTest :
             val depth = window.history.length
 
             try {
-                // Row 10 is index 9; its first cell is the checkbox.
+                // Row 10 is index 9; its first cell holds the checkbox.
                 val row = host.querySelectorAll(".tbl tbody tr").item(9) as HTMLElement
-                (row.querySelector("td") as HTMLElement).click()
+                (row.querySelector("td input[type=checkbox]") as HTMLElement).click()
 
                 window.location.search shouldContain "sel=9,10"
                 window.history.length shouldBe depth
@@ -235,12 +246,12 @@ class ChaptersPaneTest :
             val (host, router) = mountAt("/book/42?tab=chapters")
 
             try {
-                (host.querySelector(".tbl thead th") as HTMLElement).click()
+                (host.querySelector(".tbl thead input[type=checkbox]") as HTMLElement).click()
                 window.location.search shouldContain "sel="
                 awaitFrame()
                 host.querySelectorAll(".tbl tbody tr.sel").length shouldBe CHAPTER_COUNT
 
-                (host.querySelector(".tbl thead th") as HTMLElement).click()
+                (host.querySelector(".tbl thead input[type=checkbox]") as HTMLElement).click()
                 window.location.search shouldNotContain "sel"
             } finally {
                 router.dispose()
@@ -275,7 +286,44 @@ class ChaptersPaneTest :
             val (host, router) = mountAt("/book/42?tab=chapters")
 
             try {
-                host.querySelectorAll(".chmap i").length shouldBe CHAPTER_COUNT
+                host.querySelectorAll(".chmap button").length shouldBe CHAPTER_COUNT
+            } finally {
+                router.dispose()
+            }
+        }
+        test("the chapter map is one tab stop of labelled toggle buttons") {
+            // ⛔ Its segments were `<i onClick>`: the map could only be used with a mouse.
+            val (host, router) = mountAt("/book/42?tab=chapters&sel=2")
+
+            try {
+                val map = host.querySelector(".chmap") as HTMLElement
+                map.getAttribute("role") shouldBe "group"
+                map.getAttribute("aria-label") shouldBe "Chapter map"
+                val segments = map.querySelectorAll("button").asList().filterIsInstance<HTMLElement>()
+                segments[1].getAttribute("aria-pressed") shouldBe "true"
+                segments[0].getAttribute("aria-pressed") shouldBe "false"
+                segments[0].getAttribute("aria-label").orEmpty() shouldContain "Chapter 1"
+                // Thirty-three tab stops ahead of the table would bury it; one stop, arrows inside.
+                segments.count { it.getAttribute("tabindex") == "0" } shouldBe 1
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("arrow keys walk the chapter map, and pressing a segment toggles it") {
+            val (host, router) = mountAt("/book/42?tab=chapters")
+
+            try {
+                val segments = host.querySelectorAll(".chmap button").asList().filterIsInstance<HTMLElement>()
+                segments[0].focus()
+                segments[0].dispatchEvent(
+                    KeyboardEvent("keydown", KeyboardEventInit(key = "ArrowRight", bubbles = true, cancelable = true)),
+                )
+                awaitFrame()
+                document.activeElement shouldBe segments[1]
+
+                segments[1].click()
+                window.location.search shouldContain "sel=2"
             } finally {
                 router.dispose()
             }

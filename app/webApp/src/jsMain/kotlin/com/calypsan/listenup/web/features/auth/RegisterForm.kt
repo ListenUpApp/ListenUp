@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -8,6 +11,7 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.auth.RegisterUiState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.LinkButton
 import com.calypsan.listenup.web.design.PasswordField
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.attributes.InputType
@@ -88,38 +92,36 @@ fun RegisterForm(
             label = "Confirm password",
             value = confirm,
             onInput = { confirm = it },
-            error = mismatch,
+            errorText = "Passwords don't match.".takeIf { mismatch },
             id = REGISTER_CONFIRM_ID,
             autocomplete = "new-password",
         )
-        if (mismatch) {
-            Div(attrs = { classes("auth-err") }) { Text("Passwords don't match") }
-        }
 
         // The shared state carries a raw String here rather than a semantic error type, unlike
         // LoginUiState and SetupUiState. Rendered verbatim on purpose: substituting our own copy
         // would hide what the server actually said, and normalising the shared type belongs in
         // its own change.
         (state as? RegisterUiState.Error)?.let {
-            Div(attrs = { classes("auth-err") }) { Text(it.message) }
+            FormAlert(it.message)
         }
 
-        Button(attrs = {
-            classes("btn")
-            attr("type", "submit")
-            if (state is RegisterUiState.Loading || !canSubmit) disabled()
-            // No onClick: a submit button inside a form already submits it.
-        }) {
+        Button(
+            kind = ButtonKind.Primary,
+            size = ButtonSize.Lg,
+            fill = true,
+            submit = true,
+            attrs = {
+                if (state is RegisterUiState.Loading || !canSubmit) disabled()
+                // No onClick: a submit button inside a form already submits it.
+            },
+        ) {
             Icon(WebIcon.UserPlus, size = BUTTON_ICON_SIZE)
             Text(if (state is RegisterUiState.Loading) "Requesting…" else "Create account")
         }
 
         Div(attrs = { classes("auth-alt") }) {
             Span { Text("Already have an account?") }
-            Span(attrs = {
-                classes("lnk")
-                onClick { onBack() }
-            }) { Text("Sign in") }
+            LinkButton("Sign in", onClick = onBack)
         }
     }
 }

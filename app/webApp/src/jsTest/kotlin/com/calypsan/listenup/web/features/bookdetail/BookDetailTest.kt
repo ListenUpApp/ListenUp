@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import androidx.compose.runtime.Composition
 import com.calypsan.listenup.web.features.licences.fixedLicences
 import com.calypsan.listenup.web.features.licences.OpenLicences
 import com.calypsan.listenup.web.features.licences.LicencesUiState
@@ -92,6 +93,7 @@ import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.web.features.admin.fixedOrganize
 import com.calypsan.listenup.web.features.admin.fixedUpload
 import com.calypsan.listenup.web.features.sync.fixedDeadLetters
+import io.kotest.matchers.shouldNotBe
 
 /**
  * Book Detail through the URL contract: `/book/{id}?tab=…` names the book and the pane, pane
@@ -101,6 +103,10 @@ import com.calypsan.listenup.web.features.sync.fixedDeadLetters
 class BookDetailTest :
     FunSpec({
 
+        // Every WebAppRoot owns a window-level keydown listener (the command palette's). Left
+        // undisposed, an orphan answers a LATER spec's ⌘K by opening a modal nobody closes, and
+        // that modal makes the whole document inert for every spec after it.
+        val compositions = mutableListOf<Composition>()
         var originalUrl = ""
 
         beforeTest {
@@ -109,6 +115,7 @@ class BookDetailTest :
 
         afterTest {
             window.history.replaceState(null, "", originalUrl)
+            disposeAll(compositions)
         }
 
         fun mountAt(
@@ -119,66 +126,67 @@ class BookDetailTest :
             val router = Router()
             val host = document.createElement("div") as HTMLElement
             document.body!!.appendChild(host)
-            renderComposable(root = host) {
-                WebAppRoot(
-                    router = router,
-                    openBookDetail = source,
-                    openBookEdit = fixedBookEdit(BookEditUiState()),
-                    openChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
-                    openMetadata = fixedMetadata(MetadataUiState.Idle()),
-                    openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
-                    openContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
-                    openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
-                    openContributorMetadata = fixedContributorMetadata(ContributorMetadataUiState.Idle()),
-                    openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
-                    openSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
-                    openNotifications = fixedNotifications(NotificationsUiState.Empty),
-                    openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
-                    openProfile = fixedProfile(UserProfileUiState.Loading),
-                    openEditProfile = fixedEditProfile(EditProfileUiState.Loading),
-                    openHome = fixedHome(HomeUiState.Loading),
-                    openDiscover = fixedDiscover(),
-                    openSettings = fixedSettings(),
-                    openLicences = fixedLicences(LicencesUiState.Ready(emptyList())),
-                    openDevices = fixedDevices(),
-                    openHardcover = fixedHardcover(),
-                    openAdmin = fixedAdmin(),
-                    admin =
-                        AdminSessions(
-                            librarySettings = fixedLibrarySettings(LibrarySettingsUiState.Loading),
-                            inbox = fixedAdminInbox(),
-                            serverSettings = fixedServerSettings(),
-                            categories = fixedCategories(),
-                            collections = fixedCollections(),
-                            collectionDetail = fixedCollectionDetail(),
-                            backups = fixedBackups(),
-                            restore = fixedRestore(),
-                            imports = fixedImports(),
-                            importFlow = fixedImportFlow(),
-                            createInvite = fixedCreateInvite(CreateInviteUiState.Ready()),
-                            userDetail = fixedUserDetail(UserDetailUiState.Loading),
-                            upload = fixedUpload(UploadBooksUiState.Idle),
-                            organize = fixedOrganize(OrganizeSettingsUiState.Loading),
-                        ),
-                    openShelfDetail = fixedShelfDetail(),
-                    openShelfEdit = fixedShelfEdit(),
-                    openLibrary = fakeLibrary(),
-                    openSearch = fixedSearch(SearchUiState.Idle()),
-                    openMultiSelect = fixedMultiSelect(),
-                    openBulkEdit = fixedBulkEdit(BulkEditUiState.Loading),
-                    openBrowseFacet = fixedBrowseFacet(BrowseFacetUiState.Loading),
-                    openGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
-                    openBookReaders = fixedBookReaders(BookReadersUiState.Loading),
-                    openBookRatings = fixedBookRatings(BookRatingsUiState.Loading),
-                    openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
-                    openDeadLetters = fixedDeadLetters(),
-                    onToast = {},
-                    openNotificationBell = fixedNotificationBell(),
-                    openPlayback = fixedPlayback(),
-                    observeIsAdmin = { flowOf(false) },
-                    observeCurrentUserId = { flowOf(null) },
-                )
-            }
+            compositions +=
+                renderComposable(root = host) {
+                    WebAppRoot(
+                        router = router,
+                        openBookDetail = source,
+                        openBookEdit = fixedBookEdit(BookEditUiState()),
+                        openChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
+                        openMetadata = fixedMetadata(MetadataUiState.Idle()),
+                        openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
+                        openContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
+                        openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
+                        openContributorMetadata = fixedContributorMetadata(ContributorMetadataUiState.Idle()),
+                        openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
+                        openSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
+                        openNotifications = fixedNotifications(NotificationsUiState.Empty),
+                        openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
+                        openProfile = fixedProfile(UserProfileUiState.Loading),
+                        openEditProfile = fixedEditProfile(EditProfileUiState.Loading),
+                        openHome = fixedHome(HomeUiState.Loading),
+                        openDiscover = fixedDiscover(),
+                        openSettings = fixedSettings(),
+                        openLicences = fixedLicences(LicencesUiState.Ready(emptyList())),
+                        openDevices = fixedDevices(),
+                        openHardcover = fixedHardcover(),
+                        openAdmin = fixedAdmin(),
+                        admin =
+                            AdminSessions(
+                                librarySettings = fixedLibrarySettings(LibrarySettingsUiState.Loading),
+                                inbox = fixedAdminInbox(),
+                                serverSettings = fixedServerSettings(),
+                                categories = fixedCategories(),
+                                collections = fixedCollections(),
+                                collectionDetail = fixedCollectionDetail(),
+                                backups = fixedBackups(),
+                                restore = fixedRestore(),
+                                imports = fixedImports(),
+                                importFlow = fixedImportFlow(),
+                                createInvite = fixedCreateInvite(CreateInviteUiState.Ready()),
+                                userDetail = fixedUserDetail(UserDetailUiState.Loading),
+                                upload = fixedUpload(UploadBooksUiState.Idle),
+                                organize = fixedOrganize(OrganizeSettingsUiState.Loading),
+                            ),
+                        openShelfDetail = fixedShelfDetail(),
+                        openShelfEdit = fixedShelfEdit(),
+                        openLibrary = fakeLibrary(),
+                        openSearch = fixedSearch(SearchUiState.Idle()),
+                        openMultiSelect = fixedMultiSelect(),
+                        openBulkEdit = fixedBulkEdit(BulkEditUiState.Loading),
+                        openBrowseFacet = fixedBrowseFacet(BrowseFacetUiState.Loading),
+                        openGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
+                        openBookReaders = fixedBookReaders(BookReadersUiState.Loading),
+                        openBookRatings = fixedBookRatings(BookRatingsUiState.Loading),
+                        openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
+                        openDeadLetters = fixedDeadLetters(),
+                        onToast = {},
+                        openNotificationBell = fixedNotificationBell(),
+                        openPlayback = fixedPlayback(),
+                        observeIsAdmin = { flowOf(false) },
+                        observeCurrentUserId = { flowOf(null) },
+                    )
+                }
             return host to router
         }
 
@@ -268,19 +276,20 @@ class BookDetailTest :
                     .textContent
                     .orEmpty() shouldContain "Not in this browser's library"
                 (host.querySelector(".bd .crumb a") != null) shouldBe true
-                (host.querySelector(".bd-t") == null) shouldBe true
+                (host.querySelector(".bd-head") == null) shouldBe true
             } finally {
                 router.dispose()
             }
         }
 
-        test("a book still loading says that instead of showing an empty shell") {
+        test("a book still loading holds its heading's place instead of showing an empty shell") {
             val (host, router) = mountAt("/book/42", fixedBookDetail(BookDetailUiState.Loading))
 
             try {
-                (host.querySelector(".bd .empty") as HTMLElement)
-                    .textContent
-                    .orEmpty() shouldContain "Loading"
+                // The H1 is there from the first frame — named for a screen reader, drawn as a bar.
+                val heading = host.querySelector(".bd-head h1.page-t") as HTMLElement
+                heading.textContent.orEmpty() shouldContain "Book"
+                heading.querySelector(".skel") shouldNotBe null
             } finally {
                 router.dispose()
             }
@@ -290,7 +299,7 @@ class BookDetailTest :
             val (host, router) = mountAt("/book/42")
 
             try {
-                (host.querySelector(".bd-t") as HTMLElement).textContent shouldBe "The Institute"
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "The Institute"
                 (host.querySelector(".bd-by") as HTMLElement)
                     .textContent
                     .orEmpty() shouldContain "Stephen King · read by Santino Fontana"
@@ -323,7 +332,7 @@ class BookDetailTest :
             try {
                 host.querySelectorAll(".bd .meta-r").length shouldBeGreaterThanOrEqual 4
                 (host.querySelector(".bd-side") != null) shouldBe true
-                (host.querySelector(".bd-t") as HTMLElement).textContent.orEmpty() shouldContain "The Institute"
+                (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "The Institute"
             } finally {
                 router.dispose()
             }

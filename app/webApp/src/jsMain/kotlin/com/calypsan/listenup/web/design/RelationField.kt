@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Input
@@ -80,20 +81,22 @@ fun RelationField(
         if (attached.isNotEmpty()) {
             Div(attrs = { classes("rel-chips") }) {
                 attached.forEach { chip ->
-                    Div(attrs = { classes("rel-chip") }) {
-                        Text(chip.label)
-                        // A slot rather than a second component: series is this same chip plus a
-                        // sequence box, and forking the control over one input would leave two
-                        // search fields to keep in step.
-                        trailing?.invoke(chip)
-                        Button(attrs = {
-                            classes("rel-x")
-                            attr("type", "button")
-                            // Named for the thing it removes: a row of identical "Remove" buttons
-                            // is unusable by anyone who cannot see which chip they sit on.
-                            attr("aria-label", "Remove ${chip.label}")
-                            onClick { onRemove(chip) }
-                        }) { Text("×") }
+                    key(chip.id) {
+                        Div(attrs = { classes("rel-chip") }) {
+                            Text(chip.label)
+                            // A slot rather than a second component: series is this same chip plus a
+                            // sequence box, and forking the control over one input would leave two
+                            // search fields to keep in step.
+                            trailing?.invoke(chip)
+                            Button(attrs = {
+                                classes("rel-x")
+                                attr("type", "button")
+                                // Named for the thing it removes: a row of identical "Remove" buttons
+                                // is unusable by anyone who cannot see which chip they sit on.
+                                attr("aria-label", "Remove ${chip.label}")
+                                onClick { onRemove(chip) }
+                            }) { Icon(WebIcon.X, size = CHIP_REMOVE_ICON_SIZE) }
+                        }
                     }
                 }
             }
@@ -123,17 +126,19 @@ fun RelationField(
 
                     results.isNotEmpty() -> {
                         results.forEach { result ->
-                            Button(attrs = {
-                                classes("rel-result")
-                                attr("type", "button")
-                                onClick { onSelect(result) }
-                            }) {
-                                Span(attrs = { classes("rel-result-n") }) { Text(result.label) }
-                                // ⛔ Inside the same control, not beside it: the whole row is one
-                                // choice, and a subtitle that were its own element would be a second
-                                // tab stop offering nothing.
-                                result.subtitle?.let { detail ->
-                                    Span(attrs = { classes("rel-result-s") }) { Text(detail) }
+                            key(result.id) {
+                                Button(attrs = {
+                                    classes("rel-result")
+                                    attr("type", "button")
+                                    onClick { onSelect(result) }
+                                }) {
+                                    Span(attrs = { classes("rel-result-n") }) { Text(result.label) }
+                                    // ⛔ Inside the same control, not beside it: the whole row is one
+                                    // choice, and a subtitle that were its own element would be a second
+                                    // tab stop offering nothing.
+                                    result.subtitle?.let { detail ->
+                                        Span(attrs = { classes("rel-result-s") }) { Text(detail) }
+                                    }
                                 }
                             }
                         }
@@ -162,3 +167,6 @@ fun RelationField(
         }
     }
 }
+
+/** The remove glyph inside a 20px chip button. */
+private const val CHIP_REMOVE_ICON_SIZE = 12

@@ -1,22 +1,20 @@
 package com.calypsan.listenup.web.shell
 
+import com.calypsan.listenup.web.design.buttonClasses
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.MenuAction
+import com.calypsan.listenup.web.design.PopupMenu
 import com.calypsan.listenup.web.design.WebIcon
-import org.jetbrains.compose.web.dom.Button
-import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.Text
 
 /**
  * The way out.
  *
  * Deliberately small: account management belongs on Settings, and this exists so the auth arc is a
  * loop rather than a one-way door — without it, seeing the login screen a second time means
- * clearing `localStorage` by hand.
+ * clearing `localStorage` by hand. The keyboard contract is [PopupMenu]'s, shared with every
+ * "more actions" menu in the app.
  */
 @Composable
 fun AccountMenu(
@@ -29,47 +27,17 @@ fun AccountMenu(
      */
     onOpenProfile: (() -> Unit)? = null,
 ) {
-    var open by remember { mutableStateOf(false) }
-
-    // .menu-anchor, not .f-wrap: the latter is the form-field wrapper and is width:100%, which
-    // stretched this menu across the whole content area.
-    Div(attrs = { classes("menu-anchor") }) {
-        Button(attrs = {
-            classes("iconbtn")
-            attr("type", "button")
-            attr("title", "Account")
-            onClick { open = !open }
-        }) {
-            Icon(WebIcon.Shield, size = ICON_SIZE)
+    val items =
+        buildList {
+            onOpenProfile?.let { openProfile -> add(MenuAction("Your profile", WebIcon.Person, openProfile)) }
+            add(MenuAction("Sign out", WebIcon.LogOut, onSignOut))
         }
 
-        if (open) {
-            Div(attrs = { classes("menu") }) {
-                onOpenProfile?.let { openProfile ->
-                    Div(attrs = {
-                        classes("menu-i")
-                        onClick {
-                            open = false
-                            openProfile()
-                        }
-                    }) {
-                        Icon(WebIcon.Person, size = ICON_SIZE)
-                        Text("Your profile")
-                    }
-                }
-                Div(attrs = {
-                    classes("menu-i")
-                    onClick {
-                        open = false
-                        onSignOut()
-                    }
-                }) {
-                    Icon(WebIcon.LogOut, size = ICON_SIZE)
-                    Text("Sign out")
-                }
-            }
-        }
-    }
+    PopupMenu(
+        items = items,
+        label = "Account",
+        icon = WebIcon.Shield,
+        triggerClasses = buttonClasses(ButtonKind.Icon, ButtonSize.Sm),
+        tooltip = true,
+    )
 }
-
-private const val ICON_SIZE = 18

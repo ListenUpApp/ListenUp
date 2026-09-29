@@ -185,7 +185,7 @@ class ContributorMetadataPageTest :
         test("no candidates says so") {
             val host = page(contributorSearchState(loadState = ContributorSearchLoadState.Loaded(emptyList())))
 
-            host.querySelector(".cmx-none")?.textContent shouldBe "No contributors match that search."
+            host.querySelector(".empty-line")?.textContent shouldBe "No contributors match that search."
         }
 
         test("every candidate is offered by name and ASIN, and picking one reports it") {
@@ -247,7 +247,7 @@ class ContributorMetadataPageTest :
             val host =
                 page(contributorPreviewState(ContributorPreviewLoadState.Missing, region = MetadataLocale("de")))
 
-            host.querySelector(".cmx-empty")?.textContent shouldContain "Germany"
+            host.querySelector(".empty.is-inset")?.textContent shouldContain "Germany"
             button(host, "Apply").shouldBeNull()
             button(host, "United Kingdom").shouldNotBeNull()
         }

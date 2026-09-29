@@ -82,7 +82,7 @@ class ForgotPasswordPanelTest :
             var checks = 0
             val host = panel(ForgotPasswordUiState.AwaitingApproval("t1"), onCheckStatus = { checks++ })
 
-            (host.querySelector(".btn-ghost") as HTMLElement).click()
+            (host.querySelector(".btn-secondary") as HTMLElement).click()
 
             checks shouldBe 1
         }
@@ -121,7 +121,9 @@ class ForgotPasswordPanelTest :
             awaitFrame()
 
             completions shouldBe 0
-            (host.querySelector(".auth-err") as HTMLElement).textContent.orEmpty() shouldContain "do not match"
+            // The mismatch belongs to the confirm field, so the field speaks it.
+            (host.querySelector("#auth-reset-confirm-err") as HTMLElement).textContent.orEmpty() shouldContain "do not match"
+            (host.querySelector("#auth-reset-confirm") as HTMLElement).getAttribute("aria-describedby") shouldBe "auth-reset-confirm-err"
         }
 
         test("a wrong code keeps the form and says how many tries are left") {
@@ -159,7 +161,7 @@ class ForgotPasswordPanelTest :
             var retries = 0
             val host = panel(ForgotPasswordUiState.Denied, onRetryRequest = { retries++ })
 
-            (host.querySelector(".btn") as HTMLElement).click()
+            (host.querySelector(".btn-primary") as HTMLElement).click()
 
             retries shouldBe 1
         }
@@ -168,7 +170,7 @@ class ForgotPasswordPanelTest :
             var backs = 0
             val host = panel(ForgotPasswordUiState.Complete, onBackToSignIn = { backs++ })
 
-            (host.querySelector(".btn") as HTMLElement).click()
+            (host.querySelector(".btn-primary") as HTMLElement).click()
 
             backs shouldBe 1
             host.querySelectorAll(".auth-alt").length shouldBe 0

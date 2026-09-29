@@ -51,6 +51,7 @@ import com.calypsan.listenup.web.features.contributoredit.ContributorEditPage
 import com.calypsan.listenup.web.features.contributoredit.OpenContributorEdit
 import com.calypsan.listenup.web.features.contributors.ContributorsPage
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.BulkAction
 import com.calypsan.listenup.web.design.BulkBar
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditEvent
@@ -89,7 +90,7 @@ import com.calypsan.listenup.web.features.library.OpenLibrary
 import com.calypsan.listenup.web.features.nowplaying.OpenPlayback
 import com.calypsan.listenup.web.features.nowplaying.PlaybackNotice
 import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
-import com.calypsan.listenup.web.features.nowplaying.TransportBar
+import com.calypsan.listenup.web.features.nowplaying.TransportBarHost
 import com.calypsan.listenup.web.features.home.HomePage
 import com.calypsan.listenup.web.features.discover.DiscoverPage
 import com.calypsan.listenup.web.features.discover.OpenDiscover
@@ -135,6 +136,7 @@ import com.calypsan.listenup.client.presentation.library.SortState
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.web.design.LibraryFacet
+import com.calypsan.listenup.web.design.LocalCompositionProbe
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
 import com.calypsan.listenup.web.features.seriesdetail.SeriesDetailPage
@@ -185,6 +187,7 @@ import com.calypsan.listenup.web.features.admin.ServerSettingsPage
 import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
+import com.calypsan.listenup.web.shell.NotFoundPage
 import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.NavEntry
 import com.calypsan.listenup.web.shell.NavSection
@@ -198,13 +201,11 @@ import kotlinx.browser.window
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H3
-import org.jetbrains.compose.web.dom.P
-import org.jetbrains.compose.web.dom.Text
 import org.w3c.dom.Element
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.KeyboardEvent
+import com.calypsan.listenup.web.design.PageHeader
 
 /**
  * The root of the ListenUp web body: the Shell A chrome around a router-driven content region.
@@ -303,6 +304,9 @@ fun WebAppRoot(
     Shell(
         sections = listOf(PRIMARY_NAV),
         active = active,
+        // The whole path, not just the first segment the fade keys on: `/book/42` → `/book/42/edit`
+        // is a new page with a new heading, even though it does not fade.
+        pageKey = route.segments.joinToString("/"),
         collapsed = collapsed,
         footer = footerNav(isAdmin = isAdmin, unreadCount = unreadCount),
         onToggleCollapse = { collapsed = !collapsed },
@@ -311,6 +315,7 @@ fun WebAppRoot(
             router.navigate(Route(segments))
         },
     ) {
+        LocalCompositionProbe.current(SHELL_CONTENT_PROBE)
         AccountMenu(
             onSignOut = onSignOut,
             onOpenProfile =
@@ -389,28 +394,9 @@ fun WebAppRoot(
             message = playback.error.collectAsState().value,
             onDismiss = playback.onDismissError,
         )
-        TransportBar(
-            state = playback.state.collectAsState().value,
-            onPlayPause = playback.onPlayPause,
-            onSeek = playback.onSeek,
-            onSkipBack = playback.onSkipBack,
-            onSkipForward = playback.onSkipForward,
-            onSetSpeed = playback.onSetSpeed,
-            onResetSpeed = playback.onResetSpeed,
-            defaultSpeed = playback.defaultSpeed.collectAsState().value,
-            chapters = playback.chapters.collectAsState().value,
-            currentChapterIndex = playback.currentChapterIndex.collectAsState().value,
-            onSeekToChapter = playback.onSeekToChapter,
-            sleepTimer = playback.sleepTimer.collectAsState().value,
-            onSetSleepTimer = playback.onSetSleepTimer,
-            onCancelSleepTimer = playback.onCancelSleepTimer,
-            onExtendSleepTimer = playback.onExtendSleepTimer,
-            volumeBoostDb = playback.volumeBoostDb.collectAsState().value,
-            defaultBoostDb = playback.defaultBoostDb.collectAsState().value,
-            boostUnavailable = playback.boostUnavailable.collectAsState().value,
-            onSetBoost = playback.onSetBoost,
-            onResetBoost = playback.onResetBoost,
-            nowPlaying = playback.nowPlaying.collectAsState().value,
+        // Its own scope: the playback tick recomposes the bar, not this lambda. See the host.
+        TransportBarHost(
+            playback = playback,
             // The expanded player's three destinations. `navigate`, not `replace`: leaving the
             // player for a book is a page change, and Back should return to where you were.
             onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
@@ -838,7 +824,7 @@ private fun RouteContent(
     } else if (active == DISCOVER_KEY) {
         DiscoverRoute(router, openDiscover, feeds)
     } else {
-        PagePlaceholder(active)
+        NotFoundPage(onGoHome = { router.navigate(Route(emptyList())) })
     }
 }
 
@@ -1013,9 +999,10 @@ private fun onSearchFieldChanged(
  * true, so focus never has anywhere else to go, regardless of what element happens to hold it.
  *
  * Focus discipline: the moment the shortcut fires, `document.activeElement` is captured into
- * `restoreFocusTo` — before [CommandPalette] mounts and steals it — so closing can hand focus back
- * to the exact control the reader was on, on every close path alike (Escape, a book hit, or the
- * Shift+Enter commit).
+ * `restoreFocusTo` — before [CommandPalette] mounts and steals it — so dismissing the palette
+ * (Escape, or the dialog's own close request) hands focus back to the exact control the reader was
+ * on. A close that goes somewhere (a hit, See all, the Shift+Enter commit) does not: the page it
+ * lands on takes focus on its heading instead, the way every other navigation does.
  */
 @Composable
 private fun CommandPaletteHost(
@@ -1026,13 +1013,17 @@ private fun CommandPaletteHost(
     var session by remember { mutableStateOf<SearchSession?>(null) }
     var highlighted by remember { mutableStateOf<SearchHit?>(null) }
     var restoreFocusTo by remember { mutableStateOf<HTMLElement?>(null) }
+    var returnFocusTo by remember { mutableStateOf<HTMLElement?>(null) }
 
-    fun closePalette() {
+    // [returnFocus] false when the close is a journey somewhere else: the new page takes focus
+    // itself (see FocusPageOnNavigation), and handing it back to a control on the page being left
+    // would only pull it away from there again.
+    fun closePalette(returnFocus: Boolean = true) {
         isOpen = false
         session?.close()
         session = null
         highlighted = null
-        restoreFocusTo?.focus()
+        if (returnFocus) returnFocusTo = restoreFocusTo
         restoreFocusTo = null
     }
 
@@ -1064,7 +1055,7 @@ private fun CommandPaletteHost(
             paletteKeyDownHandler(
                 isOpen = { isOpen },
                 onOpen = ::openPalette,
-                onClose = ::closePalette,
+                onClose = { closePalette() },
                 onMoveHighlight = ::moveHighlight,
                 onActivateHighlighted = {
                     session?.let { activeSession -> highlighted?.let(activeSession.onOpenHit) }
@@ -1072,7 +1063,7 @@ private fun CommandPaletteHost(
                 onCommit = {
                     session?.let { activeSession ->
                         val query = activeSession.state.value.query
-                        closePalette()
+                        closePalette(returnFocus = false)
                         router.navigate(paletteSearchRoute(query))
                     }
                 },
@@ -1081,11 +1072,21 @@ private fun CommandPaletteHost(
         onDispose { window.removeEventListener("keydown", onWindowKeyDown) }
     }
 
+    // Handed back once the palette has actually left the page, not in the close call itself: until
+    // the recomposition that removes it, the palette is a modal `<dialog>` and everything behind it
+    // is inert, so focusing the invoker straight away is silently refused.
+    returnFocusTo?.let { invoker ->
+        LaunchedEffect(invoker) {
+            invoker.focus()
+            returnFocusTo = null
+        }
+    }
+
     val activeSession = session
     if (isOpen && activeSession != null) {
         LaunchedEffect(activeSession) {
             activeSession.navActions.collect { action ->
-                closePalette()
+                closePalette(returnFocus = false)
                 router.navigate(searchNavRoute(action))
             }
         }
@@ -1105,12 +1106,15 @@ private fun CommandPaletteHost(
             onOpenHit = activeSession.onOpenHit,
             openableTypes = SEARCH_OPENABLE_TYPES,
             highlighted = highlighted,
+            // Escape reaches the host's own key handler first, but a close request the page never
+            // sees as a key (the platform back gesture) arrives here, through the dialog itself.
+            onDismiss = { closePalette() },
             // ⛔ The palette caps its groups like the page does, so it owes the same way out. Shift
             // +Enter reaches the whole search, but a reader looking at "4 of 26 books" wants those
             // 26, not a fresh query they have to narrow again.
             onSeeAll = { type ->
                 val query = uiState.query
-                closePalette()
+                closePalette(returnFocus = false)
                 router.navigate(Route(listOf(SEARCH_KEY, type.slug()), mapOf(SEARCH_QUERY_KEY to query)))
             },
         )
@@ -1138,7 +1142,9 @@ private fun paletteKeyDownHandler(
                 keyboardEvent.key.equals(PALETTE_SHORTCUT_KEY, ignoreCase = true) &&
                     (keyboardEvent.metaKey || keyboardEvent.ctrlKey)
             val isSlash = keyboardEvent.key == "/" && !isEditableTarget(document.activeElement)
-            if (!isShortcut && !isSlash) return@handler
+            // Another modal — a confirm dialog — makes the page behind it inert, and the shortcut
+            // belongs to that page. Opening over it would stack two modals.
+            if ((!isShortcut && !isSlash) || anotherModalIsOpen()) return@handler
             keyboardEvent.preventDefault()
             onOpen()
             return@handler
@@ -1192,6 +1198,9 @@ private fun searchNavRoute(action: SearchNavAction): Route =
 /** Where the palette's Shift+Enter commits: `/search`, or `/search?q=…` for a non-blank query. */
 private fun paletteSearchRoute(query: String): Route =
     if (query.isBlank()) Route(listOf(SEARCH_KEY)) else Route(listOf(SEARCH_KEY), mapOf(SEARCH_QUERY_KEY to query))
+
+/** True while a modal `<dialog>` is showing. Asked only while the palette is shut, so it is never the palette. */
+private fun anotherModalIsOpen(): Boolean = document.querySelector("dialog:modal") != null
 
 /**
  * True for a text input, a textarea, or a `contenteditable` region — everywhere `/` must type the
@@ -2848,19 +2857,6 @@ private fun animatedLibrary(session: LibrarySession): LibraryUiState {
     return shown
 }
 
-/**
- * Stands in for the pages that arrive next (Book Detail first). Honest about being unbuilt
- * rather than mocked up — a placeholder that looks real is a bug report waiting to happen.
- */
-@Composable
-private fun PagePlaceholder(key: String) {
-    val label = (PRIMARY_NAV.entries + FOOTER_NAV).firstOrNull { it.key == key }?.label ?: key
-    Div(attrs = { classes("empty") }) {
-        H3 { Text(label) }
-        P { Text("This page is not built yet.") }
-    }
-}
-
 /** `sel=9,10` → the selected chapter numbers; junk entries are dropped rather than crashing. */
 private fun parseSelection(raw: String?): Set<Int> =
     raw
@@ -2919,6 +2915,9 @@ private fun routeFor(facet: LibraryFacet): Route =
 
 /** The shell's content region — the thing a page change fades. See [fadePageIn]. */
 private const val SHELL_MAIN = ".shell-main"
+
+/** What the shell's content lambda reports to [LocalCompositionProbe] each time it runs. */
+internal const val SHELL_CONTENT_PROBE = "shell-content"
 
 private const val HOME_KEY = "home"
 
@@ -3002,7 +3001,7 @@ private val PRIMARY_NAV =
     NavSection(
         entries =
             listOf(
-                NavEntry(HOME_KEY, "Home", WebIcon.Home),
+                NavEntry(HOME_KEY, "Home", WebIcon.Home, href = "/"),
                 NavEntry(LIBRARY_KEY, "Library", WebIcon.Book),
                 NavEntry(DISCOVER_KEY, "Discover", WebIcon.Compass),
                 NavEntry("search", "Search", WebIcon.Search),
@@ -3073,7 +3072,15 @@ private fun footerNav(
 ): List<NavEntry> =
     FOOTER_NAV
         .filterNot { it.key == ADMIN_KEY && !isAdmin }
-        .map { if (it.key == NOTIFICATIONS_KEY) NavEntry(it.key, it.label, it.icon, badge = unreadCount) else it }
+        .map {
+            if (it.key ==
+                NOTIFICATIONS_KEY
+            ) {
+                NavEntry(it.key, it.label, it.icon, badge = unreadCount, href = it.href)
+            } else {
+                it
+            }
+        }
 
 /**
  * The `/shelf/{id}` branch — one shelf, its books, and the owner's controls.
@@ -3417,7 +3424,7 @@ private fun AdminRouteContent(
                 UserDetailRoute(router = router, openUserDetail = admin.userDetail, userId = id)
             } else {
                 // `/admin/user` with nobody named is not a page — it is a link that lost its id.
-                PagePlaceholder(ADMIN_KEY)
+                NotFoundPage(onGoHome = { router.navigate(Route(emptyList())) })
             }
         }
 
@@ -3425,7 +3432,7 @@ private fun AdminRouteContent(
         // resolution the `size <= 1` guard reaches for `/admin/nonsense`, stated here as the
         // absence of a branch rather than as a length test.
         else -> {
-            PagePlaceholder(ADMIN_KEY)
+            NotFoundPage(onGoHome = { router.navigate(Route(emptyList())) })
         }
     }
 }
@@ -3625,7 +3632,7 @@ private fun AccountRouteContent(
         // A `/settings/anything-else` URL. Falls through to the shell's own not-found rather than
         // silently showing Settings, so a mistyped path says so.
         else -> {
-            PagePlaceholder(active)
+            NotFoundPage(onGoHome = { router.navigate(Route(emptyList())) })
         }
     }
 }

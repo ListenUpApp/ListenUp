@@ -3,23 +3,18 @@
    dependency graph (see web/scripts/build-licences.mjs), so the list is what
    the browser actually loads rather than the Android app's. */
 
-.lic { display: flex; flex-direction: column; gap: 16px; }
+.lic { display: flex; flex-direction: column; gap: var(--sp-16); }
 
-.lic-head { display: flex; flex-direction: column; gap: 2px; }
-.lic-overline { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--coral); }
-.lic-title { margin: 0; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
-.lic-sub { font-size: 0.88rem; color: var(--ink-2); }
-
-.lic-list { display: flex; flex-direction: column; border: 1.5px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
-.lic-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line-2); }
+.lic-list { display: flex; flex-direction: column; border: 1.5px solid var(--line); border-radius: var(--r-md); overflow: hidden; background: var(--surface); }
+.lic-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8); padding: var(--sp-12) 14px; border-bottom: 1px solid var(--line-2); }
 .lic-row:last-child { border-bottom: none; }
 
-.lic-row-top { display: flex; align-items: baseline; gap: 8px; flex: 1; min-width: 0; }
+.lic-row-top { display: flex; align-items: baseline; gap: var(--sp-8); flex: 1; min-width: 0; }
 .lic-name { font-size: 0.9rem; font-weight: 650; color: var(--ink); overflow-wrap: anywhere; }
 .lic-ver { font-size: 0.74rem; color: var(--ink-3); }
 
-.lic-badge { font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface-3); color: var(--ink-2); }
-.lic-link { font-size: 0.76rem; font-weight: 600; color: var(--coral); text-decoration: none; }
+.lic-badge { font-size: var(--fs-caption); font-weight: 600; padding: 2px var(--sp-8); border-radius: var(--r-pill); background: var(--surface-3); color: var(--ink-2); }
+.lic-link { font-size: 0.76rem; font-weight: 600; color: var(--coral-text); text-decoration: none; }
 @media (hover: hover) { .lic-link:hover { text-decoration: underline; } }
 
-.lic-footer { font-size: 0.82rem; color: var(--ink-3); margin: 0; }
+.lic-footer { font-size: var(--fs-small); color: var(--ink-3); margin: 0; }

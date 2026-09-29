@@ -1,16 +1,25 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.calypsan.listenup.web.design.BulkBar
 import com.calypsan.listenup.web.design.ColumnAlign
 import com.calypsan.listenup.web.design.DataTable
 import com.calypsan.listenup.web.design.MetaEntry
 import com.calypsan.listenup.web.design.MetaList
 import com.calypsan.listenup.web.design.Panel
+import com.calypsan.listenup.web.design.RovingAxis
 import com.calypsan.listenup.web.design.SelectAllState
+import com.calypsan.listenup.web.design.SelectionLabel
+import com.calypsan.listenup.web.design.focusSibling
+import com.calypsan.listenup.web.design.rovingTarget
 import com.calypsan.listenup.web.design.TableColumn
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.I
 import org.jetbrains.compose.web.dom.P
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
@@ -68,6 +77,7 @@ internal fun ChaptersPane(
                             selection.size == chapters.size -> SelectAllState.All
                             else -> SelectAllState.Some
                         },
+                    selectionLabel = SelectionLabel(all = "Select all chapters") { "Select chapter ${it.number}" },
                     onToggleRow = { onSelectionChange(selection.toggled(it.number)) },
                     onToggleAll = {
                         val all = chapters.map { it.number }.toSet()
@@ -118,7 +128,7 @@ private fun InspectorHint(text: String) {
     P(attrs = {
         style {
             property("margin", "0")
-            property("font-size", "13.5px")
+            property("font-size", "0.84375rem")
             property("color", "var(--ink-3)")
             property("font-weight", "500")
         }
@@ -129,7 +139,12 @@ private fun InspectorHint(text: String) {
 
 /**
  * The book as a strip: one segment per chapter, width proportional to duration, the selection
- * in coral. Clicking a segment toggles that chapter, same as its row.
+ * in coral. Pressing a segment toggles that chapter, same as its row.
+ *
+ * Each segment is a `<button aria-pressed>` — they were `<i onClick>`s, usable only with a mouse —
+ * but the strip is ONE tab stop, with the arrows, Home and End walking it. Thirty-odd stops of
+ * two-pixel segments ahead of the table would bury the table, which is the fuller way to the same
+ * selection.
  */
 @Composable
 private fun ChapterMap(
@@ -137,12 +152,30 @@ private fun ChapterMap(
     selection: Set<Int>,
     onToggle: (Int) -> Unit,
 ) {
-    Div(attrs = { classes("chmap") }) {
-        chapters.forEach { chapter ->
-            I(attrs = {
+    var focused by remember(chapters.size) { mutableStateOf(0) }
+    Div(attrs = {
+        classes("chmap")
+        attr("role", "group")
+        attr("aria-label", "Chapter map")
+    }) {
+        chapters.forEachIndexed { index, chapter ->
+            val summary = "${chapter.title} · ${formatClock(chapter.durationSec)}"
+            Button(attrs = {
                 if (chapter.number in selection) classes("on")
-                attr("title", "${chapter.title} · ${formatClock(chapter.durationSec)}")
+                attr("type", "button")
+                attr("title", summary)
+                attr("aria-label", "Chapter ${chapter.number}: $summary")
+                attr("aria-pressed", (chapter.number in selection).toString())
+                tabIndex(if (index == focused.coerceAtMost(chapters.lastIndex)) 0 else -1)
                 style { property("flex-grow", chapter.durationSec.toString()) }
+                onFocus { focused = index }
+                onKeyDown { event ->
+                    rovingTarget(event.key, index, chapters.size, RovingAxis.Horizontal)?.let { next ->
+                        event.preventDefault()
+                        focused = next
+                        event.currentTarget.focusSibling(":scope > button", next)
+                    }
+                }
                 onClick { onToggle(chapter.number) }
             }) {}
         }
@@ -167,11 +200,7 @@ private val CHAPTER_COLUMNS =
 @Composable
 private fun EditChaptersButton(onEditChapters: () -> Unit) {
     Div(attrs = { classes("bd-chapters-edit") }) {
-        Button(attrs = {
-            classes("btn-o")
-            attr("type", "button")
-            onClick { onEditChapters() }
-        }) {
+        Button(kind = ButtonKind.Secondary, onClick = { onEditChapters() }) {
             Icon(WebIcon.Pencil, size = EDIT_ICON)
             Text("Edit chapters")
         }

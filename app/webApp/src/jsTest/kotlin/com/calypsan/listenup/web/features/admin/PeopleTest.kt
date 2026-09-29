@@ -16,6 +16,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
@@ -212,7 +213,9 @@ class PeopleTest :
             otherError(CreateInviteErrorType.EmailInUse).shouldBeNull()
 
             val host = invitePage(CreateInviteUiState.Ready(CreateInviteStatus.Error(CreateInviteErrorType.EmailInUse)))
-            host.querySelectorAll(".inv-err").length shouldBe 1
+            host.querySelectorAll(".f-err, .inv-err").length shouldBe 1
+            // …and it is the field's own message, so the input points at it.
+            host.querySelector(".f-input[aria-describedby]") shouldNotBe null
         }
 
         test("a malformed address highlights the field it is about") {
@@ -258,7 +261,7 @@ class PeopleTest :
                 )
 
             text(host, ".inv-url") shouldBe "https://listen.example/join?code=ABC123"
-            text(host, ".inv-t") shouldBe "ada@example.com"
+            text(host, ".page-t") shouldBe "ada@example.com"
             button(host, "Copy").shouldNotBeNull().click()
             awaitFrame()
 
@@ -290,8 +293,8 @@ class PeopleTest :
         test("a member's page names them and what they are") {
             val host = userPage(readyUser(adminUser(displayName = "Ada Lovelace", email = "ada@example.com")))
 
-            text(host, ".usr-t") shouldBe "Ada Lovelace"
-            text(host, ".usr-e") shouldBe "ada@example.com"
+            text(host, ".page-t") shouldBe "Ada Lovelace"
+            text(host, ".page-sub") shouldBe "ada@example.com"
             host.textContent.orEmpty() shouldContain "Member"
         }
 
@@ -348,13 +351,13 @@ class PeopleTest :
 
             text(host, ".usr-err").shouldNotBeNull()
             // Still a page about a person, not an error screen.
-            text(host, ".usr-t") shouldBe "Ada Lovelace"
+            text(host, ".page-t") shouldBe "Ada Lovelace"
         }
 
         test("a member who could not be loaded is an error, not an empty shell") {
             val host = userPage(UserDetailUiState.Error(InternalError(debugInfo = "boom")))
 
-            text(host, ".usr-none").shouldNotBeNull()
+            text(host, ".empty").shouldNotBeNull()
             host.querySelector(".sw-in").shouldBeNull()
         }
 

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import androidx.compose.runtime.Composition
 import com.calypsan.listenup.web.features.licences.fixedLicences
 import com.calypsan.listenup.web.features.licences.OpenLicences
 import com.calypsan.listenup.web.features.licences.LicencesUiState
@@ -108,11 +109,18 @@ import com.calypsan.listenup.web.features.sync.fixedDeadLetters
 class BookDetailPanesTest :
     FunSpec({
 
+        // Every WebAppRoot owns a window-level keydown listener (the command palette's). Left
+        // undisposed, an orphan answers a LATER spec's ⌘K by opening a modal nobody closes, and
+        // that modal makes the whole document inert for every spec after it.
+        val compositions = mutableListOf<Composition>()
         var originalUrl = ""
 
         beforeTest { originalUrl = window.location.pathname + window.location.search }
 
-        afterTest { window.history.replaceState(null, "", originalUrl) }
+        afterTest {
+            window.history.replaceState(null, "", originalUrl)
+            disposeAll(compositions)
+        }
 
         fun mountAt(
             path: String,
@@ -122,66 +130,67 @@ class BookDetailPanesTest :
             val router = Router()
             val host = document.createElement("div") as HTMLElement
             document.body!!.appendChild(host)
-            renderComposable(root = host) {
-                WebAppRoot(
-                    router = router,
-                    openBookDetail = source,
-                    openBookEdit = fixedBookEdit(BookEditUiState()),
-                    openChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
-                    openMetadata = fixedMetadata(MetadataUiState.Idle()),
-                    openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
-                    openContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
-                    openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
-                    openContributorMetadata = fixedContributorMetadata(ContributorMetadataUiState.Idle()),
-                    openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
-                    openSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
-                    openNotifications = fixedNotifications(NotificationsUiState.Empty),
-                    openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
-                    openProfile = fixedProfile(UserProfileUiState.Loading),
-                    openEditProfile = fixedEditProfile(EditProfileUiState.Loading),
-                    openHome = fixedHome(HomeUiState.Loading),
-                    openDiscover = fixedDiscover(),
-                    openSettings = fixedSettings(),
-                    openLicences = fixedLicences(LicencesUiState.Ready(emptyList())),
-                    openDevices = fixedDevices(),
-                    openHardcover = fixedHardcover(),
-                    openAdmin = fixedAdmin(),
-                    admin =
-                        AdminSessions(
-                            librarySettings = fixedLibrarySettings(LibrarySettingsUiState.Loading),
-                            inbox = fixedAdminInbox(),
-                            serverSettings = fixedServerSettings(),
-                            categories = fixedCategories(),
-                            collections = fixedCollections(),
-                            collectionDetail = fixedCollectionDetail(),
-                            backups = fixedBackups(),
-                            restore = fixedRestore(),
-                            imports = fixedImports(),
-                            importFlow = fixedImportFlow(),
-                            createInvite = fixedCreateInvite(CreateInviteUiState.Ready()),
-                            userDetail = fixedUserDetail(UserDetailUiState.Loading),
-                            upload = fixedUpload(UploadBooksUiState.Idle),
-                            organize = fixedOrganize(OrganizeSettingsUiState.Loading),
-                        ),
-                    openShelfDetail = fixedShelfDetail(),
-                    openShelfEdit = fixedShelfEdit(),
-                    openLibrary = fakeLibrary(),
-                    openSearch = fixedSearch(SearchUiState.Idle()),
-                    openMultiSelect = fixedMultiSelect(),
-                    openBulkEdit = fixedBulkEdit(BulkEditUiState.Loading),
-                    openBrowseFacet = fixedBrowseFacet(BrowseFacetUiState.Loading),
-                    openGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
-                    openBookReaders = fixedBookReaders(BookReadersUiState.Loading),
-                    openBookRatings = fixedBookRatings(BookRatingsUiState.Loading),
-                    openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
-                    openDeadLetters = fixedDeadLetters(),
-                    onToast = {},
-                    openNotificationBell = fixedNotificationBell(),
-                    openPlayback = fixedPlayback(),
-                    observeIsAdmin = { flowOf(false) },
-                    observeCurrentUserId = { flowOf(null) },
-                )
-            }
+            compositions +=
+                renderComposable(root = host) {
+                    WebAppRoot(
+                        router = router,
+                        openBookDetail = source,
+                        openBookEdit = fixedBookEdit(BookEditUiState()),
+                        openChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
+                        openMetadata = fixedMetadata(MetadataUiState.Idle()),
+                        openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
+                        openContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
+                        openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
+                        openContributorMetadata = fixedContributorMetadata(ContributorMetadataUiState.Idle()),
+                        openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
+                        openSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
+                        openNotifications = fixedNotifications(NotificationsUiState.Empty),
+                        openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
+                        openProfile = fixedProfile(UserProfileUiState.Loading),
+                        openEditProfile = fixedEditProfile(EditProfileUiState.Loading),
+                        openHome = fixedHome(HomeUiState.Loading),
+                        openDiscover = fixedDiscover(),
+                        openSettings = fixedSettings(),
+                        openLicences = fixedLicences(LicencesUiState.Ready(emptyList())),
+                        openDevices = fixedDevices(),
+                        openHardcover = fixedHardcover(),
+                        openAdmin = fixedAdmin(),
+                        admin =
+                            AdminSessions(
+                                librarySettings = fixedLibrarySettings(LibrarySettingsUiState.Loading),
+                                inbox = fixedAdminInbox(),
+                                serverSettings = fixedServerSettings(),
+                                categories = fixedCategories(),
+                                collections = fixedCollections(),
+                                collectionDetail = fixedCollectionDetail(),
+                                backups = fixedBackups(),
+                                restore = fixedRestore(),
+                                imports = fixedImports(),
+                                importFlow = fixedImportFlow(),
+                                createInvite = fixedCreateInvite(CreateInviteUiState.Ready()),
+                                userDetail = fixedUserDetail(UserDetailUiState.Loading),
+                                upload = fixedUpload(UploadBooksUiState.Idle),
+                                organize = fixedOrganize(OrganizeSettingsUiState.Loading),
+                            ),
+                        openShelfDetail = fixedShelfDetail(),
+                        openShelfEdit = fixedShelfEdit(),
+                        openLibrary = fakeLibrary(),
+                        openSearch = fixedSearch(SearchUiState.Idle()),
+                        openMultiSelect = fixedMultiSelect(),
+                        openBulkEdit = fixedBulkEdit(BulkEditUiState.Loading),
+                        openBrowseFacet = fixedBrowseFacet(BrowseFacetUiState.Loading),
+                        openGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
+                        openBookReaders = fixedBookReaders(BookReadersUiState.Loading),
+                        openBookRatings = fixedBookRatings(BookRatingsUiState.Loading),
+                        openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
+                        openDeadLetters = fixedDeadLetters(),
+                        onToast = {},
+                        openNotificationBell = fixedNotificationBell(),
+                        openPlayback = fixedPlayback(),
+                        observeIsAdmin = { flowOf(false) },
+                        observeCurrentUserId = { flowOf(null) },
+                    )
+                }
             return host to router
         }
 

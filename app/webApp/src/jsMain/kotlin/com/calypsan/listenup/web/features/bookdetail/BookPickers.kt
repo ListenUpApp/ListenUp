@@ -4,8 +4,11 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.features.books.PickerTarget
 import com.calypsan.listenup.web.features.books.SelectionPicker
+import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Text
 
@@ -88,6 +91,17 @@ private fun PickerError(
         classes("bd-pick-err")
         attr("role", "status")
         attr("aria-live", "polite")
-        onClick { onDismiss() }
-    }) { Text(message) }
+    }) {
+        Text(message)
+        // Dismissed by a real button. The whole notice used to be the click target — a `<div>` no
+        // keyboard could reach, so a keyboard reader could never clear it.
+        Button(attrs = {
+            classes("bd-pick-x")
+            attr("type", "button")
+            attr("aria-label", "Dismiss")
+            onClick { onDismiss() }
+        }) { Icon(WebIcon.X, size = DISMISS_ICON_SIZE) }
+    }
 }
+
+private const val DISMISS_ICON_SIZE = 14

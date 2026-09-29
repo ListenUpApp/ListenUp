@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -9,6 +12,7 @@ import com.calypsan.listenup.api.dto.invite.InvitePreview
 import com.calypsan.listenup.client.presentation.invite.ClaimInviteUiState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.LinkButton
 import com.calypsan.listenup.web.design.PasswordField
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.attributes.disabled
@@ -114,14 +118,18 @@ private fun CodeStep(
             autocomplete = "off",
         )
 
-        Button(attrs = {
-            classes("btn")
-            attr("type", "submit")
-            // Blank is not a lookup. The ViewModel would happily ask the server about "", and the
-            // answer would be an error the reader caused by pressing a button that should not have
-            // been pressable.
-            if (lookingUp || code.isBlank()) disabled()
-        }) {
+        Button(
+            kind = ButtonKind.Primary,
+            size = ButtonSize.Lg,
+            fill = true,
+            submit = true,
+            attrs = {
+                // Blank is not a lookup. The ViewModel would happily ask the server about "", and the
+                // answer would be an error the reader caused by pressing a button that should not have
+                // been pressable.
+                if (lookingUp || code.isBlank()) disabled()
+            },
+        ) {
             Icon(WebIcon.ChevronRight, size = CLAIM_ICON_SIZE)
             Text(if (lookingUp) "Looking up…" else "Continue")
         }
@@ -201,21 +209,21 @@ private fun ClaimStep(
                     confirm = it
                     mismatch = false
                 },
-                error = mismatch,
+                errorText = MISMATCH_MESSAGE.takeIf { mismatch },
                 id = INVITE_CONFIRM_ID,
                 autocomplete = "new-password",
             )
         }
 
-        if (mismatch) {
-            Div(attrs = { classes("auth-err") }) { Text("The two passwords do not match.") }
-        }
-
-        Button(attrs = {
-            classes("btn")
-            attr("type", "submit")
-            if (submitting) disabled()
-        }) {
+        Button(
+            kind = ButtonKind.Primary,
+            size = ButtonSize.Lg,
+            fill = true,
+            submit = true,
+            attrs = {
+                if (submitting) disabled()
+            },
+        ) {
             Icon(WebIcon.UserPlus, size = CLAIM_ICON_SIZE)
             Text(if (submitting) "Joining…" else "Join")
         }
@@ -254,7 +262,7 @@ private fun DeadEnd(
     onBackToSignIn: () -> Unit,
 ) {
     Div(attrs = { classes(CLAIM_FIELDS_CLASS) }) {
-        Div(attrs = { classes("auth-err") }) { Text(message) }
+        FormAlert(message)
         ClaimBackLink(onBackToSignIn)
     }
 }
@@ -262,10 +270,7 @@ private fun DeadEnd(
 @Composable
 private fun ClaimBackLink(onBackToSignIn: () -> Unit) {
     Div(attrs = { classes("auth-alt") }) {
-        Span(attrs = {
-            classes("lnk")
-            onClick { onBackToSignIn() }
-        }) { Text("Back to sign in") }
+        LinkButton("Back to sign in", onClick = onBackToSignIn)
     }
 }
 
@@ -287,3 +292,5 @@ internal const val INVITE_PASSWORD_ID = "auth-invite-password"
 internal const val INVITE_CONFIRM_ID = "auth-invite-confirm"
 
 private const val CLAIM_ICON_SIZE = 19
+
+private const val MISMATCH_MESSAGE = "The two passwords do not match."

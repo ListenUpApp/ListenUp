@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.discover
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
@@ -15,21 +16,21 @@ import com.calypsan.listenup.client.presentation.discover.activityParts
 import com.calypsan.listenup.client.presentation.discover.leaderboardEntries
 import com.calypsan.listenup.client.presentation.discover.leaderboardLabel
 import com.calypsan.listenup.client.util.relativeLastActive
+import com.calypsan.listenup.web.design.UnderHeading
+import com.calypsan.listenup.web.design.EmptyState
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.features.books.press
 import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.features.shelf.bookCountLabel
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
-
-/** The shared empty-state block, borrowed rather than restyled per section. */
-private const val EMPTY_CLASS = "empty"
 
 /** Cover size for a discovery card, in px. Square, like the artwork. */
 private const val CARD_COVER_WIDTH = 140
@@ -106,7 +107,7 @@ fun DiscoverPage(
     onSelectCategory: (LeaderboardCategory) -> Unit,
 ) {
     Div(attrs = { classes("disc") }) {
-        H1(attrs = { classes("disc-title") }) { Text("Discover") }
+        PageHeader(title = "Discover")
 
         CurrentlyListeningSection(currentlyListening, nowMs, onOpenBook, onOpenProfile, selection)
         DiscoverBooksSection(books, onOpenBook, selection)
@@ -144,10 +145,14 @@ private fun CurrentlyListeningSection(
 
             is CurrentlyListeningUiState.Ready -> {
                 if (state.isEmpty) {
-                    Empty("Nobody else is listening yet", "When they do, you will see them here.")
+                    EmptyState(title = "Nobody else is listening yet", body = "When they do, you will see them here.")
                 } else {
                     Div(attrs = { classes("disc-listeners") }) {
-                        state.sessions.forEach { s -> ListenerCard(s, nowMs, onOpenBook, onOpenProfile, selection) }
+                        state.sessions.forEach { s ->
+                            key(s.sessionId) {
+                                ListenerCard(s, nowMs, onOpenBook, onOpenProfile, selection)
+                            }
+                        }
                     }
                 }
             }
@@ -174,6 +179,7 @@ private fun ListenerCard(
             title = session.bookTitle,
             imageUrl = coverUrl(session.bookId, session.coverHash, width = LISTENER_COVER_WIDTH),
             size = LISTENER_COVER_WIDTH,
+            decorative = true,
         )
         Div(attrs = { classes("disc-listener-text") }) {
             // ⛔ The name, not the card: the card opens the book, and a second click target inside
@@ -209,11 +215,13 @@ private fun DiscoverBooksSection(
 
             is DiscoverBooksUiState.Ready -> {
                 if (state.isEmpty) {
-                    Empty("Nothing left to discover", "You have started everything in the library.")
+                    EmptyState(title = "Nothing left to discover", body = "You have started everything in the library.")
                 } else {
                     Div(attrs = { classes("disc-grid") }) {
                         state.books.forEach { book ->
-                            BookCard(book.id, book.title, book.authorName, book.coverHash, onOpenBook, selection)
+                            key(book.id) {
+                                BookCard(book.id, book.title, book.authorName, book.coverHash, onOpenBook, selection)
+                            }
                         }
                     }
                 }
@@ -241,11 +249,13 @@ private fun RecentlyAddedSection(
 
             is RecentlyAddedUiState.Ready -> {
                 if (state.isEmpty) {
-                    Empty("Nothing new yet", "Books appear here as they are added to the library.")
+                    EmptyState(title = "Nothing new yet", body = "Books appear here as they are added to the library.")
                 } else {
                     Div(attrs = { classes("disc-grid") }) {
                         state.books.forEach { book ->
-                            BookCard(book.id, book.title, book.authorName, book.coverHash, onOpenBook, selection)
+                            key(book.id) {
+                                BookCard(book.id, book.title, book.authorName, book.coverHash, onOpenBook, selection)
+                            }
                         }
                     }
                 }
@@ -273,6 +283,7 @@ private fun BookCard(
             title = title,
             imageUrl = coverUrl(bookId, coverHash, width = CARD_COVER_WIDTH),
             size = CARD_COVER_WIDTH,
+            decorative = true,
         )
         Span(attrs = { classes("disc-card-t") }) { Text(title) }
         authorName?.let { Span(attrs = { classes("disc-card-sub") }) { Text(it) } }
@@ -300,7 +311,7 @@ private fun LeaderboardSection(
             }
 
             is LeaderboardUiState.Empty -> {
-                Empty("No listening recorded yet", "The board fills in as people listen.")
+                EmptyState(title = "No listening recorded yet", body = "The board fills in as people listen.")
             }
 
             is LeaderboardUiState.Error -> {
@@ -331,15 +342,17 @@ private fun LeaderboardSection(
 
                 val entries = leaderboardEntries(state.snapshot, state.category)
                 if (entries.isEmpty()) {
-                    Empty("Nothing in this category yet", "Try another period.")
+                    EmptyState(title = "Nothing in this category yet", body = "Try another period.")
                 } else {
                     Div(attrs = { classes("disc-lb") }) {
                         entries.forEach { entry ->
-                            Div(attrs = { classes("disc-lb-row") }) {
-                                Span(attrs = { classes("disc-lb-rank") }) { Text("${entry.rank}") }
-                                PersonLink(entry.displayName, entry.userId, onOpenProfile, "disc-lb-name")
-                                Span(attrs = { classes("disc-lb-stat", "mono") }) {
-                                    Text(leaderboardLabel(entry, state.category))
+                            key(entry.userId) {
+                                Div(attrs = { classes("disc-lb-row") }) {
+                                    Span(attrs = { classes("disc-lb-rank") }) { Text("${entry.rank}") }
+                                    PersonLink(entry.displayName, entry.userId, onOpenProfile, "disc-lb-name")
+                                    Span(attrs = { classes("disc-lb-stat", "mono") }) {
+                                        Text(leaderboardLabel(entry, state.category))
+                                    }
                                 }
                             }
                         }
@@ -370,10 +383,17 @@ private fun ActivityFeedSection(
 
             is ActivityFeedUiState.Ready -> {
                 if (state.isEmpty) {
-                    Empty("Nothing has happened yet", "Activity from everyone on this server shows up here.")
+                    EmptyState(
+                        title = "Nothing has happened yet",
+                        body = "Activity from everyone on this server shows up here.",
+                    )
                 } else {
                     Div(attrs = { classes("disc-feed") }) {
-                        state.activities.forEach { item -> ActivityRow(item, nowMs, onOpenBook, onOpenProfile) }
+                        state.activities.forEach { item ->
+                            key(item.id) {
+                                ActivityRow(item, nowMs, onOpenBook, onOpenProfile)
+                            }
+                        }
                     }
                 }
             }
@@ -433,8 +453,8 @@ private fun Section(
     content: @Composable () -> Unit,
 ) {
     Div(attrs = { classes("disc-section") }) {
-        H3(attrs = { classes("disc-section-h") }) { Text(heading) }
-        content()
+        H2(attrs = { classes("disc-section-h") }) { Text(heading) }
+        UnderHeading(level = SECTION_HEADING_LEVEL, content = content)
     }
 }
 
@@ -452,17 +472,6 @@ private fun SectionSkeleton() {
 @Composable
 private fun SectionError(message: String) {
     P(attrs = { classes("disc-error") }) { Text(message) }
-}
-
-@Composable
-private fun Empty(
-    heading: String,
-    detail: String,
-) {
-    Div(attrs = { classes(EMPTY_CLASS) }) {
-        H3 { Text(heading) }
-        P { Text(detail) }
-    }
 }
 
 @Composable
@@ -529,26 +538,30 @@ private fun SharedShelvesSection(
 
             is DiscoverShelvesUiState.Ready -> {
                 if (state.isEmpty) {
-                    Empty("No shared shelves yet", "Shelves other people make public show up here.")
+                    EmptyState(title = "No shared shelves yet", body = "Shelves other people make public show up here.")
                 } else {
                     state.users.forEach { owner ->
-                        Div(attrs = { classes("disc-shelf-owner") }) {
-                            PersonLink(
-                                owner.user.displayName,
-                                owner.user.id,
-                                onOpenProfile,
-                                "disc-shelf-who",
-                            )
-                            Div(attrs = { classes("disc-shelves") }) {
-                                owner.shelves.forEach { shelf ->
-                                    Button(attrs = {
-                                        classes("disc-shelf")
-                                        attr(ATTR_TYPE, VALUE_BUTTON)
-                                        onClick { onOpenShelf(shelf.id) }
-                                    }) {
-                                        Span(attrs = { classes("disc-shelf-t") }) { Text(shelf.name) }
-                                        Span(attrs = { classes("disc-shelf-sub") }) {
-                                            Text(bookCountLabel(shelf.bookCount))
+                        key(owner.user.id) {
+                            Div(attrs = { classes("disc-shelf-owner") }) {
+                                PersonLink(
+                                    owner.user.displayName,
+                                    owner.user.id,
+                                    onOpenProfile,
+                                    "disc-shelf-who",
+                                )
+                                Div(attrs = { classes("disc-shelves") }) {
+                                    owner.shelves.forEach { shelf ->
+                                        key(shelf.id) {
+                                            Button(attrs = {
+                                                classes("disc-shelf")
+                                                attr(ATTR_TYPE, VALUE_BUTTON)
+                                                onClick { onOpenShelf(shelf.id) }
+                                            }) {
+                                                Span(attrs = { classes("disc-shelf-t") }) { Text(shelf.name) }
+                                                Span(attrs = { classes("disc-shelf-sub") }) {
+                                                    Text(bookCountLabel(shelf.bookCount))
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -560,3 +573,6 @@ private fun SharedShelvesSection(
         }
     }
 }
+
+/** A section's own heading is an H2, so anything headed inside it is an H3. */
+private const val SECTION_HEADING_LEVEL = 2

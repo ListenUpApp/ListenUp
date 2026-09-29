@@ -1,22 +1,25 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Breadcrumb
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
 import com.calypsan.listenup.client.util.relativeLastActive
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.disabledWhen
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.SwitchField
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -53,13 +56,9 @@ fun ServerSettingsPage(
     nowMs: Long = 0L,
 ) {
     Div(attrs = { classes("srv") }) {
-        Button(attrs = {
-            classes("btn-o", "srv-back")
-            attr("type", VALUE_BUTTON)
-            onClick { onOpenAdmin() }
-        }) { Text("← Admin") }
+        Breadcrumb(trail = listOf("Admin", "Server settings"), onNavigate = { onOpenAdmin() })
 
-        H1(attrs = { classes("srv-title") }) { Text("Server settings") }
+        PageHeader(title = "Server settings")
 
         when (state) {
             AdminSettingsUiState.Loading -> {
@@ -67,14 +66,8 @@ fun ServerSettingsPage(
             }
 
             is AdminSettingsUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H3 { Text("Server settings can't be shown") }
-                    P { Text(state.error.message) }
-                    Button(attrs = {
-                        classes("btn-c")
-                        attr("type", VALUE_BUTTON)
-                        onClick { onRetry() }
-                    }) { Text("Try again") }
+                EmptyState(title = "Server settings can't be shown", body = state.error.message) {
+                    Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
                 }
             }
 
@@ -155,11 +148,11 @@ private fun ReadyContent(
 
         Div(attrs = { classes("edit-actions") }) {
             // No onClick: submitting the form is what saves, for click and Enter alike.
-            Button(attrs = {
-                classes("btn-c")
-                attr("type", "submit")
-                disabledWhen(state.isSaving || !state.isDirty)
-            }) { Text(if (state.isSaving) "Saving…" else "Save settings") }
+            Button(
+                kind = ButtonKind.Primary,
+                submit = true,
+                enabled = !(state.isSaving || !state.isDirty),
+            ) { Text(if (state.isSaving) "Saving…" else "Save settings") }
         }
     }
 
@@ -191,12 +184,14 @@ private fun ReadyContent(
                     "switching it back on brings them back.",
             )
             state.ratingSources.forEach { source ->
-                RatingSourceRow(
-                    status = source,
-                    nowMs = nowMs,
-                    enabled = !state.isSaving,
-                    onChange = { enabled -> onSetRatingSourceEnabled(source.source, enabled) },
-                )
+                key(source.source) {
+                    RatingSourceRow(
+                        status = source,
+                        nowMs = nowMs,
+                        enabled = !state.isSaving,
+                        onChange = { enabled -> onSetRatingSourceEnabled(source.source, enabled) },
+                    )
+                }
             }
         }
     }

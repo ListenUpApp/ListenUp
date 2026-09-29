@@ -1,6 +1,9 @@
 package com.calypsan.listenup.web.features.metadata
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.metadata.MetadataLocale
@@ -9,6 +12,8 @@ import com.calypsan.listenup.client.presentation.metadata.CoverEntry
 import com.calypsan.listenup.client.presentation.metadata.MetadataField
 import com.calypsan.listenup.client.presentation.metadata.MetadataSelections
 import com.calypsan.listenup.client.presentation.metadata.PreviewLoadState
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.CheckboxField
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
@@ -16,7 +21,6 @@ import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -64,10 +68,11 @@ internal fun MetadataPreviewPhase(
     }
 
     if (!preview.hasAnyData()) {
-        Div(attrs = { classes("mdx-empty") }) {
-            H2 { Text("No metadata available") }
-            P { Text("Try selecting a different region above.") }
-        }
+        EmptyState(
+            title = "No metadata available",
+            body = "Try selecting a different region above.",
+            look = EmptyLook.Inset,
+        )
         return
     }
 
@@ -104,11 +109,7 @@ private fun MatchedHero(
             }
             Span(attrs = { classes("mdx-src") }) { Text("Audible · ${region.displayName}") }
         }
-        Button(attrs = {
-            classes(BTN_SECONDARY)
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            onClick { onBackToResults() }
-        }) { Text("Back to results") }
+        Button(kind = ButtonKind.Secondary, onClick = { onBackToResults() }) { Text("Back to results") }
     }
 }
 
@@ -135,7 +136,11 @@ private fun CoverField(
     if (!ready.selections.cover || ready.coverEntries.isEmpty()) return
 
     Div(attrs = { classes("mdx-covers") }) {
-        ready.coverEntries.forEach { entry -> CoverOption(entry, ready.selectedCoverUrl, onSelectCover) }
+        ready.coverEntries.forEach { entry ->
+            key(entry.url) {
+                CoverOption(entry, ready.selectedCoverUrl, onSelectCover)
+            }
+        }
     }
 }
 
@@ -285,8 +290,10 @@ private fun ValueRows(
     if (values.isEmpty()) return
     Div(attrs = { classes("mdx-values") }) {
         Span(attrs = { classes("mdx-values-l") }) { Text(label) }
-        values.forEach { (key, text) ->
-            CheckboxField(label = text, checked = key in selected, onChange = { onToggle(key) })
+        values.forEach { (valueKey, text) ->
+            key(valueKey) {
+                CheckboxField(label = text, checked = valueKey in selected, onChange = { onToggle(valueKey) })
+            }
         }
     }
 }
@@ -325,11 +332,13 @@ private fun ChapterNamesRow(
             Div(attrs = { classes("mdx-chapters") }) {
                 Span(attrs = { classes("mdx-chapters-l") }) { Text("Chapter names") }
                 P { Text("${suggestion.rows.size} chapters matched") }
-                Button(attrs = {
-                    classes(BTN_SECONDARY, "mdx-review")
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    onClick { onReview() }
-                }) { Text("Review & apply chapter names") }
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = { onReview() },
+                    attrs = {
+                        classes("mdx-review")
+                    },
+                ) { Text("Review & apply chapter names") }
             }
         }
     }
@@ -353,14 +362,15 @@ private fun ApplyBar(
                 Text("Merged from ${ready.contributingSources.joinToString(", ")}")
             }
         }
-        Button(attrs = {
-            classes("btn-c")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            // Nothing ticked is nothing to apply, and a button that reports success for a change
-            // nobody made is the lie this whole screen exists to avoid.
-            disabledWhen(ready.isApplying || !ready.selections.hasAnySelected())
-            onClick { onApply() }
-        }) {
+        Button(
+            kind = ButtonKind.Primary,
+            onClick = { onApply() },
+            attrs = {
+                // Nothing ticked is nothing to apply, and a button that reports success for a change
+                // nobody made is the lie this whole screen exists to avoid.
+                disabledWhen(ready.isApplying || !ready.selections.hasAnySelected())
+            },
+        ) {
             Icon(WebIcon.Check, size = SMALL_ICON)
             Text(if (ready.isApplying) "Applying…" else "Apply selected metadata")
         }
@@ -406,8 +416,6 @@ internal fun seriesLabel(
 ): String = if (sequence.isNullOrBlank()) title else "$title · $sequence"
 
 private const val ATTR_TYPE = "type"
-
-private const val BTN_SECONDARY = "btn-o"
 
 private const val VALUE_BUTTON = "button"
 

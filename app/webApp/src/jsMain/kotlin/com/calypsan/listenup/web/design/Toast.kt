@@ -3,11 +3,14 @@ package com.calypsan.listenup.web.design
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import kotlinx.coroutines.delay
+import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -76,41 +79,63 @@ class ToastQueue {
 }
 
 /**
- * Renders [queue] over the page, and retires each toast on a timer.
+ * Renders [queue] over the page, and retires each notice on a timer.
+ *
+ * A [ToastTone.Failure] never times out. It is the only report a failure gets on web, and a message
+ * that disappears after seven seconds is gone before a slow reader or a busy screen reader reaches
+ * it (WCAG 2.2.1); the stack cap in [ToastQueue] is what keeps failures from piling up instead. A
+ * [ToastTone.Notice] only confirms what the reader just did, so it still retires itself — but not
+ * while the pointer or keyboard focus is on it, since that is someone in the middle of reading it.
  *
  * The timer lives here rather than in [ToastQueue] so the queue stays a plain, testable object:
- * one effect per toast, keyed on its id, which cancels itself when the toast leaves for any other
- * reason. A single shared timer would have to reason about which toast it was counting down.
+ * one effect per toast, keyed on its id and whether it is held, which cancels itself when the toast
+ * leaves for any other reason. [noticeLifetimeMs] exists for specs; the app uses the default.
  */
 @Composable
-fun ToastHost(queue: ToastQueue) {
+fun ToastHost(
+    queue: ToastQueue,
+    noticeLifetimeMs: Long = TOAST_LIFETIME_MS,
+) {
     if (queue.messages.isEmpty()) return
+
+    var held by remember { mutableStateOf(emptySet<Long>()) }
 
     Div(attrs = { classes("toastwrap") }) {
         queue.messages.forEach { message ->
-            LaunchedEffect(message.id) {
-                delay(TOAST_LIFETIME_MS)
-                queue.dismiss(message.id)
-            }
+            key(message.id) {
+                if (message.tone == ToastTone.Notice) {
+                    LaunchedEffect(message.id, message.id in held) {
+                        if (message.id in held) return@LaunchedEffect
+                        delay(noticeLifetimeMs)
+                        queue.dismiss(message.id)
+                    }
+                }
 
-            Div(attrs = {
-                classes("toast")
-                // A failure is the only report the reader gets, so it interrupts; a notice waits
-                // for a pause. `alert` and `status` carry their own aria-live semantics.
-                attr("role", if (message.tone == ToastTone.Failure) "alert" else "status")
-            }) {
                 Div(attrs = {
-                    classes("t-dot")
-                    if (message.tone == ToastTone.Failure) classes("t-bad")
-                }) {}
-                Span { Text(message.text) }
-                Span(attrs = {
-                    classes("t-x")
-                    attr("role", "button")
-                    attr("aria-label", "Dismiss")
-                    onClick { queue.dismiss(message.id) }
+                    classes("toast")
+                    onMouseEnter { held = held + message.id }
+                    onMouseLeave { held = held - message.id }
+                    onFocusIn { held = held + message.id }
+                    onFocusOut { held = held - message.id }
+                    // A failure is the only report the reader gets, so it interrupts; a notice waits
+                    // for a pause. `alert` and `status` carry their own aria-live semantics.
+                    attr("role", if (message.tone == ToastTone.Failure) "alert" else "status")
                 }) {
-                    Icon(WebIcon.X, size = DISMISS_ICON_SIZE)
+                    Div(attrs = {
+                        classes("t-dot")
+                        if (message.tone == ToastTone.Failure) classes("t-bad")
+                    }) {}
+                    Span { Text(message.text) }
+                    // A real button: this was a `<span role="button">` — announced as a button and then
+                    // impossible to press from the keyboard, with no tab stop and no key handler.
+                    Button(attrs = {
+                        classes("t-x")
+                        attr("type", "button")
+                        attr("aria-label", "Dismiss notification")
+                        onClick { queue.dismiss(message.id) }
+                    }) {
+                        Icon(WebIcon.X, size = DISMISS_ICON_SIZE)
+                    }
                 }
             }
         }
@@ -137,8 +162,8 @@ internal fun AppError.toastText(): String =
 /**
  * How long a toast stays.
  *
- * Long enough to read a sentence twice, short enough not to sit over the page. Every toast is
- * also dismissible by hand — the timer is a convenience, not the only way out.
+ * Long enough to read a sentence twice, short enough not to sit over the page. Only notices use it;
+ * every toast is also dismissible by hand — the timer is a convenience, not the only way out.
  */
 private const val TOAST_LIFETIME_MS = 7_000L
 

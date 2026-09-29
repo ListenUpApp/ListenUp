@@ -1,6 +1,15 @@
 package com.calypsan.listenup.web.features.contributordetail
 
+import com.calypsan.listenup.web.design.Cover
+import com.calypsan.listenup.web.design.ProgressLook
+import com.calypsan.listenup.web.design.ProgressBar
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
+import com.calypsan.listenup.web.design.LoadingState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ConfirmDialog
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,17 +27,12 @@ import com.calypsan.listenup.web.design.avatarTintFor
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.initialsFor
 import com.calypsan.listenup.web.design.tintGradient
-import org.jetbrains.compose.web.attributes.alt
-import org.jetbrains.compose.web.css.percent
 import org.jetbrains.compose.web.css.width
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
-import org.jetbrains.compose.web.dom.Img
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.web.design.PageHeader
 
 /**
  * Contributor Detail — the person behind the books, over the shared
@@ -84,6 +88,7 @@ fun ContributorDetailPage(
             }
 
             is ContributorDetailUiState.Error -> {
+                PageHeader(title = crumb(state))
                 WayBack(
                     heading = "This contributor can't be shown",
                     body = state.message,
@@ -94,6 +99,7 @@ fun ContributorDetailPage(
             ContributorDetailUiState.NotFound -> {
                 // Terminal per the ViewModel's own contract — no retry can produce this
                 // contributor, so the honest move is an explanation and a way back, not a spinner.
+                PageHeader(title = crumb(state))
                 WayBack(
                     heading = "This person isn't here any more",
                     body = "They may have been merged into another contributor, or the link is stale.",
@@ -102,7 +108,8 @@ fun ContributorDetailPage(
             }
 
             ContributorDetailUiState.Loading, ContributorDetailUiState.Idle -> {
-                Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+                PageHeader(title = crumb(state), pending = true)
+                LoadingState()
             }
         }
     }
@@ -121,14 +128,8 @@ private fun WayBack(
     body: String,
     onOpenContributors: () -> Unit,
 ) {
-    Div(attrs = { classes("empty") }) {
-        H3 { Text(heading) }
-        P { Text(body) }
-        Button(attrs = {
-            classes("btn-c")
-            attr("type", BUTTON_VALUE)
-            onClick { onOpenContributors() }
-        }) {
+    EmptyState(title = heading, body = body) {
+        Button(kind = ButtonKind.Primary, onClick = { onOpenContributors() }) {
             Text("Back to Contributors")
         }
     }
@@ -155,12 +156,15 @@ private fun ReadyContent(
     state.deleteError?.let { message ->
         Div(attrs = { classes("banner", "err") }) {
             Span { Text(message) }
-            Button(attrs = {
-                classes("btn-o", "cd-err-x")
-                attr("type", BUTTON_VALUE)
-                attr(ARIA_LABEL, "Dismiss delete error")
-                onClick { onDismissDeleteError() }
-            }) { Text("Dismiss") }
+            Button(
+                kind = ButtonKind.Secondary,
+                size = ButtonSize.Sm,
+                onClick = { onDismissDeleteError() },
+                label = "Dismiss delete error",
+                attrs = {
+                    classes("cd-err-x")
+                },
+            ) { Text("Dismiss") }
         }
     }
 
@@ -181,25 +185,31 @@ private fun ReadyContent(
     )
 
     state.roleSections.forEach { section ->
-        Div(attrs = { classes("cd-role-section") }) {
-            Panel(title = section.displayName, trailing = { CountBadge(section.bookCount) }) {
-                Div(attrs = { classes("cd-tile-grid") }) {
-                    section.previewBooks.forEach { book ->
-                        RoleTile(
-                            book = book,
-                            progress = state.bookProgress[book.id],
-                            onOpen = { onOpenBook(book.id.value) },
-                        )
+        key(section.role) {
+            Div(attrs = { classes("cd-role-section") }) {
+                Panel(title = section.displayName, trailing = { CountBadge(section.bookCount) }) {
+                    Div(attrs = { classes("cd-tile-grid") }) {
+                        section.previewBooks.forEach { book ->
+                            key(book.id.value) {
+                                RoleTile(
+                                    book = book,
+                                    progress = state.bookProgress[book.id],
+                                    onOpen = { onOpenBook(book.id.value) },
+                                )
+                            }
+                        }
                     }
-                }
-                // Only when there is genuinely more than the preview holds. A "View all" over a
-                // panel already showing everything sends the reader to the same books twice.
-                if (section.showViewAll) {
-                    Button(attrs = {
-                        classes("btn-c", "cd-view-all")
-                        attr("type", BUTTON_VALUE)
-                        onClick { onOpenRoleBooks(section.role) }
-                    }) { Text("View all ${section.bookCount}") }
+                    // Only when there is genuinely more than the preview holds. A "View all" over a
+                    // panel already showing everything sends the reader to the same books twice.
+                    if (section.showViewAll) {
+                        Button(
+                            kind = ButtonKind.Primary,
+                            onClick = { onOpenRoleBooks(section.role) },
+                            attrs = {
+                                classes("cd-view-all")
+                            },
+                        ) { Text("View all ${section.bookCount}") }
+                    }
                 }
             }
         }
@@ -210,10 +220,12 @@ private fun ReadyContent(
             Panel(title = "Series", trailing = { CountBadge(state.series.size) }) {
                 Div(attrs = { classes("cd-series-grid") }) {
                     state.series.forEach { seriesWithBooks ->
-                        SeriesCard(
-                            seriesWithBooks = seriesWithBooks,
-                            onOpen = { onOpenSeries(seriesWithBooks.series.id.value) },
-                        )
+                        key(seriesWithBooks.series.id.value) {
+                            SeriesCard(
+                                seriesWithBooks = seriesWithBooks,
+                                onOpen = { onOpenSeries(seriesWithBooks.series.id.value) },
+                            )
+                        }
                     }
                 }
             }
@@ -238,14 +250,16 @@ private fun Hero(
         }) { Text(initialsFor(state.contributor.name)) }
 
         Div(attrs = { classes("cd-name-block") }) {
-            H1(attrs = { classes("cd-name") }) { Text(state.contributor.name) }
+            PageHeader(title = state.contributor.name, display = true)
 
             Div(attrs = { classes("cd-roles") }) {
                 state.roleSections.forEach { section ->
-                    Span(attrs = {
-                        classes("cd-role-chip")
-                        if (section.role != ContributorRole.AUTHOR.apiValue) classes("is-muted")
-                    }) { Text(heroChipLabel(section.role)) }
+                    key(section.role) {
+                        Span(attrs = {
+                            classes("cd-role-chip")
+                            if (section.role != ContributorRole.AUTHOR.apiValue) classes("is-muted")
+                        }) { Text(heroChipLabel(section.role)) }
+                    }
                 }
                 creditedAsLine(state.bookCreditedAs)?.let { line ->
                     Span(attrs = { classes("cd-alias") }) { Text(line) }
@@ -262,34 +276,41 @@ private fun Hero(
 
         // Icon-only, so the accessible name is the attribute rather than the content — the same
         // shape Book Detail's Edit uses, for the same reason: a hero has no room for a verb.
-        Button(attrs = {
-            classes("btn-sq", "cd-edit")
-            attr("type", BUTTON_VALUE)
-            attr(ARIA_LABEL, "Edit contributor")
-            attr("title", "Edit contributor")
-            onClick { onEdit() }
-        }) { Icon(WebIcon.Pencil) }
+        Button(
+            kind = ButtonKind.Icon,
+            size = ButtonSize.Lg,
+            onClick = { onEdit() },
+            label = "Edit contributor",
+            attrs = {
+                classes("cd-edit")
+            },
+        ) { Icon(WebIcon.Pencil) }
 
         // Beside Edit, for the reason Book Detail's is: editing changes what the reader believes;
         // matching asks a catalogue and offers its answer.
-        Button(attrs = {
-            classes("btn-sq", "cd-match")
-            attr("type", BUTTON_VALUE)
-            attr(ARIA_LABEL, "Match contributor")
-            attr("title", "Match contributor")
-            onClick { onMatchMetadata() }
-        }) { Icon(WebIcon.Sparkles) }
+        Button(
+            kind = ButtonKind.Icon,
+            size = ButtonSize.Lg,
+            onClick = { onMatchMetadata() },
+            label = "Match contributor",
+            attrs = {
+                classes("cd-match")
+            },
+        ) { Icon(WebIcon.Sparkles) }
 
         // Last, and disabled while its own work is in flight — a second press would ask the server
         // to delete someone already being deleted.
-        Button(attrs = {
-            classes("btn-sq", "cd-delete")
-            attr("type", BUTTON_VALUE)
-            attr(ARIA_LABEL, if (isDeleting) "Deleting contributor" else "Delete contributor")
-            attr("title", "Delete contributor")
-            if (isDeleting) attr("disabled", "")
-            onClick { onDeleteClick() }
-        }) { Icon(WebIcon.Trash) }
+        Button(
+            kind = ButtonKind.Icon,
+            size = ButtonSize.Lg,
+            onClick = { onDeleteClick() },
+            label = if (isDeleting) "Deleting contributor" else "Delete contributor",
+            attrs = {
+                classes("cd-delete")
+                if (isDeleting) attr("disabled", "")
+                attr("title", "Delete contributor")
+            },
+        ) { Icon(WebIcon.Trash) }
     }
 }
 
@@ -322,8 +343,6 @@ internal fun RoleTile(
     progress: Float?,
     onOpen: () -> Unit,
 ) {
-    var coverFailed by remember(book.id) { mutableStateOf(false) }
-
     Div(attrs = {
         classes("cd-tile")
         tabIndex(0)
@@ -337,27 +356,18 @@ internal fun RoleTile(
         onClick { onOpen() }
     }) {
         Div(attrs = { classes("cd-tile-frame") }) {
-            if (coverFailed) {
-                Div(attrs = { classes("cd-tile-fallback") }) { Text(book.title) }
-            } else {
-                Img(
-                    src = coverUrl(book.id.value, book.coverHash, TILE_COVER_RUNG),
-                    attrs = {
-                        classes("cd-tile-cover")
-                        alt(book.title)
-                        attr("loading", "lazy")
-                        attr("decoding", "async")
-                        addEventListener("error") { coverFailed = true }
-                    },
-                )
-            }
+            // Decorative: the tile's title is printed directly beneath it.
+            Cover(
+                title = book.title,
+                imageUrl = coverUrl(book.id.value, book.coverHash, TILE_COVER_RUNG),
+                size = null,
+                radius = TILE_COVER_RADIUS,
+                decorative = true,
+            )
             // Absent, not zero-width: a book [progress] doesn't know about (never started, or
             // finished — `calculateProgressMap` excludes both) draws no bar rather than a false one.
             progress?.let { fraction ->
-                Div(attrs = {
-                    classes("cd-tile-progress")
-                    style { width((fraction.coerceIn(0f, 1f) * PERCENT).percent) }
-                })
+                ProgressBar(value = fraction, label = "Listening progress", look = ProgressLook.Overlay)
             }
         }
         Div(attrs = { classes("cd-tile-title") }) { Text(book.title) }
@@ -459,8 +469,6 @@ internal fun creditedAsLine(bookCreditedAs: Map<String, String>): String? {
 
 private const val STAT_ICON_SIZE = 17
 
-private const val PERCENT = 100
-
 /** The tile grid's covers are small; the smallest server rung comfortably covers a 6-column cell. */
 private const val TILE_COVER_RUNG = 200
 
@@ -487,5 +495,5 @@ private const val FAN_SECOND_LIGHTNESS = 14
 /** Every button here is an action, never a form submit. */
 private const val BUTTON_VALUE = "button"
 
-/** Extracted only because this page now sets enough of them to trip StringLiteralDuplication. */
-private const val ARIA_LABEL = "aria-label"
+/** The house corner, the same as a library card's cover, so a book's tile is one shape everywhere. */
+private const val TILE_COVER_RADIUS = 12

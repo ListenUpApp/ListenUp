@@ -1,22 +1,19 @@
 package com.calypsan.listenup.web.playback
 
+import kotlinx.coroutines.await
 import org.w3c.dom.HTMLMediaElement
+import kotlin.js.Promise
 
 /**
- * The slice of [hls.js](https://github.com/video-dev/hls.js) this player needs.
+ * One hls.js player instance — the slice this player needs.
  *
- * `@JsModule` on an external class binds to the module's **default** export under
- * `useEsModules()` — the compiler emits `import Hls from 'hls.js'`, not a named import. That is
- * right here, because hls.js ships `export { …, Hls as default, … }`, but nothing in the type
- * system can confirm it: an external class compiles against no evidence whatsoever.
- * `HlsAttachmentTest` is what actually proves the binding, by constructing one in a browser.
- *
- * No `@JsNonModule`. The compiler accepts it without complaint, but it declares this class
- * usable from a plain `<script>` build — a build this module stopped producing when webpack
- * gave way to Vite, so it would be dead metadata asserting something untrue.
+ * An external *interface*, not an `@JsModule` external class: a class bound with `@JsModule` compiles
+ * to a static `import Hls from 'hls.js'`, which puts all of hls.js (about 1.5 MB unminified) in the
+ * entry chunk that every visitor downloads before the first paint — for a library only a book the
+ * browser cannot decode directly ever uses. The class now arrives through [loadHlsLibrary]'s dynamic
+ * `import()`, which Vite splits into a chunk of its own.
  */
-@JsModule("hls.js")
-internal external class Hls {
+internal external interface HlsPlayer {
     /** Point the instance at an `.m3u8` playlist. Loading starts once media is attached. */
     fun loadSource(url: String)
 
@@ -36,12 +33,65 @@ internal external class Hls {
 
     /** Tear down the instance's buffers, timers and network loop. */
     fun destroy()
+}
 
-    companion object {
-        /** Whether this browser has the Media Source Extensions hls.js needs. */
-        fun isSupported(): Boolean
+/** The hls.js class itself, as the module's default export — the static half of its API. */
+internal external interface HlsClass {
+    /** Whether this browser has the Media Source Extensions hls.js needs. */
+    fun isSupported(): Boolean
+}
+
+/** What `import('hls.js')` resolves to. hls.js ships `export { …, Hls as default, … }`. */
+private external interface HlsModule {
+    val default: HlsClass
+}
+
+/**
+ * hls.js, once it has been fetched: the class, and a way to make instances of it.
+ *
+ * `HlsAttachmentTest` is what proves the binding, by constructing one in a browser — the types here
+ * compile against no evidence whatsoever, so a default export that turned out to be the module
+ * namespace would only show up as "is not a constructor" at runtime.
+ */
+internal class HlsLibrary(
+    private val hlsClass: HlsClass,
+) {
+    /** See [HlsClass.isSupported]. */
+    fun isSupported(): Boolean = hlsClass.isSupported()
+
+    /** A fresh player instance. */
+    fun create(): HlsPlayer {
+        val constructor = hlsClass
+        return js("new constructor()").unsafeCast<HlsPlayer>()
     }
 }
+
+/** The one in-flight or finished import, so every attachment after the first is free. */
+private var hlsLibrary: Promise<HlsLibrary?>? = null
+
+/**
+ * Fetches hls.js on first use, or null when the chunk could not be loaded.
+ *
+ * Null rather than a throw, and not cached: a chunk that failed on a flaky network is worth asking
+ * for again next time, and in the meantime [attachHls] falls back to the browser's own HLS support
+ * — which on the one platform that has it (Safari on iPhone) is the decoder that would have been
+ * used anyway.
+ */
+internal suspend fun loadHlsLibrary(): HlsLibrary? {
+    val pending =
+        hlsLibrary ?: importHls()
+            .then({ module -> HlsLibrary(module.default) }, { null })
+            .also { hlsLibrary = it }
+    val loaded = pending.await()
+    if (loaded == null) hlsLibrary = null
+    return loaded
+}
+
+/**
+ * A dynamic `import()`, which the bundler turns into a separate chunk fetched on demand. `js()`
+ * because Kotlin has no syntax for it; a static `@JsModule` import is exactly what this replaces.
+ */
+private fun importHls(): Promise<HlsModule> = js("import('hls.js')").unsafeCast<Promise<HlsModule>>()
 
 /** The payload hls.js hands to a `"hlsError"` listener. */
 internal external interface HlsErrorEvent {
@@ -59,14 +109,14 @@ internal external interface HlsErrorEvent {
 private const val HLS_ERROR_EVENT = "hlsError"
 
 /**
- * The lifetime of one attachment. An abandoned [Hls] instance keeps its buffers, timers and
+ * The lifetime of one attachment. An abandoned [HlsPlayer] instance keeps its buffers, timers and
  * network loop alive; one per segment across a forty-hour book is a leak that surfaces as a
  * hung tab rather than as any visible error. So every segment change and every teardown calls
  * [destroy] — including [HtmlAudioPlayer.reportHlsError], because a fatal error stops hls.js
  * without releasing anything it holds.
  */
 internal class HlsHandle(
-    private val hls: Hls?,
+    private val hls: HlsPlayer?,
 ) {
     /**
      * Whether hls.js is driving this attachment, rather than the browser's own HLS decoder.
@@ -96,28 +146,33 @@ private const val HLS_MIME = "application/vnd.apple.mpegurl"
  * answer, and the effect was that Chrome and Firefox — every browser this transcode path exists
  * to serve — took the native branch and hls.js was dead code.
  *
- * So the branch hinges on [Hls.isSupported], which asks whether Media Source Extensions exist.
+ * So the branch hinges on [HlsLibrary.isSupported], which asks whether Media Source Extensions exist.
  * That is a capability check with no ambiguity, and it lands correctly everywhere that matters:
  *
  * - **Chrome, Firefox, Edge** — MSE present, so hls.js drives. This is the requirement.
- * - **Safari on iPhone** — historically no MSE, so [Hls.isSupported] is false and the native
+ * - **Safari on iPhone** — historically no MSE, so [HlsLibrary.isSupported] is false and the native
  *   branch takes over, which is right: that platform decodes HLS itself.
  * - **Safari on macOS** — MSE present, so hls.js drives even though the platform decoder could
  *   have. That is a knowing trade. Keeping macOS Safari on its native decoder would mean
  *   branching on `canPlayType` again, and no Safari was available to establish what it answers;
  *   a design that is merely suboptimal on Safari beats one that is broken on Chrome.
  *
+ * [library] is hls.js as [loadHlsLibrary] fetched it, or null when it could not be — the caller
+ * awaits that before the first HLS segment, so attaching stays synchronous from then on (a segment
+ * advance fires from a media event, where there is nothing to suspend).
+ *
  * @param onFatalError invoked when hls.js gives up; the argument is a diagnostic string.
  * @throws IllegalStateException when the browser has neither MSE nor native HLS — a state the
  *   caller must surface, because nothing else can make this segment audible.
  */
 internal fun attachHls(
+    library: HlsLibrary?,
     element: HTMLMediaElement,
     url: String,
     onFatalError: (String) -> Unit,
 ): HlsHandle {
-    if (Hls.isSupported()) {
-        val hls = Hls()
+    if (library != null && library.isSupported()) {
+        val hls = library.create()
         hls.on(HLS_ERROR_EVENT) { _, data ->
             if (data.fatal) onFatalError("${data.type}: ${data.details}")
         }

@@ -243,11 +243,11 @@ class ServerSettingsPageTest :
             retries shouldBe 1
         }
 
-        test("the way back to Admin is offered, and fires") {
+        test("the breadcrumb leads back to Admin") {
             var back = 0
             val host = page(readyServerSettings(), onOpenAdmin = { back++ })
 
-            (host.querySelector(".srv-back") as HTMLElement).click()
+            (host.querySelector(".crumb a") as HTMLElement).click()
             awaitFrame()
 
             back shouldBe 1

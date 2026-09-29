@@ -147,8 +147,8 @@ class BulkEditPageTest :
         }
 
         test("the header counts the books being edited, in the right number") {
-            page(editing(bookCount = 40)).querySelector(".bke-t")?.textContent shouldBe "Edit 40 books"
-            page(editing(bookCount = 1)).querySelector(".bke-t")?.textContent shouldBe "Edit 1 book"
+            page(editing(bookCount = 40)).querySelector(".page-t")?.textContent shouldBe "Edit 40 books"
+            page(editing(bookCount = 1)).querySelector(".page-t")?.textContent shouldBe "Edit 1 book"
         }
 
         // ⛔ A book deleted from another device drops out of the selection silently. Editing
@@ -256,7 +256,7 @@ class BulkEditPageTest :
         test("the preview names its resting state rather than showing an empty panel") {
             val host = page(editing())
 
-            host.querySelector(".bke-empty")?.textContent.shouldNotBeNull() shouldContain "Nothing to change yet"
+            host.querySelector(".empty.is-inset")?.textContent.shouldNotBeNull() shouldContain "Nothing to change yet"
             host.querySelectorAll(".bke-row").asList().size shouldBe 0
         }
 
@@ -319,8 +319,9 @@ class BulkEditPageTest :
                     ),
                 )
 
-            host.querySelector(".bke-bar")?.getAttribute("role") shouldBe "presentation"
-            (host.querySelector(".bke-bar-fill") as HTMLElement).style.width shouldBe "25%"
+            // It restates the count printed beside it, so it is hidden rather than read twice.
+            host.querySelector(".bke-bar")?.getAttribute("aria-hidden") shouldBe "true"
+            (host.querySelector(".bke-bar .progress-fill") as HTMLElement).style.transform shouldBe "scaleX(0.25)"
         }
 
         // ⛔ The count is the promise, so it goes on the button.
@@ -494,8 +495,6 @@ class BulkEditPageTest :
             chips.map {
                 it.textContent
                     .orEmpty()
-                    .trim()
-                    .removeSuffix("×")
                     .trim()
             } shouldContainExactly
                 listOf("Neil Gaiman · Author", "Neil Gaiman · Narrator")

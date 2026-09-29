@@ -72,7 +72,7 @@ class LibrarySetupPageTest :
         test("the page says whose filesystem this is") {
             val host = page(setupState())
 
-            (host.querySelector(".lsetup-sub") as HTMLElement).textContent.orEmpty() shouldContain
+            (host.querySelector(".page-sub") as HTMLElement).textContent.orEmpty() shouldContain
                 "machine running your ListenUp server"
         }
 

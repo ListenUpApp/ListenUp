@@ -1,21 +1,24 @@
 package com.calypsan.listenup.web.features.profile
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import kotlin.time.Duration.Companion.milliseconds
@@ -49,18 +52,14 @@ fun ProfilePage(
             }
 
             is UserProfileUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H3 { Text("This profile can't be shown") }
-                    P { Text(state.message) }
-                    Button(attrs = {
-                        classes("btn-c")
-                        attr("type", VALUE_BUTTON)
-                        onClick { onRetry() }
-                    }) { Text("Try again") }
+                PageHeader(title = PROFILE)
+                EmptyState(title = "This profile can't be shown", body = state.message) {
+                    Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
                 }
             }
 
             UserProfileUiState.Loading, UserProfileUiState.Idle -> {
+                PageHeader(title = PROFILE, pending = true)
                 Div(attrs = { classes("skel", "prof-skel") })
             }
         }
@@ -79,7 +78,11 @@ private fun ReadyContent(
     if (state.recentBooks.isNotEmpty()) {
         Panel(title = if (state.isOwnProfile) "What you've been listening to" else "Recently listened") {
             Div(attrs = { classes("prof-books") }) {
-                state.recentBooks.forEach { book -> RecentBook(book, onOpenBook) }
+                state.recentBooks.forEach { book ->
+                    key(book.bookId) {
+                        RecentBook(book, onOpenBook)
+                    }
+                }
             }
         }
     }
@@ -87,7 +90,11 @@ private fun ReadyContent(
     if (state.publicShelves.isNotEmpty()) {
         Panel(title = if (state.isOwnProfile) "Your shelves" else "Shelves") {
             Div(attrs = { classes("prof-shelves") }) {
-                state.publicShelves.forEach { shelf -> ShelfRow(shelf, onOpenShelf) }
+                state.publicShelves.forEach { shelf ->
+                    key(shelf.id) {
+                        ShelfRow(shelf, onOpenShelf)
+                    }
+                }
             }
         }
     }
@@ -113,11 +120,12 @@ private fun Hero(
             avatarColor = state.avatarColor.takeIf { it.isNotBlank() },
         )
         Div(attrs = { classes("prof-idblock") }) {
-            H1(attrs = { classes("prof-name") }) { Text(state.displayName) }
             // Absent, not an empty line: a tagline nobody has written is not a blank one.
-            state.tagline?.takeIf { it.isNotBlank() }?.let { line ->
-                P(attrs = { classes("prof-tagline") }) { Text(line) }
-            }
+            PageHeader(
+                title = state.displayName,
+                subtitle = state.tagline?.takeIf { it.isNotBlank() },
+                display = true,
+            )
             Div(attrs = { classes("prof-stats") }) {
                 Stat(formatListenTime(state.totalListenTimeMs), "listened")
                 Stat(
@@ -139,13 +147,15 @@ private fun Hero(
             }
         }
         if (state.isOwnProfile) {
-            Button(attrs = {
-                classes("iconbtn", "prof-edit")
-                attr("type", VALUE_BUTTON)
-                attr("aria-label", "Edit profile")
-                attr("title", "Edit profile")
-                onClick { onEditProfile() }
-            }) { Icon(WebIcon.Pencil, size = EDIT_ICON_SIZE) }
+            Button(
+                kind = ButtonKind.Icon,
+                size = ButtonSize.Sm,
+                onClick = { onEditProfile() },
+                label = "Edit profile",
+                attrs = {
+                    classes("prof-edit")
+                },
+            ) { Icon(WebIcon.Pencil, size = EDIT_ICON_SIZE) }
         }
     }
 }
@@ -153,18 +163,15 @@ private fun Hero(
 /** A profile with nothing on it — a new account, or someone who shares nothing. */
 @Composable
 private fun NothingYet(isOwnProfile: Boolean) {
-    Div(attrs = { classes("empty") }) {
-        H3 { Text(if (isOwnProfile) "Nothing here yet" else "Nothing shared yet") }
-        P {
-            Text(
-                if (isOwnProfile) {
-                    "Books you listen to and shelves you make public will show up here."
-                } else {
-                    "This listener hasn't shared any books or shelves."
-                },
-            )
-        }
-    }
+    EmptyState(
+        title = if (isOwnProfile) "Nothing here yet" else "Nothing shared yet",
+        body =
+            if (isOwnProfile) {
+                "Books you listen to and shelves you make public will show up here."
+            } else {
+                "This listener hasn't shared any books or shelves."
+            },
+    )
 }
 
 @Composable
@@ -197,6 +204,7 @@ private fun RecentBook(
             imageUrl = coverUrl(book.bookId, null, BOOK_RUNG),
             size = BOOK_SIZE,
             radius = BOOK_RADIUS,
+            decorative = true,
         )
         Span(attrs = { classes("prof-book-t") }) { Text(book.title) }
     }
@@ -237,3 +245,5 @@ private const val EDIT_ICON_SIZE = 18
 /** Every button here is an action, never a form submit. Named for the reason `TransportBar`
  *  names its own: four identical literals in one file is what the duplication rule is about. */
 private const val VALUE_BUTTON = "button"
+
+private const val PROFILE = "Profile"

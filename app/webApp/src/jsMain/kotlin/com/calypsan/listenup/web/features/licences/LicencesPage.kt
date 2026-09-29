@@ -2,15 +2,18 @@ package com.calypsan.listenup.web.features.licences
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.LoadingState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Field
+import com.calypsan.listenup.web.design.PageHeader
 import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -37,14 +40,13 @@ fun LicencesPage(
 
         when (state) {
             LicencesUiState.Loading -> {
-                Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+                PageHeader(title = LICENSES)
+                LoadingState()
             }
 
             is LicencesUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H3 { Text("The licences can't be shown") }
-                    P { Text(state.message) }
-                }
+                PageHeader(title = LICENSES)
+                EmptyState(title = "The licenses can't be shown", body = state.message)
             }
 
             is LicencesUiState.Ready -> {
@@ -63,11 +65,12 @@ private fun ReadyLicences(state: LicencesUiState.Ready) {
             .distinct()
             .size
 
-    Div(attrs = { classes("lic-head") }) {
-        Span(attrs = { classes("lic-overline") }) { Text("Open Source") }
-        H1(attrs = { classes("lic-title") }) { Text("${state.libraries.size} libraries") }
-        Div(attrs = { classes("lic-sub") }) { Text("that make ListenUp possible, across $families license families") }
-    }
+    PageHeader(
+        title = "${state.libraries.size} libraries",
+        eyebrow = "Open Source",
+        subtitle = "that make ListenUp possible, across $families license families",
+        documentTitle = LICENSES,
+    )
 
     Field(
         label = "Search libraries",
@@ -79,28 +82,30 @@ private fun ReadyLicences(state: LicencesUiState.Ready) {
 
     val shown = state.libraries.filter { it.matches(query) }
     if (shown.isEmpty()) {
-        Div(attrs = { classes("empty") }) { P { Text("No libraries match that.") } }
+        EmptyState(title = "No libraries match that.", look = EmptyLook.Inline)
         return
     }
 
     Div(attrs = { classes("lic-list") }) {
         shown.forEach { library ->
-            Div(attrs = { classes("lic-row") }) {
-                Div(attrs = { classes("lic-row-top") }) {
-                    Span(attrs = { classes("lic-name") }) { Text(library.name) }
-                    // Absent rather than "v?" — a version this manifest does not carry is a fact
-                    // about the manifest, not something to render a placeholder for.
-                    library.artifactVersion?.let { Span(attrs = { classes("lic-ver") }) { Text("v$it") } }
-                }
-                library.licenses.forEach { licence ->
-                    Span(attrs = { classes("lic-badge") }) { Text(licence) }
-                }
-                library.website?.let { url ->
-                    A(href = url, attrs = {
-                        classes("lic-link")
-                        attr("target", "_blank")
-                        attr("rel", "noopener noreferrer")
-                    }) { Text("View project") }
+            key(library.uniqueId) {
+                Div(attrs = { classes("lic-row") }) {
+                    Div(attrs = { classes("lic-row-top") }) {
+                        Span(attrs = { classes("lic-name") }) { Text(library.name) }
+                        // Absent rather than "v?" — a version this manifest does not carry is a fact
+                        // about the manifest, not something to render a placeholder for.
+                        library.artifactVersion?.let { Span(attrs = { classes("lic-ver") }) { Text("v$it") } }
+                    }
+                    library.licenses.forEach { licence ->
+                        Span(attrs = { classes("lic-badge") }) { Text(licence) }
+                    }
+                    library.website?.let { url ->
+                        A(href = url, attrs = {
+                            classes("lic-link")
+                            attr("target", "_blank")
+                            attr("rel", "noopener noreferrer")
+                        }) { Text("View project") }
+                    }
                 }
             }
         }
@@ -117,3 +122,5 @@ private fun LicencedLibrary.matches(query: String): Boolean {
     val needle = query.trim().lowercase()
     return name.lowercase().contains(needle) || licenses.any { it.lowercase().contains(needle) }
 }
+
+private const val LICENSES = "Open source licenses"

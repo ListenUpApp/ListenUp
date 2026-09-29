@@ -296,7 +296,7 @@ class ClassContractTest :
         // pass that reads only top-level rules skips its whole body. A class styled *only* under
         // a media query then looked undefined, and the page rendering it failed this contract —
         // a false alarm whose obvious "fix" is to restructure correct CSS until the test stops
-        // complaining. `.scan-pulse` is such a class today; the spec below pins it.
+        // complaining. `.sb-foot` is such a class today; the spec below pins it.
         fun definedClasses(): Set<String> {
             val defined = mutableSetOf<String>()
 
@@ -356,11 +356,11 @@ class ClassContractTest :
         }
 
         test("a class defined only inside @media is still seen as defined") {
-            // `.scan-pulse` exists solely inside web.css's prefers-reduced-motion block. Reading
+            // `.sb-foot` exists solely inside the shell sheet's phone-width block. Reading
             // top-level rules alone missed it — a grouping rule has no selectorText of its own —
             // so a page rendering such a class failed this contract even though the sheet defines
             // it perfectly well, and the tempting "fix" was to restructure correct CSS.
-            definedClasses().contains("scan-pulse") shouldBe true
+            definedClasses().contains("sb-foot") shouldBe true
         }
 
         test("every class the kit renders is defined in the design sheet") {
@@ -1144,6 +1144,7 @@ class ClassContractTest :
                             onOpenHit = {},
                             openableTypes = SearchHitType.entries.toSet(),
                             highlighted = null,
+                            onDismiss = {},
                         )
                         CommandPalette(
                             state = SearchUiState.TooShort(query = "du", selectedTypes = emptySet()),
@@ -1151,6 +1152,7 @@ class ClassContractTest :
                             onOpenHit = {},
                             openableTypes = SearchHitType.entries.toSet(),
                             highlighted = null,
+                            onDismiss = {},
                         )
                         CommandPalette(
                             state = SearchUiState.Searching(query = "dun", selectedTypes = emptySet()),
@@ -1158,6 +1160,7 @@ class ClassContractTest :
                             onOpenHit = {},
                             openableTypes = SearchHitType.entries.toSet(),
                             highlighted = null,
+                            onDismiss = {},
                         )
                         CommandPalette(
                             state = SearchUiState.Error(query = "dune", selectedTypes = emptySet(), message = "oops"),
@@ -1165,6 +1168,7 @@ class ClassContractTest :
                             onOpenHit = {},
                             openableTypes = SearchHitType.entries.toSet(),
                             highlighted = null,
+                            onDismiss = {},
                         )
                         CommandPalette(
                             state =
@@ -1177,6 +1181,7 @@ class ClassContractTest :
                             onOpenHit = {},
                             openableTypes = SearchHitType.entries.toSet(),
                             highlighted = null,
+                            onDismiss = {},
                         )
                         run {
                             val hit = bookHit("b1", "Dune", author = "Frank Herbert")
@@ -1195,6 +1200,7 @@ class ClassContractTest :
                                 onOpenHit = {},
                                 openableTypes = setOf(SearchHitType.BOOK),
                                 highlighted = hit,
+                                onDismiss = {},
                             )
                         }
                         // Book Edit was absent from this contract, which is how its form wrapper
@@ -1279,11 +1285,30 @@ class ClassContractTest :
                             MetaList(listOf(MetaEntry("Duration", "18:40:11", machine = true)))
                         }
                         Breadcrumb(listOf("Library", "The Institute"))
-                        Tabs(listOf(TabItem("a", "A", count = "3")), active = "a")
-                        SegmentedControl(listOf(SegmentItem("s", "S")), active = "s")
+                        Tabs(listOf(TabItem("a", "A", count = "3")), active = "a", idBase = "cc")
+                        TabPanel(idBase = "cc", key = "a") { Text("A") }
+                        SegmentedControl(listOf(SegmentItem("s", "S")), active = "s", label = "Show")
+                        SortControl(
+                            options = listOf("a", "b"),
+                            active = "a",
+                            labelOf = { it },
+                            ascending = true,
+                            onSelect = {},
+                            onToggleDirection = {},
+                        )
+                        LinkButton("Back to sign in", onClick = {})
                         Pill("Horror", selected = true, onRemove = {})
                         Cover(title = "The Institute")
-                        ProgressLine(percent = 49, remaining = "9h 18m left")
+                        ProgressLook.entries.forEach { look -> ProgressBar(value = 0.49f, label = "Progress", look = look) }
+                        ProgressBar(value = null, label = "Progress", caption = "9h 18m left")
+                        EmptyState(title = "Nothing yet", body = "Body", icon = WebIcon.Book) {}
+                        EmptyState(title = "Nothing yet", look = EmptyLook.Inset)
+                        EmptyState(title = "Nothing yet", look = EmptyLook.Inline)
+                        LoadingState()
+                        PageHeader(title = "Title", eyebrow = "Eyebrow", subtitle = "Sub", display = true, pending = true) {}
+                        ButtonKind.entries.forEach { kind ->
+                            ButtonSize.entries.forEach { size -> Button(kind = kind, size = size, label = "Go", fill = true) {} }
+                        }
                         Field(label = "Email", value = "", leading = WebIcon.Mail, onInput = {})
                         Field(label = "Email", value = "", error = true, onInput = {})
                         PasswordField(label = "Password", value = "", onInput = {})

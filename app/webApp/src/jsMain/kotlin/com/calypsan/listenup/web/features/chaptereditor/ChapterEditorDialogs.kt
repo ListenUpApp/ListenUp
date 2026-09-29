@@ -1,7 +1,5 @@
 package com.calypsan.listenup.web.features.chaptereditor
 
-import org.jetbrains.compose.web.dom.Text
-import org.jetbrains.compose.web.dom.P
 import com.calypsan.listenup.client.core.ChapterTimeFormat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -114,13 +112,13 @@ internal fun ChapterTimeDialog(
     val parsed = ChapterTimeFormat.parsePrecise(text)
 
     ModalDialog(open = true, title = "Set start time", onDismiss = onDismiss) {
-        Field(label = "Start time", value = text, onInput = { text = it }, id = "ced-chapter-time")
-        if (parsed == null) {
-            P(attrs = {
-                classes("ched-field-err")
-                attr("role", "alert")
-            }) { Text("Type a time like 1:02:03.4.") }
-        }
+        Field(
+            label = "Start time",
+            value = text,
+            onInput = { text = it },
+            id = "ced-chapter-time",
+            errorText = "Type a time like 1:02:03.4.".takeIf { parsed == null },
+        )
         DialogActions(
             confirmLabel = "Set",
             onConfirm = { parsed?.let(onConfirm) },

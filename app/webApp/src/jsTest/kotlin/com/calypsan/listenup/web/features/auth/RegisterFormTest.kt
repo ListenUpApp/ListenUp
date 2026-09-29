@@ -54,7 +54,7 @@ class RegisterFormTest :
             host.typeInto("#auth-register-confirm", "hunter3")
             awaitFrame()
 
-            val button = host.querySelector(".btn") as HTMLButtonElement
+            val button = host.querySelector(".btn-primary") as HTMLButtonElement
             button.hasAttribute("disabled") shouldBe true
             host.textContent.orEmpty() shouldContain "Passwords don't match"
 
@@ -80,7 +80,7 @@ class RegisterFormTest :
             host.typeInto("#auth-password", "hunter2")
             awaitFrame()
 
-            (host.querySelector(".btn") as HTMLButtonElement).hasAttribute("disabled") shouldBe true
+            (host.querySelector(".btn-primary") as HTMLButtonElement).hasAttribute("disabled") shouldBe true
             host.textContent.orEmpty() shouldNotContain "Passwords don't match"
             submitted shouldBe 0
         }
@@ -110,7 +110,7 @@ class RegisterFormTest :
             // The submit button is gated on the two matching now, and that gate is recomposed —
             // clicking in the same frame as the last keystroke reaches a still-disabled button.
             awaitFrame()
-            (host.querySelector(".btn") as HTMLButtonElement).click()
+            (host.querySelector(".btn-primary") as HTMLButtonElement).click()
 
             submitted shouldBe listOf("ada@example.com", "hunter2", "Ada", "Lovelace")
         }

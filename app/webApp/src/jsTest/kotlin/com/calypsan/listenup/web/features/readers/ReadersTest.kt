@@ -248,9 +248,9 @@ class ReadersTest :
         // empty page would be the lie the panel's silence is not.
         test("the page answers for every state the panel stays quiet about") {
             page(BookReadersUiState.Loading).querySelector(".rdr-skel").shouldNotBeNull()
-            text(page(BookReadersUiState.NoReaders), ".rdr-none") shouldBe "Nobody has started this book yet."
-            text(page(readersData()), ".rdr-none") shouldBe "Nobody has started this book yet."
-            text(page(BookReadersUiState.Error(isRetryable = true)), ".rdr-none") shouldBe
+            text(page(BookReadersUiState.NoReaders), ".empty-line") shouldBe "Nobody has started this book yet."
+            text(page(readersData()), ".empty-line") shouldBe "Nobody has started this book yet."
+            text(page(BookReadersUiState.Error(isRetryable = true)), ".empty-line") shouldBe
                 "Couldn't load who is reading this. Try again in a moment."
         }
 

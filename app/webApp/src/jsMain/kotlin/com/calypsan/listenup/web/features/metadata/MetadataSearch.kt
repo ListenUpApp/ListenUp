@@ -1,19 +1,22 @@
 package com.calypsan.listenup.web.features.metadata
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
 import com.calypsan.listenup.client.presentation.metadata.SearchLoadState
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
-import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -59,18 +62,18 @@ internal fun MetadataSearchPhase(
             placeholder = "Title, author, narrator, or ASIN...",
             id = "mdx-query",
         )
-        Button(attrs = {
-            classes("btn-c")
-            attr(ATTR_TYPE, "submit")
-            disabledWhen(state.loadState is SearchLoadState.InFlight || state.query.isBlank())
-        }) { Text(if (state.loadState is SearchLoadState.InFlight) "Searching…" else "Search Audible") }
+        Button(
+            kind = ButtonKind.Primary,
+            submit = true,
+            enabled = !(state.loadState is SearchLoadState.InFlight || state.query.isBlank()),
+        ) { Text(if (state.loadState is SearchLoadState.InFlight) "Searching…" else "Search Audible") }
     }
 
     RegionSelector(state.region, onRegion)
 
     when (val load = state.loadState) {
         SearchLoadState.Idle -> {
-            P(attrs = { classes(NONE) }) { Text("Enter a title, author, narrator, or ASIN to search.") }
+            EmptyState(title = "Enter a title, author, narrator, or ASIN to search.", look = EmptyLook.Inline)
         }
 
         SearchLoadState.InFlight -> {
@@ -86,19 +89,24 @@ internal fun MetadataSearchPhase(
 
         is SearchLoadState.Loaded -> {
             if (load.results.isEmpty()) {
-                Div(attrs = { classes("mdx-empty") }) {
-                    H2 { Text("No matches found") }
-                    // ⛔ Names the region. An empty result is usually the wrong market, not a
-                    // missing book, and "try again" without saying that sends people nowhere.
-                    P { Text("Try a different search term, or another region than ${state.region.displayName}.") }
-                }
+                // ⛔ Names the region. An empty result is usually the wrong market, not a
+                // missing book, and "try again" without saying that sends people nowhere.
+                EmptyState(
+                    title = "No matches found",
+                    body = "Try a different search term, or another region than ${state.region.displayName}.",
+                    look = EmptyLook.Inset,
+                )
             } else {
                 P(attrs = { classes("mdx-count") }) { Text(matchCount(load.results.size)) }
                 Div(attrs = {
                     classes("mdx-results")
                     attr("role", "list")
                 }) {
-                    load.results.forEach { result -> ResultRow(result) { onSelectMatch(result) } }
+                    load.results.forEach { result ->
+                        key(result.asin) {
+                            ResultRow(result) { onSelectMatch(result) }
+                        }
+                    }
                 }
             }
         }
@@ -189,7 +197,5 @@ private const val MINUTES_PER_HOUR = 60
 private const val ATTR_TYPE = "type"
 
 private const val VALUE_BUTTON = "button"
-
-private const val NONE = "mdx-none"
 
 private const val COVER_ICON = 20

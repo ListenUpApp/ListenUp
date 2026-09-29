@@ -56,7 +56,21 @@ fun Breadcrumb(
             if (index == trail.lastIndex) {
                 Span(attrs = { classes("cur") }) { Text(entry) }
             } else {
-                A(attrs = { onNavigate?.let { navigate -> onClick { navigate(index) } } }) { Text(entry) }
+                // No `href` — the trail reports a position, not an address — so the link is made
+                // reachable by hand: an `<a>` without one is not a tab stop and ignores Enter.
+                A(attrs = {
+                    onNavigate?.let { navigate ->
+                        attr("role", "link")
+                        tabIndex(0)
+                        onClick { navigate(index) }
+                        onKeyDown { event ->
+                            if (event.key == "Enter") {
+                                event.preventDefault()
+                                navigate(index)
+                            }
+                        }
+                    }
+                }) { Text(entry) }
             }
         }
     }

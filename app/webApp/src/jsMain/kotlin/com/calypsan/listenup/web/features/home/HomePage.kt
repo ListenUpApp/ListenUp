@@ -1,6 +1,12 @@
 package com.calypsan.listenup.web.features.home
 
+import com.calypsan.listenup.web.design.paletteShortcutLabel
+import com.calypsan.listenup.web.design.ProgressLook
+import com.calypsan.listenup.web.design.ProgressBar
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
@@ -8,6 +14,9 @@ import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.home.WeekChartColumn
 import com.calypsan.listenup.client.presentation.home.genreShareBars
 import com.calypsan.listenup.client.presentation.home.weekChartColumns
+import com.calypsan.listenup.web.design.UnderHeading
+import com.calypsan.listenup.web.design.EmptyState
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.web.features.books.press
 import com.calypsan.listenup.web.design.Cover
@@ -15,16 +24,12 @@ import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.features.shelf.bookCountLabel
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.H3
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
-
-/** The shared empty-state block, borrowed rather than restyled per section. */
-private const val EMPTY_CLASS = "empty"
 
 /** Cover size for a Continue Listening card, in px. Square, like the artwork. */
 private const val CONTINUE_COVER_WIDTH = 168
@@ -62,14 +67,16 @@ fun HomePage(
     Div(attrs = { classes("home") }) {
         when (state) {
             is HomeUiState.Loading -> {
-                HomeSkeleton()
+                // Deliberately silent about WHY: before the first emission the page genuinely does
+                // not know whether the library is empty, syncing or broken, and guessing out loud is
+                // how a healthy first run ends up reading like a failure. The greeting's place is
+                // held by a skeleton, under an H1 that still names the page.
+                PageHeader(title = HOME, documentTitle = null, display = true, pending = true)
             }
 
             is HomeUiState.Error -> {
-                Div(attrs = { classes(EMPTY_CLASS) }) {
-                    H3 { Text("Home is unavailable") }
-                    P { Text(state.message) }
-                }
+                PageHeader(title = HOME, documentTitle = null)
+                EmptyState(title = "Home is unavailable", body = state.message)
             }
 
             is HomeUiState.Ready -> {
@@ -83,31 +90,13 @@ fun HomePage(
     }
 }
 
-/**
- * The pre-first-emission state. Deliberately silent about WHY: at this point the page genuinely
- * does not know whether the library is empty, syncing or broken, and guessing out loud is how a
- * healthy first run ends up reading like a failure.
- */
-@Composable
-private fun HomeSkeleton() {
-    Div(attrs = { classes("home-header") }) {
-        Div(attrs = { classes("home-greet") }) {
-            Div(attrs = { classes("skel", "home-skel-line") })
-            Div(attrs = { classes("skel", "home-skel-name") })
-        }
-    }
-}
-
 @Composable
 private fun HomeHeader(
     greeting: String,
     onOpenSearch: () -> Unit,
 ) {
-    Div(attrs = { classes("home-header") }) {
-        Div(attrs = { classes("home-greet") }) {
-            H1 { Text(greeting) }
-        }
-        // A search affordance on the landing page, even though the sidebar and ⌘K both reach the
+    PageHeader(title = greeting, documentTitle = null, display = true) {
+        // A search affordance on the landing page, even though the sidebar and the palette shortcut both reach the
         // same place — this is where someone arrives, and "where do I type?" should not need a
         // shortcut to answer. The hint teaches the shortcut rather than replacing it.
         Button(attrs = {
@@ -118,7 +107,7 @@ private fun HomeHeader(
         }) {
             Icon(WebIcon.Search, size = SEARCH_ICON_SIZE)
             Span(attrs = { classes("home-search-label") }) { Text("Search your library") }
-            Span(attrs = { classes("kbd") }) { Text("⌘K") }
+            Span(attrs = { classes("kbd") }) { Text(paletteShortcutLabel()) }
         }
     }
 }
@@ -150,12 +139,11 @@ private fun LibraryStatus(state: HomeUiState.Ready) {
             Div(attrs = { classes("home-status") }) {
                 Span(attrs = { classes("home-status-t") }) { Text(scan.phaseDisplayName) }
                 scan.progressFraction?.let { fraction ->
-                    Div(attrs = { classes("home-status-track") }) {
-                        Div(attrs = {
-                            classes("home-status-fill")
-                            style { property("width", "${(fraction * PERCENT).toInt()}%") }
-                        })
-                    }
+                    ProgressBar(
+                        value = fraction,
+                        label = scan.phaseDisplayName,
+                        attrs = { classes("home-status-track") },
+                    )
                 }
                 scan.changesSummary?.let { summary ->
                     Span(attrs = { classes("home-status-sub") }) { Text(summary) }
@@ -186,20 +174,20 @@ private fun ContinueListening(
     selection: BookSelection?,
 ) {
     Div(attrs = { classes("home-section") }) {
-        H3(attrs = { classes("home-section-h") }) { Text("Continue listening") }
-        if (items.isEmpty()) {
-            Div(attrs = { classes(EMPTY_CLASS) }) {
-                H3 { Text("Nothing on the go") }
-                P { Text("Start a book and it will wait for you here.") }
-                Button(attrs = {
-                    classes("btn")
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    onClick { onOpenLibrary() }
-                }) { Text("Browse library") }
-            }
-        } else {
-            Div(attrs = { classes("home-continue") }) {
-                items.forEach { item -> ContinueCard(item, onOpenBook, selection) }
+        H2(attrs = { classes("home-section-h") }) { Text("Continue listening") }
+        UnderHeading(level = SECTION_HEADING_LEVEL) {
+            if (items.isEmpty()) {
+                EmptyState(title = "Nothing on the go", body = "Start a book and it will wait for you here.") {
+                    Button(kind = ButtonKind.Primary, onClick = { onOpenLibrary() }) { Text("Browse library") }
+                }
+            } else {
+                Div(attrs = { classes("home-continue") }) {
+                    items.forEach { item ->
+                        key(item.bookId) {
+                            ContinueCard(item, onOpenBook, selection)
+                        }
+                    }
+                }
             }
         }
     }
@@ -248,13 +236,15 @@ private fun ContinueCard(
                     title = book.title,
                     imageUrl = coverUrl(book.bookId, book.coverHash, width = CONTINUE_COVER_WIDTH),
                     size = CONTINUE_COVER_WIDTH,
+                    decorative = true,
                 )
-                Div(attrs = { classes("home-card-progress") }) {
-                    Div(attrs = {
-                        classes("home-card-progress-fill")
-                        style { property("width", "${book.progressPercent}%") }
-                    })
-                }
+                // The time left under the title says it in words; the rail is its picture.
+                ProgressBar(
+                    value = book.progressPercent / PERCENT.toFloat(),
+                    look = ProgressLook.Rail,
+                    decorative = true,
+                    attrs = { classes("home-card-progress") },
+                )
                 Span(attrs = { classes("home-card-t") }) { Text(book.title) }
                 Span(attrs = { classes("home-card-sub") }) { Text(book.timeRemainingFormatted) }
             }
@@ -265,36 +255,32 @@ private fun ContinueCard(
 @Composable
 private fun ThisWeek(stats: HomeStatsUiState) {
     Div(attrs = { classes("home-section") }) {
-        H3(attrs = { classes("home-section-h") }) { Text("This week") }
-        when (stats) {
-            is HomeStatsUiState.Loading -> {
-                Div(attrs = { classes("skel", "home-stats-skel") })
-            }
-
-            is HomeStatsUiState.Empty -> {
-                Div(attrs = { classes(EMPTY_CLASS) }) {
-                    H3 { Text("No listening yet") }
-                    P { Text("Your week fills in as you listen.") }
+        H2(attrs = { classes("home-section-h") }) { Text("This week") }
+        UnderHeading(level = SECTION_HEADING_LEVEL) {
+            when (stats) {
+                is HomeStatsUiState.Loading -> {
+                    Div(attrs = { classes("skel", "home-stats-skel") })
                 }
-            }
 
-            is HomeStatsUiState.Error -> {
-                Div(attrs = { classes(EMPTY_CLASS) }) {
-                    H3 { Text("Stats are unavailable") }
-                    P {
-                        Text(
+                is HomeStatsUiState.Empty -> {
+                    EmptyState(title = "No listening yet", body = "Your week fills in as you listen.")
+                }
+
+                is HomeStatsUiState.Error -> {
+                    EmptyState(
+                        title = "Stats are unavailable",
+                        body =
                             if (stats.isRetryable) {
                                 "This usually fixes itself — check back shortly."
                             } else {
                                 "Your listening history could not be read."
                             },
-                        )
-                    }
+                    )
                 }
-            }
 
-            is HomeStatsUiState.Data -> {
-                StatsCard(stats)
+                is HomeStatsUiState.Data -> {
+                    StatsCard(stats)
+                }
             }
         }
     }
@@ -364,15 +350,17 @@ private fun TopGenres(stats: HomeStatsUiState.Data) {
     Div(attrs = { classes("home-genres") }) {
         Span(attrs = { classes("home-genres-h") }) { Text("Top genres") }
         genreShareBars(stats.topGenres).forEach { bar ->
-            Div(attrs = { classes("home-genre") }) {
-                Span(attrs = { classes("home-genre-name") }) { Text(bar.genreName) }
-                Div(attrs = { classes("home-genre-track") }) {
-                    Div(attrs = {
-                        classes("home-genre-fill")
-                        style { property("width", "${bar.percent}%") }
-                    })
+            key(bar.genreName) {
+                Div(attrs = { classes("home-genre") }) {
+                    Span(attrs = { classes("home-genre-name") }) { Text(bar.genreName) }
+                    Div(attrs = { classes("home-genre-track") }) {
+                        Div(attrs = {
+                            classes("home-genre-fill")
+                            style { property("width", "${bar.percent}%") }
+                        })
+                    }
+                    Span(attrs = { classes("home-genre-pct") }) { Text("${bar.percent}%") }
                 }
-                Span(attrs = { classes("home-genre-pct") }) { Text("${bar.percent}%") }
             }
         }
     }
@@ -396,30 +384,29 @@ private fun MyShelves(
 ) {
     Div(attrs = { classes("home-section") }) {
         Div(attrs = { classes("home-section-row") }) {
-            H3(attrs = { classes("home-section-h") }) { Text("My shelves") }
-            Button(attrs = {
-                classes("btn-o")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onCreateShelf() }
-            }) { Text("New shelf") }
+            H2(attrs = { classes("home-section-h") }) { Text("My shelves") }
+            Button(kind = ButtonKind.Secondary, onClick = { onCreateShelf() }) { Text("New shelf") }
         }
-
-        if (shelves.isEmpty()) {
-            Div(attrs = { classes(EMPTY_CLASS) }) {
-                H3 { Text("No shelves yet") }
-                P { Text("A shelf is a way to group books — a series, a mood, a plan for the winter.") }
-            }
-        } else {
-            Div(attrs = { classes("home-shelves") }) {
-                shelves.forEach { shelf ->
-                    Button(attrs = {
-                        classes("home-shelf")
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        onClick { onOpenShelf(shelf.idString) }
-                    }) {
-                        Span(attrs = { classes("home-shelf-t") }) { Text(shelf.name) }
-                        Span(attrs = { classes("home-shelf-sub") }) {
-                            Text(bookCountLabel(shelf.bookCount))
+        UnderHeading(level = SECTION_HEADING_LEVEL) {
+            if (shelves.isEmpty()) {
+                EmptyState(
+                    title = "No shelves yet",
+                    body = "A shelf is a way to group books — a series, a mood, a plan for the winter.",
+                )
+            } else {
+                Div(attrs = { classes("home-shelves") }) {
+                    shelves.forEach { shelf ->
+                        key(shelf.idString) {
+                            Button(attrs = {
+                                classes("home-shelf")
+                                attr(ATTR_TYPE, VALUE_BUTTON)
+                                onClick { onOpenShelf(shelf.idString) }
+                            }) {
+                                Span(attrs = { classes("home-shelf-t") }) { Text(shelf.name) }
+                                Span(attrs = { classes("home-shelf-sub") }) {
+                                    Text(bookCountLabel(shelf.bookCount))
+                                }
+                            }
                         }
                     }
                 }
@@ -431,3 +418,8 @@ private fun MyShelves(
 private const val ATTR_TYPE = "type"
 
 private const val VALUE_BUTTON = "button"
+
+private const val HOME = "Home"
+
+/** A section's own heading is an H2, so anything headed inside it is an H3. */
+private const val SECTION_HEADING_LEVEL = 2

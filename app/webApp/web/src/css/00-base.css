@@ -8,25 +8,42 @@
    Web-native signatures: real focus rings, max-width content, hover
    states, mono for server/technical bits, a self-hosted connection
    indicator, page footers. Coral stays the single action color.
-   .dir-a "Paper" is the house voice; .dir-b "Console" is retained only
-   until we are sure nothing wants it, then it goes.
+   .dir-a "Paper" is the house voice.
    ============================================================ */
+
+/* ---- BREAKPOINTS — the only four widths any sheet queries.
+   Plain CSS has no custom media, so the set lives here as a contract, and BreakpointsTest fails
+   the build on any width query outside it. Write `max-width` one pixel below a breakpoint and
+   `min-width` on it, so the two sides of a breakpoint never overlap or leave a gap:
+     640   a small phone becomes a large one: stacked rows go side by side
+           (max-width: 639px / min-width: 640px)
+     760   PHONE ends: the tab bar and the pinned player give way to the rail
+           (max-width: 759px / min-width: 760px)
+     1024  a tablet's single column gains a side column; the sign-in brand panel appears
+           (max-width: 1023px / min-width: 1024px)
+     1280  DESKTOP: the rail becomes the labelled sidebar; the chapter editor goes two-up
+           (max-width: 1279px / min-width: 1280px)
+   ---- TYPE follows the reader's default font size: `font-size` is in rem (1rem = 16px at the
+   browser default, which this sheet never overrides on `html`). px only for text drawn inside a
+   fixed-size shape — see RemFontSizesTest. */
 
 /* Self-hosted, not fetched from fonts.googleapis.com. Two reasons, both hard:
    the app is served under Cross-Origin-Embedder-Policy: require-corp, which is designed to
    block exactly this kind of un-CORP'd third-party subresource; and a self-hosted server
    that phones Google to render its own type is not self-hosted. Variable weight axis, so
-   one file covers 400-800. Licence: SIL OFL 1.1 — see public/fonts/OFL-*.txt. */
+   one file covers 400-800. Licence: SIL OFL 1.1 — see public/fonts/OFL-*.txt.
+   Relative URLs, not /fonts/: Vite then content-hashes the files into assets/, which the
+   server caches for a year. A stable /fonts/ URL could only ever be revalidated. */
 @font-face {
   font-family: "Hanken Grotesk";
-  src: url("/fonts/hanken-grotesk-latin-wght-normal.woff2") format("woff2-variations");
+  src: url("../fonts/hanken-grotesk-latin-wght-normal.woff2") format("woff2-variations");
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "JetBrains Mono";
-  src: url("/fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2-variations");
+  src: url("../fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2-variations");
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
@@ -39,25 +56,45 @@
      the native chrome as well as ours. */
   color-scheme: light;
 
-  /* brand */
+  /* brand — Lamp Coral is the mark: rings, focus, progress, dots, anything that is not a word.
+     It is too light to carry words either way (white on it is 3.5:1; as text on paper, 3.1:1), so
+     words get the two coral roles below it, each Lamp Coral deepened in OKLCH lightness only —
+     same hue, same chroma, so both still read as coral. ContrastTest holds every pair here to AA. */
   --coral:       #F0512F;
-  --coral-press: #D8431F;
-  --coral-deep:  #B5391E;
+  --coral-deep:  #B5391E;   /* the sign-in brand panel's gradient */
   --amber:       #F8B81F;
-  --on-coral:    #FFFFFF;
   --coral-soft:  rgba(240,81,47,0.12);
   --coral-ring:  rgba(240,81,47,0.22);
-  --green:       #2FA56B;
+  /* A fill that carries a label (primary button, active chip): the brand's Coral Fill, white at 4.70:1. */
+  --coral-fill:       #D73812;
+  --coral-fill-press: #C92700;
+  --on-coral:         #FFFFFF;
+  /* Coral as words (a link, an active tab, an error line): 5.4:1 on paper, 4.7:1 on a coral-soft wash. */
+  --coral-text:  #C11D00;
+
+  /* status — text-grade in each theme. `-soft` is the wash a message sits on; `on-` is the label
+     on the matching fill. */
+  --danger:           #C0392B;
+  --danger-soft:      #FBE9E6;
+  --danger-fill:      #C0392B;
+  --danger-fill-press:#A5301F;
+  --on-danger:        #FFFFFF;
+  --warn:             #7A5A11;
+  --warn-soft:        #FBF1D8;
+  --on-warn:          #FFFFFF;
+  --success:          #1E7A4E;
+  --success-soft:     #E4F2EA;
 
   /* type voices */
   --font-a: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-b: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --mono:   "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  /* LIGHT — warm paper neutrals */
+  /* LIGHT — warm paper neutrals. Three opaque tiers of ink, never ink faded with alpha (the brand's
+     Quiet Ink rule): an alpha tier's contrast depends on whatever it lands on. The quietest still
+     clears 4.5:1 on every surface text sits on. */
   --ink:       #1C1714;
-  --ink-2:     #6A615A;
-  --ink-3:     #9B928A;
+  --ink-2:     #625A53;
+  --ink-3:     #736A63;
   --paper:     #F5F0E8;   /* dir-a page wash */
   --paper-2:   #EDE6DB;
   --surface:   #FFFFFF;
@@ -66,16 +103,82 @@
   --line:      rgba(28,23,20,0.10);
   --line-2:    rgba(28,23,20,0.07);
   --hairline:  rgba(28,23,20,0.14);
+  /* Elevation. Warm-brown shadows on paper; black, and deeper, at night — a brown shadow on a
+     near-black page is invisible, and a coral glow there reads as a halo rather than as light. */
   --shadow-card: 0 1px 2px rgba(40,28,18,0.05), 0 18px 50px rgba(40,28,18,0.10);
   --shadow-pop:  0 8px 28px rgba(40,28,18,0.16);
+  --shadow-raise: 0 1px 3px rgba(40,28,18,0.18);     /* a selected segment, a switch knob */
+  --shadow-lift:  0 8px 20px rgba(40,28,18,0.18);    /* a cover under the pointer */
+  --shadow-up:    0 -10px 30px rgba(20,12,6,0.06);   /* bars pinned to the bottom edge */
+  --shadow-float: 0 16px 44px rgba(20,12,6,0.36);    /* the toast and the bulk bar */
+  --shadow-modal: 0 30px 80px rgba(30,20,12,0.42);
+  --shadow-glow:       0 6px 18px rgba(215,56,18,0.28);  /* the primary button */
+  --shadow-glow-hover: 0 8px 22px rgba(215,56,18,0.36);
   --field-shadow: inset 0 1px 2px rgba(28,23,20,0.04);
+  /* The edge shade a sideways scroller draws where more content is hidden (`.tblwrap`). */
+  --scroll-shade: rgba(40,28,18,0.16);
+}
+
+/* ---- SCALES — type, space, radius, motion. Theme-independent, so declared once.
+   Each step is the value the sheets already used most for that job, not a new look: the drift the
+   2026-09-28 audit counted (58 font sizes, 25 radii) collapses onto the nearest step, and a rule
+   that reaches for one of these cannot drift again.
+
+   TYPE — eight roles, in rem so they follow the reader's default size (RemFontSizesTest).
+     display  2.5rem    the one big voice: Home's greeting, the auth screens, an entity's hero
+     h1       1.875rem  every other page title (was 1.9rem on 23 rules, 1.5–2.1 on the rest)
+     h2       1.375rem  a content section (Home, Discover)
+     title    1.0625rem a card, dialog, settings group or empty-state heading
+     body     0.9375rem prose: a page's subtitle, a paragraph
+     ui       0.875rem  controls and dense rows: buttons, menu items, list text
+     small    0.8125rem secondary lines and metadata
+     caption  0.6875rem mono labels, counts, keycaps
+   The two title steps come down on a phone, where a 40px word wraps a book's name into a column. */
+:root {
+  --fs-display: 2.5rem;
+  --fs-h1:      1.875rem;
+  --fs-h2:      1.375rem;
+  --fs-title:   1.0625rem;
+  --fs-body:    0.9375rem;
+  --fs-ui:      0.875rem;
+  --fs-small:   0.8125rem;
+  --fs-caption: 0.6875rem;
+
+  /* SPACE — a 4px base. 4 and 12 are the steps an 8-only scale misses, and the ones rows use most. */
+  --sp-4:  4px;
+  --sp-8:  8px;
+  --sp-12: 12px;
+  --sp-16: 16px;
+  --sp-24: 24px;
+  --sp-32: 32px;
+  --sp-48: 48px;
+
+  /* RADIUS — 12px is the house corner (a button, a field, a card); 8 an inset control; 16 a
+     surface; 20 a dialog; 4 a small inner mark. The pill is for tracks, counts and chips. */
+  --r-xs:   4px;
+  --r-sm:   8px;
+  --r-md:   12px;
+  --r-lg:   16px;
+  --r-xl:   20px;
+  --r-pill: 999px;
+
+  /* MOTION — .15s was the sheets' own default (19 of 31 transitions). Fast is a hover tint, slow a
+     bar that fills; ease-out is the toast's curve, for anything arriving. */
+  --dur-fast: 120ms;
+  --dur:      150ms;
+  --dur-slow: 200ms;
+  --ease:     ease;
+  --ease-out: cubic-bezier(.2,.8,.2,1);
+}
+@media (max-width: 759px) {
+  :root { --fs-display: 2rem; --fs-h1: 1.625rem; }
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
   --ink:       #F3EEE8;
-  --ink-2:     rgba(243,238,232,0.62);
-  --ink-3:     rgba(243,238,232,0.40);
+  --ink-2:     #A29D98;   /* was ink at 62%: the same colour on a card, now the same everywhere */
+  --ink-3:     #938E8A;
   --paper:     #13110F;
   --paper-2:   #0D0B0A;
   --surface:   #1D1916;
@@ -86,12 +189,34 @@
   --hairline:  rgba(255,255,255,0.14);
   --coral-soft: rgba(240,81,47,0.18);
   --coral-ring: rgba(240,81,47,0.30);
+  /* White on Lamp Coral fails at night too, so the fill stays Coral Fill; Night Coral, the
+     brand's dark-scheme coral, is light enough to be the words. */
+  --coral-text: #FF6A3D;
+  --danger:      #F08D7C;
+  --danger-soft: #2B1512;
+  --warn:        #F3D492;
+  --warn-soft:   #2A2110;
+  --on-warn:     #2A2110;
+  --success:     #5CC98F;
+  --success-soft:#14261C;
   --shadow-card: 0 1px 2px rgba(0,0,0,0.4), 0 24px 60px rgba(0,0,0,0.5);
   --shadow-pop:  0 10px 34px rgba(0,0,0,0.55);
+  --shadow-raise: 0 1px 3px rgba(0,0,0,0.5);
+  --shadow-lift:  0 8px 20px rgba(0,0,0,0.5);
+  --shadow-up:    0 -10px 30px rgba(0,0,0,0.4);
+  --shadow-float: 0 16px 44px rgba(0,0,0,0.6);
+  --shadow-modal: 0 30px 80px rgba(0,0,0,0.6);
+  --shadow-glow:       0 6px 18px rgba(0,0,0,0.45);
+  --shadow-glow-hover: 0 8px 22px rgba(0,0,0,0.55);
   --field-shadow: inset 0 1px 2px rgba(0,0,0,0.25);
+  --scroll-shade: rgba(0,0,0,0.55);
 }
 
 /* ---- base ---- */
+/* Painted on the root because the shell's own surface does not cover the whole canvas during a
+   navigation, nor before the app mounts; without it the gap reads as a flash of white. index.html
+   sets `data-theme` before first paint, so this is the right paper from the first frame. */
+:root { background: var(--paper); }
 /* The kit assumes it owns the viewport: `.shell` and `.auth` are both full-height, and the
    browser's default 8px body margin would show as a gutter around them plus a spurious
    scrollbar. Scoped to the document rather than `.luw` because a margin on `body` cannot be
@@ -104,7 +229,22 @@ body { margin: 0; }
   text-rendering: optimizeLegibility;
 }
 .dir-a { font-family: var(--font-a); }
-.dir-b { font-family: var(--font-b); }
 .luw ::selection { background: var(--coral-soft); }
+
+/* Controls that were once clickable <div>/<span>s and are now real <button>s and <a>s, so the
+   keyboard can reach them. This takes back what the browser's own button and link styles add —
+   border, grey fill, system font, centred text, underline — and nothing else. Wrapped in :where()
+   so it carries no specificity: every class rule that styles these still wins, whichever sheet it
+   is in and whatever order the sheets load. */
+:where(.nav-i, .sb-more, .menu-i, .tab, .seg button, .lnk, .lib-sort-option, .lib-sort-direction,
+       .toast .t-x, .pill .x, .chmap button, .tbl th.can button, .chr-t, .bd-pick-x) {
+  appearance: none; margin: 0; padding: 0; border: 0; background: none;
+  font: inherit; color: inherit; text-align: inherit; text-decoration: none;
+}
 .mono { font-family: var(--mono); font-feature-settings: "ss01"; }
+/* Read by a screen reader, drawn for nobody: live regions that narrate what the eye already sees. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
 

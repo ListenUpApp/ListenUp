@@ -1,8 +1,8 @@
 package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.Header
 import org.jetbrains.compose.web.dom.Section
 import org.jetbrains.compose.web.dom.Span
@@ -44,10 +44,10 @@ fun Panel(
                     property("border-bottom", "1px solid var(--line-2)")
                 }
             }) {
-                H3(attrs = {
+                H2(attrs = {
                     style {
                         property("margin", "0")
-                        property("font-size", "14px")
+                        property("font-size", "0.875rem")
                         property("font-weight", "700")
                         property("letter-spacing", "-0.01em")
                         property("color", "var(--ink)")
@@ -62,7 +62,10 @@ fun Panel(
         Div(attrs = {
             style { property("padding", if (flush) "0" else "18px") }
         }) {
-            content()
+            // Anything headed inside a titled panel sits under its H2.
+            if (title != null) UnderHeading(level = PANEL_HEADING_LEVEL, content = content) else content()
         }
     }
 }
+
+private const val PANEL_HEADING_LEVEL = 2

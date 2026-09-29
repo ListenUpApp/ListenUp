@@ -46,14 +46,37 @@ class CoverAndProgressTest :
                 (b.querySelector("div") as HTMLElement).style.background
         }
 
+        test("a cover loads lazily and decodes off the main thread") {
+            // A page of forty covers should fetch the ones the reader can see, not all forty.
+            val host = mounts.mount { Cover(title = "The Institute", imageUrl = "/cover.jpg") }
+            val image = host.querySelector("img") as HTMLElement
+
+            image.getAttribute("loading") shouldBe "lazy"
+            image.getAttribute("decoding") shouldBe "async"
+        }
+
+        test("the hero cover opts out, so the one image the page is about is not held back") {
+            val host = mounts.mount { Cover(title = "The Institute", imageUrl = "/cover.jpg", eager = true) }
+
+            (host.querySelector("img") as HTMLElement).getAttribute("loading") shouldBe "eager"
+        }
+
         test("the alt text names the book rather than describing the picture") {
             val host = mounts.mount { Cover(title = "The Institute", imageUrl = "/cover.jpg") }
 
             (host.querySelector("img") as HTMLElement).getAttribute("alt") shouldBe "The Institute"
         }
 
+        test("a decorative cover is silent, image or fallback, so the title beside it is read once") {
+            val image = mounts.mount { Cover(title = "The Institute", imageUrl = "/cover.jpg", decorative = true) }
+            val fallback = mounts.mount { Cover(title = "The Institute", size = 200, decorative = true) }
+
+            (image.querySelector("img") as HTMLElement).getAttribute("alt") shouldBe ""
+            (fallback.querySelector("span") as HTMLElement).getAttribute("aria-hidden") shouldBe "true"
+        }
+
         test("progress reports itself to assistive technology") {
-            val host = mounts.mount { ProgressLine(percent = 49, remaining = "9h 18m left") }
+            val host = mounts.mount { ProgressBar(value = 0.49f, label = "Listening progress", caption = "49% · 9h 18m left") }
 
             val bar = host.querySelector("[role=progressbar]") as HTMLElement
             bar.getAttribute("aria-valuenow") shouldBe "49"
@@ -61,7 +84,7 @@ class CoverAndProgressTest :
 
         test("a position past the end cannot overflow the track") {
             // Re-encoding a file can leave a stored position slightly beyond the new duration.
-            val host = mounts.mount { ProgressLine(percent = 140, remaining = "0m left") }
+            val host = mounts.mount { ProgressBar(value = 1.4f, label = "Listening progress", caption = "${percentOf(1.4f)}%") }
 
             host.textContent!! shouldContain "100%"
             (host.querySelector("[role=progressbar]") as HTMLElement)
@@ -69,9 +92,10 @@ class CoverAndProgressTest :
         }
 
         test("a negative position clamps to zero rather than inverting the bar") {
-            val host = mounts.mount { ProgressLine(percent = -5, remaining = "18h left") }
+            val host = mounts.mount { ProgressBar(value = -0.05f, label = "Listening progress", caption = "${percentOf(-0.05f)}%") }
 
             host.textContent!! shouldContain "0%"
+            (host.querySelector(".progress-fill") as HTMLElement).style.transform shouldBe "scaleX(0)"
         }
 
         test("a cover too small to hold a title legibly shows the gradient alone") {

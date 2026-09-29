@@ -130,7 +130,7 @@ class SeeAllPageTest :
             val host = page(SeeAllSearchUiState.Results(SearchHitType.BOOK, "book", hits))
 
             rowNames(host).size shouldBe 12
-            text(host, ".sall-t") shouldBe "Books"
+            text(host, ".page-t") shouldBe "Books"
             text(host, ".sall-n") shouldBe "12 results"
             text(host, ".sall-q") shouldBe "for “book”"
         }

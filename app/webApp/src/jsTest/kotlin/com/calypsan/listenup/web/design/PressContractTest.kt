@@ -78,7 +78,7 @@ class PressContractTest :
         }
 
         test("web.css is actually loaded, or this whole spec is vacuous") {
-            subjectsOf(":hover").contains(".btn") shouldBe true
+            subjectsOf(":hover").contains(".btn-primary") shouldBe true
         }
 
         test("everything that answers a mouse also answers a finger") {
@@ -112,13 +112,7 @@ private val PRESS_EXEMPT =
         ".lnk",
         ".crumb a",
         ".bd-by-name",
-        // Already in its pressed state: a selected row is painted coral, and its hover rule exists
-        // only to stop the ordinary row hover from overriding that.
-        ".tbl tbody tr.sel",
         // Deliberately inert — a static row in the palette is a heading, not a target. Its hover
         // rule exists to CANCEL the row hover above it.
         ".search-row.is-static",
-        // Already pressed by `.menu-i:active`, which matches these elements too. A rule of its own
-        // would be the identical declaration written twice.
-        ".menu-i.danger",
     )

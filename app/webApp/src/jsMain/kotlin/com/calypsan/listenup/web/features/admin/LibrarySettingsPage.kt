@@ -1,24 +1,27 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.domain.model.LibraryFolderRef
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -52,7 +55,7 @@ fun LibrarySettingsPage(
 ) {
     Div(attrs = { classes("lset") }) {
         Breadcrumb(trail = listOf("Admin", "Library"), onNavigate = { onOpenAdmin() })
-        H1(attrs = { classes("lset-title") }) { Text("Library folders") }
+        PageHeader(title = "Library folders")
 
         when (state) {
             is LibrarySettingsUiState.Ready -> {
@@ -70,10 +73,7 @@ fun LibrarySettingsPage(
             }
 
             is LibrarySettingsUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H3 { Text("These settings can't be loaded") }
-                    P { Text(state.error.message) }
-                }
+                EmptyState(title = "These settings can't be loaded", body = state.error.message)
             }
 
             LibrarySettingsUiState.Loading -> {
@@ -134,33 +134,33 @@ private fun ReadyContent(
         if (state.library.folders.isEmpty()) {
             // Reachable: every folder can be removed. A library watching nothing is not broken,
             // but it is why the app looks empty, so it says so rather than showing a bare panel.
-            Div(attrs = { classes("lset-empty") }) {
-                P { Text("This library watches no folders, so there is nothing to scan.") }
-            }
+            EmptyState(title = "This library watches no folders, so there is nothing to scan.", look = EmptyLook.Inline)
         } else {
             Div(attrs = { classes("lset-list") }) {
                 state.library.folders.forEach { folder ->
-                    FolderRow(folder, state.isSaving) { pendingRemove = folder }
+                    key(folder.id) {
+                        FolderRow(folder, state.isSaving) { pendingRemove = folder }
+                    }
                 }
             }
         }
     }
 
     Div(attrs = { classes("lset-actions") }) {
-        Button(attrs = {
-            classes("btn-c")
-            attr("type", TYPE_BUTTON)
-            disabledWhen(state.isSaving)
-            onClick { onShowBrowser(true) }
-        }) { Text("Add a folder") }
+        Button(
+            kind = ButtonKind.Primary,
+            onClick = { onShowBrowser(true) },
+            enabled = !state.isSaving,
+        ) { Text("Add a folder") }
 
-        Button(attrs = {
-            classes("btn-o")
-            attr("type", TYPE_BUTTON)
-            // Nothing to walk, and a scan already running should not be started twice.
-            disabledWhen(state.isScanning || state.library.folders.isEmpty())
-            onClick { onScan() }
-        }) { Text(if (state.isScanning) "Scanning…" else "Scan now") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { onScan() },
+            attrs = {
+                // Nothing to walk, and a scan already running should not be started twice.
+                disabledWhen(state.isScanning || state.library.folders.isEmpty())
+            },
+        ) { Text(if (state.isScanning) "Scanning…" else "Scan now") }
     }
 
     val pending = pendingRemove
@@ -247,22 +247,22 @@ private fun FolderBrowser(
             }
 
             state.browserEntries.isEmpty() -> {
-                Div(attrs = { classes("lset-empty") }) { P { Text("Nothing in this folder.") } }
+                EmptyState(title = "Nothing in this folder.", look = EmptyLook.Inline)
             }
 
             else -> {
                 Div(attrs = { classes("lset-browse") }) {
-                    state.browserEntries.forEach { entry -> BrowserRow(entry, onAddPath, onOpenBrowserPath) }
+                    state.browserEntries.forEach { entry ->
+                        key(entry.path) {
+                            BrowserRow(entry, onAddPath, onOpenBrowserPath)
+                        }
+                    }
                 }
             }
         }
 
         Div(attrs = { classes("lset-actions") }) {
-            Button(attrs = {
-                classes("btn-o")
-                attr("type", TYPE_BUTTON)
-                onClick { onShowBrowser(false) }
-            }) { Text("Cancel") }
+            Button(kind = ButtonKind.Secondary, onClick = { onShowBrowser(false) }) { Text("Cancel") }
         }
     }
 }

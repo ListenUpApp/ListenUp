@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.chaptereditor
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.Event
 import org.w3c.dom.HTMLElement
@@ -10,23 +12,25 @@ import com.calypsan.listenup.client.presentation.chaptereditor.DriftPreview
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.web.design.PageHeader
 
 /**
  * The chapter editor — every boundary in a book, and everything that can be done to one.
@@ -70,18 +74,14 @@ fun ChapterEditorPage(
     Div(attrs = { classes("ched") }) {
         when (state) {
             ChapterEditorUiState.Loading -> {
+                PageHeader(title = EDIT_CHAPTERS)
                 Div(attrs = { classes("skel", "ched-skel") })
             }
 
             is ChapterEditorUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H1 { Text("These chapters can't be shown") }
-                    P { Text(state.message) }
-                    Button(attrs = {
-                        classes("btn-o")
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        onClick { onLeave() }
-                    }) { Text("Back to the book") }
+                PageHeader(title = EDIT_CHAPTERS)
+                EmptyState(title = "These chapters can't be shown", body = state.message) {
+                    Button(kind = ButtonKind.Secondary, onClick = { onLeave() }) { Text("Back to the book") }
                 }
             }
 
@@ -169,7 +169,7 @@ private fun EditingContent(
     }
 
     if (state.isEmpty) {
-        EmptyState(playheadMs, onAddAt)
+        NoChapters(playheadMs, onAddAt)
         return
     }
 
@@ -197,11 +197,13 @@ private fun EditingContent(
                     id = "ched-search",
                 )
                 if (playheadMs != null) {
-                    Button(attrs = {
-                        classes(BTN_SECONDARY, "ched-add")
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        onClick { onAddAt(playheadMs, NEW_CHAPTER_TITLE) }
-                    }) {
+                    Button(
+                        kind = ButtonKind.Secondary,
+                        onClick = { onAddAt(playheadMs, NEW_CHAPTER_TITLE) },
+                        attrs = {
+                            classes("ched-add")
+                        },
+                    ) {
                         Icon(WebIcon.Plus, size = SMALL_ICON)
                         Text("Add chapter at playhead")
                     }
@@ -209,29 +211,31 @@ private fun EditingContent(
             }
 
             if (shown.isEmpty()) {
-                P(attrs = { classes("ched-none") }) { Text("No chapters match “$query”.") }
+                EmptyState(title = "No chapters match “$query”.", look = EmptyLook.Inline)
             } else {
                 Div(attrs = {
                     classes("ched-list")
                     attr("role", "list")
                 }) {
                     shown.forEach { numbered ->
-                        ChapterRow(
-                            numbered = numbered,
-                            isSelected = numbered.chapter.id == state.selectedChapterId,
-                            isLocked = numbered.chapter.id in state.lockedChapterIds,
-                            isPlaying = playheadMs != null && numbered.chapter.holds(playheadMs),
-                            playheadMs = playheadMs,
-                            onSelect = { onSelect(numbered.chapter.id) },
-                            onNudge = { delta -> onNudge(numbered.chapter.id, delta) },
-                            onSnapToPlayhead = { playheadMs?.let { onSnapToPlayhead(numbered.chapter.id, it) } },
-                            onToggleLock = { onToggleLock(numbered.chapter.id) },
-                            onEditTime = { rowAction = RowAction.EditingTime(numbered.chapter.id) },
-                            onInsertBelow = { onInsertBelow(numbered.chapter.id, NEW_CHAPTER_TITLE) },
-                            onPlayFrom = { onPlayFrom(numbered.chapter.id) },
-                            onRename = { rowAction = RowAction.Renaming(numbered.chapter.id) },
-                            onDelete = { rowAction = RowAction.Deleting(numbered.chapter.id) },
-                        )
+                        key(numbered.chapter.id) {
+                            ChapterRow(
+                                numbered = numbered,
+                                isSelected = numbered.chapter.id == state.selectedChapterId,
+                                isLocked = numbered.chapter.id in state.lockedChapterIds,
+                                isPlaying = playheadMs != null && numbered.chapter.holds(playheadMs),
+                                playheadMs = playheadMs,
+                                onSelect = { onSelect(numbered.chapter.id) },
+                                onNudge = { delta -> onNudge(numbered.chapter.id, delta) },
+                                onSnapToPlayhead = { playheadMs?.let { onSnapToPlayhead(numbered.chapter.id, it) } },
+                                onToggleLock = { onToggleLock(numbered.chapter.id) },
+                                onEditTime = { rowAction = RowAction.EditingTime(numbered.chapter.id) },
+                                onInsertBelow = { onInsertBelow(numbered.chapter.id, NEW_CHAPTER_TITLE) },
+                                onPlayFrom = { onPlayFrom(numbered.chapter.id) },
+                                onRename = { rowAction = RowAction.Renaming(numbered.chapter.id) },
+                                onDelete = { rowAction = RowAction.Deleting(numbered.chapter.id) },
+                            )
+                        }
                     }
                 }
             }
@@ -339,9 +343,9 @@ private fun EditorHeader(
     onSave: () -> Unit,
     onLeave: () -> Unit,
 ) {
-    Div(attrs = { classes("ched-head") }) {
-        Div(attrs = { classes("ched-titles") }) {
-            H1(attrs = { classes("ched-t") }) { Text("Edit chapters") }
+    PageHeader(
+        title = EDIT_CHAPTERS,
+        details = {
             Div(attrs = { classes("ched-sub") }) {
                 Text("${state.bookTitle} · ${state.chapters.size} chapters")
                 // Unsaved and Saving are the same slot: they are the same fact at two moments, and
@@ -352,34 +356,31 @@ private fun EditorHeader(
                     Span(attrs = { classes("ched-status", "on") }) { Text("Unsaved") }
                 }
             }
-        }
-        Div(attrs = { classes("ched-acts") }) {
-            Button(attrs = {
-                classes(BTN_SECONDARY)
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onLeave() }
-            }) { Text("Back") }
-            Button(attrs = {
-                classes(BTN_SECONDARY)
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                // Nothing to interpolate between on an empty or single-chapter book.
-                disabledWhen(state.chapters.size <= 1 || state.drift != null)
-                onClick { onBeginDrift() }
-            }) { Text("Fix drift") }
-            Button(attrs = {
-                classes(BTN_SECONDARY)
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                disabledWhen(!state.canUndo)
-                onClick { onUndo() }
-            }) { Text("Undo") }
-            Button(attrs = {
-                classes("btn-c")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                disabledWhen(state.isSaving || !state.isDirty)
-                onClick { onSave() }
-            }) { Text("Save chapters") }
-        }
-    }
+        },
+        actions = {
+            Div(attrs = { classes("ched-acts") }) {
+                Button(kind = ButtonKind.Secondary, onClick = { onLeave() }) { Text("Back") }
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = { onBeginDrift() },
+                    attrs = {
+                        // Nothing to interpolate between on an empty or single-chapter book.
+                        disabledWhen(state.chapters.size <= 1 || state.drift != null)
+                    },
+                ) { Text("Fix drift") }
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = { onUndo() },
+                    enabled = state.canUndo,
+                ) { Text("Undo") }
+                Button(
+                    kind = ButtonKind.Primary,
+                    onClick = { onSave() },
+                    enabled = !(state.isSaving || !state.isDirty),
+                ) { Text("Save chapters") }
+            }
+        },
+    )
 }
 
 /**
@@ -389,21 +390,21 @@ private fun EditorHeader(
  * a dead end that waits for a scraper to do better next time.
  */
 @Composable
-private fun EmptyState(
+private fun NoChapters(
     playheadMs: Long?,
     onAddAt: (Long, String) -> Unit,
 ) {
-    Div(attrs = { classes("ched-empty") }) {
-        H2 { Text("No chapters yet") }
-        P { Text("This book was never chaptered. Play it to where a chapter starts, then add your first boundary.") }
+    EmptyState(
+        title = "No chapters yet",
+        body = "This book was never chaptered. Play it to where a chapter starts, then add your first boundary.",
+        look = EmptyLook.Inset,
+    ) {
         if (playheadMs != null) {
-            Button(attrs = {
-                classes("btn-c")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onAddAt(playheadMs, NEW_CHAPTER_TITLE) }
+            Button(kind = ButtonKind.Primary, onClick = {
+                onAddAt(playheadMs, NEW_CHAPTER_TITLE)
             }) { Text("Add first chapter at playhead") }
         } else {
-            P(attrs = { classes("ched-none") }) { Text("Play this book to place the first boundary.") }
+            EmptyState(title = "Play this book to place the first boundary.", look = EmptyLook.Inline)
         }
     }
 }
@@ -412,12 +413,6 @@ private fun EmptyState(
 private fun Chapter.holds(at: Long): Boolean = at >= startTime && at < startTime + duration
 
 internal const val NEW_CHAPTER_TITLE = "New chapter"
-
-private const val ATTR_TYPE = "type"
-
-private const val BTN_SECONDARY = "btn-o"
-
-private const val VALUE_BUTTON = "button"
 
 private const val SMALL_ICON = 16
 
@@ -495,3 +490,5 @@ private class KeyTargets(
 }
 
 private val TYPING_TAGS = setOf("INPUT", "TEXTAREA", "SELECT")
+
+private const val EDIT_CHAPTERS = "Edit chapters"

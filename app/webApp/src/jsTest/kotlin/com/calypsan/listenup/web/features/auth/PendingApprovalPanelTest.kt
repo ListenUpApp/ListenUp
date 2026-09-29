@@ -44,7 +44,7 @@ class PendingApprovalPanelTest :
                     )
                 }
 
-            (host.querySelector(".btn") as HTMLElement).click()
+            (host.querySelector(".btn-primary") as HTMLElement).click()
 
             acknowledged shouldBe 1
         }
@@ -81,7 +81,7 @@ class PendingApprovalPanelTest :
                     )
                 }
 
-            (host.querySelector(".btn-ghost") as HTMLElement).click()
+            (host.querySelector(".btn-secondary") as HTMLElement).click()
 
             checks shouldBe 1
         }

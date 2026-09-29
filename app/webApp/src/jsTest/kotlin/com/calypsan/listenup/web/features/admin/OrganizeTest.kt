@@ -255,6 +255,13 @@ class OrganizeTest :
 
             host.querySelectorAll(".org-row").length shouldBe 2
             host.querySelectorAll(".org-clash").length shouldBe 1
+            // The arrow between a path and its destination is the shared icon, not a typed glyph.
+            (host.querySelector(".org-arrow svg") != null) shouldBe true
+            host
+                .querySelector(".org-arrow")!!
+                .textContent
+                .orEmpty()
+                .trim() shouldBe ""
             host.querySelector(".org-more").shouldBeNull()
         }
 
@@ -268,7 +275,7 @@ class OrganizeTest :
             val host = page(readyOrganize(run = OrganizeRunProgress(completed = 3, total = 12)))
 
             host.textContent.orEmpty() shouldContain "3 of 12 books"
-            (host.querySelector(".org-bar-fill") as HTMLElement).getAttribute("style") shouldContain "25%"
+            (host.querySelector(".org-bar .progress-fill") as HTMLElement).getAttribute("style") shouldContain "scaleX(0.25)"
         }
 
         test("a run with no total yet is zero, never a division by zero") {
@@ -318,7 +325,7 @@ class OrganizeTest :
         test("settings that could not be loaded are an error, not an empty form") {
             val host = page(OrganizeSettingsUiState.Error(InternalError(debugInfo = "boom")))
 
-            text(host, ".org-none").shouldNotBeNull()
+            text(host, ".empty").shouldNotBeNull()
             button(host, "Organize library").shouldBeNull()
         }
 

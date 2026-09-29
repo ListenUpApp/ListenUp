@@ -1,6 +1,9 @@
 package com.calypsan.listenup.web.features.contributormetadata
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.api.dto.MetadataContributorProfile
 import com.calypsan.listenup.api.metadata.MetadataLocale
@@ -8,18 +11,18 @@ import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorPreviewLoadState
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorSearchLoadState
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
-import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.features.contributoredit.contributorPhotoUrl
 import com.calypsan.listenup.web.features.metadata.RegionSelector
 import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -49,14 +52,12 @@ fun ContributorMetadataPage(
     onLeave: () -> Unit,
 ) {
     Div(attrs = { classes("cmx") }) {
-        Div(attrs = { classes("cmx-head") }) {
-            H1(attrs = { classes("cmx-t") }) { Text("Match contributor") }
-            Button(attrs = {
-                classes(BTN_SECONDARY)
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onLeave() }
-            }) { Text("Back") }
-        }
+        PageHeader(
+            title = "Match contributor",
+            actions = {
+                Button(kind = ButtonKind.Secondary, onClick = { onLeave() }) { Text("Back") }
+            },
+        )
 
         when (state) {
             is ContributorMetadataUiState.Idle -> {
@@ -104,18 +105,18 @@ private fun SearchPhase(
             placeholder = "Contributor name…",
             id = "cmx-query",
         )
-        Button(attrs = {
-            classes("btn-c")
-            attr(ATTR_TYPE, "submit")
-            disabledWhen(state.loadState is ContributorSearchLoadState.InFlight || state.query.isBlank())
-        }) { Text(if (state.loadState is ContributorSearchLoadState.InFlight) "Searching…" else "Search Audible") }
+        Button(
+            kind = ButtonKind.Primary,
+            submit = true,
+            enabled = !(state.loadState is ContributorSearchLoadState.InFlight || state.query.isBlank()),
+        ) { Text(if (state.loadState is ContributorSearchLoadState.InFlight) "Searching…" else "Search Audible") }
     }
 
     RegionSelector(state.region, onRegion)
 
     when (val load = state.loadState) {
         ContributorSearchLoadState.Idle -> {
-            P(attrs = { classes(NONE) }) { Text("Enter a name to search.") }
+            EmptyState(title = "Enter a name to search.", look = EmptyLook.Inline)
         }
 
         ContributorSearchLoadState.InFlight -> {
@@ -128,20 +129,22 @@ private fun SearchPhase(
 
         is ContributorSearchLoadState.Loaded -> {
             if (load.results.isEmpty()) {
-                P(attrs = { classes(NONE) }) { Text("No contributors match that search.") }
+                EmptyState(title = "No contributors match that search.", look = EmptyLook.Inline)
             } else {
                 Div(attrs = {
                     classes("cmx-hits")
                     attr("role", "list")
                 }) {
                     load.results.forEach { hit ->
-                        Button(attrs = {
-                            classes("cmx-hit")
-                            attr(ATTR_TYPE, VALUE_BUTTON)
-                            onClick { onSelectCandidate(hit) }
-                        }) {
-                            Span(attrs = { classes("cmx-hit-n") }) { Text(hit.name) }
-                            Span(attrs = { classes("cmx-asin") }) { Text(hit.asin) }
+                        key(hit.asin) {
+                            Button(attrs = {
+                                classes("cmx-hit")
+                                attr(ATTR_TYPE, VALUE_BUTTON)
+                                onClick { onSelectCandidate(hit) }
+                            }) {
+                                Span(attrs = { classes("cmx-hit-n") }) { Text(hit.name) }
+                                Span(attrs = { classes("cmx-asin") }) { Text(hit.asin) }
+                            }
                         }
                     }
                 }
@@ -171,10 +174,11 @@ private fun PreviewPhase(
         // cross-region fetch with an empty HTTP-200 shell, and the server refuses to apply one —
         // so the page says which catalogue was empty and offers the region switch that fixes it.
         ContributorPreviewLoadState.Missing -> {
-            Div(attrs = { classes("cmx-empty") }) {
-                H2 { Text("No profile in this catalog") }
-                P { Text("No profile data in the ${state.region.displayName} catalog. Try a different region:") }
-            }
+            EmptyState(
+                title = "No profile in this catalog",
+                body = "No profile data in the ${state.region.displayName} catalog. Try a different region:",
+                look = EmptyLook.Inset,
+            )
             RegionSelector(state.region, onRegion)
             ChangeMatch(onClearSelection)
         }
@@ -221,12 +225,11 @@ private fun ReadyPreview(
 
     Div(attrs = { classes("cmx-apply") }) {
         ChangeMatch(onClearSelection)
-        Button(attrs = {
-            classes("btn-c")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            disabledWhen(isApplying)
-            onClick { onApply() }
-        }) {
+        Button(
+            kind = ButtonKind.Primary,
+            onClick = { onApply() },
+            enabled = !isApplying,
+        ) {
             Icon(WebIcon.Check, size = SMALL_ICON)
             Text(if (isApplying) "Applying…" else "Apply")
         }
@@ -296,11 +299,7 @@ private fun BioCompare(
 
 @Composable
 private fun ChangeMatch(onClearSelection: () -> Unit) {
-    Button(attrs = {
-        classes(BTN_SECONDARY)
-        attr(ATTR_TYPE, VALUE_BUTTON)
-        onClick { onClearSelection() }
-    }) { Text("Change match") }
+    Button(kind = ButtonKind.Secondary, onClick = { onClearSelection() }) { Text("Change match") }
 }
 
 @Composable
@@ -316,11 +315,7 @@ private const val EMPTY_VALUE = "—"
 
 private const val ATTR_TYPE = "type"
 
-private const val BTN_SECONDARY = "btn-o"
-
 private const val VALUE_BUTTON = "button"
-
-private const val NONE = "cmx-none"
 
 private const val SMALL_ICON = 16
 

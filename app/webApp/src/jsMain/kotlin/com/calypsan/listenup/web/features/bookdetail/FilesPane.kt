@@ -51,7 +51,7 @@ internal fun FilesPane(
                 flush = true,
                 trailing = { MachineNote(formatBytes(files.sumOf { it.size })) },
             ) {
-                DataTable(columns = FILE_COLUMNS, rows = files)
+                DataTable(columns = FILE_COLUMNS, rows = files, rowKey = { it.id })
             }
             DocumentsPanel(state.book.id.value, documents)
         }
@@ -119,7 +119,7 @@ internal fun MachineNote(text: String) {
     Span(attrs = {
         classes("mono")
         style {
-            property("font-size", "11.5px")
+            property("font-size", "0.71875rem")
             property("color", "var(--ink-3)")
         }
     }) {

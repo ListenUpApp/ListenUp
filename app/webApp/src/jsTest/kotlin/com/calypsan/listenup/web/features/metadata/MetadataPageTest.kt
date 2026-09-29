@@ -193,7 +193,7 @@ class MetadataPageTest :
             val host =
                 page(searchState(loadState = SearchLoadState.Loaded(emptyList()), region = MetadataLocale("de")))
 
-            host.querySelector(".mdx-empty")?.textContent shouldContain "Germany"
+            host.querySelector(".empty.is-inset")?.textContent shouldContain "Germany"
         }
 
         test("every result is offered, with what tells two editions apart") {
@@ -306,7 +306,7 @@ class MetadataPageTest :
         test("a match carrying nothing says so rather than showing an empty form") {
             val host = page(previewState(readyPreview(preview = metadataBook(title = "", asin = "B0"))))
 
-            host.querySelector(".mdx-empty")?.textContent shouldContain "No metadata available"
+            host.querySelector(".empty.is-inset")?.textContent shouldContain "No metadata available"
             fields(host).size shouldBe 0
             button(host, "Apply selected metadata").shouldBeNull()
         }

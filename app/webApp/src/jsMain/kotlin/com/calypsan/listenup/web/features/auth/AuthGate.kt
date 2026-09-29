@@ -79,6 +79,10 @@ import com.calypsan.listenup.web.features.admin.AdminSessions
  *
  * [WebAppSurface] lives here rather than in [WebAppRoot] because every branch needs it and only
  * one of them is the shell.
+ *
+ * [notice] is a banner about the whole app, whichever branch shows — the degraded-storage notice.
+ * It renders inside the surface, above the branch, so beside the shell it takes a share of the one
+ * viewport rather than being added on top of it and scrolling the document.
  */
 @Composable
 fun AuthGate(
@@ -127,6 +131,7 @@ fun AuthGate(
     observeThemeMode: () -> Flow<ThemeMode>,
     initialInviteCode: String? = null,
     observeErrors: () -> Flow<AppError>,
+    notice: @Composable () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val authState by authGraph.authState.collectAsState()
@@ -160,6 +165,7 @@ fun AuthGate(
     }
 
     WebAppSurface {
+        notice()
         when (val state = authState) {
             AuthState.Initializing,
             AuthState.CheckingServer,
@@ -499,7 +505,10 @@ private fun AuthBoot() {
  */
 @Composable
 private fun ThemeEffect(observeThemeMode: () -> Flow<ThemeMode>) {
-    var mode by remember { mutableStateOf(ThemeMode.SYSTEM) }
+    // Null until the reader's stored mode arrives. `index.html` has already painted that mode
+    // before the bundle loaded, so guessing SYSTEM here would overwrite the right theme with a
+    // wrong one for a frame — the flash the pre-paint seed exists to prevent.
+    var mode by remember { mutableStateOf<ThemeMode?>(null) }
     var systemDark by remember { mutableStateOf(systemPrefersDark()) }
 
     LaunchedEffect(Unit) { observeThemeMode().collect { mode = it } }
@@ -509,5 +518,5 @@ private fun ThemeEffect(observeThemeMode: () -> Flow<ThemeMode>) {
     }
 
     // A plain effect keyed on both, so the attribute is rewritten exactly when one of them moves.
-    LaunchedEffect(mode, systemDark) { applyTheme(shouldUseDarkTheme(mode, systemDark)) }
+    LaunchedEffect(mode, systemDark) { mode?.let { applyTheme(shouldUseDarkTheme(it, systemDark)) } }
 }

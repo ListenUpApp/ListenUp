@@ -1,20 +1,25 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Breadcrumb
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.api.dto.imports.ImportSummary
 import com.calypsan.listenup.client.presentation.admin.ABSImportListUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -38,16 +43,9 @@ fun ImportsPage(
     onOpenAdmin: () -> Unit,
 ) {
     Div(attrs = { classes("imp") }) {
-        Button(attrs = {
-            classes("btn-o", "imp-back")
-            attr("type", VALUE_BUTTON)
-            onClick { onOpenAdmin() }
-        }) { Text("← Admin") }
+        Breadcrumb(trail = listOf("Admin", "Imports"), onNavigate = { onOpenAdmin() })
 
-        H1(attrs = { classes("imp-title") }) { Text("Imports") }
-        P(attrs = { classes("imp-sub") }) {
-            Text("Bring listening history over from an Audiobookshelf backup.")
-        }
+        PageHeader(title = "Imports", subtitle = "Bring listening history over from an Audiobookshelf backup.")
 
         when (state) {
             ABSImportListUiState.Loading -> {
@@ -55,14 +53,8 @@ fun ImportsPage(
             }
 
             is ABSImportListUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H3 { Text("Imports can't be shown") }
-                    P { Text(state.error.message) }
-                    Button(attrs = {
-                        classes("btn-c")
-                        attr("type", VALUE_BUTTON)
-                        onClick { onRetry() }
-                    }) { Text("Try again") }
+                EmptyState(title = "Imports can't be shown", body = state.error.message) {
+                    Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
                 }
             }
 
@@ -88,26 +80,26 @@ private fun ReadyContent(
 
     Div(attrs = { classes("imp-bar") }) {
         Span(attrs = { classes("imp-count") }) { Text(importSummaryLabel(state.imports.size)) }
-        Button(attrs = {
-            classes("btn-c", "imp-new")
-            attr("type", VALUE_BUTTON)
-            onClick { onNewImport() }
-        }) { Text("New import") }
+        Button(
+            kind = ButtonKind.Primary, size = ButtonSize.Sm,
+            onClick = { onNewImport() },
+            attrs = {
+            classes("imp-new")
+            },
+        ) { Text("New import") }
     }
 
     if (state.imports.isEmpty()) {
-        Div(attrs = { classes("empty") }) {
-            H3 { Text("Nothing imported yet") }
-            P {
-                Text(
-                    "An import reads an Audiobookshelf backup and writes its listening history onto the matching books here.",
-                )
-            }
-        }
+        EmptyState(
+            title = "Nothing imported yet",
+            body = "An import reads an Audiobookshelf backup and writes its listening history onto the matching books here.",
+        )
     } else {
         Div(attrs = { classes("imp-list") }) {
             state.imports.forEach { summary ->
-                ImportRow(summary) { pendingDelete = summary }
+                key(summary.id.value) {
+                    ImportRow(summary) { pendingDelete = summary }
+                }
             }
         }
     }
@@ -143,14 +135,17 @@ private fun ImportRow(
             }
         }
         Span(attrs = { classes("imp-status") }) { Text(summary.status.name.lowercase()) }
-        Button(attrs = {
-            classes("iconbtn", "imp-del")
-            attr("type", VALUE_BUTTON)
-            attr("aria-label", "Delete the import from ${formatWhen(summary.createdAt)}")
-            attr("title", "Delete")
+        Button(
+            kind = ButtonKind.Icon,
+            size = ButtonSize.Sm,
+            onClick = { onAskDelete() },
+            label = "Delete the import from ${formatWhen(summary.createdAt)}",
+            attrs = {
+            classes("imp-del")
             disabledWhen(false)
-            onClick { onAskDelete() }
-        }) { Icon(WebIcon.Trash, size = SMALL_ICON) }
+            attr("title", "Delete")
+            },
+        ) { Icon(WebIcon.Trash, size = SMALL_ICON) }
     }
 }
 

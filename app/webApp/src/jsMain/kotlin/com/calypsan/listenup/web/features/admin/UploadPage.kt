@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ProgressBar
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -8,12 +11,12 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.api.dto.uploads.UploadedBook
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.web.design.Breadcrumb
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.pickedFiles
 import com.calypsan.listenup.web.design.Panel
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -39,7 +42,7 @@ fun UploadPage(
 ) {
     Div(attrs = { classes("upl") }) {
         Breadcrumb(trail = listOf("Admin", "Upload books"), onNavigate = { onOpenAdmin() })
-        H1(attrs = { classes("upl-t") }) { Text("Upload books") }
+        PageHeader(title = "Upload books")
 
         when (state) {
             UploadBooksUiState.Idle -> {
@@ -51,7 +54,7 @@ fun UploadPage(
             }
 
             UploadBooksUiState.Finalizing -> {
-                Progress(label = "Adding them to your library…", percent = null)
+                Progress(label = "Adding them to your library…", fraction = null)
             }
 
             is UploadBooksUiState.Finished -> {
@@ -59,12 +62,11 @@ fun UploadPage(
             }
 
             is UploadBooksUiState.Error -> {
-                P(attrs = { classes("upl-err") }) { Text(state.error.message) }
-                Button(attrs = {
-                    classes("btn-c")
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    onClick { onReset() }
-                }) { Text("Try again") }
+                P(attrs = {
+                    classes("upl-err")
+                    attr("role", "alert")
+                }) { Text(state.error.message) }
+                Button(kind = ButtonKind.Primary, onClick = { onReset() }) { Text("Try again") }
             }
         }
     }
@@ -87,16 +89,8 @@ private fun Picker(onFilesPicked: (List<File>) -> Unit) {
             Text("Pick a book's folder, or the audio files themselves. The server works out what they are.")
         }
         Div(attrs = { classes("upl-picks") }) {
-            Button(attrs = {
-                classes("btn-c")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { folderInput?.click() }
-            }) { Text("Choose a folder") }
-            Button(attrs = {
-                classes("btn-o")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { fileInput?.click() }
-            }) { Text("Choose files") }
+            Button(kind = ButtonKind.Primary, onClick = { folderInput?.click() }) { Text("Choose a folder") }
+            Button(kind = ButtonKind.Secondary, onClick = { fileInput?.click() }) { Text("Choose files") }
         }
         Input(type = InputType.File, attrs = {
             id("upl-folder")
@@ -143,23 +137,19 @@ private fun Uploading(
 ) {
     Progress(
         label = "Sending ${state.filename} (${state.fileIndex + 1} of ${state.fileCount})",
-        percent = state.fraction?.let { (it * PERCENT).toInt() },
+        fraction = state.fraction,
     )
-    Button(attrs = {
-        classes("btn-o")
-        attr(ATTR_TYPE, VALUE_BUTTON)
-        onClick { onCancel() }
-    }) { Text("Cancel") }
+    Button(kind = ButtonKind.Secondary, onClick = { onCancel() }) { Text("Cancel") }
 }
 
 /**
- * ⛔ A null [percent] is an indeterminate bar, never a bar pinned at zero — a selection that could
+ * ⛔ A null [fraction] is an indeterminate bar, never a bar pinned at zero — a selection that could
  * not report its sizes is unknown progress, and a stuck bar reads as a hung upload.
  */
 @Composable
 private fun Progress(
     label: String,
-    percent: Int?,
+    fraction: Float?,
 ) {
     Div(attrs = {
         classes("upl-live")
@@ -167,15 +157,8 @@ private fun Progress(
         attr("aria-live", "polite")
     }) {
         P(attrs = { classes("upl-step") }) { Text(label) }
-        Div(attrs = {
-            classes("upl-bar")
-            if (percent == null) classes("is-idle")
-        }) {
-            Div(attrs = {
-                classes("upl-bar-fill")
-                percent?.let { style { property("width", "$it%") } }
-            })
-        }
+        // The step above already says it in words, inside this live region; the bar is its picture.
+        ProgressBar(value = fraction, decorative = true)
     }
 }
 
@@ -195,11 +178,7 @@ private fun Finished(
         Group("Added", state.imported)
         Group("Already in your library", state.duplicates)
         Group("Couldn't be added", state.failed)
-        Button(attrs = {
-            classes("btn-c")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            onClick { onReset() }
-        }) { Text("Add more") }
+        Button(kind = ButtonKind.Primary, onClick = { onReset() }) { Text("Add more") }
     }
 }
 
@@ -250,9 +229,3 @@ internal fun finishedSummary(state: UploadBooksUiState.Finished): String {
 }
 
 private const val AUDIO_ACCEPT = ".m4b,.m4a,.mp3,.opus,.ogg,.flac,.aac,.wma,audio/*"
-
-private const val PERCENT = 100
-
-private const val ATTR_TYPE = "type"
-
-private const val VALUE_BUTTON = "button"

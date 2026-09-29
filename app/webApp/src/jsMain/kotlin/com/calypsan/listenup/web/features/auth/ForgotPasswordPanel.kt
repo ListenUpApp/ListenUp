@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -8,6 +11,7 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.auth.ForgotPasswordUiState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.LinkButton
 import com.calypsan.listenup.web.design.PasswordField
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.attributes.InputType
@@ -17,7 +21,6 @@ import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
 import org.jetbrains.compose.web.dom.P
-import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
 /**
@@ -128,11 +131,15 @@ private fun RequestStep(
             autocomplete = "username",
         )
 
-        Button(attrs = {
-            classes("btn")
-            attr("type", "submit")
-            if (submitting) disabled()
-        }) {
+        Button(
+            kind = ButtonKind.Primary,
+            size = ButtonSize.Lg,
+            fill = true,
+            submit = true,
+            attrs = {
+                if (submitting) disabled()
+            },
+        ) {
             Icon(WebIcon.Lock, size = BUTTON_ICON_SIZE)
             Text(if (submitting) "Asking…" else "Ask for a reset")
         }
@@ -160,11 +167,7 @@ private fun WaitingStep(
             )
         }
 
-        Button(attrs = {
-            classes("btn-ghost")
-            attr("type", "button")
-            onClick { onCheckStatus() }
-        }) {
+        Button(kind = ButtonKind.Secondary, onClick = { onCheckStatus() }) {
             Icon(WebIcon.Clock, size = BUTTON_ICON_SIZE)
             Text("Check again")
         }
@@ -241,16 +244,14 @@ private fun CodeStep(
                 confirm = it
                 mismatch = false
             },
-            error = mismatch,
+            errorText = "The two passwords do not match.".takeIf { mismatch },
             id = RESET_CONFIRM_ID,
             autocomplete = "new-password",
         )
 
-        if (mismatch) {
-            Div(attrs = { classes("auth-err") }) { Text("The two passwords do not match.") }
-        } else {
+        if (!mismatch) {
             serverError?.let { message ->
-                Div(attrs = { classes("auth-err") }) {
+                FormAlert {
                     Text(message)
                     state.attemptsRemaining?.let { remaining ->
                         Text(" ")
@@ -260,10 +261,7 @@ private fun CodeStep(
             }
         }
 
-        Button(attrs = {
-            classes("btn")
-            attr("type", "submit")
-        }) {
+        Button(kind = ButtonKind.Primary, size = ButtonSize.Lg, fill = true, submit = true) {
             Icon(WebIcon.Check, size = BUTTON_ICON_SIZE)
             Text("Set new password")
         }
@@ -284,16 +282,12 @@ private fun OutcomeStep(
 ) {
     Div(attrs = { classes(FIELDS_CLASS) }) {
         if (isError) {
-            Div(attrs = { classes("auth-err") }) { Text(message) }
+            FormAlert(message)
         } else {
             P { Text(message) }
         }
 
-        Button(attrs = {
-            classes("btn")
-            attr("type", "button")
-            onClick { onAction() }
-        }) {
+        Button(kind = ButtonKind.Primary, size = ButtonSize.Lg, onClick = { onAction() }, fill = true) {
             Icon(actionIcon, size = BUTTON_ICON_SIZE)
             Text(actionLabel)
         }
@@ -305,10 +299,7 @@ private fun OutcomeStep(
 @Composable
 private fun BackToSignIn(onBackToSignIn: () -> Unit) {
     Div(attrs = { classes("auth-alt") }) {
-        Span(attrs = {
-            classes("lnk")
-            onClick { onBackToSignIn() }
-        }) { Text("Back to sign in") }
+        LinkButton("Back to sign in", onClick = onBackToSignIn)
     }
 }
 

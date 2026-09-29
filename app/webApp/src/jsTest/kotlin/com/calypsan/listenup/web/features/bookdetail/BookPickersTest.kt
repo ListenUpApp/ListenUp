@@ -152,7 +152,11 @@ class BookPickersTest :
             notice.textContent?.trim() shouldBe "That shelf is gone."
             notice.getAttribute("aria-live") shouldBe "polite"
 
-            notice.click()
+            // Dismissed by a real button, not by a click on the status text: a `<div onClick>` is
+            // unreachable from the keyboard, and the notice would sit there for good.
+            val dismiss = notice.querySelector("button") as HTMLElement
+            dismiss.getAttribute("aria-label") shouldBe "Dismiss"
+            dismiss.click()
             awaitFrame()
             cleared shouldBe 1
         }

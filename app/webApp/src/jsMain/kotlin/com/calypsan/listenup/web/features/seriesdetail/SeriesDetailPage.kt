@@ -1,26 +1,28 @@
 package com.calypsan.listenup.web.features.seriesdetail
 
+import com.calypsan.listenup.web.design.ProgressLook
+import com.calypsan.listenup.web.design.ProgressBar
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
+import com.calypsan.listenup.web.design.LoadingState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
-import org.jetbrains.compose.web.attributes.alt
-import org.jetbrains.compose.web.css.percent
 import org.jetbrains.compose.web.css.width
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
-import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -65,6 +67,7 @@ fun SeriesDetailPage(
             }
 
             is SeriesDetailUiState.Error -> {
+                PageHeader(title = crumb(state))
                 WayBack(
                     heading = "This series can't be shown",
                     body = state.message,
@@ -73,7 +76,8 @@ fun SeriesDetailPage(
             }
 
             SeriesDetailUiState.Loading, SeriesDetailUiState.Idle -> {
-                Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+                PageHeader(title = crumb(state), pending = true)
+                LoadingState()
             }
         }
     }
@@ -92,14 +96,8 @@ private fun WayBack(
     body: String,
     onOpenLibrary: () -> Unit,
 ) {
-    Div(attrs = { classes("empty") }) {
-        H3 { Text(heading) }
-        P { Text(body) }
-        Button(attrs = {
-            classes("btn-c")
-            attr("type", BUTTON_VALUE)
-            onClick { onOpenLibrary() }
-        }) {
+    EmptyState(title = heading, body = body) {
+        Button(kind = ButtonKind.Primary, onClick = { onOpenLibrary() }) {
             Text("Back to Library")
         }
     }
@@ -124,13 +122,15 @@ private fun ReadyContent(
     Panel(title = "Books", trailing = { CountBadge(state.books.size) }) {
         Div(attrs = { classes("sd-books") }) {
             state.books.forEach { book ->
-                BookRow(
-                    book = book,
-                    seriesId = state.seriesId,
-                    progress = state.bookProgress[book.id],
-                    isFinished = book.id in state.finishedBookIds,
-                    onOpen = { onOpenBook(book.id.value) },
-                )
+                key(book.id.value) {
+                    BookRow(
+                        book = book,
+                        seriesId = state.seriesId,
+                        progress = state.bookProgress[book.id],
+                        isFinished = book.id in state.finishedBookIds,
+                        onOpen = { onOpenBook(book.id.value) },
+                    )
+                }
             }
         }
     }
@@ -149,9 +149,10 @@ private fun Hero(
             imageUrl = first?.let { coverUrl(it.id.value, it.coverHash, COVER_RUNG) },
             size = COVER_SIZE,
             radius = COVER_RADIUS,
+            decorative = true,
         )
         Div(attrs = { classes("sd-tblock") }) {
-            H1(attrs = { classes("sd-t") }) { Text(state.seriesName) }
+            PageHeader(title = state.seriesName, display = true)
 
             authorLine(state)?.let { line -> Div(attrs = { classes("sd-by") }) { Text(line) } }
 
@@ -173,11 +174,7 @@ private fun Hero(
             // book one, which is a decision the reader did not make.
             state.resumeTarget?.let { target ->
                 Div(attrs = { classes("sd-actions") }) {
-                    Button(attrs = {
-                        classes("btn-c")
-                        attr("type", BUTTON_VALUE)
-                        onClick { onPlayBook(target.value) }
-                    }) {
+                    Button(kind = ButtonKind.Primary, onClick = { onPlayBook(target.value) }) {
                         Icon(WebIcon.Play, size = PLAY_ICON_SIZE)
                         Text(if (state.bookProgress.containsKey(target)) "Continue" else "Start")
                     }
@@ -188,13 +185,15 @@ private fun Hero(
         // Icon-only, so the accessible name is the attribute rather than the content — the same
         // shape Book Detail and Contributor Detail use, for the same reason: a hero has no room
         // for a verb.
-        Button(attrs = {
-            classes("btn-sq", "sd-edit")
-            attr("type", BUTTON_VALUE)
-            attr("aria-label", "Edit series")
-            attr("title", "Edit series")
-            onClick { onEdit() }
-        }) { Icon(WebIcon.Pencil) }
+        Button(
+            kind = ButtonKind.Icon,
+            size = ButtonSize.Lg,
+            onClick = { onEdit() },
+            label = "Edit series",
+            attrs = {
+                classes("sd-edit")
+            },
+        ) { Icon(WebIcon.Pencil) }
     }
 }
 
@@ -231,8 +230,6 @@ private fun BookRow(
     isFinished: Boolean,
     onOpen: () -> Unit,
 ) {
-    var coverFailed by remember(book.id) { mutableStateOf(false) }
-
     Button(attrs = {
         classes("sd-book")
         attr("type", BUTTON_VALUE)
@@ -245,28 +242,19 @@ private fun BookRow(
         }
 
         Div(attrs = { classes("sd-book-frame") }) {
-            if (coverFailed) {
-                Div(attrs = { classes("sd-book-fallback") }) { Text(book.title) }
-            } else {
-                Img(
-                    src = coverUrl(book.id.value, book.coverHash, ROW_COVER_RUNG),
-                    attrs = {
-                        classes("sd-book-cover")
-                        alt(book.title)
-                        attr("loading", "lazy")
-                        attr("decoding", "async")
-                        addEventListener("error") { coverFailed = true }
-                    },
-                )
-            }
+            // Decorative: the book's title is the row's own text beside it.
+            Cover(
+                title = book.title,
+                imageUrl = coverUrl(book.id.value, book.coverHash, ROW_COVER_RUNG),
+                size = ROW_COVER_SIZE,
+                radius = 0,
+                decorative = true,
+            )
             // `bookProgress` carries in-progress books ONLY — the ViewModel moves anything at or
             // past its finished threshold into `finishedBookIds` instead — so an unstarted book
             // draws no bar rather than a zero-width one that reads as data.
             progress?.let { fraction ->
-                Div(attrs = {
-                    classes("sd-book-progress")
-                    style { width((fraction.coerceIn(0f, 1f) * PERCENT).percent) }
-                })
+                ProgressBar(value = fraction, label = "Listening progress", look = ProgressLook.Overlay)
             }
         }
 
@@ -330,4 +318,4 @@ private const val STAT_ICON_SIZE = 17
 
 private const val DONE_ICON_SIZE = 15
 
-private const val PERCENT = 100
+private const val ROW_COVER_SIZE = 56

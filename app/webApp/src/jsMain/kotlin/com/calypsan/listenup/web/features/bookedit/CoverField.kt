@@ -30,6 +30,7 @@ fun CoverField(
             title = state.title,
             imageUrl = coverUrl(state.bookId, state.coverHash, width = COVER_EDIT_FETCH_WIDTH),
             size = COVER_ART_WIDTH,
+            eager = true,
         )
     }
 }

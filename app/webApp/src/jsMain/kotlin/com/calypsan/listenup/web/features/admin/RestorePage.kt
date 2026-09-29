@@ -1,13 +1,16 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Breadcrumb
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.dto.backup.BackupEvent
 import com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ConfirmDialog
+import com.calypsan.listenup.web.design.PageHeader
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Text
 
@@ -38,14 +41,10 @@ fun RestorePage(
         // Absent while a restore is running: the server is swapping its own database out, and a
         // link away from the only page narrating that is an invitation to miss the outcome.
         if (state !is RestoreBackupUiState.Restoring) {
-            Button(attrs = {
-                classes("btn-o", "rst-back")
-                attr("type", VALUE_BUTTON)
-                onClick { onOpenBackups() }
-            }) { Text("← Backups") }
+            Breadcrumb(trail = listOf("Backups", "Restore"), onNavigate = { onOpenBackups() })
         }
 
-        H1(attrs = { classes("rst-title") }) { Text("Restore from a backup") }
+        PageHeader(title = "Restore from a backup")
 
         when (state) {
             is RestoreBackupUiState.Idle -> {
@@ -61,11 +60,7 @@ fun RestorePage(
                             "Anything added since it was taken is gone — books, listeners, progress, all of it.",
                     )
                 }
-                Button(attrs = {
-                    classes("btn-c")
-                    attr("type", VALUE_BUTTON)
-                    onClick { onRequest() }
-                }) { Text("Restore this backup") }
+                Button(kind = ButtonKind.Primary, onClick = { onRequest() }) { Text("Restore this backup") }
             }
 
             RestoreBackupUiState.Confirming -> {
@@ -99,19 +94,17 @@ fun RestorePage(
             }
 
             is RestoreBackupUiState.Completed -> {
-                Div(attrs = { classes("empty") }) {
-                    H3 { Text("Restored") }
-                    P {
-                        Text(
-                            if (state.result.includedImages) {
-                                "The library and its covers are back as they were."
-                            } else {
-                                "The library is back as it was. This backup carried no covers, so those are unchanged."
-                            },
-                        )
-                    }
-                    // The schema pair is the one detail worth surfacing: a restore that migrated
-                    // across versions is the case where something might behave differently after.
+                // The schema pair is the one detail worth surfacing: a restore that migrated
+                // across versions is the case where something might behave differently after.
+                EmptyState(
+                    title = "Restored",
+                    body =
+                        if (state.result.includedImages) {
+                            "The library and its covers are back as they were."
+                        } else {
+                            "The library is back as it was. This backup carried no covers, so those are unchanged."
+                        },
+                ) {
                     if (state.result.schemaMigratedFrom != state.result.schemaMigratedTo) {
                         P(attrs = { classes("rst-schema") }) {
                             Text(
@@ -120,11 +113,7 @@ fun RestorePage(
                             )
                         }
                     }
-                    Button(attrs = {
-                        classes("btn-c")
-                        attr("type", VALUE_BUTTON)
-                        onClick { onOpenBackups() }
-                    }) { Text("Back to backups") }
+                    Button(kind = ButtonKind.Primary, onClick = { onOpenBackups() }) { Text("Back to backups") }
                 }
             }
         }
@@ -167,5 +156,3 @@ private fun phaseLabel(event: BackupEvent?): String =
 
 /** What the create-side phases would say if a restore ever emitted one. It does not. */
 private const val WORKING = "Working…"
-
-private const val VALUE_BUTTON = "button"

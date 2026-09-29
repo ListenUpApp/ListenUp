@@ -123,7 +123,7 @@ class ContributorDetailPageTest :
                     readyContributor(name = "Stephen King", bookCount = 64),
                 )
 
-            (root.querySelector(".cd-name") as HTMLElement).textContent shouldBe "Stephen King"
+            (root.querySelector(".page-t") as HTMLElement).textContent shouldBe "Stephen King"
             val stats = root.querySelectorAll(".cd-stat")
             (stats.item(0) as HTMLElement).textContent.orEmpty() shouldContain "64 books"
             (stats.item(1) as HTMLElement).textContent.orEmpty() shouldContain "of audio"
@@ -195,7 +195,7 @@ class ContributorDetailPageTest :
 
             val sections = root.querySelectorAll(".cd-role-section")
             sections.length shouldBe 2
-            val headings = root.querySelectorAll(".cd-role-section h3")
+            val headings = root.querySelectorAll(".cd-role-section h2")
             (headings.item(0) as HTMLElement).textContent shouldBe "Written By"
             (headings.item(1) as HTMLElement).textContent shouldBe "Narrated By"
         }
@@ -255,8 +255,8 @@ class ContributorDetailPageTest :
                 )
 
             val tiles = root.querySelectorAll(".cd-tile")
-            ((tiles.item(0) as HTMLElement).querySelector(".cd-tile-progress") != null) shouldBe true
-            ((tiles.item(1) as HTMLElement).querySelector(".cd-tile-progress") != null) shouldBe false
+            ((tiles.item(0) as HTMLElement).querySelector(".progress-overlay") != null) shouldBe true
+            ((tiles.item(1) as HTMLElement).querySelector(".progress-overlay") != null) shouldBe false
         }
 
         test("Loading renders the breadcrumb and says it is loading, not a blank frame") {

@@ -1,7 +1,10 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -11,14 +14,15 @@ import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
 import com.calypsan.listenup.client.util.relativeLastActive
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ConfirmDialog
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.SelectField
 import com.calypsan.listenup.web.design.SelectOption
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.H2
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -59,7 +63,7 @@ fun AdminPage(
     onOpenUser: (String) -> Unit = {},
 ) {
     Div(attrs = { classes("adm") }) {
-        H1(attrs = { classes("adm-title") }) { Text("People") }
+        PageHeader(title = "People")
 
         // The other admin surfaces web has. Links rather than sections: each is its own screen
         // with its own loading and failure states, and this page's own KDoc already says why it
@@ -113,11 +117,13 @@ private fun AdminLink(
     label: String,
     onClick: () -> Unit,
 ) {
-    Button(attrs = {
-        classes("btn-o", "adm-link")
-        attr("type", "button")
-        onClick { onClick() }
-    }) { Text(label) }
+    Button(
+        kind = ButtonKind.Secondary,
+        onClick = { onClick() },
+        attrs = {
+            classes("adm-link")
+        },
+    ) { Text(label) }
 }
 
 /**
@@ -218,16 +224,8 @@ private fun ErrorBanner(
 
     Div(attrs = { classes("adm-error") }) {
         Span(attrs = { classes("adm-error-t") }) { Text(message) }
-        Button(attrs = {
-            classes(QUIET_BUTTON)
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            onClick { onRetry() }
-        }) { Text("Try again") }
-        Button(attrs = {
-            classes(QUIET_BUTTON)
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            onClick { onClearError() }
-        }) { Text("Dismiss") }
+        Button(kind = ButtonKind.Secondary, onClick = { onRetry() }) { Text("Try again") }
+        Button(kind = ButtonKind.Secondary, onClick = { onClearError() }) { Text("Dismiss") }
     }
 }
 
@@ -242,19 +240,23 @@ private fun PendingSection(
 
     Section("Waiting for you") {
         state.pendingUsers.forEach { user ->
-            PersonRow(user, subtitle = user.email) {
-                Button(attrs = {
-                    classes("btn")
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    if (state.approvingUserId == user.id) attr(ATTR_DISABLED, "")
-                    onClick { onApprove(user.id) }
-                }) { Text(if (state.approvingUserId == user.id) "Approving…" else "Approve") }
-                Button(attrs = {
-                    classes(QUIET_BUTTON)
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    if (state.denyingUserId == user.id) attr(ATTR_DISABLED, "")
-                    onClick { onDeny(user.id) }
-                }) { Text("Deny") }
+            key(user.id) {
+                PersonRow(user, subtitle = user.email) {
+                    Button(
+                        kind = ButtonKind.Primary,
+                        onClick = { onApprove(user.id) },
+                        attrs = {
+                            if (state.approvingUserId == user.id) attr(ATTR_DISABLED, "")
+                        },
+                    ) { Text(if (state.approvingUserId == user.id) "Approving…" else "Approve") }
+                    Button(
+                        kind = ButtonKind.Secondary,
+                        onClick = { onDeny(user.id) },
+                        attrs = {
+                            if (state.denyingUserId == user.id) attr(ATTR_DISABLED, "")
+                        },
+                    ) { Text("Deny") }
+                }
             }
         }
     }
@@ -270,7 +272,9 @@ private fun ResetsSection(
 
     Section("Password reset requests") {
         state.pendingPasswordResets.forEach { request ->
-            ResetRow(request, nowMs, state.decidingPasswordResetId == request.id, onDecide)
+            key(request.id) {
+                ResetRow(request, nowMs, state.decidingPasswordResetId == request.id, onDecide)
+            }
         }
     }
 }
@@ -283,21 +287,24 @@ private fun MembersSection(
 ) {
     Section("Members") {
         if (state.users.isEmpty()) {
-            P(attrs = { classes("adm-none") }) { Text("Nobody has joined yet.") }
+            EmptyState(title = "Nobody has joined yet.", look = EmptyLook.Inline)
             return@Section
         }
         state.users.forEach { user ->
-            PersonRow(user, subtitle = user.email, onOpen = { onOpenUser(user.id) }) {
-                // The root account is the server's own owner; removing it would leave nobody able
-                // to administer anything, so it is not offered rather than refused.
-                if (!user.isRoot) {
-                    Button(attrs = {
-                        classes(QUIET_BUTTON)
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        attr("aria-label", "Remove ${user.displayName ?: user.email}")
-                        if (state.deletingUserId == user.id) attr(ATTR_DISABLED, "")
-                        onClick { onAskRemove(user) }
-                    }) { Text("Remove") }
+            key(user.id) {
+                PersonRow(user, subtitle = user.email, onOpen = { onOpenUser(user.id) }) {
+                    // The root account is the server's own owner; removing it would leave nobody able
+                    // to administer anything, so it is not offered rather than refused.
+                    if (!user.isRoot) {
+                        Button(
+                            kind = ButtonKind.Secondary,
+                            onClick = { onAskRemove(user) },
+                            label = "Remove ${user.displayName ?: user.email}",
+                            attrs = {
+                                if (state.deletingUserId == user.id) attr(ATTR_DISABLED, "")
+                            },
+                        ) { Text("Remove") }
+                    }
                 }
             }
         }
@@ -313,19 +320,22 @@ private fun InvitesSection(
 
     Section("Open invites") {
         state.pendingInvites.forEach { invite ->
-            Div(attrs = { classes("adm-row") }) {
-                Div(attrs = { classes(ROW_TEXT) }) {
-                    Span(attrs = { classes("adm-row-t") }) { Text(invite.name) }
-                    Span(attrs = { classes("adm-row-sub") }) { Text(invite.email) }
-                }
-                Div(attrs = { classes("adm-row-actions") }) {
-                    Button(attrs = {
-                        classes(QUIET_BUTTON)
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        attr("aria-label", "Revoke the invite for ${invite.email}")
-                        if (state.revokingInviteId == invite.id) attr(ATTR_DISABLED, "")
-                        onClick { onAskRevoke(invite) }
-                    }) { Text("Revoke") }
+            key(invite.id) {
+                Div(attrs = { classes("adm-row") }) {
+                    Div(attrs = { classes(ROW_TEXT) }) {
+                        Span(attrs = { classes("adm-row-t") }) { Text(invite.name) }
+                        Span(attrs = { classes("adm-row-sub") }) { Text(invite.email) }
+                    }
+                    Div(attrs = { classes("adm-row-actions") }) {
+                        Button(
+                            kind = ButtonKind.Secondary,
+                            onClick = { onAskRevoke(invite) },
+                            label = "Revoke the invite for ${invite.email}",
+                            attrs = {
+                                if (state.revokingInviteId == invite.id) attr(ATTR_DISABLED, "")
+                            },
+                        ) { Text("Revoke") }
+                    }
                 }
             }
         }
@@ -372,18 +382,20 @@ private fun ResetRow(
             Span(attrs = { classes("adm-row-when") }) { Text(relativeLastActive(request.requestedAt, nowMs)) }
         }
         Div(attrs = { classes("adm-row-actions") }) {
-            Button(attrs = {
-                classes("btn")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                if (deciding) attr(ATTR_DISABLED, "")
-                onClick { onDecide(request.id, true) }
-            }) { Text("Approve") }
-            Button(attrs = {
-                classes(QUIET_BUTTON)
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                if (deciding) attr(ATTR_DISABLED, "")
-                onClick { onDecide(request.id, false) }
-            }) { Text("Decline") }
+            Button(
+                kind = ButtonKind.Primary,
+                onClick = { onDecide(request.id, true) },
+                attrs = {
+                    if (deciding) attr(ATTR_DISABLED, "")
+                },
+            ) { Text("Approve") }
+            Button(
+                kind = ButtonKind.Secondary,
+                onClick = { onDecide(request.id, false) },
+                attrs = {
+                    if (deciding) attr(ATTR_DISABLED, "")
+                },
+            ) { Text("Decline") }
         }
     }
 }
@@ -450,8 +462,6 @@ internal fun policyOf(raw: String): RegistrationPolicy =
 
 /** The outline button — every action here that is not the affirmative one. */
 private const val ROW_TEXT = "adm-row-text"
-
-private const val QUIET_BUTTON = "btn-o"
 
 private const val ATTR_DISABLED = "disabled"
 

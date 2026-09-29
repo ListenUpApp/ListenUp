@@ -1,19 +1,23 @@
 package com.calypsan.listenup.web.features.devices
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.settings.DeviceRow
 import com.calypsan.listenup.client.presentation.settings.DevicesUiState
 import com.calypsan.listenup.client.util.relativeLastActive
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ConfirmDialog
+import com.calypsan.listenup.web.design.PageHeader
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.H2
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -37,7 +41,7 @@ fun DevicesPage(
     var confirming by remember { mutableStateOf(false) }
 
     Div(attrs = { classes("dev") }) {
-        H1(attrs = { classes("dev-title") }) { Text("Devices") }
+        PageHeader(title = "Devices")
 
         when (state) {
             is DevicesUiState.Loading -> {
@@ -45,20 +49,14 @@ fun DevicesPage(
             }
 
             is DevicesUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H2 { Text("Could not load your devices") }
-                    P { Text(state.error.message) }
-                    // Only where retrying can actually work. `isRetryable` is the error hierarchy's
-                    // strict contract — false means the call needs the reader to DO something first,
-                    // so a button that just re-fires it is a dead end dressed as a way out. An
-                    // expired session is the case that made this visible: the message says to sign
-                    // in again, directly above a button that can only fail again.
+                // Only where retrying can actually work. `isRetryable` is the error hierarchy's
+                // strict contract — false means the call needs the reader to DO something first,
+                // so a button that just re-fires it is a dead end dressed as a way out. An
+                // expired session is the case that made this visible: the message says to sign
+                // in again, directly above a button that can only fail again.
+                EmptyState(title = "Could not load your devices", body = state.error.message) {
                     if (state.error.isRetryable) {
-                        Button(attrs = {
-                            classes("btn")
-                            attr("type", "button")
-                            onClick { onRetry() }
-                        }) { Text("Try again") }
+                        Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
                     }
                 }
             }
@@ -77,27 +75,23 @@ fun DevicesPage(
                 Div(attrs = { classes("dev-section") }) {
                     H2(attrs = { classes("dev-section-h") }) { Text("Other devices") }
                     if (others.isEmpty()) {
-                        P(attrs = { classes("dev-none") }) {
-                            Text("You are not signed in anywhere else.")
-                        }
+                        EmptyState(title = "You are not signed in anywhere else.", look = EmptyLook.Inline)
                     } else {
                         others.forEach { device ->
-                            DeviceCard(
-                                device = device,
-                                nowMs = nowMs,
-                                revoking = device.sessionId in state.signingOut,
-                                onRevoke = { onRevoke(device.sessionId) },
-                            )
+                            key(device.sessionId) {
+                                DeviceCard(
+                                    device = device,
+                                    nowMs = nowMs,
+                                    revoking = device.sessionId in state.signingOut,
+                                    onRevoke = { onRevoke(device.sessionId) },
+                                )
+                            }
                         }
                     }
                 }
 
                 Div(attrs = { classes("dev-danger") }) {
-                    Button(attrs = {
-                        classes("btn-o")
-                        attr("type", "button")
-                        onClick { confirming = true }
-                    }) { Text("Sign out everywhere") }
+                    Button(kind = ButtonKind.Secondary, onClick = { confirming = true }) { Text("Sign out everywhere") }
                 }
 
                 ConfirmDialog(
@@ -137,15 +131,16 @@ private fun DeviceCard(
             }
         }
         onRevoke?.let { revoke ->
-            Button(attrs = {
-                classes("btn-o")
-                attr("type", "button")
-                attr("aria-label", "Sign out ${device.displayName}")
-                // Disabled while its own revoke is in flight, so a second press cannot queue a
-                // second call for a session that is already going.
-                if (revoking) attr("disabled", "")
-                onClick { revoke() }
-            }) { Text(if (revoking) "Signing out…" else "Sign out") }
+            Button(
+                kind = ButtonKind.Secondary,
+                onClick = { revoke() },
+                label = "Sign out ${device.displayName}",
+                attrs = {
+                    // Disabled while its own revoke is in flight, so a second press cannot queue a
+                    // second call for a session that is already going.
+                    if (revoking) attr("disabled", "")
+                },
+            ) { Text(if (revoking) "Signing out…" else "Sign out") }
         }
     }
 }

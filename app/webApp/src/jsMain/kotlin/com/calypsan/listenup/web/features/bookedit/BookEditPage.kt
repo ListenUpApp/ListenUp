@@ -1,7 +1,12 @@
 package com.calypsan.listenup.web.features.bookedit
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
+import com.calypsan.listenup.web.design.LoadingState
+import com.calypsan.listenup.web.design.PageHeader
 import kotlin.js.Date
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.Language
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
@@ -53,9 +58,14 @@ fun BookEditPage(
         Breadcrumb(listOf("Library", state.title.ifBlank { "Book" }, "Edit")) { index ->
             if (index == 0) onOpenLibrary() else onOpenBook()
         }
+        PageHeader(
+            title = state.title.ifBlank { "Book" },
+            documentTitle = "Edit " + state.title.ifBlank { "book" },
+            pending = state.isLoading,
+        )
 
         if (state.isLoading) {
-            Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+            LoadingState()
             return@Div
         }
 
@@ -64,10 +74,10 @@ fun BookEditPage(
             // the page away over a failed save would throw those away with it.
             Div(attrs = { classes("edit-error") }) {
                 P { Text(message) }
-                Button(attrs = {
-                    classes("btn-o")
-                    onClick { onEvent(BookEditUiEvent.DismissError) }
-                }) { Text("Dismiss") }
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = { onEvent(BookEditUiEvent.DismissError) },
+                ) { Text("Dismiss") }
             }
         }
 
@@ -263,39 +273,41 @@ private fun ContributorFields(
     onEvent: (BookEditUiEvent) -> Unit,
 ) {
     state.visibleRoles.sortedBy { it.ordinal }.forEach { role ->
-        val attached = state.contributorsForRole(role)
-        Div(attrs = { classes("rel-section") }) {
-            RelationField(
-                label = "${role.displayName}s",
-                attached = attached.map { RelationChip(id = it.name, label = it.name) },
-                query = state.roleSearchQueries[role].orEmpty(),
-                results =
-                    state.roleSearchResults[role]
-                        .orEmpty()
-                        .map { RelationChip(id = it.id, label = it.name, subtitle = booksLabel(it.bookCount)) },
-                loading = state.roleSearchLoading[role] == true,
-                offline = state.roleOfflineResults[role] == true,
-                onQueryChange = { onEvent(BookEditUiEvent.RoleSearchQueryChanged(role, it)) },
-                onSelect = { chip ->
-                    state.roleSearchResults[role]
-                        .orEmpty()
-                        .firstOrNull { it.id == chip.id }
-                        ?.let { onEvent(BookEditUiEvent.RoleContributorSelected(role, it)) }
-                },
-                onRemove = { chip ->
-                    attached
-                        .firstOrNull { it.name == chip.id }
-                        ?.let { onEvent(BookEditUiEvent.RemoveContributor(it, role)) }
-                },
-                onCreate = { name -> onEvent(BookEditUiEvent.RoleContributorEntered(role, name)) },
-                placeholder = "Add ${indefiniteArticle(role.displayName)} ${role.displayName.lowercase()}…",
-                id = "edit-role-${role.name.lowercase()}",
-            )
-            Button(attrs = {
-                classes("rel-drop")
-                attr("type", "button")
-                onClick { onEvent(BookEditUiEvent.RemoveRoleSection(role)) }
-            }) { Text("Remove all ${role.displayName.lowercase()}s") }
+        key(role) {
+            val attached = state.contributorsForRole(role)
+            Div(attrs = { classes("rel-section") }) {
+                RelationField(
+                    label = "${role.displayName}s",
+                    attached = attached.map { RelationChip(id = it.name, label = it.name) },
+                    query = state.roleSearchQueries[role].orEmpty(),
+                    results =
+                        state.roleSearchResults[role]
+                            .orEmpty()
+                            .map { RelationChip(id = it.id, label = it.name, subtitle = booksLabel(it.bookCount)) },
+                    loading = state.roleSearchLoading[role] == true,
+                    offline = state.roleOfflineResults[role] == true,
+                    onQueryChange = { onEvent(BookEditUiEvent.RoleSearchQueryChanged(role, it)) },
+                    onSelect = { chip ->
+                        state.roleSearchResults[role]
+                            .orEmpty()
+                            .firstOrNull { it.id == chip.id }
+                            ?.let { onEvent(BookEditUiEvent.RoleContributorSelected(role, it)) }
+                    },
+                    onRemove = { chip ->
+                        attached
+                            .firstOrNull { it.name == chip.id }
+                            ?.let { onEvent(BookEditUiEvent.RemoveContributor(it, role)) }
+                    },
+                    onCreate = { name -> onEvent(BookEditUiEvent.RoleContributorEntered(role, name)) },
+                    placeholder = "Add ${indefiniteArticle(role.displayName)} ${role.displayName.lowercase()}…",
+                    id = "edit-role-${role.name.lowercase()}",
+                )
+                Button(attrs = {
+                    classes("rel-drop")
+                    attr("type", "button")
+                    onClick { onEvent(BookEditUiEvent.RemoveRoleSection(role)) }
+                }) { Text("Remove all ${role.displayName.lowercase()}s") }
+            }
         }
     }
 
@@ -472,18 +484,17 @@ private fun EditActions(
     Div(attrs = { classes("edit-actions") }) {
         // ⛔ type=button is not decoration. A <button> with no type defaults to SUBMIT, so inside
         // the form this would save the very edits Cancel exists to discard.
-        Button(attrs = {
-            classes("btn-o")
-            attr("type", "button")
-            if (state.isSaving) attr("disabled", "")
-            onClick { onEvent(BookEditUiEvent.Cancel) }
-        }) { Text("Cancel") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { onEvent(BookEditUiEvent.Cancel) },
+            enabled = !state.isSaving,
+        ) { Text("Cancel") }
         // No onClick: submitting the form is what saves, for click and Enter alike.
-        Button(attrs = {
-            classes("btn-c")
-            attr("type", "submit")
-            if (state.isSaving) attr("disabled", "")
-        }) { Text(if (state.isSaving) "Saving…" else "Save") }
+        Button(
+            kind = ButtonKind.Primary,
+            submit = true,
+            enabled = !state.isSaving,
+        ) { Text(if (state.isSaving) "Saving…" else "Save") }
     }
 }
 

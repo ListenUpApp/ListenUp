@@ -114,11 +114,34 @@ class ChapterPickerTest :
             host.closeDialogs()
         }
 
+        test("Escape's close request dismisses the panel") {
+            // `requestClose()` is the path Escape takes on a modal dialog: cancel, then close. A
+            // synthetic Escape keydown would not exercise it at all.
+            var dismissed = 0
+            val host = picker(onDismiss = { dismissed++ })
+
+            (host.querySelector("dialog") as HTMLDialogElement).asDynamic().requestClose()
+            awaitFrame()
+
+            dismissed shouldNotBe 0
+            host.closeDialogs()
+        }
+
+        test("it wears the app's one modal shell, labelled by its own heading") {
+            val host = picker()
+            val dialog = host.querySelector("dialog.dlg.chap-dlg") as HTMLDialogElement
+
+            val heading = dialog.querySelector(".dlg-body > .dlg-t") as HTMLElement
+            dialog.getAttribute("aria-labelledby") shouldBe heading.id
+
+            host.closeDialogs()
+        }
+
         test("closing reports the dismissal, so the caller's flag cannot drift") {
             var dismissed = 0
             val host = picker(onDismiss = { dismissed++ })
 
-            (host.querySelector(".btn-ghost") as HTMLButtonElement).click()
+            (host.querySelector(".btn-secondary") as HTMLButtonElement).click()
             awaitFrame()
 
             dismissed shouldNotBe 0

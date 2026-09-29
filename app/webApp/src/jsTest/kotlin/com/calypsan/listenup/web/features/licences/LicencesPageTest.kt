@@ -41,8 +41,8 @@ class LicencesPageTest :
                     ),
                 )
 
-            (root.querySelector(".lic-title") as HTMLElement).textContent shouldBe "3 libraries"
-            (root.querySelector(".lic-sub") as HTMLElement).textContent shouldContain "2 license families"
+            (root.querySelector(".page-t") as HTMLElement).textContent shouldBe "3 libraries"
+            (root.querySelector(".page-sub") as HTMLElement).textContent shouldContain "2 license families"
         }
 
         test("a library carries its version, and one without renders none rather than a placeholder") {
@@ -91,7 +91,7 @@ class LicencesPageTest :
             typeSearch(root, "nothing-matches-this")
             awaitFrame()
 
-            (root.querySelector(".empty p") as HTMLElement).textContent shouldBe "No libraries match that."
+            (root.querySelector(".empty-line") as HTMLElement).textContent shouldBe "No libraries match that."
             root.querySelector(".lic-list") shouldBe null
         }
 
@@ -115,17 +115,17 @@ class LicencesPageTest :
         // ⛔ The one lie this page cannot afford. "No libraries" and "the file did not load" are
         // different facts, and an attribution page must never claim the first when the second is true.
         test("a manifest that failed to load says so rather than listing nothing") {
-            val root = licencesPage(LicencesUiState.Error("The licence list could not be loaded."))
+            val root = licencesPage(LicencesUiState.Error("The license list could not be loaded."))
 
-            (root.querySelector(".empty h3") as HTMLElement).textContent shouldBe "The licences can't be shown"
+            (root.querySelector(".empty h2") as HTMLElement).textContent shouldBe "The licenses can't be shown"
             root.querySelector(".lic-list") shouldBe null
-            root.querySelector(".lic-title") shouldBe null
+            root.querySelector(".page-t")?.textContent shouldBe "Open source licenses"
         }
 
         test("loading says so and still offers the way back") {
             val root = licencesPage(LicencesUiState.Loading)
 
-            (root.querySelector(".empty p") as HTMLElement).textContent shouldBe "Loading…"
+            (root.querySelector(".loading") as HTMLElement).textContent shouldBe "Loading…"
             root.querySelector(".crumb") shouldNotBe null
         }
 

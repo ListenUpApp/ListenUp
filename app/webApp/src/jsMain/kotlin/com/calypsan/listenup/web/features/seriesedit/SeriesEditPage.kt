@@ -1,8 +1,11 @@
 package com.calypsan.listenup.web.features.seriesedit
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.features.merge.MergeHistoryList
 import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -11,6 +14,8 @@ import com.calypsan.listenup.client.presentation.seriesedit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesCandidate
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.CoverPickerField
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
@@ -24,11 +29,11 @@ import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.web.design.PageHeader
 
 /**
  * Series Edit — what a series is called, what it is about, and what it is really.
@@ -51,12 +56,15 @@ fun SeriesEditPage(
     onMergeQuery: (String) -> Unit,
 ) {
     Div(attrs = { classes("sed") }) {
+        PageHeader(
+            title = state.name.ifBlank { "Series" },
+            documentTitle = "Edit " + state.name.ifBlank { "series" },
+            pending = state.isLoading,
+        )
         if (state.isLoading) {
             Div(attrs = { classes("skel", "sed-skel") })
             return@Div
         }
-
-        H1(attrs = { classes("sed-title") }) { Text(state.name.ifBlank { "Series" }) }
 
         state.error?.let { message ->
             Div(attrs = { classes("sed-err") }) {
@@ -181,12 +189,14 @@ private fun MergeSection(
 ) {
     P(attrs = { classes("sed-hint") }) { Text("${bookCountLabel(state.bookCount)} in this series.") }
     Div(attrs = { classes("sed-merge-act") }) {
-        Button(attrs = {
-            classes(BTN_SECONDARY, "sed-merge")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            disabledWhen(state.mergeInProgress)
-            onClick { onEvent(SeriesEditUiEvent.MergeDialogOpened) }
-        }) { Text(if (state.mergeInProgress) "Merging…" else "Merge into another series") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { onEvent(SeriesEditUiEvent.MergeDialogOpened) },
+            attrs = {
+                classes("sed-merge")
+                disabledWhen(state.mergeInProgress)
+            },
+        ) { Text(if (state.mergeInProgress) "Merging…" else "Merge into another series") }
     }
 }
 
@@ -229,31 +239,28 @@ private fun MergeDialog(
         }
         Div(attrs = { classes("sed-results") }) {
             if (candidates.isEmpty()) {
-                P(attrs = { classes(NONE) }) { Text("Nothing matched \"$query\".") }
+                EmptyState(title = "Nothing matched \"$query\".", look = EmptyLook.Inline)
             } else {
                 candidates.forEach { candidate ->
-                    Button(attrs = {
-                        classes("sed-result")
-                        if (selected == candidate.id) classes("on")
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        attr("aria-pressed", (selected == candidate.id).toString())
-                        onClick { selected = candidate.id }
-                    }) { Span(attrs = { classes("sed-result-n") }) { Text(candidate.displayName) } }
+                    key(candidate.id.value) {
+                        Button(attrs = {
+                            classes("sed-result")
+                            if (selected == candidate.id) classes("on")
+                            attr(ATTR_TYPE, VALUE_BUTTON)
+                            attr("aria-pressed", (selected == candidate.id).toString())
+                            onClick { selected = candidate.id }
+                        }) { Span(attrs = { classes("sed-result-n") }) { Text(candidate.displayName) } }
+                    }
                 }
             }
         }
         Div(attrs = { classes("dlg-actions") }) {
-            Button(attrs = {
-                classes("btn")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onDismiss() }
-            }) { Text("Cancel") }
-            Button(attrs = {
-                classes("btn-d")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                disabledWhen(selected == null)
-                onClick { selected?.let(onConfirm) }
-            }) { Text("Merge") }
+            Button(kind = ButtonKind.Secondary, onClick = { onDismiss() }) { Text("Cancel") }
+            Button(
+                kind = ButtonKind.Danger,
+                onClick = { selected?.let(onConfirm) },
+                enabled = selected != null,
+            ) { Text("Merge") }
         }
     }
 }
@@ -272,18 +279,17 @@ private fun EditActions(
     Div(attrs = { classes("edit-actions") }) {
         // ⛔ type=button: a <button> with no type inside a form defaults to SUBMIT, so this would
         // save the very edits Cancel exists to discard.
-        Button(attrs = {
-            classes(BTN_SECONDARY)
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            disabledWhen(state.isSaving)
-            onClick { onEvent(SeriesEditUiEvent.CancelClicked) }
-        }) { Text("Cancel") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { onEvent(SeriesEditUiEvent.CancelClicked) },
+            enabled = !state.isSaving,
+        ) { Text("Cancel") }
         // No onClick: submitting the form is what saves, for click and Enter alike.
-        Button(attrs = {
-            classes("btn-c")
-            attr(ATTR_TYPE, "submit")
-            disabledWhen(state.isSaving || !state.hasChanges)
-        }) { Text(if (state.isSaving) "Saving…" else "Save changes") }
+        Button(
+            kind = ButtonKind.Primary,
+            submit = true,
+            enabled = !(state.isSaving || !state.hasChanges),
+        ) { Text(if (state.isSaving) "Saving…" else "Save changes") }
     }
 }
 
@@ -293,10 +299,6 @@ internal fun seriesCoverUrl(seriesId: String): String = "/api/v1/series/$seriesI
 private fun bookCountLabel(count: Int): String = if (count == 1) "1 book" else "$count books"
 
 private const val ATTR_TYPE = "type"
-
-private const val BTN_SECONDARY = "btn-o"
-
-private const val NONE = "sed-none"
 
 private const val VALUE_BUTTON = "button"
 

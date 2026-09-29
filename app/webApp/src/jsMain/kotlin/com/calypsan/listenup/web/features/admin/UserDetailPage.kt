@@ -3,16 +3,16 @@ package com.calypsan.listenup.web.features.admin
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.MetaEntry
 import com.calypsan.listenup.web.design.MetaList
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.SwitchField
 import com.calypsan.listenup.web.design.UserAvatar
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
-import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
 /**
@@ -33,9 +33,19 @@ fun UserDetailPage(
         Breadcrumb(trail = listOf("People", userCrumb(state)), onNavigate = { onOpenAdmin() })
 
         when (state) {
-            UserDetailUiState.Loading -> Div(attrs = { classes("skel", "usr-skel") })
-            is UserDetailUiState.Error -> P(attrs = { classes("usr-none") }) { Text(state.error.message) }
-            is UserDetailUiState.Ready -> ReadyUser(state, onToggleCanEdit, onToggleCanShare)
+            UserDetailUiState.Loading -> {
+                PageHeader(title = userCrumb(state), pending = true)
+                Div(attrs = { classes("skel", "usr-skel") })
+            }
+
+            is UserDetailUiState.Error -> {
+                PageHeader(title = userCrumb(state))
+                EmptyState(title = "This member can't be shown", body = state.error.message)
+            }
+
+            is UserDetailUiState.Ready -> {
+                ReadyUser(state, onToggleCanEdit, onToggleCanShare)
+            }
         }
     }
 }
@@ -49,10 +59,7 @@ private fun ReadyUser(
     val user = state.user
     Div(attrs = { classes("usr-head") }) {
         UserAvatar(userId = user.id, name = user.displayableName, size = AVATAR_SIZE)
-        Div(attrs = { classes("usr-who") }) {
-            H1(attrs = { classes("usr-t") }) { Text(user.displayableName) }
-            Span(attrs = { classes("usr-e") }) { Text(user.email) }
-        }
+        PageHeader(title = user.displayableName, subtitle = user.email)
     }
 
     Panel(title = "Details") {
@@ -89,7 +96,12 @@ private fun ReadyUser(
             onChange = { onToggleCanShare() },
             enabled = live,
         )
-        state.error?.let { failure -> P(attrs = { classes("usr-err") }) { Text(failure.message) } }
+        state.error?.let { failure ->
+            P(attrs = {
+                classes("usr-err")
+                attr("role", "alert")
+            }) { Text(failure.message) }
+        }
     }
 }
 

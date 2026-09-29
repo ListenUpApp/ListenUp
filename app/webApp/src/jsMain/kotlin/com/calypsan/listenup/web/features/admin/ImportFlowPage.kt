@@ -1,7 +1,12 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Breadcrumb
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -13,10 +18,13 @@ import com.calypsan.listenup.client.presentation.admin.imports.BookSearchState
 import com.calypsan.listenup.client.presentation.admin.imports.ImportFlowUiState
 import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.ModalDialog
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.SelectField
 import com.calypsan.listenup.web.design.SelectOption
 import com.calypsan.listenup.web.design.WebIcon
@@ -24,8 +32,6 @@ import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -66,14 +72,10 @@ fun ImportFlowPage(
     Div(attrs = { classes("iflow") }) {
         // Only where leaving is harmless: before a file is picked, and after the run has ended.
         if (state is ImportFlowUiState.Idle || state is ImportFlowUiState.Done || state is ImportFlowUiState.Error) {
-            Button(attrs = {
-                classes(BTN_SECONDARY, "iflow-back")
-                attr("type", VALUE_BUTTON)
-                onClick { onOpenImports() }
-            }) { Text("← Imports") }
+            Breadcrumb(trail = listOf("Imports", "Audiobookshelf"), onNavigate = { onOpenImports() })
         }
 
-        H1(attrs = { classes("iflow-title") }) { Text("Import from Audiobookshelf") }
+        PageHeader(title = "Import from Audiobookshelf")
 
         when (state) {
             ImportFlowUiState.Idle -> {
@@ -117,14 +119,8 @@ fun ImportFlowPage(
             }
 
             is ImportFlowUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H3 { Text("The import stopped") }
-                    P(attrs = { attr("role", "alert") }) { Text(state.error.message) }
-                    Button(attrs = {
-                        classes(BTN_PRIMARY)
-                        attr("type", VALUE_BUTTON)
-                        onClick { onReset() }
-                    }) { Text("Start again") }
+                EmptyState(title = "The import stopped", body = state.error.message, announce = true) {
+                    Button(kind = ButtonKind.Primary, onClick = { onReset() }) { Text("Start again") }
                 }
             }
         }
@@ -143,11 +139,7 @@ private fun IdleStep(onStart: (File) -> Unit) {
                     "library — you decide what is written before anything is.",
             )
         }
-        Button(attrs = {
-            classes(BTN_PRIMARY)
-            attr("type", VALUE_BUTTON)
-            onClick { input?.click() }
-        }) { Text("Choose a backup") }
+        Button(kind = ButtonKind.Primary, onClick = { input?.click() }) { Text("Choose a backup") }
         Input(type = InputType.File, attrs = {
             id("iflow-file-input")
             attr("accept", ".zip,.audiobookshelf,application/zip")
@@ -214,14 +206,16 @@ private fun ReviewStep(
             )
         }
         state.analysis.userMatches.forEach { match ->
-            UserRow(
-                match = match,
-                mappedTo = state.userMappings[match.absUserId],
-                isSkipped = match.absUserId in state.skippedUsers,
-                candidates = state.listenupUsers,
-                onMap = { userId -> onMapUser(match, userId) },
-                onSkip = { onSkipUser(match) },
-            )
+            key(match.absUserId.value) {
+                UserRow(
+                    match = match,
+                    mappedTo = state.userMappings[match.absUserId],
+                    isSkipped = match.absUserId in state.skippedUsers,
+                    candidates = state.listenupUsers,
+                    onMap = { userId -> onMapUser(match, userId) },
+                    onSkip = { onSkipUser(match) },
+                )
+            }
         }
         if (state.listenupUsers.isEmpty()) {
             // The ViewModel treats a failed user-list load as non-fatal, so the page has to
@@ -242,24 +236,22 @@ private fun ReviewStep(
                 Text("These could not be matched confidently. Everything else was matched already and is not listed.")
             }
             needsAttention.forEach { item ->
-                BookRow(
-                    item = item,
-                    decision = state.bookOverrides[item.absItemId],
-                    isDecided = item.absItemId in state.bookOverrides,
-                    onFind = { onOpenBookSearch(item.absItemId) },
-                    onSkip = { onSkipBook(item.absItemId) },
-                )
+                key(item.absItemId.value) {
+                    BookRow(
+                        item = item,
+                        decision = state.bookOverrides[item.absItemId],
+                        isDecided = item.absItemId in state.bookOverrides,
+                        onFind = { onOpenBookSearch(item.absItemId) },
+                        onSkip = { onSkipBook(item.absItemId) },
+                    )
+                }
             }
         }
     }
 
     Div(attrs = { classes("iflow-apply") }) {
         Span(attrs = { classes("iflow-tally") }) { Text(applyTally(state, undecided)) }
-        Button(attrs = {
-            classes(BTN_PRIMARY)
-            attr("type", VALUE_BUTTON)
-            onClick { onApply() }
-        }) { Text("Import") }
+        Button(kind = ButtonKind.Primary, onClick = { onApply() }) { Text("Import") }
     }
 
     state.bookSearch?.let { search ->
@@ -296,13 +288,16 @@ private fun UserRow(
             emptyLabel = if (isSkipped) "Skipped" else "Nobody yet",
             id = "iflow-user-${match.absUserId.value}",
         )
-        Button(attrs = {
-            classes(BTN_SECONDARY, "iflow-skip")
-            attr("type", VALUE_BUTTON)
-            attr(ATTR_ARIA_LABEL, "Skip ${match.absUsername}")
-            disabledWhen(isSkipped)
-            onClick { onSkip() }
-        }) { Text(if (isSkipped) "Skipped" else "Skip") }
+        Button(
+            kind = ButtonKind.Secondary,
+            size = ButtonSize.Sm,
+            onClick = { onSkip() },
+            attrs = {
+                classes("iflow-skip")
+                attr(ATTR_ARIA_LABEL, "Skip ${match.absUsername}")
+                disabledWhen(isSkipped)
+            },
+        ) { Text(if (isSkipped) "Skipped" else "Skip") }
     }
 }
 
@@ -324,18 +319,24 @@ private fun BookRow(
             }
         }
         Span(attrs = { classes("iflow-decision") }) { Text(bookDecisionLabel(isDecided, decision)) }
-        Button(attrs = {
-            classes(BTN_SECONDARY, "iflow-find")
-            attr("type", VALUE_BUTTON)
-            attr(ATTR_ARIA_LABEL, "Find the book for ${item.title}")
-            onClick { onFind() }
-        }) { Text("Find") }
-        Button(attrs = {
-            classes(BTN_SECONDARY, "iflow-skip")
-            attr("type", VALUE_BUTTON)
-            attr(ATTR_ARIA_LABEL, "Skip ${item.title}")
-            onClick { onSkip() }
-        }) { Text("Skip") }
+        Button(
+            kind = ButtonKind.Secondary,
+            size = ButtonSize.Sm,
+            onClick = { onFind() },
+            attrs = {
+                classes("iflow-find")
+                attr(ATTR_ARIA_LABEL, "Find the book for ${item.title}")
+            },
+        ) { Text("Find") }
+        Button(
+            kind = ButtonKind.Secondary,
+            size = ButtonSize.Sm,
+            onClick = { onSkip() },
+            attrs = {
+                classes("iflow-skip")
+                attr(ATTR_ARIA_LABEL, "Skip ${item.title}")
+            },
+        ) { Text("Skip") }
     }
 }
 
@@ -372,25 +373,23 @@ private fun BookSearchDialog(
 
                 else -> {
                     search.results.forEach { hit ->
-                        Button(attrs = {
-                            classes("iflow-result")
-                            attr("type", VALUE_BUTTON)
-                            onClick { onSelect(hit.bookId) }
-                        }) {
-                            Span(attrs = { classes("iflow-result-t") }) { Text(hit.title) }
-                            Span(attrs = { classes("iflow-result-b") }) { Text(hit.author) }
-                            Icon(WebIcon.Plus, size = SMALL_ICON)
+                        key(hit.bookId.value) {
+                            Button(attrs = {
+                                classes("iflow-result")
+                                attr("type", VALUE_BUTTON)
+                                onClick { onSelect(hit.bookId) }
+                            }) {
+                                Span(attrs = { classes("iflow-result-t") }) { Text(hit.title) }
+                                Span(attrs = { classes("iflow-result-b") }) { Text(hit.author) }
+                                Icon(WebIcon.Plus, size = SMALL_ICON)
+                            }
                         }
                     }
                 }
             }
         }
         Div(attrs = { classes("dlg-actions") }) {
-            Button(attrs = {
-                classes("btn")
-                attr("type", VALUE_BUTTON)
-                onClick { onDismiss() }
-            }) { Text("Cancel") }
+            Button(kind = ButtonKind.Secondary, onClick = { onDismiss() }) { Text("Cancel") }
         }
     }
 }
@@ -400,11 +399,9 @@ private fun DoneStep(
     state: ImportFlowUiState.Done,
     onOpenImports: () -> Unit,
 ) {
-    Div(attrs = { classes("empty") }) {
-        H3 { Text("Imported") }
-        P { Text(doneSummary(state)) }
-        // The books it could not place are the reason a number looks lower than expected, so they
-        // are stated rather than left as a silent difference.
+    // The books it could not place are the reason a number looks lower than expected, so they
+    // are stated rather than left as a silent difference.
+    EmptyState(title = "Imported", body = doneSummary(state)) {
         if (state.result.booksNotInLibrary > 0) {
             P(attrs = { classes("iflow-note") }) {
                 Text(
@@ -414,17 +411,13 @@ private fun DoneStep(
                 )
             }
         }
-        Button(attrs = {
-            classes(BTN_PRIMARY)
-            attr("type", VALUE_BUTTON)
-            onClick { onOpenImports() }
-        }) { Text("Back to imports") }
+        Button(kind = ButtonKind.Primary, onClick = { onOpenImports() }) { Text("Back to imports") }
     }
 }
 
 @Composable
 private fun Nothing(text: String) {
-    P(attrs = { classes("iflow-none") }) { Text(text) }
+    EmptyState(title = text, look = EmptyLook.Inline)
 }
 
 private fun analyzingHeadline(state: ImportFlowUiState.Analyzing): String =
@@ -467,10 +460,6 @@ private fun applyTally(
 private fun doneSummary(state: ImportFlowUiState.Done): String =
     "${countLabel(state.result.importedCount, "record")} written, " +
         "${countLabel(state.result.sessionsImported, "session")} of listening history."
-
-private const val BTN_PRIMARY = "btn-c"
-
-private const val BTN_SECONDARY = "btn-o"
 
 private const val HINT = "iflow-hint"
 

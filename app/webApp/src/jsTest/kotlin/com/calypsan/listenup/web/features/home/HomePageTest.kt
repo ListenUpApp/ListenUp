@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.home
 
+import com.calypsan.listenup.web.design.paletteShortcutLabel
 import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
@@ -68,7 +69,7 @@ class HomePageTest :
         test("the greeting is the ViewModel's, not one assembled in the page") {
             val host = homePage(readyHome(userName = "Simon", timeGreeting = "Good evening"))
 
-            host.textOf(".home-greet") shouldBe "Good evening, Simon"
+            host.textOf(".page-t") shouldBe "Good evening, Simon"
         }
 
         test("a Continue Listening card shows the book's own title and time remaining") {
@@ -132,9 +133,15 @@ class HomePageTest :
             var browsed = false
             val host = homePage(readyHome(continueListening = emptyList()), onOpenLibrary = { browsed = true })
 
-            (host.querySelector(".empty .btn") as HTMLElement).click()
+            (host.querySelector(".empty .btn-primary") as HTMLElement).click()
 
             browsed shouldBe true
+        }
+
+        test("the search affordance names the shortcut as this keyboard labels it") {
+            val host = homePage(readyHome())
+
+            host.querySelector(".home-search .kbd")?.textContent shouldBe paletteShortcutLabel()
         }
 
         test("the search affordance leaves as the caller's event") {
@@ -264,7 +271,7 @@ class HomePageTest :
             val host = homePage(readyHome(scanProgress = scanning(books = 40, booksTotal = 100)))
 
             host.textOf(".home-status-t") shouldBe "Analyzing"
-            (host.querySelector(".home-status-fill") as HTMLElement).style.width shouldBe "40%"
+            (host.querySelector(".home-status-track") as HTMLElement).getAttribute("aria-valuenow") shouldBe "40"
         }
 
         test("a scan outranks the initial seed, because only the scan can say how far along it is") {

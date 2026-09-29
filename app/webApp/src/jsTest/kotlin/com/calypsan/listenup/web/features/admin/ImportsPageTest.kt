@@ -181,4 +181,19 @@ class ImportsPageTest :
 
             retries shouldBe 1
         }
+
+        test("the breadcrumb names the page under Admin and leads back to it") {
+            var back = 0
+            val host = page(readyImports(), onOpenAdmin = { back++ })
+
+            host
+                .querySelector(".crumb")
+                .shouldNotBeNull()
+                .textContent
+                ?.trim() shouldBe "Admin/Imports"
+            (host.querySelector(".crumb a") as HTMLElement).click()
+            awaitFrame()
+
+            back shouldBe 1
+        }
     })

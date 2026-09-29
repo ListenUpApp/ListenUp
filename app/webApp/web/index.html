@@ -2,20 +2,44 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>ListenUp</title>
+    <!-- The theme, before first paint. The app's ThemeEffect owns `data-theme` once it mounts, but
+         that is after the bundle, the store and the stored preferences have all loaded; until then
+         a reader who chose dark would stare at a white page. This reads the same stored mode
+         (BrowserSecureStorage's "listenup." namespace, ThemeMode's lower-case name) and resolves
+         SYSTEM the way shouldUseDarkTheme does, so ThemeEffect's first write agrees with it.
+         Inline because it must run before the sheets paint; the server sends no CSP, and COEP
+         governs subresources, not inline script. WebThemeTest runs this very script. -->
+    <script>
+      (function () {
+        try {
+          var mode = (localStorage.getItem("listenup.theme_mode") || "").toLowerCase();
+          var dark = mode === "dark" ||
+            (mode !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) document.documentElement.setAttribute("data-theme", "dark");
+          else document.documentElement.removeAttribute("data-theme");
+        } catch (e) { /* storage refused (private mode, blocked site data): ThemeEffect decides */ }
+      })();
+    </script>
     <!-- Our web sheet, adapted from the design project's. Edit it here; the comps are the
          reference, not a contract to transcribe.
          The house web voice lives in it too: Hanken Grotesk for everything, JetBrains Mono for
          machine-produced text (durations, sizes, paths, status codes). Both faces are
-         self-hosted from public/fonts and declared as @font-face at the top of the sheet —
+         self-hosted from src/fonts (hashed into assets/ by the build) and declared as @font-face at the top of the sheet —
          nothing is fetched from Google. Matches Web/Foundations.html exactly, which does not
          load the Console face either. -->
+    <!-- The body face, requested alongside the sheets rather than after them: without this the
+         browser only learns it needs the font once the CSS has downloaded and parsed, so text
+         paints in the fallback and then reflows. Vite rewrites the href to the same hashed file
+         the @font-face points at. `crossorigin` is required even same-origin — fonts are fetched
+         in CORS mode, and a preload without it is a second, wasted download. The mono face is
+         left to load on demand; it only sets durations and paths. -->
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/src/fonts/hanken-grotesk-latin-wght-normal.woff2" />
     <link rel="stylesheet" href="/src/css/00-base.css" />
     <link rel="stylesheet" href="/src/css/01-fields.css" />
     <link rel="stylesheet" href="/src/css/02-buttons.css" />
     <link rel="stylesheet" href="/src/css/03-press.css" />
-    <link rel="stylesheet" href="/src/css/04-chrome.css" />
     <link rel="stylesheet" href="/src/css/05-patterns.css" />
     <link rel="stylesheet" href="/src/css/06-shell.css" />
     <link rel="stylesheet" href="/src/css/07-auth.css" />

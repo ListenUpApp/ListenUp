@@ -1,7 +1,12 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Breadcrumb
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -10,6 +15,7 @@ import com.calypsan.listenup.api.dto.scan.ScanIssueReason
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.domain.model.InboxBookItem
 import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.BulkAction
 import com.calypsan.listenup.web.design.BulkBar
 import com.calypsan.listenup.web.design.MenuAction
@@ -17,13 +23,12 @@ import com.calypsan.listenup.web.design.ActionsMenu
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -60,14 +65,9 @@ fun AdminInboxPage(
     onOpenMatch: (String) -> Unit = {},
 ) {
     Div(attrs = { classes("inbox") }) {
-        Button(attrs = {
-            classes("btn-o", "inbox-back")
-            attr("type", VALUE_BUTTON)
-            onClick { onOpenAdmin() }
-        }) { Text("← Admin") }
+        Breadcrumb(trail = listOf("Admin", "Inbox"), onNavigate = { onOpenAdmin() })
 
-        H1(attrs = { classes("inbox-title") }) { Text("Inbox") }
-        P(attrs = { classes("inbox-sub") }) { Text("Books that need a look before they join your library.") }
+        PageHeader(title = "Inbox", subtitle = "Books that need a look before they join your library.")
 
         when (state) {
             AdminInboxUiState.Loading -> {
@@ -75,14 +75,8 @@ fun AdminInboxPage(
             }
 
             is AdminInboxUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H3 { Text("The inbox can't be shown") }
-                    P { Text(state.message) }
-                    Button(attrs = {
-                        classes("btn-c")
-                        attr("type", VALUE_BUTTON)
-                        onClick { onRetry() }
-                    }) { Text("Try again") }
+                EmptyState(title = "The inbox can't be shown", body = state.message) {
+                    Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
                 }
             }
 
@@ -141,10 +135,10 @@ private fun ReadyContent(
     // Both halves absent is the good outcome, not a failure — say so rather than trailing off
     // after the heading and looking like the page failed to finish loading.
     if (state.isEmpty) {
-        Div(attrs = { classes("empty") }) {
-            H3 { Text("Inbox empty") }
-            P { Text("Newly scanned books will appear here, and so will anything the scan could not make sense of.") }
-        }
+        EmptyState(
+            title = "Inbox empty",
+            body = "Newly scanned books will appear here, and so will anything the scan could not make sense of.",
+        )
     }
 
     if (state.hasSelection) {
@@ -190,11 +184,13 @@ private fun WaitingForReview(
     Panel(
         title = "Waiting for review",
         trailing = {
-            Button(attrs = {
-                classes("btn-o", "inbox-selall")
-                attr("type", VALUE_BUTTON)
-                onClick { if (state.allSelected) onClearSelection() else onSelectAll() }
-            }) { Text(if (state.allSelected) "Deselect all" else "Select all") }
+            Button(
+                kind = ButtonKind.Secondary, size = ButtonSize.Sm,
+                onClick = { if (state.allSelected) onClearSelection() else onSelectAll() },
+                attrs = {
+                classes("inbox-selall")
+                },
+            ) { Text(if (state.allSelected) "Deselect all" else "Select all") }
         },
     ) {
         Div(attrs = { classes("inbox-books") }) {
@@ -202,13 +198,15 @@ private fun WaitingForReview(
             // the count comes from the ids — the authoritative set — while the rows come from
             // whatever has hydrated. A row that has not arrived yet is simply not drawn.
             state.books.forEach { book ->
-                InboxBookRow(
-                    book = book,
-                    selected = book.id in state.selectedBookIds,
-                    onToggle = { onToggleBook(book.id) },
-                    onEdit = { onOpenBookEdit(book.id) },
-                    onMatch = { onOpenMatch(book.id) },
-                )
+                key(book.id) {
+                    InboxBookRow(
+                        book = book,
+                        selected = book.id in state.selectedBookIds,
+                        onToggle = { onToggleBook(book.id) },
+                        onEdit = { onOpenBookEdit(book.id) },
+                        onMatch = { onOpenMatch(book.id) },
+                    )
+                }
             }
         }
     }
@@ -264,6 +262,7 @@ private fun InboxSelectTarget(
             imageUrl = coverUrl(book.id, book.coverHash, width = COVER_RUNG),
             size = COVER_SIZE,
             radius = COVER_RADIUS,
+            decorative = true,
         )
         Div(attrs = { classes("inbox-book-t") }) {
             Span(attrs = { classes("inbox-book-title") }) { Text(book.title) }
@@ -293,7 +292,11 @@ private fun NeedsAttention(
             Text("ListenUp walked these folders but couldn't make a book from them.")
         }
         Div(attrs = { classes("inbox-issues") }) {
-            issues.forEach { issue -> IssueRow(issue, onDismissIssue) }
+            issues.forEach { issue ->
+                key(issue.id) {
+                    IssueRow(issue, onDismissIssue)
+                }
+            }
         }
     }
 }
@@ -316,11 +319,13 @@ private fun IssueRow(
                 Span(attrs = { classes("inbox-issue-detail") }) { Text(detail) }
             }
         }
-        Button(attrs = {
-            classes("btn-o", "inbox-issue-x")
-            attr("type", VALUE_BUTTON)
-            onClick { onDismissIssue(issue.id) }
-        }) { Text("Dismiss") }
+        Button(
+            kind = ButtonKind.Secondary, size = ButtonSize.Sm,
+            onClick = { onDismissIssue(issue.id) },
+            attrs = {
+            classes("inbox-issue-x")
+            },
+        ) { Text("Dismiss") }
     }
 }
 

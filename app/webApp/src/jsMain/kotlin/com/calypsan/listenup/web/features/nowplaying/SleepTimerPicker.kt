@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
@@ -120,11 +122,7 @@ private fun RunningTimer(
         }
     }
 
-    Button(attrs = {
-        classes("btn")
-        attr("type", VALUE_BUTTON)
-        onClick { onCancel() }
-    }) {
+    Button(kind = ButtonKind.Primary, onClick = { onCancel() }) {
         Text("Cancel timer")
     }
 }

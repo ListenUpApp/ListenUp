@@ -9,15 +9,18 @@ import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.presentation.library.SortState
 import com.calypsan.listenup.client.util.nameLetter
+import com.calypsan.listenup.web.design.LoadingState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.LibraryFacet
+import com.calypsan.listenup.web.design.PageHeader
+import com.calypsan.listenup.web.design.SortControl
+import com.calypsan.listenup.web.design.VirtualList
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.avatarTintFor
 import com.calypsan.listenup.web.design.initialsFor
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H3
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -50,16 +53,15 @@ fun ContributorsPage(
     sortState: SortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
     onEvent: (LibraryUiEvent) -> Unit = {},
 ) {
-    Div(attrs = { classes("contrib-header") }) {
-        Div(attrs = { classes("contrib-title-row") }) {
-            H3 { Text("Contributors") }
+    Div(attrs = { classes("lib-header") }) {
+        PageHeader(title = "Contributors") {
             // Withheld rather than shown as "0" while state is null — a count is a fact about the
             // answer, and there isn't one yet.
             state?.let { list -> Span(attrs = { classes("contrib-count") }) { Text(list.size.toString()) } }
+            // Sorting stays with an answered list, the same rule the Library's own header follows:
+            // offering to reorder nothing is an affordance whose only outcome is nothing.
+            if (state != null) ContributorSortControl(sortState, role, onEvent)
         }
-        // Sorting stays with an answered list, the same rule the Library's own header follows:
-        // offering to reorder nothing is an affordance whose only outcome is nothing.
-        if (state != null) ContributorSortControl(sortState, role, onEvent)
     }
     // Books is never the active chip here — this page only ever renders for the Authors or
     // Narrators facet — but selecting it must still be able to navigate back to the library, so
@@ -70,7 +72,7 @@ fun ContributorsPage(
     )
 
     if (state == null) {
-        Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+        LoadingState()
         return
     }
 
@@ -79,35 +81,30 @@ fun ContributorsPage(
         return
     }
 
-    Div(attrs = { classes("contrib-list") }) {
-        // ⛔ The letter rail belongs to a NAME sort and nothing else. Under "Most books" the list
-        // runs 47, 31, 12 — letter squares over that would label runs of people with letters that
-        // mean nothing, which is the same call the Books tab makes for its Added and Duration sorts.
-        if (sortState.category == SortCategory.NAME) {
-            // Re-grouped on every recomposition otherwise; keyed on the list itself, the same
-            // precedent `VirtualBookGrid` sets for its own `layOut(...)` call.
-            val groups = remember(state) { groupByLetter(state) }
-            groups.forEach { group ->
-                Div(attrs = { classes("contrib-section") }) {
-                    LetterHeading(group.letter)
-                    group.contributors.forEach { entry ->
-                        ContributorRow(
-                            entry = entry,
-                            role = role,
-                            onOpen = { onOpenContributor(entry.contributor.idString) },
-                        )
-                    }
-                }
-            }
-        } else {
-            state.forEach { entry ->
-                ContributorRow(
-                    entry = entry,
-                    role = role,
-                    onOpen = { onOpenContributor(entry.contributor.idString) },
-                )
-            }
-        }
+    // ⛔ The letter rail belongs to a NAME sort and nothing else. Under "Most books" the list runs
+    // 47, 31, 12 — letter squares over that would label runs of people with letters that mean
+    // nothing, which is the same call the Books tab makes for its Added and Duration sorts.
+    val byName = sortState.category == SortCategory.NAME
+    // Under a name sort the people are laid out in [groupByLetter]'s sections, so the rail and the
+    // grouping can never disagree about who files where.
+    val people = remember(state, byName) { if (byName) groupByLetter(state).flatMap { it.contributors } else state }
+    // Windowed: a real library has thousands of narrators. Rows are one line each (the name is
+    // clamped), so every row and every letter heading is one height and the list can be counted.
+    VirtualList(
+        items = people,
+        key = { it.contributor.idString },
+        containerClass = "contrib-list",
+        itemSelector = ".contrib-row",
+        label = if (role == ContributorRole.NARRATOR) "Narrators" else "Authors",
+        sectionOf = { if (byName) it.contributor.name.nameLetter() else null },
+        headerSelector = ".contrib-letter-row",
+        header = { letter -> LetterHeading(letter) },
+    ) { entry ->
+        ContributorRow(
+            entry = entry,
+            role = role,
+            onOpen = { onOpenContributor(entry.contributor.idString) },
+        )
     }
 }
 
@@ -126,31 +123,26 @@ private fun ContributorSortControl(
     onEvent: (LibraryUiEvent) -> Unit,
 ) {
     val isNarrator = role == ContributorRole.NARRATOR
-    Div(attrs = { classes("lib-sort") }) {
-        CONTRIBUTOR_SORT_CATEGORIES.forEach { category ->
-            Div(attrs = {
-                classes("lib-sort-option")
-                if (sortState.category == category) classes("is-active")
-                onClick {
-                    onEvent(
-                        if (isNarrator) {
-                            LibraryUiEvent.NarratorsCategoryChanged(category)
-                        } else {
-                            LibraryUiEvent.AuthorsCategoryChanged(category)
-                        },
-                    )
-                }
-            }) { Text(category.label) }
-        }
-        Div(attrs = {
-            classes("lib-sort-direction")
-            onClick {
-                onEvent(
-                    if (isNarrator) LibraryUiEvent.NarratorsDirectionToggled else LibraryUiEvent.AuthorsDirectionToggled,
-                )
-            }
-        }) { Text(if (sortState.direction == SortDirection.ASCENDING) "↑" else "↓") }
-    }
+    SortControl(
+        options = CONTRIBUTOR_SORT_CATEGORIES,
+        active = sortState.category,
+        labelOf = { it.label },
+        ascending = sortState.direction == SortDirection.ASCENDING,
+        onSelect = { category ->
+            onEvent(
+                if (isNarrator) {
+                    LibraryUiEvent.NarratorsCategoryChanged(category)
+                } else {
+                    LibraryUiEvent.AuthorsCategoryChanged(category)
+                },
+            )
+        },
+        onToggleDirection = {
+            onEvent(
+                if (isNarrator) LibraryUiEvent.NarratorsDirectionToggled else LibraryUiEvent.AuthorsDirectionToggled,
+            )
+        },
+    )
 }
 
 /**
@@ -218,9 +210,7 @@ private fun ContributorRow(
  */
 @Composable
 private fun EmptyContributors(role: ContributorRole) {
-    Div(attrs = { classes("empty") }) {
-        H3 { Text(if (role == ContributorRole.NARRATOR) "No narrators yet." else "No authors yet.") }
-    }
+    EmptyState(title = if (role == ContributorRole.NARRATOR) "No narrators yet." else "No authors yet.")
 }
 
 private fun roleLabel(role: ContributorRole): String = if (role == ContributorRole.NARRATOR) "Narrator" else "Author"

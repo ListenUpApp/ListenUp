@@ -1,8 +1,12 @@
 package com.calypsan.listenup.web.features.contributoredit
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -11,11 +15,14 @@ import com.calypsan.listenup.client.presentation.contributoredit.ContributorCand
 import com.calypsan.listenup.client.presentation.contributoredit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiEvent
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.ModalDialog
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.TextAreaField
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
@@ -27,7 +34,6 @@ import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.P
@@ -60,12 +66,15 @@ fun ContributorEditPage(
     onMergeQuery: (String) -> Unit,
 ) {
     Div(attrs = { classes("ced") }) {
+        PageHeader(
+            title = state.name.ifBlank { "Contributor" },
+            documentTitle = "Edit " + state.name.ifBlank { "contributor" },
+            pending = state.isLoading,
+        )
         if (state.isLoading) {
             Div(attrs = { classes("skel", "ced-skel") })
             return@Div
         }
-
-        H1(attrs = { classes("ced-title") }) { Text(state.name.ifBlank { "Contributor" }) }
 
         state.error?.let { message ->
             Div(attrs = { classes("ced-err") }) {
@@ -172,12 +181,11 @@ private fun PortraitField(
         }
 
         Div(attrs = { classes("ced-portrait-acts") }) {
-            Button(attrs = {
-                classes(BTN_SECONDARY)
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                disabledWhen(state.isSaving || state.isUploadingImage)
-                onClick { input?.click() }
-            }) { Text(if (state.isUploadingImage) "Uploading…" else "Choose a photo") }
+            Button(
+                kind = ButtonKind.Secondary,
+                onClick = { input?.click() },
+                enabled = !(state.isSaving || state.isUploadingImage),
+            ) { Text(if (state.isUploadingImage) "Uploading…" else "Choose a photo") }
             Span(attrs = { classes("ced-portrait-hint") }) { Text("JPG, PNG or WebP") }
         }
 
@@ -272,30 +280,38 @@ private fun AliasList(
         Text("Other spellings folded into this contributor. Splitting one out makes it a contributor again.")
     }
     if (state.aliases.isEmpty()) {
-        P(attrs = { classes(NONE) }) { Text("No other names.") }
+        EmptyState(title = "No other names.", look = EmptyLook.Inline)
     } else {
         Div(attrs = { classes("ced-aliases") }) {
             state.aliases.forEach { alias ->
-                Div(attrs = { classes("ced-alias") }) {
-                    Span(attrs = { classes("ced-alias-n") }) { Text(alias) }
-                    Button(attrs = {
-                        classes(BTN_SECONDARY, "ced-split")
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        attr("aria-label", "Split $alias back out")
-                        disabledWhen(state.mergeInProgress)
-                        onClick { splitting = alias }
-                    }) { Text("Split out") }
+                key(alias) {
+                    Div(attrs = { classes("ced-alias") }) {
+                        Span(attrs = { classes("ced-alias-n") }) { Text(alias) }
+                        Button(
+                            kind = ButtonKind.Secondary,
+                            size = ButtonSize.Sm,
+                            onClick = { splitting = alias },
+                            label = "Split $alias back out",
+                            attrs = {
+                                classes("ced-split")
+                                disabledWhen(state.mergeInProgress)
+                            },
+                        ) { Text("Split out") }
+                    }
                 }
             }
         }
     }
     Div(attrs = { classes("ced-alias-act") }) {
-        Button(attrs = {
-            classes(BTN_SECONDARY, "ced-merge")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            disabledWhen(state.mergeInProgress)
-            onClick { onEvent(ContributorEditUiEvent.MergeDialogOpened) }
-        }) { Text(if (state.mergeInProgress) "Merging…" else "Fold another contributor in") }
+        Button(
+            kind = ButtonKind.Secondary,
+            size = ButtonSize.Sm,
+            onClick = { onEvent(ContributorEditUiEvent.MergeDialogOpened) },
+            attrs = {
+                classes("ced-merge")
+                disabledWhen(state.mergeInProgress)
+            },
+        ) { Text(if (state.mergeInProgress) "Merging…" else "Fold another contributor in") }
     }
 
     val pending = splitting
@@ -346,36 +362,34 @@ private fun MergeDialog(
         Div(attrs = { classes("ced-results") }) {
             when {
                 query.isBlank() -> {
-                    P(attrs = { classes(NONE) }) { Text("Type a name.") }
+                    EmptyState(title = "Type a name.", look = EmptyLook.Inline)
                 }
 
                 candidates.isEmpty() -> {
-                    P(attrs = { classes(NONE) }) { Text("Nobody matched \"$query\".") }
+                    EmptyState(title = "Nobody matched \"$query\".", look = EmptyLook.Inline)
                 }
 
                 else -> {
                     candidates.forEach { candidate ->
-                        Button(attrs = {
-                            classes("ced-result")
-                            attr(ATTR_TYPE, VALUE_BUTTON)
-                            onClick { onPick(candidate) }
-                        }) {
-                            // ⛔ Name only. `ContributorCandidate.bookCount` is a placeholder the
-                            // ViewModel always fills with 0 — showing it would tell every reader
-                            // that every contributor has no books. Compose omits it for the same
-                            // reason; when a real count exists, both surfaces gain it together.
-                            Span(attrs = { classes("ced-result-n") }) { Text(candidate.displayName) }
+                        key(candidate.id.value) {
+                            Button(attrs = {
+                                classes("ced-result")
+                                attr(ATTR_TYPE, VALUE_BUTTON)
+                                onClick { onPick(candidate) }
+                            }) {
+                                // ⛔ Name only. `ContributorCandidate.bookCount` is a placeholder the
+                                // ViewModel always fills with 0 — showing it would tell every reader
+                                // that every contributor has no books. Compose omits it for the same
+                                // reason; when a real count exists, both surfaces gain it together.
+                                Span(attrs = { classes("ced-result-n") }) { Text(candidate.displayName) }
+                            }
                         }
                     }
                 }
             }
         }
         Div(attrs = { classes("dlg-actions") }) {
-            Button(attrs = {
-                classes("btn")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onDismiss() }
-            }) { Text("Cancel") }
+            Button(kind = ButtonKind.Secondary, onClick = { onDismiss() }) { Text("Cancel") }
         }
     }
 }
@@ -402,16 +416,8 @@ private fun RenameCollisionDialog(
             )
         }
         Div(attrs = { classes("dlg-actions") }) {
-            Button(attrs = {
-                classes(BTN_SECONDARY)
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onKeepSeparate() }
-            }) { Text("Keep separate") }
-            Button(attrs = {
-                classes("btn")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onMerge() }
-            }) { Text("Fold into ${candidate.displayName}") }
+            Button(kind = ButtonKind.Secondary, onClick = { onKeepSeparate() }) { Text("Keep separate") }
+            Button(kind = ButtonKind.Primary, onClick = { onMerge() }) { Text("Fold into ${candidate.displayName}") }
         }
     }
 }
@@ -430,18 +436,17 @@ private fun EditActions(
     Div(attrs = { classes("edit-actions") }) {
         // ⛔ type=button: a <button> with no type inside a form defaults to SUBMIT, so this would
         // save the very edits Cancel exists to discard.
-        Button(attrs = {
-            classes(BTN_SECONDARY)
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            disabledWhen(state.isSaving)
-            onClick { onEvent(ContributorEditUiEvent.Cancel) }
-        }) { Text("Cancel") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { onEvent(ContributorEditUiEvent.Cancel) },
+            enabled = !state.isSaving,
+        ) { Text("Cancel") }
         // No onClick: submitting the form is what saves, for click and Enter alike.
-        Button(attrs = {
-            classes("btn-c")
-            attr(ATTR_TYPE, "submit")
-            disabledWhen(state.isSaving || !state.hasChanges)
-        }) { Text(if (state.isSaving) "Saving…" else "Save changes") }
+        Button(
+            kind = ButtonKind.Primary,
+            submit = true,
+            enabled = !(state.isSaving || !state.hasChanges),
+        ) { Text(if (state.isSaving) "Saving…" else "Save changes") }
     }
 }
 
@@ -461,11 +466,7 @@ internal fun contributorPhotoUrl(contributorId: String): String = "/api/v1/contr
 
 private const val ATTR_TYPE = "type"
 
-private const val BTN_SECONDARY = "btn-o"
-
 private const val PHOTO = "ced-photo"
-
-private const val NONE = "ced-none"
 
 private const val VALUE_BUTTON = "button"
 

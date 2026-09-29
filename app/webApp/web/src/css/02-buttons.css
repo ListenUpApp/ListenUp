@@ -1,26 +1,43 @@
 /* ============================================================
-   BUTTONS
+   BUTTONS — what `Button` and `ButtonLink` draw, and nothing else.
+   One base, five kinds, three sizes. They replaced six overlapping classes (`.btn` at 52px and full
+   width, `.btn-c`, `.btn-o`, `.btn-ghost`, `.btn-sq`, `.iconbtn`) that each chose their own height,
+   radius and weight. The press, and the 44px touch target, live in 03-press.css with every other
+   control's; the focus ring is the page's own (05-patterns.css).
    ============================================================ */
 .btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
-  width: 100%; height: 52px; border: none; cursor: pointer;
-  font-family: inherit; font-size: 16px; font-weight: 700; letter-spacing: -0.01em;
-  border-radius: 13px; background: var(--coral); color: var(--on-coral); white-space: nowrap;
-  box-shadow: 0 6px 18px rgba(240,81,47,0.28);
-  transition: background .15s, transform .08s, box-shadow .15s;
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-8);
+  flex-shrink: 0; margin: 0; border: 1.5px solid transparent; border-radius: var(--r-md);
+  cursor: pointer; font-family: inherit; font-weight: 700; letter-spacing: -0.01em;
+  line-height: 1; text-decoration: none; white-space: nowrap;
+  transition: background var(--dur), border-color var(--dur), box-shadow var(--dur), color var(--dur);
 }
-@media (hover: hover) { .btn:hover { background: var(--coral-press); box-shadow: 0 8px 22px rgba(240,81,47,0.36); } }
-.btn:active { transform: translateY(1px); box-shadow: 0 4px 12px rgba(240,81,47,0.3); }
-.dir-b .btn { border-radius: 9px; font-weight: 600; }
+.btn:disabled { opacity: .5; cursor: default; }
 
-.btn-ghost {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  height: 44px; padding: 0 16px; border-radius: 12px; cursor: pointer;
-  font-family: inherit; font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em;
-  background: var(--surface-2); color: var(--ink); border: 1.5px solid var(--line); white-space: nowrap;
-  transition: background .15s, border-color .15s;
+/* sizes */
+.btn-sm { height: 32px; padding: 0 var(--sp-12); border-radius: var(--r-sm); font-size: var(--fs-small); }
+.btn-md { height: 40px; padding: 0 var(--sp-16); font-size: var(--fs-ui); }
+.btn-lg { height: 52px; padding: 0 var(--sp-24); font-size: var(--fs-body); }
+.btn-fill { width: 100%; }
+
+/* kinds */
+.btn-primary { background: var(--coral-fill); color: var(--on-coral); }
+.btn-primary.btn-lg { box-shadow: var(--shadow-glow); }
+.btn-secondary { background: var(--surface); color: var(--ink); border-color: var(--line); font-weight: 600; }
+.btn-ghost { background: transparent; color: var(--ink-2); font-weight: 600; }
+.btn-danger { background: var(--danger-fill); color: var(--on-danger); }
+/* Icon-only: square. Small ones sit inside rows and cards, where an outline on every one would be
+   noise, so they are quiet until hovered; page-level ones match the outlined buttons beside them. */
+.btn-icon { padding: 0; background: var(--surface); color: var(--ink); border-color: var(--line); }
+.btn-icon.btn-sm { width: 30px; height: 30px; background: transparent; border-color: transparent; color: var(--ink-3); }
+.btn-icon.btn-md { width: 40px; }
+.btn-icon.btn-lg { width: 52px; }
+
+@media (hover: hover) {
+  .btn-primary:not(:disabled):hover { background: var(--coral-fill-press); }
+  .btn-primary.btn-lg:not(:disabled):hover { box-shadow: var(--shadow-glow-hover); }
+  .btn-secondary:not(:disabled):hover, .btn-icon:not(:disabled):hover { background: var(--surface-3); }
+  .btn-icon.btn-sm:not(:disabled):hover { color: var(--ink); }
+  .btn-ghost:not(:disabled):hover { background: var(--surface-2); color: var(--ink); }
+  .btn-danger:not(:disabled):hover { background: var(--danger-fill-press); }
 }
-@media (hover: hover) { .btn-ghost:hover { background: var(--surface-3); border-color: var(--hairline); } }
-.dir-b .btn-ghost { border-radius: 9px; background: transparent; }
-@media (hover: hover) { .dir-b .btn-ghost:hover { background: var(--surface-2); } }
-

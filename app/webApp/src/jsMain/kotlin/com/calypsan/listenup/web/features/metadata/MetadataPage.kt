@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.metadata
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.metadata.MetadataLocale
@@ -7,9 +9,9 @@ import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
 import com.calypsan.listenup.client.presentation.metadata.MetadataField
 import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
 import com.calypsan.listenup.client.presentation.metadata.PreviewLoadState
+import com.calypsan.listenup.web.design.PageHeader
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Text
 
@@ -48,14 +50,12 @@ fun MetadataPage(
     onReviewChapters: (Boolean) -> Unit = {},
 ) {
     Div(attrs = { classes("mdx") }) {
-        Div(attrs = { classes("mdx-head") }) {
-            H1(attrs = { classes("mdx-t") }) { Text("Match metadata") }
-            Button(attrs = {
-                classes("btn-o")
-                attr("type", "button")
-                onClick { onLeave() }
-            }) { Text("Back") }
-        }
+        PageHeader(
+            title = "Match metadata",
+            actions = {
+                Button(kind = ButtonKind.Secondary, onClick = { onLeave() }) { Text("Back") }
+            },
+        )
 
         when (state) {
             is MetadataUiState.Idle -> {
@@ -126,11 +126,7 @@ private fun PreviewPhase(
                 classes("mdx-err")
                 attr("role", "alert")
             }) { Text(load.message) }
-            Button(attrs = {
-                classes("btn-o")
-                attr("type", "button")
-                onClick { onClearSelection() }
-            }) { Text("Back to results") }
+            Button(kind = ButtonKind.Secondary, onClick = { onClearSelection() }) { Text("Back to results") }
         }
 
         is PreviewLoadState.Ready -> {

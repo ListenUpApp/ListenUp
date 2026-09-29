@@ -183,7 +183,7 @@ class BoostPickerTest :
             var dismissed = 0
             val host = picker(onDismiss = { dismissed++ })
 
-            (host.querySelector(".btn-ghost") as HTMLButtonElement).click()
+            (host.querySelector(".btn-secondary") as HTMLButtonElement).click()
             awaitFrame()
 
             dismissed shouldBe 1
@@ -213,10 +213,11 @@ class BoostBarTest :
             on.classList.contains("on") shouldBe true
         }
 
-        test("the boost control survives a narrow screen") {
-            // ⛔ `.tport-skip` is `display:none` under 760px. A phone speaker is exactly where a
-            // quiet book most needs turning up, so wearing that class would drop this control on
-            // the device that needs it most — the same trap the sleep timer fell into.
+        test("the boost control is not dressed as a skip") {
+            // ⛔ The skips have their own phone behaviour, and a control wearing `.tport-skip` gets
+            // it whether it meant to or not — the trap the sleep timer and the chapters button both
+            // fell into. On a phone the boost is reached through the full player instead
+            // (TransportBarPhoneTest), which is a decision, not an accident of a borrowed class.
             val host = mount { boostBar(volumeBoostDb = BOOSTED) }
 
             val boost = host.querySelector(".tport-boost") as HTMLElement

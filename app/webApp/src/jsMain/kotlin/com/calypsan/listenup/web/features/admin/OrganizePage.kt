@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ProgressBar
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.dto.organize.OrganizeAuthorForm
 import com.calypsan.listenup.api.dto.organize.OrganizePreset
@@ -8,13 +11,16 @@ import com.calypsan.listenup.api.dto.organize.OrganizePreviewEntryDto
 import com.calypsan.listenup.api.dto.organize.OrganizeSeriesPrefix
 import com.calypsan.listenup.client.presentation.admin.OrganizeRunProgress
 import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsUiState
+import com.calypsan.listenup.web.design.EmptyState
+import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.DialogActions
 import com.calypsan.listenup.web.design.ModalDialog
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -35,13 +41,21 @@ fun OrganizePage(
 ) {
     Div(attrs = { classes("org") }) {
         Breadcrumb(trail = listOf("Admin", "File organization"), onNavigate = { onOpenAdmin() })
-        H1(attrs = { classes("org-t") }) { Text("File organization") }
+        PageHeader(title = "File organization")
         P(attrs = { classes("org-lede") }) { Text("Keep library folders tidy and consistent.") }
 
         when (state) {
-            OrganizeSettingsUiState.Loading -> Div(attrs = { classes("skel", "org-skel") })
-            is OrganizeSettingsUiState.Error -> P(attrs = { classes("org-none") }) { Text(state.error.message) }
-            is OrganizeSettingsUiState.Ready -> ReadyOrganize(state, actions)
+            OrganizeSettingsUiState.Loading -> {
+                Div(attrs = { classes("skel", "org-skel") })
+            }
+
+            is OrganizeSettingsUiState.Error -> {
+                EmptyState(title = "File organization can't be shown", body = state.error.message)
+            }
+
+            is OrganizeSettingsUiState.Ready -> {
+                ReadyOrganize(state, actions)
+            }
         }
     }
 }
@@ -90,21 +104,28 @@ private fun ReadyOrganize(
         }
     }
 
-    state.error?.let { failure -> P(attrs = { classes("org-err") }) { Text(failure.message) } }
+    state.error?.let { failure ->
+        P(attrs = {
+            classes("org-err")
+            attr("role", "alert")
+        }) { Text(failure.message) }
+    }
 
     Div(attrs = { classes("org-actions") }) {
-        Button(attrs = {
-            classes("btn-c")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            if (state.isWorking) attr(ATTR_DISABLED, "")
-            onClick { actions.onSaveRules() }
-        }) { Text("Save settings") }
-        Button(attrs = {
-            classes("btn-o")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            if (state.isWorking) attr(ATTR_DISABLED, "")
-            onClick { actions.onOrganize() }
-        }) { Text("Organize library") }
+        Button(
+            kind = ButtonKind.Primary,
+            onClick = { actions.onSaveRules() },
+            attrs = {
+                if (state.isWorking) attr(ATTR_DISABLED, "")
+            },
+        ) { Text("Save settings") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { actions.onOrganize() },
+            attrs = {
+                if (state.isWorking) attr(ATTR_DISABLED, "")
+            },
+        ) { Text("Organize library") }
     }
     // ⛔ Said in words, not implied by button order: Save changes where *future* books land and
     // moves nothing that is already here. An admin who assumes otherwise either never presses it
@@ -164,7 +185,7 @@ private fun PreviewRow(entry: OrganizePreviewEntryDto) {
     val (before, after) = rowText(entry)
     Div(attrs = { classes("org-row") }) {
         Span(attrs = { classes("org-from") }) { Text(before) }
-        Span(attrs = { classes("org-arrow") }) { Text("→") }
+        Span(attrs = { classes("org-arrow") }) { Icon(WebIcon.ArrowRight, size = ORGANIZE_ARROW_SIZE) }
         Span(attrs = { classes("org-to") }) { Text(after) }
         if (entry.collisionResolved) {
             Span(attrs = { classes("org-clash") }) { Text("name taken") }
@@ -185,27 +206,14 @@ private fun RunDialog(
             P(attrs = { classes("dlg-p") }) { Text(reportSummary(run)) }
             Div(attrs = { classes("dlg-actions") }) {
                 if (run.hasFailures) {
-                    Button(attrs = {
-                        classes("btn-o")
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        onClick { onResume() }
-                    }) { Text("Resume") }
+                    Button(kind = ButtonKind.Secondary, onClick = { onResume() }) { Text("Resume") }
                 }
-                Button(attrs = {
-                    classes("btn-c")
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    onClick { onDismiss() }
-                }) { Text("Done") }
+                Button(kind = ButtonKind.Primary, onClick = { onDismiss() }) { Text("Done") }
             }
             return@ModalDialog
         }
         P(attrs = { classes("dlg-p") }) { Text("${run.completed} of ${run.total} books") }
-        Div(attrs = { classes("org-bar") }) {
-            Div(attrs = {
-                classes("org-bar-fill")
-                style { property("width", "${runFraction(run)}%") }
-            })
-        }
+        ProgressBar(value = runFraction(run) / PERCENT.toFloat(), label = "Organizing", attrs = { classes("org-bar") })
     }
 }
 
@@ -281,3 +289,6 @@ private const val VALUE_BUTTON = "button"
 private const val ATTR_DISABLED = "disabled"
 
 private const val PERCENT = 100
+
+/** The arrow between a book's current path and its destination, at the row's text size. */
+private const val ORGANIZE_ARROW_SIZE = 14

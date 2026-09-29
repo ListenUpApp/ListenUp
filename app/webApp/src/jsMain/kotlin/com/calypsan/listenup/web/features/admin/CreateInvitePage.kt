@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -12,11 +14,11 @@ import com.calypsan.listenup.client.presentation.admin.CreateInviteStatus
 import com.calypsan.listenup.client.presentation.admin.CreateInviteUiState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Field
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -47,10 +49,10 @@ fun CreateInvitePage(
             return@Div
         }
 
-        H1(attrs = { classes("inv-t") }) { Text("Invite someone") }
-        P(attrs = { classes("inv-lede") }) {
-            Text("Create an invite to share with someone who wants to join your audiobook library.")
-        }
+        PageHeader(
+            title = "Invite someone",
+            subtitle = "Create an invite to share with someone who wants to join your audiobook library.",
+        )
         InviteForm(status, onCreate, onClearError)
     }
 }
@@ -80,7 +82,7 @@ private fun InviteForm(
             // sabotage could not make it observable — so the spec pins the type instead.
             type = InputType.Email,
             autocomplete = "email",
-            error = emailProblem != null,
+            errorText = emailProblem,
             onInput = { typed ->
                 email = typed
                 // The typed error is about the value that was submitted; the moment it changes,
@@ -88,7 +90,6 @@ private fun InviteForm(
                 if (error != null) onClearError()
             },
         )
-        emailProblem?.let { message -> P(attrs = { classes("inv-err") }) { Text(message) } }
     }
 
     Panel(title = "Access level") {
@@ -112,16 +113,23 @@ private fun InviteForm(
         }
     }
 
-    otherError(error)?.let { message -> P(attrs = { classes("inv-err") }) { Text(message) } }
+    otherError(error)?.let { message ->
+        P(attrs = {
+            classes("inv-err")
+            attr("role", "alert")
+        }) { Text(message) }
+    }
 
-    Button(attrs = {
-        classes("btn-c", "inv-go")
-        attr(ATTR_TYPE, VALUE_BUTTON)
-        // ⛔ A blank email cannot make an invite, and the server would answer with a validation
-        // error the reader has to read to learn what the form already knew.
-        if (submitting || email.isBlank()) attr("disabled", "")
-        onClick { onCreate(email, role, days) }
-    }) { Text(if (submitting) "Creating…" else "Create invite") }
+    Button(
+        kind = ButtonKind.Primary,
+        onClick = { onCreate(email, role, days) },
+        attrs = {
+            classes("inv-go")
+            // ⛔ A blank email cannot make an invite, and the server would answer with a validation
+            // error the reader has to read to learn what the form already knew.
+            if (submitting || email.isBlank()) attr("disabled", "")
+        },
+    ) { Text(if (submitting) "Creating…" else "Create invite") }
 }
 
 @Composable
@@ -160,28 +168,25 @@ private fun InviteMade(
     onOpenAdmin: () -> Unit,
 ) {
     Div(attrs = { classes("inv-done") }) {
-        Span(attrs = { classes("inv-done-e") }) { Text("Invite created") }
-        H1(attrs = { classes("inv-t") }) { Text(invite.email) }
-        P(attrs = { classes("inv-lede") }) { Text("Send them this link. It expires on its own if nobody uses it.") }
+        PageHeader(
+            title = invite.email,
+            eyebrow = "Invite created",
+            subtitle = "Send them this link. It expires on its own if nobody uses it.",
+            documentTitle = "Invite someone",
+        )
         Div(attrs = { classes("inv-link") }) {
             Span(attrs = { classes("inv-url") }) { Text(invite.url) }
-            Button(attrs = {
-                classes("btn-o", "inv-copy")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onCopy(invite.url) }
-            }) { Text("Copy") }
+            Button(
+                kind = ButtonKind.Secondary,
+                onClick = { onCopy(invite.url) },
+                attrs = {
+                    classes("inv-copy")
+                },
+            ) { Text("Copy") }
         }
         Div(attrs = { classes("inv-actions") }) {
-            Button(attrs = {
-                classes("btn-c")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onOpenAdmin() }
-            }) { Text("Done") }
-            Button(attrs = {
-                classes("btn-o")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onCreateAnother() }
-            }) { Text("Create another") }
+            Button(kind = ButtonKind.Primary, onClick = { onOpenAdmin() }) { Text("Done") }
+            Button(kind = ButtonKind.Secondary, onClick = { onCreateAnother() }) { Text("Create another") }
         }
     }
 }

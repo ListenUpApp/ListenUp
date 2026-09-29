@@ -11,8 +11,9 @@ import org.w3c.dom.Element
  * typo becomes an invisible icon, not an error. An enum moves that to compile time, which is the
  * whole reason the body is Kotlin.
  *
- * Deliberately partial: these are the icons Book Detail actually asks for. The set grows as
- * screens demand entries, rather than porting all forty up front.
+ * Every icon the web client draws comes from here — including the ones a page used to type as a
+ * glyph (`×`, `→`), which took the font's shape and weight rather than the set's stroke. The set
+ * grows as screens ask for entries, rather than porting the design kit's whole table up front.
  *
  * Path data is copied verbatim from the design project's icon tables (`webPatterns.jsx`'s
  * `X_PATHS`, `webShell.jsx`'s `SHELL_PATHS`) — the design project owns the geometry, this is a
@@ -78,6 +79,15 @@ enum class WebIcon(
     Mail("M3 6h18v12H3z M3 6.5l9 6.5 9-6.5"),
     Merge("M6 4v6a4 4 0 0 0 4 4h8 M14 10l4 4-4 4"),
     Minus("M5 12h14"),
+
+    // Not mirrored — the design project's shell has no overflow entry, because the sidebar never
+    // runs out of room. Three filled dots: the phone tab bar's "More".
+    More(
+        "M5 12m-1.7 0a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0-3.4 0 " +
+            "M12 12m-1.7 0a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0-3.4 0 " +
+            "M19 12m-1.7 0a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0-3.4 0",
+        solid = true,
+    ),
     PanelLeft("M4 5h16v14H4z M9.5 5v14"),
     Pause("M8 5h3.2v14H8z M12.8 5H16v14h-3.2z", solid = true),
     Pencil("M4 20h4L20 8l-4-4L4 16z M14.5 5.5l4 4"),
@@ -94,9 +104,9 @@ enum class WebIcon(
         "M11 4l1.8 4.2L17 10l-4.2 1.8L11 16l-1.8-4.2L5 10l4.2-1.8z M17.5 15l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z",
     ),
 
-    // The two below are the set's only entries NOT mirrored from the design project's icon
-    // tables — it carries no skip glyphs, so these are the standard counter-clockwise/clockwise
-    // rotation arrows the whole category uses. Reconcile them if the design project grows a pair.
+    // Not mirrored — the design project carries no skip glyphs, so these are the standard
+    // counter-clockwise/clockwise rotation arrows the whole category uses. Reconcile them if the
+    // design project grows a pair.
     SkipBack("M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8 M3 3v5h5"),
     SkipForward("M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8 M21 3v5h-5"),
     Shield("M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z M9 12l2 2 4-4"),
@@ -115,11 +125,12 @@ enum class WebIcon(
             "M18.5 8v6 M15.5 11h6",
     ),
 
-    // Not mirrored from the design project either — it carries no speaker glyph. The cone plus
-    // two arcs is the standard shape for the category; reconcile if the design project grows one.
     // Not mirrored either — the design project has no star. The standard five-point outline, for
     // a reader line that is a rating and nothing else; reconcile if the design project grows one.
     Star("M12 3.5l2.6 5.3 5.9.85-4.25 4.15 1 5.85L12 16.9l-5.25 2.75 1-5.85L3.5 9.65l5.9-.85z"),
+
+    // Not mirrored from the design project either — it carries no speaker glyph. The cone plus
+    // two arcs is the standard shape for the category; reconcile if the design project grows one.
     Volume("M4 9.5h3.5L12 5.5v13l-4.5-4H4z M16 9.5a4 4 0 0 1 0 5 M18.5 7a7.5 7.5 0 0 1 0 10"),
     X("M6 6l12 12 M18 6L6 18"),
     ;

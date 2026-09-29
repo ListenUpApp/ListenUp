@@ -1,15 +1,18 @@
 package com.calypsan.listenup.web.features.notifications
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.NotificationPreferenceDto
 import com.calypsan.listenup.api.notifications.NotificationPreference
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Breadcrumb
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.SwitchField
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -38,7 +41,7 @@ fun NotificationPrefsPage(
         // Renders in every state, including the ones with nothing to toggle: a page that cannot
         // show what you asked for must still show the way out of it.
         Breadcrumb(trail = listOf("Settings", "Notifications"), onNavigate = { onOpenSettings() })
-        H1(attrs = { classes("nprefs-title") }) { Text("Notifications") }
+        PageHeader(title = "Notifications", documentTitle = "Notification settings")
 
         when (state) {
             is NotificationPrefsUiState.Data -> {
@@ -46,16 +49,10 @@ fun NotificationPrefsPage(
             }
 
             is NotificationPrefsUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H3 { Text("These settings can't be loaded") }
-                    // The typed error's own words. `AppError.message` is a user-facing constant
-                    // per subtype, so it is printed rather than reworded here.
-                    P { Text(state.error.message) }
-                    Button(attrs = {
-                        classes("btn-c")
-                        attr("type", "button")
-                        onClick { onRetry() }
-                    }) { Text("Try again") }
+                // The typed error's own words. `AppError.message` is a user-facing constant
+                // per subtype, so it is printed rather than reworded here.
+                EmptyState(title = "These settings can't be loaded", body = state.error.message) {
+                    Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
                 }
             }
 
@@ -80,10 +77,10 @@ private fun Rows(
 ) {
     val known = prefs.filter { notificationTypeName(it.type) != null }
     if (known.isEmpty()) {
-        Div(attrs = { classes("empty") }) {
-            H3 { Text("Nothing to set yet") }
-            P { Text("This server sends notification types your browser doesn't know about yet.") }
-        }
+        EmptyState(
+            title = "Nothing to set yet",
+            body = "This server sends notification types your browser doesn't know about yet.",
+        )
         return
     }
 
@@ -93,7 +90,9 @@ private fun Rows(
 
     Div(attrs = { classes("nprefs-list") }) {
         known.forEach { pref ->
-            PrefRow(pref, onSetPreference)
+            key(pref.type) {
+                PrefRow(pref, onSetPreference)
+            }
         }
     }
 }

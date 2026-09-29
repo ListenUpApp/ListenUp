@@ -1,6 +1,12 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.web.design.percentOf
+import com.calypsan.listenup.web.design.ProgressBar
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.domain.model.BookContributor
@@ -8,6 +14,8 @@ import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
+import com.calypsan.listenup.web.design.EmptyState
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.features.ratings.RatingsPanel
 import com.calypsan.listenup.web.features.readers.ReadersPanel
 import com.calypsan.listenup.web.design.BookMarkdown
@@ -19,14 +27,12 @@ import com.calypsan.listenup.web.design.MetaEntry
 import com.calypsan.listenup.web.design.MetaList
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.Pill
-import com.calypsan.listenup.web.design.ProgressLine
 import com.calypsan.listenup.web.design.TabItem
+import com.calypsan.listenup.web.design.TabPanel
 import com.calypsan.listenup.web.design.Tabs
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -134,15 +140,13 @@ fun BookDetailPage(
             }
 
             is BookDetailUiState.Error -> {
+                PageHeader(title = crumb(state))
                 val (heading, body) = explain(state.error)
                 // A state that can't show what was asked for still owes the reader somewhere to
                 // go. Library is the only honest destination: web sync is unwritten, so a "sync
                 // this browser" button would be a control with nothing behind it.
-                EmptyState(WebIcon.Book, heading, body) {
-                    Button(attrs = {
-                        classes("btn-c")
-                        onClick { onOpenLibrary() }
-                    }) {
+                EmptyState(title = heading, body = body, icon = WebIcon.Book) {
+                    Button(kind = ButtonKind.Primary, onClick = { onOpenLibrary() }) {
                         Text("Back to Library")
                     }
                 }
@@ -151,6 +155,8 @@ fun BookDetailPage(
             is BookDetailUiState.Ready -> {
                 ServerOfflineBanner(state.showServerWarning, onRetryConnection)
 
+                // An unknown `?tab=` shows Overview, so it is Overview the strip and the panel name.
+                val shownTab = if (tab == "chapters" || tab == "files") tab else "overview"
                 Tabs(
                     items =
                         listOf(
@@ -165,39 +171,42 @@ fun BookDetailPage(
                                 count = (state.book.audioFiles.size + documents.size).toString(),
                             ),
                         ),
-                    active = tab,
+                    active = shownTab,
+                    idBase = TABS_ID,
                     onSelect = onSelectTab,
                 )
 
-                when (tab) {
-                    "chapters" -> {
-                        ChaptersPane(
-                            chapters = state.chapters.toWebChapters(),
-                            selection = selection,
-                            onSelectionChange = onSelectionChange,
-                            onEditChapters = onEditChapters,
-                        )
-                    }
+                TabPanel(idBase = TABS_ID, key = shownTab) {
+                    when (tab) {
+                        "chapters" -> {
+                            ChaptersPane(
+                                chapters = state.chapters.toWebChapters(),
+                                selection = selection,
+                                onSelectionChange = onSelectionChange,
+                                onEditChapters = onEditChapters,
+                            )
+                        }
 
-                    "files" -> {
-                        FilesPane(state, documents)
-                    }
+                        "files" -> {
+                            FilesPane(state, documents)
+                        }
 
-                    else -> {
-                        OverviewPane(
-                            state = state,
-                            onOpenGenre = onOpenGenre,
-                            onOpenTag = onOpenTag,
-                            onOpenMood = onOpenMood,
-                            ratings = ratings,
-                            onRate = onRate,
-                            onClearRating = onClearRating,
-                            onRefreshExternalRating = onRefreshExternalRating,
-                            readers = readers,
-                            nowMs = nowMs,
-                            onOpenProfile = onOpenProfile,
-                            onSeeAllReaders = onSeeAllReaders,
-                        )
+                        else -> {
+                            OverviewPane(
+                                state = state,
+                                onOpenGenre = onOpenGenre,
+                                onOpenTag = onOpenTag,
+                                onOpenMood = onOpenMood,
+                                ratings = ratings,
+                                onRate = onRate,
+                                onClearRating = onClearRating,
+                                onRefreshExternalRating = onRefreshExternalRating,
+                                readers = readers,
+                                nowMs = nowMs,
+                                onOpenProfile = onOpenProfile,
+                                onSeeAllReaders = onSeeAllReaders,
+                            )
+                        }
                     }
                 }
             }
@@ -254,21 +263,23 @@ private fun SharedHeader(
             radius = COVER_RADIUS,
             heroName = HERO_COVER,
             heroBookId = id,
+            decorative = true,
+            eager = true,
         )
         Div(attrs = { classes("bd-tblock") }) {
             if (ready == null) {
-                // Says it is loading rather than showing a silent skeleton — `BookDetailTest` pins
-                // that, because a quiet empty header is indistinguishable from a book with no
-                // metadata at all.
-                Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+                // The page's H1 is there from the first frame, named "Book" for a screen reader and
+                // drawn as a skeleton bar — a page that is loading still says which page it is.
+                PageHeader(title = crumb(state), pending = true)
             } else {
-                H1(attrs = { classes("bd-t") }) { Text(ready.book.title) }
+                PageHeader(title = ready.book.title, display = true)
                 Byline(ready, onOpenContributor)
                 SeriesChips(ready, onOpenSeries)
                 ready.progress?.let { fraction ->
-                    ProgressLine(
-                        percent = (fraction * PERCENT).toInt(),
-                        remaining = ready.timeRemainingFormatted.orEmpty(),
+                    ProgressBar(
+                        value = fraction,
+                        label = "Listening progress",
+                        caption = "${percentOf(fraction)}% · ${ready.timeRemainingFormatted.orEmpty()}",
                     )
                 }
                 // The row itself is not gated on `canPlay`: a book with no playable audio is
@@ -281,12 +292,12 @@ private fun SharedHeader(
                         // Play with no visible consequence anywhere until audio actually began. The
                         // flag behind this is `preparingBookIdUi`, delayed so a fast prepare never
                         // flashes; both natives make this same button their busy surface.
-                        Button(attrs = {
-                            classes("btn")
-                            attr("type", BUTTON_VALUE)
-                            if (isPreparing) attr("disabled", "")
-                            onClick { onPlay() }
-                        }) {
+                        Button(
+                            kind = ButtonKind.Primary,
+                            size = ButtonSize.Lg,
+                            onClick = { onPlay() },
+                            enabled = !isPreparing,
+                        ) {
                             Icon(if (isPreparing) WebIcon.Clock else WebIcon.Play, size = PLAY_ICON_SIZE)
                             Text(playLabel(ready, isPreparing))
                         }
@@ -305,68 +316,17 @@ private fun SharedHeader(
                     }
                     // Icon-only, so the accessible name is the attribute, not the content —
                     // BookDetailEditButtonTest pins both the label and that it matches Play's height.
-                    Button(attrs = {
-                        classes("btn-sq")
-                        attr("type", BUTTON_VALUE)
-                        attr("aria-label", "Edit book")
-                        attr("title", "Edit book")
-                        onClick { onEdit() }
-                    }) { Icon(WebIcon.Pencil) }
+                    Button(kind = ButtonKind.Icon, size = ButtonSize.Lg, onClick = {
+                        onEdit()
+                    }, label = "Edit book") { Icon(WebIcon.Pencil) }
                     // Beside Edit, not inside it: matching is a different act. Edit changes what
                     // the reader believes; matching asks a catalogue and offers its answer.
-                    Button(attrs = {
-                        classes("btn-sq")
-                        attr("type", BUTTON_VALUE)
-                        attr("aria-label", "Match metadata")
-                        attr("title", "Match metadata")
-                        onClick { onMatchMetadata() }
-                    }) { Icon(WebIcon.Sparkles) }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun BookHeader(
-    state: BookDetailUiState.Ready,
-    onPlay: () -> Unit,
-) {
-    Div(attrs = { classes("bd-head") }) {
-        // The detail hero is the largest cover the web client shows, so it asks for its own rung
-        // rather than reusing the grid's — a 300px derivative upscaled to 180 CSS px looks soft on
-        // a 2x display. `coverHash` rides along so a re-covered book is not served a year-stale
-        // image from cache; see [coverUrl].
-        Cover(
-            title = state.book.title,
-            imageUrl = coverUrl(state.book.id.value, state.book.coverHash, COVER_RUNG),
-            size = COVER_SIZE,
-            radius = COVER_RADIUS,
-            heroName = HERO_COVER,
-        )
-        Div(attrs = { classes("bd-tblock") }) {
-            H1(attrs = { classes("bd-t") }) { Text(state.book.title) }
-            Byline(state, onOpenContributor = {})
-            // Only a book actually in progress gets a progress line — a 0% bar on an unstarted
-            // book is decoration that reads as data.
-            state.progress?.let { fraction ->
-                ProgressLine(
-                    percent = (fraction * PERCENT).toInt(),
-                    remaining = state.timeRemainingFormatted.orEmpty(),
-                )
-            }
-            // `canPlay` is the ViewModel's word on whether this book has anything to play at all.
-            // A Play button on a book with no audio is a promise the page cannot keep.
-            if (state.canPlay) {
-                Div(attrs = { classes("bd-actions") }) {
-                    Button(attrs = {
-                        classes("btn-c")
-                        attr("type", BUTTON_VALUE)
-                        onClick { onPlay() }
-                    }) {
-                        Icon(WebIcon.Play, size = PLAY_ICON_SIZE)
-                        Text(if (state.progress != null) "Resume" else "Play")
-                    }
+                    Button(
+                        kind = ButtonKind.Icon,
+                        size = ButtonSize.Lg,
+                        onClick = { onMatchMetadata() },
+                        label = "Match metadata",
+                    ) { Icon(WebIcon.Sparkles) }
                 }
             }
         }
@@ -464,14 +424,16 @@ private fun SeriesChips(
     if (state.book.series.isEmpty()) return
     Div(attrs = { classes("bd-series") }) {
         state.book.series.forEach { membership ->
-            Button(attrs = {
-                classes("bd-series-chip")
-                attr("type", BUTTON_VALUE)
-                onClick { onOpenSeries(membership.seriesId) }
-            }) {
-                Text(membership.seriesName)
-                membership.sequenceLabel?.let { position ->
-                    Span(attrs = { classes("bd-series-seq") }) { Text("#$position") }
+            key(membership.seriesId) {
+                Button(attrs = {
+                    classes("bd-series-chip")
+                    attr("type", BUTTON_VALUE)
+                    onClick { onOpenSeries(membership.seriesId) }
+                }) {
+                    Text(membership.seriesName)
+                    membership.sequenceLabel?.let { position ->
+                        Span(attrs = { classes("bd-series-seq") }) { Text("#$position") }
+                    }
                 }
             }
         }
@@ -517,8 +479,10 @@ private fun ContributorNames(
     onOpen: (String) -> Unit,
 ) {
     contributors.forEachIndexed { index, contributor ->
-        if (index > 0) Text(", ")
-        ContributorNameLink(contributor, onOpen)
+        key(contributor.id) {
+            if (index > 0) Text(", ")
+            ContributorNameLink(contributor, onOpen)
+        }
     }
 }
 
@@ -565,32 +529,12 @@ private fun explain(error: AppError): Pair<String, String> =
         "This book can't be shown" to error.message
     }
 
-/**
- * The shape every state with no book takes: a mark, what happened, and — when there is somewhere
- * honest to go — the way out. The `.empty` rule in the sheet has always carried an `.ico` slot;
- * drawing it is what turns a bare sentence into a page.
- */
-@Composable
-private fun EmptyState(
-    icon: WebIcon,
-    heading: String,
-    body: String,
-    action: (@Composable () -> Unit)? = null,
-) {
-    Div(attrs = { classes("empty") }) {
-        Div(attrs = { classes("ico") }) { Icon(icon, size = ICON_SIZE) }
-        H3 { Text(heading) }
-        P { Text(body) }
-        action?.let { it() }
-    }
-}
-
 @Composable
 internal fun PaneHint(text: String) {
     P(attrs = {
         style {
             property("margin", "0")
-            property("font-size", "13.5px")
+            property("font-size", "0.84375rem")
             property("color", "var(--ink-3)")
             property("font-weight", "500")
         }
@@ -598,8 +542,6 @@ internal fun PaneHint(text: String) {
         Text(text)
     }
 }
-
-private const val PERCENT = 100
 
 /** The byline's author/narrator divider — "Author · read by Narrator". */
 private const val BYLINE_SEPARATOR = "·"
@@ -616,8 +558,6 @@ private const val COVER_SIZE = 180
 private const val COVER_RUNG = 360
 
 private const val COVER_RADIUS = 16
-
-private const val ICON_SIZE = 24
 
 /**
  * What the Play button says.
@@ -657,10 +597,20 @@ private fun FacetChips(
         // block hangs an X on the chip and leaves it un-pressable — which is the exact opposite of
         // the point of this row.
         state.genres.forEach { genre ->
-            Pill(genre.name, icon = WebIcon.Layers, onClick = { onOpenGenre(genre.id) })
+            key(genre.id) {
+                Pill(genre.name, icon = WebIcon.Layers, onClick = { onOpenGenre(genre.id) })
+            }
         }
-        state.tags.forEach { tag -> Pill(tag.name, icon = WebIcon.Hash, onClick = { onOpenTag(tag.id) }) }
-        state.moods.forEach { mood -> Pill(mood.name, icon = WebIcon.Sparkles, onClick = { onOpenMood(mood.id) }) }
+        state.tags.forEach { tag ->
+            key(tag.id) {
+                Pill(tag.name, icon = WebIcon.Hash, onClick = { onOpenTag(tag.id) })
+            }
+        }
+        state.moods.forEach { mood ->
+            key(mood.id) {
+                Pill(mood.name, icon = WebIcon.Sparkles, onClick = { onOpenMood(mood.id) })
+            }
+        }
     }
 }
 
@@ -692,10 +642,16 @@ private fun ServerOfflineBanner(
         attr("aria-live", "polite")
     }) {
         Span { Text("Server offline — streaming is unavailable until it is back.") }
-        Button(attrs = {
-            classes("btn-o", "bd-retry")
-            attr("type", BUTTON_VALUE)
-            onClick { onRetry() }
-        }) { Text("Retry") }
+        Button(
+            kind = ButtonKind.Secondary,
+            size = ButtonSize.Sm,
+            onClick = { onRetry() },
+            attrs = {
+                classes("bd-retry")
+            },
+        ) { Text("Retry") }
     }
 }
+
+/** The id stem Book Detail's tab strip and its panel share. */
+private const val TABS_ID = "bd"

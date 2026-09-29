@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.auth
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Composition
+import androidx.compose.runtime.remember
 import com.calypsan.listenup.web.features.licences.fixedLicences
 import com.calypsan.listenup.web.features.licences.OpenLicences
 import com.calypsan.listenup.web.features.licences.LicencesUiState
@@ -20,6 +23,11 @@ import com.calypsan.listenup.web.features.hardcover.fixedHardcover
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.Flow
 import com.calypsan.listenup.web.awaitFrame
+import com.calypsan.listenup.web.PHONE
+import com.calypsan.listenup.web.StoreDegradedBanner
+import com.calypsan.listenup.web.TABLET
+import com.calypsan.listenup.web.ViewportFrames
+import io.kotest.matchers.doubles.shouldBeLessThanOrEqual
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.web.features.settings.fixedSettings
 import com.calypsan.listenup.web.features.shelf.fixedShelfDetail
@@ -119,6 +127,8 @@ import org.w3c.dom.asList
 import org.w3c.dom.HTMLDialogElement
 import com.calypsan.listenup.web.features.sync.fixedDeadLetters
 
+private const val DESKTOP_WIDTH = 1440
+
 /** A signed-in session. The ids are arbitrary — the gate only ever branches on the state's type. */
 private fun authenticated() = AuthState.Authenticated(UserId("u1"), SessionId("s1"))
 
@@ -131,6 +141,9 @@ private fun authenticated() = AuthState.Authenticated(UserId("u1"), SessionId("s
  */
 private val routers = mutableListOf<Router>()
 
+/** Signed in, the gate mounts the whole shell, and with it the palette's window key listener. */
+private val compositions = mutableListOf<Composition>()
+
 private fun mountGate(
     graph: FakeAuthGraph,
     themeMode: Flow<ThemeMode> = flowOf(ThemeMode.SYSTEM),
@@ -138,76 +151,93 @@ private fun mountGate(
     errors: Flow<AppError> = emptyFlow(),
     openLibrarySetup: OpenLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
     openConnectionHealth: OpenConnectionHealth = fixedConnectionHealth(),
+    notice: @Composable () -> Unit = {},
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
-    val router = Router().also { routers += it }
-    renderComposable(root = host) {
-        AuthGate(
-            authGraph = graph,
-            router = router,
-            openLibrarySetup = openLibrarySetup,
-            openConnectionHealth = openConnectionHealth,
-            openBookDetail = fixedBookDetail(readyBook()),
-            openBookEdit = fixedBookEdit(BookEditUiState()),
-            openChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
-            openMetadata = fixedMetadata(MetadataUiState.Idle()),
-            openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
-            openContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
-            openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
-            openContributorMetadata = fixedContributorMetadata(ContributorMetadataUiState.Idle()),
-            openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
-            openSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
-            openNotifications = fixedNotifications(NotificationsUiState.Empty),
-            openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
-            openProfile = fixedProfile(UserProfileUiState.Loading),
-            openNotificationBell = fixedNotificationBell(),
-            openEditProfile = fixedEditProfile(EditProfileUiState.Loading),
-            openHome = fixedHome(HomeUiState.Loading),
-            openDiscover = fixedDiscover(),
-            openSettings = fixedSettings(),
-            openLicences = fixedLicences(LicencesUiState.Ready(emptyList())),
-            openDevices = fixedDevices(),
-            openHardcover = fixedHardcover(),
-            openAdmin = fixedAdmin(),
-            admin =
-                AdminSessions(
-                    librarySettings = fixedLibrarySettings(LibrarySettingsUiState.Loading),
-                    inbox = fixedAdminInbox(),
-                    serverSettings = fixedServerSettings(),
-                    categories = fixedCategories(),
-                    collections = fixedCollections(),
-                    collectionDetail = fixedCollectionDetail(),
-                    backups = fixedBackups(),
-                    restore = fixedRestore(),
-                    imports = fixedImports(),
-                    importFlow = fixedImportFlow(),
-                    createInvite = fixedCreateInvite(CreateInviteUiState.Ready()),
-                    userDetail = fixedUserDetail(UserDetailUiState.Loading),
-                    upload = fixedUpload(UploadBooksUiState.Idle),
-                    organize = fixedOrganize(OrganizeSettingsUiState.Loading),
-                ),
-            openShelfDetail = fixedShelfDetail(),
-            openShelfEdit = fixedShelfEdit(),
-            openLibrary = fakeLibrary(),
-            openSearch = fixedSearch(SearchUiState.Idle()),
-            openMultiSelect = fixedMultiSelect(),
-            openBulkEdit = fixedBulkEdit(BulkEditUiState.Loading),
-            openBrowseFacet = fixedBrowseFacet(BrowseFacetUiState.Loading),
-            openGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
-            openBookReaders = fixedBookReaders(BookReadersUiState.Loading),
-            openBookRatings = fixedBookRatings(BookRatingsUiState.Loading),
-            openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
-            openDeadLetters = fixedDeadLetters(),
-            openPlayback = fixedPlayback(),
-            observeIsAdmin = { flowOf(false) },
-            observeCurrentUserId = { flowOf(null) },
-            observeThemeMode = { themeMode },
-            initialInviteCode = inviteCode,
-            observeErrors = { errors },
-        )
-    }
+    compositions +=
+        renderComposable(root = host) {
+            Gate(graph, themeMode, inviteCode, errors, openLibrarySetup, openConnectionHealth, notice)
+        }
     return host
+}
+
+/** The gate with every destination faked — what [mountGate] renders, and a viewport frame can too. */
+@Composable
+private fun Gate(
+    graph: FakeAuthGraph,
+    themeMode: Flow<ThemeMode> = flowOf(ThemeMode.SYSTEM),
+    inviteCode: String? = null,
+    errors: Flow<AppError> = emptyFlow(),
+    openLibrarySetup: OpenLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
+    openConnectionHealth: OpenConnectionHealth = fixedConnectionHealth(),
+    notice: @Composable () -> Unit = {},
+) {
+    val router = remember { Router().also { routers += it } }
+    AuthGate(
+        authGraph = graph,
+        router = router,
+        openLibrarySetup = openLibrarySetup,
+        openConnectionHealth = openConnectionHealth,
+        openBookDetail = fixedBookDetail(readyBook()),
+        openBookEdit = fixedBookEdit(BookEditUiState()),
+        openChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
+        openMetadata = fixedMetadata(MetadataUiState.Idle()),
+        openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
+        openContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
+        openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
+        openContributorMetadata = fixedContributorMetadata(ContributorMetadataUiState.Idle()),
+        openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
+        openSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
+        openNotifications = fixedNotifications(NotificationsUiState.Empty),
+        openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
+        openProfile = fixedProfile(UserProfileUiState.Loading),
+        openNotificationBell = fixedNotificationBell(),
+        openEditProfile = fixedEditProfile(EditProfileUiState.Loading),
+        openHome = fixedHome(HomeUiState.Loading),
+        openDiscover = fixedDiscover(),
+        openSettings = fixedSettings(),
+        openLicences = fixedLicences(LicencesUiState.Ready(emptyList())),
+        openDevices = fixedDevices(),
+        openHardcover = fixedHardcover(),
+        openAdmin = fixedAdmin(),
+        admin =
+            AdminSessions(
+                librarySettings = fixedLibrarySettings(LibrarySettingsUiState.Loading),
+                inbox = fixedAdminInbox(),
+                serverSettings = fixedServerSettings(),
+                categories = fixedCategories(),
+                collections = fixedCollections(),
+                collectionDetail = fixedCollectionDetail(),
+                backups = fixedBackups(),
+                restore = fixedRestore(),
+                imports = fixedImports(),
+                importFlow = fixedImportFlow(),
+                createInvite = fixedCreateInvite(CreateInviteUiState.Ready()),
+                userDetail = fixedUserDetail(UserDetailUiState.Loading),
+                upload = fixedUpload(UploadBooksUiState.Idle),
+                organize = fixedOrganize(OrganizeSettingsUiState.Loading),
+            ),
+        openShelfDetail = fixedShelfDetail(),
+        openShelfEdit = fixedShelfEdit(),
+        openLibrary = fakeLibrary(),
+        openSearch = fixedSearch(SearchUiState.Idle()),
+        openMultiSelect = fixedMultiSelect(),
+        openBulkEdit = fixedBulkEdit(BulkEditUiState.Loading),
+        openBrowseFacet = fixedBrowseFacet(BrowseFacetUiState.Loading),
+        openGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
+        openBookReaders = fixedBookReaders(BookReadersUiState.Loading),
+        openBookRatings = fixedBookRatings(BookRatingsUiState.Loading),
+        openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
+        openDeadLetters = fixedDeadLetters(),
+        openPlayback = fixedPlayback(),
+        observeIsAdmin = { flowOf(false) },
+        observeCurrentUserId = { flowOf(null) },
+        observeThemeMode = { themeMode },
+        initialInviteCode = inviteCode,
+        observeErrors = { errors },
+        notice = notice,
+    )
 }
 
 class AuthGateTest :
@@ -216,6 +246,8 @@ class AuthGateTest :
         afterSpec {
             routers.forEach { it.dispose() }
             routers.clear()
+            compositions.forEach { it.dispose() }
+            compositions.clear()
         }
 
         // A signed-in admin whose server was never pointed at anything reaches a shell with an
@@ -229,6 +261,31 @@ class AuthGateTest :
 
             host.querySelector(".lsetup").shouldNotBeNull()
             host.querySelector(".shell") shouldBe null
+        }
+
+        // ⛔ The storage notice used to render beside the gate, outside the app's surface, so it was
+        // ADDED to a shell that is already one viewport tall: the whole document scrolled by the
+        // notice's height, at every width. Inside the surface it divides the screen with the shell,
+        // the way the lapsed-session banner does.
+        listOf(PHONE, TABLET, DESKTOP_WIDTH).forEach { width ->
+            test("at ${width}px the storage notice and the app share one screen") {
+                val frames = ViewportFrames()
+                try {
+                    val frame =
+                        frames.mount(width) {
+                            Gate(FakeAuthGraph(authenticated()), notice = { StoreDegradedBanner("A reason.") {} })
+                        }
+                    awaitFrame()
+
+                    frame.find(".luw > .lapse.is-hint")
+                    frame.verticalOverflow() shouldBe 0
+                    frame.rect(frame.find(".lapse.is-hint")).bottom shouldBeLessThanOrEqual
+                        frame.rect(frame.find(".shell")).top
+                    frame.rect(frame.find(".shell")).bottom shouldBe frame.height.toDouble()
+                } finally {
+                    frames.disposeAll()
+                }
+            }
         }
 
         test("a lapsed session keeps the app and says how to get back in") {
@@ -431,14 +488,14 @@ class AuthGateTest :
         test("a server with no users asks for the first admin") {
             val host = mountGate(FakeAuthGraph(AuthState.NeedsSetup))
 
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "admin"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "admin"
             host.querySelectorAll("#auth-confirm").length shouldBe 1
         }
 
         test("needing a login shows sign in") {
             val host = mountGate(FakeAuthGraph(AuthState.NeedsLogin()))
 
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
         }
 
         test("the create-account link follows the server's registration setting") {
@@ -461,7 +518,7 @@ class AuthGateTest :
             host.linkNamed("Create account").click()
             awaitFrame()
 
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Create"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "Create"
             window.location.pathname shouldBe before
         }
 
@@ -475,7 +532,7 @@ class AuthGateTest :
             (host.querySelector(".auth-aside .lnk") as HTMLElement).click()
             awaitFrame()
 
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Reset"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "Reset"
             window.location.pathname shouldBe before
         }
 
@@ -503,7 +560,7 @@ class AuthGateTest :
             val host = mountGate(graph, inviteCode = "TREEHOUSE-42")
             awaitFrame()
 
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Join"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "Join"
             graph.invitesLookedUp shouldBe listOf("TREEHOUSE-42")
         }
 
@@ -522,7 +579,7 @@ class AuthGateTest :
             val host = mountGate(FakeAuthGraph(AuthState.NeedsLogin()))
             awaitFrame()
 
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
         }
 
         test("the redeem link opens the claim pane with nothing looked up") {
@@ -534,7 +591,7 @@ class AuthGateTest :
             host.linkNamed("Redeem it").click()
             awaitFrame()
 
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Join"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "Join"
             graph.invitesLookedUp shouldBe emptyList()
         }
 
@@ -553,7 +610,7 @@ class AuthGateTest :
             awaitFrame()
 
             graph.closed shouldContain "invite"
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
         }
 
         test("leaving NeedsLogin clears the register sub-state") {
@@ -569,7 +626,7 @@ class AuthGateTest :
             graph.state.value = AuthState.NeedsLogin(openRegistration = true)
             awaitFrame()
 
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
         }
 
         test("leaving NeedsLogin clears the reset sub-state, and tears its ViewModel down") {
@@ -587,7 +644,7 @@ class AuthGateTest :
             awaitFrame()
 
             graph.closed shouldContain "forgot"
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
         }
 
         test("pending approval shows the waiting room with the registered email") {
@@ -722,6 +779,20 @@ class AuthGateTest :
             awaitFrame()
 
             document.documentElement?.hasAttribute("data-theme") shouldBe false
+        }
+
+        test("the theme index.html painted stands until the reader's mode arrives") {
+            // index.html seeds `data-theme` before first paint. The gate's own starting guess
+            // (SYSTEM) must not overwrite it in the moment before the stored mode is read: on a
+            // dark OS with Light chosen, or the reverse, that guess is exactly the flash the seed
+            // exists to prevent.
+            document.documentElement?.setAttribute("data-theme", "dark")
+
+            mountGate(FakeAuthGraph(AuthState.NeedsLogin()), themeMode = MutableSharedFlow())
+            awaitFrame()
+
+            document.documentElement?.getAttribute("data-theme") shouldBe "dark"
+            document.documentElement?.removeAttribute("data-theme")
         }
 
         test("a later change reaches the document too, not just the first value") {

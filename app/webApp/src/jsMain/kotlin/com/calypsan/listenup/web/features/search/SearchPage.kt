@@ -1,6 +1,9 @@
 package com.calypsan.listenup.web.features.search
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.model.SearchHit
@@ -8,17 +11,17 @@ import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
 import com.calypsan.listenup.client.presentation.search.SearchResultCaps
 import com.calypsan.listenup.client.presentation.search.SearchUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Pill
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.Input
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -57,7 +60,7 @@ fun SearchPage(
     onSeeAll: (SearchHitType) -> Unit = {},
 ) {
     Div(attrs = { classes("search-page") }) {
-        Div(attrs = { classes("search-header") }) { H3 { Text("Search") } }
+        PageHeader(title = "Search")
 
         SearchField(query = state.query, onQueryChanged = onQueryChanged)
 
@@ -211,12 +214,14 @@ internal fun ResultsList(
                         }
                     }
                     shown.forEach { hit ->
-                        SearchRow(
-                            hit = hit,
-                            isOpenable = type in openableTypes,
-                            onOpen = { onOpenHit(hit) },
-                            isHighlighted = hit == highlighted,
-                        )
+                        key(hit.id) {
+                            SearchRow(
+                                hit = hit,
+                                isOpenable = type in openableTypes,
+                                onOpen = { onOpenHit(hit) },
+                                isHighlighted = hit == highlighted,
+                            )
+                        }
                     }
                 }
             }
@@ -275,6 +280,7 @@ internal fun SearchRow(
                 imageUrl = coverUrl(hit.id, hit.coverHash, SEARCH_COVER_RUNG),
                 size = SEARCH_BADGE_SIZE,
                 radius = SEARCH_BADGE_RADIUS,
+                decorative = true,
             )
         } else {
             Div(attrs = {
@@ -336,15 +342,8 @@ private fun ErrorPrompt(
     message: String,
     onRetry: () -> Unit,
 ) {
-    Div(attrs = { classes("empty", "is-error") }) {
-        Div(attrs = { classes("ico") }) { Icon(WebIcon.Search, size = PROMPT_ICON_SIZE) }
-        H3 { Text("Search failed") }
-        P { Text(message) }
-        Button(attrs = {
-            classes("btn-o")
-            attr("type", "button")
-            onClick { onRetry() }
-        }) { Text("Try again") }
+    EmptyState(title = "Search failed", body = message, icon = WebIcon.Search, marker = "is-error") {
+        Button(kind = ButtonKind.Secondary, onClick = { onRetry() }) { Text("Try again") }
     }
 }
 
@@ -360,11 +359,7 @@ internal fun Prompt(
     heading: String,
     body: String?,
 ) {
-    Div(attrs = { classes("empty", marker) }) {
-        Div(attrs = { classes("ico") }) { Icon(WebIcon.Search, size = PROMPT_ICON_SIZE) }
-        H3 { Text(heading) }
-        body?.let { P { Text(it) } }
-    }
+    EmptyState(title = heading, body = body, icon = WebIcon.Search, marker = marker)
 }
 
 private fun summaryText(result: SearchResult): String {
@@ -407,8 +402,6 @@ private fun badgeIconFor(type: SearchHitType): WebIcon =
     }
 
 private const val SEARCH_FIELD_ICON_SIZE = 19
-
-private const val PROMPT_ICON_SIZE = 24
 
 private const val SEARCH_BADGE_SIZE = 44
 

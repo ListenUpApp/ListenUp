@@ -106,6 +106,13 @@ class SettingsPageTest :
             text shouldContain "About"
         }
 
+        // The words every platform uses (`settings.open_source_licenses` in the shared strings).
+        test("the licenses entry reads as the other platforms do") {
+            val host = mounts.mount { page() }
+
+            host.textContent.orEmpty() shouldContain "Open source licenses"
+        }
+
         test("nothing a browser cannot honour is offered") {
             // Each of these has a real control on Android. Rendering one here — even disabled —
             // would promise something the browser has no way to deliver.

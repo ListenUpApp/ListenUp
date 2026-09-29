@@ -1,21 +1,23 @@
 package com.calypsan.listenup.web.features.readers
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.readers.ReaderLine
 import com.calypsan.listenup.client.domain.readers.ReaderLineKind
 import com.calypsan.listenup.client.domain.readers.flattenToLines
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.client.util.relativeOrMonthYear
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.RatingStars
 import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -42,7 +44,7 @@ fun ReadersPanel(
 
     val shown = lines.take(COLLAPSED_READERS)
     Panel(
-        title = "Readers",
+        title = READERS,
         trailing = {
             if (lines.size > shown.size) {
                 Button(attrs = {
@@ -74,8 +76,8 @@ fun ReadersPage(
     onOpenBook: () -> Unit,
 ) {
     Div(attrs = { classes("rdr") }) {
-        Breadcrumb(trail = listOf(bookTitle, "Readers"), onNavigate = { onOpenBook() })
-        H1(attrs = { classes("rdr-t") }) { Text("Readers") }
+        Breadcrumb(trail = listOf(bookTitle, READERS), onNavigate = { onOpenBook() })
+        PageHeader(title = READERS)
 
         when (state) {
             BookReadersUiState.Loading -> {
@@ -83,17 +85,17 @@ fun ReadersPage(
             }
 
             BookReadersUiState.NoReaders -> {
-                P(attrs = { classes("rdr-none") }) { Text("Nobody has started this book yet.") }
+                EmptyState(title = "Nobody has started this book yet.", look = EmptyLook.Inline)
             }
 
             is BookReadersUiState.Error -> {
-                P(attrs = { classes("rdr-none") }) { Text("Couldn't load who is reading this. Try again in a moment.") }
+                EmptyState(title = "Couldn't load who is reading this. Try again in a moment.", look = EmptyLook.Inline)
             }
 
             is BookReadersUiState.Data -> {
                 val lines = flattenToLines(state.readers.readers)
                 if (lines.isEmpty()) {
-                    P(attrs = { classes("rdr-none") }) { Text("Nobody has started this book yet.") }
+                    EmptyState(title = "Nobody has started this book yet.", look = EmptyLook.Inline)
                     return@Div
                 }
                 ListeningNow(lines)
@@ -118,9 +120,24 @@ private fun ReaderRows(
     onOpenProfile: (String) -> Unit,
 ) {
     Div(attrs = { classes("rdr-list") }) {
-        lines.forEach { line -> ReaderRow(line, nowMs, onOpenProfile) }
+        lines.forEach { line ->
+            key(line.stableKey()) {
+                ReaderRow(line, nowMs, onOpenProfile)
+            }
+        }
     }
 }
+
+/**
+ * A line's identity: its reader plus which of their states it is. The reader alone is not unique —
+ * a re-reader has a Reading line and a Finished line per pass.
+ */
+private fun ReaderLine.stableKey(): String =
+    when (val lineKind = kind) {
+        is ReaderLineKind.Reading -> "$userId:reading"
+        is ReaderLineKind.Finished -> "$userId:finished:${lineKind.finishedAtMs}"
+        ReaderLineKind.Rated -> "$userId:rated"
+    }
 
 /**
  * One line, which is one *state* of one reader — not one reader.
@@ -191,3 +208,5 @@ private const val COLLAPSED_READERS = 5
 private const val AVATAR_SIZE = 32
 
 private const val MARK_SIZE = 16
+
+private const val READERS = "Readers"

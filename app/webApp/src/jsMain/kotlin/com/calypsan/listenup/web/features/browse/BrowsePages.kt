@@ -1,18 +1,21 @@
 package com.calypsan.listenup.web.features.browse
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.FacetKind
 import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetUiState
 import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationUiState
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
-import com.calypsan.listenup.web.features.library.BookCard
+import com.calypsan.listenup.web.features.library.VirtualBookGrid
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -35,6 +38,7 @@ fun BrowseFacetPage(
         when (state) {
             BrowseFacetUiState.Loading -> {
                 Breadcrumb(trail = listOf(LIBRARY_CRUMB, "…"), onNavigate = { onOpenLibrary() })
+                PageHeader(title = LIBRARY_CRUMB, pending = true)
                 Div(attrs = { classes("skel", "brw-skel") })
             }
 
@@ -76,12 +80,13 @@ fun GenreDestinationPage(
         when (state) {
             GenreDestinationUiState.Loading -> {
                 Breadcrumb(trail = listOf(LIBRARY_CRUMB, "…"), onNavigate = { onOpenLibrary() })
+                PageHeader(title = GENRE, pending = true)
                 Div(attrs = { classes("skel", "brw-skel") })
             }
 
             GenreDestinationUiState.NotFound -> {
-                Breadcrumb(trail = listOf(LIBRARY_CRUMB, "Genre"), onNavigate = { onOpenLibrary() })
-                Missing("Genre", onOpenLibrary)
+                Breadcrumb(trail = listOf(LIBRARY_CRUMB, GENRE), onNavigate = { onOpenLibrary() })
+                Missing(GENRE, onOpenLibrary)
             }
 
             is GenreDestinationUiState.Ready -> {
@@ -101,7 +106,7 @@ fun GenreDestinationPage(
                 )
                 Hero(
                     icon = WebIcon.Layers,
-                    eyebrow = "Genre",
+                    eyebrow = GENRE,
                     title = state.identity.name,
                     stats = listOf(bookCountLabel(state.stats.bookCount), hoursLabel(state.stats.totalDurationMs)),
                     blurb = state.identity.blurb,
@@ -159,14 +164,16 @@ private fun Hero(
             classes("brw-icon")
             if (hue != null) style { property("--brw-hue", hue) }
         }) { Icon(icon, size = HERO_ICON) }
-        Div(attrs = { classes("brw-titles") }) {
-            Span(attrs = { classes("brw-eyebrow") }) { Text(eyebrow) }
-            H1(attrs = { classes("brw-t") }) { Text(title) }
-            blurb?.takeIf { it.isNotBlank() }?.let { P(attrs = { classes("brw-blurb") }) { Text(it) } }
-            Div(attrs = { classes("brw-stats") }) {
-                stats.forEach { Span(attrs = { classes("brw-stat") }) { Text(it) } }
-            }
-        }
+        PageHeader(
+            title = title,
+            eyebrow = eyebrow,
+            subtitle = blurb?.takeIf { it.isNotBlank() },
+            details = {
+                Div(attrs = { classes("brw-stats") }) {
+                    stats.forEach { Span(attrs = { classes("brw-stat") }) { Text(it) } }
+                }
+            },
+        )
     }
 }
 
@@ -182,14 +189,12 @@ private fun BookGrid(
     onOpenBook: (String) -> Unit,
 ) {
     if (books.isEmpty()) {
-        P(attrs = { classes("brw-none") }) { Text("No books here yet.") }
+        EmptyState(title = "No books here yet.", look = EmptyLook.Inline)
         return
     }
-    Div(attrs = { classes("lib-grid") }) {
-        books.forEach { book ->
-            BookCard(book = book, progress = 0f, onOpen = { onOpenBook(book.id.value) })
-        }
-    }
+    // Windowed like the library: a broad genre with sub-genres included is most of a library, and
+    // the unwindowed grid was the same thousand composables the library grid stopped rendering.
+    VirtualBookGrid(books = books, letterOf = { null }, progressOf = { 0f }, onOpenBook = onOpenBook)
 }
 
 /** What a page reached by a link to something that is no longer there says. */
@@ -198,14 +203,12 @@ private fun Missing(
     what: String,
     onOpenLibrary: () -> Unit,
 ) {
-    Div(attrs = { classes("brw-empty") }) {
-        H1 { Text("This ${what.lowercase()} is gone") }
-        P { Text("It was removed, or the link is older than your library.") }
-        Button(attrs = {
-            classes("btn-c")
-            attr("type", "button")
-            onClick { onOpenLibrary() }
-        }) { Text("Back to Library") }
+    PageHeader(title = what)
+    EmptyState(
+        title = "This ${what.lowercase()} is gone",
+        body = "It was removed, or the link is older than your library.",
+    ) {
+        Button(kind = ButtonKind.Primary, onClick = { onOpenLibrary() }) { Text("Back to Library") }
     }
 }
 
@@ -233,3 +236,5 @@ private const val MS_PER_MINUTE = 60_000L
 private const val MINUTES_PER_HOUR = 60L
 
 private const val HERO_ICON = 26
+
+private const val GENRE = "Genre"
