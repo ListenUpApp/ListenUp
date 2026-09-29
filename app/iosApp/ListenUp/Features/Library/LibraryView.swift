@@ -210,7 +210,7 @@ struct LibraryView: View {
                 seriesList: observer.series,
                 seriesProgress: observer.seriesProgress,
                 sortState: observer.seriesSortState,
-                ignoreTitleArticles: observer.ignoreTitleArticles
+                letterIndex: observer.seriesLetterIndex
             )
         case .authors:
             ContributorListContent(

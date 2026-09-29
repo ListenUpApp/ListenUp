@@ -19,6 +19,7 @@ final class CarPlayLibraryWrapper {
 
     private let viewModel: LibraryViewModel
     private let bridge = FlowBridge()
+    @ObservationIgnored private var contentRevision = ContentRevisionGate()
 
     init(viewModel: LibraryViewModel = Dependencies.shared.makeLibraryViewModel()) {
         self.viewModel = viewModel
@@ -36,6 +37,8 @@ final class CarPlayLibraryWrapper {
     private func apply(_ state: LibraryUiState) {
         guard case .loaded(let loadedType) = state.sealedType() else { return }
         let loaded = loadedType.value
+        // A position save or sync tick re-emits the same books; re-map only when they changed.
+        guard contentRevision.advance(to: loaded.contentRevision) else { return }
         books = loaded.books.map { BookRow($0) }
     }
 }

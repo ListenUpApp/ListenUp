@@ -13,9 +13,10 @@ struct SeriesContent: View {
     let seriesList: [SeriesRow]
     let seriesProgress: [String: SeriesProgressState]
     let sortState: SortState?
-    /// Name-sort article handling (Series sorts by Name). Groups "The Expanse" under E, matching the
-    /// shared sort order.
-    let ignoreTitleArticles: Bool
+    /// The scrubber's letters (name sort only, article-aware so "The Expanse" files under E), built
+    /// once per content change by `LibraryObserver` rather than on every render of this body
+    /// (2026-09-29 iOS audit, performance).
+    let letterIndex: [(letter: String, firstId: String)]
 
     @Environment(\.horizontalSizeClass) private var sizeClass
 
@@ -36,7 +37,7 @@ struct SeriesContent: View {
     // MARK: - Series List
 
     private var seriesListView: some View {
-        let letters = buildAlphabetIndex()
+        let letters = letterIndex
 
         return ScrollViewReader { proxy in
             ScrollView {
@@ -118,13 +119,6 @@ struct SeriesContent: View {
 
     private var shouldShowAlphabetIndex: Bool {
         sortState?.category == .name
-    }
-
-    /// Alphabet index (letter → first series id), only when sorted by name. Pure logic lives in
-    /// `seriesAlphabetIndex` over the native `SeriesRow`, so the scrubber never re-bridges.
-    private func buildAlphabetIndex() -> [(letter: String, firstId: String)] {
-        guard sortState?.category == .name else { return [] }
-        return seriesAlphabetIndex(from: seriesList, ignoreArticles: ignoreTitleArticles)
     }
 
     // MARK: - Empty State

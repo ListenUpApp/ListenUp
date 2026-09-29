@@ -14,6 +14,8 @@ final class LibraryObserver {
     private(set) var series: [SeriesRow] = []
     private(set) var seriesProgress: [String: SeriesProgressState] = [:]
     private(set) var seriesSortState: SortState?
+    /// The Series scrubber's letters, rebuilt only when the series content changes.
+    private(set) var seriesLetterIndex: [(letter: String, firstId: String)] = []
     private(set) var authors: [ContributorRow] = []
     /// `authors` grouped for the list — regrouped only when the rows or the sort change.
     private(set) var authorSections: [ContributorLetterGrouping.Group] = []
@@ -30,6 +32,7 @@ final class LibraryObserver {
     private(set) var isSyncing: Bool = false
     private(set) var errorMessage: String?
 
+    @ObservationIgnored private var contentRevision = ContentRevisionGate()
     @ObservationIgnored private var authorSectionCache = ContributorSectionCache()
     @ObservationIgnored private var narratorSectionCache = ContributorSectionCache()
 
@@ -94,49 +97,71 @@ final class LibraryObserver {
 
     // MARK: - State mapping
 
+    /// The shared ViewModel re-emits the whole Library state on every position save (about every
+    /// 5 seconds of playback) and every sync tick. Re-mapping every book and series across Swift
+    /// Export on each of those froze the main thread on large libraries (2026-09-29 iOS audit,
+    /// performance), so the content lists are re-mapped only when `contentRevision` moves; a
+    /// progress or sync emission touches only the small slices that changed.
     private func apply(_ state: LibraryUiState) {
         switch state.sealedType() {
         case .loading:
             isLoading = true
             errorMessage = nil
         case .loaded(let lType):
-            let l = lType.value
+            let loaded = lType.value
             isLoading = false
             errorMessage = nil
-            books = l.books.map { BookRow($0) }
-            bookProgress = mapProgress(l.bookProgress)
-            booksSortState = l.booksSortState
-            series = l.series.map { SeriesRow($0) }
-            seriesProgress = mapSeriesProgress(l.seriesProgress)
-            seriesSortState = l.seriesSortState
-            authorsSortState = l.authorsSortState
-            narratorsSortState = l.narratorsSortState
-            applyContributors(
-                l.authors.map { ContributorRow($0) },
-                isNameSort: l.authorsSortState.category == .name,
-                cache: &authorSectionCache,
-                rows: \.authors,
-                sections: \.authorSections
-            )
-            applyContributors(
-                l.narrators.map { ContributorRow($0) },
-                isNameSort: l.narratorsSortState.category == .name,
-                cache: &narratorSectionCache,
-                rows: \.narrators,
-                sections: \.narratorSections
-            )
-            ignoreTitleArticles = l.ignoreTitleArticles
-            isEmpty = l.isEmpty
-            isSyncing = l.isSyncing
+            if contentRevision.advance(to: loaded.contentRevision) {
+                applyContent(loaded)
+            }
+            assignIfChanged(\.bookProgress, mapProgress(loaded.bookProgress))
+            assignIfChanged(\.seriesProgress, mapSeriesProgress(loaded.seriesProgress))
+            assignIfChanged(\.isSyncing, loaded.isSyncing)
         case .error(let eType):
-            let e = eType.value
             isLoading = false
-            errorMessage = e.message
+            errorMessage = eType.value.message
         }
     }
 
-    /// Publishes a contributor list only when it changed. An unchanged re-emit (a position save, a
-    /// sync tick) writes nothing, so the Authors and Narrators lists aren't invalidated by it.
+    /// Everything the content revision covers: the four sorted lists and the intent that ordered them.
+    private func applyContent(_ loaded: LibraryUiStateLoaded) {
+        books = loaded.books.map { BookRow($0) }
+        booksSortState = loaded.booksSortState
+        series = loaded.series.map { SeriesRow($0) }
+        seriesSortState = loaded.seriesSortState
+        seriesLetterIndex = loaded.seriesSortState.category == .name
+            ? seriesAlphabetIndex(from: series, ignoreArticles: loaded.ignoreTitleArticles)
+            : []
+        authorsSortState = loaded.authorsSortState
+        narratorsSortState = loaded.narratorsSortState
+        applyContributors(
+            loaded.authors.map { ContributorRow($0) },
+            isNameSort: loaded.authorsSortState.category == .name,
+            cache: &authorSectionCache,
+            rows: \.authors,
+            sections: \.authorSections
+        )
+        applyContributors(
+            loaded.narrators.map { ContributorRow($0) },
+            isNameSort: loaded.narratorsSortState.category == .name,
+            cache: &narratorSectionCache,
+            rows: \.narrators,
+            sections: \.narratorSections
+        )
+        ignoreTitleArticles = loaded.ignoreTitleArticles
+        isEmpty = loaded.isEmpty
+    }
+
+    /// Writes only a real change, so an equal value doesn't invalidate the views reading it.
+    private func assignIfChanged<Value: Equatable>(
+        _ keyPath: ReferenceWritableKeyPath<LibraryObserver, Value>,
+        _ value: Value
+    ) {
+        if self[keyPath: keyPath] != value { self[keyPath: keyPath] = value }
+    }
+
+    /// Publishes a contributor list only when it changed, so a new revision that changed only the
+    /// books doesn't invalidate the Authors and Narrators lists.
     private func applyContributors(
         _ newRows: [ContributorRow],
         isNameSort: Bool,
@@ -171,5 +196,19 @@ final class LibraryObserver {
             )
         }
         return result
+    }
+}
+
+/// Remembers the last `LibraryUiState.Loaded.contentRevision` applied, so an observer re-maps the
+/// bridged content lists only when the shared ViewModel says they changed. Pure, so it's unit-tested
+/// without live Kotlin state.
+struct ContentRevisionGate {
+    private(set) var applied: Int64?
+
+    /// Records `revision` and returns true when it differs from the last one applied.
+    mutating func advance(to revision: Int64) -> Bool {
+        guard revision != applied else { return false }
+        applied = revision
+        return true
     }
 }
