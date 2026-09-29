@@ -77,6 +77,15 @@ final class PushTapRouter {
     /// THE routing decision: the front window takes the tap; before any window has reported (a cold
     /// launch), the first shell to claim it does.
     nonisolated static func routesTap(to sceneID: UUID, frontSceneID: UUID?) -> Bool {
+        FrontWindow.receives(sceneID, frontSceneID: frontSceneID)
+    }
+}
+
+/// Which window receives something meant for one window only — a notification tap or a book link.
+enum FrontWindow {
+    /// The front window receives it; before any window has reported (a cold launch), the first
+    /// shell to claim it does.
+    nonisolated static func receives(_ sceneID: UUID, frontSceneID: UUID?) -> Bool {
         frontSceneID == nil || frontSceneID == sceneID
     }
 }

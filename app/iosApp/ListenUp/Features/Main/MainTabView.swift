@@ -138,21 +138,9 @@ struct MainTabView: View {
         }
         .onChange(of: shell.selectedTab) { _, _ in saveNavigation() }
         .onChange(of: shell.paths) { _, _ in saveNavigation() }
-        .onChange(of: deepLinkRouter.outcome) { _, outcome in
-            switch outcome {
-            case .openBook(let id):
-                shell.open(BookDestination(id: id))
-                deepLinkRouter.consume()
-            case .wrongServer:
-                bookLinkError = .wrongServer
-                deepLinkRouter.consume()
-            case .notConnected:
-                bookLinkError = .notConnected
-                deepLinkRouter.consume()
-            case .none, .claimInvite:
-                break
-            }
-        }
+        // Every window's shell observes the one router; the claim hands a link to the front window
+        // only, so it opens once. `initial: true` covers the link that launched the app.
+        .onChange(of: deepLinkRouter.outcome, initial: true) { _, _ in claimDeepLink() }
         // Shade-tap consumer (in-app inbox taps route directly via `shell.route` — they never go
         // through `pending`). `initial: true` covers the cold-launch tap held from before this shell
         // mounted. The router hands a tap to one window only — the one most recently in front.
@@ -162,11 +150,29 @@ struct MainTabView: View {
         .onChange(of: scenePhase, initial: true) { _, phase in
             guard phase == .active else { return }
             pushTapRouter.sceneBecameActive(sceneID)
+            deepLinkRouter.sceneBecameActive(sceneID)
             if let outcome = pushTapRouter.claimPending(for: sceneID) { shell.route(outcome) }
+            claimDeepLink()
         }
-        .onDisappear { pushTapRouter.sceneWentAway(sceneID) }
+        .onDisappear {
+            pushTapRouter.sceneWentAway(sceneID)
+            deepLinkRouter.sceneWentAway(sceneID)
+        }
         .alert(item: $bookLinkError) { error in
             Alert(title: Text(error.message))
+        }
+    }
+
+    // MARK: - Deep links
+
+    /// Opens a book link in this window when it is the one to take it.
+    private func claimDeepLink() {
+        guard let claimed = deepLinkRouter.claimShellOutcome(for: sceneID) else { return }
+        switch claimed {
+        case .openBook(let id): shell.open(BookDestination(id: id))
+        case .wrongServer: bookLinkError = .wrongServer
+        case .notConnected: bookLinkError = .notConnected
+        case .none, .claimInvite: break
         }
     }
 
