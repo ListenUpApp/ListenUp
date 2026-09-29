@@ -173,6 +173,31 @@ class CommandPaletteTest :
             }
         }
 
+        // A confirm dialog is a modal: the page behind it is inert, and the shortcut is part of that
+        // page. Opening the palette over it stacked two modals, and closing the palette returned
+        // focus to a page the reader could not reach.
+        test("neither shortcut opens the palette while another modal is open") {
+            val (host, router, composition) = mountAt("/")
+            val confirm = document.createElement("dialog") as HTMLDialogElement
+            document.body!!.appendChild(confirm)
+
+            try {
+                confirm.asDynamic().showModal()
+
+                press("k", ctrlKey = true)
+                press("k", metaKey = true)
+                press("/")
+                awaitFrame()
+
+                host.querySelector(".cmdk-panel") shouldBe null
+            } finally {
+                confirm.asDynamic().close()
+                confirm.remove()
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
         test("/ opens the palette from the page body") {
             val (host, router, composition) = mountAt("/")
 

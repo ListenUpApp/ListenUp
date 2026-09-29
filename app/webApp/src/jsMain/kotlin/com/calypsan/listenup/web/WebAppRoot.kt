@@ -1142,7 +1142,9 @@ private fun paletteKeyDownHandler(
                 keyboardEvent.key.equals(PALETTE_SHORTCUT_KEY, ignoreCase = true) &&
                     (keyboardEvent.metaKey || keyboardEvent.ctrlKey)
             val isSlash = keyboardEvent.key == "/" && !isEditableTarget(document.activeElement)
-            if (!isShortcut && !isSlash) return@handler
+            // Another modal — a confirm dialog — makes the page behind it inert, and the shortcut
+            // belongs to that page. Opening over it would stack two modals.
+            if ((!isShortcut && !isSlash) || anotherModalIsOpen()) return@handler
             keyboardEvent.preventDefault()
             onOpen()
             return@handler
@@ -1196,6 +1198,9 @@ private fun searchNavRoute(action: SearchNavAction): Route =
 /** Where the palette's Shift+Enter commits: `/search`, or `/search?q=…` for a non-blank query. */
 private fun paletteSearchRoute(query: String): Route =
     if (query.isBlank()) Route(listOf(SEARCH_KEY)) else Route(listOf(SEARCH_KEY), mapOf(SEARCH_QUERY_KEY to query))
+
+/** True while a modal `<dialog>` is showing. Asked only while the palette is shut, so it is never the palette. */
+private fun anotherModalIsOpen(): Boolean = document.querySelector("dialog:modal") != null
 
 /**
  * True for a text input, a textarea, or a `contenteditable` region — everywhere `/` must type the
