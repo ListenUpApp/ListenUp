@@ -71,7 +71,11 @@
    hangs it off the trigger's left edge (the account button sits at the content area's left);
    `max-content` lets it size to its items while min-width keeps a small menu from looking mean.
    Below .scrim's z-index:40 so a modal still covers it. */
-.menu { position:absolute; top:calc(100% + 6px); left:0; z-index:30; width:max-content; min-width:216px; padding:6px; background:var(--surface); border:1px solid var(--line); border-radius:13px; box-shadow:var(--shadow-pop); }
+.menu { position:absolute; top:calc(100% + 6px); left:0; z-index:30; width:max-content; min-width:min(216px, calc(100vw - 16px)); max-width:calc(100vw - 16px); padding:6px; background:var(--surface); border:1px solid var(--line); border-radius:13px; box-shadow:var(--shadow-pop); }
+/* A menu that would cross the viewport's right edge hangs from its trigger's right edge instead —
+   `PopupMenu` measures and sets this as it opens. The max-width keeps even the widest menu inside a
+   320px screen, whichever side it hangs from. */
+.menu.end { left:auto; right:0; }
 /* Every menu item is a real <button role="menuitem">, so the reset a button needs lives on the base
    rule. It used to sit in a later sheet as `.luw .menu-i { background: transparent }`, whose extra
    class outranked `.menu-i:hover` and `.menu-i.hi` below — so no menu item ever showed a hover. */

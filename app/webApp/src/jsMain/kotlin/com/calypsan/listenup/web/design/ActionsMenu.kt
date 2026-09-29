@@ -133,17 +133,31 @@ private fun CloseOnOutsidePress(
     }
 }
 
-/** The open menu: real menu-item buttons, focus on the first, the arrows walking the rest. */
+/**
+ * The open menu: real menu-item buttons, focus on the first, the arrows walking the rest.
+ *
+ * It hangs from the trigger's left edge — right for the account menu at the content's left — and
+ * measures itself as it opens: a menu that would cross the viewport's right edge (a trailing "more
+ * actions" at the end of a row, on a phone) hangs from the trigger's right edge instead. Measured
+ * rather than guessed from where the trigger sits, because only the rendered menu knows how wide
+ * its longest label made it.
+ */
 @Composable
 private fun MenuItems(
     items: List<MenuAction>,
     label: String,
     onChosen: () -> Unit,
 ) {
+    var alignEnd by remember { mutableStateOf(false) }
     Div(attrs = {
         classes("menu")
+        if (alignEnd) classes("end")
         attr("role", "menu")
         attr("aria-label", label)
+        ref { element ->
+            alignEnd = crossesViewportEnd(element)
+            onDispose { }
+        }
     }) {
         items.forEachIndexed { index, item ->
             // ⛔ A real <button role="menuitem">: a clickable <div> is unreachable by keyboard and
@@ -177,6 +191,15 @@ private fun MenuItems(
         }
     }
 }
+
+/** Whether [element] reaches past the right edge of the viewport it is rendered in. */
+private fun crossesViewportEnd(element: HTMLElement): Boolean {
+    val viewport = element.ownerDocument?.documentElement?.clientWidth ?: return false
+    return element.getBoundingClientRect().right > viewport - VIEWPORT_GUTTER
+}
+
+/** How close to the viewport's edge a menu may come before it flips to the other side. */
+private const val VIEWPORT_GUTTER = 8
 
 /** What a key does to an open menu, beyond the arrows its items handle themselves. */
 private enum class MenuKeyAction {
