@@ -46,7 +46,7 @@ struct ForgotPasswordView: View {
         switch observer.phase {
         case .enterEmail:
             VStack(alignment: .leading, spacing: 20) {
-                AuthLargeHeader(
+                AuthIntro(
                     title: String(localized: "auth.forgot_password_title"),
                     subtitle: String(localized: "auth.forgot_password_explainer")
                 )
@@ -66,7 +66,7 @@ struct ForgotPasswordView: View {
             }
         case .submitting:
             VStack(spacing: 20) {
-                AuthLargeHeader(title: String(localized: "auth.forgot_password_title"))
+                AuthIntro(title: String(localized: "auth.forgot_password_title"))
                 ProgressView()
                     .controlSize(.large)
                     .frame(maxWidth: .infinity)
@@ -80,7 +80,7 @@ struct ForgotPasswordView: View {
         case .complete:
             terminalContent(subtitle: String(localized: "auth.forgot_password_complete"), success: true)
         case .error(let message):
-            AuthLargeHeader(
+            AuthIntro(
                 title: String(localized: "common.something_went_wrong"),
                 subtitle: message
             ) {
@@ -95,7 +95,7 @@ struct ForgotPasswordView: View {
     private func enterCodeContent(attemptsRemaining: Int?, error: String?) -> some View {
         let displayedError = codeErrorDismissed ? nil : error
         return VStack(alignment: .leading, spacing: 20) {
-            AuthLargeHeader(
+            AuthIntro(
                 title: String(localized: "auth.forgot_password_title"),
                 subtitle: String(localized: "auth.forgot_password_enter_code")
             )
@@ -123,7 +123,7 @@ struct ForgotPasswordView: View {
     }
 
     private func terminalContent(subtitle: String, success: Bool) -> some View {
-        AuthLargeHeader(
+        AuthIntro(
             title: String(localized: "auth.forgot_password_title"),
             subtitle: subtitle
         ) {
@@ -136,7 +136,7 @@ struct ForgotPasswordView: View {
     /// stranger whether an account exists.
     private func awaitingContent(ticketId: String) -> some View {
         VStack(alignment: .leading, spacing: 18) {
-            AuthLargeHeader(
+            AuthIntro(
                 title: String(localized: "auth.forgot_password_title"),
                 subtitle: String(localized: "auth.forgot_password_awaiting")
             ) {

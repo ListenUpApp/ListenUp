@@ -57,7 +57,7 @@ struct PendingApprovalView: View {
 
     private var waitingContent: some View {
         VStack(alignment: .leading, spacing: 20) {
-            AuthLargeHeader(
+            AuthIntro(
                 title: String(localized: "setup.awaiting_approval_title"),
                 subtitle: String(localized: "auth.pending_approval_message")
             ) {
@@ -77,7 +77,7 @@ struct PendingApprovalView: View {
     }
 
     private var approvedContent: some View {
-        AuthLargeHeader(
+        AuthIntro(
             title: String(localized: "setup.approved_title"),
             subtitle: String(localized: "auth.sign_in_to_access_your")
         ) {
@@ -89,7 +89,7 @@ struct PendingApprovalView: View {
     }
 
     private func deniedContent(message: String) -> some View {
-        AuthLargeHeader(
+        AuthIntro(
             title: String(localized: "auth.waiting_for_approval"),
             subtitle: message
         ) {

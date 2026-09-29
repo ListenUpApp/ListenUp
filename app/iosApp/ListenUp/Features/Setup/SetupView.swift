@@ -45,7 +45,7 @@ struct SetupView: View {
     // MARK: - Private views
 
     private var header: some View {
-        AuthLargeHeader(
+        AuthIntro(
             title: String(localized: "auth.create_admin_account"),
             subtitle: String(localized: "auth.admin_account_subtitle")
         ) {

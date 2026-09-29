@@ -41,7 +41,7 @@ struct RegisterView: View {
     // MARK: - Body
 
     var body: some View {
-        AuthScaffold(nav: AuthNav(label: String(localized: "common.back")) { navigateBack() }) {
+        AuthScaffold {
             header
             if let error = viewModel.error {
                 ErrorBanner(message: error)
@@ -60,7 +60,7 @@ struct RegisterView: View {
     @ViewBuilder
     private var header: some View {
         if showsAdminBadge {
-            AuthLargeHeader(
+            AuthIntro(
                 title: String(localized: "auth.create_account"),
                 subtitle: String(localized: "auth.admin_account_subtitle")
             ) {
@@ -70,7 +70,7 @@ struct RegisterView: View {
                     .background(Capsule().fill(Color.luFill))
             }
         } else {
-            AuthLargeHeader(title: String(localized: "auth.create_account"))
+            AuthIntro(title: String(localized: "auth.create_account"))
         }
     }
 

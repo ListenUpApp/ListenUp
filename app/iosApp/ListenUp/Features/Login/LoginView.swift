@@ -45,11 +45,11 @@ struct LoginView: View {
     var body: some View {
         AuthScaffold(
             deep: true,
-            nav: AuthNav(label: String(localized: "connect.servers")) {
+            leadingAction: AuthNav(label: String(localized: "connect.servers")) {
                 Task { try? await dependencies.serverConfig.disconnectFromServer() }
             }
         ) {
-            AuthLargeHeader(title: String(localized: "auth.sign_in"))
+            AuthIntro(title: String(localized: "auth.sign_in"))
 
             // serverSubtitle omitted: ServerConfig has no synchronous currentServerHost
             // accessor (only async getServerUrl/getActiveUrl). Pending a follow-up to

@@ -59,14 +59,10 @@ struct ChooseFoldersView: View {
     // MARK: - Header
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(String(localized: "library_setup.choose_folders_title"))
-                .font(.largeTitle.weight(.bold))
-                .foregroundStyle(.primary)
-            Text(String(localized: "library_setup.choose_folders_subtitle"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
+        AuthIntro(
+            title: String(localized: "library_setup.choose_folders_title"),
+            subtitle: String(localized: "library_setup.choose_folders_subtitle")
+        )
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 

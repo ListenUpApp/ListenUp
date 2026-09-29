@@ -47,19 +47,15 @@ struct ClaimInviteView: View {
     // MARK: - Body
 
     var body: some View {
-        Group {
-            switch wrapper.phase {
-            case .codeEntry:
-                codeEntryScreen
-            case .confirmServer(let host, let signedInElsewhere):
-                confirmServerScreen(host: host, signedInElsewhere: signedInElsewhere)
-            case .lookingUp, .submitting, .claimed:
-                loadingScreen
-            case .preview:
-                previewScreen
-            case .error(let message):
-                errorScreen(message: message)
-            }
+        // A sheet's own stack, so each phase's `AuthIntro` titles the bar and Cancel has a place
+        // (HIG, Sheets: "the Cancel button belongs on the leading edge of the top toolbar").
+        NavigationStack {
+            phaseScreen
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(String(localized: "common.cancel"), action: onDismiss)
+                    }
+                }
         }
         .onAppear {
             if let seed = deepLinkSeed, !didStart {
@@ -77,11 +73,27 @@ struct ClaimInviteView: View {
         }
     }
 
+    @ViewBuilder
+    private var phaseScreen: some View {
+        switch wrapper.phase {
+        case .codeEntry:
+            codeEntryScreen
+        case .confirmServer(let host, let signedInElsewhere):
+            confirmServerScreen(host: host, signedInElsewhere: signedInElsewhere)
+        case .lookingUp, .submitting, .claimed:
+            loadingScreen
+        case .preview:
+            previewScreen
+        case .error(let message):
+            errorScreen(message: message)
+        }
+    }
+
     // MARK: - Screens
 
     private var codeEntryScreen: some View {
         AuthScaffold {
-            AuthLargeHeader(
+            AuthIntro(
                 title: String(localized: "invite.title"),
                 subtitle: String(localized: "invite.subtitle")
             )
@@ -111,7 +123,7 @@ struct ClaimInviteView: View {
     /// visibility is the whole point of the step. Declining falls back to manual code entry.
     private func confirmServerScreen(host: String, signedInElsewhere: Bool) -> some View {
         AuthScaffold {
-            AuthLargeHeader(
+            AuthIntro(
                 title: String(localized: "invite.confirm_server_title"),
                 subtitle: String(format: String(localized: "invite.confirm_server_body"), host)
             )
@@ -165,7 +177,7 @@ struct ClaimInviteView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                 }
-                AuthLargeHeader(title: String(localized: "invite.set_password_title"))
+                AuthIntro(title: String(localized: "invite.set_password_title"))
                 AuthFieldGroup {
                     AppTextField(
                         placeholder: String(localized: "auth.first_name"),

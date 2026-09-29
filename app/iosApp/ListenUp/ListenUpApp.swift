@@ -186,12 +186,15 @@ private struct RootView: View {
             LaunchScreen()
         case .needsServerUrl:
             ServerFlowCoordinator()
+        // Auth screens sit in a navigation stack so their titles are the system's large titles.
         case .needsSetup:
-            SetupView()
+            NavigationStack { SetupView() }
         case .needsLogin:
             AuthFlowCoordinator(openRegistration: auth.openRegistration)
         case .pendingApproval:
-            PendingApprovalView(userId: auth.pendingApprovalUserId, email: auth.pendingApprovalEmail)
+            NavigationStack {
+                PendingApprovalView(userId: auth.pendingApprovalUserId, email: auth.pendingApprovalEmail)
+            }
         case .sessionLapsed:
             // Shell stays mounted (M2/M3): library, downloads, playback all work. The banner’s
             // Sign-in presents the login flow as a dismissable sheet — never a forced wall.
