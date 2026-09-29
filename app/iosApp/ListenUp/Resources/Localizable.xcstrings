@@ -7861,6 +7861,16 @@
         }
       }
     },
+    "common.play": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play"
+          }
+        }
+      }
+    },
     "common.playback": {
       "localizations": {
         "en": {

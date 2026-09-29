@@ -170,20 +170,15 @@ struct BooksContent: View {
             Button { selection.toggle(book.id) } label: { card }
                 .buttonStyle(.plain)
         } else {
-            // A plain value-based NavigationLink: a tap opens the book. Selection is entered via a
-            // native long-press → context menu → "Select", which iOS arbitrates against the link's
-            // own tap so the two never double-fire. (The old `.simultaneousGesture(LongPressGesture)`
-            // let a long-press *and* the link's tap-on-release both fire, so releasing navigated.)
+            // A plain value-based NavigationLink: a tap opens the book. A long-press opens the book's
+            // context menu (Play, Add to Shelf, Share, Select), which iOS arbitrates against the
+            // link's own tap so the two never double-fire.
             NavigationLink(value: BookDestination(id: book.id)) {
                 card.heroSource(bookCoverHeroID(book.id))
             }
                 .buttonStyle(.plain)
                 .draggableBookCover(book)
-                .contextMenu {
-                    Button(String(localized: "common.select"), systemImage: "checkmark.circle") {
-                        selection.enter(book.id)
-                    }
-                }
+                .bookContextMenu(bookId: book.id, selection: selection) { card }
         }
     }
 

@@ -110,7 +110,7 @@ struct BookSelectionSheets: ViewModifier {
             .sheet(isPresented: Binding(
                 get: { selection.showShelfPicker },
                 set: { selection.showShelfPicker = $0 }
-            )) {
+            ), onDismiss: { selection.shelfPickerClosed() }) {
                 BulkShelfPickerSheet(
                     observer: selection,
                     count: selection.selectedBookIds.count

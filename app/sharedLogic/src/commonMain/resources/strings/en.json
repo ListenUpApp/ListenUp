@@ -124,7 +124,8 @@
     "collapsed": "Collapsed",
     "step_done": "Done",
     "step_in_progress": "In progress",
-    "step_not_started": "Not started"
+    "step_not_started": "Not started",
+    "play": "Play"
   },
   "error": {
     "hardcover_not_configured": "Hardcover isn't set up on this server.",

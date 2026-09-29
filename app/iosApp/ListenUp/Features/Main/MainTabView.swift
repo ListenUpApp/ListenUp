@@ -23,6 +23,8 @@ struct MainTabView: View {
     /// One library projection for every Library tab and sidebar entry in this window.
     @State private var libraryObserver: LibraryObserver?
     @State private var bookLinkError: BookLinkError?
+    /// The window's book share links, for every book context menu under the shell.
+    @State private var shareLinks = BookShareLinks()
     /// Identifies this window to the process-wide `PushTapRouter`, so a tap lands in one window.
     @State private var sceneID = UUID()
     @State private var hasRestoredNavigation = false
@@ -87,6 +89,8 @@ struct MainTabView: View {
             }
             .customizationID("listenup.search")
         }
+        .environment(\.bookShareLinks, shareLinks)
+        .task { await shareLinks.load() }
         .tabViewStyle(.sidebarAdaptable)
         .tabViewCustomization($sidebarCustomization)
         // HIG, Tab bars: an attached accessory "like the MiniPlayer in Music" moves inline with

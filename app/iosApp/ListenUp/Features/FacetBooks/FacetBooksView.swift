@@ -87,6 +87,9 @@ struct FacetBooksView: View {
                         }
                         .buttonStyle(.plain)
                         .draggableBookCover(book)
+                        .bookContextMenu(bookId: book.id, selection: nil) {
+                            BookCoverCard(book: book, progress: nil)
+                        }
                     }
                 }
             }

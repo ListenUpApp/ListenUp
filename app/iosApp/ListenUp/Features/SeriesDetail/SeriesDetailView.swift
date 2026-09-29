@@ -275,6 +275,16 @@ struct SeriesDetailView: View {
                 )
             }
             .buttonStyle(.plain)
+            .bookContextMenu(bookId: book.id, selection: nil) {
+                SeriesBookRow(
+                    book: book,
+                    sequence: book.sequence,
+                    progress: observer.progress(for: book.id),
+                    isFinished: observer.isFinished(book.id),
+                    isPlaying: observer.isPlaying(book.id),
+                    onPlayTapped: {}
+                )
+            }
         }
     }
 

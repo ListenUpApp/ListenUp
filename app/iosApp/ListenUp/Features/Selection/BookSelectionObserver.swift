@@ -145,6 +145,26 @@ final class BookSelectionObserver {
     func exit() { viewModel.exitSelectionMode() }
     func isSelected(_ bookId: String) -> Bool { selectedBookIds.contains(bookId) }
 
+    /// True while the shelf picker is open for one book from its context menu, rather than for a
+    /// selection the person built.
+    private(set) var isShelvingOneBook = false
+
+    /// A context menu's Add to Shelf: selects just this book and opens the shelf picker — the same
+    /// picker, the same add. Closing the picker ends the one-book selection (`shelfPickerClosed`),
+    /// so the person is never left in a selection mode they did not ask for.
+    func addOneBookToShelf(_ bookId: String) {
+        isShelvingOneBook = true
+        enter(bookId)
+        showShelfPicker = true
+    }
+
+    /// The shelf picker closed — after adding or not.
+    func shelfPickerClosed() {
+        guard isShelvingOneBook else { return }
+        isShelvingOneBook = false
+        exit()
+    }
+
     // MARK: - Bulk add actions
 
     func addToShelf(shelfId: String) { viewModel.addSelectedToShelf(shelfId: shelfId) }

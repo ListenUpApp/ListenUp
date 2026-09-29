@@ -387,15 +387,7 @@ final class BookDetailObserver {
         // is advisory (display / future connect), so the WAN `remoteUrl` is the right value.
         guard let info = try? await Dependencies.shared.instanceRepository.getServerInfoOrNull(forceRefresh: false)
         else { return }
-        let trimmed = info.remoteUrl.map { $0.hasSuffix("/") ? String($0.dropLast()) : $0 }
-        let raw = ShareLinkCodec.shared.encode(
-            target: ShareTargetBook(
-                bookId: BookId(value: bookId),
-                serverInstanceId: info.instanceId,
-                serverUrl: trimmed
-            )
-        )
-        shareURL = URL(string: raw)
+        shareURL = BookShareLink.url(bookId: bookId, instanceId: info.instanceId, remoteUrl: info.remoteUrl)
     }
 
     private func observeDownloadStatus(bookId: String) {

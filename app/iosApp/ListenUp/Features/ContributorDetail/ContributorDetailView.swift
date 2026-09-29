@@ -300,6 +300,9 @@ struct ContributorDetailView: View {
                                 )
                             }
                             .buttonStyle(.plain)
+                            .bookContextMenu(bookId: book.id, selection: nil) {
+                                WrittenCard(book: book, progress: observer.bookProgress[book.id])
+                            }
                         }
                     }
                     .padding(.horizontal)

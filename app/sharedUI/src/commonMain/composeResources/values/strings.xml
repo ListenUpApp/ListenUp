@@ -787,6 +787,7 @@ One beautiful library.</string>
     <string name="common_open">Open</string>
     <string name="common_percent">%1$d%</string>
     <string name="common_permissions">Permissions</string>
+    <string name="common_play">Play</string>
     <string name="common_playback">Playback</string>
     <string name="common_private">Private</string>
     <string name="common_profile">Profile</string>
