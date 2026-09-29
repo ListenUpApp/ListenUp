@@ -38,6 +38,13 @@ struct GenreRowModel: Equatable, Identifiable {
     let bookCount: Int
     let hasChildren: Bool
     let isExpanded: Bool
+
+    /// What VoiceOver says a parent row's state is, or `nil` for a leaf, which has nothing to
+    /// expand. HIG, Disclosure controls: a disclosure's state is part of the control.
+    var expansionState: String? {
+        guard hasChildren else { return nil }
+        return isExpanded ? String(localized: "common.expanded") : String(localized: "common.collapsed")
+    }
 }
 
 /// A genre as a pick in the move and merge sheets.

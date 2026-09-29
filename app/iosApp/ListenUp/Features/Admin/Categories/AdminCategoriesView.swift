@@ -102,11 +102,7 @@ struct AdminCategoriesView: View {
         List {
             Section {
                 ForEach(ready.rows) { row in
-                    GenreRowView(row: row)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            if row.hasChildren { observer.toggleExpanded(id: row.id) }
-                        }
+                    genreRow(row, observer: observer)
                         .contextMenu { rowMenu(row: row) }
                 }
             } header: {
@@ -249,6 +245,24 @@ struct AdminCategoriesView: View {
         GenrePickModel(id: row.id, name: row.name, path: row.path, bookCount: row.bookCount)
     }
 
+    /// A parent row is a real `Button` whose value is its expansion state, so VoiceOver can find
+    /// and operate it; a leaf does nothing on tap, so it isn't a control. HIG, Disclosure controls.
+    @ViewBuilder
+    private func genreRow(_ row: GenreRowModel, observer: AdminCategoriesObserver) -> some View {
+        if let expansionState = row.expansionState {
+            Button {
+                observer.toggleExpanded(id: row.id)
+            } label: {
+                GenreRowView(row: row)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(expansionState)
+        } else {
+            GenreRowView(row: row)
+        }
+    }
+
     private func moveCandidates(for source: GenrePickModel) -> [GenrePickModel] {
         guard case .ready(let ready) = observer?.phase else { return [] }
         return GenreTree.moveCandidates(all: ready.picks, source: source)
@@ -291,11 +305,6 @@ private struct GenreRowView: View {
         .padding(.leading, CGFloat(row.depth) * 20)
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
-        .accessibilityHint(
-            row.hasChildren
-                ? Text(String(localized: row.isExpanded ? "common.collapse" : "common.expand"))
-                : Text("")
-        )
     }
 }
 

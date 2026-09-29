@@ -49,4 +49,21 @@ struct GenreTreeTests {
         ]
         #expect(GenreTree.mergeCandidates(all: picks, source: picks[0]).map(\.id) == ["fan"])
     }
+
+    /// A parent row speaks its state ("Expanded"/"Collapsed") as the button's value; a leaf has none
+    /// and is not a button at all.
+    @Test func onlyAParentRowHasAnExpansionState() {
+        func row(hasChildren: Bool, isExpanded: Bool) -> GenreRowModel {
+            GenreRowModel(
+                id: "f", name: "Fiction", path: "/f", depth: 0, bookCount: 3,
+                hasChildren: hasChildren, isExpanded: isExpanded
+            )
+        }
+        let open = row(hasChildren: true, isExpanded: true)
+        let shut = row(hasChildren: true, isExpanded: false)
+        let leaf = row(hasChildren: false, isExpanded: false)
+        #expect(open.expansionState == String(localized: "common.expanded"))
+        #expect(shut.expansionState == String(localized: "common.collapsed"))
+        #expect(leaf.expansionState == nil)
+    }
 }
