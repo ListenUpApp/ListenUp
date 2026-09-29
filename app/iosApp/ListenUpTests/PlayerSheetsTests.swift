@@ -33,20 +33,6 @@ struct PlayerSheetsTests {
         #expect(SpeedPickerSheet.snap(2.3, to: speeds) == 2.5)
     }
 
-    // MARK: - Speed formatting
-
-    @Test func formatsWholeSpeedsWithoutDecimals() {
-        #expect(SpeedPickerSheet.formatSpeed(1.0) == "1×")
-        #expect(SpeedPickerSheet.formatSpeed(2.0) == "2×")
-        #expect(SpeedPickerSheet.formatSpeed(3.0) == "3×")
-    }
-
-    @Test func formatsFractionalSpeedsTrimmingTrailingZeros() {
-        #expect(SpeedPickerSheet.formatSpeed(0.5) == "0.5×")
-        #expect(SpeedPickerSheet.formatSpeed(1.25) == "1.25×")
-        #expect(SpeedPickerSheet.formatSpeed(1.75) == "1.75×")
-    }
-
     // MARK: - Sleep duration formatting
 
     @Test func formatsSubHourDurationsInMinutes() {

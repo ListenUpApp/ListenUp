@@ -168,8 +168,12 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
     // MARK: - Now playing customization
 
-    /// Configure the shared now-playing template for this car session: chapter prev/next
-    /// buttons, and the Up Next button as a "Chapters" list.
+    /// Configure the shared now-playing template for this car session: a playback-rate button,
+    /// chapter prev/next buttons, and the Up Next button as a "Chapters" list.
+    ///
+    /// The rate button is the system's `CPNowPlayingPlaybackRateButton`: its tap steps through
+    /// `PlaybackRates`, and CarPlay draws its current value from the `changePlaybackRateCommand`
+    /// that `SystemIntegration` registers for the lock screen too (rule 13).
     ///
     /// Custom buttons on purpose, not `nextTrackCommand`/`previousTrackCommand`: the remote
     /// command center is global, so enabling track commands would also flip the phone's lock
@@ -190,7 +194,15 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
             }
         }
 
-        nowPlaying.updateNowPlayingButtons(chapterButtons)
+        let rateButton = CPNowPlayingPlaybackRateButton { _ in
+            Task { @MainActor in
+                let coordinator = Dependencies.shared.playerCoordinator
+                coordinator.setSpeed(PlaybackRates.next(after: coordinator.playbackSpeed))
+            }
+        }
+
+        let buttons: [CPNowPlayingButton] = [rateButton] + chapterButtons
+        nowPlaying.updateNowPlayingButtons(buttons)
         nowPlaying.isUpNextButtonEnabled = true
         nowPlaying.upNextTitle = String(localized: "player.chapters")
         nowPlaying.add(self)

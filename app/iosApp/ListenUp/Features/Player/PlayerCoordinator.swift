@@ -567,6 +567,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     func remotePause() { if isPlaybackActive { togglePlayback() } }
     func remoteSkipForward() { skipForward() }
     func remoteSkipBackward() { skipBackward() }
+    func remoteSetRate(_ rate: Float) { setSpeed(rate) }
     /// The lock-screen scrubber spans the CURRENT CHAPTER (see `updateNowPlaying`), so the position
     /// it reports is window-relative. Translate it back to a book position here — the single
     /// translation point — and everything downstream keeps speaking book coordinates.

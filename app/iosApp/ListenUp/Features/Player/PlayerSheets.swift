@@ -11,7 +11,7 @@ struct SpeedPickerSheet: View {
     let currentSpeed: Float
     let onSpeedSelected: (Float) -> Void
 
-    private let speeds: [Float] = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
+    private let speeds = PlaybackRates.catalogue
     private let minSpeed: Float = 0.5
     private let maxSpeed: Float = 3.0
     @ScaledMetric(relativeTo: .largeTitle) private var speedReadoutSize: CGFloat = 56
@@ -23,7 +23,7 @@ struct SpeedPickerSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Text(Self.formatSpeed(currentSpeed))
+                Text(PlaybackRates.format(currentSpeed))
                     .font(.system(size: speedReadoutSize, weight: .bold))
                     .monospacedDigit()
                     .foregroundStyle(Color.luTint)
@@ -63,9 +63,9 @@ struct SpeedPickerSheet: View {
             .tint(Color.luTint)
 
             HStack {
-                Text(Self.formatSpeed(minSpeed))
+                Text(PlaybackRates.format(minSpeed))
                 Spacer()
-                Text(Self.formatSpeed(maxSpeed))
+                Text(PlaybackRates.format(maxSpeed))
             }
             .font(.footnote)
             .monospacedDigit()
@@ -78,7 +78,7 @@ struct SpeedPickerSheet: View {
         FlowLayout(spacing: 9) {
             ForEach(speeds, id: \.self) { speed in
                 PillButton(
-                    title: Self.formatSpeed(speed),
+                    title: PlaybackRates.format(speed),
                     isSelected: abs(speed - currentSpeed) < 0.001
                 ) {
                     onSpeedSelected(speed)
@@ -90,17 +90,6 @@ struct SpeedPickerSheet: View {
     /// Nearest catalogued speed to an arbitrary value — the slider's snap rule.
     nonisolated static func snap(_ value: Float, to speeds: [Float]) -> Float {
         speeds.min(by: { abs($0 - value) < abs($1 - value) }) ?? value
-    }
-
-    /// "1.0×", "1.25×", "2×" — trailing-zero-trimmed with the multiplication sign.
-    nonisolated static func formatSpeed(_ speed: Float) -> String {
-        let rounded = (speed * 100).rounded() / 100
-        if rounded == rounded.rounded() {
-            return "\(Int(rounded))×"
-        }
-        var text = String(format: "%.2f", rounded)
-        while text.hasSuffix("0") { text.removeLast() }
-        return "\(text)×"
     }
 }
 
