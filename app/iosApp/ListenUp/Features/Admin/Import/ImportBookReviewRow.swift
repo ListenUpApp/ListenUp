@@ -7,6 +7,9 @@ import SwiftUI
 /// Bound to an ``ImportBookRowModel``. The search panel is driven by the shared VM: the text field
 /// reflects the VM's query and reports edits back; results and the spinner come from the flattened
 /// snapshot. This row only reports intent via its callbacks.
+///
+/// A compound `List` row: the caller gives it a `Section` of its own with zero row insets, because
+/// its identity and resolution lines carry their own padding and the divider between them.
 struct ImportBookReviewRow: View {
     let book: ImportBookRowModel
     /// The open search panel when it belongs to THIS item, else nil.
@@ -23,7 +26,6 @@ struct ImportBookReviewRow: View {
             Divider().padding(.leading, 14)
             resolutionRow
         }
-        .fieldCard()
     }
 
     // MARK: - Identity
@@ -170,8 +172,8 @@ struct ImportBookReviewRow: View {
 // MARK: - Preview
 
 #Preview("ImportBookReviewRow") {
-    ScrollView {
-        VStack(spacing: 18) {
+    List {
+        Section {
             ImportBookReviewRow(
                 book: ImportBookRowModel(
                     absItemId: "1", title: "The Way of Kings", asin: "B0041JKFJW", isbn: nil,
@@ -181,6 +183,9 @@ struct ImportBookReviewRow: View {
                 onOpenSearch: {}, onCloseSearch: {}, onQueryChange: { _ in },
                 onSelectBook: { _ in }, onSkip: {}
             )
+            .listRowInsets(EdgeInsets())
+        }
+        Section {
             ImportBookReviewRow(
                 book: ImportBookRowModel(
                     absItemId: "2", title: "Mistborn", asin: nil, isbn: "9780765311788",
@@ -190,6 +195,9 @@ struct ImportBookReviewRow: View {
                 onOpenSearch: {}, onCloseSearch: {}, onQueryChange: { _ in },
                 onSelectBook: { _ in }, onSkip: {}
             )
+            .listRowInsets(EdgeInsets())
+        }
+        Section {
             ImportBookReviewRow(
                 book: ImportBookRowModel(
                     absItemId: "3", title: "Words of Radiance", asin: nil, isbn: nil,
@@ -202,8 +210,7 @@ struct ImportBookReviewRow: View {
                 onOpenSearch: {}, onCloseSearch: {}, onQueryChange: { _ in },
                 onSelectBook: { _ in }, onSkip: {}
             )
+            .listRowInsets(EdgeInsets())
         }
-        .padding()
     }
-    .background(Color.luSurface)
 }

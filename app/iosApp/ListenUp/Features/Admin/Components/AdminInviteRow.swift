@@ -33,8 +33,6 @@ struct AdminInviteRow: View {
             AdminRoleBadge(label: invite.roleLabel, isElevated: invite.roleLabel.lowercased() == "admin")
             actions
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 9)
     }
 
     @ViewBuilder
@@ -66,15 +64,13 @@ struct AdminInviteRow: View {
 }
 
 #Preview("AdminInviteRow") {
-    AdminInviteRow(
-        invite: AdminInviteRowModel(
-            id: "i1", name: "Sarah Chen", email: "sarah@example.com",
-            roleLabel: "Member", url: "listen.example.net/join/a8f2c1", expiresAt: Date().addingTimeInterval(86_400 * 7)
-        ),
-        isRevoking: false, onCopy: {}, onRevoke: {}
-    )
-    .fieldCard()
-    .padding()
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(Color.luSurface)
+    Form {
+        AdminInviteRow(
+            invite: AdminInviteRowModel(
+                id: "i1", name: "Sarah Chen", email: "sarah@example.com",
+                roleLabel: "Member", url: "listen.example.net/join/a8f2c1", expiresAt: Date().addingTimeInterval(86_400 * 7)
+            ),
+            isRevoking: false, onCopy: {}, onRevoke: {}
+        )
+    }
 }

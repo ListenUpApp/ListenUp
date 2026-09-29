@@ -173,7 +173,7 @@ struct AdminCollectionsView: View {
 
     private var createSheet: some View {
         NavigationStack {
-            VStack(spacing: 16) {
+            Form {
                 AppTextField(
                     placeholder: String(localized: "admin.collection_name"),
                     text: $createName,
@@ -181,11 +181,7 @@ struct AdminCollectionsView: View {
                     label: String(localized: "admin.collection_name"),
                     icon: "folder.badge.plus"
                 )
-                .fieldCard()
-                Spacer()
             }
-            .padding()
-            .background(Color.luSurface)
             .navigationTitle(String(localized: "admin.collection_new_collection"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -65,13 +65,27 @@ struct RestoreBackupView: View {
 
     // MARK: - Idle
 
+    /// A grouped `Form`: the warning heads the list, the backup id is a labelled, selectable row, and
+    /// the destructive action sits beneath. HIG, Lists and tables.
     private func idleContent(observer: RestoreBackupObserver, error: String?) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+        Form {
+            Section {
                 warningCard
-                backupCard
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
+            Section {
+                LabeledContent(String(localized: "admin.backup")) {
+                    Text(backupId)
+                        .foregroundStyle(.primary)
+                        .textSelection(.enabled)
+                }
+            }
+            Section {
                 if let error {
                     ErrorBanner(message: error)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
                 }
                 Button {
                     observer.requestRestore()
@@ -83,11 +97,11 @@ struct RestoreBackupView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.red)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .readableWidth(640)
         }
+        .readableListWidth()
     }
 
     private var warningCard: some View {
@@ -102,21 +116,6 @@ struct RestoreBackupView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .background(.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-
-    private var backupCard: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(String(localized: "admin.backup"))
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Color.luLabel2)
-            Text(backupId)
-                .font(.body)
-                .foregroundStyle(.primary)
-                .textSelection(.enabled)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .fieldCard()
     }
 
     // MARK: - Restoring
@@ -137,8 +136,8 @@ struct RestoreBackupView: View {
     // MARK: - Completed
 
     private func completedContent(model: RestoreCompletedModel) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+        Form {
+            Section {
                 VStack(alignment: .leading, spacing: 10) {
                     Label(String(localized: "admin.restore_complete"), systemImage: "checkmark.circle.fill")
                         .font(.title3.weight(.bold))
@@ -155,10 +154,9 @@ struct RestoreBackupView: View {
                         .font(.footnote)
                         .foregroundStyle(Color.luLabel2)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
-                .fieldCard()
-
+                .padding(.vertical, 6)
+            }
+            Section {
                 Button {
                     dismiss()
                 } label: {
@@ -169,11 +167,11 @@ struct RestoreBackupView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .onBrandFillLabel()
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .readableWidth(640)
         }
+        .readableListWidth()
     }
 
     // MARK: - Derived state

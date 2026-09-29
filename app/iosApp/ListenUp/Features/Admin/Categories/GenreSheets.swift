@@ -45,28 +45,26 @@ struct GenreNameSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                if case .create(_, let parentName?) = target {
-                    Text(parentName)
-                        .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .accessibilityHidden(true)
+            Form {
+                Section {
+                    AppTextField(
+                        placeholder: String(localized: "admin.genre_name"),
+                        text: $name,
+                        entry: .words,
+                        label: String(localized: "admin.genre_name"),
+                        icon: "tag",
+                        submitLabel: .done,
+                        onSubmit: { if !trimmed.isEmpty { confirm() } }
+                    )
+                } header: {
+                    // Names the parent above the field, so an Add Sub-genre started from a
+                    // long-press still says where it lands once the keyboard is up.
+                    if case .create(_, let parentName?) = target {
+                        Text(parentName)
+                            .accessibilityHidden(true)
+                    }
                 }
-                AppTextField(
-                    placeholder: String(localized: "admin.genre_name"),
-                    text: $name,
-                    entry: .words,
-                    label: String(localized: "admin.genre_name"),
-                    icon: "tag",
-                    submitLabel: .done,
-                    onSubmit: { if !trimmed.isEmpty { confirm() } }
-                )
-                .fieldCard()
-                Spacer()
             }
-            .padding()
-            .background(Color.luSurface)
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

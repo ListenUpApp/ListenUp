@@ -24,8 +24,6 @@ struct AdminPendingUserRow: View {
             Spacer(minLength: 8)
             actions
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 9)
     }
 
     @ViewBuilder
@@ -62,15 +60,13 @@ struct AdminPendingUserRow: View {
 }
 
 #Preview("AdminPendingUserRow") {
-    AdminPendingUserRow(
-        user: AdminUserRowModel(
-            id: "9", name: "Marcus Lee", email: "marcus@example.com",
-            roleLabel: "Member", isRootBadge: false, isProtected: false
-        ),
-        isBusy: false, onApprove: {}, onDeny: {}
-    )
-    .fieldCard()
-    .padding()
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(Color.luSurface)
+    Form {
+        AdminPendingUserRow(
+            user: AdminUserRowModel(
+                id: "9", name: "Marcus Lee", email: "marcus@example.com",
+                roleLabel: "Member", isRootBadge: false, isProtected: false
+            ),
+            isBusy: false, onApprove: {}, onDeny: {}
+        )
+    }
 }

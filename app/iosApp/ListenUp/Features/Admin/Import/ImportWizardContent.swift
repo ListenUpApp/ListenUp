@@ -17,24 +17,31 @@ struct ImportStat: Identifiable, Equatable {
 struct ImportIntroContent: View {
     let onChooseFile: () -> Void
 
+    /// A grouped `List`: the explainer on the plain background, then the numbered steps as a system
+    /// section whose footer carries the privacy note. HIG, Lists and tables.
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                badge
-                Text(String(localized: "import.choose_backup_subtitle"))
-                    .font(.subheadline)
-                    .foregroundStyle(Color.luLabel2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                AdminSectionHeader(String(localized: "import.how_it_works"))
-                    .padding(.top, 4)
-                stepsCard
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 18) {
+                    badge
+                    Text(String(localized: "import.choose_backup_subtitle"))
+                        .font(.subheadline)
+                        .foregroundStyle(Color.luLabel2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
+            Section {
+                steps
+            } header: {
+                Text(String(localized: "import.how_it_works"))
+            } footer: {
                 privacyNote
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .readableWidth(640)
         }
+        .listStyle(.insetGrouped)
+        .readableListWidth()
         // The tray is a bar over the scroll view, whose edge effect the system draws (HIG, Toolbars).
         .safeAreaBar(edge: .bottom) {
             actionTray
@@ -50,27 +57,23 @@ struct ImportIntroContent: View {
             .background(Color.luFill, in: Capsule())
     }
 
-    private var stepsCard: some View {
-        VStack(spacing: 0) {
-            NumberedStepRow(
-                number: 1, systemImage: "doc",
-                title: String(localized: "import.step_choose_title"),
-                subtitle: String(localized: "import.step_choose_subtitle")
-            )
-            separator
-            NumberedStepRow(
-                number: 2, systemImage: "person",
-                title: String(localized: "import.step_match_title"),
-                subtitle: String(localized: "import.step_match_subtitle")
-            )
-            separator
-            NumberedStepRow(
-                number: 3, systemImage: "waveform",
-                title: String(localized: "import.step_apply_title"),
-                subtitle: String(localized: "import.step_apply_subtitle")
-            )
-        }
-        .fieldCard()
+    @ViewBuilder
+    private var steps: some View {
+        NumberedStepRow(
+            number: 1, systemImage: "doc",
+            title: String(localized: "import.step_choose_title"),
+            subtitle: String(localized: "import.step_choose_subtitle")
+        )
+        NumberedStepRow(
+            number: 2, systemImage: "person",
+            title: String(localized: "import.step_match_title"),
+            subtitle: String(localized: "import.step_match_subtitle")
+        )
+        NumberedStepRow(
+            number: 3, systemImage: "waveform",
+            title: String(localized: "import.step_apply_title"),
+            subtitle: String(localized: "import.step_apply_subtitle")
+        )
     }
 
     private var privacyNote: some View {
@@ -78,7 +81,7 @@ struct ImportIntroContent: View {
             .font(.footnote)
             .foregroundStyle(Color.luLabel2)
             .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.top, 4)
+            .padding(.top, 8)
     }
 
     private var actionTray: some View {
@@ -90,11 +93,8 @@ struct ImportIntroContent: View {
         .padding(.top, 12)
         .padding(.bottom, 16)
     }
-
-    private var separator: some View {
-        Rectangle().fill(Color.luSeparator).frame(height: 0.5).padding(.leading, 57)
-    }
 }
+
 
 // MARK: - Progress (Uploading / Analyzing / Applying)
 
@@ -111,51 +111,59 @@ struct ImportProgressContent: View {
     let stats: [ImportStat]
     var footnote: String?
 
+    /// A grouped `List`: the dial and headline on the plain background, and any running figures as a
+    /// section of system rows beneath. HIG, Lists and tables.
     var body: some View {
-        ScrollView {
-            VStack(spacing: 22) {
-                CircularProgressDial(progress: progress) {
-                    VStack(spacing: 2) {
-                        if let centerPrimary {
-                            Text(centerPrimary)
-                                .font(.system(size: 34, weight: .bold).monospacedDigit())
-                                .foregroundStyle(.primary)
-                        } else {
-                            ProgressView().controlSize(.large)
-                        }
-                        if let centerSecondary {
-                            Text(centerSecondary)
-                                .font(.footnote.monospacedDigit())
-                                .foregroundStyle(Color.luLabel2)
+        List {
+            Section {
+                VStack(spacing: 22) {
+                    CircularProgressDial(progress: progress) {
+                        VStack(spacing: 2) {
+                            if let centerPrimary {
+                                Text(centerPrimary)
+                                    .font(.system(size: 34, weight: .bold).monospacedDigit())
+                                    .foregroundStyle(.primary)
+                            } else {
+                                ProgressView().controlSize(.large)
+                            }
+                            if let centerSecondary {
+                                Text(centerSecondary)
+                                    .font(.footnote.monospacedDigit())
+                                    .foregroundStyle(Color.luLabel2)
+                            }
                         }
                     }
-                }
-                .padding(.top, 12)
+                    .padding(.top, 12)
 
-                VStack(spacing: 6) {
-                    Text(title)
-                        .font(.title.weight(.bold))
-                        .foregroundStyle(.primary)
-                    Text(subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(Color.luLabel2)
-                        .multilineTextAlignment(.center)
-                }
+                    VStack(spacing: 6) {
+                        Text(title)
+                            .font(.title.weight(.bold))
+                            .foregroundStyle(.primary)
+                        Text(subtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.luLabel2)
+                            .multilineTextAlignment(.center)
+                    }
 
-                if let filename {
-                    MonospacedTechLine(text: filename)
-                        .padding(.horizontal, 4)
+                    if let filename {
+                        MonospacedTechLine(text: filename)
+                            .padding(.horizontal, 4)
+                    }
                 }
+                .frame(maxWidth: .infinity)
+                .listRowBackground(Color.clear)
+            }
 
-                if !stats.isEmpty {
-                    statsCard
+            if !stats.isEmpty {
+                Section {
+                    ForEach(stats) { stat in
+                        StatLineRow(systemImage: stat.systemImage, label: stat.label, value: stat.value, isMuted: stat.isMuted)
+                    }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 24)
-            .frame(maxWidth: .infinity)
-            .readableWidth(520)
         }
+        .listStyle(.insetGrouped)
+        .readableListWidth(520)
         // The tray is a bar over the scroll view, whose edge effect the system draws (HIG, Toolbars).
         .safeAreaBar(edge: .bottom) {
             if let footnote {
@@ -166,17 +174,5 @@ struct ImportProgressContent: View {
                     .padding(.vertical, 12)
             }
         }
-    }
-
-    private var statsCard: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(stats.enumerated()), id: \.element.id) { index, stat in
-                if index > 0 {
-                    Rectangle().fill(Color.luSeparator).frame(height: 0.5).padding(.leading, 57)
-                }
-                StatLineRow(systemImage: stat.systemImage, label: stat.label, value: stat.value, isMuted: stat.isMuted)
-            }
-        }
-        .fieldCard()
     }
 }

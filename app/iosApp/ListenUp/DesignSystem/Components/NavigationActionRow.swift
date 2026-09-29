@@ -1,11 +1,15 @@
 import SwiftUI
 
-/// A tappable management row: a leading ``IconTile``, a title / optional subtitle, and a
-/// trailing chevron. The clean-coral form of the mockup's chevron `SRow`.
+/// A management row for a `List`/`Form`: a leading ``IconTile`` and a title / optional subtitle.
 ///
-/// Generic over its action — pass an `action` closure for a button, or wrap the row in a
-/// `NavigationLink` and omit it. The whole row is the hit target; it carries its own
-/// padding so it sits flush inside a `.fieldCard()` or a `FieldGroup` row slot.
+/// Two shapes:
+/// - wrapped in a `NavigationLink` (no `action`) — the list draws the disclosure indicator and the
+///   selection highlight, so the row draws neither;
+/// - with an `action` — a button row that opens something in place (a sheet). It draws its own
+///   chevron, because the list only draws one for a link, and keeps the system row highlight.
+///
+/// HIG, Lists and tables: "If you need to let people drill into a list or table row's subviews, use
+/// a disclosure indicator accessory control."
 struct NavigationActionRow: View {
     let systemImage: String
     /// A meaningful colour for the leading tile; `nil` (the default) keeps it neutral — see `IconTile`.
@@ -16,8 +20,18 @@ struct NavigationActionRow: View {
 
     var body: some View {
         if let action {
-            Button(action: action) { rowContent }
-                .buttonStyle(PressScaleButtonStyle())
+            Button(action: action) {
+                HStack(spacing: 12) {
+                    rowContent
+                    Spacer(minLength: 12)
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Color.luLabel3)
+                        .accessibilityHidden(true)
+                }
+                .contentShape(Rectangle())
+            }
+            .foregroundStyle(.primary)
         } else {
             rowContent
         }
@@ -26,6 +40,7 @@ struct NavigationActionRow: View {
     private var rowContent: some View {
         HStack(spacing: 13) {
             IconTile(systemImage: systemImage, tint: tint)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
                     .font(.body)
@@ -37,29 +52,22 @@ struct NavigationActionRow: View {
                         .multilineTextAlignment(.leading)
                 }
             }
-            Spacer(minLength: 12)
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Color.luLabel3)
-                .accessibilityHidden(true)
         }
-        .contentShape(Rectangle())
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
     }
 }
 
 #Preview("NavigationActionRow") {
-    VStack(spacing: 0) {
-        NavigationActionRow(
-            systemImage: "person.2.fill",
-            title: "Invite Someone",
-            subtitle: "Share your library with others",
-            action: {}
-        )
+    NavigationStack {
+        Form {
+            NavigationLink(value: 1) {
+                NavigationActionRow(systemImage: "archivebox.fill", title: "Backup & Restore", subtitle: "Create backups")
+            }
+            NavigationActionRow(
+                systemImage: "person.2.fill",
+                title: "Invite Someone",
+                subtitle: "Share your library with others",
+                action: {}
+            )
+        }
     }
-    .fieldCard()
-    .padding()
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(Color.luSurface)
 }

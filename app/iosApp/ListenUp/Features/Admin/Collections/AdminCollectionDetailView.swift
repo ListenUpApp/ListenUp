@@ -3,25 +3,19 @@ import Shared
 
 /// Admin Collection Detail — edit a collection's name, manage its books and member shares.
 ///
-/// Layout is width-responsive (rule 12): on compact, all sections are in a single column;
-/// on regular (iPad), the books grid occupies the leading column and the name + members
-/// panel occupies the trailing column.
-///
-/// Book covers use `BookCoverImage` in a width-driven adaptive grid.
-/// Members are listed in a `FieldGroup` with initials avatars and a trailing "Add" button
-/// that opens the add-member sheet. Destructive actions (remove book, revoke share) go
+/// One grouped `Form` in a readable column at every width (rule 12, via `readableListWidth`).
+/// Book covers use `BookCoverImage` in a width-driven adaptive grid inside the Books section.
+/// Members are list rows with initials avatars; the section header's "Add" button opens the
+/// add-member sheet. Destructive actions (remove book, revoke share) go
 /// through confirmation dialogs.
 struct AdminCollectionDetailView: View {
     let collectionId: String
 
     @Environment(\.dependencies) private var deps
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @State private var observer: AdminCollectionDetailObserver?
     @State private var pendingRemoveBookId: String?
     @State private var pendingRevokeUserId: String?
-
-    private var isRegularWidth: Bool { horizontalSizeClass == .regular }
 
     var body: some View {
         Group {
@@ -70,29 +64,14 @@ struct AdminCollectionDetailView: View {
 
     @ViewBuilder
     private func readyBody(observer: AdminCollectionDetailObserver, ready: AdminCollectionDetailReadyModel) -> some View {
-        ScrollView {
-            if isRegularWidth {
-                HStack(alignment: .top, spacing: 28) {
-                    booksSection(observer: observer, ready: ready)
-                        .frame(maxWidth: .infinity, alignment: .top)
-                    VStack(spacing: 26) {
-                        nameSection(observer: observer, ready: ready)
-                        membersSection(observer: observer, ready: ready)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .top)
-                }
-                .padding(.horizontal, 32)
-                .padding(.vertical, 16)
-            } else {
-                VStack(spacing: 26) {
-                    nameSection(observer: observer, ready: ready)
-                    booksSection(observer: observer, ready: ready)
-                    membersSection(observer: observer, ready: ready)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-            }
+        // One grouped `Form` at every width: a readable column on iPad rather than two hand-drawn
+        // panes. HIG, Lists and tables.
+        Form {
+            nameSection(observer: observer, ready: ready)
+            booksSection(observer: observer, ready: ready)
+            membersSection(observer: observer, ready: ready)
         }
+        .readableListWidth(720)
         .alert(
             String(localized: "common.something_went_wrong"),
             isPresented: Binding(
@@ -160,8 +139,7 @@ struct AdminCollectionDetailView: View {
 
     @ViewBuilder
     private func nameSection(observer: AdminCollectionDetailObserver, ready: AdminCollectionDetailReadyModel) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            AdminSectionHeader(String(localized: "admin.collection_details"))
+        Section {
             AppTextField(
                 placeholder: String(localized: "admin.collection_name"),
                 text: Binding(
@@ -172,17 +150,7 @@ struct AdminCollectionDetailView: View {
                 label: String(localized: "admin.collection_name"),
                 icon: "folder"
             )
-            .fieldCard()
             .disabled(ready.isSystem)
-            // ⛔ Not merely un-saveable: a field the server will refuse to change must be
-            // unreachable, and must say why. Rendering it editable and rejecting the save
-            // afterwards teaches the reader that the app lies about what it will accept.
-            if ready.isSystem {
-                Text(String(localized: "admin.system_collection_locked"))
-                    .font(.footnote)
-                    .foregroundStyle(Color.luLabel2)
-                    .padding(.top, 6)
-            }
             if ready.isDirty && !ready.isSystem {
                 Button {
                     observer.saveName()
@@ -198,7 +166,17 @@ struct AdminCollectionDetailView: View {
                 .buttonStyle(.borderedProminent)
                 .onBrandFillLabel()
                 .disabled(ready.isSaving)
-                .padding(.top, 8)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
+        } header: {
+            Text(String(localized: "admin.collection_details"))
+        } footer: {
+            // ⛔ Not merely un-saveable: a field the server will refuse to change must be
+            // unreachable, and must say why. Rendering it editable and rejecting the save
+            // afterwards teaches the reader that the app lies about what it will accept.
+            if ready.isSystem {
+                Text(String(localized: "admin.system_collection_locked"))
             }
         }
     }
@@ -207,27 +185,13 @@ struct AdminCollectionDetailView: View {
 
     @ViewBuilder
     private func booksSection(observer: AdminCollectionDetailObserver, ready: AdminCollectionDetailReadyModel) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            AdminSectionHeader(String(localized: "admin.books_in_collection")) {
-                // The server owns what is in a system collection, so there is nothing to add.
-                if !ready.isSystem {
-                    Button {
-                        observer.openAddBooks()
-                    } label: {
-                        Label(String(localized: "admin.add_books"), systemImage: "plus")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(Color.luTint)
-                    }
-                }
-            }
+        Section {
             if ready.books.isEmpty {
                 Text(String(localized: "admin.no_books_in_this_collection"))
-                    .font(.subheadline)
                     .foregroundStyle(Color.luLabel2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(16)
-                    .fieldCard()
             } else {
+                // The covers are a width-driven grid inside one row: a collection of artwork, not a
+                // list of text (HIG, Collections).
                 LazyVGrid(
                     columns: [GridItem(.adaptive(minimum: 80), spacing: 8)],
                     spacing: 8
@@ -241,9 +205,18 @@ struct AdminCollectionDetailView: View {
                         )
                     }
                 }
-                .padding(8)
-                .background(Color.luSurface2)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .padding(.vertical, 8)
+            }
+        } header: {
+            AdminSectionHeader(String(localized: "admin.books_in_collection")) {
+                // The server owns what is in a system collection, so there is nothing to add.
+                if !ready.isSystem {
+                    Button {
+                        observer.openAddBooks()
+                    } label: {
+                        Label(String(localized: "admin.add_books"), systemImage: "plus")
+                    }
+                }
             }
         }
     }
@@ -285,28 +258,31 @@ struct AdminCollectionDetailView: View {
 
     @ViewBuilder
     private func membersSection(observer: AdminCollectionDetailObserver, ready: AdminCollectionDetailReadyModel) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        Section {
+            if ready.shares.isEmpty {
+                Text(String(localized: "admin.add_members_to_share_this"))
+                    .foregroundStyle(Color.luLabel2)
+            } else {
+                ForEach(ready.shares) { share in
+                    let isRevoking = ready.removingShareUserId == share.userId
+                    memberRow(observer: observer, share: share, isRevoking: isRevoking)
+                        // A shortcut beside the row's visible remove button (HIG, Gestures).
+                        .swipeActions {
+                            if !isRevoking {
+                                Button(String(localized: "admin.remove_access"), role: .destructive) {
+                                    pendingRevokeUserId = share.userId
+                                }
+                            }
+                        }
+                }
+            }
+        } header: {
             AdminSectionHeader(String(localized: "common.members")) {
                 Button {
                     observer.loadUsersForSharing()
                     observer.showAddMemberSheet()
                 } label: {
                     Label(String(localized: "common.add"), systemImage: "plus")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(Color.luTint)
-                }
-            }
-
-            if ready.shares.isEmpty {
-                Text(String(localized: "admin.add_members_to_share_this"))
-                    .font(.subheadline)
-                    .foregroundStyle(Color.luLabel2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(16)
-                    .fieldCard()
-            } else {
-                FieldGroup(ready.shares) { share in
-                    memberRow(observer: observer, share: share, isRevoking: ready.removingShareUserId == share.userId)
                 }
             }
         }
@@ -349,8 +325,6 @@ struct AdminCollectionDetailView: View {
                 .accessibilityLabel(String(localized: "admin.remove_access"))
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
     }
 
     // MARK: - Add books sheet

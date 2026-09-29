@@ -6,6 +6,9 @@ import SwiftUI
 ///
 /// Bound to an ``ImportUserRowModel``. The picker is presented by the parent (a confirmation
 /// dialog of `listenupUsers`); this row only reports intent via its callbacks.
+///
+/// A compound `List` row: the caller gives it a `Section` of its own with zero row insets, because
+/// its identity and resolution lines carry their own padding and the divider between them.
 struct ImportUserReviewRow: View {
     let user: ImportUserRowModel
     let onAcceptSuggestion: () -> Void
@@ -19,7 +22,6 @@ struct ImportUserReviewRow: View {
             Divider().padding(.leading, 14)
             resolutionRow
         }
-        .fieldCard()
     }
 
     // MARK: - Identity
@@ -177,8 +179,8 @@ private struct ImportUserAvatar: View {
 // MARK: - Preview
 
 #Preview("ImportUserReviewRow") {
-    ScrollView {
-        VStack(spacing: 18) {
+    List {
+        Section {
             ImportUserReviewRow(
                 user: ImportUserRowModel(
                     absUserId: "s", username: "simon", email: "simon@example.com",
@@ -186,6 +188,9 @@ private struct ImportUserAvatar: View {
                 ),
                 onAcceptSuggestion: {}, onAssign: {}, onSkip: {}, onChange: {}
             )
+            .listRowInsets(EdgeInsets())
+        }
+        Section {
             ImportUserReviewRow(
                 user: ImportUserRowModel(
                     absUserId: "d", username: "darlene", email: "darlene@example.com",
@@ -193,6 +198,9 @@ private struct ImportUserAvatar: View {
                 ),
                 onAcceptSuggestion: {}, onAssign: {}, onSkip: {}, onChange: {}
             )
+            .listRowInsets(EdgeInsets())
+        }
+        Section {
             ImportUserReviewRow(
                 user: ImportUserRowModel(
                     absUserId: "r", username: "root", email: nil,
@@ -200,8 +208,7 @@ private struct ImportUserAvatar: View {
                 ),
                 onAcceptSuggestion: {}, onAssign: {}, onSkip: {}, onChange: {}
             )
+            .listRowInsets(EdgeInsets())
         }
-        .padding()
     }
-    .background(Color.luSurface)
 }

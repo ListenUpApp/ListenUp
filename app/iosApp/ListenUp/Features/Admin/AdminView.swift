@@ -12,13 +12,11 @@ import Shared
 /// registrations and pending invites when present), and **Management** (Invite Someone — the only
 /// row with a native destination today).
 ///
-/// Layout is width-responsive (iosApp rule 12): a single readable column on iPhone; on iPad and
-/// wide split views the Server + Users column sits beside the Management column. Transient
+/// A grouped `Form` in a readable column at every width (iosApp rule 12). Transient
 /// mutation errors surface as a native alert; destructive actions (delete user, revoke invite,
 /// deny registration) go through a confirmation dialog.
 struct AdminView: View {
     @Environment(\.dependencies) private var deps
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @State private var admin: AdminObserver?
     @State private var settings: AdminSettingsObserver?
@@ -29,8 +27,6 @@ struct AdminView: View {
     @State private var pendingResetDeny: AdminResetRequestRowModel?
     /// Bumped once per copy, to fire the success haptic.
     @State private var copies = 0
-
-    private var isRegularWidth: Bool { horizontalSizeClass == .regular }
 
     var body: some View {
         Group {
@@ -89,35 +85,28 @@ struct AdminView: View {
         }
     }
 
+    /// One grouped `Form`: every block is a system `Section` with a real header, switches are list
+    /// switches, and each management destination is a navigation row the list highlights and marks
+    /// with a disclosure indicator. On iPad it keeps a readable column rather than hand-drawn panes.
+    /// HIG, Lists and tables.
     @ViewBuilder
     private func readyBody(admin: AdminObserver, settings: AdminSettingsObserver, ready: AdminReadyModel) -> some View {
-        ScrollView {
-            if isRegularWidth {
-                // iPad / wide: Server + Users beside Management (improvement over the phone-first mockup).
-                HStack(alignment: .top, spacing: 28) {
-                    VStack(spacing: 26) {
-                        serverSection(settings: settings, admin: admin, ready: ready)
-                        usersColumn(admin: admin, ready: ready)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .top)
-                    VStack(spacing: 26) {
-                        managementSection(settings: settings)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .top)
-                }
-                .padding(.horizontal, 32)
-                .padding(.vertical, 16)
-            } else {
-                VStack(spacing: 26) {
-                    serverSection(settings: settings, admin: admin, ready: ready)
-                    usersColumn(admin: admin, ready: ready)
-                    managementSection(settings: settings)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .readableWidth(640)
+        Form {
+            serverSection(settings: settings, admin: admin, ready: ready)
+            if let model = settingsModel(settings), !model.ratingSources.isEmpty {
+                ratingSourcesSection(model: model, settings: settings)
             }
+            usersSection(admin: admin, ready: ready)
+            if ready.registrationPolicy == .approvalQueue {
+                pendingRegistrationsSection(admin: admin, ready: ready)
+            }
+            passwordResetsSection(admin: admin, ready: ready)
+            if !ready.pendingInvites.isEmpty {
+                pendingInvitesSection(admin: admin, ready: ready)
+            }
+            managementSection(settings: settings)
         }
+        .readableListWidth(720)
         .refreshable {
             admin.reload()
             settings.reload()
@@ -132,40 +121,48 @@ struct AdminView: View {
         admin: AdminObserver,
         ready: AdminReadyModel
     ) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            AdminSectionHeader(String(localized: "admin.server_settings"))
-            serverFields(settings: settings)
-            if case .ready(let model) = settings.phase, let error = model.error {
+        let model = settingsModel(settings)
+        Section {
+            AppTextField(
+                placeholder: String(localized: "admin.server_name"),
+                text: serverNameBinding(settings: settings, model: model),
+                entry: .words,
+                label: String(localized: "admin.server_name"),
+                icon: "tag"
+            )
+            AppTextField(
+                placeholder: String(localized: "admin.remote_url_placeholder"),
+                text: remoteUrlBinding(settings: settings, model: model),
+                entry: .url,
+                label: String(localized: "admin.remote_url"),
+                icon: "globe"
+            )
+        } header: {
+            Text(String(localized: "admin.server_settings"))
+        } footer: {
+            if let error = model?.error {
                 ErrorBanner(message: error)
-                    .padding(.top, 10)
             }
-            Spacer().frame(height: 14)
-            RegistrationPolicyCard(
+        }
+
+        Section {
+            RegistrationPolicyRow(
                 policy: ready.registrationPolicy,
                 isBusy: ready.isTogglingRegistrationPolicy,
                 onSelect: { admin.setRegistrationPolicy($0) }
             )
-            .fieldCard()
-            Spacer().frame(height: 10)
             ToggleRow(
                 systemImage: "tray.and.arrow.down",
                 title: String(localized: "admin.inbox_setting_title"),
                 subtitle: String(localized: "admin.inbox_setting_subtitle"),
-                isOn: holdNewBooksForReviewBinding(settings: settings, model: settingsModel(settings))
+                isOn: holdNewBooksForReviewBinding(settings: settings, model: model)
             )
-            .fieldCard()
-            Spacer().frame(height: 10)
             ToggleRow(
                 systemImage: "bell.badge",
                 title: String(localized: "admin.push_setting_title"),
                 subtitle: String(localized: "admin.push_setting_subtitle"),
-                isOn: pushNotificationsEnabledBinding(settings: settings, model: settingsModel(settings))
+                isOn: pushNotificationsEnabledBinding(settings: settings, model: model)
             )
-            .fieldCard()
-            if let model = settingsModel(settings), !model.ratingSources.isEmpty {
-                Spacer().frame(height: 14)
-                ratingSourcesSection(model: model, settings: settings)
-            }
         }
     }
 
@@ -178,172 +175,110 @@ struct AdminView: View {
     /// back. The switch stays operable even for a source that cannot run.
     @ViewBuilder
     private func ratingSourcesSection(model: AdminSettingsReadyModel, settings: AdminSettingsObserver) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            AdminSectionHeader(String(localized: "admin.rating_sources_title"))
-            Text(String(localized: "admin.rating_sources_hint"))
-                .font(.footnote)
-                .foregroundStyle(Color.luLabel2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 8)
-            VStack(spacing: 0) {
-                ForEach(Array(model.ratingSources.enumerated()), id: \.element.id) { index, row in
-                    if index > 0 { rowSeparator }
-                    ToggleRow(
-                        systemImage: "star.fill",
-                        title: row.source.displayName,
-                        subtitle: row.subtitle(),
-                        isOn: Binding(
-                            get: { row.enabled },
-                            set: { settings.setRatingSourceEnabled(row.source, $0) }
-                        )
+        Section {
+            ForEach(model.ratingSources, id: \.id) { row in
+                ToggleRow(
+                    systemImage: "star.fill",
+                    title: row.source.displayName,
+                    subtitle: row.subtitle(),
+                    isOn: Binding(
+                        get: { row.enabled },
+                        set: { settings.setRatingSourceEnabled(row.source, $0) }
                     )
-                }
+                )
             }
-            .fieldCard()
+        } header: {
+            Text(String(localized: "admin.rating_sources_title"))
+        } footer: {
+            Text(String(localized: "admin.rating_sources_hint"))
         }
     }
 
-    @ViewBuilder
-    private func serverFields(settings: AdminSettingsObserver) -> some View {
-        let model: AdminSettingsReadyModel? = {
-            if case .ready(let model) = settings.phase { return model }
-            return nil
-        }()
-        VStack(spacing: 0) {
-            AppTextField(
-                placeholder: String(localized: "admin.server_name"),
-                text: serverNameBinding(settings: settings, model: model),
-                entry: .words,
-                label: String(localized: "admin.server_name"),
-                icon: "tag",
-                isLast: false
-            )
-            AppTextField(
-                placeholder: String(localized: "admin.remote_url_placeholder"),
-                text: remoteUrlBinding(settings: settings, model: model),
-                entry: .url,
-                label: String(localized: "admin.remote_url"),
-                icon: "globe"
-            )
-        }
-        .fieldCard()
-    }
-
-    // MARK: - Users column
-
-    @ViewBuilder
-    private func usersColumn(admin: AdminObserver, ready: AdminReadyModel) -> some View {
-        VStack(alignment: .leading, spacing: 26) {
-            usersSection(admin: admin, ready: ready)
-            if ready.registrationPolicy == .approvalQueue {
-                pendingRegistrationsSection(admin: admin, ready: ready)
-            }
-            passwordResetsSection(admin: admin, ready: ready)
-            if !ready.pendingInvites.isEmpty {
-                pendingInvitesSection(admin: admin, ready: ready)
-            }
-        }
-    }
+    // MARK: - Users
 
     @ViewBuilder
     private func usersSection(admin: AdminObserver, ready: AdminReadyModel) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        Section {
+            ForEach(ready.users, id: \.id) { user in
+                // Tapping the row opens the user's detail (permissions incl. Can Share); the
+                // trailing menu keeps its own tap. Parity with Android's tappable rows.
+                NavigationLink(value: UserDetailDestination(userId: user.id)) {
+                    AdminUserRow(
+                        user: user,
+                        isDeleting: ready.deletingUserId == user.id,
+                        onDelete: { pendingDelete = user }
+                    )
+                }
+                // A shortcut beside the row's visible menu (HIG, Gestures).
+                .swipeActions {
+                    if !user.isProtected && ready.deletingUserId != user.id {
+                        Button(String(localized: "common.delete"), role: .destructive) { pendingDelete = user }
+                    }
+                }
+            }
+        } header: {
             AdminSectionHeader("\(String(localized: "common.users")) · \(ready.users.count)") {
                 Button { showingInviteSheet = true } label: {
                     Label(String(localized: "common.invite"), systemImage: "plus")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(Color.luTint)
                 }
             }
-            VStack(spacing: 0) {
-                ForEach(Array(ready.users.enumerated()), id: \.element.id) { index, user in
-                    if index > 0 { rowSeparator }
-                    // Tapping the row opens the user's detail (permissions incl. Can Share); the
-                    // trailing delete button keeps its own tap. Parity with Android's tappable rows.
-                    NavigationLink(value: UserDetailDestination(userId: user.id)) {
-                        AdminUserRow(
-                            user: user,
-                            isDeleting: ready.deletingUserId == user.id,
-                            onDelete: { pendingDelete = user }
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .fieldCard()
         }
     }
 
     @ViewBuilder
     private func pendingRegistrationsSection(admin: AdminObserver, ready: AdminReadyModel) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            AdminSectionHeader(String(localized: "admin.pending_registrations"))
+        Section(String(localized: "admin.pending_registrations")) {
             if ready.pendingUsers.isEmpty {
                 emptyRow(String(localized: "admin.no_pending_registrations"))
             } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(ready.pendingUsers.enumerated()), id: \.element.id) { index, user in
-                        if index > 0 { rowSeparator }
-                        AdminPendingUserRow(
-                            user: user,
-                            isBusy: ready.approvingUserId == user.id || ready.denyingUserId == user.id,
-                            onApprove: { admin.approveUser(id: user.id) },
-                            onDeny: { pendingDeny = user }
-                        )
-                    }
+                ForEach(ready.pendingUsers, id: \.id) { user in
+                    AdminPendingUserRow(
+                        user: user,
+                        isBusy: ready.approvingUserId == user.id || ready.denyingUserId == user.id,
+                        onApprove: { admin.approveUser(id: user.id) },
+                        onDeny: { pendingDeny = user }
+                    )
                 }
-                .fieldCard()
             }
         }
     }
 
     @ViewBuilder
     private func passwordResetsSection(admin: AdminObserver, ready: AdminReadyModel) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            AdminSectionHeader(String(localized: "admin.password_resets"))
+        Section(String(localized: "admin.password_resets")) {
             if ready.pendingPasswordResets.isEmpty {
                 emptyRow(String(localized: "admin.no_pending_password_resets"))
             } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(ready.pendingPasswordResets.enumerated()), id: \.element.id) { index, request in
-                        if index > 0 { rowSeparator }
-                        AdminPendingUserRow(
-                            user: AdminUserRowModel(
-                                id: request.id,
-                                name: request.name,
-                                email: request.email,
-                                roleLabel: "",
-                                isRootBadge: false,
-                                isProtected: false
-                            ),
-                            isBusy: ready.decidingPasswordResetId == request.id,
-                            onApprove: { admin.decidePasswordReset(id: request.id, approved: true) },
-                            onDeny: { pendingResetDeny = request }
-                        )
-                    }
+                ForEach(ready.pendingPasswordResets, id: \.id) { request in
+                    AdminPendingUserRow(
+                        user: AdminUserRowModel(
+                            id: request.id,
+                            name: request.name,
+                            email: request.email,
+                            roleLabel: "",
+                            isRootBadge: false,
+                            isProtected: false
+                        ),
+                        isBusy: ready.decidingPasswordResetId == request.id,
+                        onApprove: { admin.decidePasswordReset(id: request.id, approved: true) },
+                        onDeny: { pendingResetDeny = request }
+                    )
                 }
-                .fieldCard()
             }
         }
     }
 
     @ViewBuilder
     private func pendingInvitesSection(admin: AdminObserver, ready: AdminReadyModel) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            AdminSectionHeader(String(localized: "admin.pending_invites"))
-            VStack(spacing: 0) {
-                ForEach(Array(ready.pendingInvites.enumerated()), id: \.element.id) { index, invite in
-                    if index > 0 { rowSeparator }
-                    AdminInviteRow(
-                        invite: invite,
-                        isRevoking: ready.revokingInviteId == invite.id,
-                        onCopy: { copyToClipboard(invite.url) },
-                        onRevoke: { pendingRevoke = invite }
-                    )
-                }
+        Section(String(localized: "admin.pending_invites")) {
+            ForEach(ready.pendingInvites, id: \.id) { invite in
+                AdminInviteRow(
+                    invite: invite,
+                    isRevoking: ready.revokingInviteId == invite.id,
+                    onCopy: { copyToClipboard(invite.url) },
+                    onRevoke: { pendingRevoke = invite }
+                )
             }
-            .fieldCard()
         }
     }
 
@@ -351,95 +286,69 @@ struct AdminView: View {
 
     @ViewBuilder
     private func managementSection(settings: AdminSettingsObserver) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            AdminSectionHeader(String(localized: "admin.management"))
-            VStack(spacing: 0) {
-                NavigationLink(value: LibrarySettingsDestination()) {
-                    NavigationActionRow(
-                        systemImage: "externaldrive.fill",
-                        title: String(localized: "admin.library_settings"),
-                        subtitle: String(localized: "admin.library_settings_subtitle")
-                    )
-                }
-                .buttonStyle(.plain)
-                rowSeparator
-                NavigationLink(value: AdminBackupsDestination()) {
-                    NavigationActionRow(
-                        systemImage: "archivebox.fill",
-                        title: String(localized: "admin.backup_restore"),
-                        subtitle: String(localized: "admin.create_backups_and_restore_server")
-                    )
-                }
-                .buttonStyle(.plain)
-                rowSeparator
+        Section(String(localized: "admin.management")) {
+            NavigationLink(value: LibrarySettingsDestination()) {
                 NavigationActionRow(
-                    systemImage: "person.2.fill",
-                    title: String(localized: "admin.invite_someone"),
-                    subtitle: String(localized: "admin.share_your_audiobook_library_with"),
-                    action: { showingInviteSheet = true }
+                    systemImage: "externaldrive.fill",
+                    title: String(localized: "admin.library_settings"),
+                    subtitle: String(localized: "admin.library_settings_subtitle")
                 )
-                // Unconditional, matching Android. Hold-for-review governs whether *healthy*
-                // books wait here; a folder the scanner could not import lands here regardless,
-                // so the way in must not depend on a setting the admin may never have turned on.
-                rowSeparator
-                NavigationLink(value: AdminInboxDestination()) {
-                    NavigationActionRow(
-                        systemImage: "tray.full",
-                        title: String(localized: "common.inbox"),
-                        subtitle: String(localized: "admin.inbox_subtitle")
-                    )
-                }
-                .buttonStyle(.plain)
-                rowSeparator
-                NavigationLink(value: AdminCollectionsDestination()) {
-                    NavigationActionRow(
-                        systemImage: "folder.badge.person.crop",
-                        title: String(localized: "common.collections"),
-                        subtitle: String(localized: "admin.collection_shared_book_sets")
-                    )
-                }
-                .buttonStyle(.plain)
-                rowSeparator
-                NavigationLink(value: AdminCategoriesDestination()) {
-                    NavigationActionRow(
-                        systemImage: "tag.fill",
-                        title: String(localized: "common.categories"),
-                        subtitle: String(localized: "admin.view_the_genre_hierarchy_tree")
-                    )
-                }
-                .buttonStyle(.plain)
-                rowSeparator
-                // Pushes the ABS import hub, which launches the import wizard. The mockup's
-                // Unmapped Genres row is still omitted (no iOS screen yet).
-                NavigationLink(value: ABSImportDestination()) {
-                    NavigationActionRow(
-                        systemImage: "square.and.arrow.down.on.square.fill",
-                        title: String(localized: "import.title"),
-                        subtitle: String(localized: "import.entry_subtitle")
-                    )
-                }
-                .buttonStyle(.plain)
             }
-            .fieldCard()
+            NavigationLink(value: AdminBackupsDestination()) {
+                NavigationActionRow(
+                    systemImage: "archivebox.fill",
+                    title: String(localized: "admin.backup_restore"),
+                    subtitle: String(localized: "admin.create_backups_and_restore_server")
+                )
+            }
+            NavigationActionRow(
+                systemImage: "person.2.fill",
+                title: String(localized: "admin.invite_someone"),
+                subtitle: String(localized: "admin.share_your_audiobook_library_with"),
+                action: { showingInviteSheet = true }
+            )
+            // Unconditional, matching Android. Hold-for-review governs whether *healthy*
+            // books wait here; a folder the scanner could not import lands here regardless,
+            // so the way in must not depend on a setting the admin may never have turned on.
+            NavigationLink(value: AdminInboxDestination()) {
+                NavigationActionRow(
+                    systemImage: "tray.full",
+                    title: String(localized: "common.inbox"),
+                    subtitle: String(localized: "admin.inbox_subtitle")
+                )
+            }
+            NavigationLink(value: AdminCollectionsDestination()) {
+                NavigationActionRow(
+                    systemImage: "folder.badge.person.crop",
+                    title: String(localized: "common.collections"),
+                    subtitle: String(localized: "admin.collection_shared_book_sets")
+                )
+            }
+            NavigationLink(value: AdminCategoriesDestination()) {
+                NavigationActionRow(
+                    systemImage: "tag.fill",
+                    title: String(localized: "common.categories"),
+                    subtitle: String(localized: "admin.view_the_genre_hierarchy_tree")
+                )
+            }
+            // Pushes the ABS import hub, which launches the import wizard. The mockup's
+            // Unmapped Genres row is still omitted (no iOS screen yet).
+            NavigationLink(value: ABSImportDestination()) {
+                NavigationActionRow(
+                    systemImage: "square.and.arrow.down.on.square.fill",
+                    title: String(localized: "import.title"),
+                    subtitle: String(localized: "import.entry_subtitle")
+                )
+            }
         }
     }
 
     // MARK: - Shared row chrome
 
-    private var rowSeparator: some View {
-        Rectangle()
-            .fill(Color.luSeparator)
-            .frame(height: 0.5)
-            .padding(.leading, 61)
-    }
-
     private func emptyRow(_ text: String) -> some View {
         Text(text)
             .font(.subheadline)
             .foregroundStyle(Color.luLabel2)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16)
-            .fieldCard()
     }
 
     // MARK: - Save toolbar
@@ -603,8 +512,8 @@ struct AdminView: View {
 
 /// Three-state registration control (Open / Approval / Closed) backed by the server's
 /// `RegistrationPolicy` — a segmented selector, not a boolean switch, so all three states are
-/// visible and round-trip correctly. The subtitle reflects the current policy.
-private struct RegistrationPolicyCard: View {
+/// visible and round-trip correctly. The subtitle reflects the current policy. A `Form` row.
+private struct RegistrationPolicyRow: View {
     let policy: RegistrationPolicy
     let isBusy: Bool
     let onSelect: (RegistrationPolicy) -> Void
@@ -632,8 +541,7 @@ private struct RegistrationPolicyCard: View {
             .pickerStyle(.segmented)
             .disabled(isBusy)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.vertical, 4)
     }
 
     private static func label(_ policy: RegistrationPolicy) -> String {

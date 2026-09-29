@@ -148,6 +148,7 @@ struct AdminBackupsView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .readableListWidth()
         .refreshable { observer.reload() }
         .overlay {
             if case .uploading(let filename) = restoreFromFile?.phase {
@@ -165,8 +166,6 @@ struct AdminBackupsView: View {
             subtitle: String(localized: "admin.restore_from_file_description"),
             action: { showingFileImporter = true }
         )
-        // The row carries its own padding (it also sits in `.fieldCard()`s elsewhere).
-        .listRowInsets(EdgeInsets())
     }
 
     private func uploadingOverlay(filename: String) -> some View {

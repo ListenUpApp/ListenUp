@@ -47,36 +47,40 @@ struct CreateBackupSheet: View {
 
     // MARK: - Form
 
+    /// A grouped `Form`: the intro as the section's header, the switch as a system row with its size
+    /// warning as the footer, and the Create action beneath. HIG, Lists and tables.
     private var form: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                Text(String(localized: "admin.create_a_backup_of_your"))
-                    .font(.subheadline)
-                    .foregroundStyle(Color.luLabel2)
-
-                AdminSectionHeader(String(localized: "admin.what_to_include"))
-                VStack(alignment: .leading, spacing: 8) {
-                    Toggle(isOn: $includeImages) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(String(localized: "admin.cover_images"))
-                                .font(.body)
-                                .foregroundStyle(.primary)
-                            Text(String(localized: "admin.book_covers_and_user_avatars"))
-                                .font(.footnote)
-                                .foregroundStyle(Color.luLabel2)
-                        }
+        Form {
+            Section {
+                Toggle(isOn: $includeImages) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(String(localized: "admin.cover_images"))
+                            .font(.body)
+                            .foregroundStyle(.primary)
+                        Text(String(localized: "admin.book_covers_and_user_avatars"))
+                            .font(.footnote)
+                            .foregroundStyle(Color.luLabel2)
                     }
-                    Label(String(localized: "admin.significantly_increases_backup_size"), systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundStyle(Color.luWarning)
                 }
-                .padding(14)
-                .fieldCard()
+            } header: {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(String(localized: "admin.create_a_backup_of_your"))
+                        .font(.subheadline)
+                        .foregroundStyle(Color.luLabel2)
+                        .textCase(nil)
+                    Text(String(localized: "admin.what_to_include"))
+                }
+            } footer: {
+                Label(String(localized: "admin.significantly_increases_backup_size"), systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Color.luWarning)
+            }
 
+            Section {
                 if let error = readySnapshot?.error {
                     ErrorBanner(message: error)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
                 }
-
                 Button {
                     hasStartedCreation = true
                     observer.createBackup(includeImages: includeImages)
@@ -88,11 +92,11 @@ struct CreateBackupSheet: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .onBrandFillLabel()
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .readableWidth(640)
         }
+        .readableListWidth()
     }
 
     private var creatingContent: some View {

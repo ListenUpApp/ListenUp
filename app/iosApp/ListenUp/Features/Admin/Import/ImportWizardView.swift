@@ -9,9 +9,8 @@ import Shared
 /// picker is a SwiftUI `.fileImporter`. The flow is destructive (no step-back) — matching the
 /// shared `ImportFlowViewModel` — so the only navigation is forward or dismiss.
 ///
-/// Responsive: progress and completion centre on a `.readableWidth()` column that stays honest on
-/// iPhone and grows gracefully on iPad and wide split views (rule 12). The Review list flows in
-/// the same readable column; its rows are full-width and width-driven.
+/// Responsive: every step is a grouped `List` in a `.readableListWidth()` column that stays honest
+/// on iPhone and grows gracefully on iPad and wide split views (rule 12).
 struct ImportWizardView: View {
     @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss

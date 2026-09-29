@@ -25,8 +25,6 @@ struct AdminUserRow: View {
             AdminRoleBadge(label: user.roleLabel, isElevated: user.isRootBadge)
             trailing
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 9)
         .contentShape(Rectangle())
     }
 
@@ -59,7 +57,7 @@ struct AdminUserRow: View {
 }
 
 #Preview("AdminUserRow") {
-    VStack(spacing: 0) {
+    Form {
         AdminUserRow(
             user: AdminUserRowModel(
                 id: "1", name: "Simon Hull", email: "simon@example.com",
@@ -67,7 +65,6 @@ struct AdminUserRow: View {
             ),
             isDeleting: false, onDelete: {}
         )
-        Rectangle().fill(Color.luSeparator).frame(height: 0.5).padding(.leading, 61)
         AdminUserRow(
             user: AdminUserRowModel(
                 id: "2", name: "Erin Hull", email: "erin@example.com",
@@ -76,8 +73,4 @@ struct AdminUserRow: View {
             isDeleting: false, onDelete: {}
         )
     }
-    .fieldCard()
-    .padding()
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(Color.luSurface)
 }
