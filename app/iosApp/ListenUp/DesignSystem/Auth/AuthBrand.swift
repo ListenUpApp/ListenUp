@@ -13,14 +13,15 @@ struct AppIconMark: View {
     }
 }
 
-/// Full icon + wordmark lockup. Swaps to the white-wordmark variant in dark mode.
+/// Full icon + wordmark lockup. One imageset with a Dark appearance: the asset catalog picks the
+/// white-wordmark art in dark mode, so the swap follows every trait change (and any view that
+/// overrides the scheme) without code (HIG, Dark Mode: "Make sure full-color images and icons look
+/// good in both appearances").
 struct BrandLockup: View {
     var height: CGFloat = 112
 
-    @Environment(\.colorScheme) private var scheme
-
     var body: some View {
-        Image(scheme == .dark ? "BrandLockupDark" : "BrandLockupLight")
+        Image("BrandLockup")
             .resizable()
             .scaledToFit()
             .frame(height: height)
