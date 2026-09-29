@@ -273,10 +273,10 @@ private fun goodreadsHttpClient(): HttpClient =
 /**
  * Outside-ratings bindings: the admin per-source enabled/health settings, the fetcher every
  * trigger (match-apply, nightly sweep, admin refresh, backfill) runs through, the
- * [ExternalRatingsBackfill] that catches a never-attempted book up promptly (triggered after every
- * completed scan — see `ApplicationStartup.startBackgroundTasks` — and run first by the sweep
- * below), and the nightly sweep task itself. Split out to keep [metadataModule] under the length
- * budget.
+ * [ExternalRatingsBackfill] that catches a book up promptly with every runnable source that has
+ * never tried it (triggered after every completed scan — see
+ * `ApplicationStartup.startBackgroundTasks` — and run first by the sweep below), and the nightly
+ * sweep task itself. Split out to keep [metadataModule] under the length budget.
  */
 private fun Module.ratingsBindings() {
     single { RatingSourceSettings(settings = get()) }

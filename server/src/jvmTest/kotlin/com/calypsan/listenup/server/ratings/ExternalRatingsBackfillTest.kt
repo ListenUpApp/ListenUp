@@ -18,6 +18,8 @@ import com.calypsan.listenup.server.metadata.spi.ExternalRatingMeta
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.metadata.spi.RatingSource
+import com.calypsan.listenup.server.metadata.spi.RatingSourceAvailability
+import com.calypsan.listenup.api.dto.admin.RatingSourceUnavailable
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
@@ -40,13 +42,14 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 
 /**
- * Tests for [ExternalRatingsBackfill] — the one-time-per-book catch-up that fetches every live,
- * ASIN-bearing book [ExternalRatingsFetcher] has never once attempted, instead of waiting for the
- * nightly sweep's ceil(n/30) rotation to reach it.
+ * Tests for [ExternalRatingsBackfill] — the catch-up that fetches every live book from each runnable
+ * source that has never attempted it, instead of waiting for the nightly sweep's ceil(n/30) rotation
+ * to reach it.
  */
 class ExternalRatingsBackfillTest :
     FunSpec({
@@ -67,14 +70,47 @@ class ExternalRatingsBackfillTest :
                 genreRepository = GenreRepository(this, bus, registry),
             )
 
+        /**
+         * Two ASIN-bearing books ("book1", "book2") and a backfill over [sources], all real but the
+         * sources themselves.
+         */
+        fun backfillTest(
+            vararg sources: RecordingRatingSource,
+            block: suspend TestScope.(
+                List<RecordingRatingSource>,
+                BookExternalRatingRepository,
+                RecordingFetcher,
+                ExternalRatingsBackfill,
+            ) -> Unit,
+        ) = withSqlDatabase {
+            sql.seedTestLibraryAndFolder()
+            sql.seedTestBook("book1", asin = "B001")
+            sql.seedTestBook("book2", asin = "B002")
+            val bus = ChangeBus()
+            val registry = SyncRegistry()
+            val ratings = BookExternalRatingRepository(db = sql, bus = bus, registry = registry, driver = driver)
+            val fetcher =
+                RecordingFetcher(
+                    registry = MetadataProviderRegistry(sources.toList()),
+                    ratings = ratings,
+                    sourceSettings = RatingSourceSettings(ServerSettingsRepository(sql, RegistrationPolicy.CLOSED)),
+                    books = sql.bookRepo(bus, registry, driver),
+                    clock = FixedClock(now),
+                )
+            runTest {
+                val backfill = ExternalRatingsBackfill(fetcher, ratings, scope = this, clock = FixedClock(now))
+                block(sources.toList(), ratings, fetcher, backfill)
+            }
+        }
+
         test(
-            "run fetches every never-attempted book, skips attempted and ASIN-less books, and survives one throwing fetch",
+            "run fetches every book a runnable source never attempted, ASIN or not, skips attempted books, and survives one throwing fetch",
         ) {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestBook("a-throws", asin = "A-THROWS")
                 sql.seedTestBook("b-ok", asin = "B-OK")
-                sql.seedTestBook("c-noasin") // no ASIN — never a candidate
+                sql.seedTestBook("c-noasin") // no ASIN — Goodreads and Hardcover can still rate it
                 sql.seedTestBook("d-attempted", asin = "D-ATT")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
@@ -95,14 +131,15 @@ class ExternalRatingsBackfillTest :
                             bookId: BookId,
                             locale: MetadataLocale,
                             refresh: Boolean,
+                            sources: Set<ExternalRatingSource>,
                         ): Outcome {
                             if (bookId.value == "a-throws") error("boom")
-                            return super.fetch(bookId, locale, refresh)
+                            return super.fetch(bookId, locale, refresh, sources)
                         }
                     }
 
                 runTest {
-                    ratings.recordAttempt("d-attempted", now.toEpochMilliseconds())
+                    ratings.recordAttempt("d-attempted", ExternalRatingSource.AUDIBLE, now.toEpochMilliseconds())
                     val backfill =
                         ExternalRatingsBackfill(
                             fetcher = fetcher,
@@ -113,13 +150,78 @@ class ExternalRatingsBackfillTest :
 
                     backfill.run()
 
-                    // Only the live, ASIN-bearing, never-attempted book that doesn't throw ever
-                    // reaches the rating source.
-                    audible.calledAsins shouldBe listOf("B-OK")
-                    // The throwing book still ends up "attempted" — otherwise it would sort right
-                    // back into the queue and spin the pass forever.
-                    ratings.neverAttempted(limit = 10) shouldBe emptyList()
+                    // Only the live, never-attempted books that don't throw ever reach the source.
+                    audible.calledBooks shouldBe listOf("b-ok", "c-noasin")
+                    // The throwing book still ends up "attempted" — otherwise every later pass would
+                    // offer it to the same source again.
+                    ratings.booksMissingAttempt(setOf(ExternalRatingSource.AUDIBLE), after = "", limit = 10) shouldBe
+                        emptyList()
                 }
+            }
+        }
+
+        test("a book Audible already tried is fetched from Goodreads, and only from Goodreads") {
+            backfillTest(
+                RecordingRatingSource(),
+                RecordingRatingSource(MetadataProviderId("goodreads"), ExternalRatingSource.GOODREADS),
+            ) { (audible, goodreads), ratings, fetcher, backfill ->
+                ratings.recordAttempt("book1", ExternalRatingSource.AUDIBLE, now.toEpochMilliseconds())
+
+                backfill.run()
+
+                fetcher.fetched shouldBe
+                    listOf(
+                        "book1" to setOf(ExternalRatingSource.GOODREADS),
+                        "book2" to setOf(ExternalRatingSource.AUDIBLE, ExternalRatingSource.GOODREADS),
+                    )
+                audible.calledBooks shouldBe listOf("book2")
+                goodreads.calledBooks shouldBe listOf("book1", "book2")
+                ratings.attemptedSources("book1") shouldBe
+                    setOf(ExternalRatingSource.AUDIBLE, ExternalRatingSource.GOODREADS)
+            }
+        }
+
+        test("an unavailable Hardcover makes no book a candidate") {
+            val hardcover = RecordingRatingSource(MetadataProviderId("hardcover"), ExternalRatingSource.HARDCOVER, available = false)
+            backfillTest(RecordingRatingSource(), hardcover) { (audible), ratings, fetcher, backfill ->
+                ratings.recordAttempt("book1", ExternalRatingSource.AUDIBLE, now.toEpochMilliseconds())
+                ratings.recordAttempt("book2", ExternalRatingSource.AUDIBLE, now.toEpochMilliseconds())
+
+                ratings.booksMissingAttempt(fetcher.runnableSources(), after = "", limit = 10) shouldBe emptyList()
+                backfill.run()
+
+                fetcher.fetched shouldBe emptyList()
+                audible.calledBooks shouldBe emptyList()
+                hardcover.calls shouldBe 0
+            }
+        }
+
+        test("once Hardcover becomes available, the next pass fetches every book it never tried, from it alone") {
+            val hardcover = RecordingRatingSource(MetadataProviderId("hardcover"), ExternalRatingSource.HARDCOVER, available = false)
+            backfillTest(RecordingRatingSource(), hardcover) { (audible), _, fetcher, backfill ->
+                backfill.run()
+                audible.calledBooks shouldBe listOf("book1", "book2")
+
+                hardcover.available = true
+                fetcher.fetched.clear()
+                backfill.run()
+
+                fetcher.fetched shouldBe
+                    listOf(
+                        "book1" to setOf(ExternalRatingSource.HARDCOVER),
+                        "book2" to setOf(ExternalRatingSource.HARDCOVER),
+                    )
+                hardcover.calledBooks shouldBe listOf("book1", "book2")
+                audible.calledBooks shouldBe listOf("book1", "book2")
+            }
+        }
+
+        test("a pass ends when no source can run") {
+            backfillTest(RecordingRatingSource(available = false)) { (audible), _, _, backfill ->
+                // runTest's own real-time timeout fails this if the pass never ends.
+                backfill.run()
+
+                audible.calls shouldBe 0
             }
         }
 
@@ -147,8 +249,9 @@ class ExternalRatingsBackfillTest :
                             bookId: BookId,
                             locale: MetadataLocale,
                             refresh: Boolean,
+                            sources: Set<ExternalRatingSource>,
                         ): Outcome {
-                            val outcome = super.fetch(bookId, locale, refresh)
+                            val outcome = super.fetch(bookId, locale, refresh, sources)
                             // Simulates a scan that completes WHILE the pass is mid-flight, adding a
                             // second never-attempted, ASIN-bearing book.
                             if (bookId.value == "book1" && !addedMidPass) {
@@ -170,8 +273,7 @@ class ExternalRatingsBackfillTest :
 
                     backfill.run()
 
-                    audible.calledAsins shouldBe listOf("B001", "B002")
-                    ratings.neverAttempted(limit = 10) shouldBe emptyList()
+                    audible.calledBooks shouldBe listOf("book1", "book2")
                 }
             }
         }
@@ -212,7 +314,7 @@ class ExternalRatingsBackfillTest :
                     first.join()
                     second.join()
 
-                    audible.calledAsins shouldBe listOf("B001", "B002", "B003")
+                    audible.calledBooks shouldBe listOf("book1", "book2", "book3")
                 }
             }
         }
@@ -282,7 +384,7 @@ class ExternalRatingsBackfillTest :
                         )
                         withTimeout(5.seconds) { fetchedSignal.await() }
 
-                        audible.calledAsins shouldBe listOf("B001")
+                        audible.calledBooks shouldBe listOf("book1")
                     }
                 } finally {
                     scope.cancel()
@@ -291,8 +393,35 @@ class ExternalRatingsBackfillTest :
         }
     })
 
-/** Minimal hand-rolled [RatingSource] fake that records every ASIN it was asked to rate. */
+/** A real [ExternalRatingsFetcher] that also records each book it was asked to fetch, and from which sources. */
+private class RecordingFetcher(
+    registry: MetadataProviderRegistry,
+    ratings: BookExternalRatingRepository,
+    sourceSettings: RatingSourceSettings,
+    books: BookRepository,
+    clock: FixedClock,
+) : ExternalRatingsFetcher(registry, ratings, sourceSettings, books, clock) {
+    val fetched = mutableListOf<Pair<String, Set<ExternalRatingSource>>>()
+
+    override suspend fun fetch(
+        bookId: BookId,
+        locale: MetadataLocale,
+        refresh: Boolean,
+        sources: Set<ExternalRatingSource>,
+    ): Outcome {
+        fetched += bookId.value to sources
+        return super.fetch(bookId, locale, refresh, sources)
+    }
+}
+
+/**
+ * Minimal hand-rolled [RatingSource] fake that records every book it was asked to rate (by the id
+ * `seedTestBook` puts in the title), and whose availability a test can switch.
+ */
 private class RecordingRatingSource(
+    override val id: MetadataProviderId = MetadataProviderId.AUDIBLE,
+    override val ratingSource: ExternalRatingSource = ExternalRatingSource.AUDIBLE,
+    var available: Boolean = true,
     private val result: AppResult<ExternalRatingMeta?> = AppResult.Success(null),
     /**
      * Completed the first time [getRating] is called — lets a test await the effect of a
@@ -302,17 +431,23 @@ private class RecordingRatingSource(
      */
     private val onCalled: CompletableDeferred<Unit>? = null,
 ) : RatingSource {
-    override val id: MetadataProviderId = MetadataProviderId.AUDIBLE
-    override val ratingSource: ExternalRatingSource = ExternalRatingSource.AUDIBLE
+    val calledBooks = mutableListOf<String>()
 
-    val calledAsins = mutableListOf<String>()
+    val calls get() = calledBooks.size
+
+    override suspend fun availability(): RatingSourceAvailability =
+        if (available) {
+            RatingSourceAvailability.Available
+        } else {
+            RatingSourceAvailability.Unavailable(RatingSourceUnavailable.NO_CONNECTION)
+        }
 
     override suspend fun getRating(
         book: BookIdentity,
         locale: MetadataLocale,
         refresh: Boolean,
     ): AppResult<ExternalRatingMeta?> {
-        book.asin?.let { calledAsins += it }
+        calledBooks += book.title.removePrefix("Test Book ")
         onCalled?.complete(Unit)
         return result
     }
