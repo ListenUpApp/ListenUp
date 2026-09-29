@@ -21,8 +21,9 @@ import com.calypsan.listenup.server.metadata.spi.RatingSourceAvailability
  * often holds duplicate records of one book and the busiest carries the readers.
  *
  * Unavailable without a client id ([clientConfigured]) or a healthy connection; both are standing
- * conditions the fetcher skips without penalty. A broken connection, a rejected token or an
- * unreachable Hardcover is a [AppResult.Failure], which counts toward the source's automatic pause.
+ * conditions the fetcher skips without penalty. A broken connection or rejected token is a
+ * [HardcoverError.ConnectionBroken] failure (the admin must reconnect); an unreachable Hardcover is
+ * [HardcoverError.Unavailable]. Both count toward the source's automatic pause.
  */
 class HardcoverRatingSource(
     private val graphQl: HardcoverGraphQlClient,
@@ -49,7 +50,7 @@ class HardcoverRatingSource(
             when (val lookup = connection.token()) {
                 is TokenLookup.Valid -> lookup.accessToken
                 TokenLookup.NotConnected -> return AppResult.Success(null)
-                is TokenLookup.Broken -> return failure("connection broken: ${lookup.reason}")
+                is TokenLookup.Broken -> return brokenConnection("connection broken: ${lookup.reason}")
                 TokenLookup.Unavailable -> return failure("token refresh unavailable")
             }
         book.asin?.let { asin ->
@@ -57,7 +58,7 @@ class HardcoverRatingSource(
             when (val result = graphQl.editionRatingByAsin(token, asin)) {
                 is HardcoverRatingResult.Found -> return found(result)
                 HardcoverRatingResult.NotFound -> Unit
-                HardcoverRatingResult.Unauthorized -> return failure("token rejected")
+                HardcoverRatingResult.Unauthorized -> return brokenConnection("token rejected")
                 is HardcoverRatingResult.Unavailable -> return failure(result.detail)
             }
         }
@@ -66,7 +67,7 @@ class HardcoverRatingSource(
             when (val result = graphQl.editionRatingByIsbn(token, isbn)) {
                 is HardcoverRatingResult.Found -> return found(result)
                 HardcoverRatingResult.NotFound -> Unit
-                HardcoverRatingResult.Unauthorized -> return failure("token rejected")
+                HardcoverRatingResult.Unauthorized -> return brokenConnection("token rejected")
                 is HardcoverRatingResult.Unavailable -> return failure(result.detail)
             }
         }
@@ -80,7 +81,7 @@ class HardcoverRatingSource(
         rateLimiter.await()
         return when (val result = graphQl.booksByTitle(token, book.title)) {
             HardcoverCandidatesResult.Unauthorized -> {
-                failure("token rejected")
+                brokenConnection("token rejected")
             }
 
             is HardcoverCandidatesResult.Unavailable -> {
@@ -105,6 +106,9 @@ class HardcoverRatingSource(
 
     private fun found(result: HardcoverRatingResult.Found): AppResult<ExternalRatingMeta?> =
         AppResult.Success(ExternalRatingMeta(average = result.average, count = result.count))
+
+    private fun brokenConnection(detail: String): AppResult.Failure =
+        AppResult.Failure(HardcoverError.ConnectionBroken(debugInfo = "hardcover rating: $detail"))
 
     private fun failure(detail: String): AppResult.Failure =
         AppResult.Failure(HardcoverError.Unavailable(debugInfo = "hardcover rating: $detail"))

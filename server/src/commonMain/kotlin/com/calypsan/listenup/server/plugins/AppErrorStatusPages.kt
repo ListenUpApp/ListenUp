@@ -600,6 +600,7 @@ private fun HardcoverError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is HardcoverError.NotConfigured -> HttpStatusCode.ServiceUnavailable
         is HardcoverError.Unavailable -> HttpStatusCode.ServiceUnavailable
+        is HardcoverError.ConnectionBroken -> HttpStatusCode.Conflict
         is HardcoverError.AlreadyConnected -> HttpStatusCode.Conflict
     }
 

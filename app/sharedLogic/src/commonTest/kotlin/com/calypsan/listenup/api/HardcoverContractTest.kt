@@ -45,6 +45,7 @@ class HardcoverContractTest :
         listOf<Pair<String, AppError>>(
             "HardcoverError.NotConfigured" to HardcoverError.NotConfigured(),
             "HardcoverError.Unavailable" to HardcoverError.Unavailable(),
+            "HardcoverError.ConnectionBroken" to HardcoverError.ConnectionBroken(),
             "HardcoverError.AlreadyConnected" to HardcoverError.AlreadyConnected(),
         ).forEach { (discriminator, error) ->
             test("$discriminator round-trips through AppError") {
@@ -58,5 +59,6 @@ class HardcoverContractTest :
             HardcoverError.Unavailable().isRetryable shouldBe true
             HardcoverError.NotConfigured().isRetryable shouldBe false
             HardcoverError.AlreadyConnected().isRetryable shouldBe false
+            HardcoverError.ConnectionBroken().isRetryable shouldBe false
         }
     })

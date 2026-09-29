@@ -242,7 +242,7 @@ class HardcoverRatingSourceTest :
             ratingTest {
                 connect("member", via = HardcoverConnectionStore(sql, ratingCipher("another-secret")))
                 val failure = rating(PAGEANT).shouldBeInstanceOf<AppResult.Failure>()
-                failure.error.shouldBeInstanceOf<HardcoverError.Unavailable>()
+                failure.error.shouldBeInstanceOf<HardcoverError.ConnectionBroken>()
                 graphQl.asked.size shouldBe 0
             }
         }
@@ -251,7 +251,10 @@ class HardcoverRatingSourceTest :
             ratingTest {
                 connect("member")
                 graphQl.byAsin = HttpStatusCode.Unauthorized to ""
-                rating(PAGEANT.copy(asin = "B08G9RZBTT")).shouldBeInstanceOf<AppResult.Failure>()
+                rating(PAGEANT.copy(asin = "B08G9RZBTT"))
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<HardcoverError.ConnectionBroken>()
             }
         }
 
@@ -259,7 +262,10 @@ class HardcoverRatingSourceTest :
             ratingTest {
                 connect("member")
                 graphQl.byTitle = HttpStatusCode.InternalServerError to "oops"
-                rating(PAGEANT).shouldBeInstanceOf<AppResult.Failure>()
+                rating(PAGEANT)
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<HardcoverError.Unavailable>()
             }
         }
 

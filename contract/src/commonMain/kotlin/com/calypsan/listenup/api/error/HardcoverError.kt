@@ -37,6 +37,21 @@ sealed interface HardcoverError : AppError {
         override val isRetryable: Boolean = true
     }
 
+    /**
+     * The Hardcover account ListenUp borrows for a lookup was revoked, rejected or can no longer be
+     * read, so the fix is to reconnect it, not to wait. Distinct from [Unavailable], which is transient.
+     */
+    @Serializable
+    @SerialName("HardcoverError.ConnectionBroken")
+    data class ConnectionBroken(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : HardcoverError {
+        override val message: String = "The Hardcover account ListenUp uses needs to be reconnected."
+        override val code: String = "HARDCOVER_CONNECTION_BROKEN"
+        override val isRetryable: Boolean = false
+    }
+
     /** The user is already connected; disconnect first to connect a different account. */
     @Serializable
     @SerialName("HardcoverError.AlreadyConnected")
