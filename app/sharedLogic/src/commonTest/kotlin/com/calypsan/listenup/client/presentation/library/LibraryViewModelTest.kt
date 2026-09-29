@@ -29,6 +29,7 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.SyncStatusRepository
+import app.cash.turbine.turbineScope
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -1410,6 +1411,147 @@ class LibraryViewModelTest :
                 // Then — distinctUntilChanged on the sorted stage swallows the no-op
                 val after = viewModel.uiState.value as LibraryUiState.Loaded
                 after.books shouldBeSameInstanceAs before.books
+            }
+        }
+
+        // ========== Content revision (lets a consumer skip re-mapping unchanged lists) ==========
+
+        context("content revision") {
+            fun positionAt(
+                bookId: String,
+                positionMs: Long,
+            ) = PlaybackPosition(
+                bookId = bookId,
+                positionMs = positionMs,
+                playbackSpeed = 1.0f,
+                hasCustomSpeed = false,
+                volumeBoostDb = 0f,
+                hasCustomBoost = false,
+                measuredGainDb = null,
+                updatedAtMs = 0L,
+                syncedAtMs = null,
+                lastPlayedAtMs = null,
+            )
+
+            test("a progress change keeps the content revision") {
+                runTest {
+                    val positionsFlow = MutableStateFlow<Map<BookId, PlaybackPosition>>(emptyMap())
+                    val fixture = createFixture()
+                    every { fixture.bookRepository.observeBookListItems() } returns
+                        flowOf(listOf(createTestBook(id = "1", duration = 10_000L)))
+                    every { fixture.playbackPositionRepository.observeAll() } returns positionsFlow
+                    val viewModel = fixture.build()
+
+                    turbineScope {
+                        val states = viewModel.uiState.testIn(backgroundScope)
+                        advanceUntilIdle()
+                        val before = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+
+                        positionsFlow.value = mapOf(BookId("1") to positionAt("1", 5_000L))
+                        advanceUntilIdle()
+
+                        val after = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        after.bookProgress[BookId("1")] shouldBe 0.5f
+                        after.contentRevision shouldBe before.contentRevision
+                        states.cancel()
+                    }
+                }
+            }
+
+            test("a sync change keeps the content revision") {
+                runTest {
+                    val fixture = createFixture()
+                    every { fixture.bookRepository.observeBookListItems() } returns
+                        flowOf(listOf(createTestBook(id = "1")))
+                    val viewModel = fixture.build()
+
+                    turbineScope {
+                        val states = viewModel.uiState.testIn(backgroundScope)
+                        advanceUntilIdle()
+                        val before = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+
+                        fixture.syncStateFlow.value = SyncState.Syncing
+                        advanceUntilIdle()
+
+                        val after = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        after.syncState shouldBe SyncState.Syncing
+                        after.contentRevision shouldBe before.contentRevision
+                        states.cancel()
+                    }
+                }
+            }
+
+            test("a structurally equal content re-emission keeps the content revision") {
+                runTest {
+                    val booksFlow = MutableSharedFlow<List<BookListItem>>(replay = 1)
+                    booksFlow.tryEmit(listOf(createTestBook(id = "1", title = "Zebra")))
+                    val fixture = createFixture()
+                    every { fixture.bookRepository.observeBookListItems() } returns booksFlow
+                    val viewModel = fixture.build()
+
+                    turbineScope {
+                        val states = viewModel.uiState.testIn(backgroundScope)
+                        advanceUntilIdle()
+                        val before = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+
+                        booksFlow.tryEmit(listOf(createTestBook(id = "1", title = "Zebra")))
+                        advanceUntilIdle()
+
+                        val after = viewModel.uiState.value.shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        after.contentRevision shouldBe before.contentRevision
+                        states.cancel()
+                    }
+                }
+            }
+
+            test("a content change advances the content revision") {
+                runTest {
+                    val booksFlow = MutableSharedFlow<List<BookListItem>>(replay = 1)
+                    booksFlow.tryEmit(listOf(createTestBook(id = "1", title = "Zebra")))
+                    val fixture = createFixture()
+                    every { fixture.bookRepository.observeBookListItems() } returns booksFlow
+                    val viewModel = fixture.build()
+
+                    turbineScope {
+                        val states = viewModel.uiState.testIn(backgroundScope)
+                        advanceUntilIdle()
+                        val before = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+
+                        booksFlow.tryEmit(
+                            listOf(createTestBook(id = "1", title = "Zebra"), createTestBook(id = "2", title = "Apple")),
+                        )
+                        advanceUntilIdle()
+
+                        val after = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        after.books.map { it.title } shouldBe listOf("Apple", "Zebra")
+                        (after.contentRevision > before.contentRevision) shouldBe true
+                        states.cancel()
+                    }
+                }
+            }
+
+            test("a sort change advances the content revision") {
+                runTest {
+                    val fixture = createFixture()
+                    every { fixture.bookRepository.observeBookListItems() } returns
+                        flowOf(listOf(createTestBook(id = "1", title = "Zebra"), createTestBook(id = "2", title = "Apple")))
+                    everySuspend { fixture.libraryPreferences.setBooksSortState(any()) } returns Unit
+                    val viewModel = fixture.build()
+
+                    turbineScope {
+                        val states = viewModel.uiState.testIn(backgroundScope)
+                        advanceUntilIdle()
+                        val before = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+
+                        viewModel.onEvent(LibraryUiEvent.BooksDirectionToggled)
+                        advanceUntilIdle()
+
+                        val after = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        after.books.map { it.title } shouldBe listOf("Zebra", "Apple")
+                        (after.contentRevision > before.contentRevision) shouldBe true
+                        states.cancel()
+                    }
+                }
             }
         }
 

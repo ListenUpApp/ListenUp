@@ -50,6 +50,7 @@ fun contractLibrary(
         narratorsSortState = narratorsSortState,
         ignoreTitleArticles = false,
         hideSingleBookSeries = false,
+        contentRevision = 1L,
         books = books,
         series = series,
         authors = authors,

@@ -40,6 +40,13 @@ sealed interface LibraryUiState {
         val narratorsSortState: SortState,
         val ignoreTitleArticles: Boolean,
         val hideSingleBookSeries: Boolean,
+        /**
+         * Advances whenever [books], [series], [authors], [narrators] or the sort and filter intent
+         * that ordered them change, and ONLY then. A progress or sync emission carries the previous
+         * value, so a consumer that bridges these lists (iOS maps each row across Swift Export) can
+         * skip the re-map whenever the revision is unchanged. Monotonic for this ViewModel's lifetime.
+         */
+        val contentRevision: Long,
         // Sorted content
         val books: List<BookListItem>,
         val series: List<SeriesWithBooks>,

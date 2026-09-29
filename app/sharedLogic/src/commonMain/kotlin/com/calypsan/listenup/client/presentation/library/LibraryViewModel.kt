@@ -27,6 +27,7 @@ import com.calypsan.listenup.client.domain.repository.SyncStatusRepository
 import com.calypsan.listenup.client.util.sortableTitle
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.concurrent.Volatile
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +40,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -101,6 +103,15 @@ private data class SortedContent(
 )
 
 /**
+ * [SortedContent] stamped with the revision it was published under. The stamp is applied AFTER
+ * `distinctUntilChanged`, so only a genuinely new sorted snapshot earns a new revision.
+ */
+private data class RevisedContent(
+    val revision: Long,
+    val content: SortedContent,
+)
+
+/**
  * Precomputed sort keys for the three-level SERIES sort on [BookListItem].
  *
  * Extracted as a file-level private class (rather than a local data class inside a `when` branch)
@@ -123,7 +134,9 @@ private data class BookSeriesSortKey(
  * — never upstream — so the pipeline never reads back from its own output.
  * The pipeline is two-stage: [sortedContent] sorts/filters on intent + raw
  * content only, then [uiState] overlays progress/sync onto the pre-sorted
- * result, so playback-position ticks (every ~30s) never trigger a re-sort.
+ * result, so playback-position ticks (every ~30s) never trigger a re-sort. Each new sorted snapshot
+ * is stamped with [LibraryUiState.Loaded.contentRevision], so a consumer that bridges the lists can
+ * tell a content change from a progress or sync one without comparing them.
  *
  * Implements intelligent auto-sync: triggers initial sync automatically
  * if user is authenticated but has never synced before.
@@ -234,6 +247,14 @@ class LibraryViewModel(
             )
         }.distinctUntilChanged()
 
+    // The last content revision published. Only the single uiState collection advances it (stateIn
+    // shares one upstream), but it outlives that collection, so a WhileSubscribed restart continues
+    // the sequence rather than reusing a revision a consumer has already seen.
+    private val contentRevisions = atomic(0L)
+
+    private val revisedContent: Flow<RevisedContent> =
+        sortedContent.map { RevisedContent(revision = contentRevisions.incrementAndGet(), content = it) }
+
     private val progressSnapshot: Flow<ProgressSnapshot> =
         combine(
             rawContent,
@@ -260,11 +281,11 @@ class LibraryViewModel(
 
     val uiState: StateFlow<LibraryUiState> =
         combine(
-            sortedContent,
+            revisedContent,
             progressSnapshot,
             syncSnapshot,
-        ) { sorted, progress, sync ->
-            val loaded: LibraryUiState = buildLoaded(sorted, progress, sync)
+        ) { revised, progress, sync ->
+            val loaded: LibraryUiState = buildLoaded(revised, progress, sync)
             loaded
         }
             // Under sync churn (e.g. post-import flood) the five upstream flows can emit faster than
@@ -474,10 +495,11 @@ class LibraryViewModel(
     }
 
     private fun buildLoaded(
-        sorted: SortedContent,
+        revised: RevisedContent,
         progress: ProgressSnapshot,
         sync: SyncSnapshot,
     ): LibraryUiState.Loaded {
+        val sorted = revised.content
         val seriesProgress =
             sorted.series.associate { sb ->
                 sb.series.id to
@@ -494,6 +516,7 @@ class LibraryViewModel(
             narratorsSortState = sorted.intent.narratorsSortState,
             ignoreTitleArticles = sorted.intent.ignoreTitleArticles,
             hideSingleBookSeries = sorted.intent.hideSingleBookSeries,
+            contentRevision = revised.revision,
             books = sorted.books,
             series = sorted.series,
             authors = sorted.authors,
