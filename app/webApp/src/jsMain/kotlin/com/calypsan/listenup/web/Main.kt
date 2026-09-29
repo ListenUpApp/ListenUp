@@ -95,7 +95,9 @@ import org.jetbrains.compose.web.dom.Text
 import org.jetbrains.compose.web.renderComposable
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import org.koin.core.Koin
+import org.koin.core.KoinApplication
 import org.koin.core.context.startKoin
+import org.koin.core.module.Module
 import org.koin.dsl.module
 import org.w3c.dom.Worker
 
@@ -124,10 +126,7 @@ fun main() {
 
     // The worker is the one thing :app:sharedLogic cannot supply — it ships no worker script —
     // so it is the browser application's contribution to an otherwise shared graph.
-    val koin =
-        startKoin {
-            modules(jsSharedModules() + webPlaybackModule + module { single<Worker> { createSqliteWorker() } })
-        }.koin
+    val koin = startWebKoin(module { single<Worker> { createSqliteWorker() } }).koin
 
     // The server URL must be seeded before the composition mounts, or a ViewModel's first RPC
     // call can race the seed write and dial an unconfigured client. Sequencing render as this
@@ -259,6 +258,20 @@ private fun takeInviteCodeFromLaunchUrl(): Pair<String?, Route> =
         console.warn("Could not read the launch URL; opening at the root: ${e.message}")
         null to Route(emptyList())
     }
+
+/**
+ * Starts the browser's graph — [jsSharedModules], [webPlaybackModule] and [extra] — with every
+ * `createdAtStart` singleton built, as it is on every other platform.
+ *
+ * Koin's JS `startKoin` registers the application but, unlike its native and JVM counterparts, never
+ * creates the eager instances, so `createdAtStart` silently meant "lazy" in a browser. The sync domain
+ * registrar is one of them: the first sync after a fresh sign-in walked an empty domain registry,
+ * pulled nothing and reported success, leaving the library empty. The auth-failure observer, the
+ * reconnection supervisor and the connection coordinator never started either.
+ */
+internal fun startWebKoin(vararg extra: Module): KoinApplication =
+    startKoin { modules(jsSharedModules() + webPlaybackModule + extra) }
+        .also { it.createEagerInstances() }
 
 /**
  * Connects realtime sync on every transition into [AuthState.Authenticated].
