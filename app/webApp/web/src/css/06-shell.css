@@ -256,7 +256,9 @@
 /* The form's vertical rhythm. Fields are stacked siblings, so without this they sit flush against
    each other and a label reads as belonging to the input above it rather than below. */
 .edit-form { display:flex; flex-direction:column; gap:20px; }
-.edit-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:var(--gap); }
+/* `min(…, 100%)`: a field is 240px or the whole row, whichever is less — a column narrower than
+   240px (every phone, inside a panel) stacks the fields instead of pushing them past its edge. */
+.edit-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(240px, 100%),1fr)); gap:var(--gap); }
 /* A role section: the field plus its "remove all" escape hatch. */
 .rel-section { display:flex; flex-direction:column; gap:8px; }
 .rel-drop {

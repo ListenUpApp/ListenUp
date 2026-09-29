@@ -31,10 +31,18 @@ import org.w3c.dom.asList
 internal class ViewportFrames {
     private val mounted = mutableListOf<Pair<HTMLIFrameElement, Composition>>()
 
-    /** Renders [content] (inside the app surface) into a fresh [width]×[height] frame. */
+    /**
+     * Renders [content] (inside the app surface) into a fresh [width]×[height] frame.
+     *
+     * [pointer] picks the input the frame's media queries believe in. The runner is a desktop
+     * browser with a mouse, and a frame cannot be told otherwise — so [Pointer.Touch] rewrites the
+     * copied sheet instead: `(pointer: coarse)` and `(hover: none)` blocks apply, `(pointer: fine)`
+     * and `(hover: hover)` blocks do not. Every other rule is untouched.
+     */
     fun mount(
         width: Int,
         height: Int = DEFAULT_HEIGHT,
+        pointer: Pointer = Pointer.Mouse,
         content: @Composable () -> Unit,
     ): ViewportFrame {
         val frame = document.createElement("iframe") as HTMLIFrameElement
@@ -43,7 +51,7 @@ internal class ViewportFrames {
 
         val frameDocument = frame.contentDocument!!
         val style = frameDocument.createElement("style")
-        style.textContent = runnerCss()
+        style.textContent = if (pointer == Pointer.Touch) asTouchDevice(runnerCss()) else runnerCss()
         frameDocument.head!!.appendChild(style)
         frameDocument.body!!.setAttribute("style", "margin:0")
 
@@ -108,7 +116,56 @@ internal class ViewportFrame(
         val root = host.ownerDocument!!.documentElement!!
         return root.scrollWidth - root.clientWidth
     }
+
+    /** How far the frame's page scrolls up and down — for an app shell that owns the viewport, zero. */
+    fun verticalOverflow(): Int {
+        val root = host.ownerDocument!!.documentElement!!
+        return root.scrollHeight - root.clientHeight
+    }
+
+    /**
+     * Whether a finger landing [reach] px from [element]'s centre, in each of the four directions,
+     * still lands on it. This is the browser's own hit test (`elementFromPoint`), so it counts an
+     * extended hit area (a pseudo-element) exactly as a tap would, and a neighbour painted over the
+     * edge exactly as a tap would too.
+     */
+    fun takesTapsWithin(
+        element: HTMLElement,
+        reach: Double,
+    ): Boolean {
+        // On screen first: `elementFromPoint` sees only the viewport, and in a scrolling page a
+        // control below the fold (or under the fixed tab bar) would fail for being out of sight.
+        element.asDynamic().scrollIntoView(js("({ block: 'center', inline: 'center' })"))
+        val box = rect(element)
+        val x = box.left + box.width / 2
+        val y = box.top + box.height / 2
+        val document = host.ownerDocument!!
+        return listOf(x - reach to y, x + reach to y, x to y - reach, x to y + reach).all { (px, py) ->
+            val hit = document.elementFromPoint(px, py)
+            hit != null && (hit == element || element.contains(hit))
+        }
+    }
 }
+
+/** What a frame's media queries take its input to be. */
+internal enum class Pointer {
+    /** The runner's own: a fine pointer that can hover. */
+    Mouse,
+
+    /** A finger: coarse, and unable to hover. */
+    Touch,
+}
+
+/**
+ * [css] as a touchscreen would apply it. Chromium serialises every media condition in the same
+ * canonical form (`(pointer: coarse)`), so a plain replacement is exact.
+ */
+private fun asTouchDevice(css: String): String =
+    css
+        .replace("(pointer: coarse)", "all")
+        .replace("(hover: none)", "all")
+        .replace("(pointer: fine)", "not all")
+        .replace("(hover: hover)", "not all")
 
 /** Every rule the runner page has loaded, as one sheet. */
 private fun runnerCss(): String {

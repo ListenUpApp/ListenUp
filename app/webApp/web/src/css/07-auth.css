@@ -67,16 +67,20 @@
 }
 
 /* Library — books grid, sort control, progress (web sync arc). */
-.lib-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+/* Both rows wrap: at phone widths the title, the three sort options and the direction do not fit
+   on one line, and neither do the three facet chips — they take a second line, not the page's edge. */
+.lib-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; column-gap: 1rem; }
 /* The Library and Series title became the page's H1 (it was an H3). Sized as it always rendered,
    so the heading level changed and the page did not. */
 .lib-header h1 { margin: 1em 0; font-size: 1.17em; }
-.lib-sort { display: flex; gap: 0.5rem; align-items: center; }
+.lib-sort { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .lib-sort-option { cursor: pointer; opacity: 0.6; }
 .lib-sort-option.is-active { opacity: 1; font-weight: 600; }
 .lib-sort-direction { cursor: pointer; user-select: none; }
 .lib-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 1.25rem;
+  /* Never fewer than two abreast (half the row, less half the gap, when that is under 190px): at
+     phone widths a single column made every cover the full width of the screen. */
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(190px, calc(50% - 0.625rem)), 1fr)); gap: 1.25rem;
   /* ⛔ Load-bearing for the virtualiser. The spacers above and below the rendered window resize on
      every scroll, and Chrome's scroll anchoring responds to content resizing above the viewport by
      adjusting `scrollTop` to keep something pinned — which fights the windowing and throws the
@@ -202,7 +206,7 @@
 
 /* The facet row — Books / Authors / Narrators — shared by Library and Contributors. Values
    carried over from the Contributors role toggle it replaces: same chip, one shared idiom. */
-.facet-row { display: flex; gap: 9px; margin-bottom: 22px; }
+.facet-row { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 22px; }
 .facet-chip {
   height: 40px; padding: 0 17px; border-radius: 11px; border: 1.5px solid var(--line);
   display: inline-flex; align-items: center; cursor: pointer;
@@ -264,7 +268,9 @@
 /* Contributor Detail — the person behind the books. Values pulled from the approved artboard;
    `.cd` itself mirrors `.bd`'s page-container shape (width, max-width, gap). */
 .cd { width:100%; padding:24px 28px 40px; max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
-.cd-hero { display:flex; align-items:center; gap:22px; }
+/* Wraps rather than squeezing: on a phone the Edit and Delete buttons take a line under the name
+   instead of pushing past the screen's edge. A desktop row has room for all of it and never wraps. */
+.cd-hero { display:flex; flex-wrap:wrap; align-items:center; gap:22px; }
 .cd-avatar {
   width:104px; height:104px; border-radius:999px; flex-shrink:0;
   color:#FFFFFF; display:flex; align-items:center; justify-content:center;
@@ -280,7 +286,7 @@
 }
 .cd-role-chip.is-muted { background:var(--surface-3); color:var(--ink-2); }
 .cd-alias { font-size:0.8125rem; font-weight:500; color:var(--ink-3); }
-.cd-stats { display:flex; gap:10px; margin-top:14px; }
+.cd-stats { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
 .cd-stat {
   display:inline-flex; align-items:center; gap:7px; height:36px; padding:0 14px 0 11px; border-radius:999px;
   background:var(--surface); border:1px solid var(--line); color:var(--ink-2);
@@ -294,7 +300,10 @@
   background:var(--coral-soft); color:var(--coral);
   display:inline-flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:800;
 }
-.cd-tile-grid { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:18px; }
+/* Auto-fill like every other cover grid, never fewer than two abreast: the minimum is 140px, or
+   half the row when half the row is less — so a phone gets two covers, not one giant one, and a
+   wide panel still fills with as many as fit. It was a fixed six columns: ~16px a tile at 320px. */
+.cd-tile-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(140px, calc(50% - 9px)), 1fr)); gap:18px; }
 .cd-tile { cursor:pointer; min-width:0; }
 .cd-tile:focus { outline:none; }
 .cd-tile:focus-visible { outline:2px solid var(--coral); outline-offset:3px; }
@@ -316,7 +325,9 @@
 }
 .cd-series-grid { display:flex; gap:22px; flex-wrap:wrap; }
 .cd-series-card {
-  flex:1; min-width:260px; display:flex; align-items:center; gap:16px; padding:14px; border-radius:16px;
+  /* `min()`: 260px keeps two cards from squeezing side by side, but a card may never be wider than
+     the panel it sits in — on a phone that is the whole row. */
+  flex:1; min-width:min(260px, 100%); display:flex; align-items:center; gap:16px; padding:14px; border-radius:16px;
   background:var(--surface); border:1px solid var(--line); box-shadow:var(--shadow-card);
   /* The card became a <button> when the series route arrived. A button does not inherit the
      page's font, centres its text and draws its own chrome, so each of those is cancelled here —

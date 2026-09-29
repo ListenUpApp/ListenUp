@@ -1188,3 +1188,14 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .mh-outcome { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--coral-soft); }
 .luw .mh-outcome-t { margin: 0; font-size: 0.88rem; font-weight: 650; color: var(--ink); }
 
+
+/* ---- PHONE gutters. Every page wrapper above carries its own 28px side padding on top of the
+   content region's. On a desktop that is the page's margin; on a phone it doubled the shell's
+   14px gutter to 42px a side and left a 320px screen ~236px of page. Below 760px the shell's
+   gutter is the only one. Last in the last page sheet so it outranks each wrapper's own rule. */
+@media (max-width: 759px) {
+  .luw :is(.bd, .cd, .sd, .search-page, .nprefs, .prof, .pedit, .lset, .ntf, .inbox, .srv, .cat,
+           .coll, .cdet, .bkp, .rst, .imp, .iflow, .ced, .sed, .ched, .mdx, .cmx, .bke) {
+    padding: 4px 0 24px;
+  }
+}
