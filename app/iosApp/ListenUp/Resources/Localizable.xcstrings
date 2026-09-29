@@ -4426,7 +4426,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rated %1$@ out of 5 stars by %2$@ readers elsewhere"
+            "value": "Rated %1$@ out of 5 stars from %2$@ ratings"
           }
         }
       }
@@ -4436,7 +4436,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rated %1$@ out of 5 stars by 1 reader elsewhere"
+            "value": "Rated %1$@ out of 5 stars from 1 rating"
           }
         }
       }
