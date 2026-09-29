@@ -30,11 +30,11 @@ enum SleepTimerOption: Hashable {
         }
     }
 
-    /// "15 min", "1 hour", "2 hours" — a duration in minutes as the menu names it.
-    static func formatDuration(_ minutes: Int) -> String {
-        if minutes < 60 { return "\(minutes) min" }
-        if minutes == 60 { return "1 hour" }
-        return "\(minutes / 60) hours"
+    /// "15 minutes", "1 hour", "2 hours" — a duration in minutes as the menu names it, in the
+    /// reader's language and with its plural rules (Foundation's duration formatter owns both).
+    static func formatDuration(_ minutes: Int, locale: Locale = .autoupdatingCurrent) -> String {
+        Duration.seconds(minutes * 60)
+            .formatted(.units(allowed: [.hours, .minutes], width: .wide).locale(locale))
     }
 }
 
