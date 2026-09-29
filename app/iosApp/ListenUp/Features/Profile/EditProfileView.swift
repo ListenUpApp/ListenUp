@@ -267,6 +267,7 @@ private struct StagedAvatarPreview: View {
     let user: User?
     let size: CGFloat
 
+    @Environment(\.displayScale) private var displayScale
     @State private var decoded: UIImage?
 
     var body: some View {
@@ -282,12 +283,15 @@ private struct StagedAvatarPreview: View {
         // Keyed on byte count (O(1)) rather than the whole multi-MB Data; re-decodes when a new
         // image is picked, and the decode is cancelled if the view goes away.
         .task(id: data.count) {
-            decoded = await Self.decode(data)
+            decoded = await Self.decode(data, maxPixelSize: Int((size * displayScale).rounded(.up)))
         }
     }
 
-    /// `nonisolated async` ⇒ the decode runs on the cooperative pool, never the main actor.
-    private nonisolated static func decode(_ data: Data) async -> UIImage? {
-        UIImage(data: data)
+    /// `@concurrent` ⇒ the decode runs on the cooperative pool, never the main actor, even where a
+    /// plain `nonisolated async` would run on the caller's. Decodes only the pixels the preview
+    /// fills, not the full-resolution photo.
+    @concurrent
+    private nonisolated static func decode(_ data: Data, maxPixelSize: Int) async -> UIImage? {
+        ImageDownsampler.downsampledImage(data: data, maxPixelSize: maxPixelSize)
     }
 }

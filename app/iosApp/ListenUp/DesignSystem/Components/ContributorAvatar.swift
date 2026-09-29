@@ -99,12 +99,18 @@ struct ContributorAvatar: View {
         }
     }
 
-    /// `nonisolated async` ⇒ the disk read + image decode run on the cooperative pool, never
-    /// the main actor. Returns `nil` for a missing path or unreadable file.
+    /// `@concurrent` ⇒ the disk read + image decode run on the cooperative pool, never the main
+    /// actor, whatever the target's default for `nonisolated async` becomes (with approachable
+    /// concurrency a plain `nonisolated async` runs on the caller's actor). Decodes a thumbnail, not
+    /// the full-resolution photo. Returns `nil` for a missing path or unreadable file.
+    @concurrent
     private nonisolated static func loadImage(path: String?) async -> UIImage? {
         guard let path else { return nil }
-        return UIImage(contentsOfFile: path)
+        return ImageDownsampler.downsampledImage(atPath: path, maxPixelSize: maxAvatarPixels)
     }
+
+    /// The largest avatar drawn (the contributor hero, about 120pt) at 3x, rounded up.
+    private nonisolated static let maxAvatarPixels = 400
 
     // MARK: - Private
 

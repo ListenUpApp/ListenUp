@@ -190,7 +190,9 @@ final class CoverTintExtractor {
     /// Decodes a ≤32px thumbnail through the shared `ImageDownsampler` seam (so the
     /// full-resolution bitmap is never materialized), then reduces its full extent to a
     /// single averaged pixel via `CIAreaAverage` and reads that pixel back. CPU work, kept
-    /// off the main actor.
+    /// off the main actor: `@concurrent` keeps it on the cooperative pool even where a plain
+    /// `nonisolated async` would run on the caller's actor.
+    @concurrent
     nonisolated static func averageRGB(coverPath: String) async -> (Double, Double, Double)? {
         guard let thumbnail = ImageDownsampler.downsampledImage(atPath: coverPath, maxPixelSize: 32),
               let cgImage = thumbnail.cgImage
