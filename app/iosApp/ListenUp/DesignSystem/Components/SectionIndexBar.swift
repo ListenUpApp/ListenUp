@@ -26,7 +26,8 @@ struct SectionIndexBar: View {
                 // Large letter popup when dragging
                 if isDragging, let letter = selectedLetter {
                     Text(letter)
-                        .font(.system(size: 44, weight: .bold, design: .rounded)) // decorative fixed size: letter in the 56pt popup square
+                        // The popup letter fills its fixed 56pt square.
+                        .font(.system(size: 44, weight: .bold, design: .rounded)) // decorative fixed size
                         .foregroundStyle(Color.luOnTint)
                         .frame(width: 56, height: 56)
                         .background(Color.listenUpOrange, in: RoundedRectangle(cornerRadius: 10))
@@ -38,7 +39,8 @@ struct SectionIndexBar: View {
                 VStack(spacing: 0) {
                     ForEach(letters, id: \.self) { letter in
                         Text(letter)
-                            .font(.system(size: 10, weight: .semibold)) // decorative fixed size: letters fit the bar's geometry-derived rows
+                            // Each letter fits a row height divided from the bar's own height.
+                            .font(.system(size: 10, weight: .semibold)) // decorative fixed size
                             .foregroundStyle(letter == selectedLetter ? Color.listenUpOrange : .primary)
                             .frame(height: letterHeight)
                             .frame(maxWidth: .infinity)

@@ -19,7 +19,8 @@ struct InitialsAvatar: View {
             .frame(width: size, height: size)
             .overlay {
                 Text(initials)
-                    .font(.system(size: size * 0.36, weight: .semibold)) // decorative fixed size: initials sized to the avatar circle
+                    // Initials are sized to the fixed avatar circle, not to the text setting.
+                    .font(.system(size: size * 0.36, weight: .semibold)) // decorative fixed size
                     .foregroundStyle(foreground)
             }
     }

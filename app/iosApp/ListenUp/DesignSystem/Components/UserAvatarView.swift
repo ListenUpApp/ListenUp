@@ -68,7 +68,8 @@ struct UserAvatarView: View {
             .frame(width: size, height: size)
             .overlay {
                 Text(Self.initials(from: fallbackName))
-                    .font(.system(size: size * 0.4, weight: .medium)) // decorative fixed size: initials sized to the avatar circle
+                    // Initials are sized to the fixed avatar circle, not to the text setting.
+                    .font(.system(size: size * 0.4, weight: .medium)) // decorative fixed size
                     .foregroundStyle(AvatarPalette.initialsInk)
             }
     }

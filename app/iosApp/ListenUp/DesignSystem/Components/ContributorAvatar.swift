@@ -78,7 +78,8 @@ struct ContributorAvatar: View {
                     .clipShape(Circle())
             } else {
                 Text(initials)
-                    .font(.system(size: initialsFontSize, weight: .semibold, design: .rounded)) // decorative fixed size: initials sized to the avatar circle
+                    // Initials are sized to the fixed avatar circle, not to the text setting.
+                    .font(.system(size: initialsFontSize, weight: .semibold, design: .rounded)) // decorative fixed size
                     .foregroundStyle(AvatarPalette.initialsInk)
             }
 
