@@ -15,7 +15,6 @@ private struct FieldCardModifier: ViewModifier {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(Color.luSeparator, lineWidth: hairline)
             )
-            .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
     }
 }
 

@@ -20,6 +20,5 @@ struct AuthCard<Content: View>: View {
                 RoundedRectangle(cornerRadius: AuthMetrics.cardCornerRadius, style: .continuous)
                     .strokeBorder(Color.luSeparator, lineWidth: 0.5)
             )
-            .shadow(color: .black.opacity(0.18), radius: 30, y: 18)
     }
 }

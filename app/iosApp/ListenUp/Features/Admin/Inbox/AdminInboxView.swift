@@ -264,7 +264,6 @@ struct AdminInboxView: View {
                     .padding(.horizontal, 20)
                     .padding(.vertical, 11)
                     .background(Color.luTint, in: Capsule())
-                    .shadow(color: Color.luTint.opacity(0.4), radius: 6, y: 3)
                 }
                 .buttonStyle(.plain)
             }
@@ -296,7 +295,6 @@ struct AdminInboxView: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
                     .background(Color.luTint, in: RoundedRectangle(cornerRadius: 13))
-                    .shadow(color: Color.luTint.opacity(0.4), radius: 8, y: 4)
                 }
                 .buttonStyle(.plain)
                 .disabled(ready.isReleasing)
