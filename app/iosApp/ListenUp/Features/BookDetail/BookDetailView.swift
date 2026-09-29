@@ -90,6 +90,8 @@ struct BookDetailView: View {
             if let ratingsObserver, case .ready(let snapshot) = ratingsObserver.phase {
                 RatingBreakdownSheet(
                     breakdown: snapshot.breakdown,
+                    score: snapshot.external,
+                    listeners: snapshot.listeners,
                     canRefresh: snapshot.canRefresh,
                     isRefreshingExternal: snapshot.isRefreshingExternal,
                     onRefresh: { ratingsObserver.refreshExternal() },

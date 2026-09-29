@@ -22,6 +22,34 @@ data class CombinedScore(
     val count: Int,
     val shares: Map<ScoreSource, Double> = emptyMap(),
 ) {
+    /**
+     * A score from its shares in the shape Swift can pass — the inverse of [outsideShares] and
+     * [listenersShare]. Swift Export cannot bridge a map keyed by the sealed [ScoreSource] (nor,
+     * from Swift, one keyed by an enum), so the primary constructor is unavailable to Swift.
+     */
+    constructor(
+        average: Double,
+        count: Int,
+        outsideShares: List<OutsideShare>,
+        listenersShare: Double?,
+    ) : this(
+        average = average,
+        count = count,
+        shares =
+            outsideShares.associate { ScoreSource.Outside(it.source) to it.share } +
+                listOfNotNull(listenersShare?.let { ScoreSource.Listeners to it }),
+    )
+
+    /** Each outside catalog's share of the score: [shares] in a shape Swift can bridge. */
+    val outsideShares: List<OutsideShare>
+        get() =
+            shares.mapNotNull { (key, share) ->
+                (key as? ScoreSource.Outside)?.let { OutsideShare(source = it.source, share = share) }
+            }
+
+    /** This server's listeners' share of the score, or null when they are not part of it. */
+    val listenersShare: Double? get() = shares[ScoreSource.Listeners]
+
     /** How many sources the score was combined from ("Combined from N sources"). */
     val sourceCount: Int get() = shares.size
 
@@ -32,3 +60,9 @@ data class CombinedScore(
      */
     val isListenersOnly: Boolean get() = shares.keys == setOf(ScoreSource.Listeners)
 }
+
+/** One outside catalog's share of a [CombinedScore] — [CombinedScore.shares] as Swift reads it. */
+data class OutsideShare(
+    val source: ExternalRatingSource,
+    val share: Double,
+)
