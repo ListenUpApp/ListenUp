@@ -549,6 +549,7 @@ One beautiful library.</string>
     <string name="book_edit_unsaved_changes">Unsaved changes</string>
     <string name="book_edit_year">Year</string>
     <string name="book_edit_you_have_unsaved_changes_are">You have unsaved changes. Are you sure you want to discard them?</string>
+    <string name="book_reader_scrubber_a11y">Page</string>
     <string name="book_reader_scrubber_page_count">%1$d</string>
     <string name="book_reader_scrubber_page_label">p. %1$d</string>
     <string name="book_role_adapter">Adapter</string>

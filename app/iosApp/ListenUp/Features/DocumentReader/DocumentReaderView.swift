@@ -164,11 +164,25 @@ struct DocumentReaderView: View {
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 32, alignment: .leading)
+                .accessibilityHidden(true)
 
             Slider(value: $scrubFraction, in: 0...1) { editing in
                 if !editing {
                     goToPage = scrubberPage(fraction: scrubFraction, pageCount: pageCount) - 1
                 }
+            }
+            // A page, not a fraction: "Page 3 of 40", and each VoiceOver swipe turns one page
+            // straight away rather than nudging a thumb that only commits on release.
+            .accessibilityLabel(String(localized: "book.reader_scrubber_a11y"))
+            .accessibilityValue(String(
+                format: String(localized: "book.detail_document_viewer_page_of"), display.page, display.total
+            ))
+            .accessibilityAdjustableAction { direction in
+                goToPage = adjustedPageIndex(
+                    from: currentPageIndex,
+                    pageCount: pageCount,
+                    forward: direction == .increment
+                )
             }
 
             Text(String(format: String(localized: "book.reader_scrubber_page_count"), pageCount))
@@ -176,6 +190,7 @@ struct DocumentReaderView: View {
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 32, alignment: .trailing)
+                .accessibilityHidden(true)
         }
     }
 

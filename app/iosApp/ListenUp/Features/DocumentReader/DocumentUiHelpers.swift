@@ -44,3 +44,10 @@ func pageDisplay(currentIndex: Int, pageCount: Int) -> PageDisplay {
     let clamped = min(max(currentIndex, 0), pageCount - 1)
     return PageDisplay(page: clamped + 1, total: pageCount)
 }
+
+/// The page one VoiceOver swipe on the reader's scrubber lands on: the next or previous page,
+/// clamped to the document.
+func adjustedPageIndex(from currentIndex: Int, pageCount: Int, forward: Bool) -> Int {
+    guard pageCount > 0 else { return 0 }
+    return min(max(currentIndex + (forward ? 1 : -1), 0), pageCount - 1)
+}

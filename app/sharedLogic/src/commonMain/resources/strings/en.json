@@ -274,6 +274,7 @@
     "has_documents_badge": "Has supplementary material"
   },
   "book": {
+    "reader_scrubber_a11y": "Page",
     "detail_download_partial_a11y": "Partly downloaded",
     "detail_download_failed_a11y": "Download failed",
     "detail_about_this_book": "About this book",
