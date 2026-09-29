@@ -26,7 +26,7 @@ struct MetadataFindView: View {
                     VStack(alignment: .leading, spacing: 7) {
                         MetadataSearchField(text: $queryDraft) { submit() }
                         Text(String(localized: "metadata.search_helper"))
-                            .font(.caption).foregroundStyle(Color.luLabel3)
+                            .font(.caption).foregroundStyle(.tertiary)
                             .padding(.leading, 4)
                     }
 
@@ -177,7 +177,7 @@ struct MetadataSearchResultRow: View {
                     if !item.subtitleLine.isEmpty {
                         Text(item.subtitleLine)
                             .font(.footnote)
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(Color.secondary)
                             .lineLimit(1)
                     }
                     if let runtime = item.runtimeMinutes, runtime > 0 {

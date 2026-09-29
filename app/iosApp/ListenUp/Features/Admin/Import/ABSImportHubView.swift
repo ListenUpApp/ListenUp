@@ -119,7 +119,7 @@ struct ABSImportHubView: View {
                 .foregroundStyle(.primary)
             Text(String(localized: "import.hub_empty_subtitle"))
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 300)
         }
@@ -176,7 +176,7 @@ private struct ImportSummaryRow: View {
                     .lineLimit(1)
                 Text(subtitle)
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 8)

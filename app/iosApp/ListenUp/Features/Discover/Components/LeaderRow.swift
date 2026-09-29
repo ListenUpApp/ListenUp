@@ -26,7 +26,7 @@ struct LeaderRow: View {
                 Text(row.value)
                     .font(.system(.subheadline, design: .default).monospacedDigit())
                     .fontWeight(row.isCurrentUser ? .bold : .medium)
-                    .foregroundStyle(row.isCurrentUser ? Color.luTint : Color.luLabel2)
+                    .foregroundStyle(row.isCurrentUser ? Color.luTint : Color.secondary)
             }
             .padding(.vertical, 10)
             .padding(.horizontal, row.isCurrentUser ? 10 : 0)

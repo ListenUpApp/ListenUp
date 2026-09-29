@@ -26,7 +26,7 @@ struct AdminInviteRow: View {
                     .lineLimit(1)
                 Text(expiryText ?? invite.email)
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
@@ -40,7 +40,7 @@ struct AdminInviteRow: View {
         Button(action: onCopy) {
             Image(systemName: "link")
                 .font(.body)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(Color.secondary)
                 .frame(width: TapTarget.minimum, height: TapTarget.minimum)
                 .contentShape(Rectangle())
         }

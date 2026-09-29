@@ -112,7 +112,7 @@ struct FacetBooksView: View {
                         .font(.caption.weight(.bold))
                         .tracking(0.6)
                         .textCase(.uppercase)
-                        .foregroundStyle(kind == .mood ? Color.listenUpOrange : Color.luLabel2)
+                        .foregroundStyle(kind == .mood ? Color.listenUpOrange : Color.secondary)
                     Text(observer.facetName)
                         .font(.title.weight(.bold))
                         .foregroundStyle(.primary)

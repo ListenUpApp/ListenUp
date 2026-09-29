@@ -64,7 +64,7 @@ struct BoostPickerSheet: View {
             Button(action: onUseDefault) {
                 Text(String(format: String(localized: "player.boost_use_default"), Self.formatBoost(defaultBoostDb)))
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(Color.secondary)
             }
             .buttonStyle(.plain)
             .padding(.top, 20)
@@ -141,7 +141,7 @@ struct ChapterRow: View {
                     Text(DurationFormatting.clock(ms: durationMs))
                         .font(.footnote)
                         .monospacedDigit()
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(Color.secondary)
 
                     if isCurrent {
                         EqualizerGlyph(color: tint, isAnimating: isPlaying)

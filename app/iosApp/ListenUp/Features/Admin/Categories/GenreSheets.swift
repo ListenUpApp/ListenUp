@@ -108,7 +108,7 @@ struct GenreMoveSheet: View {
                 if candidates.isEmpty {
                     Text(String(localized: "admin.no_move_target_top_level_only"))
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
                 ForEach(candidates) { candidate in
                     Button {
@@ -185,7 +185,7 @@ struct GenreMergeSheet: View {
             if candidates.isEmpty {
                 Text(String(localized: "admin.no_merge_target_available"))
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             }
             ForEach(candidates) { candidate in
                 Button {
@@ -227,7 +227,7 @@ private struct GenrePickRow: View {
                 .foregroundStyle(.primary)
             Text(pick.path)
                 .font(.footnote)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())

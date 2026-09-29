@@ -115,7 +115,7 @@ struct GenrePageView: View {
                     if let blurb = observer.blurb {
                         Text(blurb)
                             .font(.subheadline)
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(.secondary)
                             .lineLimit(3)
                     }
                 }

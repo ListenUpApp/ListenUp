@@ -17,10 +17,10 @@ struct GenreSubtreeSection: View {
                     .font(.caption.weight(.bold))
                     .tracking(0.6)
                     .textCase(.uppercase)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                 Text(String(localized: "genre_destination.tap_to_narrow"))
                     .font(.caption2)
-                    .foregroundStyle(Color.luLabel2.opacity(0.7))
+                    .foregroundStyle(Color.secondary.opacity(0.7))
             }
 
             FlowLayout(spacing: 8) {
@@ -52,7 +52,7 @@ struct GenreSubtreeSection: View {
                     .foregroundStyle(.primary)
                 Text(scopeSubtitle)
                     .font(.caption)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
 
@@ -88,7 +88,7 @@ struct GenreSubtreeSection: View {
             if sub.bookCount > 0 {
                 Text("\(sub.bookCount)")
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(Color.luFill, in: Capsule())

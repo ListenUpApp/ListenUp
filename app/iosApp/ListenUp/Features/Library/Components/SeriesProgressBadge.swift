@@ -21,14 +21,14 @@ struct SeriesProgressBadge: View {
         case .notStarted:
             Text(String(localized: "series.not_started"))
                 .font(.footnote)
-                .foregroundStyle(Color.luLabel3)
+                .foregroundStyle(.tertiary)
         case let .partial(finished, total):
             HStack(spacing: 10) {
                 ProgressBar(progress: Float(state.fraction))
                     .frame(maxWidth: 230, maxHeight: 4)
                 Text(verbatim: String(format: String(localized: "series.x_of_y"), finished, total))
                     .font(.caption).monospacedDigit()
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .fixedSize()
             }
         }

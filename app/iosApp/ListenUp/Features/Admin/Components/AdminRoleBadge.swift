@@ -22,7 +22,7 @@ struct AdminRoleBadge: View {
         }
         .fixedSize(horizontal: true, vertical: false)
         .font(.caption.weight(.semibold))
-        .foregroundStyle(isElevated ? Color.luTint : Color.luLabel2)
+        .foregroundStyle(isElevated ? Color.luTint : Color.secondary)
         .padding(.horizontal, 11)
         .padding(.vertical, 5)
         .background(Capsule().fill(isElevated ? Color.luTint.opacity(0.13) : Color.luFill))

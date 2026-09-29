@@ -114,7 +114,7 @@ struct AdminCategoriesView: View {
                     )
                 )
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .textCase(nil)
             }
         }
@@ -184,10 +184,10 @@ struct AdminCategoriesView: View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.largeTitle)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             Text(message)
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
         .padding()
@@ -197,10 +197,10 @@ struct AdminCategoriesView: View {
         VStack(spacing: 12) {
             Image(systemName: "tag")
                 .scaledFont(size: 44, relativeTo: .largeTitle)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             Text(String(localized: "genre.no_genres_yet"))
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             Button(String(localized: "admin.add_genre")) {
                 nameSheet = .create(parentId: nil, parentName: nil)
             }
@@ -285,13 +285,13 @@ private struct GenreRowView: View {
         HStack(spacing: 12) {
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .rotationEffect(.degrees(row.isExpanded ? 90 : 0))
                 .opacity(row.hasChildren ? 1 : 0)
                 .accessibilityHidden(true)
             Image(systemName: "tag")
                 .font(.body)
-                .foregroundStyle(row.depth == 0 ? Color.luTint : Color.luLabel2)
+                .foregroundStyle(row.depth == 0 ? Color.luTint : Color.secondary)
             Text(row.name)
                 .font(row.depth == 0 ? .body : .subheadline)
                 .lineLimit(1)
@@ -299,7 +299,7 @@ private struct GenreRowView: View {
             if row.bookCount > 0 {
                 Text("\(row.bookCount)")
                     .font(.caption)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.leading, CGFloat(row.depth) * 20)

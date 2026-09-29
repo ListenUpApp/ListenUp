@@ -81,7 +81,7 @@ struct RelationSearchField: View {
                         : String(localized: "book.edit_no_matches")
                 )
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel3)
+                .foregroundStyle(.tertiary)
             }
         }
     }

@@ -79,7 +79,7 @@ struct NotificationsView: View {
                     .foregroundStyle(.primary)
                 Text(row.body)
                     .font(.caption)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 6) {
@@ -88,7 +88,7 @@ struct NotificationsView: View {
                     relativeTo: Date()
                 ))
                 .font(.footnote)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 if row.isUnread {
                     Circle()
                         .fill(Color.luTint)

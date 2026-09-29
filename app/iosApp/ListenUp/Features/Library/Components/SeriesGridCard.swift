@@ -21,7 +21,7 @@ struct SeriesGridCard: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(series.name).font(.headline).foregroundStyle(.primary).lineLimit(1)
-                    Text(meta).font(.footnote).foregroundStyle(Color.luLabel2).lineLimit(1)
+                    Text(meta).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
                 }
                 SeriesProgressBadge(state: progress)
             }

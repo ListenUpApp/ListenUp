@@ -18,7 +18,7 @@ struct AdminPendingUserRow: View {
                     .lineLimit(1)
                 Text(user.email)
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
@@ -36,7 +36,7 @@ struct AdminPendingUserRow: View {
                 Button(action: onDeny) {
                     Image(systemName: "xmark")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(Color.secondary)
                         .frame(width: 34, height: 34)
                         .background(Circle().fill(Color.luFill))
                         .minimumTapTarget(visualSize: 34)

@@ -26,7 +26,7 @@ struct ScanIssueSection: View {
                         .font(.title3.weight(.bold))
                     Text(String(localized: "admin.inbox_needs_attention_subtitle"))
                         .font(.subheadline)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -105,13 +105,13 @@ private struct ScanIssueContent: View {
                 .foregroundStyle(.primary)
             Text(issue.fix)
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             // What the scanner literally reported. Last and quiet: useful when the fix above is
             // not enough, noise when it is.
             if let detail = issue.detail, !detail.isEmpty {
                 Text(detail)
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel3)
+                    .foregroundStyle(.tertiary)
             }
             Button(String(localized: "admin.inbox_issue_dismiss"), action: onDismiss)
                 .font(.subheadline.weight(.semibold))

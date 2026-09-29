@@ -47,7 +47,7 @@ struct MetadataChaptersView: View {
             } header: {
                 VStack(alignment: .leading, spacing: 14) {
                     Text(String(localized: "metadata.review_chapters_subtitle"))
-                        .font(.subheadline).foregroundStyle(Color.luLabel2)
+                        .font(.subheadline).foregroundStyle(.secondary)
                         .textCase(nil)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack {

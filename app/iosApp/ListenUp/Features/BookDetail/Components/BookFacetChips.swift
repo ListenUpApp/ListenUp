@@ -135,7 +135,7 @@ struct BookFacetChips<Destination: Hashable>: View {
     /// Chip foreground: coral for moods, primary label for outlined tags, secondary for genres.
     private var foreground: Color {
         if kind.usesAccent { return .listenUpOrange }
-        return kind.isOutlined ? .primary : .luLabel2
+        return kind.isOutlined ? .primary : .secondary
     }
 }
 

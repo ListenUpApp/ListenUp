@@ -29,11 +29,11 @@ struct WrittenCard: View {
                 .padding(.top, 9)
             Text(book.authorNames)
                 .font(.footnote)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .lineLimit(1)
             Text(DurationFormatting.hoursMinutes(ms: book.duration))
                 .font(.caption)
-                .foregroundStyle(Color.luLabel3)
+                .foregroundStyle(.tertiary)
                 .padding(.top, 1)
         }
         .frame(width: width)

@@ -182,7 +182,7 @@ struct CreateEditShelfView: View {
                             : String(localized: "shelf.visible_to_anyone")
                     )
                     .font(.caption)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(Color.secondary)
                 }
             }
         }
@@ -197,7 +197,7 @@ struct CreateEditShelfView: View {
                 .overlay {
                     Image(systemName: "bookmark")
                         .font(.system(size: 22, weight: .semibold)) // decorative fixed size
-                        .foregroundStyle(Color.luLabel3)
+                        .foregroundStyle(.tertiary)
                 }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -209,7 +209,7 @@ struct CreateEditShelfView: View {
                     if isPrivate {
                         Image(systemName: "lock.fill")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 Text(
@@ -218,7 +218,7 @@ struct CreateEditShelfView: View {
                         : String(localized: "shelf.visibility")
                 )
                 .font(.footnote)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             }
             Spacer()
         }

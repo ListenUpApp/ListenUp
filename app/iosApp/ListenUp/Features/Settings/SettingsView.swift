@@ -80,7 +80,7 @@ struct SettingsView: View {
                     if let email = currentUser.user?.email {
                         Text(email)
                             .font(.footnote)
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 Spacer(minLength: 0)
@@ -294,7 +294,7 @@ struct SettingsView: View {
                     LabeledContent {
                         if let value = hardcoverRow.trailingText {
                             Text(value)
-                                .foregroundStyle(Color.luLabel2)
+                                .foregroundStyle(.secondary)
                         }
                     } label: {
                         SettingsLabel(
@@ -309,7 +309,7 @@ struct SettingsView: View {
             LabeledContent {
                 Text(observer.serverUrl ?? "—")
                     .font(.callout.monospaced())
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             } label: {
                 SettingsLabel(title: String(localized: "common.server"), systemImage: "globe", tint: .teal)
             }
@@ -332,7 +332,7 @@ struct SettingsView: View {
         Section(String(localized: "common.about")) {
             LabeledContent {
                 Text(observer.appVersion)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             } label: {
                 SettingsLabel(
                     title: String(localized: "settings.app_version"),
@@ -343,7 +343,7 @@ struct SettingsView: View {
 
             LabeledContent {
                 Text(observer.serverVersion ?? "—")
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             } label: {
                 SettingsLabel(
                     title: String(localized: "settings.server_version"),
@@ -437,7 +437,7 @@ private struct SettingsLabel: View {
                 if let subtitle {
                     Text(subtitle)
                         .font(.caption)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
             }
         } icon: {

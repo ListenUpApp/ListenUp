@@ -27,7 +27,7 @@ struct SelectableOptionRow: View {
                     if let subtitle {
                         Text(subtitle)
                             .font(.footnote)
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(Color.secondary)
                     }
                 }
                 Spacer(minLength: 12)

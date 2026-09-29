@@ -44,7 +44,7 @@ struct LicenseDetailView: View {
                             .foregroundStyle(.primary)
                         Text("v\(lib.version)")
                             .font(.footnote.monospaced())
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 8)
                     LicenseChip(spdxId: lib.spdxId)
@@ -72,7 +72,7 @@ struct LicenseDetailView: View {
                 // License text
                 Text(LicenseData.licenseText(for: lib.spdxId))
                     .font(.caption.monospaced())
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(14)

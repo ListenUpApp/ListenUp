@@ -21,14 +21,14 @@ struct NumberedStepRow: View {
                 if let subtitle {
                     Text(subtitle)
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.leading)
                 }
             }
             Spacer(minLength: 12)
             Text("\(number)")
                 .font(.footnote.weight(.bold))
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .frame(width: 24, height: 24)
                 .background(Color.luFill, in: Circle())
         }

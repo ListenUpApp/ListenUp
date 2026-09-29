@@ -61,7 +61,7 @@ struct IconTile: View {
     private var glyphColor: Color {
         switch style {
         case .solid: return .luOnTint
-        case .tonal: return tint ?? .luLabel2
+        case .tonal: return tint ?? .secondary
         case .inactive: return .luLabel3
         }
     }

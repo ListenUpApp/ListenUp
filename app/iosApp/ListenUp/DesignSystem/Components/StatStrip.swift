@@ -35,7 +35,7 @@ struct StatStrip: View {
                         .foregroundStyle(.primary)
                     Text(stat.label)
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("\(stat.value) \(stat.label)")

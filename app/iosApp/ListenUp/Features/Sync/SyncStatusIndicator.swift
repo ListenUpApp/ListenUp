@@ -118,7 +118,7 @@ private struct SyncDetailsSheet: View {
                 if let subtitle = statusSubtitle {
                     Text(subtitle)
                         .font(.caption)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
             }
         }

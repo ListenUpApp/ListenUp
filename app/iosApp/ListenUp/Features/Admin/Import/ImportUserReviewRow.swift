@@ -36,7 +36,7 @@ struct ImportUserReviewRow: View {
                 if let email = user.email, !email.isEmpty {
                     Text(email)
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
@@ -67,7 +67,7 @@ struct ImportUserReviewRow: View {
             )
             .labelStyle(.titleAndIcon)
             .font(.footnote.weight(.semibold))
-            .foregroundStyle(user.resolution == .skipped ? Color.luLabel2 : .green)
+            .foregroundStyle(user.resolution == .skipped ? Color.secondary : .green)
         }
     }
 
@@ -93,10 +93,10 @@ struct ImportUserReviewRow: View {
         HStack(spacing: 11) {
             Image(systemName: "link")
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             Text(String(format: String(localized: "import.user_assigned_to"), name))
                 .font(.footnote)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .lineLimit(1)
             Spacer(minLength: 8)
             Button(String(localized: "import.change"), action: onChange)
@@ -114,7 +114,7 @@ struct ImportUserReviewRow: View {
                 .foregroundStyle(Color.luTint)
             Text(String(format: String(localized: "import.suggested_name"), name))
                 .font(.footnote)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 8)
@@ -145,7 +145,7 @@ struct ImportUserReviewRow: View {
             Button(action: onSkip) {
                 Label(String(localized: "import.user_skip"), systemImage: "xmark")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(Color.secondary)
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.pressScaleChip)

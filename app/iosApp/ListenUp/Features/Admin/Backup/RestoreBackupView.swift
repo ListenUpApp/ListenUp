@@ -111,7 +111,7 @@ struct RestoreBackupView: View {
                 .foregroundStyle(.red)
             Text(String(localized: "admin.restore_destructive_body"))
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
@@ -126,7 +126,7 @@ struct RestoreBackupView: View {
                 .controlSize(.large)
             Text(observer.statusLabel)
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -147,12 +147,12 @@ struct RestoreBackupView: View {
                         .foregroundStyle(.primary)
                     Text(String(format: String(localized: "admin.schema_migrated"), model.schemaMigratedFrom, model.schemaMigratedTo))
                         .font(.subheadline)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                     Text(model.includedImages
                         ? String(localized: "admin.restore_images_included")
                         : String(localized: "admin.restore_images_not_included"))
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 6)
             }

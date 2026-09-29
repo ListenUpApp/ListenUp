@@ -40,7 +40,7 @@ struct ImportBookReviewRow: View {
                 if !book.identifiers.isEmpty {
                     Text(book.identifiers)
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
@@ -71,7 +71,7 @@ struct ImportBookReviewRow: View {
             )
             .labelStyle(.titleAndIcon)
             .font(.footnote.weight(.semibold))
-            .foregroundStyle(book.resolution == .skipped ? Color.luLabel2 : .green)
+            .foregroundStyle(book.resolution == .skipped ? Color.secondary : .green)
         }
     }
 
@@ -99,7 +99,7 @@ struct ImportBookReviewRow: View {
             Button(action: onSkip) {
                 Label(String(localized: "import.book_skip"), systemImage: "xmark")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(Color.secondary)
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.pressScaleChip)
@@ -114,7 +114,7 @@ struct ImportBookReviewRow: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .font(.subheadline)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                 TextField(
                     String(localized: "import.book_search_hint"),
                     text: Binding(get: { search.query }, set: onQueryChange)
@@ -127,7 +127,7 @@ struct ImportBookReviewRow: View {
                 }
                 Button(action: onCloseSearch) {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(Color.secondary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(localized: "import.book_search_cancel"))
@@ -136,7 +136,7 @@ struct ImportBookReviewRow: View {
             if !search.query.isEmpty, !search.isSearching, search.results.isEmpty {
                 Text(String(localized: "import.book_search_no_results"))
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             }
 
             ForEach(search.results) { hit in
@@ -151,7 +151,7 @@ struct ImportBookReviewRow: View {
                         if !hit.author.isEmpty {
                             Text(hit.author)
                                 .font(.footnote)
-                                .foregroundStyle(Color.luLabel2)
+                                .foregroundStyle(Color.secondary)
                                 .lineLimit(1)
                         }
                     }

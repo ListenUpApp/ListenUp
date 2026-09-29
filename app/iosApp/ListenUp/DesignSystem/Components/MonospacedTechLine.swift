@@ -11,10 +11,10 @@ struct MonospacedTechLine: View {
         HStack(spacing: 8) {
             Image(systemName: systemImage)
                 .font(.caption.weight(.medium))
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             Text(text)
                 .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(maxWidth: .infinity, alignment: .leading)

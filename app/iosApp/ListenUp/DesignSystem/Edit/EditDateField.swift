@@ -26,7 +26,7 @@ struct EditDateField: View {
                         .buttonStyle(.borderless)
                 } else {
                     Text(String(localized: "edit.not_set"))
-                        .foregroundStyle(Color.luLabel3)
+                        .foregroundStyle(.tertiary)
                     Button(String(localized: "edit.set_date")) { isoDate = ISODate.format(Date()) }
                         .buttonStyle(.borderless)
                 }

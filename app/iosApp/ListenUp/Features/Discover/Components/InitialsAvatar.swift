@@ -36,7 +36,7 @@ struct InitialsAvatar: View {
         if isCurrentUser {
             return Color.luTint
         }
-        return tint == nil ? Color.luLabel2 : AvatarPalette.initialsInk
+        return tint == nil ? Color.secondary : AvatarPalette.initialsInk
     }
 }
 

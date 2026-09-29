@@ -72,7 +72,7 @@ struct ImportReviewContent: View {
         if review.books.isEmpty {
             Section {
                 Text(String(localized: "import.no_books_to_review"))
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             } header: {
                 booksHeader
             }
@@ -141,7 +141,7 @@ struct ImportReviewContent: View {
     private func summaryLine(_ text: String) -> some View {
         Text(text)
             .font(.footnote)
-            .foregroundStyle(Color.luLabel2)
+            .foregroundStyle(.secondary)
             .textCase(nil)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -249,7 +249,7 @@ struct ImportCompleteContent: View {
                         .padding(.top, 22)
                     Text(String(localized: "import.done_subtitle"))
                         .font(.subheadline)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.top, 8)
                 }
@@ -320,7 +320,7 @@ struct ImportErrorContent: View {
                 .prominentAction()
                 Button(String(localized: "common.cancel"), action: onCancel)
                     .font(.body.weight(.medium))
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 16)

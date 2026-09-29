@@ -16,7 +16,7 @@ struct MetadataRemoteCover: View {
                     Color.luFill
                     Image(systemName: "book.closed.fill")
                         .font(.system(size: 20)) // decorative fixed size
-                        .foregroundStyle(Color.luLabel3)
+                        .foregroundStyle(.tertiary)
                 }
             }
         }

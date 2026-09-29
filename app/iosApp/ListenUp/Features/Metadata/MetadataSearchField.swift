@@ -11,7 +11,7 @@ struct MetadataSearchField: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .font(.body.weight(.medium))
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
 
             TextField(String(localized: "common.search"), text: $text)
                 .font(.callout.monospaced())

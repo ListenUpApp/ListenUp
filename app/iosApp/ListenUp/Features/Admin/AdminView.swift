@@ -348,7 +348,7 @@ struct AdminView: View {
     private func emptyRow(_ text: String) -> some View {
         Text(text)
             .font(.subheadline)
-            .foregroundStyle(Color.luLabel2)
+            .foregroundStyle(.secondary)
     }
 
     // MARK: - Save toolbar

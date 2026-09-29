@@ -180,7 +180,7 @@ struct BulkEditView: View {
                         .foregroundStyle(Color.primary)
                     Text(String(localized: "bulk_edit.nothing_to_do_hint"))
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
@@ -208,7 +208,7 @@ struct BulkEditGroupHeader: View {
                 .textCase(nil)
             Text(note)
                 .font(.caption)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .textCase(nil)
             if let field {
                 Text(field)
@@ -224,7 +224,7 @@ private struct BulkEditPreviewRow: View {
     let line: BulkEditPreviewLine
 
     var body: some View {
-        let accent = line.changesNothing ? Color.luLabel2 : Color.luTint
+        let accent = line.changesNothing ? Color.secondary : Color.luTint
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: line.symbol)
                 .font(.body)
@@ -235,7 +235,7 @@ private struct BulkEditPreviewRow: View {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Text(line.label)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(line.changesNothing ? Color.luLabel2 : Color.primary)
+                        .foregroundStyle(line.changesNothing ? Color.secondary : Color.primary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Text(line.detail)
                         .font(.footnote.weight(.bold))
@@ -248,7 +248,7 @@ private struct BulkEditPreviewRow: View {
                 if let note = line.note {
                     Text(note)
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
             }
         }
@@ -269,7 +269,7 @@ struct BulkEditConsequenceLine: View {
                 Text(consequence.text)
                     .font(.caption.weight(consequence.writes ? .bold : .medium))
             }
-            .foregroundStyle(consequence.writes ? Color.luTint : Color.luLabel2)
+            .foregroundStyle(consequence.writes ? Color.luTint : Color.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
         }
@@ -290,14 +290,14 @@ private struct BulkEditHero: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(BulkEditFormatting.heroEyebrow(selectedCount: selectedCount))
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                 HStack(spacing: 12) {
                     CoverStack(covers: covers, size: 64, peek: 16, maxCovers: shown)
                     if let more = BulkEditFormatting.heroMore(bookCount: bookCount, shown: min(covers.count, shown)) {
                         Text(more)
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(.secondary)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
                             .background(Color.luFill, in: Capsule())

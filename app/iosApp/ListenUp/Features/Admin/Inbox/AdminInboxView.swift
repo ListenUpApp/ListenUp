@@ -215,7 +215,7 @@ struct AdminInboxView: View {
         }()
         Text(text)
             .font(.subheadline)
-            .foregroundStyle(Color.luLabel2)
+            .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -306,10 +306,10 @@ struct AdminInboxView: View {
             Spacer()
             Image(systemName: "exclamationmark.triangle")
                 .scaledFont(size: 48, weight: .light, relativeTo: .largeTitle)
-                .foregroundStyle(Color.luLabel3)
+                .foregroundStyle(.tertiary)
             Text(message)
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
             Button(String(localized: "common.retry")) {
@@ -413,7 +413,7 @@ private struct InboxBookRow: View {
                         if let author = book.author {
                             Text(author)
                                 .font(.footnote)
-                                .foregroundStyle(Color.luLabel2)
+                                .foregroundStyle(Color.secondary)
                         }
                         Text(book.formattedDuration)
                             .font(.caption)

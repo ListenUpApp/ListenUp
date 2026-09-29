@@ -15,14 +15,14 @@ struct AdminInboxEmptyState: View {
                     .frame(width: 96, height: 96)
                 Image(systemName: "tray")
                     .font(.system(size: 46, weight: .light)) // decorative fixed size
-                    .foregroundStyle(Color.luLabel3)
+                    .foregroundStyle(.tertiary)
             }
             VStack(spacing: 6) {
                 Text(String(localized: "admin.inbox_empty"))
                     .font(.title2.weight(.bold))
                 Text(String(localized: "admin.inbox_setting_subtitle"))
                     .font(.subheadline)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 280)
                     .lineSpacing(2)

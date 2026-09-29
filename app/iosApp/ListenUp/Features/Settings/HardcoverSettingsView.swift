@@ -159,7 +159,7 @@ private struct HardcoverLinkingPhase: View {
                         .accessibilityAddTraits(.isHeader)
                     Text(instructions)
                         .font(.body)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
@@ -175,7 +175,7 @@ private struct HardcoverLinkingPhase: View {
                             .font(.headline)
                         Text(String(localized: "hardcover.waiting_detail"))
                             .font(.footnote)
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .padding(.vertical, 2)
@@ -211,7 +211,7 @@ private struct HardcoverLinkingPhase: View {
         VStack(spacing: 12) {
             Text(String(localized: "hardcover.your_code"))
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             Text(model.userCode)
                 .font(.system(.largeTitle, design: .monospaced).weight(.semibold))
                 .tracking(4)
@@ -267,7 +267,7 @@ private struct HardcoverConnectedPhase: View {
                             .foregroundStyle(.green)
                         Text(String(format: String(localized: "hardcover.connected_since"), sinceText))
                             .font(.footnote)
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(.secondary)
                     }
                     .accessibilityElement(children: .combine)
                 }
@@ -277,7 +277,7 @@ private struct HardcoverConnectedPhase: View {
                 HardcoverStatementRow(
                     systemImage: "checkmark",
                     text: String(localized: "hardcover.shared_finished_row"),
-                    tint: Color.luLabel2
+                    tint: Color.secondary
                 )
             }
             Section {
@@ -322,7 +322,7 @@ private struct HardcoverBrokenPhase: View {
                     if let username = model.username {
                         Text(wasConnectedAs(username))
                             .font(.footnote)
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                     }
                 }
@@ -372,7 +372,7 @@ private struct HardcoverHero: View {
                 .accessibilityAddTraits(.isHeader)
             Text(detail)
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
         }
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)

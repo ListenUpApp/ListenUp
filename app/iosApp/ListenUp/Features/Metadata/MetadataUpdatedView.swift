@@ -26,7 +26,7 @@ struct MetadataUpdatedView: View {
 
                     Text(String(format: String(localized: "metadata.updated_subtitle"), bookTitle))
                         .font(.subheadline)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.top, 8)
                 }
@@ -91,7 +91,7 @@ struct MetadataUpdatedView: View {
             IconTile(systemImage: icon)
             Text(label).font(.callout).foregroundStyle(.primary)
             Spacer()
-            Text(value).font(.callout.weight(.medium)).foregroundStyle(Color.luLabel2)
+            Text(value).font(.callout.weight(.medium)).foregroundStyle(Color.secondary)
         }
         .accessibilityElement(children: .combine)
     }

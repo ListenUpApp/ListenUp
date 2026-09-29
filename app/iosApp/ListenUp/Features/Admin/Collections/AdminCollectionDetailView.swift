@@ -51,10 +51,10 @@ struct AdminCollectionDetailView: View {
             VStack(spacing: 16) {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.largeTitle)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                 Text(message)
                     .font(.subheadline)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
             .padding()
@@ -188,7 +188,7 @@ struct AdminCollectionDetailView: View {
         Section {
             if ready.books.isEmpty {
                 Text(String(localized: "admin.no_books_in_this_collection"))
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             } else {
                 // The covers are a width-driven grid inside one row: a collection of artwork, not a
                 // list of text (HIG, Collections).
@@ -261,7 +261,7 @@ struct AdminCollectionDetailView: View {
         Section {
             if ready.shares.isEmpty {
                 Text(String(localized: "admin.add_members_to_share_this"))
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             } else {
                 ForEach(ready.shares) { share in
                     let isRevoking = ready.removingShareUserId == share.userId
@@ -303,7 +303,7 @@ struct AdminCollectionDetailView: View {
                     .foregroundStyle(.primary)
                 Text(share.permission.capitalized)
                     .font(.caption)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             }
 
             Spacer()
@@ -353,7 +353,7 @@ struct AdminCollectionDetailView: View {
                                 if let author = book.author, !author.isEmpty {
                                     Text(author)
                                         .font(.caption)
-                                        .foregroundStyle(Color.luLabel2)
+                                        .foregroundStyle(Color.secondary)
                                 }
                             }
                         }
@@ -403,10 +403,10 @@ struct AdminCollectionDetailView: View {
             VStack(spacing: 12) {
                 Image(systemName: "person.2.slash")
                     .scaledFont(size: 40, relativeTo: .largeTitle)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                 Text(String(localized: "admin.all_users_are_already_members"))
                     .font(.subheadline)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
             .padding()
@@ -425,7 +425,7 @@ struct AdminCollectionDetailView: View {
                                 .foregroundStyle(.primary)
                             Text(user.email)
                                 .font(.caption)
-                                .foregroundStyle(Color.luLabel2)
+                                .foregroundStyle(Color.secondary)
                         }
                         Spacer()
                         if ready.isSharing {

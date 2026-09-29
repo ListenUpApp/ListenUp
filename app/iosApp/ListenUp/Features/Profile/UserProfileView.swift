@@ -91,7 +91,7 @@ struct UserProfileView: View {
                 if let detail = subtitle {
                     Text(detail)
                         .font(.subheadline)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }
             }
@@ -193,7 +193,7 @@ struct UserProfileView: View {
 
             Image(systemName: "chevron.right")
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(Color.luLabel3)
+                .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 16)
         .frame(minHeight: 52)

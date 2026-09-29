@@ -33,7 +33,7 @@ struct LabeledFieldRow<Content: View>: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .font(.caption)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)

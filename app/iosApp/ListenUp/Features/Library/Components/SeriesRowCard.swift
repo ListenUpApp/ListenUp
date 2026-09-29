@@ -25,14 +25,14 @@ struct SeriesRowCard: View {
                         .lineLimit(1)
                     Text(meta)
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                     SeriesProgressBadge(state: progress).padding(.top, 9)
                 }
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.luLabel3)
+                    .foregroundStyle(.tertiary)
             }
             .padding(14)
             .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.luSurface2))

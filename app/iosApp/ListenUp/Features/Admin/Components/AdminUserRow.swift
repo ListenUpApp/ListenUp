@@ -18,7 +18,7 @@ struct AdminUserRow: View {
                     .lineLimit(1)
                 Text(user.email)
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
@@ -49,7 +49,7 @@ struct AdminUserRow: View {
             // Protected user: a lock glyph stands in for the absent delete affordance.
             Image(systemName: "lock.fill")
                 .font(.caption)
-                .foregroundStyle(Color.luLabel3)
+                .foregroundStyle(.tertiary)
                 .frame(width: 28)
                 .accessibilityLabel(String(localized: "admin.protected_user"))
         }

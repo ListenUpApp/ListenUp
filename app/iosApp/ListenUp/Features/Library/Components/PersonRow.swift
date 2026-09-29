@@ -41,7 +41,7 @@ struct PersonRow: View {
                     Spacer(minLength: 8)
                     Image(systemName: "chevron.right")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.luLabel3)
+                        .foregroundStyle(.tertiary)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
@@ -77,7 +77,7 @@ struct PersonRow: View {
                     RoleChip(kind: kind)
                     Text(bookCountLabel)
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             }

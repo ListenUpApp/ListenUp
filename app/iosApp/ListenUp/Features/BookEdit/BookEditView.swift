@@ -529,7 +529,7 @@ private struct EmptyRelationHint: View {
     var body: some View {
         Text(text)
             .font(.subheadline)
-            .foregroundStyle(Color.luLabel3)
+            .foregroundStyle(.tertiary)
     }
 }
 
@@ -546,7 +546,7 @@ private struct RemovableChip: View {
             if let roleKind {
                 Image(systemName: roleKind.icon)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             }
             Text(label)
                 .font(.subheadline)
@@ -555,7 +555,7 @@ private struct RemovableChip: View {
             Button(action: onRemove) {
                 Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .bold)) // decorative fixed size
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(Color.secondary)
                     .frame(width: 20, height: 20)
                     .background(Circle().fill(Color.luFill))
                     .minimumTapTarget(visualSize: 20)

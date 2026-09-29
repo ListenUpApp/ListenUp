@@ -108,12 +108,12 @@ struct ShelfDetailView: View {
             if let description = observer.shelfDescription, !description.isEmpty {
                 Text(description)
                     .font(.subheadline)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             Text(bookCountLabel(observer.bookCount))
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }

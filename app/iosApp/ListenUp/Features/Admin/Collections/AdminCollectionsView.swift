@@ -138,10 +138,10 @@ struct AdminCollectionsView: View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.largeTitle)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             Text(message)
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
         .padding()
@@ -152,12 +152,12 @@ struct AdminCollectionsView: View {
         VStack(spacing: 12) {
             Image(systemName: "folder")
                 .scaledFont(size: 44, relativeTo: .largeTitle)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             Text(String(localized: "common.collections"))
                 .font(.headline)
             Text(String(localized: "admin.create_a_collection_to_organize"))
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button(String(localized: "admin.collection_new_collection")) {
                 showingCreateSheet = true
@@ -243,7 +243,7 @@ private struct CollectionTile: View {
                 if collection.isSystem {
                     Image(systemName: "lock.fill")
                         .font(.caption)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .padding(8)
                         .accessibilityLabel(Text(String(localized: "admin.system_collection_locked")))
                 }
@@ -258,10 +258,10 @@ private struct CollectionTile: View {
                 HStack(spacing: 4) {
                     Image(systemName: "person.2")
                         .font(.caption)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                     Text("\(collection.bookCount)")
                         .font(.caption)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
             }
         }
@@ -277,16 +277,16 @@ private struct NewCollectionTile: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6, 3]))
-                    .foregroundStyle(Color.luLabel3)
+                    .foregroundStyle(.tertiary)
                     .aspectRatio(1, contentMode: .fit)
                 Image(systemName: "plus")
                     .font(.system(size: 28, weight: .medium)) // decorative fixed size
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             }
 
             Text(String(localized: "admin.collection_new_collection"))
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .lineLimit(2)
         }
         .contentShape(Rectangle())

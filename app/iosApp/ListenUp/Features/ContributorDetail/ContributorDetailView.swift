@@ -192,14 +192,14 @@ struct ContributorDetailView: View {
             if !observer.aliases.isEmpty {
                 Text("aka \(observer.aliases.joined(separator: ", "))")
                     .font(.callout)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
 
             if let lifeDates = lifeDatesText(birth: observer.birthDate, death: observer.deathDate) {
                 Text(lifeDates)
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel3)
+                    .foregroundStyle(.tertiary)
             }
 
             if let website = observer.website?.trimmingCharacters(in: .whitespaces),

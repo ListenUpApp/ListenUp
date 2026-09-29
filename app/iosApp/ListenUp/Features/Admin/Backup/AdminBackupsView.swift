@@ -176,7 +176,7 @@ struct AdminBackupsView: View {
                     .controlSize(.large)
                 Text(String(format: String(localized: "admin.restore_from_file_uploading"), filename))
                     .font(.subheadline)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
             .padding(32)
@@ -200,7 +200,7 @@ struct AdminBackupsView: View {
                 .foregroundStyle(.primary)
             Text(String(localized: "admin.create_backup_to_protect"))
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 300)
         }
@@ -330,11 +330,11 @@ private struct BackupRow: View {
                         .truncationMode(.middle)
                     Text(backup.createdAt.formatted(date: .abbreviated, time: .shortened))
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                     Text(String(format: String(localized: "admin.backup_size"), backup.sizeFormatted))
                         .font(.caption)
-                        .foregroundStyle(Color.luLabel3)
+                        .foregroundStyle(.tertiary)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)

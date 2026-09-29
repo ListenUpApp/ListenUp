@@ -86,7 +86,7 @@ struct LicensesView: View {
                     .foregroundStyle(.primary)
                 Text(String(localized: "licenses.count_suffix"))
                     .font(.headline)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             }
 
             DistributionMeter()
@@ -109,7 +109,7 @@ struct LicensesView: View {
                     .foregroundStyle(.primary)
                 Text(String(localized: "licenses.count_suffix"))
                     .font(.headline)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             }
 
             DistributionMeter()
@@ -136,7 +136,7 @@ struct LicensesView: View {
                         .foregroundStyle(.primary)
                     Text("\(entry.count)")
                         .font(.caption)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
             }
             Spacer(minLength: 0)
@@ -174,7 +174,7 @@ struct LicensesView: View {
                     .lineLimit(1)
                 Text("v\(lib.version)")
                     .font(.caption.monospaced())
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
             LicenseChip(spdxId: lib.spdxId)
@@ -187,11 +187,11 @@ struct LicensesView: View {
         HStack(alignment: .top, spacing: 9) {
             Image(systemName: "doc.text")
                 .font(.caption2)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .padding(.top, 1)
             Text(String(localized: "licenses.footer"))
                 .font(.footnote)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
         }
         .padding(.top, 4)
     }

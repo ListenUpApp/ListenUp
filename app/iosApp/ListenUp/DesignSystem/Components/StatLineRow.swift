@@ -21,7 +21,7 @@ struct StatLineRow: View {
             Spacer(minLength: 12)
             Text(value)
                 .font(.body.weight(.semibold).monospacedDigit())
-                .foregroundStyle(isMuted ? Color.luLabel2 : .primary)
+                .foregroundStyle(isMuted ? Color.secondary : .primary)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label): \(value)")

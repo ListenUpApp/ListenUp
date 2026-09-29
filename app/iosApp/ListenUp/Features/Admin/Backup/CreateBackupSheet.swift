@@ -59,14 +59,14 @@ struct CreateBackupSheet: View {
                             .foregroundStyle(.primary)
                         Text(String(localized: "admin.book_covers_and_user_avatars"))
                             .font(.footnote)
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(Color.secondary)
                     }
                 }
             } header: {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(String(localized: "admin.create_a_backup_of_your"))
                         .font(.subheadline)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .textCase(nil)
                     Text(String(localized: "admin.what_to_include"))
                 }

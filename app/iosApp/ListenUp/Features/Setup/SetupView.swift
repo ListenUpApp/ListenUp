@@ -51,7 +51,7 @@ struct SetupView: View {
         ) {
             Label(String(localized: "auth.server_administrator"), systemImage: "checkmark.shield")
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(Color.luLabel2)                .padding(.horizontal, 12).padding(.vertical, 6)
+                .foregroundStyle(.secondary)                .padding(.horizontal, 12).padding(.vertical, 6)
                 .background(Capsule().fill(Color.luFill))
         }
     }

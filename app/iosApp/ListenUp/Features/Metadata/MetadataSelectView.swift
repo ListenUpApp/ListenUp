@@ -338,7 +338,7 @@ struct MetadataSelectBody: View {
                         Text(chapterCountText)
                             .font(.body.weight(.medium)).foregroundStyle(.primary)
                         Text(String(localized: "metadata.chapters_review_apply"))
-                            .font(.footnote).foregroundStyle(Color.luLabel2)
+                            .font(.footnote).foregroundStyle(Color.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Color.luLabel3)
@@ -354,7 +354,7 @@ struct MetadataSelectBody: View {
             HStack(spacing: 13) {
                 IconTile(systemImage: "list.number", isActive: false)
                 Text(String(format: String(localized: "metadata.chapters_count_mismatch"), audible, local))
-                    .font(.footnote).foregroundStyle(Color.luLabel2)
+                    .font(.footnote).foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -415,7 +415,7 @@ struct MetadataMatchedEditionCard: View {
                     Text(String(format: String(localized: "metadata.audible_source"), regionName))
                         .font(.caption2.weight(.bold))
                 }
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .padding(.horizontal, 8).padding(.vertical, 3)
                 .background(Capsule().fill(Color.luFill))
 
@@ -460,7 +460,7 @@ struct MetadataGenreChip: View {
                 Image(systemName: isOn ? "checkmark" : "plus").font(.caption2.weight(.bold))
                 Text(label).font(.caption.weight(.semibold))
             }
-            .foregroundStyle(isOn ? Color.luTint : Color.luLabel2)
+            .foregroundStyle(isOn ? Color.luTint : Color.secondary)
             .padding(.horizontal, 11).padding(.vertical, 6)
             .background(Capsule().fill(isOn ? Color.luTint.opacity(0.13) : Color.luFill))
         }

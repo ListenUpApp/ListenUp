@@ -26,7 +26,7 @@ struct MetadataFieldRow<Value: View, Thumb: View>: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(label)
                         .font(.caption)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(Color.secondary)
                     value()
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

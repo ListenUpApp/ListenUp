@@ -131,7 +131,7 @@ struct AppTextField: View {
     private func labelView(_ label: String) -> some View {
         Text(label)
             .font(.caption)
-            .foregroundStyle(Color.luLabel2)
+            .foregroundStyle(Color.secondary)
     }
 
     private var rowView: some View {
@@ -139,7 +139,7 @@ struct AppTextField: View {
             if let leading = Self.leadingIcon(explicit: icon, kind: kind) {
                 Image(systemName: leading)
                     .font(.body)
-                    .foregroundStyle(error != nil ? .red : Color.luLabel2)
+                    .foregroundStyle(error != nil ? .red : Color.secondary)
                     .frame(width: 22)
             }
             control

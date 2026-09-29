@@ -188,7 +188,7 @@ private struct RelationChipRow: View {
             // rather than one nobody has used.
             Text(String(localized: "bulk_edit.relation_untouched"))
                 .font(.caption)
-                .foregroundStyle(Color.luLabel3)
+                .foregroundStyle(.tertiary)
         } else {
             FlowLayout(spacing: 8) {
                 ForEach(chips) { chip in

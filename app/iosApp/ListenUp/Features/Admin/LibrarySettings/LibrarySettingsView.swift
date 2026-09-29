@@ -156,7 +156,7 @@ struct LibrarySettingsView: View {
                             .foregroundStyle(.primary)
                         Text(String(localized: "admin.scan_all_paths_for_new"))
                             .font(.footnote)
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(Color.secondary)
                             .multilineTextAlignment(.leading)
                     }
                     Spacer(minLength: 12)

@@ -274,7 +274,7 @@ struct SeriesDetailView: View {
                 .accessibilityAddTraits(.isHeader)
             Text("(\(observer.bookCount))")
                 .font(.title2)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             Spacer()
             Button(action: { reversed.toggle() }) {
                 Image(systemName: reversed ? "arrow.up" : "arrow.down")

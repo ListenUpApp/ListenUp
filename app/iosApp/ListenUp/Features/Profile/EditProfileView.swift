@@ -124,7 +124,7 @@ struct EditProfileView: View {
 
                 Text(taglineCount(observer.tagline))
                     .font(.caption2)
-                    .foregroundStyle(Color.luLabel3)
+                    .foregroundStyle(.tertiary)
             }
         }
     }

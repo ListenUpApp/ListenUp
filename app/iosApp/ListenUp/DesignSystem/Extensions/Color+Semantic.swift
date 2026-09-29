@@ -36,9 +36,16 @@ extension Color {
     /// Neutral control fill (`--fill-3`).
     static let luFill = Color(.tertiarySystemFill)
 
-    /// Secondary label (`--label-2`).
-    static let luLabel2 = Color(.secondaryLabel)
-    /// Tertiary label (`--label-3`).
+    // Secondary and tertiary text use the hierarchical styles, `.foregroundStyle(.secondary)` and
+    // `.tertiary`: on a material they pick up the system's vibrancy, which a fixed label colour never
+    // does (HIG, Materials: "Help ensure legibility by using vibrant colors on top of materials").
+    // Where a value must be a `Color` — a ternary against the tint, a fill — use `Color.secondary`.
+    // Inside a `Button`, `Menu` or `Toggle` label, whose foreground is the tint, the hierarchical
+    // style would inherit that tint, so those rows also name `Color.secondary` to stay grey.
+
+    /// Tertiary label (`--label-3`) as a `Color`, for the places a hierarchical `.tertiary` can't go:
+    /// SwiftUI has no `Color.tertiary`, and a `Button`/`Menu` label's `.tertiary` inherits the tint.
+    /// Anywhere else, write `.foregroundStyle(.tertiary)`.
     static let luLabel3 = Color(.tertiaryLabel)
 }
 
@@ -49,7 +56,7 @@ extension Color {
         ("luTint", .luTint), ("luOnTint", .luOnTint), ("luWarning", .luWarning),
         ("luSurface", .luSurface), ("luSurface2", .luSurface2),
         ("luSeparator", .luSeparator), ("luFill", .luFill),
-        ("luLabel2", .luLabel2), ("luLabel3", .luLabel3)
+        ("luLabel3", .luLabel3)
     ]
     return ScrollView {
         VStack(spacing: 12) {

@@ -60,13 +60,13 @@ struct SeriesBookRow: View {
                     .frame(width: 150, height: 4)
                 Text("\(Int((progress * 100).rounded()))%")
                     .font(.caption).monospacedDigit()
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             }
             .padding(.top, 5)
         } else {
             Text(metadataText)
                 .font(.footnote)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .padding(.top, 2)
         }
     }

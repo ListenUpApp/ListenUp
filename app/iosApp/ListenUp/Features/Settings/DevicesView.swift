@@ -113,7 +113,7 @@ struct DevicesView: View {
             } else if currentDevice != nil {
                 Section(String(localized: "devices.other_devices")) {
                     Text(String(localized: "devices.empty"))
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
             }
         }
@@ -148,7 +148,7 @@ struct DevicesView: View {
                     // "THIS DEVICE" badge
                     Text(String(localized: "devices.this_device").uppercased())
                         .font(.caption2.bold())
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
                         .background(Color.luFill, in: Capsule())
@@ -156,7 +156,7 @@ struct DevicesView: View {
                 if !device.secondary.isEmpty {
                     Text(device.secondary)
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
             }
             Spacer(minLength: 8)
@@ -170,7 +170,7 @@ struct DevicesView: View {
                     // The green dot carries the status; the word stays in secondary text, which
                     // reads at 4.5:1 where a green label would not (HIG, Color: "Avoid relying
                     // solely on color").
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 6)
@@ -191,7 +191,7 @@ struct DevicesView: View {
                 if !device.secondary.isEmpty {
                     Text(device.secondary)
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             }
@@ -202,7 +202,7 @@ struct DevicesView: View {
             } else {
                 Text(relativeDate(epochMs: device.lastUsedAtMs))
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
         }

@@ -177,12 +177,12 @@ private struct StorageSummaryCard: View {
                         bookCount
                     ))
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Text(String(format: String(localized: "settings.storage_available"), StorageFormat.byteSize(available)))
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             }
 
             ProgressView(value: usageFraction)
@@ -206,7 +206,7 @@ private struct DownloadedBookRowView: View {
                 if !book.authorNames.isEmpty {
                     Text(book.authorNames)
                         .font(.caption)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
                 Text(String(
@@ -215,7 +215,7 @@ private struct DownloadedBookRowView: View {
                     book.fileCount
                 ))
                 .font(.caption)
-                .foregroundStyle(Color.luLabel3)
+                .foregroundStyle(.tertiary)
             }
             Spacer(minLength: 0)
         }

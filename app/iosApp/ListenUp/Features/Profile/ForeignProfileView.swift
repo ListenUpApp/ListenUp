@@ -79,7 +79,7 @@ struct ForeignProfileView: View {
                 if let tagline = observer?.tagline, !tagline.isEmpty {
                     Text(tagline)
                         .font(.subheadline)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }
             }

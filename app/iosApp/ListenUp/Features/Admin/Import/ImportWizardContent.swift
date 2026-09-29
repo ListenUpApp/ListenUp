@@ -26,7 +26,7 @@ struct ImportIntroContent: View {
                     badge
                     Text(String(localized: "import.choose_backup_subtitle"))
                         .font(.subheadline)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .listRowBackground(Color.clear)
@@ -50,7 +50,7 @@ struct ImportIntroContent: View {
     private var badge: some View {
         Label(String(localized: "import.intro_badge"), systemImage: "arrow.triangle.2.circlepath")
             .font(.footnote.weight(.semibold))
-            .foregroundStyle(Color.luLabel2)
+            .foregroundStyle(.secondary)
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
             .background(Color.luFill, in: Capsule())
@@ -78,7 +78,7 @@ struct ImportIntroContent: View {
     private var privacyNote: some View {
         Label(String(localized: "import.data_stays_on_server"), systemImage: "lock")
             .font(.footnote)
-            .foregroundStyle(Color.luLabel2)
+            .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.top, 8)
     }
@@ -130,7 +130,7 @@ struct ImportProgressContent: View {
                             if let centerSecondary {
                                 Text(centerSecondary)
                                     .font(.footnote.monospacedDigit())
-                                    .foregroundStyle(Color.luLabel2)
+                                    .foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -142,7 +142,7 @@ struct ImportProgressContent: View {
                             .foregroundStyle(.primary)
                         Text(subtitle)
                             .font(.subheadline)
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                     }
 
@@ -170,7 +170,7 @@ struct ImportProgressContent: View {
             if let footnote {
                 Text(footnote)
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
             }

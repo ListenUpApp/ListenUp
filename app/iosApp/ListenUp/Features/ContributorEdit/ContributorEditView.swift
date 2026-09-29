@@ -212,7 +212,7 @@ private struct AliasChip: View {
             Text(alias).font(.callout).foregroundStyle(.primary)
             Button(action: onRemove) {
                 Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(Color.secondary)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(String(format: String(localized: "contributor.remove_aliasname"), alias))

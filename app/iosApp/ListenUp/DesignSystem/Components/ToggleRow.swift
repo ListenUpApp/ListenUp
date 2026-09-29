@@ -41,7 +41,7 @@ struct ToggleRow: View {
                 if let subtitle {
                     Text(subtitle)
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(Color.secondary)
                 }
             }
         }
