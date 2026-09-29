@@ -20,6 +20,10 @@ struct ListenUpApp: App {
         // only thing that matters is that it starts as soon as Koin exists. A failure leaves the
         // defaults in place — exactly the behaviour before this call — and must never block launch.
         Task { try? await KoinHelper.shared.initializeLocalPreferences() }
+        // Before any image view: covers build their requests synchronously from the mirrored server
+        // URL, and the pipeline's loader authenticates them (see `ListenUpImagePipeline`).
+        ListenUpImagePipeline.install()
+        ImageServerBase.shared.startObserving(KoinHelper.shared.getServerConfig())
         Log.info("ListenUp iOS app initialized")
         // Make the app's player available to the playback App Intents (Siri, Shortcuts, Control Center).
         AppDependencyManager.shared.add(dependency: PlaybackController() as any PlaybackControlling)
