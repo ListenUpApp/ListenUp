@@ -41,10 +41,37 @@ internal class SourceCalibration private constructor(
     /** [source]'s calibrated curve; its prior when the library has none of its ratings. */
     fun curveOf(source: ScoreSource): SourceCurve = curves[source] ?: priorOf(source)
 
+    /**
+     * The one scale every book is read off: the unweighted mean of the calibrated curves of every
+     * outside catalog ListenUp knows, enabled or not, listeners excluded. A catalog with no rows
+     * contributes its prior. It is a scale, not evidence: it needs no enabled set (which a client
+     * cannot see for a source with no rows) and does not jump when a source lands its first row.
+     */
+    val referenceCurve: SourceCurve =
+        OUTSIDE_PRIORS.keys.map { curveOf(ScoreSource.Outside(it)) }.let { known ->
+            SourceCurve(mean = known.map { it.mean }.average(), spread = known.map { it.spread }.average())
+        }
+
     /** The priors and the calibration-from-library factory. */
     companion object {
         /** How many books' worth of weight the prior carries against the library's own averages. */
         const val PRIOR_WEIGHT: Double = 30.0
+
+        /**
+         * Every outside catalog ListenUp knows, with its starting curve — to revisit with real data
+         * (design addendum 2026-09-29). Its keys are the set [referenceCurve] averages over.
+         */
+        private val OUTSIDE_PRIORS: Map<ExternalRatingSource, SourceCurve> =
+            mapOf(
+                ExternalRatingSource.AUDIBLE to SourceCurve(mean = 4.40, spread = 0.30),
+                ExternalRatingSource.HARDCOVER to SourceCurve(mean = 3.95, spread = 0.35),
+                ExternalRatingSource.GOODREADS to SourceCurve(mean = 3.95, spread = 0.30),
+            )
+
+        private val LISTENER_PRIOR = SourceCurve(mean = 4.0, spread = 0.6)
+
+        /** `UNKNOWN` is filtered out before scoring; a neutral curve keeps [priorOf] total. */
+        private val UNKNOWN_PRIOR = SourceCurve(mean = 4.0, spread = 0.35)
 
         /** The calibration of an empty library: every source on its prior. */
         val PRIORS: SourceCalibration = SourceCalibration(emptyMap())
@@ -85,25 +112,10 @@ internal class SourceCalibration private constructor(
             )
         }
 
-        /** Starting curves, to revisit with real data (design addendum 2026-09-29). */
         private fun priorOf(source: ScoreSource): SourceCurve =
             when (source) {
-                ScoreSource.Listeners -> {
-                    SourceCurve(mean = 4.0, spread = 0.6)
-                }
-
-                is ScoreSource.Outside -> {
-                    when (source.source) {
-                        ExternalRatingSource.AUDIBLE -> SourceCurve(mean = 4.40, spread = 0.30)
-
-                        ExternalRatingSource.HARDCOVER -> SourceCurve(mean = 3.95, spread = 0.35)
-
-                        ExternalRatingSource.GOODREADS -> SourceCurve(mean = 3.95, spread = 0.30)
-
-                        // Filtered out before scoring; a neutral curve keeps this total.
-                        ExternalRatingSource.UNKNOWN -> SourceCurve(mean = 4.0, spread = 0.35)
-                    }
-                }
+                ScoreSource.Listeners -> LISTENER_PRIOR
+                is ScoreSource.Outside -> OUTSIDE_PRIORS[source.source] ?: UNKNOWN_PRIOR
             }
     }
 }
@@ -133,10 +145,13 @@ private val ListenerAverage.stars: Double get() = averageHalfStars / 2
  * 1. **shrink** small samples toward the curve: `(a·n + μ·p) / (n + p)`, p = 25 outside, 1 for listeners;
  * 2. put it on **one curve**: `z = (shrunk − μ) / max(σ, 0.05)`;
  * 3. **weigh** it by `ln(1 + n)`, times 4 for listeners — so no catalog drowns the rest by volume;
- * 4. **combine**: `μ_ref + σ_ref · Σ(w·z) / Σw`, where μ_ref and σ_ref are the w-weighted means of
- *    the contributing curves, clamped to 1..5.
+ * 4. **combine**: `μ_ref + σ_ref · Σ(w·z) / Σw`, clamped to 1..5, where (μ_ref, σ_ref) is the
+ *    calibration's [SourceCalibration.referenceCurve] — one scale for every book, so an exactly-average
+ *    book scores μ_ref whichever catalog rated it.
  *
- * With one source the score is that source's shrunk average. Every input is server-wide — no
+ * A one-source book scores its shrunk average's place on that source's curve, read off the
+ * reference curve: an Audible-only 4.7 shows about 4.4, while its breakdown row still says 4.7.
+ * Every input is server-wide — no
  * signed-in user enters — so every member sees the same score for the same book.
  *
  * Callers pass only enabled, known sources; the repository filters the rest out.
@@ -166,11 +181,10 @@ internal fun listenUpScore(
             )
     if (contributions.isEmpty()) return null
     val totalWeight = contributions.sumOf { it.weight }
-    val referenceMean = contributions.sumOf { it.weight * it.curve.mean } / totalWeight
-    val referenceSpread = contributions.sumOf { it.weight * it.curve.spread } / totalWeight
+    val reference = calibration.referenceCurve
     val meanZ = contributions.sumOf { it.weight * it.z } / totalWeight
     return CombinedScore(
-        average = (referenceMean + referenceSpread * meanZ).coerceIn(MIN_SCORE, MAX_SCORE),
+        average = (reference.mean + reference.spread * meanZ).coerceIn(MIN_SCORE, MAX_SCORE),
         count = contributions.sumOf { it.count.toLong() }.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
         shares = contributions.associate { it.source to it.weight / totalWeight },
     )
@@ -179,7 +193,6 @@ internal fun listenUpScore(
 private class Contribution(
     val source: ScoreSource,
     val count: Int,
-    val curve: SourceCurve,
     val z: Double,
     val weight: Double,
 )
@@ -197,7 +210,6 @@ private fun contribution(
     return Contribution(
         source = source,
         count = count,
-        curve = curve,
         z = (shrunk - curve.mean) / maxOf(curve.spread, MIN_SPREAD),
         weight = boost * ln(1.0 + count),
     )
