@@ -12,6 +12,7 @@ struct ActivitySectionView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(String(localized: "discover.activity"))
                 .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
 
             content
         }

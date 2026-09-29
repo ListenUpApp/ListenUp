@@ -38,6 +38,7 @@ struct LeaderboardSectionView: View {
         HStack(alignment: .center, spacing: 12) {
             Text(String(localized: "discover.leaderboard"))
                 .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
 
             Spacer(minLength: 8)
 

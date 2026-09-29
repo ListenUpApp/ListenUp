@@ -157,6 +157,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(String(localized: "home.continue_listening"))
                     .font(.title3.weight(.semibold))
+                    .accessibilityAddTraits(.isHeader)
                     .foregroundStyle(.primary)
                     .padding(.horizontal, horizontalInset)
 

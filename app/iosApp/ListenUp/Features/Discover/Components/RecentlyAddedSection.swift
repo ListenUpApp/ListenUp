@@ -15,6 +15,7 @@ struct RecentlyAddedSection: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(String(localized: "discover.recently_added"))
                 .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
                 .padding(.horizontal, horizontalInset)
 
             content

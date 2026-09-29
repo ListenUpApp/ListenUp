@@ -104,6 +104,7 @@ struct MyShelvesRow: View {
             HStack {
                 Text(String(localized: "home.my_shelves"))
                     .font(.title3.weight(.semibold))
+                    .accessibilityAddTraits(.isHeader)
                     .foregroundStyle(.primary)
                 Spacer()
                 NavigationLink(value: ShelfFormDestination(shelfId: nil)) {

@@ -317,6 +317,7 @@ struct ContributorDetailView: View {
         HStack(alignment: .firstTextBaseline) {
             Text(section.displayName)
                 .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
                 .foregroundStyle(.primary)
             Spacer()
             if section.showViewAll {

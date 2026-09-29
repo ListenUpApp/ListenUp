@@ -16,6 +16,7 @@ struct CurrentlyListeningSection: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(String(localized: "discover.what_others_are_listening_to"))
                 .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
                 .padding(.horizontal, horizontalInset)
 
             content

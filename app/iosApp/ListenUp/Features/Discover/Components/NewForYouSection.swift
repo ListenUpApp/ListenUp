@@ -14,6 +14,7 @@ struct NewForYouSection: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(String(localized: "discover.new_for_you"))
                 .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
                 .padding(.horizontal, horizontalInset)
 
             content

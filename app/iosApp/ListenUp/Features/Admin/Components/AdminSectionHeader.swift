@@ -18,6 +18,7 @@ struct AdminSectionHeader<Trailing: View>: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Color.luLabel2)
                 .tracking(0.4)
+                .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 8)
             trailing()
         }

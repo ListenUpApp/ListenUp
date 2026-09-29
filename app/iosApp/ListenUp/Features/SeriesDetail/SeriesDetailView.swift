@@ -242,6 +242,7 @@ struct SeriesDetailView: View {
         HStack {
             Text(String(localized: "series.books_header"))
                 .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
             Text("(\(observer.bookCount))")
                 .font(.title2)
                 .foregroundStyle(Color.luLabel2)
