@@ -102,3 +102,28 @@ custom_rules:
       .swipeActions only works on rows inside a List or Form. Host the rows in a List, or — for a
       row view hosted by a List in another file — add `// swipe-actions-host: <File>.swift`.
     severity: error
+
+  # Raw colour literals live in `ListenUp/DesignSystem/` only. A `Color(hex:)` or `Color(red:…)` in a
+  # screen is a static sRGB value with no dark, no Increase Contrast and no contrast check — which is
+  # how a 3.55:1 coral, 2.33:1 import avatars and six copies of one hex palette reached the app
+  # (2026-09-29 iOS audit, theming). HIG, Color: "If you define a custom color, make sure to supply
+  # light and dark variants, and an increased contrast option for each variant". Screens name a
+  # token (`Color.luTint`, `.luWarning`, `AvatarPalette`, `Color+Palette`) or a system colour; a new
+  # colour is added to DesignSystem, as a Color Set or a solved token, with its contrast tested.
+  # Paths are regexes: `/ListenUp/` covers the app target only (not ListenUpTests or the widgets).
+  raw_color_literal_outside_design_system:
+    name: "Raw colour literal outside DesignSystem"
+    regex: '\b(?:UI)?Color\(\s*(?:\.sRGB\s*,\s*)?(?:hex|red)\s*:'
+    included: '/ListenUp/'
+    excluded: '/ListenUp/DesignSystem/'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: >-
+      Colour literals belong in ListenUp/DesignSystem/. Use a design-system token (luTint, luWarning,
+      AvatarPalette, Color+Palette) or a system colour, or add a tested token there.
+    severity: error
