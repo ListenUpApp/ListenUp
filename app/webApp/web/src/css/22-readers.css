@@ -46,7 +46,7 @@
 .luw .rt-avg { font-size: var(--fs-ui); font-weight: 600; color: var(--ink-2); }
 .luw .rt-avg-star { color: var(--coral); }
 .luw .rt-rate { align-self: flex-start; }
-.luw .rt-refresh-empty { align-self: flex-start; }
+.luw .rt-refresh-first { align-self: flex-start; }
 .luw .rt-mine { display: flex; align-items: center; gap: 10px; }
 .luw .rt-mine-l { font-size: var(--fs-ui); font-weight: 700; color: var(--ink); }
 .luw .rt-mine .rs { font-size: var(--fs-body); }

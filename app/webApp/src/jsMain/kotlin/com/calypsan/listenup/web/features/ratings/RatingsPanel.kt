@@ -4,6 +4,7 @@ import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,7 +23,6 @@ import com.calypsan.listenup.web.design.ModalDialog
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.RatingStars
 import com.calypsan.listenup.web.design.TextAreaField
-import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
@@ -116,12 +116,12 @@ private fun RefreshRatingsAction(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
 ) {
-    Button(attrs = {
-        classes(BTN_SECONDARY, "rt-refresh-empty")
-        attr("type", TYPE_BUTTON)
-        disabledWhen(isRefreshing)
-        onClick { onRefresh() }
-    }) { Text(refreshLabel(isRefreshing)) }
+    Button(
+        kind = ButtonKind.Secondary,
+        onClick = onRefresh,
+        enabled = !isRefreshing,
+        attrs = { classes("rt-refresh-first") },
+    ) { Text(refreshLabel(isRefreshing)) }
 }
 
 /** "Refresh ratings", or "Refreshing…" while [isRefreshing] — the one refresh action label. */
@@ -149,12 +149,12 @@ private fun ExternalHeadline(
         } else {
             "Rated $average out of 5 stars by $count readers elsewhere"
         }
-    Button(attrs = {
-        classes(BTN_SECONDARY, "rt-external")
-        attr("type", TYPE_BUTTON)
-        attr("aria-label", a11y)
-        onClick { onOpen() }
-    }) {
+    Button(
+        kind = ButtonKind.Secondary,
+        onClick = onOpen,
+        label = a11y,
+        attrs = { classes("rt-external") },
+    ) {
         Span(attrs = { attr("aria-hidden", "true") }) {
             Span(attrs = { classes("rt-ext-star") }) { Text("★ ") }
             Text(visible)
@@ -186,29 +186,27 @@ private fun BreakdownDialog(
     ModalDialog(open = true, title = "Ratings", onDismiss = onDismiss) {
         Div(attrs = { classes("rt-sources") }) {
             breakdown.forEach { rating ->
-                Div(attrs = { classes("rt-source-row") }) {
-                    Text(
-                        "${sourceDisplayName(
-                            rating.source,
-                        )} · ${averageLabel(rating.average)} · ${compactCount(rating.count)}",
-                    )
+                key(rating.source) {
+                    Div(attrs = { classes("rt-source-row") }) {
+                        Text(
+                            "${sourceDisplayName(
+                                rating.source,
+                            )} · ${averageLabel(rating.average)} · ${compactCount(rating.count)}",
+                        )
+                    }
                 }
             }
         }
         if (canRefresh) {
-            Button(attrs = {
-                classes(BTN_SECONDARY, "rt-refresh")
-                attr("type", TYPE_BUTTON)
-                disabledWhen(isRefreshing)
-                onClick { onRefresh() }
-            }) { Text(refreshLabel(isRefreshing)) }
+            Button(
+                kind = ButtonKind.Secondary,
+                onClick = onRefresh,
+                enabled = !isRefreshing,
+                attrs = { classes("rt-refresh") },
+            ) { Text(refreshLabel(isRefreshing)) }
         }
         Div(attrs = { classes("dlg-actions") }) {
-            Button(attrs = {
-                classes("btn-c")
-                attr("type", TYPE_BUTTON)
-                onClick { onDismiss() }
-            }) { Text("Close") }
+            Button(kind = ButtonKind.Primary, onClick = onDismiss) { Text("Close") }
         }
     }
 }
@@ -306,6 +304,3 @@ private const val NOTE_ROWS = 3
 
 /** Every button here is an action, never a form submit. */
 private const val TYPE_BUTTON = "button"
-
-/** The quiet outlined button treatment — "Rate", the headline, and every refresh action. */
-private const val BTN_SECONDARY = "btn-o"

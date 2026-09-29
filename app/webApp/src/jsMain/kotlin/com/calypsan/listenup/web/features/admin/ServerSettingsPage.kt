@@ -4,6 +4,7 @@ import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
@@ -183,12 +184,14 @@ private fun ReadyContent(
                     "switching it back on brings them back.",
             )
             state.ratingSources.forEach { source ->
-                RatingSourceRow(
-                    status = source,
-                    nowMs = nowMs,
-                    enabled = !state.isSaving,
-                    onChange = { enabled -> onSetRatingSourceEnabled(source.source, enabled) },
-                )
+                key(source.source) {
+                    RatingSourceRow(
+                        status = source,
+                        nowMs = nowMs,
+                        enabled = !state.isSaving,
+                        onChange = { enabled -> onSetRatingSourceEnabled(source.source, enabled) },
+                    )
+                }
             }
         }
     }

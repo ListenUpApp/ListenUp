@@ -397,7 +397,7 @@ class RatingsTest :
             var refreshed = false
             val host = panel(ready(canRefresh = true), onRefreshExternal = { refreshed = true })
 
-            val action = host.querySelector(".rt-refresh-empty") as HTMLElement
+            val action = host.querySelector(".rt-refresh-first") as HTMLElement
             action.textContent shouldBe "Refresh ratings"
             action.dispatchEvent(MouseEvent("click", MouseEventInit(bubbles = true, cancelable = true)))
 
@@ -407,7 +407,7 @@ class RatingsTest :
         test("the inline refresh action is busy while a refresh is in flight") {
             val host = panel(ready(canRefresh = true, isRefreshingExternal = true))
 
-            val action = host.querySelector(".rt-refresh-empty") as HTMLElement
+            val action = host.querySelector(".rt-refresh-first") as HTMLElement
             action.textContent shouldBe "Refreshing…"
             action.hasAttribute("disabled") shouldBe true
         }
@@ -415,13 +415,13 @@ class RatingsTest :
         test("a non-admin sees no refresh action before any score exists") {
             val host = panel(ready(canRefresh = false))
 
-            host.querySelector(".rt-refresh-empty").shouldBeNull()
+            host.querySelector(".rt-refresh-first").shouldBeNull()
         }
 
         test("no inline refresh action once a score exists") {
             val host = panel(ready(external = CombinedScore(average = 4.4, count = 12_000), canRefresh = true))
 
-            host.querySelector(".rt-refresh-empty").shouldBeNull()
+            host.querySelector(".rt-refresh-first").shouldBeNull()
             host.querySelector(".rt-external").shouldNotBeNull()
         }
 
