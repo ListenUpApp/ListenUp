@@ -42,24 +42,36 @@ struct PlayerLayoutTests {
 
     // MARK: - Cover
 
-    @Test func stackedCoverFillsTheWidthLessMargins() {
-        let side = PlayerLayoutMode.coverSide(in: CGSize(width: 402, height: 1000), mode: .stacked)
+    @Test func stackedCoverFillsTheWidthWhenThereIsRoom() {
+        let side = PlayerLayoutMode.stackedCoverSide(columnWidth: 402, availableHeight: 1000, controlsHeight: 400)
         #expect(side == 402 - 2 * PlayerLayoutMode.horizontalMargin)
     }
 
-    @Test func stackedCoverGivesWayToAShortWindow() {
-        let side = PlayerLayoutMode.coverSide(in: CGSize(width: 402, height: 600), mode: .stacked)
-        #expect(side == 600 * PlayerLayoutMode.stackedCoverHeightShare)
+    /// A short window shrinks the cover to what the controls leave over, instead of scrolling.
+    @Test func stackedCoverGivesWayToTheControls() {
+        let side = PlayerLayoutMode.stackedCoverSide(columnWidth: 402, availableHeight: 700, controlsHeight: 400)
+        #expect(side == 700 - 400 - PlayerLayoutMode.stackedCoverSpacing)
     }
 
-    @Test func compactHeightCoverFitsTheHeight() {
-        let side = PlayerLayoutMode.coverSide(in: CGSize(width: 832, height: 419), mode: .compactHeight)
-        #expect(side <= 419 - 2 * PlayerLayoutMode.verticalMargin)
-        #expect(side <= 832 * 0.4)
+    /// Below the floor the cover would be a thumbnail — the column scrolls instead.
+    @Test func stackedColumnScrollsWhenEvenTheSmallestCoverCannotFit() {
+        #expect(PlayerLayoutMode.stackedCoverSide(columnWidth: 402, availableHeight: 500, controlsHeight: 400) == nil)
     }
 
-    @Test func coverNeverShrinksBelowTheFloorOrGrowsPastTheCeiling() {
-        #expect(PlayerLayoutMode.coverSide(in: CGSize(width: 120, height: 150), mode: .stacked) == PlayerLayoutMode.coverRange.lowerBound)
-        #expect(PlayerLayoutMode.coverSide(in: CGSize(width: 2000, height: 2000), mode: .stacked) == PlayerLayoutMode.coverRange.upperBound)
+    @Test func stackedCoverStopsAtTheCeiling() {
+        let side = PlayerLayoutMode.stackedCoverSide(columnWidth: 2000, availableHeight: 2000, controlsHeight: 300)
+        #expect(side == PlayerLayoutMode.coverRange.upperBound)
+    }
+
+    @Test func compactHeightCoverFitsTheHeightAndLeavesTheControlsRoom() {
+        let side = PlayerLayoutMode.compactHeightCoverSide(in: CGSize(width: 1000, height: 375))
+        #expect(side == 375 - 2 * PlayerLayoutMode.verticalMargin)
+        #expect(PlayerLayoutMode.compactHeightCoverSide(in: CGSize(width: 600, height: 375)) == 600 * 0.4)
+    }
+
+    @Test func scrollingCoverNarrowsToTheColumnButNotBelowTheFloor() {
+        #expect(PlayerLayoutMode.scrollingCoverSide(columnWidth: 402) == PlayerLayoutMode.preferredScrollingCoverSide)
+        #expect(PlayerLayoutMode.scrollingCoverSide(columnWidth: 200) == 200 - 2 * PlayerLayoutMode.horizontalMargin)
+        #expect(PlayerLayoutMode.scrollingCoverSide(columnWidth: 150) == PlayerLayoutMode.coverRange.lowerBound)
     }
 }

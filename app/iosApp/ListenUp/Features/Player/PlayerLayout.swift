@@ -29,12 +29,14 @@ enum PlayerLayoutMode: Equatable {
     static let horizontalMargin: CGFloat = 26
     /// Top/bottom breathing room around the cover in compact height.
     static let verticalMargin: CGFloat = 16
-    /// Share of the height a stacked cover may take, leaving room for titles and transport.
-    static let stackedCoverHeightShare: CGFloat = 0.42
+    /// The minimum gaps above and below a stacked cover.
+    static let stackedCoverSpacing: CGFloat = 32
     /// Share of the width a compact-height cover may take.
     static let compactHeightCoverWidthShare: CGFloat = 0.4
     /// The cover's size limits: legible at the floor, never a billboard at the ceiling.
     static let coverRange: ClosedRange<CGFloat> = 120...460
+    /// The cover inside a scrolling column, where height is no longer the constraint.
+    static let preferredScrollingCoverSide: CGFloat = 240
 
     static func resolve(size: CGSize, isAccessibilitySize: Bool) -> PlayerLayoutMode {
         if size.height < compactHeightThreshold, size.width > size.height {
@@ -47,15 +49,33 @@ enum PlayerLayoutMode: Equatable {
         return .stacked
     }
 
-    /// The cover's side length for the column (or, in compact height, the window) it lives in.
-    static func coverSide(in size: CGSize, mode: PlayerLayoutMode) -> CGFloat {
-        let fitted: CGFloat
-        switch mode {
-        case .compactHeight:
-            fitted = min(size.height - 2 * verticalMargin, size.width * compactHeightCoverWidthShare)
-        case .regular, .stacked:
-            fitted = min(size.width - 2 * horizontalMargin, size.height * stackedCoverHeightShare)
-        }
+    /// The stacked cover: as wide as the column allows, but only as tall as the height the
+    /// controls leave over — so the whole player fits without scrolling wherever it can. `nil` when
+    /// even the smallest cover would not fit: the column then scrolls instead (small phones,
+    /// accessibility text sizes).
+    ///
+    /// - Parameters:
+    ///   - columnWidth: the column's width.
+    ///   - availableHeight: the height below the header.
+    ///   - controlsHeight: the measured natural height of titles, scrubber, transport and the rest.
+    static func stackedCoverSide(columnWidth: CGFloat, availableHeight: CGFloat, controlsHeight: CGFloat) -> CGFloat? {
+        let fitted = min(
+            columnWidth - 2 * horizontalMargin,
+            availableHeight - controlsHeight - stackedCoverSpacing,
+            coverRange.upperBound
+        )
+        return fitted >= coverRange.lowerBound ? fitted : nil
+    }
+
+    /// The compact-height cover, beside the controls: as tall as the space below the header allows,
+    /// and never more than a share of the width, so the controls keep room.
+    static func compactHeightCoverSide(in size: CGSize) -> CGFloat {
+        let fitted = min(size.height - 2 * verticalMargin, size.width * compactHeightCoverWidthShare)
         return min(max(fitted, coverRange.lowerBound), coverRange.upperBound)
+    }
+
+    /// The scrolling fallback's cover — a fixed, comfortable size, narrowed to fit the column.
+    static func scrollingCoverSide(columnWidth: CGFloat) -> CGFloat {
+        max(coverRange.lowerBound, min(preferredScrollingCoverSide, columnWidth - 2 * horizontalMargin))
     }
 }

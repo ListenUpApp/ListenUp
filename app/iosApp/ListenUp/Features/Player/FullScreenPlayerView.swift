@@ -20,7 +20,8 @@ private struct ContributorPickerRequest: Identifiable {
 /// - stacked: header · cover · titles · scrubber · transport · volume · secondary row
 /// - compact height: the cover beside that column (a phone in landscape)
 /// - regular: the column beside the always-visible "Up Next" chapter pane (iPad)
-/// Every column falls back to scrolling when it cannot fit (small phones, AX text sizes).
+/// The cover takes the height the controls leave; when even the smallest cover would not fit
+/// (small phones, AX text sizes) the column scrolls instead of clipping.
 ///
 /// The accent is a legibility-clamped tint derived from the cover (coral until it
 /// resolves; coral on any failure — never stranded).
@@ -43,6 +44,8 @@ struct FullScreenPlayerView: View {
     /// view reads it directly). `nil` means "not known yet", which is NOT the same as 0 dB: the
     /// sheet hides the row rather than offering to reset a book to a default it hasn't read.
     @State private var defaultBoostDb: Float?
+    /// The controls column's natural height, measured; the cover sizes itself to what is left.
+    @State private var controlsHeight: CGFloat = 0
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -50,6 +53,8 @@ struct FullScreenPlayerView: View {
     @Environment(\.dependencies) private var deps
 
     private var margin: CGFloat { PlayerLayoutMode.horizontalMargin }
+    /// The header row: 44pt controls.
+    private static let headerHeight: CGFloat = 44
 
     var body: some View {
         GeometryReader { proxy in
@@ -161,26 +166,21 @@ struct FullScreenPlayerView: View {
 
     @ViewBuilder
     private func layout(_ mode: PlayerLayoutMode, in size: CGSize) -> some View {
+        let belowHeader = CGSize(width: size.width, height: max(0, size.height - Self.headerHeight))
         switch mode {
         case .stacked:
             VStack(spacing: 0) {
                 header
-                fitting { stackedColumn(coverSide: PlayerLayoutMode.coverSide(in: size, mode: .stacked), showsChapters: true) }
+                stackedColumn(width: size.width, height: belowHeader.height, showsChapters: true)
             }
         case .regular:
             // The inline "Up Next" pane replaces the chapter sheet, so the column hides its
             // Chapters control.
             let columnWidth = min(620, size.width - NowPlayingUpNextPanel.width)
-            let columnSize = CGSize(width: columnWidth, height: size.height)
             HStack(spacing: 0) {
                 VStack(spacing: 0) {
                     header
-                    fitting {
-                        stackedColumn(
-                            coverSide: PlayerLayoutMode.coverSide(in: columnSize, mode: .regular),
-                            showsChapters: false
-                        )
-                    }
+                    stackedColumn(width: columnWidth, height: belowHeader.height, showsChapters: false)
                 }
                 .frame(maxWidth: columnWidth)
                 .frame(maxWidth: .infinity)
@@ -191,8 +191,18 @@ struct FullScreenPlayerView: View {
             VStack(spacing: 0) {
                 header
                 HStack(alignment: .center, spacing: 28) {
-                    cover(side: PlayerLayoutMode.coverSide(in: size, mode: .compactHeight))
-                    fitting { controlsColumn(showsChapters: true) }
+                    cover(side: PlayerLayoutMode.compactHeightCoverSide(in: belowHeader))
+                    // The volume view stays out of the short layout: the hardware buttons and
+                    // Control Center still set volume, and the transport needs the height.
+                    let fits = controlsHeight <= belowHeader.height - PlayerLayoutMode.verticalMargin
+                    if fits {
+                        controlsColumn(showsChapters: true, showsVolume: false)
+                    } else {
+                        ScrollView {
+                            controlsColumn(showsChapters: true, showsVolume: false)
+                        }
+                        .scrollBounceBehavior(.basedOnSize)
+                    }
                 }
                 .padding(.horizontal, margin)
                 .padding(.bottom, PlayerLayoutMode.verticalMargin)
@@ -200,44 +210,52 @@ struct FullScreenPlayerView: View {
         }
     }
 
-    /// The column as it is, when it fits; otherwise the same column in a scroll view — the last
-    /// resort for small phones and accessibility text sizes, so nothing is ever clipped.
-    private func fitting(@ViewBuilder _ content: () -> some View) -> some View {
-        ViewThatFits(in: .vertical) {
-            content()
+    /// Cover above the controls — phones in portrait, narrow windows, and the iPad column. The
+    /// cover takes the height the controls leave over; when even the smallest cover cannot fit
+    /// (small phones, accessibility text sizes), the column scrolls instead of clipping.
+    @ViewBuilder
+    private func stackedColumn(width: CGFloat, height: CGFloat, showsChapters: Bool) -> some View {
+        if let side = PlayerLayoutMode.stackedCoverSide(
+            columnWidth: width,
+            availableHeight: height,
+            controlsHeight: controlsHeight
+        ) {
+            VStack(spacing: 0) {
+                Spacer(minLength: 12)
+                cover(side: side)
+                Spacer(minLength: 20)
+                controlsColumn(showsChapters: showsChapters, showsVolume: true)
+                    .padding(.horizontal, margin)
+            }
+        } else {
             ScrollView {
-                content()
+                VStack(spacing: 20) {
+                    cover(side: PlayerLayoutMode.scrollingCoverSide(columnWidth: width))
+                        .padding(.top, 12)
+                    controlsColumn(showsChapters: showsChapters, showsVolume: true)
+                        .padding(.horizontal, margin)
+                }
             }
             .scrollBounceBehavior(.basedOnSize)
         }
     }
 
-    /// Cover above the controls — phones in portrait, narrow windows, and the iPad column.
-    private func stackedColumn(coverSide: CGFloat, showsChapters: Bool) -> some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 12)
-            cover(side: coverSide)
-            Spacer(minLength: 20)
-                .frame(maxHeight: 32)
-            controlsColumn(showsChapters: showsChapters)
-                .padding(.horizontal, margin)
-        }
-    }
-
-    /// Titles, scrubber, transport, volume, and the secondary row.
-    private func controlsColumn(showsChapters: Bool) -> some View {
+    /// Titles, scrubber, transport, volume, and the secondary row at their natural height, which
+    /// is measured so the cover can take exactly what is left.
+    private func controlsColumn(showsChapters: Bool, showsVolume: Bool) -> some View {
         VStack(spacing: 0) {
             titleBlock
-            Spacer(minLength: 16)
-                .frame(maxHeight: 22)
+            Spacer().frame(height: 18)
             // Chapter-scoped progress — its own view so its per-frame position reads don't
             // re-evaluate the rest of the player.
             ChapterScrubberSection(observer: observer, tint: tint)
-            Spacer(minLength: 12)
+            Spacer().frame(height: 14)
             PlayerTransportControls(observer: observer)
-            Spacer(minLength: 8)
-            SystemVolumeSlider()
-            Spacer(minLength: 12)
+            if showsVolume {
+                Spacer().frame(height: 8)
+                SystemVolumeSlider()
+            }
+            Spacer().frame(height: 12)
             PlayerSecondaryControls(
                 observer: observer,
                 tint: tint,
@@ -245,8 +263,10 @@ struct FullScreenPlayerView: View {
                 onShowChapters: { showChapterList = true },
                 onShowBoost: { showBoostPicker = true }
             )
-            Spacer(minLength: 8)
+            Spacer().frame(height: 8)
         }
+        .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { controlsHeight = $0 }
     }
 
     private func cover(side: CGFloat) -> some View {
@@ -281,25 +301,30 @@ struct FullScreenPlayerView: View {
                 ))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-                .lineLimit(1)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
             }
 
             Spacer()
 
             moreMenu
         }
+        .frame(minHeight: Self.headerHeight)
         .padding(.horizontal, 14)
     }
 
     /// A 36pt glass disc — a floating control, where Liquid Glass belongs — in a 44pt hit area.
+    /// Like a navigation bar's buttons, the glyph keeps its size at large text settings and offers
+    /// the large content viewer instead (HIG, Accessibility).
     private func headerGlyph(_ systemImage: String) -> some View {
         Image(systemName: systemImage)
-            .font(.body.weight(.semibold))
+            .font(.system(size: 17, weight: .semibold)) // decorative fixed size
             .foregroundStyle(.primary)
             .frame(width: 36, height: 36)
             .glassControl(in: Circle())
             .frame(width: 44, height: 44)
             .contentShape(Rectangle())
+            .accessibilityShowsLargeContentViewer()
     }
 
     private var moreMenu: some View {

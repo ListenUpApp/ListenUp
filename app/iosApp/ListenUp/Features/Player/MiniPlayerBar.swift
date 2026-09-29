@@ -46,8 +46,9 @@ struct MiniPlayerBar: View {
             }
         }
         // The accessory is system chrome of a fixed height, like the tab bar: its text stops
-        // growing at the largest standard size rather than clipping.
-        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        // growing rather than clipping, and the large content viewer shows the title instead
+        // (HIG, Accessibility — the pattern bars use).
+        .dynamicTypeSize(...DynamicTypeSize.xLarge)
     }
 
     // MARK: - Player row
@@ -64,6 +65,9 @@ struct MiniPlayerBar: View {
             }
             .buttonStyle(.plain)
             .accessibilityHint(String(localized: "player.opens_player_hint"))
+            .accessibilityShowsLargeContentViewer {
+                Label(observer.bookTitle, systemImage: "book")
+            }
 
             playPauseButton
         }
