@@ -469,6 +469,34 @@ class ChapterEditorPageTest :
             host.querySelector(".ctl-hud").shouldBeNull()
         }
 
+        // Capture can end without a release — the element loses it, the tab is backgrounded, the
+        // browser takes the gesture — and then no `pointerup` ever arrives. A drag that waited for
+        // one would stay armed, and the next unrelated release would commit it.
+        test("a drag whose pointer capture is lost ends there, and commits nothing") {
+            val retimes = mutableListOf<Pair<String, Long>>()
+            val host = page(editingChapters(), onRetime = { id, at -> retimes += id to at })
+            val lane = host.querySelector(".ctl-lane") as HTMLElement
+            val box = lane.getBoundingClientRect()
+            val y = box.top + box.height / 2
+            var x = box.left + box.width / 3
+
+            lane.dispatchEvent(pointer("pointerdown", x, y))
+            repeat(5) {
+                x += 4.0
+                lane.dispatchEvent(pointer("pointermove", x, y))
+            }
+            awaitFrame()
+            host.querySelector(".ctl-hud").shouldNotBeNull()
+
+            lane.dispatchEvent(pointer("lostpointercapture", x, y))
+            awaitFrame()
+            host.querySelector(".ctl-hud").shouldBeNull()
+
+            lane.dispatchEvent(pointer("pointerup", x, y))
+            awaitFrame()
+            retimes shouldBe emptyList()
+        }
+
         test("the zoom buttons narrow and widen the window the lane shows") {
             val host = page(editingChapters())
             val range = {

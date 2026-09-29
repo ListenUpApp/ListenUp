@@ -30,6 +30,12 @@ private const val POINTER_DOWN = "pointerdown"
 private const val POINTER_MOVE = "pointermove"
 private const val POINTER_UP = "pointerup"
 private const val POINTER_CANCEL = "pointercancel"
+
+/**
+ * Capture ending without a release: the element lost it, or the browser took the gesture. After a
+ * normal release it fires too, by which time the drag has already ended and it finds nothing to do.
+ */
+private const val LOST_CAPTURE = "lostpointercapture"
 private const val WHEEL = "wheel"
 
 /** One zoom button press, or one wheel notch: a fifth narrower, or a quarter wider. */
@@ -296,6 +302,7 @@ private fun DisposableEffectScope.miniMapGestures(
             },
             POINTER_UP to { pressed = null },
             POINTER_CANCEL to { pressed = null },
+            LOST_CAPTURE to { pressed = null },
         ),
     )
 }
@@ -320,6 +327,7 @@ private fun DisposableEffectScope.laneGestures(
                 POINTER_MOVE to drag::onMove,
                 POINTER_UP to drag::onUp,
                 POINTER_CANCEL to drag::onCancel,
+                LOST_CAPTURE to drag::onLostCapture,
             ),
         )
     return onDispose {
@@ -386,6 +394,18 @@ private class LaneDrag(
 
     @Suppress("UNUSED_PARAMETER")
     fun onCancel(event: Event) {
+        pointer = null
+        push(working.released())
+    }
+
+    /**
+     * Capture ended while the drag was still live, so no release is coming: the drag ends here and
+     * commits nothing, exactly as a cancel does. Without this it stayed armed, and the next
+     * unrelated release on the lane would have committed it.
+     */
+    fun onLostCapture(event: Event) {
+        val lost = event as PointerEvent
+        if (pointer != lost.pointerId) return
         pointer = null
         push(working.released())
     }
