@@ -132,7 +132,7 @@ class BookRatingSectionTest {
             )
         }
 
-        composeRule.onNodeWithContentDescription("Rated 4.4 out of 5 stars by 12k readers elsewhere").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Rated 4.4 out of 5 stars from 12k ratings").assertDoesNotExist()
     }
 
     @Test
@@ -155,7 +155,7 @@ class BookRatingSectionTest {
 
         // averageLabel(4.4) is "4.4" verbatim — no half-star rounding.
         composeRule
-            .onNodeWithContentDescription("Rated 4.4 out of 5 stars by 12k readers elsewhere")
+            .onNodeWithContentDescription("Rated 4.4 out of 5 stars from 12k ratings")
             .assertIsDisplayed()
     }
 
@@ -178,7 +178,7 @@ class BookRatingSectionTest {
         }
 
         composeRule
-            .onNodeWithContentDescription("Rated 4.0 out of 5 stars by 12k readers elsewhere")
+            .onNodeWithContentDescription("Rated 4.0 out of 5 stars from 12k ratings")
             .assertIsDisplayed()
     }
 
@@ -201,7 +201,7 @@ class BookRatingSectionTest {
         }
 
         composeRule
-            .onNodeWithContentDescription("Rated 4.0 out of 5 stars by 1 reader elsewhere")
+            .onNodeWithContentDescription("Rated 4.0 out of 5 stars from 1 rating")
             .assertIsDisplayed()
     }
 
@@ -226,7 +226,7 @@ class BookRatingSectionTest {
         }
 
         composeRule
-            .onNodeWithContentDescription("Rated 4.4 out of 5 stars by 12k readers elsewhere")
+            .onNodeWithContentDescription("Rated 4.4 out of 5 stars from 12k ratings")
             .performClick()
 
         opened shouldBe true
@@ -320,7 +320,7 @@ class BookRatingSectionTest {
 
         composeRule.onNodeWithText("Refresh ratings").assertDoesNotExist()
         composeRule
-            .onNodeWithContentDescription("Rated 4.4 out of 5 stars by 12k readers elsewhere")
+            .onNodeWithContentDescription("Rated 4.4 out of 5 stars from 12k ratings")
             .assertIsDisplayed()
     }
 
@@ -347,7 +347,7 @@ class BookRatingSectionTest {
             .onNodeWithContentDescription("Your listeners: 4.5 out of 5 stars, from 3 ratings")
             .assertIsDisplayed()
         composeRule
-            .onNodeWithContentDescription("Rated 4.3 out of 5 stars by 3 readers elsewhere")
+            .onNodeWithContentDescription("Rated 4.3 out of 5 stars from 3 ratings")
             .assertDoesNotExist()
     }
 
@@ -385,7 +385,7 @@ class BookRatingSectionTest {
         }
 
         composeRule
-            .onNodeWithContentDescription("Rated 4.4 out of 5 stars by 1k readers elsewhere")
+            .onNodeWithContentDescription("Rated 4.4 out of 5 stars from 1k ratings")
             .assertIsDisplayed()
         composeRule
             .onNodeWithContentDescription("Your listeners: 4.5 out of 5 stars, from 3 ratings")
