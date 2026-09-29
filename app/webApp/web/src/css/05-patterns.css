@@ -368,6 +368,10 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 @media (prefers-reduced-motion: no-preference) { .skel { animation: shim 1.5s linear infinite; } }
 @keyframes shim { to { background-position:-200% 0; } }
 
+/* ---- cover — `Cover` sizes, rounds and fills itself inline (its size is a parameter); this names
+   the box, so a page and a spec can find every cover the same way. */
+.cover { display:block; }
+
 /* ---- progress — `ProgressBar` draws all of these. The fill is scaled, never resized: a `width`
    transition lays the page out on every frame, a transform is composited. Rail: 3px under a card.
    Bar: 6px, the working bar. Overlay: 4px along a cover tile's bottom edge, no track. */

@@ -158,20 +158,6 @@
   .lib-card:hover .lib-cover,
   .lib-card:focus-visible .lib-cover { transform: none; }
 }
-/* The background is what a lazy cover shows while it is still being fetched, so an unloaded card
-   reads as a waiting tile rather than a hole in the grid. */
-.lib-cover {
-  width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 6px;
-  background: var(--coral-soft);
-}
-/* Shown in place of the <img> when the server holds no artwork for a book, so a coverless book
-   reads as a titled tile rather than the browser's broken-image icon. */
-.lib-cover-fallback {
-  display: flex; align-items: flex-end; padding: 10px;
-  background: linear-gradient(150deg, var(--coral-soft), var(--paper-2, #e7e0d8));
-  color: var(--ink-2); font-size: var(--fs-small); font-weight: 600; line-height: 1.25;
-  overflow: hidden;
-}
 /* Title, author and progress all reserve their space whether or not they have content, so every
    card is exactly the same height. That is what lets the grid be virtualised: row offsets are
    arithmetic rather than measurement, and a row's height does not depend on which books are in it.
@@ -308,14 +294,6 @@
 .cd-tile-frame {
   position:relative; width:100%; aspect-ratio:1/1; border-radius:var(--r-md); overflow:hidden; box-shadow:var(--shadow-card);
 }
-.cd-tile-cover { width:100%; height:100%; object-fit:cover; display:block; }
-/* Shown in place of the <img> when the server holds no artwork, so a coverless book reads as a
-   titled tile rather than the browser's broken-image icon — same treatment as `.lib-cover-fallback`. */
-.cd-tile-fallback {
-  position:absolute; inset:0; display:flex; align-items:flex-end; padding:10px;
-  background:linear-gradient(150deg, var(--coral-soft), var(--paper-2));
-  color:var(--ink-2); font-size:var(--fs-small); font-weight:800; line-height:1.15; overflow:hidden;
-}
 .cd-tile-title {
   font-size:var(--fs-small); font-weight:600; color:var(--ink); margin-top:var(--sp-8);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
@@ -387,11 +365,6 @@
 .sd-book-frame {
   position:relative; flex:none; width:56px; height:56px; border-radius:10px; overflow:hidden;
   background:var(--surface-2);
-}
-.sd-book-cover { width:100%; height:100%; object-fit:cover; display:block; }
-.sd-book-fallback {
-  width:100%; height:100%; padding:6px; box-sizing:border-box; display:flex; align-items:flex-end;
-  font-size:var(--fs-caption); font-weight:800; line-height:1.1; color:var(--ink-2);
 }
 .sd-book-text { flex:1; min-width:0; }
 .sd-book-t { font-size:var(--fs-body); font-weight:700; letter-spacing:-0.01em; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

@@ -8,8 +8,6 @@ import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
@@ -22,11 +20,9 @@ import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
-import org.jetbrains.compose.web.attributes.alt
 import org.jetbrains.compose.web.css.width
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -234,8 +230,6 @@ private fun BookRow(
     isFinished: Boolean,
     onOpen: () -> Unit,
 ) {
-    var coverFailed by remember(book.id) { mutableStateOf(false) }
-
     Button(attrs = {
         classes("sd-book")
         attr("type", BUTTON_VALUE)
@@ -248,20 +242,14 @@ private fun BookRow(
         }
 
         Div(attrs = { classes("sd-book-frame") }) {
-            if (coverFailed) {
-                Div(attrs = { classes("sd-book-fallback") }) { Text(book.title) }
-            } else {
-                Img(
-                    src = coverUrl(book.id.value, book.coverHash, ROW_COVER_RUNG),
-                    attrs = {
-                        classes("sd-book-cover")
-                        alt(book.title)
-                        attr("loading", "lazy")
-                        attr("decoding", "async")
-                        addEventListener("error") { coverFailed = true }
-                    },
-                )
-            }
+            // Decorative: the book's title is the row's own text beside it.
+            Cover(
+                title = book.title,
+                imageUrl = coverUrl(book.id.value, book.coverHash, ROW_COVER_RUNG),
+                size = ROW_COVER_SIZE,
+                radius = 0,
+                decorative = true,
+            )
             // `bookProgress` carries in-progress books ONLY — the ViewModel moves anything at or
             // past its finished threshold into `finishedBookIds` instead — so an unstarted book
             // draws no bar rather than a zero-width one that reads as data.
@@ -329,3 +317,5 @@ private const val PLAY_ICON_SIZE = 17
 private const val STAT_ICON_SIZE = 17
 
 private const val DONE_ICON_SIZE = 15
+
+private const val ROW_COVER_SIZE = 56

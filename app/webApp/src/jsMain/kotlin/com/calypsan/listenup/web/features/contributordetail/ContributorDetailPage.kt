@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.contributordetail
 
+import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.ProgressLook
 import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.ButtonSize
@@ -26,11 +27,9 @@ import com.calypsan.listenup.web.design.avatarTintFor
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.initialsFor
 import com.calypsan.listenup.web.design.tintGradient
-import org.jetbrains.compose.web.attributes.alt
 import org.jetbrains.compose.web.css.width
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import com.calypsan.listenup.web.design.PageHeader
@@ -344,8 +343,6 @@ internal fun RoleTile(
     progress: Float?,
     onOpen: () -> Unit,
 ) {
-    var coverFailed by remember(book.id) { mutableStateOf(false) }
-
     Div(attrs = {
         classes("cd-tile")
         tabIndex(0)
@@ -359,20 +356,14 @@ internal fun RoleTile(
         onClick { onOpen() }
     }) {
         Div(attrs = { classes("cd-tile-frame") }) {
-            if (coverFailed) {
-                Div(attrs = { classes("cd-tile-fallback") }) { Text(book.title) }
-            } else {
-                Img(
-                    src = coverUrl(book.id.value, book.coverHash, TILE_COVER_RUNG),
-                    attrs = {
-                        classes("cd-tile-cover")
-                        alt(book.title)
-                        attr("loading", "lazy")
-                        attr("decoding", "async")
-                        addEventListener("error") { coverFailed = true }
-                    },
-                )
-            }
+            // Decorative: the tile's title is printed directly beneath it.
+            Cover(
+                title = book.title,
+                imageUrl = coverUrl(book.id.value, book.coverHash, TILE_COVER_RUNG),
+                size = null,
+                radius = TILE_COVER_RADIUS,
+                decorative = true,
+            )
             // Absent, not zero-width: a book [progress] doesn't know about (never started, or
             // finished — `calculateProgressMap` excludes both) draws no bar rather than a false one.
             progress?.let { fraction ->
@@ -503,3 +494,6 @@ private const val FAN_SECOND_LIGHTNESS = 14
 
 /** Every button here is an action, never a form submit. */
 private const val BUTTON_VALUE = "button"
+
+/** The house corner, the same as a library card's cover, so a book's tile is one shape everywhere. */
+private const val TILE_COVER_RADIUS = 12
