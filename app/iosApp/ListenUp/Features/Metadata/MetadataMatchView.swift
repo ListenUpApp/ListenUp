@@ -4,9 +4,9 @@ import Shared
 /// The presented "Match metadata on Audible" wizard, opened from Book Detail. A focused task
 /// that takes the whole sheet — no app sidebar — so the work gets the width.
 ///
-/// Navigation is path-driven inside an internal `NavigationStack`: Find → Select → Updated, with
-/// the chapter review surfaced as a nested sheet from Select. On a regular width (iPad) the Find
-/// and Select steps render side-by-side as a master–detail modal; on compact width they push.
+/// Navigation is path-driven: Find → Select → Updated, with the chapter review pushed from Select.
+/// On a regular width (iPad) Find and Select are a `NavigationSplitView` — search in the sidebar,
+/// the match in the detail column, whose own stack takes the later steps; on compact width they push.
 /// All state comes from `MetadataMatchObserver`.
 struct MetadataMatchView: View {
     let bookId: String
@@ -43,11 +43,27 @@ struct MetadataMatchView: View {
 
     @ViewBuilder
     private func content(_ observer: MetadataMatchObserver) -> some View {
-        NavigationStack(path: $path) {
-            rootStep(observer)
-                .navigationDestination(for: MetadataStep.self) { step in
-                    destination(step, observer)
+        Group {
+            if hSize == .regular {
+                MetadataMatchPadView(
+                    observer: observer,
+                    path: $path,
+                    onCancel: { dismiss() },
+                    onReviewChapters: { path.append(.chapters) },
+                    destination: { destination($0, observer) }
+                )
+            } else {
+                NavigationStack(path: $path) {
+                    MetadataFindView(
+                        observer: observer,
+                        onCancel: { dismiss() },
+                        onUseMatch: { path.append(.select) }
+                    )
+                    .navigationDestination(for: MetadataStep.self) { step in
+                        destination(step, observer)
+                    }
                 }
+            }
         }
         .onChange(of: observer.appliedToken) { _, token in
             if token > 0 { path = [.updated] }
@@ -66,25 +82,6 @@ struct MetadataMatchView: View {
     }
 
     // MARK: - Steps
-
-    /// On iPad the Find + Select steps share one master–detail screen; the rest push.
-    @ViewBuilder
-    private func rootStep(_ observer: MetadataMatchObserver) -> some View {
-        if hSize == .regular {
-            MetadataMatchPadView(
-                observer: observer,
-                onCancel: { dismiss() },
-                onReviewChapters: { path.append(.chapters) }
-            )
-            .navigationBarBackButtonHidden()
-        } else {
-            MetadataFindView(
-                observer: observer,
-                onCancel: { dismiss() },
-                onUseMatch: { path.append(.select) }
-            )
-        }
-    }
 
     @ViewBuilder
     private func destination(_ step: MetadataStep, _ observer: MetadataMatchObserver) -> some View {

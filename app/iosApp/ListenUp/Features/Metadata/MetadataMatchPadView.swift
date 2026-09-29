@@ -1,68 +1,56 @@
 import SwiftUI
 import Shared
 
-/// iPad / regular-width layout: a focused full-screen modal with a fixed left search rail beside a
-/// flexible right column showing the matched edition and its field checklists. The work gets the
-/// whole width (no app sidebar). The right column reuses `MetadataSelectBody` verbatim, so the
-/// iPhone push screen and this master–detail stay in lockstep.
+/// iPad / regular-width layout: a `NavigationSplitView` with the Audible search in the sidebar and
+/// the matched edition with its field checklists in the detail column. The detail column's own stack
+/// takes the later steps (chapter review, the updated summary). The detail reuses `MetadataSelectBody`
+/// verbatim, so the iPhone push screen and this split stay in lockstep.
 ///
-/// Width-responsive: the left rail takes a share of the width (`DetailColumns.railWidth`), the right
-/// column flows and its field lists are full-width. In a narrow Split View (where an iPad reports `.compact`) the root
-/// falls back to the iPhone push flow, so this only renders when there's genuine width to use.
-struct MetadataMatchPadView: View {
+/// System chrome throughout (HIG, Split views; Sheets): Cancel in the cancellation placement, Apply
+/// in the confirmation placement, the title in the navigation bar — where the hand-built modal bar
+/// hid the system's and drew its own. The column widths are the split view's own, so a narrow
+/// window collapses it to one column rather than crushing a fixed rail.
+struct MetadataMatchPadView<Destination: View>: View {
     let observer: MetadataMatchObserver
+    @Binding var path: [MetadataStep]
     let onCancel: () -> Void
     let onReviewChapters: () -> Void
+    @ViewBuilder let destination: (MetadataStep) -> Destination
 
     @State private var queryDraft: String = ""
     @State private var selectedAsin: String?
-    @State private var width: CGFloat = 1024
 
     var body: some View {
-        VStack(spacing: 0) {
-            modalBar
-            Divider()
-            HStack(spacing: 0) {
-                searchRail
-                    .frame(width: DetailColumns.railWidth(forWidth: width))
-                Divider()
+        NavigationSplitView {
+            searchRail
+                .navigationTitle(String(localized: "metadata.find_on_audible"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(String(localized: "common.cancel"), action: onCancel)
+                    }
+                }
+                .navigationSplitViewColumnWidth(min: 280, ideal: 340, max: 420)
+        } detail: {
+            NavigationStack(path: $path) {
                 detailColumn
-                    .frame(maxWidth: .infinity)
+                    .navigationTitle(String(localized: "metadata.match_metadata"))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button {
+                                observer.applyMatch()
+                            } label: {
+                                Label(String(localized: "metadata.apply_metadata"), systemImage: "checkmark")
+                            }
+                            .disabled(!applyEnabled)
+                        }
+                    }
+                    .navigationDestination(for: MetadataStep.self, destination: destination)
             }
         }
-        .background(Color.luSurface)
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
-        .navigationTitle("")
-        .toolbar(.hidden, for: .navigationBar)
+        .navigationSplitViewStyle(.balanced)
         .onAppear { if queryDraft.isEmpty { queryDraft = observer.query } }
-    }
-
-    // MARK: - Top bar
-
-    private var modalBar: some View {
-        HStack(spacing: 16) {
-            Button(String(localized: "common.cancel"), action: onCancel)
-                .foregroundStyle(Color.luTint)
-            Spacer()
-            HStack(spacing: 8) {
-                Image(systemName: "sparkles").font(.subheadline)
-                Text(String(localized: "metadata.match_metadata")).font(.headline)
-            }
-            .foregroundStyle(.primary)
-            Spacer()
-            Button(action: { observer.applyMatch() }) {
-                Label(String(localized: "metadata.apply_metadata"), systemImage: "checkmark")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.luOnTint)
-                    .padding(.horizontal, 18).frame(height: 40)
-                    .background(Capsule().fill(applyEnabled ? Color.luTint : Color.luTint.opacity(0.4)))
-            }
-            .buttonStyle(PressScaleButtonStyle())
-            .disabled(!applyEnabled)
-        }
-        .padding(.horizontal, 24)
-        .frame(height: 64)
-        .background(Color.luSurface2)
     }
 
     private var applyEnabled: Bool {
@@ -95,7 +83,6 @@ struct MetadataMatchPadView: View {
             }
             .padding(20)
         }
-        .background(Color.luSurface2)
     }
 
     @ViewBuilder
