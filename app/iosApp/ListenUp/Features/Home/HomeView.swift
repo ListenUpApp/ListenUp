@@ -10,9 +10,9 @@ import Shared
 /// cancel their flows when the user pushes a detail and pops back (`@State` keeps the same dead
 /// instances). This mirrors `LibraryView`/`SeriesDetailView`: observation is live whenever visible.
 ///
-/// Layout adapts to width: at compact (iPhone) the screen is a single scrolling column; at regular
-/// (iPad) the content is constrained to a comfortable reading width and the continue-listening rail
-/// cards grow so the extra space reads as a real layout, not a stretched phone.
+/// Layout follows the measured width (`HomeLayout`): the rails bleed the full width at every size,
+/// the continue-listening cards grow with the window, and a wide window sets the week's stats beside
+/// the shelves.
 struct HomeView: View {
     @Environment(CurrentUserObserver.self) private var userObserver
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -23,12 +23,14 @@ struct HomeView: View {
     /// One observer shared across Home's book carousels → screen-wide selection (de-dup by id is
     /// automatic via the shared `Set` in the VM).
     @State private var selection: BookSelectionObserver?
+    /// The scroll view's width; nil until the first layout pass measures it.
+    @State private var measuredWidth: CGFloat?
 
     private var user: User? { userObserver.user }
-    private var isRegularWidth: Bool { horizontalSizeClass == .regular }
 
-    /// At regular width, cap the content so it reads as a column rather than spanning the iPad.
-    private var contentMaxWidth: CGFloat? { isRegularWidth ? 700 : nil }
+    private var layout: HomeLayout {
+        HomeLayout.forWidth(measuredWidth ?? (horizontalSizeClass == .regular ? 1024 : 390))
+    }
 
     var body: some View {
         Group {
@@ -69,9 +71,9 @@ struct HomeView: View {
                 phaseContent(home: home, stats: stats)
             }
             .padding(.vertical, 8)
-            .frame(maxWidth: contentMaxWidth)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { measuredWidth = $0 }
         .refreshable { home.refresh() }
         .onChange(of: home.inlineError) { _, message in
             // An inline banner appearing is not narrated, so say it (HIG, Feedback).
@@ -104,22 +106,33 @@ struct HomeView: View {
         home: HomeViewModelWrapper,
         stats: HomeStatsObserver
     ) -> some View {
+        let layout = layout
         HomeHeader(greeting: ready.timeGreeting, userName: ready.userName)
-            .padding(.horizontal, 20)
+            .padding(.horizontal, layout.margin)
 
         // Inline, where the content that failed would be, following the `ErrorBanner` precedent.
         if let message = home.inlineError {
             ErrorBanner(message: message)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, layout.margin)
         }
 
-        continueSection(ready.continueItems)
+        continueSection(ready.continueItems, layout: layout)
 
-        HomeStatsCard(statsPhase: stats.statsPhase)
-            .padding(.horizontal, 20)
+        if case .statsBesideShelves(let statsWidth) = layout.arrangement, !ready.shelves.isEmpty {
+            HStack(alignment: .top, spacing: 24) {
+                MyShelvesRow(shelves: ready.shelves, margin: layout.margin)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                HomeStatsCard(statsPhase: stats.statsPhase)
+                    .frame(width: statsWidth)
+            }
+            .padding(.trailing, layout.margin)
+        } else {
+            HomeStatsCard(statsPhase: stats.statsPhase)
+                .padding(.horizontal, layout.margin)
 
-        if !ready.shelves.isEmpty {
-            MyShelvesRow(shelves: ready.shelves)
+            if !ready.shelves.isEmpty {
+                MyShelvesRow(shelves: ready.shelves, margin: layout.margin)
+            }
         }
     }
 
@@ -141,14 +154,12 @@ struct HomeView: View {
 
     // MARK: - Continue section
 
-    /// Horizontal inset so the rail's title aligns with the screen's content margin while the
-    /// cards bleed to the edge.
-    private var horizontalInset: CGFloat { 20 }
-    /// Card width is width-driven so the rail reads larger on iPad.
-    private var continueCardWidth: CGFloat { isRegularWidth ? 168 : 140 }
-
+    /// The rail's title aligns with the screen's margin while the cards bleed to the edge; the card
+    /// size comes from the width (`HomeLayout.continueCardWidth`).
     @ViewBuilder
-    private func continueSection(_ items: [ContinueItem]) -> some View {
+    private func continueSection(_ items: [ContinueItem], layout: HomeLayout) -> some View {
+        let horizontalInset = layout.margin
+        let continueCardWidth = layout.continueCardWidth
         if items.isEmpty {
             EmptyContinueListening()
                 .frame(maxWidth: .infinity)

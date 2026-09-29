@@ -98,6 +98,8 @@ struct ShelfCard: View {
 /// The caller hides the whole section when there are no shelves.
 struct MyShelvesRow: View {
     let shelves: [ShelfItem]
+    /// The screen's side margin (`HomeLayout.margin`): the header aligns to it, the rail scrolls under it.
+    var margin: CGFloat = 20
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -115,7 +117,7 @@ struct MyShelvesRow: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, margin)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
@@ -126,7 +128,7 @@ struct MyShelvesRow: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, margin)
             }
         }
     }
