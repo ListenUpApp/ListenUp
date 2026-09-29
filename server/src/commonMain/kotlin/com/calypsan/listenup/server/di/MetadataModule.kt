@@ -16,6 +16,9 @@ import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleClient
+import com.calypsan.listenup.server.goodreads.GoodreadsClient
+import com.calypsan.listenup.server.goodreads.GoodreadsRateLimiter
+import com.calypsan.listenup.server.goodreads.GoodreadsRatingSource
 import com.calypsan.listenup.server.hardcover.HardcoverRatingSource
 import com.calypsan.listenup.server.metadata.audible.AudibleRateLimiter
 import com.calypsan.listenup.server.metadata.audnexus.AudnexusApi
@@ -66,6 +69,8 @@ import org.koin.dsl.module
 
 private const val METADATA_REQUEST_TIMEOUT_MS = 10_000L
 private const val METADATA_CONNECT_TIMEOUT_MS = 5_000L
+private const val GOODREADS_REQUEST_TIMEOUT_MS = 15_000L
+private const val GOODREADS_CONNECT_TIMEOUT_MS = 5_000L
 
 /**
  * Koin module for the metadata enrichment slice. Wires:
@@ -167,7 +172,7 @@ fun metadataModule(imageHome: Path): Module =
             MetadataProviderRegistry(
                 providers =
                     listOf(get<AudibleProvider>(), get<AudnexusProvider>(), get<ITunesProvider>()) +
-                        get<HardcoverRatingSource>() + customProviders(),
+                        get<HardcoverRatingSource>() + get<GoodreadsRatingSource>() + customProviders(),
             )
         }
 
@@ -237,6 +242,32 @@ fun metadataModule(imageHome: Path): Module =
 
         metadataCleanupBindings(imageHome)
         ratingsBindings()
+        goodreadsBindings()
+    }
+
+/**
+ * Goodreads as a rating source: its own [HttpClient] (see [goodreadsHttpClient]), its own rate
+ * limiter (one page every two seconds), and the [GoodreadsRatingSource] the registry lists. On by
+ * default like every source; an admin can switch it off, and repeated failures pause it.
+ */
+private fun Module.goodreadsBindings() {
+    single { GoodreadsRateLimiter() }
+    single { GoodreadsClient(http = goodreadsHttpClient()) }
+    single { GoodreadsRatingSource(client = get(), rateLimiter = get()) }
+}
+
+/**
+ * Dedicated [HttpClient] for Goodreads pages. No content negotiation: Goodreads answers HTML, which
+ * [com.calypsan.listenup.server.goodreads.GoodreadsPages] reads itself. Redirects are followed (Ktor's
+ * default), since `/book/isbn/{isbn}` redirects to the book, and the timeouts bound a hung page so a
+ * lookup fails over to "unreachable" rather than waiting forever.
+ */
+private fun goodreadsHttpClient(): HttpClient =
+    metadataHttpClient {
+        install(HttpTimeout) {
+            requestTimeoutMillis = GOODREADS_REQUEST_TIMEOUT_MS
+            connectTimeoutMillis = GOODREADS_CONNECT_TIMEOUT_MS
+        }
     }
 
 /**
