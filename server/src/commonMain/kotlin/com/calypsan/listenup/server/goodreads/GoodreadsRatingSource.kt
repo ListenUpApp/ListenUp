@@ -17,7 +17,7 @@ import com.calypsan.listenup.server.metadata.spi.RatingSource
  * whose `debugInfo` says which, and whose `message` is the admin's health text.
  */
 sealed interface GoodreadsFailure {
-    /** The page came back without a readable rating: Goodreads changed its page, so nothing is guessed. */
+    /** The page is not one the parser recognises: Goodreads changed its page, so nothing is guessed. */
     data object PageFormatChanged : GoodreadsFailure
 
     /** Goodreads declined the request with [status] (403, 429 or 503). */
@@ -38,8 +38,10 @@ sealed interface GoodreadsFailure {
  * confident results, the closest ([MatchScorer.score]) wins, Goodreads' own order breaking ties, so the
  * book itself outranks a same-author adaptation whose title merely contains it.
  *
- * Goodreads is scraped rather than asked through an API, so it fails on its own terms: a page without
- * a readable rating is [GoodreadsFailure.PageFormatChanged] ([MetadataError.Malformed]) and a refused
+ * Goodreads is scraped rather than asked through an API, so it fails on its own terms. A book page
+ * that describes a book nobody has rated is a confident "no rating", never a failure, so a library of
+ * obscure books cannot pause the source. A page the parser no longer recognises (book or search) is
+ * [GoodreadsFailure.PageFormatChanged] ([MetadataError.Malformed]) and a refused
  * request is [GoodreadsFailure.Refused] ([MetadataError.ExternalUnavailable]). Both count toward the
  * source's automatic pause. Regionless: Goodreads has one catalog, so the rating carries no region.
  */
@@ -71,10 +73,24 @@ class GoodreadsRatingSource(
         rateLimiter.await()
         val results =
             when (val page = client.search("${book.title} $author")) {
-                is GoodreadsFetch.Page -> GoodreadsPages.searchResults(page.html)
-                GoodreadsFetch.NotFound -> emptyList()
-                is GoodreadsFetch.Refused -> return failure(GoodreadsFailure.Refused(page.status))
-                is GoodreadsFetch.Unreachable -> return failure(GoodreadsFailure.Unreachable(page.detail))
+                is GoodreadsFetch.Page -> {
+                    when (val search = GoodreadsPages.searchResults(page.html)) {
+                        is GoodreadsSearch.Results -> search.candidates
+                        GoodreadsSearch.Unrecognised -> return failure(GoodreadsFailure.PageFormatChanged)
+                    }
+                }
+
+                GoodreadsFetch.NotFound -> {
+                    emptyList()
+                }
+
+                is GoodreadsFetch.Refused -> {
+                    return failure(GoodreadsFailure.Refused(page.status))
+                }
+
+                is GoodreadsFetch.Unreachable -> {
+                    return failure(GoodreadsFailure.Unreachable(page.detail))
+                }
             }
         val best =
             results
@@ -86,13 +102,26 @@ class GoodreadsRatingSource(
         return ratingOn(client.bookPage(best.second))
     }
 
-    /** The rating on a fetched book page; a page Goodreads no longer has is a confident "no rating". */
+    /**
+     * The rating on a fetched book page. An unrated book, and a page Goodreads no longer has, are both a
+     * confident "no rating".
+     */
     private fun ratingOn(page: GoodreadsFetch): AppResult<ExternalRatingMeta?> =
         when (page) {
             is GoodreadsFetch.Page -> {
-                GoodreadsPages.aggregateRating(page.html)?.let {
-                    AppResult.Success(ExternalRatingMeta(average = it.average, count = it.count))
-                } ?: failure(GoodreadsFailure.PageFormatChanged)
+                when (val rating = GoodreadsPages.bookRating(page.html)) {
+                    is GoodreadsBookRating.Rated -> {
+                        AppResult.Success(ExternalRatingMeta(average = rating.average, count = rating.count))
+                    }
+
+                    GoodreadsBookRating.Unrated -> {
+                        AppResult.Success(null)
+                    }
+
+                    GoodreadsBookRating.Unrecognised -> {
+                        failure(GoodreadsFailure.PageFormatChanged)
+                    }
+                }
             }
 
             GoodreadsFetch.NotFound -> {
@@ -115,7 +144,7 @@ class GoodreadsRatingSource(
 internal fun GoodreadsFailure.toAppError(): AppError =
     when (this) {
         GoodreadsFailure.PageFormatChanged -> {
-            MetadataError.Malformed(debugInfo = "goodreads rating: page format changed (no JSON-LD aggregateRating)")
+            MetadataError.Malformed(debugInfo = "goodreads rating: page format changed")
         }
 
         is GoodreadsFailure.Refused -> {

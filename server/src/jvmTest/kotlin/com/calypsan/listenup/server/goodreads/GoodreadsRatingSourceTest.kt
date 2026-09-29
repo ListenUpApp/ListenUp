@@ -27,6 +27,8 @@ private val BOOK_PAGE = pageFixture("book-page.html")
 private val LAYOUT_CHANGED = pageFixture("book-page-layout-changed.html")
 private val SEARCH_RESULTS = pageFixture("search-results.html")
 private val SEARCH_MATCH_PAGE = pageFixture("search-match-page.html")
+private val UNRATED_PAGE = pageFixture("book-page-unrated.html")
+private val NO_RESULTS = pageFixture("search-no-results.html")
 
 private val HAIL_MARY = BookIdentity(isbn = "9780593135204", title = "Project Hail Mary", primaryAuthor = "Andy Weir")
 private val PAGEANT = BookIdentity(title = "The Best Christmas Pageant Ever", primaryAuthor = "Barbara Robinson")
@@ -86,6 +88,28 @@ class GoodreadsRatingSourceTest :
             val failure = result.shouldBeInstanceOf<AppResult.Failure>()
             val error = failure.error.shouldBeInstanceOf<MetadataError.Malformed>()
             error.debugInfo.orEmpty() shouldContain "page format changed"
+        }
+
+        test("a book nobody on Goodreads has rated is a confident no rating, not a failure") {
+            val fake = FakeGoodreads().apply { byIsbn = HttpStatusCode.OK to UNRATED_PAGE }
+
+            source(fake).getRating(HAIL_MARY, LOCALE) shouldBe AppResult.Success(null)
+        }
+
+        test("a search that finds nothing is a confident no rating") {
+            val fake = FakeGoodreads().apply { search = HttpStatusCode.OK to NO_RESULTS }
+
+            source(fake).getRating(PAGEANT, LOCALE) shouldBe AppResult.Success(null)
+            fake.asked shouldBe listOf("/search?q=The Best Christmas Pageant Ever Barbara Robinson")
+        }
+
+        test("a search page whose rows no longer parse is a Malformed failure") {
+            val renamed = SEARCH_RESULTS.replace("<span itemprop='name'", "<span data-name='name'")
+            val fake = FakeGoodreads().apply { search = HttpStatusCode.OK to renamed }
+
+            val result = source(fake).getRating(PAGEANT, LOCALE)
+
+            result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<MetadataError.Malformed>()
         }
 
         listOf(HttpStatusCode.Forbidden, HttpStatusCode.TooManyRequests, HttpStatusCode.ServiceUnavailable).forEach { status ->
