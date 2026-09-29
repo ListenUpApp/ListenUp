@@ -27,17 +27,11 @@ import kotlinx.coroutines.CompletableDeferred
 import platform.posix.EINTR
 import platform.posix.O_RDWR
 import platform.posix.SIGKILL
-import platform.posix.STDERR_FILENO
-import platform.posix.STDIN_FILENO
-import platform.posix.STDOUT_FILENO
 import platform.posix.X_OK
 import platform.posix._SC_OPEN_MAX
-import platform.posix._exit
 import platform.posix.access
 import platform.posix.close
-import platform.posix.dup2
 import platform.posix.errno
-import platform.posix.fork
 import platform.posix.getenv
 import platform.posix.kill as posixKill
 import platform.posix.open
@@ -46,8 +40,7 @@ import platform.posix.read
 import platform.posix.setpgid
 import platform.posix.sysconf
 import platform.posix.waitpid
-import rawexec.execv
-import rawexec.lu_close_fds_from
+import rawexec.lu_spawn_stage
 
 private val log = loggerFor<ProcessRunner>()
 
@@ -102,6 +95,13 @@ private const val MAX_FD_SCAN = 65_536L
  * before the fork for the same reason, `/dev/null` included: the child runs `dup2`, a descriptor
  * sweep, `execv` and `_exit`, and never returns into Kotlin/coroutine machinery, since that would
  * run the caller's whole stack twice.
+ *
+ * ⛔ The fork itself happens in C, inside `rawexec`'s `lu_spawn_stage`, and so does everything the
+ * child does. A child whose `fork()` returned into Kotlin switched its thread back to runnable, and
+ * when the parent had a collection in flight that switch parked on a GC safepoint — waiting for a
+ * collector thread `fork()` does not copy. The child hung before reaching `execv`, and its parent
+ * waited on it forever: CI's intermittent `ProcessRunnerTest` time-outs, and a transcode that never
+ * finishes. `ProcessRunnerForkUnderGcTest` reproduces it within seconds under allocation pressure.
  */
 actual class ProcessRunner {
     private val started = CompletableDeferred<Unit>()
@@ -275,16 +275,24 @@ actual class ProcessRunner {
     private fun forkStages(plans: List<ChildPlan>): List<Int>? {
         val pids = mutableListOf<Int>()
         for (plan in plans) {
-            when (val pid = fork()) {
+            when (
+                val pid =
+                    lu_spawn_stage(
+                        plan.executablePath,
+                        plan.argv,
+                        plan.stdinFd,
+                        plan.stdoutFd,
+                        plan.stderrWriteFd,
+                        FIRST_INHERITABLE_FD,
+                        plan.highestFd,
+                        MISSING_BINARY_EXIT_CODE,
+                    )
+            ) {
                 -1 -> {
                     log.error { "fork() failed (errno $errno) spawning a pipeline stage" }
                     pids.forEach { killTree(it) }
                     pids.forEach { reapOne(it) }
                     return null
-                }
-
-                0 -> {
-                    becomeChild(plan)
                 }
 
                 else -> {
@@ -315,32 +323,6 @@ actual class ProcessRunner {
             close(readEnds[i])
             close(writeEnds[i])
         }
-    }
-
-    /**
-     * Runs in the forked child and never returns: `dup2`, the descriptor sweep, `execv`, `_exit`.
-     * Every value it touches was built before the fork, so it allocates nothing.
-     */
-    private fun becomeChild(plan: ChildPlan): Nothing {
-        // Async-signal-safe (POSIX 1003.1-2017 Table 2-4), and first because everything below this
-        // line is the child committing to `execv`: it is what makes [killTree] able to reach the
-        // grandchildren this stage may go on to fork.
-        setpgid(0, 0)
-        dup2(plan.stdinFd, STDIN_FILENO)
-        dup2(plan.stdoutFd, STDOUT_FILENO)
-        dup2(plan.stderrWriteFd, STDERR_FILENO)
-        // Runs *after* the dup2s, which is the whole ordering constraint: the sweep closes the
-        // originals it just copied down — every pipe end and /dev/null — along with every socket
-        // and file the server had open. Stdin, stdout and stderr survive it.
-        lu_close_fds_from(FIRST_INHERITABLE_FD, plan.highestFd)
-        execv(plan.executablePath, plan.argv)
-        // ⚠️ Known parity gap with the JVM actual, and an unavoidable one. Reaching this line means
-        // `execv` failed *after* the parent's `access(X_OK)` said it would not — a permission change
-        // between the two, or ENOEXEC — which the JVM actual would log and report as
-        // SPAWN_FAILED_EXIT_CODE. Here it is indistinguishable from "not installed", because nothing
-        // in a forked child may allocate, and logging allocates.
-        _exit(MISSING_BINARY_EXIT_CODE)
-        error("unreachable: _exit does not return")
     }
 
     private fun MemScope.argv(command: List<String>): CPointer<CPointerVar<ByteVar>> {
@@ -403,7 +385,7 @@ actual class ProcessRunner {
 
     /**
      * SIGKILLs [pid] *and every descendant of it*, by signalling the process group the child made
-     * itself the leader of in [becomeChild].
+     * itself the leader of (`lu_spawn_stage`'s `setpgid(0, 0)`).
      *
      * ⛔ Signalling the pid alone is not enough, and CI is where that showed. `/bin/sh` is dash on
      * Debian and Ubuntu, and dash FORKS its command rather than exec'ing it the way bash does — so

@@ -37,3 +37,31 @@ static void lu_close_fds_from(unsigned int first, unsigned int last) {
     if (syscall(LU_SYS_CLOSE_RANGE, (long) first, (long) ~0U, 0L) == 0) return;
     for (unsigned int fd = first; fd <= last; fd++) close((int) fd);
 }
+
+int fork(void);
+int setpgid(int pid, int pgid);
+int dup2(int oldfd, int newfd);
+void _exit(int status);
+
+// Forks one pipeline stage and, in the child, becomes `path` — returning only in the parent, with the
+// child's pid (or -1 if fork() failed). Everything the child does happens HERE, in C, never back in
+// Kotlin: in a Kotlin/Native process a `fork()` that returns into Kotlin makes the child's thread switch
+// back to runnable, which can land on a GC safepoint and wait for a collector thread that fork() does
+// not copy — the child then hangs forever before ever reaching execv, and its parent waits on it.
+// Everything below is async-signal-safe and allocation-free; every argument was built in the parent.
+static int lu_spawn_stage(const void *path, char *const argv[], int stdin_fd, int stdout_fd,
+                          int stderr_fd, unsigned int first_inheritable, unsigned int highest_fd,
+                          int exec_failed_status) {
+    int pid = fork();
+    if (pid != 0) return pid;
+    // First, so the parent's kill of the group reaches any grandchildren this stage forks.
+    setpgid(0, 0);
+    dup2(stdin_fd, 0);
+    dup2(stdout_fd, 1);
+    dup2(stderr_fd, 2);
+    // After the dup2s: the sweep closes the originals just copied down, and everything else.
+    lu_close_fds_from(first_inheritable, highest_fd);
+    execv(path, argv);
+    _exit(exec_failed_status);
+    return -1;
+}
