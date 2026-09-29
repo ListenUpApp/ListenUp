@@ -337,13 +337,16 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   padding: 0; border: none; background: transparent; cursor: pointer; text-align: left;
 }
 @media (hover: hover) { .luw .shelf-book-open:hover .shelf-book-t { color: var(--coral); } }
+.luw .shelf-book-text { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; overflow-wrap: anywhere; }
 .luw .shelf-book-t { font-size: 0.95rem; font-weight: 700; color: var(--ink); }
 .luw .shelf-book-sub { font-size: 0.82rem; color: var(--ink-2); }
 /* The grip is a real focusable control, so it needs a real focus ring — it is the only way a
    keyboard user finds the reorder affordance at all. */
+/* `touch-action: none` hands a finger on the grip to the reorder drag instead of the page's scroll —
+   the grip is small, so the rest of the row still scrolls the shelf. */
 .luw .shelf-grip {
   flex: none; width: 28px; height: 28px; padding: 0; border: none; border-radius: 8px;
-  background: transparent; color: var(--ink-3); cursor: grab;
+  background: transparent; color: var(--ink-3); cursor: grab; touch-action: none;
   display: inline-flex; align-items: center; justify-content: center;
 }
 @media (hover: hover) { .luw .shelf-grip:hover { background: var(--surface-2); color: var(--ink); } }
@@ -353,6 +356,28 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   display: inline-flex; align-items: center; justify-content: center;
 }
 @media (hover: hover) { .luw .shelf-book-x:hover { background: var(--surface-2); color: var(--coral); } }
+/* Move earlier / Move later, then remove: the row's trailing controls, kept together so a phone can
+   give them a line of their own. */
+.luw .shelf-book-acts { flex: none; display: flex; align-items: center; gap: 2px; }
+.luw .shelf-move {
+  flex: none; width: 32px; height: 32px; padding: 0; border: none; border-radius: 8px;
+  background: transparent; color: var(--ink-2); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+@media (hover: hover) { .luw .shelf-move:not(:disabled):hover { background: var(--surface-2); color: var(--ink); } }
+.luw .shelf-move:disabled { opacity: 0.3; cursor: default; }
+/* A finger drag in progress: the lifted row dims, and the row it would land on is outlined. */
+.luw .shelf-book.is-lifted { opacity: 0.55; }
+.luw .shelf-book.is-target { border-color: var(--coral); box-shadow: 0 0 0 2px var(--coral-ring); }
+/* Under a finger the moves and the remove are drawn at full thumb size, not merely given a larger
+   hit area: they sit side by side, and three 44px targets cannot share a 100px strip of row. */
+@media (pointer: coarse) { .luw .shelf-move, .luw .shelf-book-x { width: 44px; height: 44px; } }
+/* A phone row cannot hold the cover, the title and five controls abreast: the controls take their
+   own line under the book, at its trailing edge. */
+@media (max-width: 759px) {
+  .luw .shelf-book { flex-wrap: wrap; row-gap: 0.3rem; }
+  .luw .shelf-book-acts { width: 100%; justify-content: flex-end; }
+}
 
 /* A refused mutation, said out loud. Sits above the shelf rather than over it: the shelf is still
    usable, and a message that blocks it would be a bigger interruption than the failure warrants. */

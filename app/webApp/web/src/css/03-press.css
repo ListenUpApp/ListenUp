@@ -62,6 +62,7 @@
 .luw .disc-chip:active,
 .luw .shelf-grip:active,
 .luw .shelf-book-x:active,
+.luw .shelf-move:not(:disabled):active,
 .luw .shelf-notice-x:active,
 .luw .lsetup-err-x:active,
 .luw .lsetup-up:active,

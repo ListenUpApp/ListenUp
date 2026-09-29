@@ -125,4 +125,9 @@ body { margin: 0; }
   font: inherit; color: inherit; text-align: inherit; text-decoration: none;
 }
 .mono { font-family: var(--mono); font-feature-settings: "ss01"; }
+/* Read by a screen reader, drawn for nobody: live regions that narrate what the eye already sees. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
 
