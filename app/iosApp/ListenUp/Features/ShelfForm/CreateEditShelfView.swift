@@ -186,7 +186,8 @@ struct CreateEditShelfView: View {
                 }
             }
         }
-        .tint(.green)
+        // No tint of its own: the switch takes the app's accent from the root `.tint`, like every
+        // other switch in the app.
     }
 
     private func previewRow() -> some View {
