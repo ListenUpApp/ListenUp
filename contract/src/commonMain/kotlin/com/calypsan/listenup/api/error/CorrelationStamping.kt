@@ -424,6 +424,7 @@ private fun HardcoverError.withCorrelationId(id: String?): HardcoverError =
     when (this) {
         is HardcoverError.NotConfigured -> copy(correlationId = id)
         is HardcoverError.Unavailable -> copy(correlationId = id)
+        is HardcoverError.ConnectionBroken -> copy(correlationId = id)
         is HardcoverError.AlreadyConnected -> copy(correlationId = id)
     }
 
