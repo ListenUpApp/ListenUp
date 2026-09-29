@@ -9,20 +9,19 @@ data class ExternalRating(
     val count: Int,
 )
 
-/** The headline: every enabled source's average, weighted by how many ratings each is over. */
+/**
+ * The ListenUp score of one book — see [listenUpScore].
+ *
+ * @property average the score, on the familiar 1–5 scale.
+ * @property count every rating behind it, outside catalogs and this server's listeners together.
+ * @property shares how much of the score each contributing source carries, summing to 1. A source
+ *   with no ratings is absent, so the keys are exactly the sources the score was combined from.
+ */
 data class CombinedScore(
     val average: Double,
     val count: Int,
-)
-
-/**
- * Σ(average·count) / Σcount over [ratings]; null when there are none or the total count is 0.
- * Callers pass only enabled sources — [com.calypsan.listenup.client.domain.repository.BookRatingRepository]
- * filters disabled and `UNKNOWN`-source rows out before this ever sees them.
- */
-fun combineExternalRatings(ratings: List<ExternalRating>): CombinedScore? {
-    val total = ratings.sumOf { it.count.toLong() }
-    if (total == 0L) return null
-    val weighted = ratings.sumOf { it.average * it.count }
-    return CombinedScore(average = weighted / total, count = total.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
+    val shares: Map<ScoreSource, Double> = emptyMap(),
+) {
+    /** How many sources the score was combined from ("Combined from N sources"). */
+    val sourceCount: Int get() = shares.size
 }

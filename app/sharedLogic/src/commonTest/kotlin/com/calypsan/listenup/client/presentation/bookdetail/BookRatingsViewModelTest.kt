@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.domain.model.CombinedScore
 import com.calypsan.listenup.client.domain.model.ExternalRating
 import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.domain.model.ListenerRating
+import com.calypsan.listenup.client.domain.model.ScoreSource
 import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.core.error.ErrorBus
@@ -127,13 +128,27 @@ class BookRatingsViewModelTest :
             }
         }
 
-        test("Ready carries the outside headline and its per-source breakdown") {
+        test("Ready carries the repository's ListenUp score, its shares, and the per-source breakdown") {
             runTest {
                 val repo = FakeBookRatingRepository()
                 repo.seedExternal(
                     ExternalRating(source = ExternalRatingSource.AUDIBLE, average = 4.0, count = 100),
                     ExternalRating(source = ExternalRatingSource.HARDCOVER, average = 5.0, count = 300),
                 )
+                // The library-calibrated score the Rating sort uses too — the headline never
+                // recomputes it from this book's rows alone, so the two always agree.
+                val score =
+                    CombinedScore(
+                        average = 4.41,
+                        count = 403,
+                        shares =
+                            mapOf(
+                                ScoreSource.Outside(ExternalRatingSource.AUDIBLE) to 0.3,
+                                ScoreSource.Outside(ExternalRatingSource.HARDCOVER) to 0.5,
+                                ScoreSource.Listeners to 0.2,
+                            ),
+                    )
+                repo.seedCombined("b1", score)
                 val vm =
                     BookRatingsViewModel(
                         bookId = "b1",
@@ -146,7 +161,8 @@ class BookRatingsViewModelTest :
                 vm.state.test {
                     awaitItem() shouldBe BookRatingsUiState.Loading
                     val ready = awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>()
-                    ready.external shouldBe CombinedScore(average = 4.75, count = 400)
+                    ready.external shouldBe score
+                    ready.external?.sourceCount shouldBe 3
                     ready.breakdown.map { it.source } shouldBe listOf(ExternalRatingSource.AUDIBLE, ExternalRatingSource.HARDCOVER)
                     cancelAndIgnoreRemainingEvents()
                 }
@@ -279,6 +295,7 @@ class BookRatingsViewModelTest :
 private class FakeBookRatingRepository : BookRatingRepository {
     private val ratingsFlow = MutableStateFlow<List<ListenerRating>>(emptyList())
     private val externalFlow = MutableStateFlow<List<ExternalRating>>(emptyList())
+    private val combinedFlow = MutableStateFlow<Map<String, CombinedScore>>(emptyMap())
 
     /** The (bookId, halfStars, note) passed to the last [rate] call. */
     var lastRate: Triple<String, Int, String?>? = null
@@ -307,6 +324,13 @@ private class FakeBookRatingRepository : BookRatingRepository {
 
     fun seedExternal(vararg rows: ExternalRating) {
         externalFlow.value = rows.toList()
+    }
+
+    fun seedCombined(
+        bookId: String,
+        score: CombinedScore,
+    ) {
+        combinedFlow.value += bookId to score
     }
 
     override fun observeForBook(bookId: String): Flow<List<ListenerRating>> =
@@ -347,7 +371,9 @@ private class FakeBookRatingRepository : BookRatingRepository {
 
     override fun observeExternalForBook(bookId: String): Flow<List<ExternalRating>> = externalFlow
 
-    override fun observeCombinedScores(): Flow<Map<String, CombinedScore>> = flowOf(emptyMap())
+    override fun observeCombinedScores(): Flow<Map<String, CombinedScore>> = combinedFlow
+
+    override fun observeCombinedScore(bookId: String): Flow<CombinedScore?> = combinedFlow.map { it[bookId] }
 
     override suspend fun refreshExternal(bookId: String): AppResult<Unit> {
         lastRefreshExternal = bookId
