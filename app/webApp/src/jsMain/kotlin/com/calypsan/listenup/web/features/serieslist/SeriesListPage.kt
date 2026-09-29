@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.SortControl
+import com.calypsan.listenup.web.design.VirtualList
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.LibraryFacet
@@ -94,14 +95,21 @@ private fun LoadedSeries(
         return
     }
 
-    Div(attrs = { classes("srs-grid") }) {
-        state.series.forEach { entry ->
-            SeriesCard(
-                entry = entry,
-                progress = state.seriesProgress[entry.series.id],
-                onOpen = { onOpenSeries(entry.series.id.value) },
-            )
-        }
+    // Windowed, like the library grid: a big library has hundreds of series. Every card is the same
+    // height — the name is clamped to two lines and the meta block holds its size whether or not
+    // there is progress to show — which is what lets rows be counted rather than measured.
+    VirtualList(
+        items = state.series,
+        key = { it.series.id.value },
+        containerClass = "srs-grid",
+        itemSelector = ".srs-card",
+        label = "Series",
+    ) { entry ->
+        SeriesCard(
+            entry = entry,
+            progress = state.seriesProgress[entry.series.id],
+            onOpen = { onOpenSeries(entry.series.id.value) },
+        )
     }
 }
 

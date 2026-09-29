@@ -14,6 +14,7 @@ import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.SortControl
+import com.calypsan.listenup.web.design.VirtualList
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.avatarTintFor
 import com.calypsan.listenup.web.design.initialsFor
@@ -83,35 +84,30 @@ fun ContributorsPage(
         return
     }
 
-    Div(attrs = { classes("contrib-list") }) {
-        // ⛔ The letter rail belongs to a NAME sort and nothing else. Under "Most books" the list
-        // runs 47, 31, 12 — letter squares over that would label runs of people with letters that
-        // mean nothing, which is the same call the Books tab makes for its Added and Duration sorts.
-        if (sortState.category == SortCategory.NAME) {
-            // Re-grouped on every recomposition otherwise; keyed on the list itself, the same
-            // precedent `VirtualBookGrid` sets for its own `layOut(...)` call.
-            val groups = remember(state) { groupByLetter(state) }
-            groups.forEach { group ->
-                Div(attrs = { classes("contrib-section") }) {
-                    LetterHeading(group.letter)
-                    group.contributors.forEach { entry ->
-                        ContributorRow(
-                            entry = entry,
-                            role = role,
-                            onOpen = { onOpenContributor(entry.contributor.idString) },
-                        )
-                    }
-                }
-            }
-        } else {
-            state.forEach { entry ->
-                ContributorRow(
-                    entry = entry,
-                    role = role,
-                    onOpen = { onOpenContributor(entry.contributor.idString) },
-                )
-            }
-        }
+    // ⛔ The letter rail belongs to a NAME sort and nothing else. Under "Most books" the list runs
+    // 47, 31, 12 — letter squares over that would label runs of people with letters that mean
+    // nothing, which is the same call the Books tab makes for its Added and Duration sorts.
+    val byName = sortState.category == SortCategory.NAME
+    // Under a name sort the people are laid out in [groupByLetter]'s sections, so the rail and the
+    // grouping can never disagree about who files where.
+    val people = remember(state, byName) { if (byName) groupByLetter(state).flatMap { it.contributors } else state }
+    // Windowed: a real library has thousands of narrators. Rows are one line each (the name is
+    // clamped), so every row and every letter heading is one height and the list can be counted.
+    VirtualList(
+        items = people,
+        key = { it.contributor.idString },
+        containerClass = "contrib-list",
+        itemSelector = ".contrib-row",
+        label = if (role == ContributorRole.NARRATOR) "Narrators" else "Authors",
+        sectionOf = { if (byName) it.contributor.name.nameLetter() else null },
+        headerSelector = ".contrib-letter-row",
+        header = { letter -> LetterHeading(letter) },
+    ) { entry ->
+        ContributorRow(
+            entry = entry,
+            role = role,
+            onOpen = { onOpenContributor(entry.contributor.idString) },
+        )
     }
 }
 

@@ -215,8 +215,12 @@
 }
 .facet-chip.is-active { border-color: transparent; background: var(--coral-fill); color: var(--on-coral); }
 
-/* Spans the grid so the rows above and below the rendered window keep the scrollbar honest. */
-.lib-spacer { grid-column: 1 / -1; overflow-anchor: none; }
+/* The virtual list (design/VirtualList.kt). Spacers span the grid so the rows above and below the
+   rendered window keep the scrollbar honest; `overflow-anchor:none` for the reason `.lib-grid`
+   gives. The item and header wrappers carry the list semantics and nothing else — `display:contents`
+   so the caller's own card is still the grid item its stylesheet lays out. */
+.vl-spacer { grid-column: 1 / -1; overflow-anchor: none; }
+.vl-item, .vl-head { display: contents; }
 .lib-progress-fill { height: 100%; background: var(--coral); }
 
 /* Contributors — the A→Z people list (Library facet). Values pulled from the approved artboard. */
@@ -232,10 +236,14 @@
 /* The browse card the A→Z sections sit in — the artboard's "Browse all" surface. */
 .contrib-list {
   background: var(--surface); border: 1px solid var(--line); border-radius: 22px;
-  padding: 22px 26px; box-shadow: var(--shadow-card);
+  padding: 14px 26px 22px; box-shadow: var(--shadow-card);
+  /* Virtualised — see `.lib-grid` on why the browser must not anchor the scroll. */
+  overflow-anchor: none;
 }
-.contrib-section + .contrib-section { margin-top: 8px; }
-.contrib-letter-row { display: flex; align-items: center; gap: 14px; margin: 8px 0 6px; }
+/* ⛔ Every heading the same height, first or not: the list is virtualised and counts rows rather
+   than measuring them, so a first heading with a smaller margin would drift every offset below it.
+   The list's reduced top padding stands in for the first one's extra space. */
+.contrib-letter-row { display: flex; align-items: center; gap: 14px; margin: 16px 0 6px; }
 .contrib-letter {
   width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
   background: var(--coral-soft); color: var(--coral-text);
@@ -255,7 +263,8 @@
   box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--coral);
 }
 .contrib-info { flex-grow: 1; min-width: 0; }
-.contrib-name { font-size: 0.96875rem; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
+/* One line, always: a wrapped name would make one row taller than the rest of a virtualised list. */
+.contrib-name { font-size: 0.96875rem; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .contrib-meta { display: flex; align-items: center; gap: 7px; margin-top: 4px; }
 .contrib-role-chip {
   height: 23px; padding: 0 10px; border-radius: 999px; display: inline-flex; align-items: center;

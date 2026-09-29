@@ -9,7 +9,7 @@ import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.WebIcon
-import com.calypsan.listenup.web.features.library.BookCard
+import com.calypsan.listenup.web.features.library.VirtualBookGrid
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
@@ -188,11 +188,9 @@ private fun BookGrid(
         P(attrs = { classes("brw-none") }) { Text("No books here yet.") }
         return
     }
-    Div(attrs = { classes("lib-grid") }) {
-        books.forEach { book ->
-            BookCard(book = book, progress = 0f, onOpen = { onOpenBook(book.id.value) })
-        }
-    }
+    // Windowed like the library: a broad genre with sub-genres included is most of a library, and
+    // the unwindowed grid was the same thousand composables the library grid stopped rendering.
+    VirtualBookGrid(books = books, letterOf = { null }, progressOf = { 0f }, onOpenBook = onOpenBook)
 }
 
 /** What a page reached by a link to something that is no longer there says. */

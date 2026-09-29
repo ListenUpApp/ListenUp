@@ -1,12 +1,15 @@
 package com.calypsan.listenup.web.shell
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.LocalScrollport
+import com.calypsan.listenup.web.design.Scrollport
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.nav.FocusPageOnNavigation
 import org.jetbrains.compose.web.attributes.alt
@@ -92,6 +95,7 @@ fun Shell(
     content: @Composable () -> Unit,
 ) {
     val main = remember { MainHolder() }
+    val scrollport = remember { Scrollport() }
     val sidebar = remember { MainHolder() }
     pageKey?.let { key -> FocusPageOnNavigation(key) { main.element } }
     // Keyed on the page: arriving somewhere new puts More away, whichever way the reader got there.
@@ -213,9 +217,16 @@ fun Shell(
             id(MAIN_CONTENT_ID)
             ref { element ->
                 main.element = element
-                onDispose { main.element = null }
+                scrollport.element = element
+                onDispose {
+                    main.element = null
+                    scrollport.element = null
+                }
             }
-        }) { content() }
+        }) {
+            // The region pages scroll in, handed down so a long list can window against it.
+            CompositionLocalProvider(LocalScrollport provides scrollport) { content() }
+        }
     }
 }
 
