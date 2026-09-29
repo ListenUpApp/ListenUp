@@ -18,7 +18,12 @@ extension View {
     /// Widens the hit area of a control drawn at `visualSize` points to the 44pt minimum, without
     /// changing its layout or what is drawn — for dense rows and chips where growing the frame
     /// would move everything around it. Apply to a `Button`'s label, after its frame and background.
+    ///
+    /// The same small glyphs get the pointer's highlight on iPad — HIG, Pointing devices: "Use
+    /// highlight for a small element that has a transparent background" — so a trackpad user can
+    /// see which of a dense row's controls the click will land on.
     func minimumTapTarget(visualSize: CGFloat) -> some View {
         contentShape(Rectangle().inset(by: -TapTarget.outset(forVisualSize: visualSize)))
+            .hoverEffect(.highlight)
     }
 }

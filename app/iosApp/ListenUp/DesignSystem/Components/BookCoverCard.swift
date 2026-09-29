@@ -91,6 +91,8 @@ struct BookCoverCard: View {
                 progressOverlay(progress: progress)
             }
         }
+        // On the whole cover stack, so its badges and progress bar lift with the artwork.
+        .coverHoverEffect()
     }
 
     private func progressOverlay(progress: Float) -> some View {
@@ -134,6 +136,19 @@ struct BookCoverCard: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .foregroundStyle(.secondary)
+        }
+    }
+}
+
+// MARK: - Drag
+
+extension View {
+    /// Makes a grid cover draggable as `BookDragItem`, lifted as its own artwork.
+    func draggableBookCover(_ book: BookRow) -> some View {
+        bookCoverDraggable(title: book.title, author: book.authorNames) {
+            BookCoverImage(book: book)
+                .frame(width: 120, height: 120)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
         }
     }
 }

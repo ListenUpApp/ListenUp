@@ -41,7 +41,9 @@ struct SettingsView: View {
         }
         .navigationTitle(String(localized: "common.settings"))
         .navigationBarTitleDisplayMode(.large)
-        .readableWidth(720)
+        // No width cap: a grouped `Form` already insets its rows to the system margins at every
+        // width, and a cap on the Form itself clipped its background into a floating column inside
+        // the iPad detail pane (HIG, Layout: respect system-defined margins and guides).
         .onAppear {
             if observer == nil {
                 observer = SettingsObserver(

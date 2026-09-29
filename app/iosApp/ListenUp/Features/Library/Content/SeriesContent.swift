@@ -76,9 +76,9 @@ struct SeriesContent: View {
                 guard !Task.isCancelled else { return }   // a newer target replaced us — don't stomp it
                 scrollTarget = nil
             }
-            // Alphabet scrubber (only for name sort, compact width — the wide iPad grid omits it)
+            // Alphabet scrubber (name sort only), at every width — see `BooksLayout.showsScrubber`.
             .overlay(alignment: .trailing) {
-                if sizeClass == .compact, shouldShowAlphabetIndex, !letters.isEmpty {
+                if shouldShowAlphabetIndex, !letters.isEmpty {
                     SectionIndexBar(
                         letters: letters.map { $0.letter },
                         onLetterSelected: { letter in

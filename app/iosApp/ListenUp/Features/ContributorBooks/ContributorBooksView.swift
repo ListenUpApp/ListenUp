@@ -134,6 +134,7 @@ struct ContributorBooksView: View {
                         BookCoverCard(book: book, progress: progress[book.id])
                     }
                     .buttonStyle(.plain)
+                    .draggableBookCover(book)
                 }
             }
         }

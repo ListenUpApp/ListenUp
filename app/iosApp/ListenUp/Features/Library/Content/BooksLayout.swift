@@ -8,12 +8,14 @@ struct BooksLayout: Equatable {
     let gridSpacing: CGFloat
     /// Regular width shows an inline `SortRow`; compact keeps the `FloatingSortButton` overlay.
     let usesInlineSort: Bool
-    /// The trailing alphabet index — kept on phone, dropped on iPad where the wider grid makes it redundant.
+    /// The trailing alphabet index. Shown at every width: a wider grid holds more books per row but
+    /// a large library is still hundreds of rows deep, and the index is how a keyboardless iPad
+    /// jumps to "T" (HIG, Designing for iPadOS: don't ship less navigation on the larger display).
     let showsScrubber: Bool
 
     static func forRegularWidth(_ isRegular: Bool) -> BooksLayout {
         isRegular
-            ? BooksLayout(sideMargin: 36, gridSpacing: 24, usesInlineSort: true, showsScrubber: false)
+            ? BooksLayout(sideMargin: 36, gridSpacing: 24, usesInlineSort: true, showsScrubber: true)
             : BooksLayout(sideMargin: 16, gridSpacing: 16, usesInlineSort: false, showsScrubber: true)
     }
 }

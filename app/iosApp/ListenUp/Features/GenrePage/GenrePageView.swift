@@ -83,6 +83,7 @@ struct GenrePageView: View {
                             BookCoverCard(book: book, progress: nil)
                         }
                         .buttonStyle(.plain)
+                        .draggableBookCover(book)
                     }
                 }
             }

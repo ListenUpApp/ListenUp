@@ -37,6 +37,7 @@ struct ContinueCard: View {
             BookCoverImage(bookId: item.id, coverPath: item.coverPath, coverHash: item.coverHash)
                 .frame(width: width, height: width)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
+                .coverHoverEffect(cornerRadius: 16)
                 .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
                 .overlay(alignment: .bottomTrailing) {
                     CircularProgressRing(progress: item.progress, lineWidth: 4, showPercentLabel: true)

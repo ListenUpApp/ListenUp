@@ -8,7 +8,7 @@ struct BooksLayoutTests {
         #expect(layout.sideMargin == 36)
         #expect(layout.gridSpacing == 24)
         #expect(layout.usesInlineSort == true)
-        #expect(layout.showsScrubber == false)
+        #expect(layout.showsScrubber == true)
     }
     @Test func compactWidthKeepsPhoneMetrics() {
         let layout = BooksLayout.forRegularWidth(false)

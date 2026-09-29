@@ -29,6 +29,7 @@ struct SeriesGridCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.luSurface2))
             .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.luSeparator, lineWidth: 0.5))
+            .coverHoverEffect(cornerRadius: 20)
         }
         .buttonStyle(.pressScaleCard)
         .accessibilityElement(children: .combine)

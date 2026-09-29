@@ -146,6 +146,7 @@ private struct SearchBookCard: View {
                 .aspectRatio(1, contentMode: .fit)
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
+                .coverHoverEffect(cornerRadius: 10)
             Text(row.name)
                 .font(.subheadline)
                 .foregroundStyle(.primary)

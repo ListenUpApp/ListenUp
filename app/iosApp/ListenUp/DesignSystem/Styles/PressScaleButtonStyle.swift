@@ -48,6 +48,9 @@ struct PressScaleButtonStyle: ButtonStyle {
                 reduceMotion ? nil : .spring(response: 0.2, dampingFraction: 0.7),
                 value: configuration.isPressed
             )
+            // A custom style drops the system's pointer effect, so restore it: iPadOS picks
+            // highlight or lift from the label's shape (HIG, Pointing devices).
+            .hoverEffect()
     }
 }
 

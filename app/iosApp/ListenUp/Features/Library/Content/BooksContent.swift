@@ -212,6 +212,7 @@ struct BooksContent: View {
                 card.heroSource(bookCoverHeroID(book.id))
             }
                 .buttonStyle(.plain)
+                .draggableBookCover(book)
                 .contextMenu {
                     Button(String(localized: "common.select"), systemImage: "checkmark.circle") {
                         selection.enter(book.id)
