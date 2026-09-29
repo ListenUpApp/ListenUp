@@ -198,8 +198,8 @@ class ImportFlowPageTest :
                     ImportFlowUiState.Applying(1, 10, null, 0),
                 )
 
-            harmless.forEach { page(it).querySelector(".iflow-back").shouldNotBeNull() }
-            inFlight.forEach { page(it).querySelector(".iflow-back").shouldBeNull() }
+            harmless.forEach { page(it).querySelector(".crumb a").shouldNotBeNull() }
+            inFlight.forEach { page(it).querySelector(".crumb a").shouldBeNull() }
         }
 
         // ⛔ Distinctness is not correctness, and `aria-live` is not the whole announcement.

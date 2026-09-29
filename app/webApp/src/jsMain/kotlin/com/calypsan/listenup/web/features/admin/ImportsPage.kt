@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.admin
 
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,13 +43,7 @@ fun ImportsPage(
     onOpenAdmin: () -> Unit,
 ) {
     Div(attrs = { classes("imp") }) {
-        Button(
-            kind = ButtonKind.Secondary,
-            onClick = { onOpenAdmin() },
-            attrs = {
-            classes("imp-back")
-            },
-        ) { Text("← Admin") }
+        Breadcrumb(trail = listOf("Admin", "Imports"), onNavigate = { onOpenAdmin() })
 
         PageHeader(title = "Imports", subtitle = "Bring listening history over from an Audiobookshelf backup.")
 

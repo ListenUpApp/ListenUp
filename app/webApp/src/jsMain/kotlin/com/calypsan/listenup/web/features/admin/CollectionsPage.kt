@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.admin
 
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -44,13 +45,7 @@ fun CollectionsPage(
     onOpenAdmin: () -> Unit,
 ) {
     Div(attrs = { classes("coll") }) {
-        Button(
-            kind = ButtonKind.Secondary,
-            onClick = { onOpenAdmin() },
-            attrs = {
-                classes("coll-back")
-            },
-        ) { Text("← Admin") }
+        Breadcrumb(trail = listOf("Admin", "Collections"), onNavigate = { onOpenAdmin() })
 
         PageHeader(title = "Collections")
 

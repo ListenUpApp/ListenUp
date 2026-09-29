@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.admin
 
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -71,13 +72,7 @@ fun ImportFlowPage(
     Div(attrs = { classes("iflow") }) {
         // Only where leaving is harmless: before a file is picked, and after the run has ended.
         if (state is ImportFlowUiState.Idle || state is ImportFlowUiState.Done || state is ImportFlowUiState.Error) {
-            Button(
-                kind = ButtonKind.Secondary,
-                onClick = { onOpenImports() },
-                attrs = {
-                    classes("iflow-back")
-                },
-            ) { Text("← Imports") }
+            Breadcrumb(trail = listOf("Imports", "Audiobookshelf"), onNavigate = { onOpenImports() })
         }
 
         PageHeader(title = "Import from Audiobookshelf")

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.admin
 
 import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
@@ -54,13 +55,7 @@ fun ServerSettingsPage(
     nowMs: Long = 0L,
 ) {
     Div(attrs = { classes("srv") }) {
-        Button(
-            kind = ButtonKind.Secondary,
-            onClick = { onOpenAdmin() },
-            attrs = {
-                classes("srv-back")
-            },
-        ) { Text("← Admin") }
+        Breadcrumb(trail = listOf("Admin", "Server settings"), onNavigate = { onOpenAdmin() })
 
         PageHeader(title = "Server settings")
 

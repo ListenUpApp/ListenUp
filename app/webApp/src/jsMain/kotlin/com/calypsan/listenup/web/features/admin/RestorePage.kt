@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.admin
 
 import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.dto.backup.BackupEvent
@@ -40,13 +41,7 @@ fun RestorePage(
         // Absent while a restore is running: the server is swapping its own database out, and a
         // link away from the only page narrating that is an invitation to miss the outcome.
         if (state !is RestoreBackupUiState.Restoring) {
-            Button(
-                kind = ButtonKind.Secondary,
-                onClick = { onOpenBackups() },
-                attrs = {
-                    classes("rst-back")
-                },
-            ) { Text("← Backups") }
+            Breadcrumb(trail = listOf("Backups", "Restore"), onNavigate = { onOpenBackups() })
         }
 
         PageHeader(title = "Restore from a backup")

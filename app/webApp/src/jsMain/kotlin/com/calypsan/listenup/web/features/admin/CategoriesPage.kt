@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.admin
 
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ModalDialog
@@ -60,13 +61,7 @@ fun CategoriesPage(
     mergeHistoryActions: MergeHistoryActions,
 ) {
     Div(attrs = { classes("cat") }) {
-        Button(
-            kind = ButtonKind.Secondary,
-            onClick = { onOpenAdmin() },
-            attrs = {
-                classes("cat-back")
-            },
-        ) { Text("← Admin") }
+        Breadcrumb(trail = listOf("Admin", "Categories"), onNavigate = { onOpenAdmin() })
 
         PageHeader(title = "Categories")
 

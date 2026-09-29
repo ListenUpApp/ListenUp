@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.admin
 
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -56,13 +57,7 @@ fun BackupsPage(
     onOpenAdmin: () -> Unit,
 ) {
     Div(attrs = { classes("bkp") }) {
-        Button(
-            kind = ButtonKind.Secondary,
-            onClick = { onOpenAdmin() },
-            attrs = {
-                classes("bkp-back")
-            },
-        ) { Text("← Admin") }
+        Breadcrumb(trail = listOf("Admin", "Backups"), onNavigate = { onOpenAdmin() })
 
         PageHeader(title = "Backups")
 

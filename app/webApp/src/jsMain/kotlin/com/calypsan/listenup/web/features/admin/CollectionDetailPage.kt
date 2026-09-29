@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.admin
 
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
@@ -58,17 +59,12 @@ fun CollectionDetailPage(
     onClearError: () -> Unit,
     onOpenCollections: () -> Unit,
 ) {
+    val name = (state as? AdminCollectionDetailUiState.Ready)?.collection?.name ?: "Collection"
     Div(attrs = { classes("cdet") }) {
-        Button(
-            kind = ButtonKind.Secondary,
-            onClick = { onOpenCollections() },
-            attrs = {
-                classes("cdet-back")
-            },
-        ) { Text("← Collections") }
+        Breadcrumb(trail = listOf("Collections", name), onNavigate = { onOpenCollections() })
 
         PageHeader(
-            title = (state as? AdminCollectionDetailUiState.Ready)?.collection?.name ?: "Collection",
+            title = name,
             pending = state is AdminCollectionDetailUiState.Loading,
         )
 

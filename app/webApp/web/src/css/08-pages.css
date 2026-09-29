@@ -606,7 +606,6 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 /* ---- admin inbox. Two independent halves: what the scan brought in and is holding for review,
    and what it walked past because it could not make a book from it. */
 .luw .inbox { width: 100%; max-width: 760px; margin: 0 auto; padding: var(--sp-24) 28px 40px; display: flex; flex-direction: column; gap: 14px; }
-.luw .inbox-back { align-self: flex-start; }
 
 .luw .inbox-skel { height: 16rem; border-radius: var(--r-lg); }
 .luw .inbox-hint { margin: 0 0 var(--sp-12); font-size: var(--fs-ui); color: var(--ink-3); line-height: 1.5; }
@@ -655,7 +654,6 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 /* ---- server settings. Two text fields that batch behind Save, and two switches that write on
    the flick — the layout has to make that difference visible, so they never share a section. */
 .luw .srv { width: 100%; max-width: 720px; margin: 0 auto; padding: var(--sp-24) 28px 40px; display: flex; flex-direction: column; gap: var(--sp-16); }
-.luw .srv-back { align-self: flex-start; }
 
 .luw .srv-skel { height: 18rem; border-radius: var(--r-lg); }
 .luw .srv-body { display: flex; flex-direction: column; gap: var(--sp-16); }
@@ -672,7 +670,6 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 /* ---- admin categories. A genre tree: one flat list of rows indented by depth, so keyboard order
    equals reading order and a parent's buttons are not inside every descendant's tab stop. */
 .luw .cat { width: 100%; max-width: 820px; margin: 0 auto; padding: var(--sp-24) 28px 40px; display: flex; flex-direction: column; gap: 14px; }
-.luw .cat-back { align-self: flex-start; }
 
 .luw .cat-skel { height: 18rem; border-radius: var(--r-lg); }
 .luw .cat-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
@@ -697,7 +694,6 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 
 /* ---- admin collections. The list, then one collection's books and the people who can see it. */
 .luw .coll { width: 100%; max-width: 760px; margin: 0 auto; padding: var(--sp-24) 28px 40px; display: flex; flex-direction: column; gap: 14px; }
-.luw .coll-back, .luw .cdet-back { align-self: flex-start; }
 
 .luw .coll-skel, .luw .cdet-skel { height: 16rem; border-radius: var(--r-lg); }
 .luw .coll-bar { display: flex; align-items: center; gap: 0.6rem; }
@@ -741,7 +737,6 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 
 /* ---- admin backups. Take one, take one away, take one off the server, or put one back. */
 .luw .bkp { width: 100%; max-width: 760px; margin: 0 auto; padding: var(--sp-24) 28px 40px; display: flex; flex-direction: column; gap: 14px; }
-.luw .bkp-back, .luw .rst-back { align-self: flex-start; }
 
 .luw .bkp-skel { height: 16rem; border-radius: var(--r-lg); }
 .luw .bkp-make { display: flex; flex-direction: column; gap: 0.7rem; padding: var(--sp-16); border: 1px solid var(--line); border-radius: var(--rad); background: var(--surface); }
@@ -771,7 +766,6 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 
 /* ---- admin imports. The list of past runs, then the linear flow that makes one. */
 .luw .imp { width: 100%; max-width: 760px; margin: 0 auto; padding: var(--sp-24) 28px 40px; display: flex; flex-direction: column; gap: 14px; }
-.luw .imp-back, .luw .iflow-back { align-self: flex-start; }
 
 .luw .imp-skel { height: 14rem; border-radius: var(--r-lg); }
 .luw .imp-bar { display: flex; align-items: center; gap: 0.6rem; }

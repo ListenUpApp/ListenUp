@@ -245,4 +245,15 @@ class CollectionsPageTest :
             host.textContent.orEmpty() shouldContain "Server said no."
             host.querySelector(".coll-row").shouldBeNull()
         }
+
+        test("the breadcrumb names the page under Admin and leads back to it") {
+            var back = 0
+            val host = page(readyCollections(listOf(collection())), onOpenAdmin = { back++ })
+
+            host.querySelector(".crumb").shouldNotBeNull().textContent?.trim() shouldBe "Admin/Collections"
+            (host.querySelector(".crumb a") as HTMLElement).click()
+            awaitFrame()
+
+            back shouldBe 1
+        }
     })

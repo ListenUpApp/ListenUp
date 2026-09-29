@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.admin
 
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -64,13 +65,7 @@ fun AdminInboxPage(
     onOpenMatch: (String) -> Unit = {},
 ) {
     Div(attrs = { classes("inbox") }) {
-        Button(
-            kind = ButtonKind.Secondary,
-            onClick = { onOpenAdmin() },
-            attrs = {
-            classes("inbox-back")
-            },
-        ) { Text("← Admin") }
+        Breadcrumb(trail = listOf("Admin", "Inbox"), onNavigate = { onOpenAdmin() })
 
         PageHeader(title = "Inbox", subtitle = "Books that need a look before they join your library.")
 
