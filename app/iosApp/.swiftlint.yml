@@ -127,3 +127,37 @@ custom_rules:
       Colour literals belong in ListenUp/DesignSystem/. Use a design-system token (luTint, luWarning,
       AvatarPalette, Color+Palette) or a system colour, or add a tested token there.
     severity: error
+
+  # Library's sections were a swipe pager (`.tabViewStyle(.page)`) under a hand-drawn chip row: the
+  # sections hid behind a gesture, the chips drew their own selection, and VoiceOver heard neither
+  # as a set of choices (2026-09-29 iOS audit, conformance). A set of closely related views is a
+  # segmented `Picker`; separate sections of the app are tabs. HIG, Segmented controls: "consider a
+  # segmented control to switch between closely related subviews … for switching between completely
+  # separate sections of an app, use a tab bar instead." Nothing in the app pages today; a genuine
+  # page-by-page content viewer would be the exception to argue for here.
+  page_tab_view_style:
+    name: "Paged TabView"
+    regex: '\.tabViewStyle\(\s*\.page\b'
+    excluded_match_kinds:
+      - comment
+      - doccomment
+      - string
+    message: >-
+      Switch closely related views with a segmented Picker, and separate sections with tabs — not a
+      swipe pager (HIG, Segmented controls).
+    severity: error
+
+  # A bottom tray painted with `.background(.bar)` inside `safeAreaInset` draws a flat strip where the
+  # system now draws a scroll-edge effect for its bars (2026-09-29 iOS audit, theming: 11 sites). A
+  # bar over a scroll view is `.safeAreaBar(edge:)`, which gets that effect for free. HIG, Toolbars.
+  painted_bar_background:
+    name: "Painted bar background"
+    regex: '\.background\(\s*\.bar\s*\)'
+    excluded_match_kinds:
+      - comment
+      - doccomment
+      - string
+    message: >-
+      Put the tray in `.safeAreaBar(edge:)` instead of painting `.background(.bar)` behind it — the
+      system draws the bar's scroll-edge effect (HIG, Toolbars).
+    severity: error
