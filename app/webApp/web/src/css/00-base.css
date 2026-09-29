@@ -12,7 +12,19 @@
    until we are sure nothing wants it, then it goes.
    ============================================================ */
 
-/* ---- TYPE follows the reader's default font size: `font-size` is in rem (1rem = 16px at the
+/* ---- BREAKPOINTS — the only four widths any sheet queries.
+   Plain CSS has no custom media, so the set lives here as a contract, and BreakpointsTest fails
+   the build on any width query outside it. Write `max-width` one pixel below a breakpoint and
+   `min-width` on it, so the two sides of a breakpoint never overlap or leave a gap:
+     640   a small phone becomes a large one: stacked rows go side by side
+           (max-width: 639px / min-width: 640px)
+     760   PHONE ends: the tab bar and the pinned player give way to the rail
+           (max-width: 759px / min-width: 760px)
+     1024  a tablet's single column gains a side column; the sign-in brand panel appears
+           (max-width: 1023px / min-width: 1024px)
+     1280  DESKTOP: the rail becomes the labelled sidebar; the chapter editor goes two-up
+           (max-width: 1279px / min-width: 1280px)
+   ---- TYPE follows the reader's default font size: `font-size` is in rem (1rem = 16px at the
    browser default, which this sheet never overrides on `html`). px only for text drawn inside a
    fixed-size shape — see RemFontSizesTest. */
 

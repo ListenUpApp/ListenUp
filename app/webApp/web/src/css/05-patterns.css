@@ -285,7 +285,7 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .np-goto:focus { outline:none; }
 .np-goto:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
 
-@media (max-width: 620px) {
+@media (max-width: 639px) {
   /* The cover is the first thing to go: it is the largest element and the only one that carries
      no information the rest of the panel does not already state in words. */
   .np-body { flex-direction:column; align-items:stretch; gap:14px; }

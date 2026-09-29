@@ -952,7 +952,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
    columns when there is room for both — timeline left, list right (spec 7.1) — stacked otherwise. */
 .luw .ched-body { display: flex; flex-direction: column; gap: 14px; }
 .luw .ched-listpane { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-@media (min-width: 1180px) {
+@media (min-width: 1280px) {
   .luw .ched:has(.ched-body) { max-width: 1400px; }
   .luw .ched-body { display: grid; grid-template-columns: minmax(0, 1fr) 480px; align-items: start; }
 }
@@ -984,7 +984,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 
 /* A phone-width row cannot hold a title and seven controls side by side: the controls take their own
    line under the title rather than pushing it off the edge. */
-@media (max-width: 640px) {
+@media (max-width: 639px) {
   .luw .chr { flex-wrap: wrap; }
   .luw .chr-acts { width: 100%; justify-content: flex-end; }
 }
