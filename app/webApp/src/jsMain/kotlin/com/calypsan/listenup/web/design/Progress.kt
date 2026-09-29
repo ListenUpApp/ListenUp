@@ -55,7 +55,7 @@ fun ProgressLine(
         Span(attrs = {
             classes("mono")
             style {
-                property("font-size", "12px")
+                property("font-size", "0.75rem")
                 property("color", "var(--ink-2)")
                 property("white-space", "nowrap")
                 property("flex-shrink", "0")

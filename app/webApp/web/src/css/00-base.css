@@ -12,6 +12,10 @@
    until we are sure nothing wants it, then it goes.
    ============================================================ */
 
+/* ---- TYPE follows the reader's default font size: `font-size` is in rem (1rem = 16px at the
+   browser default, which this sheet never overrides on `html`). px only for text drawn inside a
+   fixed-size shape — see RemFontSizesTest. */
+
 /* Self-hosted, not fetched from fonts.googleapis.com. Two reasons, both hard:
    the app is served under Cross-Origin-Embedder-Policy: require-corp, which is designed to
    block exactly this kind of un-CORP'd third-party subresource; and a self-hosted server

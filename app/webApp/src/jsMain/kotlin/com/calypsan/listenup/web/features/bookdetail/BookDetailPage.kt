@@ -600,7 +600,7 @@ internal fun PaneHint(text: String) {
     P(attrs = {
         style {
             property("margin", "0")
-            property("font-size", "13.5px")
+            property("font-size", "0.84375rem")
             property("color", "var(--ink-3)")
             property("font-weight", "500")
         }

@@ -18,7 +18,7 @@
 .chrome-url {
   flex: 1; display: flex; align-items: center; gap: 9px; height: 30px; padding: 0 13px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 999px;
-  font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); min-width: 0;
+  font-family: var(--mono); font-size: 0.78125rem; color: var(--ink-2); min-width: 0;
 }
 .chrome-url b { color: var(--ink); font-weight: 600; }
 .chrome-body { flex: 1; min-height: 0; overflow: hidden; position: relative; }
@@ -33,12 +33,12 @@
 .mstatus {
   display: flex; align-items: center; justify-content: space-between;
   height: 40px; padding: 0 22px 0 26px; flex-shrink: 0; background: var(--surface-3);
-  font-size: 13px; font-weight: 700; color: var(--ink);
+  font-size: 0.8125rem; font-weight: 700; color: var(--ink);
 }
 .murl {
   display: flex; align-items: center; gap: 8px; height: 42px; margin: 0 10px 8px;
   padding: 0 14px; background: var(--surface-2); border-radius: 12px;
-  font-family: var(--mono); font-size: 12.5px; color: var(--ink-2);
+  font-family: var(--mono); font-size: 0.78125rem; color: var(--ink-2);
   flex-shrink: 0;
 }
 .murl b { color: var(--ink); font-weight: 600; }

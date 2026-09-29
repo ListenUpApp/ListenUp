@@ -47,7 +47,7 @@ fun Panel(
                 H2(attrs = {
                     style {
                         property("margin", "0")
-                        property("font-size", "14px")
+                        property("font-size", "0.875rem")
                         property("font-weight", "700")
                         property("letter-spacing", "-0.01em")
                         property("color", "var(--ink)")

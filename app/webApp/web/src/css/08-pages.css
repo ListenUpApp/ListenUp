@@ -1100,7 +1100,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .cd-delete { flex: none; align-self: flex-start; }
 .luw .cd-delete[disabled] { opacity: .55; cursor: default; }
 /* Pushes Dismiss to the end of the error banner, which is otherwise a single flex row. */
-.luw .cd-err-x { margin-left: auto; height: 30px; padding: 0 10px; font-size: 12.5px; }
+.luw .cd-err-x { margin-left: auto; height: 30px; padding: 0 10px; font-size: 0.78125rem; }
 /* Multi-select over the library grid, and where a selection can go. */
 .luw .lib-select { flex: none; margin-left: auto; }
 /* ⛔ An outline, never a border or padding. The grid is virtualised on the assumption that every

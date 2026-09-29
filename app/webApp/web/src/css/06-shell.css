@@ -9,7 +9,7 @@
 .skip-link {
   position:fixed; top:12px; left:12px; z-index:70; transform:translateY(-200%);
   padding:10px 16px; border-radius:10px; background:var(--surface); color:var(--ink);
-  font-size:14px; font-weight:700; text-decoration:none; box-shadow:var(--shadow-pop);
+  font-size:0.875rem; font-weight:700; text-decoration:none; box-shadow:var(--shadow-pop);
 }
 .skip-link:focus { transform:none; }
 .skip-link:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
@@ -20,11 +20,11 @@
 /* Mark + wordmark travel together so `space-between` still pushes the collapse toggle to the edge. */
 .sb-lockup { display:flex; align-items:center; gap:9px; min-width:0; }
 .sb-mark { width:26px; height:26px; flex:none; }
-.sb-name { font-size:18px; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
+.sb-name { font-size:1.125rem; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
 .sb-toggle { color:var(--ink-3); }
-.sb-group { display:block; margin:16px 0 6px 14px; font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3); }
+.sb-group { display:block; margin:16px 0 6px 14px; font-family:var(--mono); font-size:0.65625rem; font-weight:600; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3); }
 .sb-nav { display:flex; flex-direction:column; gap:3px; }
-.nav-i { display:flex; align-items:center; gap:13px; height:44px; padding:0 13px; border-radius:12px; cursor:pointer; font-size:14.5px; font-weight:600; letter-spacing:-.01em; color:var(--ink-2); transition:background .14s, color .14s; white-space:nowrap; }
+.nav-i { display:flex; align-items:center; gap:13px; height:44px; padding:0 13px; border-radius:12px; cursor:pointer; font-size:0.90625rem; font-weight:600; letter-spacing:-.01em; color:var(--ink-2); transition:background .14s, color .14s; white-space:nowrap; }
 @media (hover: hover) { .nav-i:hover, .sb-more:hover { background:var(--surface-2); color:var(--ink); } }
 .nav-i.on { background:var(--coral-soft); color:var(--coral); font-weight:700; }
 .nav-i .lb { display:block; flex:1; overflow:hidden; text-overflow:ellipsis; }
@@ -70,8 +70,8 @@
 @media (hover: hover) { .tport-b:hover { background:var(--coral-press); } }
 /* Shrinks before anything else does: on a tablet the rail leaves ~690px, and a title that refused
    to give way pushed the sleep timer out past the edge of the bar. */
-.tport-t { font-size:14px; font-weight:700; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:26ch; flex:0 1 auto; min-width:0; }
-.tport-time { font-size:12px; color:var(--ink-3); font-variant-numeric:tabular-nums; white-space:nowrap; flex:none; }
+.tport-t { font-size:0.875rem; font-weight:700; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:26ch; flex:0 1 auto; min-width:0; }
+.tport-time { font-size:0.75rem; color:var(--ink-3); font-variant-numeric:tabular-nums; white-space:nowrap; flex:none; }
 .tport-scrub { flex:1; min-width:60px; height:4px; margin:0; accent-color:var(--coral); cursor:pointer; }
 /* Skip controls flank the play button. Quieter than it on purpose — the same size would make the
    bar read as three equal actions, when only one of them is the one you reach for. `position:
@@ -82,11 +82,11 @@
    two-digit interval still has to fit. */
 .tport-skip-n { position:absolute; top:50%; left:50%; transform:translate(-50%,-45%); font-size:9px; font-weight:700; font-variant-numeric:tabular-nums; pointer-events:none; }
 /* Text, not an icon: the current rate IS the label, and no glyph says "1.5x" as directly. */
-.tport-speed { flex:none; min-width:40px; height:30px; padding:0 8px; border:1px solid var(--line); border-radius:15px; background:transparent; color:var(--ink-2); font-size:12px; font-weight:700; font-variant-numeric:tabular-nums; cursor:pointer; }
+.tport-speed { flex:none; min-width:40px; height:30px; padding:0 8px; border:1px solid var(--line); border-radius:15px; background:transparent; color:var(--ink-2); font-size:0.75rem; font-weight:700; font-variant-numeric:tabular-nums; cursor:pointer; }
 @media (hover: hover) { .tport-speed:hover { background:var(--surface-2); color:var(--ink); } }
 /* The playback failure notice. Sits directly above the bar and, more often, alone — the failures
    worth reporting are the ones that leave nothing playing. */
-.tport-note { position:sticky; bottom:76px; z-index:6; display:flex; align-items:center; gap:10px; margin:16px -28px 0; padding:10px 22px; background:var(--coral-soft); color:var(--coral); border-top:1px solid var(--line); font-size:13.5px; font-weight:600; }
+.tport-note { position:sticky; bottom:76px; z-index:6; display:flex; align-items:center; gap:10px; margin:16px -28px 0; padding:10px 22px; background:var(--coral-soft); color:var(--coral); border-top:1px solid var(--line); font-size:0.84375rem; font-weight:600; }
 .tport-note-t { flex:1; min-width:0; }
 .tport-note-x { width:28px; height:28px; flex:none; border:none; border-radius:8px; background:transparent; color:inherit; opacity:.7; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
 @media (hover: hover) { .tport-note-x:hover { opacity:1; background:var(--surface-2); } }
@@ -145,7 +145,7 @@
     flex:1 1 0; min-width:0; width:auto; height:auto; padding:5px 2px 4px; position:relative;
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
     border:none; border-radius:0; background:none; cursor:pointer;
-    font-family:inherit; font-size:11px; font-weight:600; letter-spacing:0; color:var(--ink-2);
+    font-family:inherit; font-size:0.6875rem; font-weight:600; letter-spacing:0; color:var(--ink-2);
   }
   .sidebar .sb-nav:not(.sb-foot) .nav-i .lb, .sidebar .sb-more .lb {
     display:block; flex:none; max-width:100%; overflow:hidden; text-overflow:ellipsis; text-align:center;
@@ -201,7 +201,7 @@
   }
   .tport-scrub { grid-area:scrub; width:100%; min-width:0; height:28px; }
   .tport-b { grid-area:play; width:44px; height:44px; }
-  .tport-t { grid-area:title; align-self:end; max-width:none; font-size:13px; }
+  .tport-t { grid-area:title; align-self:end; max-width:none; font-size:0.8125rem; }
   /* Playhead renders the two times either side of the scrub; here they read as one line. */
   .tport-time:has(+ .tport-scrub) { grid-area:now; align-self:start; }
   .tport-scrub + .tport-time { grid-area:end; align-self:start; }
@@ -235,8 +235,8 @@
    column so the element is structural only — it must not be visible in the layout. */
 .edit-body { display:flex; flex-direction:column; gap:20px; }
 .bd-tblock { display:flex; flex-direction:column; gap:10px; min-width:0; flex:1; }
-.bd-t { margin:0; font-size:34px; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
-.bd-by { font-size:15px; font-weight:600; color:var(--ink-2); }
+.bd-t { margin:0; font-size:2.125rem; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
+.bd-by { font-size:0.9375rem; font-weight:600; color:var(--ink-2); }
 /* A byline name is a control, not decoration — same activation contract as `.contrib-row`. */
 .bd-by-name { cursor:pointer; border-radius:4px; }
 @media (hover: hover) { .bd-by-name:hover { color:var(--coral); text-decoration:underline; } }
@@ -246,7 +246,7 @@
 .bd-actions { display:flex; gap:10px; margin-top:4px; }
 /* The About body. `BookMarkdown` emits its own <p> runs, so the type lives here rather than as
    inline style on a single paragraph. */
-.bd-desc { font-size:14.5px; line-height:1.6; color:var(--ink-2); }
+.bd-desc { font-size:0.90625rem; line-height:1.6; color:var(--ink-2); }
 .bd-desc p { margin:0 0 14px; }
 .bd-desc p:last-child { margin-bottom:0; }
 .bd-desc a { color:var(--coral); }
@@ -261,21 +261,21 @@
 .rel-section { display:flex; flex-direction:column; gap:8px; }
 .rel-drop {
   align-self:flex-start; padding:4px 0; border:none; background:none; cursor:pointer;
-  font-family:inherit; font-size:12.5px; font-weight:600; color:var(--ink-3);
+  font-family:inherit; font-size:0.78125rem; font-weight:600; color:var(--ink-3);
 }
 @media (hover: hover) { .rel-drop:hover { color:var(--coral); } }
 .rel-add-roles { display:flex; flex-wrap:wrap; gap:8px; }
 .rel-add-role {
   padding:6px 12px; border-radius:999px; cursor:pointer;
   border:1.5px dashed var(--line); background:none; color:var(--ink-2);
-  font-family:inherit; font-size:13px; font-weight:600;
+  font-family:inherit; font-size:0.8125rem; font-weight:600;
 }
 @media (hover: hover) { .rel-add-role:hover { border-style:solid; border-color:var(--coral); color:var(--coral); } }
 /* Free text, not a number input: "1.5", "0" and "Prequel" are all real positions. */
 .rel-seq {
   width:52px; padding:2px 6px; border-radius:7px;
   border:1.5px solid var(--line); background:var(--surface);
-  font-family:inherit; font-size:12.5px; font-weight:600; color:var(--ink); text-align:center;
+  font-family:inherit; font-size:0.78125rem; font-weight:600; color:var(--ink); text-align:center;
 }
 .rel-seq:focus { outline:none; border-color:var(--coral); }
 /* ---- relation chips (genres, tags, moods, collections, series, contributors) ---- */
@@ -284,13 +284,13 @@
   display:inline-flex; align-items:center; gap:7px;
   padding:5px 6px 5px 12px; border-radius:999px;
   background:var(--surface-2); border:1.5px solid var(--line);
-  font-size:13px; font-weight:600; color:var(--ink);
+  font-size:0.8125rem; font-weight:600; color:var(--ink);
 }
 .rel-x {
   display:inline-flex; align-items:center; justify-content:center;
   width:20px; height:20px; padding:0; border:none; border-radius:50%;
   background:var(--surface-3); color:var(--ink-2);
-  font-family:inherit; font-size:14px; line-height:1; cursor:pointer;
+  font-family:inherit; font-size:0.875rem; line-height:1; cursor:pointer;
 }
 @media (hover: hover) { .rel-x:hover { background:var(--coral); color:var(--on-coral); } }
 .rel-results {
@@ -300,14 +300,14 @@
 }
 .rel-result {
   text-align:left; padding:10px 14px; border:none; background:none; cursor:pointer;
-  font-family:inherit; font-size:14px; color:var(--ink);
+  font-family:inherit; font-size:0.875rem; color:var(--ink);
 }
 /* Split: keyboard focus is not a pointer state and must reach a reader on any device. Only the
    hover half is gated below. */
 .rel-result:focus-visible { background:var(--surface-3); outline:none; }
 @media (hover: hover) { .rel-result:hover { background:var(--surface-3); outline:none; } }
 .rel-create { font-weight:700; color:var(--coral); }
-.rel-hint { padding:10px 14px; font-size:13.5px; color:var(--ink-3); }
+.rel-hint { padding:10px 14px; font-size:0.84375rem; color:var(--ink-3); }
 
 /* A search hit's two lines: the name, and what tells it apart from an identically-named record.
    Both inside the one button — the row is a single choice, so the subtitle is not its own control. */
@@ -334,14 +334,14 @@
 @media (hover: hover) { .cover-pick:hover { border-color:var(--coral); background:var(--surface); } }
 .cover-pick[disabled] { opacity:.55; cursor:default; }
 .cover-pick-disc { width:44px; height:44px; border-radius:50%; background:var(--coral-soft); color:var(--coral); display:flex; align-items:center; justify-content:center; }
-.cover-pick-main { font-size:15px; font-weight:600; color:var(--ink); }
-.cover-pick-sub { font-size:13px; font-weight:500; color:var(--ink-3); }
+.cover-pick-main { font-size:0.9375rem; font-weight:600; color:var(--ink); }
+.cover-pick-sub { font-size:0.8125rem; font-weight:500; color:var(--ink-3); }
 .edit-error {
   display:flex; align-items:center; justify-content:space-between; gap:16px;
   padding:14px 16px; border-radius:12px;
   background:var(--coral-soft); border:1.5px solid var(--coral); color:var(--ink);
 }
-.edit-error p { margin:0; font-size:14px; }
+.edit-error p { margin:0; font-size:0.875rem; }
 /* A text area is the one field whose height is content, not chrome, so it opts out of `.f-box`'s
    fixed height rather than fighting it. */
 .f-box-area { height:auto; padding:12px 15px; }
@@ -359,19 +359,19 @@
 .f-box-select:focus-within .f-caret { color:var(--coral); }
 .f-check {
   display:inline-flex; align-items:center; gap:10px; cursor:pointer;
-  font-size:14px; font-weight:600; color:var(--ink-2);
+  font-size:0.875rem; font-weight:600; color:var(--ink-2);
 }
 .f-check input { width:18px; height:18px; accent-color:var(--coral); cursor:pointer; }
 .bd-cols { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:var(--colgap); align-items:start; }
 .bd-main, .bd-side { display:flex; flex-direction:column; gap:var(--gap); min-width:0; }
 /* Retry sits at the end of the offline banner's single flex row, sized to it rather than to a
    page button. .banner already owns the colour; this is placement only. */
-.luw .bd-retry { margin-left:auto; height:30px; padding:0 12px; font-size:12.5px; border-radius:9px; }
+.luw .bd-retry { margin-left:auto; height:30px; padding:0 12px; font-size:0.78125rem; border-radius:9px; }
 /* A document row's open/download link. Sizing only: it borrows .btn-o's surface, border and
    :active press, because a row action that answered a pointer differently from every other button
    would read as a different kind of control. .btn-o's 40px is a page button's height, not a table
    row's. */
-.bd .doc-open { height:30px; padding:0 10px; font-size:12.5px; border-radius:9px; gap:5px; text-decoration:none; }
+.bd .doc-open { height:30px; padding:0 10px; font-size:0.78125rem; border-radius:9px; gap:5px; text-decoration:none; }
 /* the chapter map — the book as a strip; segment width is proportional to duration */
 .chmap { display:flex; gap:2px; height:34px; }
 .chmap button { flex:1 0 2px; min-width:2px; border-radius:3px; background:var(--surface-3); cursor:pointer; transition:background .12s; }
@@ -384,7 +384,7 @@
 @media (max-width: 759px) {
   .bd { padding:16px 14px 28px; gap:16px; }
   .bd-head { gap:16px; }
-  .bd-t { font-size:26px; }
+  .bd-t { font-size:1.625rem; }
 }
 
 /* ---- checkbox (table select) ---- */

@@ -5,7 +5,7 @@
 .f-wrap { position: relative; width: 100%; }
 .f-label {
   display: block; margin: 0 0 7px 2px;
-  font-size: 13px; font-weight: 600; letter-spacing: 0.01em; color: var(--ink-2);
+  font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.01em; color: var(--ink-2);
 }
 .f-box {
   display: flex; align-items: center; gap: 11px;
@@ -23,12 +23,12 @@
 }
 .f-box.err { border-color: var(--coral); }
 .f-box.err:focus-within { box-shadow: 0 0 0 4px var(--coral-ring); }
-.f-err { margin: 7px 0 0 2px; font-size: 13px; font-weight: 600; color: var(--coral); }
+.f-err { margin: 7px 0 0 2px; font-size: 0.8125rem; font-weight: 600; color: var(--coral); }
 .f-box .f-ico { color: var(--ink-3); flex-shrink: 0; transition: color .15s; }
 .f-box:focus-within .f-ico { color: var(--coral); }
 .f-input {
   flex: 1; min-width: 0; height: 100%; border: none; background: none; outline: none;
-  font-family: inherit; font-size: 16px; font-weight: 500; color: var(--ink);
+  font-family: inherit; font-size: 1rem; font-weight: 500; color: var(--ink);
   letter-spacing: -0.01em;
 }
 .f-input::placeholder { color: var(--ink-3); font-weight: 450; }
@@ -42,7 +42,7 @@
 /* dir-b "console" field — outlined on surface, sharper, mono caps label */
 .dir-b .f-label {
   font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.12em;
-  font-size: 11px; font-weight: 600; color: var(--ink-3); margin-left: 1px;
+  font-size: 0.6875rem; font-weight: 600; color: var(--ink-3); margin-left: 1px;
 }
 .dir-b .f-box {
   background: var(--surface); border-radius: 9px; height: 50px;

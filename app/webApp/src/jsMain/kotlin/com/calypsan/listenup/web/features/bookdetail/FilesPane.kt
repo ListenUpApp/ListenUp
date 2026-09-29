@@ -119,7 +119,7 @@ internal fun MachineNote(text: String) {
     Span(attrs = {
         classes("mono")
         style {
-            property("font-size", "11.5px")
+            property("font-size", "0.71875rem")
             property("color", "var(--ink-3)")
         }
     }) {
