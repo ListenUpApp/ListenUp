@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
 import com.calypsan.listenup.server.metadata.audible.AudibleChapter
 import com.calypsan.listenup.server.metadata.audible.AudibleContributor
+import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
 import com.calypsan.listenup.server.metadata.audible.AudibleSeriesEntry
 import com.calypsan.listenup.server.metadata.spi.BookContributorMeta
@@ -126,10 +127,15 @@ internal fun List<String>.toGenreMetas(): List<GenreMeta> =
  * `Float.toDouble()` widening carries the float's binary imprecision along with it (`4.8f` widens
  * to `4.800000190734863`), while Audible's `display_average_rating` is only ever one decimal digit
  * of real precision.
+ *
+ * [region] is the Audible storefront that actually answered — see
+ * [com.calypsan.listenup.server.services.MetadataService.getBookInAnyRegion] — and is stamped
+ * onto [ExternalRatingMeta.region] so a region-locked book's rating is attributed to the store
+ * that sells it, not the one the caller asked for.
  */
-internal fun AudibleBook.toExternalRatingMeta(): ExternalRatingMeta? =
+internal fun AudibleBook.toExternalRatingMeta(region: AudibleRegion = AudibleRegion.US): ExternalRatingMeta? =
     takeIf { rating > 0f && ratingCount > 0 }
-        ?.let { ExternalRatingMeta(average = rating.toString().toDouble(), count = ratingCount) }
+        ?.let { ExternalRatingMeta(average = rating.toString().toDouble(), count = ratingCount, region = region.code) }
 
 /**
  * Selects the single canonical cover from an Audible search: the first result carrying a

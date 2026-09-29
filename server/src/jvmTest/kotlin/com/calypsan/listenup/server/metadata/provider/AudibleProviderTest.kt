@@ -222,6 +222,44 @@ class AudibleProviderTest :
             }
         }
 
+        test("getRating falls through to the Audible storefront that actually sells a region-locked book") {
+            withSqlDatabase {
+                val caBook = audibleBook().copy(asin = "B071L4NKN4")
+                val audible =
+                    object : AudibleApi {
+                        override suspend fun search(
+                            region: AudibleRegion,
+                            params: SearchParams,
+                        ): AppResult<List<AudibleSearchResult>> = AppResult.Success(emptyList())
+
+                        override suspend fun getBook(
+                            region: AudibleRegion,
+                            asin: String,
+                        ): AppResult<AudibleBook?> = if (region == AudibleRegion.CA) AppResult.Success(caBook) else AppResult.Success(null)
+
+                        override suspend fun getChapters(
+                            region: AudibleRegion,
+                            asin: String,
+                        ): AppResult<List<AudibleChapter>> = AppResult.Success(emptyList())
+
+                        override suspend fun getProductTags(
+                            region: AudibleRegion,
+                            asin: String,
+                        ): AppResult<List<ProductTag>> = AppResult.Success(emptyList())
+                    }
+                val provider = AudibleProvider(testMetadataService(audible, sql))
+                runTest {
+                    val result =
+                        provider.getRating(BookIdentity(asin = "B071L4NKN4", title = "T"), MetadataLocale.DEFAULT)
+                    val meta = result.shouldBeInstanceOf<AppResult.Success<ExternalRatingMeta?>>().data
+                    meta.shouldNotBeNull()
+                    meta.average shouldBe 4.8
+                    meta.count shouldBe 100
+                    meta.region shouldBe "ca"
+                }
+            }
+        }
+
         test("getRating returns null for an unrated Audible book") {
             withSqlDatabase {
                 val unrated = audibleBook().copy(rating = 0f, ratingCount = 0)

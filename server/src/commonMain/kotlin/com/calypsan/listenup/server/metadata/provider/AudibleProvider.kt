@@ -45,6 +45,12 @@ import com.calypsan.listenup.server.services.MetadataService
  * lookups and to [defaultRegion] for ASIN-keyed lookups — the never-strand rule at the
  * provider edge. Proper locale plumbing lands with the region migration in a later step.
  *
+ * [getRating] is the one ASIN-keyed lookup that doesn't stop at a single storefront: some ASINs
+ * are region-locked (an Audible Canada title has no listing on .com, .co.uk or .com.au), so it
+ * walks stores via [MetadataService.getBookInAnyRegion] starting from the resolved region — see
+ * that method's KDoc for the store order and the stub-vs-failure distinction. `getBookCore` and
+ * the other ASIN-keyed lookups above are unchanged and still query a single region.
+ *
  * Server-internal: provider ids never cross the RPC wire.
  */
 internal class AudibleProvider(
@@ -122,8 +128,8 @@ internal class AudibleProvider(
     ): AppResult<ExternalRatingMeta?> {
         val asin = book.asin ?: return AppResult.Success(null)
         return metadataService
-            .getBook(regionFor(locale), asin, refresh = refresh)
-            .map { it?.toExternalRatingMeta() }
+            .getBookInAnyRegion(asin, preferred = regionFor(locale), refresh = refresh)
+            .map { regional -> regional?.let { it.book.toExternalRatingMeta(it.region) } }
     }
 
     /**

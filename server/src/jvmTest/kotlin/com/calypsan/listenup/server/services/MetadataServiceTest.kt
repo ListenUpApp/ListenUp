@@ -174,6 +174,79 @@ class MetadataServiceTest :
             }
         }
 
+        // ── getBookInAnyRegion ─────────────────────────────────────────────────
+
+        test("getBookInAnyRegion: a stub in the preferred region falls through to the store that sells it") {
+            withSqlDatabase {
+                val caBook = book("B071L4NKN4")
+                val audible =
+                    RegionAwareFakeAudibleApi(
+                        bookResults =
+                            mapOf(
+                                AudibleRegion.US to AppResult.Success(null), // stub / catalog miss
+                                AudibleRegion.CA to AppResult.Success(caBook),
+                            ),
+                    )
+                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
+                runTest {
+                    val result = service.getBookInAnyRegion("B071L4NKN4", preferred = AudibleRegion.US)
+                    val regional = (result as AppResult.Success).data
+                    regional.shouldNotBeNull()
+                    regional.book shouldBe caBook
+                    regional.region shouldBe AudibleRegion.CA
+                    audible.bookCallOrder shouldBe listOf(AudibleRegion.US, AudibleRegion.CA)
+                }
+            }
+        }
+
+        test("getBookInAnyRegion: the preferred region answering first means no other store is asked") {
+            withSqlDatabase {
+                val caBook = book("B01")
+                val audible = RegionAwareFakeAudibleApi(bookResults = mapOf(AudibleRegion.CA to AppResult.Success(caBook)))
+                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
+                runTest {
+                    val result = service.getBookInAnyRegion("B01", preferred = AudibleRegion.CA)
+                    val regional = (result as AppResult.Success).data
+                    regional.shouldNotBeNull()
+                    regional.region shouldBe AudibleRegion.CA
+                    audible.bookCallOrder shouldBe listOf(AudibleRegion.CA)
+                }
+            }
+        }
+
+        test("getBookInAnyRegion: every store answering a stub converges on Success(null)") {
+            withSqlDatabase {
+                val audible = RegionAwareFakeAudibleApi(bookResults = emptyMap())
+                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
+                runTest {
+                    val result = service.getBookInAnyRegion("GHOST", preferred = AudibleRegion.US)
+                    (result as AppResult.Success).data.shouldBeNull()
+                    audible.bookCallOrder.size shouldBe AudibleRegion.entries.size
+                    audible.bookCallOrder.toSet().size shouldBe AudibleRegion.entries.size // each store once
+                }
+            }
+        }
+
+        test("getBookInAnyRegion: a failure in the preferred store stops the walk and is returned as-is") {
+            withSqlDatabase {
+                val failure = AppResult.Failure(MetadataError.ExternalUnavailable())
+                val audible =
+                    RegionAwareFakeAudibleApi(
+                        bookResults =
+                            mapOf(
+                                AudibleRegion.US to failure,
+                                AudibleRegion.CA to AppResult.Success(book("B01")),
+                            ),
+                    )
+                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
+                runTest {
+                    val result = service.getBookInAnyRegion("B01", preferred = AudibleRegion.US)
+                    result shouldBe failure
+                    audible.bookCallOrder shouldBe listOf(AudibleRegion.US) // CA never asked
+                }
+            }
+        }
+
         // ── getBookChapters ────────────────────────────────────────────────────
 
         test("getBookChapters caches the result; second call does not hit AudibleApi") {
@@ -309,6 +382,36 @@ private open class FakeAudibleApi(
             chapterCalls++
             chaptersResult
         }
+
+    override suspend fun getProductTags(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<List<ProductTag>> = AppResult.Success(emptyList())
+}
+
+/** [AudibleApi] fake whose [getBook] answer varies by region — a store not in [bookResults] is a stub. */
+private class RegionAwareFakeAudibleApi(
+    private val bookResults: Map<AudibleRegion, AppResult<AudibleBook?>>,
+) : AudibleApi {
+    val bookCallOrder = mutableListOf<AudibleRegion>()
+
+    override suspend fun search(
+        region: AudibleRegion,
+        params: SearchParams,
+    ): AppResult<List<AudibleSearchResult>> = AppResult.Success(emptyList())
+
+    override suspend fun getBook(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<AudibleBook?> {
+        bookCallOrder += region
+        return bookResults[region] ?: AppResult.Success(null)
+    }
+
+    override suspend fun getChapters(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<List<AudibleChapter>> = AppResult.Success(emptyList())
 
     override suspend fun getProductTags(
         region: AudibleRegion,

@@ -25,6 +25,15 @@ import kotlinx.serialization.json.Json
 private val log = loggerFor<MetadataService>()
 
 /**
+ * A book found via [MetadataService.getBookInAnyRegion]: the [book] itself, together with the
+ * [region] whose storefront actually answered — which may differ from the region requested.
+ */
+data class RegionalBook(
+    val book: AudibleBook,
+    val region: AudibleRegion,
+)
+
+/**
  * Orchestrator for external metadata lookups. Wraps [AudibleApi] + [ITunesApi]
  * with TTL caching through [MetadataCacheRepository]. Implements region-aware
  * fallback: the configured [defaultRegion] is tried first; if results are empty
@@ -148,6 +157,47 @@ internal class MetadataService(
             fetch = { audible.getChapters(region, asin) },
             serializer = ListSerializer(AudibleChapter.serializer()),
         )
+
+    /**
+     * Looks up [asin] across Audible storefronts until one actually sells the book, returning it
+     * together with the [AudibleRegion] whose storefront answered.
+     *
+     * Some ASINs are region-locked: Audible answers a title-less stub for a storefront that
+     * doesn't carry the book, which [getBook] already folds into `Success(null)` (see
+     * `RawProduct.isStub`) — that is a "not sold *here*", not a "doesn't exist" signal. So a
+     * `Success(null)` from one store moves the walk on to the next; if every store answers that
+     * way, the walk itself converges on `Success(null)`.
+     *
+     * A [AppResult.Failure] (network error, 5xx, rate limit) stops the walk immediately and is
+     * returned as-is — trying the next store on a transient outage would silently mask it as
+     * "this book isn't sold anywhere," which is a worse lie than just failing.
+     *
+     * Store order: [preferred] first, then US, CA, UK, AU, then every other [AudibleRegion] entry
+     * — each store visited at most once.
+     *
+     * Reuses [getBook] per store, so its TTL cache and the per-region `AudibleRateLimiter` apply
+     * unchanged.
+     */
+    suspend fun getBookInAnyRegion(
+        asin: String,
+        preferred: AudibleRegion,
+        refresh: Boolean = false,
+    ): AppResult<RegionalBook?> {
+        for (region in regionWalkOrder(preferred)) {
+            when (val result = getBook(region, asin, refresh)) {
+                is AppResult.Failure -> return result
+                is AppResult.Success -> result.data?.let { return AppResult.Success(RegionalBook(it, region)) }
+            }
+        }
+        return AppResult.Success(null)
+    }
+
+    /** [preferred] first, then US/CA/UK/AU, then every remaining [AudibleRegion] entry — no duplicates. */
+    private fun regionWalkOrder(preferred: AudibleRegion): List<AudibleRegion> {
+        val priority =
+            listOf(preferred, AudibleRegion.US, AudibleRegion.CA, AudibleRegion.UK, AudibleRegion.AU).distinct()
+        return priority + AudibleRegion.entries.filterNot { it in priority }
+    }
 
     /**
      * Delegates cover-art lookup to [ITunesApi]. iTunes is uncached at this

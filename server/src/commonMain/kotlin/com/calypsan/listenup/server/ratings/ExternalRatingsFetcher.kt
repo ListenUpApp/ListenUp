@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
+import com.calypsan.listenup.server.metadata.spi.ExternalRatingMeta
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.metadata.spi.RatingSource
 import com.calypsan.listenup.server.services.BookRepository
@@ -26,8 +27,11 @@ private val logger = loggerFor<ExternalRatingsFetcher>()
  *
  * Three call sites: applying a metadata match, the nightly sweep, and an admin's explicit refresh
  * request — each hands this the [locale] it wants the fetch run in (the server's configured
- * metadata region); [BookExternalRatingRepository.recordFetch] stores that region on the row, and
- * the sweep reuses it on the next pass.
+ * metadata region). A source may answer from a *different* store than the one requested (Audible
+ * is region-locked — see [com.calypsan.listenup.server.services.MetadataService.getBookInAnyRegion]),
+ * so [BookExternalRatingRepository.recordFetch] stores the region the source's [ExternalRatingMeta]
+ * says actually answered, not the requested [locale] — and the sweep reuses that stored region on
+ * the next pass, converging on the right store instead of retrying the wrong one forever.
  */
 open class ExternalRatingsFetcher(
     private val registry: MetadataProviderRegistry,
@@ -97,7 +101,7 @@ open class ExternalRatingsFetcher(
                                 source = source.ratingSource,
                                 average = meta.average,
                                 count = meta.count,
-                                region = locale.region,
+                                region = meta.region,
                                 fetchedAt = now,
                             )
                         }

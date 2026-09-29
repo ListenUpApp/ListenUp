@@ -289,6 +289,39 @@ class ExternalRatingsFetcherTest :
             }
         }
 
+        test("the fetcher stores the region a source answered from, not the region requested") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1", asin = "B071L4NKN4")
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val books = sql.bookRepo(bus, registry, driver)
+                val ratings = BookExternalRatingRepository(db = sql, bus = bus, registry = registry, driver = driver)
+                val settings = RatingSourceSettings(ServerSettingsRepository(sql, RegistrationPolicy.CLOSED))
+                val audible =
+                    FakeRatingSource(
+                        MetadataProviderId.AUDIBLE,
+                        ExternalRatingSource.AUDIBLE,
+                        // Audible Canada answered even though the fetch was requested in "us".
+                        result = AppResult.Success(ExternalRatingMeta(4.5, 63, region = "ca")),
+                    )
+                val fetcher =
+                    ExternalRatingsFetcher(
+                        registry = MetadataProviderRegistry(listOf(audible)),
+                        ratings = ratings,
+                        sourceSettings = settings,
+                        books = books,
+                        clock = FixedClock(now),
+                    )
+
+                runTest {
+                    fetcher.fetch(BookId("book1"), MetadataLocale(region = "us"), refresh = false)
+
+                    ratings.regionForBook("book1") shouldBe "ca"
+                }
+            }
+        }
+
         test("a permanently failing book does not starve the rest") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
