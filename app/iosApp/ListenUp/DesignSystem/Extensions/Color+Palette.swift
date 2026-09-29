@@ -10,13 +10,13 @@ import SwiftUI
 /// contexts").
 extension Color {
     /// Leaderboard podium: gold, silver, bronze.
-    static let luPodiumGold = legible(red: 0.851, green: 0.604, blue: 0.071)
-    static let luPodiumSilver = legible(red: 0.557, green: 0.584, blue: 0.639)
-    static let luPodiumBronze = legible(red: 0.753, green: 0.478, blue: 0.220)
+    static let luPodiumGold = Color.legible(red: 0.851, green: 0.604, blue: 0.071)
+    static let luPodiumSilver = Color.legible(red: 0.557, green: 0.584, blue: 0.639)
+    static let luPodiumBronze = Color.legible(red: 0.753, green: 0.478, blue: 0.220)
 
     /// Licence families on the Licences screen: Apache-2.0 blue (#2A6FDB), MIT green (#1F8A5B).
-    static let luLicenseApache = legible(red: 0.165, green: 0.435, blue: 0.859)
-    static let luLicenseMIT = legible(red: 0.122, green: 0.541, blue: 0.357)
+    static let luLicenseApache = Color.legible(red: 0.165, green: 0.435, blue: 0.859)
+    static let luLicenseMIT = Color.legible(red: 0.122, green: 0.541, blue: 0.357)
 
     private static func legible(red: Double, green: Double, blue: Double) -> Color {
         CoverTint.clamp(red: red, green: green, blue: blue).color

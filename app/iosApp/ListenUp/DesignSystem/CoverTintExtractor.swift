@@ -120,7 +120,9 @@ struct CoverTint: Equatable, Sendable {
         return Resolution(saturation: saturation, brightness: brightness)
     }
 
-    private static func hsb(red: Double, green: Double, blue: Double) -> (hue: Double, saturation: Double, brightness: Double) {
+    private static func hsb(
+        red: Double, green: Double, blue: Double
+    ) -> (hue: Double, saturation: Double, brightness: Double) {
         let maximum = max(red, green, blue)
         let delta = maximum - min(red, green, blue)
         guard delta > 0 else { return (0, 0, maximum) }

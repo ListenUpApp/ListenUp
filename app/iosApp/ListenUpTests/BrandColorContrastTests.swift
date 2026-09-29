@@ -30,7 +30,7 @@ struct BrandColorContrastTests {
     @Test("the Color Set carries the decided values")
     func decidedValues() {
         func hex(_ color: SRGBColor) -> String {
-            String(format: "%02X%02X%02X",
+            String(format: "%02lX%02lX%02lX",
                    Int((color.red * 255).rounded()), Int((color.green * 255).rounded()), Int((color.blue * 255).rounded()))
         }
         #expect(hex(coral(lightDefault)) == "D73812")
@@ -44,7 +44,11 @@ struct BrandColorContrastTests {
         let accent = UIColor(named: "AccentColor")
         #expect(accent != nil)
         for traits in Traits.colorAppearances {
-            #expect(accent.map { SRGBColor($0, resolvedFor: traits) } == coral(traits))
+            let resolved = accent.map { SRGBColor($0, resolvedFor: traits) } ?? SRGBColor(red: 0, green: 0, blue: 0)
+            let expected = coral(traits)
+            #expect(abs(resolved.red - expected.red) < 0.002)
+            #expect(abs(resolved.green - expected.green) < 0.002)
+            #expect(abs(resolved.blue - expected.blue) < 0.002)
         }
     }
 

@@ -7,13 +7,24 @@ import UIKit
 struct CoverTintExtractorTests {
     private let surfaces = CoverTint.Surfaces.system
 
-    /// Every appearance, its surfaces, the contrast its tint is solved to, and the on-tint ink.
-    private var appearances: [(name: String, traits: UITraitCollection, surfaces: [SRGBColor], target: Double)] {
+    /// One appearance: its traits, its surfaces, and the contrast its tint is solved to.
+    private struct Appearance {
+        let name: String
+        let traits: UITraitCollection
+        let surfaces: [SRGBColor]
+        let target: Double
+    }
+
+    private var appearances: [Appearance] {
         [
-            ("light", .appearance(.light, contrast: .normal), surfaces.light, ContrastMinimum.text),
-            ("dark", .appearance(.dark, contrast: .normal), surfaces.dark, ContrastMinimum.text),
-            ("light+HC", .appearance(.light, contrast: .high), surfaces.lightHighContrast, CoverTint.highContrastTarget),
-            ("dark+HC", .appearance(.dark, contrast: .high), surfaces.darkHighContrast, CoverTint.highContrastTarget)
+            Appearance(name: "light", traits: .appearance(.light, contrast: .normal),
+                       surfaces: surfaces.light, target: ContrastMinimum.text),
+            Appearance(name: "dark", traits: .appearance(.dark, contrast: .normal),
+                       surfaces: surfaces.dark, target: ContrastMinimum.text),
+            Appearance(name: "light+HC", traits: .appearance(.light, contrast: .high),
+                       surfaces: surfaces.lightHighContrast, target: CoverTint.highContrastTarget),
+            Appearance(name: "dark+HC", traits: .appearance(.dark, contrast: .high),
+                       surfaces: surfaces.darkHighContrast, target: CoverTint.highContrastTarget)
         ]
     }
 

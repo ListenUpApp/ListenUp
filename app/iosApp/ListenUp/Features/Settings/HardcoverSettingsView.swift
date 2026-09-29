@@ -463,7 +463,7 @@ private struct HardcoverSecondaryButton: View {
         .buttonStyle(.glass)
         .buttonBorderShape(.capsule)
         .controlSize(.large)
-        .tint(role == .destructive ? .red : nil)
+        .tint(role == .destructive ? Color.red : nil)
     }
 }
 
