@@ -20,6 +20,8 @@ struct EditSheetScaffold<Content: View>: View {
                 content()
                     .padding(.vertical, 12)
             }
+            // Dragging the form down pulls the keyboard with it, the way Notes and Mail do.
+            .scrollDismissesKeyboard(.interactively)
             .background(Color.luSurface)
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)

@@ -89,6 +89,9 @@ struct AuthScaffold<Content: View, Footer: View>: View {
             .frame(maxWidth: .infinity)
             .padding(40)
         }
+        // iPad's on-screen keyboard covers half the card; dragging the card dismisses it, as on
+        // the compact branch.
+        .scrollDismissesKeyboard(.interactively)
         .overlay(alignment: .topLeading) {
             if let nav {
                 GlassNavPill(systemImage: nav.systemImage, label: nav.label, action: nav.action)

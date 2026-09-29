@@ -11,6 +11,7 @@ struct BookEditView: View {
     @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
     @State private var observer: BookEditObserver?
+    @FocusState private var focusedField: BookEditFocusField?
 
     var body: some View {
         Group {
@@ -94,24 +95,33 @@ struct BookEditView: View {
                 placeholder: "",
                 text: Binding(get: { observer.title }, set: { observer.setTitle($0) }),
                 entry: .words,
-                label: String(localized: "book.edit_title_field")
+                label: String(localized: "book.edit_title_field"),
+                submitLabel: BookEditFocusField.title.submitLabel(last: .done),
+                onSubmit: { advance(from: .title) }
             )
+            .focused($focusedField, equals: .title)
             .fieldCard()
 
             AppTextField(
                 placeholder: String(localized: "book.edit_add_subtitle"),
                 text: Binding(get: { observer.subtitle }, set: { observer.setSubtitle($0) }),
                 entry: .words,
-                label: String(localized: "book.edit_subtitle")
+                label: String(localized: "book.edit_subtitle"),
+                submitLabel: BookEditFocusField.subtitle.submitLabel(last: .done),
+                onSubmit: { advance(from: .subtitle) }
             )
+            .focused($focusedField, equals: .subtitle)
             .fieldCard()
 
             AppTextField(
                 placeholder: String(localized: "book.edit_eg_lord_of_the_rings"),
                 text: Binding(get: { observer.sortTitle }, set: { observer.setSortTitle($0) }),
                 entry: .words,
-                label: String(localized: "book.edit_sort_title")
+                label: String(localized: "book.edit_sort_title"),
+                submitLabel: BookEditFocusField.sortTitle.submitLabel(last: .done),
+                onSubmit: { advance(from: .sortTitle) }
             )
+            .focused($focusedField, equals: .sortTitle)
             .fieldCard()
 
             AppTextField(
@@ -125,6 +135,12 @@ struct BookEditView: View {
         }
     }
 
+    /// Return moves along a run of single-line fields; at the end of a run it puts the keyboard
+    /// away. Saving stays on the Done button — a Return that saved a whole book would be a surprise.
+    private func advance(from field: BookEditFocusField) {
+        FormFocus.advance(from: field, focus: $focusedField) { focusedField = nil }
+    }
+
     /// Catalog metadata at the bottom of the form (positions 12–18): Publisher, Year, Language,
     /// ISBN, ASIN, Abridged, Date Added. Mirrors Android's Publishing → Identifiers → Library cards.
     @ViewBuilder
@@ -134,16 +150,22 @@ struct BookEditView: View {
                 placeholder: "",
                 text: Binding(get: { observer.publisher }, set: { observer.setPublisher($0) }),
                 entry: .words,
-                label: String(localized: "book.edit_publisher")
+                label: String(localized: "book.edit_publisher"),
+                submitLabel: BookEditFocusField.publisher.submitLabel(last: .done),
+                onSubmit: { advance(from: .publisher) }
             )
+            .focused($focusedField, equals: .publisher)
             .fieldCard()
 
             AppTextField(
                 placeholder: "",
                 text: Binding(get: { observer.publishYear }, set: { observer.setPublishYear($0) }),
                 entry: .number,
-                label: String(localized: "book.edit_year")
+                label: String(localized: "book.edit_year"),
+                submitLabel: BookEditFocusField.year.submitLabel(last: .done),
+                onSubmit: { advance(from: .year) }
             )
+            .focused($focusedField, equals: .year)
             .fieldCard()
 
             languageField(observer)
@@ -152,16 +174,22 @@ struct BookEditView: View {
                 placeholder: "",
                 text: Binding(get: { observer.isbn }, set: { observer.setIsbn($0) }),
                 entry: .identifier,
-                label: String(localized: "book.edit_isbn")
+                label: String(localized: "book.edit_isbn"),
+                submitLabel: BookEditFocusField.isbn.submitLabel(last: .done),
+                onSubmit: { advance(from: .isbn) }
             )
+            .focused($focusedField, equals: .isbn)
             .fieldCard()
 
             AppTextField(
                 placeholder: "",
                 text: Binding(get: { observer.asin }, set: { observer.setAsin($0) }),
                 entry: .identifier,
-                label: String(localized: "book.edit_asin")
+                label: String(localized: "book.edit_asin"),
+                submitLabel: BookEditFocusField.asin.submitLabel(last: .done),
+                onSubmit: { advance(from: .asin) }
             )
+            .focused($focusedField, equals: .asin)
             .fieldCard()
 
             abridgedField(observer)

@@ -27,6 +27,7 @@ struct LoginView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var showingClaimInvite = false
+    @FocusState private var focusedField: LoginFocusField?
 
     // MARK: - Initialization
 
@@ -74,16 +75,35 @@ struct LoginView: View {
                 entry: .email,
                 icon: "envelope",
                 error: viewModel.emailError,
-                isLast: false
+                isLast: false,
+                submitLabel: LoginFocusField.email.submitLabel(last: .go),
+                onSubmit: { advance(from: .email) }
             )
+            .focused($focusedField, equals: .email)
             AppTextField(
                 placeholder: String(localized: "auth.password_label"),
                 text: $password,
                 entry: .password,
                 kind: .secure,
-                error: viewModel.passwordError
+                error: viewModel.passwordError,
+                submitLabel: LoginFocusField.password.submitLabel(last: .go),
+                onSubmit: { advance(from: .password) }
             )
+            .focused($focusedField, equals: .password)
         }
+    }
+
+    /// Return moves Email → Password; Return in Password signs in, the same as the button.
+    private func advance(from field: LoginFocusField) {
+        FormFocus.advance(from: field, focus: $focusedField) {
+            if canSignIn { signIn() }
+        }
+    }
+
+    private var canSignIn: Bool { !email.isEmpty && !password.isEmpty && !viewModel.isLoading }
+
+    private func signIn() {
+        viewModel.login(email: email, password: password)
     }
 
     private var signInButton: some View {
@@ -91,7 +111,7 @@ struct LoginView: View {
             title: String(localized: "auth.sign_in"),
             isLoading: viewModel.isLoading
         ) {
-            viewModel.login(email: email, password: password)
+            signIn()
         }
         .disabled(email.isEmpty || password.isEmpty)
     }

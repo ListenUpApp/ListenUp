@@ -16,6 +16,7 @@ struct SetupView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var confirm = ""
+    @FocusState private var focusedField: SetupFocusField?
 
     // MARK: - Initialization
 
@@ -64,16 +65,22 @@ struct SetupView: View {
                 icon: "person",
                 error: viewModel.validationField == .firstName
                     ? String(localized: "setup.error_first_name_required") : nil,
-                isLast: false
+                isLast: false,
+                submitLabel: SetupFocusField.firstName.submitLabel(last: .done),
+                onSubmit: { advance(from: .firstName) }
             )
+            .focused($focusedField, equals: .firstName)
             AppTextField(
                 placeholder: String(localized: "auth.last_name"),
                 text: $lastName,
                 entry: .familyName,
                 icon: "person",
                 error: viewModel.validationField == .lastName
-                    ? String(localized: "setup.error_last_name_required") : nil
+                    ? String(localized: "setup.error_last_name_required") : nil,
+                submitLabel: SetupFocusField.lastName.submitLabel(last: .done),
+                onSubmit: { advance(from: .lastName) }
             )
+            .focused($focusedField, equals: .lastName)
         }
     }
 
@@ -85,8 +92,11 @@ struct SetupView: View {
                 entry: .email,
                 icon: "envelope",
                 error: viewModel.validationField == .email
-                    ? String(localized: "auth.invalid_email") : nil
+                    ? String(localized: "auth.invalid_email") : nil,
+                submitLabel: SetupFocusField.email.submitLabel(last: .done),
+                onSubmit: { advance(from: .email) }
             )
+            .focused($focusedField, equals: .email)
         }
     }
 
@@ -99,15 +109,21 @@ struct SetupView: View {
                 kind: .secure,
                 error: viewModel.validationField == .password
                     ? String(localized: "setup.error_weak_password") : nil,
-                isLast: false
+                isLast: false,
+                submitLabel: SetupFocusField.password.submitLabel(last: .done),
+                onSubmit: { advance(from: .password) }
             )
+            .focused($focusedField, equals: .password)
             AppTextField(
                 placeholder: String(localized: "auth.confirm_password"),
                 text: $confirm,
                 entry: .newPassword,
                 kind: .secure,
-                error: confirmError
+                error: confirmError,
+                submitLabel: SetupFocusField.confirmPassword.submitLabel(last: .done),
+                onSubmit: { advance(from: .confirmPassword) }
             )
+            .focused($focusedField, equals: .confirmPassword)
         }
     }
 
@@ -128,15 +144,27 @@ struct SetupView: View {
             title: String(localized: "auth.create_account"),
             isLoading: viewModel.isLoading
         ) {
-            viewModel.submit(
-                firstName: firstName,
-                lastName: lastName,
-                email: email,
-                password: password,
-                confirm: confirm
-            )
+            submit()
         }
         .disabled(!isFormReady)
+    }
+
+    /// Return walks the fields; Return in Confirm Password creates the account once the form is
+    /// ready, exactly as the button would.
+    private func advance(from field: SetupFocusField) {
+        FormFocus.advance(from: field, focus: $focusedField) {
+            if isFormReady, !viewModel.isLoading { submit() }
+        }
+    }
+
+    private func submit() {
+        viewModel.submit(
+            firstName: firstName,
+            lastName: lastName,
+            email: email,
+            password: password,
+            confirm: confirm
+        )
     }
 
     /// All fields filled and passwords match client-side before we even hit the network.

@@ -24,6 +24,7 @@ struct ClaimInviteView: View {
     @State private var lastName = ""
     @State private var password = ""
     @State private var didStart = false
+    @FocusState private var focusedField: ClaimInviteFocusField?
 
     // MARK: - Initialization
 
@@ -89,7 +90,9 @@ struct ClaimInviteView: View {
                     placeholder: String(localized: "invite.code_placeholder"),
                     text: $code,
                     entry: .identifier,
-                    icon: "ticket"
+                    icon: "ticket",
+                    submitLabel: .continue,
+                    onSubmit: { if canLookUp { wrapper.lookUp(code: code) } }
                 )
             }
         } footer: {
@@ -99,7 +102,7 @@ struct ClaimInviteView: View {
             ) {
                 wrapper.lookUp(code: code)
             }
-            .disabled(code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(!canLookUp)
         }
     }
 
@@ -169,32 +172,56 @@ struct ClaimInviteView: View {
                         text: $firstName,
                         entry: .givenName,
                         icon: "person",
-                        isLast: false
+                        isLast: false,
+                        submitLabel: ClaimInviteFocusField.firstName.submitLabel(last: .join),
+                        onSubmit: { advance(from: .firstName) }
                     )
+                    .focused($focusedField, equals: .firstName)
                     AppTextField(
                         placeholder: String(localized: "auth.last_name"),
                         text: $lastName,
                         entry: .familyName,
                         icon: "person",
-                        isLast: false
+                        isLast: false,
+                        submitLabel: ClaimInviteFocusField.lastName.submitLabel(last: .join),
+                        onSubmit: { advance(from: .lastName) }
                     )
+                    .focused($focusedField, equals: .lastName)
                     AppTextField(
                         placeholder: String(localized: "auth.password_label"),
                         text: $password,
                         entry: .newPassword,
-                        kind: .secure
+                        kind: .secure,
+                        submitLabel: ClaimInviteFocusField.password.submitLabel(last: .join),
+                        onSubmit: { advance(from: .password) }
                     )
+                    .focused($focusedField, equals: .password)
                 }
             } footer: {
                 AuthPrimaryButton(
                     title: String(localized: "invite.get_started"),
                     isLoading: false
                 ) {
-                    wrapper.claim(password: password, firstName: firstName, lastName: lastName)
+                    claim()
                 }
-                .disabled(firstName.isEmpty || lastName.isEmpty || password.isEmpty)
+                .disabled(!canClaim)
             }
         }
+    }
+
+    private var canLookUp: Bool { !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    private var canClaim: Bool { !firstName.isEmpty && !lastName.isEmpty && !password.isEmpty }
+
+    /// Return walks the name fields to the password; Return there joins, as the button would.
+    private func advance(from field: ClaimInviteFocusField) {
+        FormFocus.advance(from: field, focus: $focusedField) {
+            if canClaim { claim() }
+        }
+    }
+
+    private func claim() {
+        wrapper.claim(password: password, firstName: firstName, lastName: lastName)
     }
 
     private func errorScreen(message: String) -> some View {

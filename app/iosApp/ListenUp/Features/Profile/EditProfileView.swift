@@ -13,6 +13,7 @@ struct EditProfileView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var observer: EditProfileObserver?
+    @FocusState private var focusedField: EditProfileFocusField?
 
     /// The two-column layout kicks in past this width — wide enough to hold Tagline and
     /// Name side by side with comfortable margins, narrow enough that every iPhone and
@@ -140,8 +141,11 @@ struct EditProfileView: View {
                     placeholder: String(localized: "profile.tagline_placeholder"),
                     text: binding(observer.tagline, observer.setTagline),
                     entry: .sentences,
-                    label: String(localized: "profile.tagline")
+                    label: String(localized: "profile.tagline"),
+                    submitLabel: EditProfileFocusField.tagline.submitLabel(last: .done),
+                    onSubmit: { advance(from: .tagline) }
                 )
+                .focused($focusedField, equals: .tagline)
                 .fieldCard()
 
                 Text(taglineCount(observer.tagline))
@@ -164,14 +168,20 @@ struct EditProfileView: View {
                     text: binding(observer.firstName, observer.setFirstName),
                     entry: .givenName,
                     label: String(localized: "auth.first_name"),
-                    isLast: false
+                    isLast: false,
+                    submitLabel: EditProfileFocusField.firstName.submitLabel(last: .done),
+                    onSubmit: { advance(from: .firstName) }
                 )
+                .focused($focusedField, equals: .firstName)
                 AppTextField(
                     placeholder: String(localized: "auth.last_name_placeholder"),
                     text: binding(observer.lastName, observer.setLastName),
                     entry: .familyName,
-                    label: String(localized: "auth.last_name")
+                    label: String(localized: "auth.last_name"),
+                    submitLabel: EditProfileFocusField.lastName.submitLabel(last: .done),
+                    onSubmit: { advance(from: .lastName) }
                 )
+                .focused($focusedField, equals: .lastName)
             }
             .fieldCard()
         }
@@ -190,26 +200,41 @@ struct EditProfileView: View {
                     entry: .password,
                     label: String(localized: "profile.current_password"),
                     kind: .secure,
-                    isLast: false
+                    isLast: false,
+                    submitLabel: EditProfileFocusField.currentPassword.submitLabel(last: .done),
+                    onSubmit: { advance(from: .currentPassword) }
                 )
+                .focused($focusedField, equals: .currentPassword)
                 AppTextField(
                     placeholder: String(localized: "profile.new_password"),
                     text: binding(observer.newPassword, observer.setNewPassword),
                     entry: .newPassword,
                     label: String(localized: "profile.new_password"),
                     kind: .secure,
-                    isLast: false
+                    isLast: false,
+                    submitLabel: EditProfileFocusField.newPassword.submitLabel(last: .done),
+                    onSubmit: { advance(from: .newPassword) }
                 )
+                .focused($focusedField, equals: .newPassword)
                 AppTextField(
                     placeholder: String(localized: "auth.confirm_password"),
                     text: binding(observer.confirmPassword, observer.setConfirmPassword),
                     entry: .newPassword,
                     label: String(localized: "auth.confirm_password"),
-                    kind: .secure
+                    kind: .secure,
+                    submitLabel: EditProfileFocusField.confirmPassword.submitLabel(last: .done),
+                    onSubmit: { advance(from: .confirmPassword) }
                 )
+                .focused($focusedField, equals: .confirmPassword)
             }
             .fieldCard()
         }
+    }
+
+    /// Return moves within the name pair and the password trio; the end of a run puts the
+    /// keyboard away. Saving stays on the Done button.
+    private func advance(from field: EditProfileFocusField) {
+        FormFocus.advance(from: field, focus: $focusedField) { focusedField = nil }
     }
 
     // MARK: - Derived
