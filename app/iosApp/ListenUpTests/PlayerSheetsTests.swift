@@ -29,7 +29,13 @@ struct PlayerSheetsTests {
         ("pl_PL", 120, "2 godziny"), ("pl_PL", 300, "5 godzin")
     ])
     func formatsInTheReadersLanguageWithItsPluralRules(locale: String, minutes: Int, expected: String) {
-        #expect(SleepTimerOption.formatDuration(minutes, locale: Locale(identifier: locale)) == expected)
+        let label = SleepTimerOption.formatDuration(minutes, locale: Locale(identifier: locale))
+        #expect(Self.plainSpaces(label) == expected)
+    }
+
+    /// French sets a no-break space between number and unit; which space is typography, not wording.
+    private static func plainSpaces(_ text: String) -> String {
+        text.replacingOccurrences(of: "\u{00A0}", with: " ").replacingOccurrences(of: "\u{202F}", with: " ")
     }
 
     // MARK: - Boost formatting
