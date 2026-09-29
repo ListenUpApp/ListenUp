@@ -6,6 +6,12 @@
 .luw { --ctl:44px; --row:48px; --fs:0.90625rem; --fsm:0.8125rem; --fxs:0.71875rem; --pad:22px; --rad:14px; --gap:16px; --colgap:22px; }
 .den-dense { --ctl:34px; --row:34px; --fs:0.8125rem; --fsm:0.75rem; --fxs:0.6875rem; --pad:14px; --rad:9px; --gap:10px; --colgap:14px; }
 
+/* utility */
+.fill { position: absolute; inset: 0; }
+
+/* scanning pulse — a search that is still looking */
+@keyframes scanPulse { 0%,100% { opacity: 1; box-shadow: 0 0 0 0 var(--coral-ring); } 50% { opacity: .5; box-shadow: 0 0 0 5px transparent; } }
+
 /* real focus rings — the web's own affordance */
 .luw :focus-visible { outline: 2.5px solid var(--coral); outline-offset: 2px; border-radius: 6px; }
 /* …except the text control inside a field box: `.f-box:focus-within` already draws the ring
@@ -13,13 +19,9 @@
    highlight. Only `.f-input` opts out: the eye button in a password field keeps the generic
    ring, because the box ring alone cannot show WHICH control inside the box holds focus. */
 .luw .f-box .f-input:focus-visible { outline: none; }
-.focus-demo { outline: 2.5px solid var(--coral); outline-offset: 2px; }
 
 /* keycap */
 .kbd { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 5px; font-family:var(--mono); font-size:var(--fs-caption); font-weight:600; color:var(--ink-2); background:var(--surface); border:1px solid var(--line); border-bottom-width:2px; border-radius:6px; white-space:nowrap; }
-
-/* URL query-string emphasis — deep-linkable state made visible */
-.chrome-url i, .murl i { font-style: normal; color: var(--coral-text); font-weight: 600; }
 
 /* ---- table / data rows ---- */
 /* A data table's columns are there to be compared, so on a narrow screen the table scrolls
@@ -54,8 +56,6 @@
 .tbl tbody tr.sel { background:var(--coral-soft); }
 .tbl tbody tr.on td { color:var(--coral-text); font-weight:700; }
 .tbl .num { font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--ink-2); text-align:right; white-space:nowrap; font-size:calc(var(--fs) - 0.0625rem); }
-.tbl .tt { font-weight:700; letter-spacing:-.01em; }
-.tbl .sub { font-size:var(--fxs); color:var(--ink-3); font-weight:500; }
 .tbl .rowact { display:flex; gap:2px; justify-content:flex-end; opacity:0; transition:opacity var(--dur-fast); }
 @media (hover: hover) { .tbl tbody tr:hover .rowact { opacity:1; } }
 
@@ -68,7 +68,7 @@
 /* Absolute by definition — this is a popover, so it must not take space in the flow. `left:0`
    hangs it off the trigger's left edge (the account button sits at the content area's left);
    `max-content` lets it size to its items while min-width keeps a small menu from looking mean.
-   Below .scrim's z-index:40 so a modal still covers it. */
+   A modal is a `<dialog>` in the top layer, so it covers this whatever its z-index. */
 .menu { position:absolute; top:calc(100% + 6px); left:0; z-index:30; width:max-content; min-width:min(216px, calc(100vw - 16px)); max-width:calc(100vw - 16px); padding:6px; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-md); box-shadow:var(--shadow-pop); }
 /* A menu that would cross the viewport's right edge hangs from its trigger's right edge instead —
    `PopupMenu` measures and sets this as it opens. The max-width keeps even the widest menu inside a
@@ -82,27 +82,16 @@
 @media (hover: hover) { .menu-i:hover { background:var(--surface-2); } }
 .menu-i.hi { background:var(--surface-2); }
 .menu-i .k { margin-left:auto; font-family:var(--mono); font-size:var(--fs-caption); color:var(--ink-3); }
-.menu-i.danger { color:var(--danger); }
-@media (hover: hover) { .menu-i.danger:hover { background:var(--danger-soft); } }
-.menu-sep { height:1px; background:var(--line-2); margin:5px var(--sp-8); }
-.menu-lb { padding:9px 9px 5px; font-family:var(--mono); font-size:var(--fs-caption); letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3); }
 
 /* ---- dialog ---- */
-.scrim { position:absolute; inset:0; background:rgba(22,15,10,.36); display:flex; align-items:center; justify-content:center; z-index:40; }
-[data-theme="dark"] .scrim { background:rgba(0,0,0,.55); }
 .dlg { width:472px; max-width:88%; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-xl); box-shadow:var(--shadow-modal); overflow:hidden; }
-.dlg-h { padding:22px var(--sp-24) 0; }
 .dlg-t { margin:0; font-size:1.1875rem; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
-.dlg-b { padding:9px var(--sp-24) 20px; font-size:var(--fs-ui); color:var(--ink-2); line-height:1.55; }
-.dlg-f { display:flex; justify-content:flex-end; gap:10px; padding:14px 18px; background:var(--surface-2); border-top:1px solid var(--line-2); }
 
 /* ---- toast ---- */
 .toast { display:flex; align-items:center; gap:var(--sp-12); min-height:50px; padding:0 var(--sp-8) 0 15px; background:var(--ink); color:var(--paper); border-radius:var(--r-md); box-shadow:var(--shadow-float); font-size:var(--fs-ui); font-weight:600; white-space:nowrap; }
 [data-theme="dark"] .toast { background:var(--surface-3); color:var(--ink); border:1px solid var(--line); }
 .toast .t-dot { width:9px; height:9px; border-radius:var(--r-pill); flex-shrink:0; }
-.toast .t-act { color:var(--amber); font-weight:700; cursor:pointer; padding:0 var(--sp-12); height:34px; display:inline-flex; align-items:center; border-radius:var(--r-sm); }
-@media (hover: hover) { .toast .t-act:hover { background:rgba(255,255,255,.10); } }
-[data-theme="dark"] .toast .t-act { color:var(--coral-text); }
+
 .toast .t-x { width:32px; height:32px; border-radius:var(--r-sm); display:inline-flex; align-items:center; justify-content:center; opacity:.6; cursor:pointer; }
 @media (hover: hover) { .toast .t-x:hover { opacity:1; background:rgba(255,255,255,.10); } }
 
@@ -327,12 +316,6 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .banner.warn { background:var(--warn-soft); color:var(--warn); border-color:color-mix(in srgb, var(--warn) 22%, var(--warn-soft)); }
 .banner.err  { background:var(--danger-soft); color:var(--danger); border-color:color-mix(in srgb, var(--danger) 22%, var(--danger-soft)); }
 .banner.info { background:var(--surface-2); color:var(--ink-2); border-color:var(--line); }
-.banner .b-act { margin-left:auto; font-weight:700; text-decoration:underline; cursor:pointer; white-space:nowrap; }
-
-/* ---- server chip states ---- */
-.srv-chip.warn .srv-dot { background:var(--amber); box-shadow:0 0 0 3px color-mix(in srgb, var(--amber) 24%, transparent); }
-.srv-chip.down .srv-dot { background:var(--danger); box-shadow:0 0 0 3px color-mix(in srgb, var(--danger) 24%, transparent); }
-@media (prefers-reduced-motion: no-preference) { .srv-chip.warn .srv-dot { animation: scanPulse 1.2s ease-in-out infinite; } }
 
 /* ---- page header — the one page title. `PageHeader` is the only thing that renders `.page-t`, so
    every page's H1 is the same size, weight and tracking; the 31 per-page title rules it replaced
@@ -407,14 +390,6 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .seg button { height:30px; padding:0 11px; border-radius:var(--r-sm); display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-small); font-weight:600; color:var(--ink-2); cursor:pointer; white-space:nowrap; }
 .seg button.on { background:var(--surface); color:var(--ink); box-shadow:var(--shadow-raise); }
 
-/* ---- facet rail ---- */
-.facet-h { font-family:var(--mono); font-size:var(--fs-caption); letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3); margin:0 0 7px 3px; }
-.facet { display:flex; align-items:center; gap:9px; height:30px; padding:0 9px; border-radius:var(--r-sm); font-size:var(--fs-ui); font-weight:600; color:var(--ink-2); cursor:pointer; white-space:nowrap; }
-@media (hover: hover) { .facet:hover { background:var(--surface-2); color:var(--ink); } }
-.facet.on { background:var(--coral-soft); color:var(--coral-text); }
-.facet .n { margin-left:auto; font-family:var(--mono); font-size:0.71875rem; color:var(--ink-3); }
-.facet.on .n { color:var(--coral-text); }
-
 /* ---- bulk action bar ---- */
 /* ⛔ STICKY, and that is the bug this fixes. The bar had every other floating-pill property —
    a pill radius and an 18px/48px drop shadow — and no positioning at all, so it rendered in flow
@@ -422,8 +397,8 @@ dialog.dlg .dlg-close { align-self: flex-start; }
    away, which read to the reader as "multi-select cannot be turned off and offers no actions":
    both Clear and every action live in this bar.
    Sticky rather than fixed so it stays in flow and cannot cover the transport bar, which is
-   itself a flex sticky-footer rather than a fixed element. Below .scrim's z-index:40 so a modal
-   still covers it. */
+   itself a flex sticky-footer rather than a fixed element. A modal `<dialog>` sits in the top
+   layer, above it. */
 .bulk { position:sticky; bottom:16px; z-index:35; width:max-content; max-width:calc(100% - 32px); margin:var(--sp-16) auto 0; display:flex; align-items:center; gap:10px; height:54px; padding:0 10px 0 18px; background:var(--ink); color:var(--paper); border-radius:15px; box-shadow:var(--shadow-float); white-space:nowrap; }
 [data-theme="dark"] .bulk { background:var(--surface-3); color:var(--ink); border:1px solid var(--line); }
 .bulk-b { height:36px; padding:0 13px; border-radius:var(--r-sm); border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.09); color:inherit; font-family:inherit; font-size:var(--fs-small); font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
@@ -433,13 +408,6 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .bulk-x { width:36px; height:36px; border-radius:var(--r-sm); border:none; background:transparent; color:inherit; opacity:.65; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
 @media (hover: hover) { .bulk-x:hover { opacity:1; background:rgba(255,255,255,.12); } }
 @media (hover: hover) { [data-theme="dark"] .bulk-x:hover { background:var(--surface-2); } }
-
-/* ---- setting rows ---- */
-.srow { display:flex; align-items:center; gap:18px; padding:15px 0; border-bottom:1px solid var(--line-2); }
-.srow:last-child { border-bottom:none; }
-.den-dense .srow { padding:9px 0; }
-.srow .lbl { font-size:var(--fs); font-weight:600; color:var(--ink); letter-spacing:-.01em; }
-.srow .hint { font-size:var(--fsm); color:var(--ink-2); margin-top:2px; line-height:1.45; text-wrap:pretty; }
 
 /* ---- breadcrumb ---- */
 .crumb { display:flex; align-items:center; gap:7px; font-size:var(--fs-small); font-weight:600; color:var(--ink-3); white-space:nowrap; }

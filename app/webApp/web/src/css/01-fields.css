@@ -38,15 +38,3 @@
   border-radius: var(--r-sm); color: var(--ink-3); transition: color var(--dur), background var(--dur);
 }
 @media (hover: hover) { .f-eye:hover { color: var(--ink); background: var(--surface-3); } }
-
-/* dir-b "console" field — outlined on surface, sharper, mono caps label */
-.dir-b .f-label {
-  font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.12em;
-  font-size: var(--fs-caption); font-weight: 600; color: var(--ink-3); margin-left: 1px;
-}
-.dir-b .f-box {
-  background: var(--surface); border-radius: var(--r-sm); height: 50px;
-  border: 1.5px solid var(--hairline);
-}
-.dir-b .f-box:focus-within { background: var(--surface); }
-

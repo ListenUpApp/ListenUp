@@ -8,8 +8,7 @@
    Web-native signatures: real focus rings, max-width content, hover
    states, mono for server/technical bits, a self-hosted connection
    indicator, page footers. Coral stays the single action color.
-   .dir-a "Paper" is the house voice; .dir-b "Console" is retained only
-   until we are sure nothing wants it, then it goes.
+   .dir-a "Paper" is the house voice.
    ============================================================ */
 
 /* ---- BREAKPOINTS — the only four widths any sheet queries.
@@ -88,7 +87,6 @@
 
   /* type voices */
   --font-a: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-b: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --mono:   "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   /* LIGHT — warm paper neutrals. Three opaque tiers of ink, never ink faded with alpha (the brand's
@@ -231,7 +229,6 @@ body { margin: 0; }
   text-rendering: optimizeLegibility;
 }
 .dir-a { font-family: var(--font-a); }
-.dir-b { font-family: var(--font-b); }
 .luw ::selection { background: var(--coral-soft); }
 
 /* Controls that were once clickable <div>/<span>s and are now real <button>s and <a>s, so the

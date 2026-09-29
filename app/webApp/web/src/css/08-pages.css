@@ -384,7 +384,6 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   display: flex; flex-direction: column; gap: 0.7rem; align-items: flex-start;
   padding-top: 1.2rem; border-top: 1px solid var(--line);
 }
-.luw .shelf-danger-q { margin: 0; font-size: 0.9rem; color: var(--ink-2); }
 
 /* Home's shelf row */
 .luw .home-section-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }

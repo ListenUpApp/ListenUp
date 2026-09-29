@@ -29,7 +29,6 @@
 .btn-icon.btn-sm:not(:disabled):active,
 .f-eye:active,
 .pill:active,
-.facet:active,
 .tab:active,
 .nav-i:active,
 .sb-more:active,
@@ -50,7 +49,6 @@
 .np-series-chip:active,
 .bulk-b:active,
 .bulk-x:active,
-.toast .t-act:active,
 .toast .t-x:active,
 .rel-x:active,
 .rel-add-role:active,
@@ -124,7 +122,6 @@
 .lic-link:active,
 .contrib-row:active,
 .search-row:not(.is-static):active,
-.folder-row:active,
 .luw .disc-feed-row.is-open:active,
 .luw .ntf-row:active,
 .luw .lsetup-open:active,
@@ -156,19 +153,6 @@
   border-bottom: 1px solid transparent; transition: border-color .15s;
 }
 @media (hover: hover) { .lnk:hover { border-bottom-color: var(--coral); } }
-.muted { color: var(--ink-2); }
-
-/* ---- checkbox ---- */
-.chk { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; user-select: none; }
-.chk .box {
-  width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--hairline);
-  background: var(--surface-2); display: inline-flex; align-items: center; justify-content: center;
-  flex-shrink: 0; transition: background .15s, border-color .15s;
-}
-.chk.on .box { background: var(--coral-fill); border-color: var(--coral-fill); }
-.chk .box svg { opacity: 0; transition: opacity .12s; }
-.chk.on .box svg { opacity: 1; }
-.chk span { font-size: 0.90625rem; color: var(--ink-2); font-weight: 500; white-space: nowrap; }
 
 /* ---- switch. A real <input type=checkbox role=switch> with its own chrome hidden and the track
    drawn beside it, so the thing that is focusable, tabbable and announced IS the thing you see
@@ -198,32 +182,12 @@
 .f-box.off .f-input { cursor: default; }
 .sw.off .sw-in { cursor: default; }
 
-/* ---- server connection chip (self-hosted indicator) ---- */
-.srv-chip {
-  display: inline-flex; align-items: center; gap: 9px; height: 34px;
-  padding: 0 13px 0 11px; border-radius: 999px;
-  background: var(--surface-2); border: 1px solid var(--line);
-}
-.dir-b .srv-chip { border-radius: 8px; background: var(--surface); }
-.srv-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 22%, transparent); flex-shrink: 0; }
-.srv-chip { white-space: nowrap; }
-.srv-host { font-family: var(--mono); font-size: 0.78125rem; color: var(--ink); font-weight: 500; }
-.srv-sub { font-size: 0.78125rem; color: var(--ink-2); font-weight: 500; }
-
 /* ---- badge (admin) ---- */
 .badge {
   display: inline-flex; align-items: center; gap: 7px; height: 30px;
   padding: 0 13px 0 10px; border-radius: 999px;
   background: var(--coral-soft); color: var(--coral-text); font-weight: 600; font-size: 0.8125rem; white-space: nowrap;
 }
-.dir-b .badge { border-radius: 7px; font-family: var(--mono); text-transform: uppercase;
-  font-size: 0.6875rem; letter-spacing: 0.1em; }
-
-/* ---- divider with label ---- */
-.div-or { display: flex; align-items: center; gap: 14px; color: var(--ink-3); }
-.div-or::before, .div-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
-.div-or span { font-size: 0.78125rem; font-weight: 600; letter-spacing: 0.02em; white-space: nowrap; }
 
 /* ---- TOUCH TARGETS. On a coarse pointer every control drawn smaller than 44×44 (WCAG 2.5.5, and
    the size every platform guideline agrees a fingertip needs) takes taps from a 44×44 square
@@ -233,8 +197,8 @@
    squares may overlap — a tap in the overlap goes to the later one, which is still a control the
    finger was on. TouchTargetsTest measures a representative set with the browser's own hit test. */
 @media (pointer: coarse) {
-  .luw :is(.btn, .f-eye, .cbx-hit, .toast .t-act, .toast .t-x, .tab, .seg button,
-           .facet, .facet-chip, .bulk-b, .bulk-x, .pill, .tport-b, .tport-skip, .tport-ch, .tport-sleep,
+  .luw :is(.btn, .f-eye, .cbx-hit, .toast .t-x, .tab, .seg button,
+           .facet-chip, .bulk-b, .bulk-x, .pill, .tport-b, .tport-skip, .tport-ch, .tport-sleep,
            .tport-boost, .tport-expand, .tport-speed, .tport-note-x, .np-b, .np-chstep, .np-chip,
            .np-goto, .rel-x, .bd-pick-x, .lsetup-err-x, .lsetup-up, .lsetup-check,
            .lset-err-x, .lset-x, .lset-up, .shelf-grip, .shelf-book-x, .shelf-notice-x, .shelf-move,
@@ -243,8 +207,8 @@
            .lib-sort-option, .lib-sort-direction) {
     position: relative;
   }
-  .luw :is(.btn, .f-eye, .cbx-hit, .toast .t-act, .toast .t-x, .tab, .seg button,
-           .facet, .facet-chip, .bulk-b, .bulk-x, .pill, .tport-b, .tport-skip, .tport-ch, .tport-sleep,
+  .luw :is(.btn, .f-eye, .cbx-hit, .toast .t-x, .tab, .seg button,
+           .facet-chip, .bulk-b, .bulk-x, .pill, .tport-b, .tport-skip, .tport-ch, .tport-sleep,
            .tport-boost, .tport-expand, .tport-speed, .tport-note-x, .np-b, .np-chstep, .np-chip,
            .np-goto, .rel-x, .bd-pick-x, .lsetup-err-x, .lsetup-up, .lsetup-check,
            .lset-err-x, .lset-x, .lset-up, .shelf-grip, .shelf-book-x, .shelf-notice-x, .shelf-move,

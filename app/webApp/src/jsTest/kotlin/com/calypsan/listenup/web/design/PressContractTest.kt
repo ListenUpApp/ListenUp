@@ -115,7 +115,4 @@ private val PRESS_EXEMPT =
         // Deliberately inert — a static row in the palette is a heading, not a target. Its hover
         // rule exists to CANCEL the row hover above it.
         ".search-row.is-static",
-        // Already pressed by `.menu-i:active`, which matches these elements too. A rule of its own
-        // would be the identical declaration written twice.
-        ".menu-i.danger",
     )

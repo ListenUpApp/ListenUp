@@ -102,7 +102,6 @@ private val SMALL_CONTROLS =
         "shelf-grip",
         "ctl-zoom",
         "tport-note-x",
-        "facet",
         "lset-x",
         "chr-a",
         "bd-pick-x",

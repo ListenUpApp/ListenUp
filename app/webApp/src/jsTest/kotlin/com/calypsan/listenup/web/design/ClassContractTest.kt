@@ -296,7 +296,7 @@ class ClassContractTest :
         // pass that reads only top-level rules skips its whole body. A class styled *only* under
         // a media query then looked undefined, and the page rendering it failed this contract —
         // a false alarm whose obvious "fix" is to restructure correct CSS until the test stops
-        // complaining. `.scan-pulse` is such a class today; the spec below pins it.
+        // complaining. `.sb-foot` is such a class today; the spec below pins it.
         fun definedClasses(): Set<String> {
             val defined = mutableSetOf<String>()
 
@@ -356,11 +356,11 @@ class ClassContractTest :
         }
 
         test("a class defined only inside @media is still seen as defined") {
-            // `.scan-pulse` exists solely inside web.css's prefers-reduced-motion block. Reading
+            // `.sb-foot` exists solely inside the shell sheet's phone-width block. Reading
             // top-level rules alone missed it — a grouping rule has no selectorText of its own —
             // so a page rendering such a class failed this contract even though the sheet defines
             // it perfectly well, and the tempting "fix" was to restructure correct CSS.
-            definedClasses().contains("scan-pulse") shouldBe true
+            definedClasses().contains("sb-foot") shouldBe true
         }
 
         test("every class the kit renders is defined in the design sheet") {

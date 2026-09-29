@@ -28,7 +28,7 @@
 }
 .auth-col { width: 100%; max-width: 460px; display: flex; flex-direction: column; }
 /* The heading sets `margin: 0`, so without this the badge sits flush against it. Scoped to the
-   auth column because `.badge` is shared — `.dir-b .badge` styles it differently elsewhere. */
+   auth column because `.badge` is shared. */
 .auth-col > .badge { margin-bottom: 18px; }
 
 .auth-fields { display: flex; flex-direction: column; gap: 20px; margin-top: 30px; }
