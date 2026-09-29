@@ -21,7 +21,7 @@ struct ListenUpApp: App {
         // defaults in place — exactly the behaviour before this call — and must never block launch.
         Task { try? await KoinHelper.shared.initializeLocalPreferences() }
         Log.info("ListenUp iOS app initialized")
-        // Make the app's player available to the Live Activity intents.
+        // Make the app's player available to the playback App Intents (Siri, Shortcuts, Control Center).
         AppDependencyManager.shared.add(dependency: PlaybackController() as any PlaybackControlling)
         // Make the "resume my book" read available to ResumePlaybackIntent (Siri / Control Center).
         AppDependencyManager.shared.add(dependency: LastPlayedBookProvider() as any LastPlayedBookProviding)

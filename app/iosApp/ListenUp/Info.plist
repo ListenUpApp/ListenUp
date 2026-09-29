@@ -35,8 +35,6 @@
 	<array>
 		<string>com.calypsan.listenup.sync</string>
 	</array>
-	<key>NSSupportsLiveActivities</key>
-	<true/>
 	<!-- Two scenes: the SwiftUI window the phone shows, and the CarPlay template scene a head
 	     unit connects to. The window role is declared with NO delegate class on purpose —
 	     SwiftUI owns that scene, and naming a delegate here takes it away from SwiftUI. The
