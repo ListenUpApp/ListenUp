@@ -214,13 +214,13 @@ struct LibraryView: View {
             )
         case .authors:
             ContributorListContent(
-                contributors: observer.authors,
+                sections: observer.authorSections,
                 sortState: observer.authorsSortState,
                 roleKind: .author
             )
         case .narrators:
             ContributorListContent(
-                contributors: observer.narrators,
+                sections: observer.narratorSections,
                 sortState: observer.narratorsSortState,
                 roleKind: .narrator
             )

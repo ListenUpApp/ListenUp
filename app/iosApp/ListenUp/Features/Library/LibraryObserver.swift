@@ -15,8 +15,12 @@ final class LibraryObserver {
     private(set) var seriesProgress: [String: SeriesProgressState] = [:]
     private(set) var seriesSortState: SortState?
     private(set) var authors: [ContributorRow] = []
+    /// `authors` grouped for the list — regrouped only when the rows or the sort change.
+    private(set) var authorSections: [ContributorLetterGrouping.Group] = []
     private(set) var authorsSortState: SortState?
     private(set) var narrators: [ContributorRow] = []
+    /// `narrators` grouped for the list — regrouped only when the rows or the sort change.
+    private(set) var narratorSections: [ContributorLetterGrouping.Group] = []
     private(set) var narratorsSortState: SortState?
     /// When true, leading articles (A, An, The) are ignored when sorting/grouping by Title/Name —
     /// drives the "Title sort" toggle and the article-aware section letters. Shared, persisted state.
@@ -25,6 +29,9 @@ final class LibraryObserver {
     private(set) var isEmpty: Bool = false
     private(set) var isSyncing: Bool = false
     private(set) var errorMessage: String?
+
+    @ObservationIgnored private var authorSectionCache = ContributorSectionCache()
+    @ObservationIgnored private var narratorSectionCache = ContributorSectionCache()
 
     private let viewModel: LibraryViewModel
     private let bridge = FlowBridge()
@@ -102,10 +109,22 @@ final class LibraryObserver {
             series = l.series.map { SeriesRow($0) }
             seriesProgress = mapSeriesProgress(l.seriesProgress)
             seriesSortState = l.seriesSortState
-            authors = l.authors.map { ContributorRow($0) }
             authorsSortState = l.authorsSortState
-            narrators = l.narrators.map { ContributorRow($0) }
             narratorsSortState = l.narratorsSortState
+            applyContributors(
+                l.authors.map { ContributorRow($0) },
+                isNameSort: l.authorsSortState.category == .name,
+                cache: &authorSectionCache,
+                rows: \.authors,
+                sections: \.authorSections
+            )
+            applyContributors(
+                l.narrators.map { ContributorRow($0) },
+                isNameSort: l.narratorsSortState.category == .name,
+                cache: &narratorSectionCache,
+                rows: \.narrators,
+                sections: \.narratorSections
+            )
             ignoreTitleArticles = l.ignoreTitleArticles
             isEmpty = l.isEmpty
             isSyncing = l.isSyncing
@@ -114,6 +133,20 @@ final class LibraryObserver {
             isLoading = false
             errorMessage = e.message
         }
+    }
+
+    /// Publishes a contributor list only when it changed. An unchanged re-emit (a position save, a
+    /// sync tick) writes nothing, so the Authors and Narrators lists aren't invalidated by it.
+    private func applyContributors(
+        _ newRows: [ContributorRow],
+        isNameSort: Bool,
+        cache: inout ContributorSectionCache,
+        rows: ReferenceWritableKeyPath<LibraryObserver, [ContributorRow]>,
+        sections: ReferenceWritableKeyPath<LibraryObserver, [ContributorLetterGrouping.Group]>
+    ) {
+        guard cache.update(rows: newRows, isNameSort: isNameSort) else { return }
+        self[keyPath: rows] = cache.rows
+        self[keyPath: sections] = cache.sections
     }
 
     /// `Map<BookId, Float>` arrives as `[BookId: Float]` over the Swift Export
