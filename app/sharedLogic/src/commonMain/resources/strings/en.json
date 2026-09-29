@@ -1507,7 +1507,10 @@
     "uploading_image": "Uploading image",
     "not_set": "Not set",
     "set_date": "Set date",
-    "clear_date": "Clear"
+    "clear_date": "Clear",
+    "discard_changes_prompt": "Discard Changes?",
+    "discard_changes": "Discard Changes",
+    "keep_editing": "Keep Editing"
   },
   "setup": {
     "error_already_configured": "This server is already set up. Sign in instead.",

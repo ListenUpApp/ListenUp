@@ -42,6 +42,7 @@ struct BulkEditView: View {
             // Silent until the selection is read: a title counting books nobody has loaded yet
             // would be the sheet's first untrue statement.
             title: observer.isLoading ? "" : BulkEditFormatting.title(bookCount: observer.bookCount),
+            hasChanges: observer.changedBookCount > 0,
             canSave: observer.canApply,
             isSaving: observer.isApplying,
             saveLabel: BulkEditFormatting.applyLabel(changedBookCount: observer.changedBookCount),

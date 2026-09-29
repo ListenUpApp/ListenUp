@@ -27,9 +27,15 @@ struct RateBookSheet: View {
         _note = State(initialValue: current?.note ?? "")
     }
 
+    /// Whether the sheet holds a rating other than the one it opened on — what Cancel would lose.
+    nonisolated static func hasChanges(halfStars: Int, note: String, openedOn current: MyRating?) -> Bool {
+        halfStars != (current?.halfStars ?? 0) || note != (current?.note ?? "")
+    }
+
     var body: some View {
         EditSheetScaffold(
             title: String(localized: "book.detail_rating_sheet_title"),
+            hasChanges: Self.hasChanges(halfStars: halfStars, note: note, openedOn: current),
             canSave: halfStars >= RatingStarsView.minHalfStars,
             isSaving: false,
             saveLabel: String(localized: "book.detail_rating_save"),

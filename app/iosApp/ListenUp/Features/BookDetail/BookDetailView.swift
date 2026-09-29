@@ -60,9 +60,9 @@ struct BookDetailView: View {
         .sheet(isPresented: $showEdit) {
             BookEditView(bookId: bookId)
         }
-        // ⛔ fullScreenCover, not a sheet. The editor holds the only copy of the reader's unsaved
-        // work until they save, and a sheet's drag-to-dismiss would drop it without asking.
-        .fullScreenCover(isPresented: $showChapterEditor) {
+        // A sheet like every other editor (HIG, Sheets); the editor holds its swipe-down while it
+        // has unsaved work, so the draft is never dropped without asking.
+        .sheet(isPresented: $showChapterEditor) {
             ChapterEditorView(bookId: bookId)
         }
         .sheet(isPresented: $showMetadataMatch) {

@@ -19,6 +19,7 @@ struct SeriesEditView: View {
             if let observer {
                 EditSheetScaffold(
                     title: String(localized: "series.edit_title"),
+                    hasChanges: observer.hasChanges,
                     canSave: observer.hasChanges,
                     isSaving: observer.isSaving,
                     onCancel: { observer.onCancel(); dismiss() },

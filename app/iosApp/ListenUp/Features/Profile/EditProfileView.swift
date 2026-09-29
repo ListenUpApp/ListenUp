@@ -41,6 +41,7 @@ struct EditProfileView: View {
     private func sheet(_ observer: EditProfileObserver) -> some View {
         EditSheetScaffold(
             title: String(localized: "profile.edit_profile_title"),
+            hasChanges: observer.isDirty,
             canSave: observer.isDirty,
             isSaving: observer.isSaving,
             onCancel: { dismiss() },

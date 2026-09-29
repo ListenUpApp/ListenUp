@@ -984,6 +984,9 @@ One beautiful library.</string>
     <string name="discover_x_is_listening_to_y">%1$s is listening to %2$s</string>
     <string name="edit_change_image">Change image</string>
     <string name="edit_clear_date">Clear</string>
+    <string name="edit_discard_changes">Discard Changes</string>
+    <string name="edit_discard_changes_prompt">Discard Changes?</string>
+    <string name="edit_keep_editing">Keep Editing</string>
     <string name="edit_not_set">Not set</string>
     <string name="edit_remove_image">Remove image</string>
     <string name="edit_set_date">Set date</string>
