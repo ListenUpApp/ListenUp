@@ -11,8 +11,8 @@ import Shared
 /// VM also drives is intentionally not surfaced — the iOS flow is the linear wizard (resuming an
 /// in-progress import is a deferred follow-up).
 ///
-/// Responsive: a single `.readableWidth()` column that stays comfortable on iPhone and centres on
-/// iPad / wide split views (rule 12).
+/// The roster is a system inset-grouped `List`, which keeps readable margins on iPad by itself
+/// (rule 12).
 struct ABSImportHubView: View {
     @Environment(\.dependencies) private var deps
 
@@ -84,24 +84,30 @@ struct ABSImportHubView: View {
         }
     }
 
+    /// The roster is a real inset-grouped `List`: `.swipeActions` only fires inside one, and delete
+    /// used to hang off a swipe that could never trigger. The context menu is the discoverable path;
+    /// the swipe supplements it (HIG, Lists and tables; Gestures).
     @ViewBuilder
     private func readyBody(observer: ABSImportHubObserver, ready: ImportHubReadyModel) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                if ready.imports.isEmpty {
-                    emptyState
-                } else {
-                    AdminSectionHeader(String(localized: "import.hub_section_imports"))
-                    FieldGroup(ready.imports, separatorInset: 57) { summary in
+        if ready.imports.isEmpty {
+            ScrollView {
+                emptyState
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                    .readableWidth(640)
+            }
+            .refreshable { observer.reload() }
+        } else {
+            List {
+                Section(String(localized: "import.hub_section_imports")) {
+                    ForEach(ready.imports) { summary in
                         ImportSummaryRow(summary: summary, onDelete: { pendingDelete = summary })
                     }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .readableWidth(640)
+            .listStyle(.insetGrouped)
+            .refreshable { observer.reload() }
         }
-        .refreshable { observer.reload() }
     }
 
     private var emptyState: some View {
@@ -182,10 +188,14 @@ private struct ImportSummaryRow: View {
             Spacer(minLength: 8)
             stageBadge
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.vertical, 3)
         .contentShape(Rectangle())
         .swipeActions(edge: .trailing) {
+            Button(role: .destructive, action: onDelete) {
+                Label(String(localized: "common.delete"), systemImage: "trash")
+            }
+        }
+        .contextMenu {
             Button(role: .destructive, action: onDelete) {
                 Label(String(localized: "common.delete"), systemImage: "trash")
             }
