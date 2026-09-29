@@ -224,3 +224,37 @@
 .div-or::before, .div-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .div-or span { font-size: 0.78125rem; font-weight: 600; letter-spacing: 0.02em; white-space: nowrap; }
 
+
+/* ---- TOUCH TARGETS. On a coarse pointer every control drawn smaller than 44×44 (WCAG 2.5.5, and
+   the size every platform guideline agrees a fingertip needs) takes taps from a 44×44 square
+   centred on it. The square is an invisible `::after`, so the hit area grows and the drawing does
+   not: nothing moves, and a desktop layout never sees it. `position:relative` anchors the square;
+   every control listed is otherwise statically positioned (or already relative). Adjacent controls'
+   squares may overlap — a tap in the overlap goes to the later one, which is still a control the
+   finger was on. TouchTargetsTest measures a representative set with the browser's own hit test. */
+@media (pointer: coarse) {
+  .luw :is(.iconbtn, .btn-c, .btn-o, .f-eye, .cbx-hit, .toast .t-act, .toast .t-x, .tab, .seg button,
+           .facet, .facet-chip, .bulk-b, .bulk-x, .pill, .tport-b, .tport-skip, .tport-ch, .tport-sleep,
+           .tport-boost, .tport-expand, .tport-speed, .tport-note-x, .np-b, .np-chstep, .np-chip,
+           .np-goto, .rel-x, .bd-retry, .doc-open, .bd-pick-x, .lsetup-err-x, .lsetup-up, .lsetup-check,
+           .lset-err-x, .lset-x, .lset-up, .shelf-grip, .shelf-book-x, .shelf-notice-x, .shelf-move,
+           .inbox-notice-x, .srv-err-x, .cat-twist, .cat-act, .cat-err-x, .coll-err-x, .bkp-err-x,
+           .imp-err-x, .ced-err-x, .sed-err-x, .chr-a, .ctl-zoom, .cd-err-x, .bke-clear,
+           .lib-sort-option, .lib-sort-direction) {
+    position: relative;
+  }
+  .luw :is(.iconbtn, .btn-c, .btn-o, .f-eye, .cbx-hit, .toast .t-act, .toast .t-x, .tab, .seg button,
+           .facet, .facet-chip, .bulk-b, .bulk-x, .pill, .tport-b, .tport-skip, .tport-ch, .tport-sleep,
+           .tport-boost, .tport-expand, .tport-speed, .tport-note-x, .np-b, .np-chstep, .np-chip,
+           .np-goto, .rel-x, .bd-retry, .doc-open, .bd-pick-x, .lsetup-err-x, .lsetup-up, .lsetup-check,
+           .lset-err-x, .lset-x, .lset-up, .shelf-grip, .shelf-book-x, .shelf-notice-x, .shelf-move,
+           .inbox-notice-x, .srv-err-x, .cat-twist, .cat-act, .cat-err-x, .coll-err-x, .bkp-err-x,
+           .imp-err-x, .ced-err-x, .sed-err-x, .chr-a, .ctl-zoom, .cd-err-x, .bke-clear,
+           .lib-sort-option, .lib-sort-direction)::after {
+    content: ""; position: absolute; left: 50%; top: 50%;
+    width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%);
+  }
+  /* Stacked menu items cannot borrow room from each other the way an isolated icon can, so the
+     item itself grows. A menu is a popover: a taller one moves nothing else. */
+  .luw .menu-i { height: 44px; }
+}
