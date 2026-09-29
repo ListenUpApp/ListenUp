@@ -19,20 +19,6 @@ extension Color {
     /// sets `brandCoral`/`onBrandCoral`, so the tokens here keep their own names.)
     static let listenUpOrange = Color(ColorResource.brandCoral)
 
-    /// Dark grey for gradient backgrounds (#1A1A1A)
-    static let brandDarkGrey = Color(hex: "1A1A1A")
-
-    // MARK: - Brand Gradient
-
-    /// Brand gradient: Dark grey (top-left) to ListenUp orange (bottom-right)
-    static var brandGradient: LinearGradient {
-        LinearGradient(
-            colors: [brandDarkGrey, listenUpOrange],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
-
     // MARK: - Glass Effects
 
     /// Subtle border for native glass edge effect

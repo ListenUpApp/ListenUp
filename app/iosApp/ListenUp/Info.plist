@@ -4,6 +4,15 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<!-- The launch screen is the app's first frame with nothing on it: the system background in the
+	     device's appearance (LaunchBackground is systemBackground's white and black), which the
+	     in-app launch view continues. HIG, Launching: "Design a launch screen that's nearly identical
+	     to the first screen of your app"; "Don't advertise." -->
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+	</dict>
 	<!-- Export compliance, declared once here so it is not asked per-build. ListenUp ships no
 	     cryptography of its own: the client speaks HTTPS over the platform networking stack and
 	     stores its tokens via the platform keychain, and the Argon2id password hashing lives

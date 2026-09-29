@@ -271,15 +271,28 @@ private struct RootView: View {
     }
 }
 
-/// Shown during app initialisation.
+/// Shown while the app initialises: the launch screen's plain system background, continued, with a
+/// spinner once the wait is long enough to notice.
+///
+/// HIG, Launching: "Downplay the launch experience … A launch screen isn't part of an onboarding
+/// experience or a splash screen"; "if your app displays a solid color before transitioning to the
+/// first screen, create a launch screen that displays only that solid color". The branded gradient
+/// and logo it replaces flashed between the system's blank launch screen and the first real screen.
 private struct LaunchScreen: View {
+    @State private var showsProgress = false
+
     var body: some View {
         ZStack {
-            Color.brandGradient.ignoresSafeArea()
-            Image("listenup_logo_white")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 120, height: 120)
+            Color(.systemBackground).ignoresSafeArea()
+            if showsProgress {
+                ProgressView()
+            }
+        }
+        // A spinner that appears and vanishes within a blink reads as a flicker; show it only once
+        // the start-up is slow enough for someone to wonder.
+        .task {
+            try? await Task.sleep(for: .milliseconds(400))
+            showsProgress = true
         }
     }
 }
