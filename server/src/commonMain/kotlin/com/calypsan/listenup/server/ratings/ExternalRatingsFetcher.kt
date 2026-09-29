@@ -10,6 +10,7 @@ import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.server.metadata.spi.ExternalRatingMeta
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.metadata.spi.RatingSource
+import com.calypsan.listenup.server.metadata.spi.RatingSourceAvailability
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.sync.BookExternalRatingRepository
 import com.calypsan.listenup.server.util.runCatchingCancellable
@@ -41,7 +42,7 @@ open class ExternalRatingsFetcher(
     private val clock: Clock = Clock.System,
 ) {
     /**
-     * How many enabled sources were consulted ([tried]), and how many of those gave a definite
+     * How many runnable (enabled, unpaused, available) sources were consulted ([tried]), and how many of those gave a definite
      * answer ([answered]) — a rating or a confident "no rating". `tried > answered` means at least
      * one enabled source failed.
      */
@@ -64,7 +65,7 @@ open class ExternalRatingsFetcher(
         var tried = 0
         var answered = 0
         for (source in registry.capable<RatingSource>()) {
-            if (!sourceSettings.isEnabled(source.ratingSource)) continue
+            if (!canRun(source)) continue
             tried++
             if (runOne(source, bookId, identity, locale, refresh)) answered++
         }
@@ -81,6 +82,12 @@ open class ExternalRatingsFetcher(
      * for a US one just because the request carries no region.
      */
     suspend fun refresh(bookId: BookId): Outcome = fetch(bookId, ratings.localeFor(bookId.value), refresh = true)
+
+    /** A disabled, paused or unavailable source is skipped outright: not tried, no failure recorded. */
+    private suspend fun canRun(source: RatingSource): Boolean =
+        sourceSettings.isEnabled(source.ratingSource) &&
+            sourceSettings.pausedUntil(source.ratingSource, clock.now().toEpochMilliseconds()) == null &&
+            source.availability() is RatingSourceAvailability.Available
 
     /** Runs [source] contained: a thrown fault or a typed failure is recorded as health, never re-thrown. */
     private suspend fun runOne(

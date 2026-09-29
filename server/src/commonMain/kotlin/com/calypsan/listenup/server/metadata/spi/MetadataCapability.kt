@@ -203,6 +203,9 @@ interface RatingSource : MetadataCapability {
     /** Which outside source this capability's ratings are stored under. */
     val ratingSource: ExternalRatingSource
 
+    /** Whether this source can run right now; defaults to [RatingSourceAvailability.Available]. */
+    suspend fun availability(): RatingSourceAvailability = RatingSourceAvailability.Available
+
     suspend fun getRating(
         book: BookIdentity,
         locale: MetadataLocale,

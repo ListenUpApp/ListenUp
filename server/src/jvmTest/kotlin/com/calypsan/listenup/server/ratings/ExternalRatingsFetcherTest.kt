@@ -15,6 +15,9 @@ import com.calypsan.listenup.server.metadata.spi.ExternalRatingMeta
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.metadata.spi.RatingSource
+import com.calypsan.listenup.server.metadata.spi.RatingSourceAvailability
+import com.calypsan.listenup.api.dto.admin.RatingSourceUnavailable
+import kotlin.time.Duration.Companion.days
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
@@ -389,6 +392,105 @@ class ExternalRatingsFetcherTest :
                 }
             }
         }
+
+        /** Wires a fetcher over [source] with real repos, and hands [block] the pieces. */
+        suspend fun withFetcher(
+            source: FakeRatingSource,
+            block: suspend (ExternalRatingsFetcher, RatingSourceSettings, BookExternalRatingRepository) -> Unit,
+        ) {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1", asin = "B001")
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val books = sql.bookRepo(bus, registry, driver)
+                val ratings = BookExternalRatingRepository(db = sql, bus = bus, registry = registry, driver = driver)
+                val settings = RatingSourceSettings(ServerSettingsRepository(sql, RegistrationPolicy.CLOSED))
+                val fetcher =
+                    ExternalRatingsFetcher(
+                        registry = MetadataProviderRegistry(listOf(source)),
+                        ratings = ratings,
+                        sourceSettings = settings,
+                        books = books,
+                        clock = FixedClock(now),
+                    )
+                runTest { block(fetcher, settings, ratings) }
+            }
+        }
+        val nowMs = now.toEpochMilliseconds()
+
+        test("an unavailable source is skipped: not tried, no failure recorded, never paused") {
+            val src =
+                FakeRatingSource(
+                    MetadataProviderId("hardcover"),
+                    ExternalRatingSource.HARDCOVER,
+                    availability = RatingSourceAvailability.Unavailable(RatingSourceUnavailable.NO_CONNECTION),
+                )
+            withFetcher(src) { fetcher, settings, _ ->
+                repeat(6) {
+                    fetcher.fetch(BookId("book1"), MetadataLocale.DEFAULT, refresh = false) shouldBe
+                        ExternalRatingsFetcher.Outcome(tried = 0, answered = 0)
+                }
+                src.calls shouldBe 0
+                settings.health(ExternalRatingSource.HARDCOVER).second shouldBe null
+                settings.pausedUntil(ExternalRatingSource.HARDCOVER, nowMs) shouldBe null
+            }
+        }
+
+        test("five consecutive failures pause a source for seven days, and a paused source is skipped") {
+            val src =
+                FakeRatingSource(
+                    MetadataProviderId("hardcover"),
+                    ExternalRatingSource.HARDCOVER,
+                    result = AppResult.Failure(MetadataError.ExternalUnavailable()),
+                )
+            withFetcher(src) { fetcher, settings, _ ->
+                repeat(5) { fetcher.fetch(BookId("book1"), MetadataLocale.DEFAULT, refresh = false) }
+                src.calls shouldBe 5
+                settings.pausedUntil(ExternalRatingSource.HARDCOVER, nowMs) shouldBe nowMs + 7.days.inWholeMilliseconds
+
+                fetcher.fetch(BookId("book1"), MetadataLocale.DEFAULT, refresh = false) shouldBe
+                    ExternalRatingsFetcher.Outcome(tried = 0, answered = 0)
+                src.calls shouldBe 5
+            }
+        }
+
+        test("a success resets the failure count") {
+            withFetcher(FakeRatingSource(MetadataProviderId("hardcover"), ExternalRatingSource.HARDCOVER)) { _, settings, _ ->
+                val s = ExternalRatingSource.HARDCOVER
+                repeat(4) { settings.recordFailure(s, "boom", nowMs) }
+                settings.recordSuccess(s, nowMs)
+                repeat(4) { settings.recordFailure(s, "boom", nowMs) }
+                settings.pausedUntil(s, nowMs) shouldBe null
+            }
+        }
+
+        test("re-enabling a source clears its pause") {
+            withFetcher(FakeRatingSource(MetadataProviderId("hardcover"), ExternalRatingSource.HARDCOVER)) { _, settings, _ ->
+                val s = ExternalRatingSource.HARDCOVER
+                repeat(5) { settings.recordFailure(s, "boom", nowMs) }
+                settings.pausedUntil(s, nowMs) shouldBe nowMs + 7.days.inWholeMilliseconds
+                settings.setEnabled(s, false)
+                settings.setEnabled(s, true)
+                settings.pausedUntil(s, nowMs) shouldBe null
+                settings.recordFailure(s, "boom", nowMs)
+                settings.pausedUntil(s, nowMs) shouldBe null
+            }
+        }
+
+        test("a regionless source stores a null region") {
+            val src =
+                FakeRatingSource(
+                    MetadataProviderId("goodreads"),
+                    ExternalRatingSource.GOODREADS,
+                    result = AppResult.Success(ExternalRatingMeta(4.2, 10)),
+                )
+            withFetcher(src) { fetcher, _, ratings ->
+                fetcher.fetch(BookId("book1"), MetadataLocale.DEFAULT, refresh = false)
+                ratings.findForBook("book1").size shouldBe 1
+                ratings.regionForBook("book1") shouldBe null
+            }
+        }
     })
 
 /** Minimal hand-rolled [RatingSource] fake — configure a result, or a [throwable] to simulate a fault. */
@@ -397,9 +499,12 @@ private class FakeRatingSource(
     override val ratingSource: ExternalRatingSource,
     private val result: AppResult<ExternalRatingMeta?> = AppResult.Success(null),
     private val throwable: Throwable? = null,
+    private val availability: RatingSourceAvailability = RatingSourceAvailability.Available,
 ) : RatingSource {
     var calls = 0
         private set
+
+    override suspend fun availability(): RatingSourceAvailability = availability
 
     override suspend fun getRating(
         book: BookIdentity,
