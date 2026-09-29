@@ -2,19 +2,13 @@ import SwiftUI
 import Shared
 
 /// Per-type notification delivery toggles, reached from Settings › Account. Follows
-/// `DevicesView`'s shape: observer built in `.onAppear`, phase-switched body, a readable single
-/// column. Each known type gets a labelled card of two `ToggleRow`s (In-app, Push); the Push row
-/// is disabled when the registry declares the type push-ineligible. Toggles apply optimistically;
-/// the shared ViewModel reverts them if the server refuses.
+/// `DevicesView`'s shape: observer built in `.onAppear`, phase-switched body, a grouped `Form`.
+/// Each known type is a section of two switches (In-app, Push); the Push switch is disabled when
+/// the registry declares the type push-ineligible. Toggles apply optimistically; the shared
+/// ViewModel reverts them if the server refuses.
 struct NotificationPrefsView: View {
     @Environment(\.dependencies) private var deps
     @State private var observer: NotificationPrefsObserver?
-
-    /// The two delivery channels a type's card renders, in row order.
-    private enum Channel: Hashable {
-        case inApp
-        case push
-    }
 
     var body: some View {
         Group {
@@ -50,51 +44,38 @@ struct NotificationPrefsView: View {
                 Button(String(localized: "common.retry")) { observer.refresh() }
             }
         case .ready(let rows):
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    ForEach(rows) { row in
-                        typeCard(row, observer: observer)
+            // A system grouped form: the section header names the type, and each switch is a real
+            // list row with the system's insets, separators and Dynamic Type metrics. HIG, Lists and
+            // tables: "the grouped style uses headers, footers, and additional space to separate
+            // groups of data".
+            Form {
+                ForEach(rows) { row in
+                    Section(row.displayName) {
+                        channelToggles(row, observer: observer)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .readableWidth()
             }
         }
     }
 
-    // MARK: - Per-type card
+    // MARK: - Per-type section
 
-    private func typeCard(_ row: NotificationPrefRowModel, observer: NotificationPrefsObserver) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(row.displayName)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Color.luLabel2)
-                .padding(.leading, 14)
-            FieldGroup([Channel.inApp, Channel.push], id: \.self, separatorInset: 56) { channel in
-                switch channel {
-                case .inApp:
-                    ToggleRow(
-                        systemImage: "app.badge",
-                        title: String(localized: "notifications.settings_in_app"),
-                        isOn: inAppBinding(row, observer: observer)
-                    )
-                    .haptic(row.inApp ? .toggleOn : .toggleOff, trigger: row.inApp)
-                case .push:
-                    // ToggleRow has no disabled affordance of its own (its only state affordance is
-                    // isBusy, which swaps in a spinner), so ineligibility wraps the row here:
-                    // non-interactive and dimmed.
-                    ToggleRow(
-                        systemImage: "iphone.radiowaves.left.and.right",
-                        title: String(localized: "notifications.settings_push"),
-                        isOn: pushBinding(row, observer: observer)
-                    )
-                    .haptic(row.push ? .toggleOn : .toggleOff, trigger: row.push)
-                    .disabled(!row.pushEligible)
-                    .opacity(row.pushEligible ? 1 : 0.45)
-                }
-            }
-        }
+    @ViewBuilder
+    private func channelToggles(_ row: NotificationPrefRowModel, observer: NotificationPrefsObserver) -> some View {
+        ToggleRow(
+            systemImage: "app.badge",
+            title: String(localized: "notifications.settings_in_app"),
+            isOn: inAppBinding(row, observer: observer)
+        )
+        .haptic(row.inApp ? .toggleOn : .toggleOff, trigger: row.inApp)
+        ToggleRow(
+            systemImage: "iphone.radiowaves.left.and.right",
+            title: String(localized: "notifications.settings_push"),
+            isOn: pushBinding(row, observer: observer)
+        )
+        .haptic(row.push ? .toggleOn : .toggleOff, trigger: row.push)
+        // A disabled system switch dims itself, so ineligibility needs nothing drawn on top.
+        .disabled(!row.pushEligible)
     }
 
     // MARK: - Bindings (read the row's flat state, write through the observer's forwarders)

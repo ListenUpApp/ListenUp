@@ -1,12 +1,13 @@
 import SwiftUI
 
-/// A settings row that pairs a leading ``IconTile`` and a title / optional subtitle with a
-/// trailing SwiftUI `Toggle`. The clean-coral form of the mockup's toggling `SRow`.
+/// A settings row that pairs a leading ``IconTile`` and a title / optional subtitle with a system
+/// `Toggle`. It is a `List`/`Form` row: the list supplies the insets, the separator and the grouped
+/// surface, and the `Toggle` supplies the label-to-switch pairing VoiceOver reads as one control.
+/// HIG, Toggles: "In iOS … use a switch in a list row."
 ///
-/// While `isBusy` is true the toggle is *replaced* by a spinner (not merely disabled) — the
-/// load-bearing guard against a second flip landing before the in-flight write resolves.
-/// The row supplies its own horizontal/vertical padding so it sits flush inside a
-/// `.fieldCard()` or a `FieldGroup` row slot.
+/// While `isBusy` is true the switch is *replaced* by a spinner (not merely disabled) — the
+/// load-bearing guard against a second flip landing before the in-flight write resolves. A
+/// `.disabled` row dims the way every system switch does.
 struct ToggleRow: View {
     let systemImage: String
     /// A meaningful colour for the leading tile; `nil` (the default) keeps it neutral — see `IconTile`.
@@ -17,8 +18,22 @@ struct ToggleRow: View {
     var isBusy: Bool = false
 
     var body: some View {
+        if isBusy {
+            LabeledContent {
+                ProgressView()
+            } label: {
+                label
+            }
+            .accessibilityElement(children: .combine)
+        } else {
+            Toggle(isOn: $isOn) { label }
+        }
+    }
+
+    private var label: some View {
         HStack(spacing: 13) {
             IconTile(systemImage: systemImage, tint: tint)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
                     .font(.body)
@@ -29,23 +44,13 @@ struct ToggleRow: View {
                         .foregroundStyle(Color.luLabel2)
                 }
             }
-            Spacer(minLength: 12)
-            if isBusy {
-                ProgressView()
-            } else {
-                Toggle("", isOn: $isOn)
-                    .labelsHidden()
-            }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .accessibilityElement(children: .combine)
     }
 }
 
 #Preview("ToggleRow") {
     @Previewable @State var open = false
-    return VStack(spacing: 16) {
+    return Form {
         ToggleRow(
             systemImage: "person.badge.plus",
             tint: .green,
@@ -53,8 +58,6 @@ struct ToggleRow: View {
             subtitle: "Allow anyone to request an account",
             isOn: $open
         )
-        .fieldCard()
-
         ToggleRow(
             systemImage: "person.badge.plus",
             tint: .green,
@@ -63,9 +66,5 @@ struct ToggleRow: View {
             isOn: $open,
             isBusy: true
         )
-        .fieldCard()
     }
-    .padding()
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(Color.luSurface)
 }

@@ -2,12 +2,11 @@ import SwiftUI
 
 /// Open-source acknowledgements screen.
 ///
-/// Shows a summary card with a proportional distribution meter, a searchable list of
-/// every open-source library the app ships, and a footer. Tapping a row pushes
+/// A grouped `List`: a summary section with a proportional distribution meter, then a searchable
+/// section of every open-source library the app ships, with a footer. Tapping a row pushes
 /// `LicenseDetailView` for the full license text. Layout is width-responsive (iosApp rule 12):
-/// on compact (iPhone / narrow split view) the summary card stacks above the library list;
-/// on regular width (iPad) the overview/meter panel sits beside the library list in a two-pane
-/// HStack, per the `LicensesPad` mockup.
+/// on compact (iPhone / narrow split view) the summary is the list's first section; on regular
+/// width (iPad) the overview/meter panel sits beside the list in a two-pane HStack.
 struct LicensesView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -42,7 +41,7 @@ struct LicensesView: View {
 
     // MARK: - Regular layout (iPad / wide split view)
 
-    /// Two-pane: left = overview/meter panel, right = scrollable library list.
+    /// Two-pane: left = overview/meter panel, right = the library list.
     private var regularBody: some View {
         HStack(alignment: .top, spacing: 0) {
             // Left pane — overview panel (sticky alongside the scrolling list)
@@ -55,42 +54,22 @@ struct LicensesView: View {
             Divider()
 
             // Right pane — library list
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    sectionHeader(String(localized: "licenses.section_libraries"))
-
-                    libraryList
-
-                    footerNote
-                        .padding(.top, 12)
-                        .padding(.bottom, 24)
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 8)
-            }
+            List { librariesSection }
+                .listStyle(.insetGrouped)
         }
     }
 
     // MARK: - Compact layout (iPhone / narrow split view)
 
+    /// One grouped `List`: the summary as its own section, then the libraries. System rows bring the
+    /// tap highlight, separators and disclosure indicators the hand-drawn cards had to imitate. HIG,
+    /// Lists and tables: "Provide appropriate feedback when people select a list item."
     private var compactBody: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                summaryCard
-                    .padding(.bottom, 18)
-
-                sectionHeader(String(localized: "licenses.section_libraries"))
-
-                libraryList
-
-                footerNote
-                    .padding(.top, 12)
-                    .padding(.bottom, 24)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-            .readableWidth(720)
+        List {
+            Section { summaryCard }
+            librariesSection
         }
+        .listStyle(.insetGrouped)
     }
 
     // MARK: - Overview panel (regular-width left pane)
@@ -121,26 +100,24 @@ struct LicensesView: View {
     // MARK: - Summary card (compact layout)
 
     private var summaryCard: some View {
-        FieldGroup([0], id: \.self) { _ in
-            VStack(alignment: .leading, spacing: 0) {
-                // Count + label
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("\(LicenseData.all.count)")
-                        .font(.largeTitle.weight(.bold))
-                        .foregroundStyle(.primary)
-                    Text(String(localized: "licenses.count_suffix"))
-                        .font(.headline)
-                        .foregroundStyle(Color.luLabel2)
-                }
-
-                DistributionMeter()
-                    .padding(.top, 14)
-
-                legendRow
-                    .padding(.top, 13)
+        VStack(alignment: .leading, spacing: 0) {
+            // Count + label
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("\(LicenseData.all.count)")
+                    .font(.largeTitle.weight(.bold))
+                    .foregroundStyle(.primary)
+                Text(String(localized: "licenses.count_suffix"))
+                    .font(.headline)
+                    .foregroundStyle(Color.luLabel2)
             }
-            .padding(16)
+
+            DistributionMeter()
+                .padding(.top, 14)
+
+            legendRow
+                .padding(.top, 13)
         }
+        .padding(.vertical, 6)
     }
 
     // MARK: - Distribution legend
@@ -167,12 +144,22 @@ struct LicensesView: View {
 
     // MARK: - Library list
 
-    private var libraryList: some View {
-        FieldGroup(filteredLibraries, separatorInset: 14) { lib in
-            NavigationLink(value: LicenseDetailDestination(packageName: lib.name)) {
-                libraryRow(lib)
+    @ViewBuilder
+    private var librariesSection: some View {
+        Section {
+            ForEach(filteredLibraries) { lib in
+                NavigationLink(value: LicenseDetailDestination(packageName: lib.name)) {
+                    libraryRow(lib)
+                }
             }
-            .buttonStyle(.plain)
+        } header: {
+            Text(String(localized: "licenses.section_libraries"))
+        } footer: {
+            footerNote
+        }
+        if filteredLibraries.isEmpty {
+            ContentUnavailableView.search(text: searchText)
+                .listRowBackground(Color.clear)
         }
     }
 
@@ -190,12 +177,7 @@ struct LicensesView: View {
             }
             Spacer(minLength: 8)
             LicenseChip(spdxId: lib.spdxId)
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Color.luLabel3)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
     }
 
     // MARK: - Footer
@@ -210,18 +192,7 @@ struct LicensesView: View {
                 .font(.footnote)
                 .foregroundStyle(Color.luLabel2)
         }
-        .padding(.horizontal, 4)
-    }
-
-    // MARK: - Section header
-
-    @ViewBuilder
-    private func sectionHeader(_ title: String) -> some View {
-        Text(title.uppercased())
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(Color.luLabel2)
-            .padding(.leading, 4)
-            .padding(.bottom, 8)
+        .padding(.top, 4)
     }
 
     // MARK: - Data helpers
