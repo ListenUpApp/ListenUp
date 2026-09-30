@@ -8,7 +8,8 @@ import SwiftUI
 /// and either a progress bar + percent (reading) or a "Finished {date}" line. The current
 /// user's row gets a "(You)" suffix. A reader's rating sits beside their name as small stars, with
 /// their note in quotes beneath (two lines at most); someone who rated the book without reading it
-/// here reads "Rated". Tapping a row opens that reader's profile.
+/// here reads "Rated". A reader whose newest read was logged on Hardcover reads "Read {date}" with a
+/// Hardcover badge. Tapping a row opens that reader's profile.
 ///
 /// Pure/presentational: it takes the projected rows. Renders nothing when empty (the
 /// observer's `.empty` phase keeps it out of the layout entirely).
@@ -72,6 +73,16 @@ struct BookReadersSection: View {
 
                 if reader.isReading {
                     progress(reader)
+                } else if let finished = reader.lastFinished, reader.lastFinishedOnHardcover {
+                    HStack(spacing: Spacing.xs) {
+                        Text(String(
+                            format: String(localized: "book.detail_readers_read"),
+                            finished.formatted(date: .abbreviated, time: .omitted)
+                        ))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        SourceBadge(label: String(localized: "book.detail_readers_hardcover"))
+                    }
                 } else if let finished = reader.lastFinished {
                     Text(String(
                         format: String(localized: "book.detail_readers_finished"),
@@ -175,6 +186,13 @@ struct BookReadersSection: View {
                 pct
             )
         }
+        if let finished = reader.lastFinished, reader.lastFinishedOnHardcover {
+            return String(
+                format: String(localized: "book.detail_readers_a11y_read_on_hardcover"),
+                name(for: reader),
+                finished.formatted(date: .abbreviated, time: .omitted)
+            )
+        }
         if let finished = reader.lastFinished {
             return String(
                 format: String(localized: "book.detail_readers_a11y_finished"),
@@ -221,6 +239,12 @@ struct BookReadersSection: View {
                 id: "u4", displayName: "Ana Ruiz", initials: "AR",
                 isYou: false, progressPercent: nil, lastFinished: nil,
                 halfStars: 6
+            ),
+            BookReaderRow(
+                id: "u5", displayName: "Lena Ortiz", initials: "LO",
+                isYou: false, progressPercent: nil,
+                lastFinished: Date(timeIntervalSince1970: 1_488_369_600),
+                lastFinishedOnHardcover: true
             )
         ]
     )

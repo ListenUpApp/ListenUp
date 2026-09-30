@@ -72,8 +72,10 @@ enum BookReadersPhase: Equatable {
 ///
 /// `isReading` is `progressPercent != nil` — the shared model encodes "reading now" as a
 /// non-null `currentProgressPct`. When not reading, `lastFinished` carries the most recent dated
-/// completion (newest-first in the source list) for the "Finished {date}" label. The rating is the
-/// person's, not a line's: iOS draws one row per reader, so it rides on that row.
+/// completion (newest-first in the source list) for the "Finished {date}" label. When that newest
+/// completion was logged on Hardcover, `lastFinishedOnHardcover` is set and the row reads "Read {date}"
+/// beside a Hardcover badge instead. The rating is the person's, not a line's: iOS draws one row per
+/// reader, so it rides on that row.
 struct BookReaderRow: Identifiable, Equatable {
     let id: String
     let displayName: String
@@ -83,6 +85,8 @@ struct BookReaderRow: Identifiable, Equatable {
     let progressPercent: Int?
     /// Most recent completion, when finished and not currently reading; nil otherwise.
     let lastFinished: Date?
+    /// True when `lastFinished` is a read logged on Hardcover (#601 B3), not a finish in ListenUp.
+    let lastFinishedOnHardcover: Bool
     /// This reader's rating in half stars (2...10), when they left one.
     let halfStars: Int?
     /// The note left with the rating, if any.
@@ -100,10 +104,13 @@ struct BookReaderRow: Identifiable, Equatable {
         self.initials = Self.initials(from: reader.displayName)
         self.isYou = reader.isYou
         self.progressPercent = reader.currentProgressPct.map { Int($0) }
-        // `finishes` is newest-first; the first entry is the most recent completion (epoch ms).
-        self.lastFinished = reader.finishes.first.map {
-            Date(timeIntervalSince1970: Double($0) / 1000)
-        }
+        // Both lists are newest-first (epoch ms); the row shows whichever is more recent, and where it
+        // came from.
+        let listened = reader.finishes.first.map { (ms: $0, onHardcover: false) }
+        let logged = reader.hardcoverFinishes.first.map { (ms: $0, onHardcover: true) }
+        let latest = [listened, logged].compactMap { $0 }.max { $0.ms < $1.ms }
+        self.lastFinished = latest.map { Date(timeIntervalSince1970: Double($0.ms) / 1000) }
+        self.lastFinishedOnHardcover = latest?.onHardcover ?? false
         self.halfStars = reader.rating.map { Int($0.halfStars) }
         self.note = reader.rating?.note
     }
@@ -116,7 +123,8 @@ struct BookReaderRow: Identifiable, Equatable {
         progressPercent: Int?,
         lastFinished: Date?,
         halfStars: Int? = nil,
-        note: String? = nil
+        note: String? = nil,
+        lastFinishedOnHardcover: Bool = false
     ) {
         self.id = id
         self.displayName = displayName
@@ -124,6 +132,7 @@ struct BookReaderRow: Identifiable, Equatable {
         self.isYou = isYou
         self.progressPercent = progressPercent
         self.lastFinished = lastFinished
+        self.lastFinishedOnHardcover = lastFinishedOnHardcover
         self.halfStars = halfStars
         self.note = note
     }

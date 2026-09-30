@@ -14,7 +14,8 @@ struct BookReadersObserverTests {
         name: String,
         isYou: Bool = false,
         progressPct: Int? = nil,
-        finishes: [Int64] = []
+        finishes: [Int64] = [],
+        hardcoverFinishes: [Int64] = []
     ) -> Reader {
         // Native Swift Export bridges Kotlin `Int?` → `Int32?` and `List<Long>` → `[Int64]`.
         Reader(
@@ -23,7 +24,8 @@ struct BookReadersObserverTests {
             isYou: isYou,
             currentProgressPct: progressPct.map { Int32($0) },
             finishes: finishes,
-            rating: nil
+            rating: nil,
+            hardcoverFinishes: hardcoverFinishes
         )
     }
 
@@ -51,6 +53,39 @@ struct BookReadersObserverTests {
         #expect(row.progressPercent == nil)
         // `finishes` is newest-first; the row takes the first (most recent).
         #expect(row.lastFinished == Date(timeIntervalSince1970: 1_711_929_600))
+    }
+
+    @Test func hardcoverOnlyReaderShowsTheirHardcoverRead() {
+        // 2017-03-01T12:00:00Z = 1_488_369_600_000 ms.
+        let row = BookReaderRow(from: reader(id: "u3", name: "Ann Lee", hardcoverFinishes: [1_488_369_600_000]))
+
+        #expect(row.lastFinished == Date(timeIntervalSince1970: 1_488_369_600))
+        #expect(row.lastFinishedOnHardcover == true)
+        #expect(row.isRatedOnly == false)
+    }
+
+    @Test func aNewerListenUpFinishIsTheOneShown() {
+        let row = BookReaderRow(from: reader(
+            id: "u4",
+            name: "Ann Lee",
+            finishes: [1_711_929_600_000],
+            hardcoverFinishes: [1_488_369_600_000]
+        ))
+
+        #expect(row.lastFinished == Date(timeIntervalSince1970: 1_711_929_600))
+        #expect(row.lastFinishedOnHardcover == false)
+    }
+
+    @Test func aNewerHardcoverReadIsTheOneShownAndBadged() {
+        let row = BookReaderRow(from: reader(
+            id: "u5",
+            name: "Ann Lee",
+            finishes: [1_488_369_600_000],
+            hardcoverFinishes: [1_711_929_600_000]
+        ))
+
+        #expect(row.lastFinished == Date(timeIntervalSince1970: 1_711_929_600))
+        #expect(row.lastFinishedOnHardcover == true)
     }
 
     @Test func currentUserFlagSurvives() {

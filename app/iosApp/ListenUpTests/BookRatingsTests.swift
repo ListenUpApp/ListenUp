@@ -34,7 +34,8 @@ struct BookRatingsTests {
             isYou: false,
             currentProgressPct: progressPct.map { Int32($0) },
             finishes: finishes,
-            rating: rating
+            rating: rating,
+            hardcoverFinishes: []
         )
     }
 
