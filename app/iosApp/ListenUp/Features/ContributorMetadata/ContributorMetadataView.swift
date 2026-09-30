@@ -1,10 +1,11 @@
 import SwiftUI
 import Shared
 
-/// "Find on Audible" sheet for a contributor: search Audible, pick a match, preview which
-/// fields (name / bio / photo) to apply, then apply. Mirrors the Android two-screen flow
-/// (`ContributorMetadataSearchScreen` → `ContributorMetadataPreviewScreen`) as a native
-/// `NavigationStack` push. Responsive (iPhone + iPad) via `readableWidth`.
+/// "Find on Audible" sheet for a contributor: search Audible, pick a match, preview the incoming
+/// biography and photo, then apply. Apply updates the biography and the photo — it never renames
+/// the contributor, so the preview names who was matched rather than comparing names. Mirrors the
+/// Android two-screen flow (`ContributorMetadataSearchScreen` → `ContributorMetadataPreviewScreen`)
+/// as a native `NavigationStack` push. Responsive (iPhone + iPad) via `readableWidth`.
 struct ContributorMetadataView: View {
     let contributorId: String
 
@@ -229,14 +230,9 @@ private struct ContributorMetadataPreviewView: View {
     private func content(profile: ContributorProfilePreview) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                matchedIdentity(profile: profile)
                 imageComparison(profile: profile)
 
-                ContributorComparisonRow(
-                    label: String(localized: "common.name"),
-                    currentValue: observer.contributorName,
-                    newValue: profile.name,
-                    isMultiline: false
-                )
                 ContributorComparisonRow(
                     label: String(localized: "contributor.biography"),
                     currentValue: observer.currentBio,
@@ -251,6 +247,23 @@ private struct ContributorMetadataPreviewView: View {
             .readableWidth(680)
         }
         .safeAreaBar(edge: .bottom) { applyTray }
+    }
+
+    /// Who was matched: the Audible profile's name over a quiet "Audible · <region>" source line.
+    /// Identification, not a before-and-after — Apply never renames the contributor, so setting
+    /// the local name against the Audible one would promise a change that never happens.
+    private func matchedIdentity(profile: ContributorProfilePreview) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(profile.name)
+                .font(.title2.weight(.bold))
+                .foregroundStyle(.primary)
+                .accessibilityAddTraits(.isHeader)
+            Text(String(format: String(localized: "metadata.audible_source"), observer.region.displayName))
+                .font(.subheadline)
+                .foregroundStyle(Color.luLabel2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 
     /// Side-by-side current vs. incoming photo. Informational — no toggle; the server keeps the
@@ -346,9 +359,9 @@ private struct ContributorMetadataPreviewView: View {
     }
 }
 
-/// A name/biography comparison row: the current value and the incoming Audible value, side by
-/// side. Informational only — there are no per-field toggles; the server applies asin +
-/// biography + photo as a unit (never the name), matching Audiobookshelf's apply contract.
+/// A biography comparison row: the current value and the incoming Audible value, side by side.
+/// Informational only — there are no per-field toggles; the server applies asin + biography +
+/// photo as a unit and never renames the contributor, so the name is never compared here.
 private struct ContributorComparisonRow: View {
     let label: String
     let currentValue: String?

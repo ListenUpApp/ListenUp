@@ -54,7 +54,6 @@ import com.calypsan.listenup.client.presentation.contributormetadata.Contributor
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorPreviewLoadState
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_image
-import listenup.composeapp.generated.resources.common_name
 import listenup.composeapp.generated.resources.contributor_biography
 import listenup.composeapp.generated.resources.contributor_apply_match
 import listenup.composeapp.generated.resources.contributor_audible
@@ -65,6 +64,7 @@ import listenup.composeapp.generated.resources.contributor_failed_to_load_profil
 import listenup.composeapp.generated.resources.contributor_new_image
 import listenup.composeapp.generated.resources.contributor_no_profile_in_region
 import listenup.composeapp.generated.resources.contributor_preview_changes
+import listenup.composeapp.generated.resources.metadata_audible_source_region
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -72,13 +72,18 @@ import org.jetbrains.compose.resources.stringResource
  *
  * Exhaustive over [ContributorPreviewLoadState]: Loading spinner, a Missing state offering a
  * region switch (Never-Stranded — an empty regional shell is an honest miss, not a blank
- * preview), a Failed state, and the Ready compare view. There are no per-field checkboxes:
- * the server applies asin + biography + photo, never the name — the compare rows are
- * informational. The Apply actions render ONLY in Ready, so a non-ready state can never sit
- * above a live Apply button.
+ * preview), a Failed state, and the Ready compare view. There are no per-field checkboxes.
  *
- * A phone stacks the comparisons above a bottom action bar. From the expanded width, who the
- * contributor is — the photo, the name, and the actions that commit to them — becomes a side panel,
+ * Apply updates the biography and the photo — it never renames the contributor. The server's
+ * applier writes exactly asin, biography and photo, and never blanks an existing value with a
+ * missing incoming one. So the matched name is shown as *identification* — which person was
+ * matched, and from which Audible region — rather than as a before-and-after, which would promise
+ * a rename that never happens. Only the photo and the biography are compared. The Apply actions
+ * render ONLY in Ready, so a non-ready state can never sit above a live Apply button.
+ *
+ * A phone stacks the identification and the comparisons above a bottom action bar. From the
+ * expanded width, who was matched — the identification, the photo, and the actions that commit to
+ * them — becomes a side panel,
  * and the two biographies are read in full, side by side, beside it: the biography is the long field
  * and the one worth comparing line by line.
  */
@@ -163,7 +168,7 @@ fun ContributorMetadataPreviewScreen(
             is ContributorPreviewLoadState.Ready -> {
                 if (panelBeside) {
                     ReadyWideContent(
-                        currentName = state.context.current?.name,
+                        region = state.region,
                         currentDescription = state.context.current?.description,
                         currentImagePath = state.context.current?.imagePath,
                         profile = loadState.profile,
@@ -179,7 +184,7 @@ fun ContributorMetadataPreviewScreen(
                     )
                 } else {
                     ReadyContent(
-                        currentName = state.context.current?.name,
+                        region = state.region,
                         currentDescription = state.context.current?.description,
                         currentImagePath = state.context.current?.imagePath,
                         profile = loadState.profile,
@@ -303,7 +308,7 @@ private fun PreviewActions(
 
 @Composable
 private fun ReadyContent(
-    currentName: String?,
+    region: MetadataLocale,
     currentDescription: String?,
     currentImagePath: String?,
     profile: MetadataContributorProfile,
@@ -314,17 +319,11 @@ private fun ReadyContent(
         contentPadding = PaddingValues(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        item { MatchedIdentity(name = profile.name, region = region) }
         item {
             ImageComparisonRow(
                 currentImagePath = currentImagePath,
                 newImageUrl = profile.imageUrl,
-            )
-        }
-        item {
-            TextComparisonRow(
-                label = stringResource(Res.string.common_name),
-                currentValue = currentName,
-                newValue = profile.name,
             )
         }
         item {
@@ -342,13 +341,13 @@ private fun ReadyContent(
 private val IdentityPanelWidth = 360.dp
 
 /**
- * The expanded-width Ready view: an identity panel (photo, name, then [actions]) beside the two
+ * The expanded-width Ready view: an identity panel (who was matched, their photo, then [actions]) beside the two
  * biographies read in full, side by side.
  */
 @Suppress("LongParameterList")
 @Composable
 private fun ReadyWideContent(
-    currentName: String?,
+    region: MetadataLocale,
     currentDescription: String?,
     currentImagePath: String?,
     profile: MetadataContributorProfile,
@@ -368,14 +367,10 @@ private fun ReadyWideContent(
                     .padding(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            MatchedIdentity(name = profile.name, region = region)
             ImageComparisonRow(
                 currentImagePath = currentImagePath,
                 newImageUrl = profile.imageUrl,
-            )
-            TextComparisonRow(
-                label = stringResource(Res.string.common_name),
-                currentValue = currentName,
-                newValue = profile.name,
             )
             actions()
         }
@@ -389,6 +384,29 @@ private fun ReadyWideContent(
         ) {
             BiographyComparison(currentValue = currentDescription, newValue = profile.description)
         }
+    }
+}
+
+/**
+ * Who was matched: the Audible profile's name, prominent, over a quiet "Audible · <region>" source
+ * line. Identification only — Apply never renames the contributor, so there is no before-and-after.
+ */
+@Composable
+private fun MatchedIdentity(
+    name: String,
+    region: MetadataLocale,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = name,
+            style = MaterialTheme.typography.headlineSmallEmphasized,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = stringResource(Res.string.metadata_audible_source_region, region.displayName),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
