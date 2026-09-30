@@ -50,18 +50,23 @@ fun flattenToLines(readers: List<Reader>): List<ReaderLine> {
             .map { ReaderLine(it.userId, it.displayName, it.isYou, ReaderLineKind.Reading(it.currentProgressPct)) }
     val finished =
         readers
-            .flatMap { r ->
-                r.finishes.map { Triple<Reader, Long, ReaderLineKind>(r, it, ReaderLineKind.Finished(it)) } +
-                    r.hardcoverFinishes.map { Triple<Reader, Long, ReaderLineKind>(r, it, ReaderLineKind.FinishedOnHardcover(it)) }
-            }.sortedByDescending { it.second }
-            .map { (r, _, kind) -> ReaderLine(r.userId, r.displayName, r.isYou, kind) }
+            .flatMap { it.finishedLines() }
+            .sortedByDescending { (finishedAtMs, _) -> finishedAtMs }
+            .map { (_, line) -> line }
     val ratedOnly =
         readers
-            .filter { it.currentProgressPct == null && it.finishes.isEmpty() && it.hardcoverFinishes.isEmpty() && it.rating != null }
-            .map { ReaderLine(it.userId, it.displayName, it.isYou, ReaderLineKind.Rated) }
+            .filter {
+                it.currentProgressPct == null && (it.finishes + it.hardcoverFinishes).isEmpty() &&
+                    it.rating != null
+            }.map { ReaderLine(it.userId, it.displayName, it.isYou, ReaderLineKind.Rated) }
     val ratingsByUser = readers.mapNotNull { r -> r.rating?.let { r.userId to it } }.toMap()
     val seen = mutableSetOf<String>()
     return (reading + finished + ratedOnly).map { line ->
         if (seen.add(line.userId)) line.copy(rating = ratingsByUser[line.userId]) else line
     }
 }
+
+/** One reader's finished lines — ListenUp's finishes and Hardcover's reads alike — each with the instant it sorts by. */
+private fun Reader.finishedLines(): List<Pair<Long, ReaderLine>> =
+    finishes.map { it to ReaderLine(userId, displayName, isYou, ReaderLineKind.Finished(it)) } +
+        hardcoverFinishes.map { it to ReaderLine(userId, displayName, isYou, ReaderLineKind.FinishedOnHardcover(it)) }

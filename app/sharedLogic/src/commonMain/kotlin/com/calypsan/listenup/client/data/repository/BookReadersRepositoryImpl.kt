@@ -166,7 +166,8 @@ private fun BookReadershipEntity.toReader(currentUserId: String?): Reader =
     )
 
 /** The epoch-ms list a readership column holds, comma-joined (empty string = none). */
-private fun timestampsIn(column: String): List<Long> = if (column.isEmpty()) emptyList() else column.split(",").map { it.toLong() }
+private fun timestampsIn(column: String): List<Long> =
+    if (column.isEmpty()) emptyList() else column.split(",").map { it.toLong() }
 
 private fun BookRatingEntity.toListenerRating(): ListenerRating =
     ListenerRating(

@@ -178,7 +178,9 @@ internal class SyncRepositoryImpl(
             scope.launch {
                 val nudged = onForegrounded()
                 if (nudged is AppResult.Failure) {
-                    logger.debug { "Hardcover foreground nudge failed (${nudged.error.code}); the server's schedule covers it" }
+                    logger.debug {
+                        "Hardcover foreground nudge failed (${nudged.error.code}); the server's schedule covers it"
+                    }
                 }
             }
         }

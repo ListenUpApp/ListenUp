@@ -395,53 +395,7 @@ internal fun ReaderRow(
                 }
             }
 
-            if (reader.isReading) {
-                if (reader.progressPct != null) {
-                    Row(
-                        modifier = Modifier.padding(top = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        ProgressBar(
-                            progressPct = reader.progressPct,
-                            modifier = Modifier.widthIn(max = 150.dp).weight(1f, fill = false),
-                        )
-                        Text(
-                            text = stringResource(Res.string.book_detail_progresspercent, reader.progressPct),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
-            } else if (reader.finishedWhen != null && reader.isOnHardcover) {
-                Row(
-                    modifier = Modifier.padding(top = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = stringResource(Res.string.book_detail_readers_read, reader.finishedWhen),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    TonalLabel(label = stringResource(Res.string.book_detail_readers_hardcover))
-                }
-            } else if (reader.finishedWhen != null) {
-                Text(
-                    text = stringResource(Res.string.book_detail_readers_finished, reader.finishedWhen),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 1.dp),
-                )
-            } else if (reader.isRatedOnly) {
-                Text(
-                    text = stringResource(Res.string.book_detail_readers_rated),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 1.dp),
-                )
-            }
+            ReaderStateLine(reader)
 
             if (reader.note != null) {
                 Text(
@@ -479,6 +433,61 @@ internal fun ReaderRow(
                 modifier = Modifier.size(22.dp),
             )
         }
+    }
+}
+
+/**
+ * The line under a reader's name: progress while they are reading, "Read {date}" beside a "Hardcover"
+ * label for a read logged there, "Finished {date}" for a ListenUp finish, or "Rated".
+ */
+@Composable
+private fun ReaderStateLine(reader: ReaderRowUi) {
+    if (reader.isReading) {
+        if (reader.progressPct != null) {
+            Row(
+                modifier = Modifier.padding(top = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ProgressBar(
+                    progressPct = reader.progressPct,
+                    modifier = Modifier.widthIn(max = 150.dp).weight(1f, fill = false),
+                )
+                Text(
+                    text = stringResource(Res.string.book_detail_progresspercent, reader.progressPct),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+    } else if (reader.finishedWhen != null && reader.isOnHardcover) {
+        Row(
+            modifier = Modifier.padding(top = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(Res.string.book_detail_readers_read, reader.finishedWhen),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TonalLabel(label = stringResource(Res.string.book_detail_readers_hardcover))
+        }
+    } else if (reader.finishedWhen != null) {
+        Text(
+            text = stringResource(Res.string.book_detail_readers_finished, reader.finishedWhen),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 1.dp),
+        )
+    } else if (reader.isRatedOnly) {
+        Text(
+            text = stringResource(Res.string.book_detail_readers_rated),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 1.dp),
+        )
     }
 }
 
