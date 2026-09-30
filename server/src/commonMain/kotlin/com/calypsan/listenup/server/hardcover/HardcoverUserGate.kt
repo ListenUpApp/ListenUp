@@ -6,9 +6,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * What push ([HardcoverPushWorker]) and pull share per user: one Hardcover conversation at a time
- * ([withUser]), and one throttle pause ([pause]). Hardcover's rate limits are per user, so a 429
- * answered to either direction holds both. Correctness never depends on the order push and pull take
+ * What push ([HardcoverPushWorker]) and pull ([HardcoverPullWorker]) share per user: one Hardcover
+ * conversation at a time ([withUser]), and one throttle pause ([pause]). Hardcover's rate limits are
+ * per user, so a 429 answered to either direction holds both. Correctness never depends on the order push and pull take
  * turns in — the pushed-read ledger is written before ListenUp finishes a read — this only keeps the
  * two from talking over each other.
  */
