@@ -140,14 +140,15 @@ kotlin {
             // deliberately NOT carried over, since the bundler in web/ resolves those specifiers now.
             implementation(libs.kotlinx.io.core)
             implementation(libs.ktor.io)
+            // "Mark as finished" holds its two days as `LocalDate`s from the shared `FinishDates`
+            // and converts them in the reader's `TimeZone` — both kotlinx-datetime types, and
+            // :app:sharedLogic keeps that library `implementation` too.
+            implementation(libs.kotlinx.datetime)
         }
         jsTest.dependencies {
             implementation(libs.kotest.framework.engine)
             implementation(libs.kotest.assertions.core)
             implementation(libs.kotlinx.coroutines.test)
-            // :app:sharedLogic depends on kotlinx-datetime as `implementation`, so it doesn't
-            // transit here — declared directly for TimeZoneOnJsTest.
-            implementation(libs.kotlinx.datetime)
         }
     }
 }

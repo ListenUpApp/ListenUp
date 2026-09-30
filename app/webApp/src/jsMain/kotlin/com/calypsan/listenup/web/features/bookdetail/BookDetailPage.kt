@@ -102,7 +102,7 @@ fun BookDetailPage(
     onRetryConnection: () -> Unit,
     /** True while a play request for this book is in flight — see the Play button. */
     isPreparing: Boolean = false,
-    onMarkComplete: () -> Unit = {},
+    onMarkComplete: (startedAt: Long, finishedAt: Long) -> Unit = { _, _ -> },
     onDiscardProgress: () -> Unit = {},
     onRestart: () -> Unit = {},
     onShare: () -> Unit = {},
@@ -250,7 +250,7 @@ private fun SharedHeader(
     state: BookDetailUiState,
     bookId: String?,
     isPreparing: Boolean,
-    onMarkComplete: () -> Unit,
+    onMarkComplete: (startedAt: Long, finishedAt: Long) -> Unit,
     onDiscardProgress: () -> Unit,
     onRestart: () -> Unit,
     onShare: () -> Unit,
@@ -320,9 +320,12 @@ private fun SharedHeader(
                         }
                     }
                     ready?.let { loaded ->
+                        // Finishing asks for the days first, as it does on Android and iOS — the
+                        // menu item opens the question rather than answering it with "now".
+                        var askingFinishDates by remember { mutableStateOf(false) }
                         BookActionsMenu(
                             ready = loaded,
-                            onMarkComplete = onMarkComplete,
+                            onMarkComplete = { askingFinishDates = true },
                             onDiscardProgress = onDiscardProgress,
                             onRestart = onRestart,
                             onAddToShelf = pickers.onShowShelfPicker,
@@ -351,6 +354,15 @@ private fun SharedHeader(
                                 },
                             )
                         }
+                        MarkFinishedDialog(
+                            open = askingFinishDates,
+                            startedAtMs = loaded.startedAtMs,
+                            onConfirm = { startedAt, finishedAt ->
+                                askingFinishDates = false
+                                onMarkComplete(startedAt, finishedAt)
+                            },
+                            onDismiss = { askingFinishDates = false },
+                        )
                     }
                     // Icon-only, so the accessible name is the attribute, not the content —
                     // BookDetailEditButtonTest pins both the label and that it matches Play's height.
