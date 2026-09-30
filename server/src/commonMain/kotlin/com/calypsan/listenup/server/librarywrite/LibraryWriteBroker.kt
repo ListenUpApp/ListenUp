@@ -3,6 +3,8 @@ package com.calypsan.listenup.server.librarywrite
 import com.calypsan.listenup.api.error.LibraryWriteError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.failure
+import com.calypsan.listenup.server.io.deleteEntry
+import com.calypsan.listenup.server.io.deleteRecursively
 import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.io.isSymlink
 import com.calypsan.listenup.server.io.isUnder
@@ -34,14 +36,34 @@ class LibraryWriteBroker(
     private val suppressionTtlMs: Long = DEFAULT_SUPPRESSION_TTL_MS,
 ) {
     /**
-     * The first of [paths] that does not resolve inside a live library folder, or `null` when all
-     * of them do. Consulted before any byte moves, on every path an operation touches — a move
-     * has two, and only checking the destination would let a caller move a file *out* of the
-     * library just as easily as into it.
+     * The typed refusal for the first of [paths] that does not resolve inside a live library
+     * folder, or `null` when all of them do. Consulted before any byte moves, on every path an
+     * operation touches — a move has two, and only checking the destination would let a caller move a file *out* of the
+     * library just as easily as into it. [finalLink] says how a symbolic link as the last segment
+     * is judged, which depends on whether the op acts on the link or through it.
+     *
+     * **What this does and does not guarantee.** The check runs immediately before each op, on the
+     * filesystem as it stands, and the op then re-walks the same path string. Anyone able to swap a
+     * checked directory for a symbolic link in the gap between the two (a time-of-check /
+     * time-of-use race) can still redirect that one op. Closing the gap needs descriptor-relative
+     * resolution the kernel refuses to take outside a directory (`openat2` with `RESOLVE_BENEATH`),
+     * which neither kotlinx-io nor the JVM exposes. The threat this defends against is the
+     * standing one — links a user placed in their library, and caller paths built wrongly — not a
+     * concurrent attacker who already has write access inside the library folder.
      */
-    private suspend fun firstOutsideLibrary(vararg paths: Path): Path? {
+    private suspend fun outsideLibraryRefusal(
+        opName: String,
+        finalLink: FinalLink,
+        vararg paths: Path,
+    ): AppResult<Nothing>? {
         val live = libraryRoots.roots()
-        return paths.firstOrNull { !isInsideAnyRoot(it, live) }
+        val escaping = paths.firstOrNull { !isInsideAnyRoot(it, live, finalLink) } ?: return null
+        // The roots go to the server log only. debugInfo travels back to the client (Delete Book
+        // returns it), and the server's folder layout is not the business of whoever pressed delete.
+        logger.warn { "refused $opName that resolves outside every library folder: $escaping (roots $live)" }
+        return failure(
+            LibraryWriteError.OutsideLibrary(debugInfo = "$escaping does not resolve inside any library folder"),
+        )
     }
 
     /**
@@ -57,12 +79,7 @@ class LibraryWriteBroker(
         target: Path,
         bytes: ByteArray,
     ): AppResult<WrittenFile> {
-        firstOutsideLibrary(target)?.let { escaping ->
-            logger.warn { "refused a write that resolves outside every library folder: $escaping" }
-            return failure(
-                LibraryWriteError.OutsideLibrary(debugInfo = "$escaping does not resolve inside any library folder"),
-            )
-        }
+        outsideLibraryRefusal("a write", FinalLink.InPlace, target)?.let { return it }
         val parent =
             target.parent
                 ?: return failure(LibraryWriteError.Unavailable(debugInfo = "no parent directory: $target"))
@@ -172,32 +189,30 @@ class LibraryWriteBroker(
      * [LibraryWriteError.Unavailable].
      */
     private suspend fun applyOp(op: WriteOp): AppResult<Unit> {
-        val touched =
+        // Ops built on rename(2)/unlink(2) act on a final symbolic link itself, never its target, so
+        // they judge it where it sits (InPlace) — as does DeleteDirIfEmpty, which leaves a link
+        // alone. EnsureDir and DeleteDir act through it, so they judge it where it points (Follow).
+        val (finalLink, touched) =
             when (op) {
-                is WriteOp.EnsureDir -> arrayOf(op.dir)
+                is WriteOp.EnsureDir -> FinalLink.Follow to arrayOf(op.dir)
 
-                is WriteOp.MoveFile -> arrayOf(op.from, op.to)
+                is WriteOp.MoveFile -> FinalLink.InPlace to arrayOf(op.from, op.to)
 
                 // Only the destination is a library path; the source is staging, and its own
                 // containment is checked by [refuseUnlessImportable] below.
-                is WriteOp.ImportFile -> arrayOf(op.to)
+                is WriteOp.ImportFile -> FinalLink.InPlace to arrayOf(op.to)
 
-                is WriteOp.WriteFile -> arrayOf(op.target)
+                is WriteOp.WriteFile -> FinalLink.InPlace to arrayOf(op.target)
 
-                is WriteOp.DeleteFile -> arrayOf(op.target)
+                is WriteOp.DeleteFile -> FinalLink.InPlace to arrayOf(op.target)
 
-                is WriteOp.DeleteDirIfEmpty -> arrayOf(op.dir)
+                is WriteOp.DeleteDirIfEmpty -> FinalLink.InPlace to arrayOf(op.dir)
 
                 // Containment is necessary but nowhere near sufficient here — see
                 // [refuseUnlessRecursivelyDeletable], which runs below.
-                is WriteOp.DeleteDir -> arrayOf(op.dir)
+                is WriteOp.DeleteDir -> FinalLink.Follow to arrayOf(op.dir)
             }
-        firstOutsideLibrary(*touched)?.let { escaping ->
-            logger.warn { "refused ${op::class.simpleName} that resolves outside every library folder: $escaping" }
-            return failure(
-                LibraryWriteError.OutsideLibrary(debugInfo = "$escaping does not resolve inside any library folder"),
-            )
-        }
+        outsideLibraryRefusal("${op::class.simpleName}", finalLink, *touched)?.let { return it }
         refusalFor(op)?.let { return it }
         return try {
             when (op) {
@@ -222,7 +237,9 @@ class LibraryWriteBroker(
 
                 is WriteOp.DeleteFile -> {
                     registry.register(op.target, suppressionTtlMs)
-                    SystemFileSystem.delete(op.target, mustExist = false)
+                    // deleteEntry, not SystemFileSystem.delete: the latter asks exists() first, which
+                    // follows links, and so silently keeps a dangling one while reporting success.
+                    deleteEntry(op.target)
                     AppResult.Success(Unit)
                 }
 
@@ -232,7 +249,9 @@ class LibraryWriteBroker(
                 }
 
                 is WriteOp.DeleteDir -> {
-                    deleteDirRecursively(op.dir)
+                    // The one recursive delete: links are leaves, unlinked and never followed, and
+                    // every entry is claimed with the registry before it goes.
+                    deleteRecursively(op.dir) { registry.register(it, suppressionTtlMs) }
                     AppResult.Success(Unit)
                 }
             }
@@ -260,32 +279,15 @@ class LibraryWriteBroker(
 
     /**
      * [WriteOp.DeleteDirIfEmpty]'s idempotency rule — see its KDoc. A missing directory is a
-     * silent no-op; a directory with contents is left alone (best-effort cleanup only).
+     * silent no-op; a directory with contents is left alone (best-effort cleanup only); and a
+     * symbolic link is left alone too — it is not an empty directory, whatever it points at, and
+     * the op neither follows it nor removes something the user made.
      */
     private fun deleteDirIfEmpty(dir: Path) {
-        if (!SystemFileSystem.exists(dir)) return
+        if (isSymlink(dir) || !SystemFileSystem.exists(dir)) return
         if (SystemFileSystem.list(dir).isNotEmpty()) return
         registry.register(dir, suppressionTtlMs)
-        SystemFileSystem.delete(dir, mustExist = false)
-    }
-
-    /**
-     * [WriteOp.DeleteDir]'s body — see its KDoc for the idempotency rule and the refusals that
-     * gate it. Post-order (children before parents), and every path is claimed with [registry]
-     * before it is unlinked so the watcher swallows the whole burst as self-writes.
-     *
-     * Deliberately NOT `com.calypsan.listenup.server.io.deleteRecursively`: that one asks
-     * `metadataOrNull`, which follows symbolic links, so a link to a directory reads as a directory
-     * and the walk descends through it — deleting somebody else's files and reporting success. Here
-     * a link is a leaf, always, whatever it points at.
-     */
-    private fun deleteDirRecursively(dir: Path) {
-        if (!SystemFileSystem.exists(dir) && !isSymlink(dir)) return
-        if (!isSymlink(dir) && SystemFileSystem.metadataOrNull(dir)?.isDirectory == true) {
-            for (child in SystemFileSystem.list(dir)) deleteDirRecursively(child)
-        }
-        registry.register(dir, suppressionTtlMs)
-        SystemFileSystem.delete(dir, mustExist = false)
+        deleteEntry(dir)
     }
 
     /**
@@ -298,15 +300,23 @@ class LibraryWriteBroker(
     private suspend fun refusalFor(op: WriteOp): AppResult<Unit>? =
         when (op) {
             is WriteOp.ImportFile -> refuseUnlessImportable(op)
-            is WriteOp.DeleteDirIfEmpty -> refuseIfLibraryRoot(op.dir, "DeleteDirIfEmpty")
+
+            is WriteOp.DeleteDirIfEmpty -> refuseIfLibraryRoot(op.dir, "DeleteDirIfEmpty", FinalLink.InPlace)
+
+            // DeleteFile removes an EMPTY directory as readily as a file (unlink-or-rmdir), so an
+            // empty library root is one DeleteFile away from gone without this.
+            is WriteOp.DeleteFile -> refuseIfLibraryRoot(op.target, "DeleteFile", FinalLink.InPlace)
+
             is WriteOp.DeleteDir -> refuseUnlessRecursivelyDeletable(op)
+
             else -> null
         }
 
     /**
-     * Refuses [dir] when it IS a live library folder root. Shared by both directory-removing ops,
+     * Refuses [dir] when it IS a live library folder root. Shared by every op that can remove a
+     * directory — both directory ops, and [WriteOp.DeleteFile], which removes an empty one —
      * because containment cannot answer this one: a root resolves inside itself, so
-     * `firstOutsideLibrary` waves it through, and removing one would leave every book row in that
+     * `outsideLibraryRefusal` waves it through, and removing one would leave every book row in that
      * folder pointing at nothing.
      *
      * [WriteOp.DeleteDir] has always needed it. [WriteOp.DeleteDirIfEmpty] needs it as of Delete
@@ -318,10 +328,13 @@ class LibraryWriteBroker(
     private suspend fun refuseIfLibraryRoot(
         dir: Path,
         opName: String,
+        finalLink: FinalLink = FinalLink.Follow,
     ): AppResult<Unit>? {
-        val resolved = resolvedForContainment(dir)
+        // Containment has already refused a [dir] that cannot be resolved, so null is unreachable
+        // here; the guard below stays total rather than asserting it.
+        val resolved = resolvedForContainment(dir, finalLink) ?: return null
         val offending =
-            libraryRoots.roots().map { resolvedForContainment(it) }.firstOrNull { root ->
+            libraryRoots.roots().mapNotNull { resolvedForContainment(it) }.firstOrNull { root ->
                 // At-or-under. Identity is the obvious case, but nothing forbids one library
                 // folder being configured inside another — and a recursive delete of a directory
                 // that CONTAINS a root erases that whole library folder while passing both the
@@ -331,10 +344,9 @@ class LibraryWriteBroker(
                 root == resolved || root.isUnder(resolved)
             }
         if (offending != null) {
+            // As with OutsideLibrary, the root itself is for the server log, not the client.
             logger.warn { "refused $opName of a directory at or above a library folder root: $dir (root $offending)" }
-            return failure(
-                LibraryWriteError.ProtectedPath(debugInfo = "$dir is, or contains, the library folder root $offending"),
-            )
+            return failure(LibraryWriteError.ProtectedPath(debugInfo = "$dir is, or contains, a library folder root"))
         }
         return null
     }
@@ -371,7 +383,8 @@ class LibraryWriteBroker(
      */
     private suspend fun refuseUnlessImportable(op: WriteOp.ImportFile): AppResult<Unit>? {
         val resolvedRoot = resolvedForContainment(op.fromRoot)
-        if (!resolvedForContainment(op.from).isUnder(resolvedRoot)) {
+        val resolvedFrom = resolvedForContainment(op.from)
+        if (resolvedRoot == null || resolvedFrom == null || !resolvedFrom.isUnder(resolvedRoot)) {
             logger.warn { "refused ImportFile whose source escapes its staging root: ${op.from} !under ${op.fromRoot}" }
             return failure(
                 LibraryWriteError.OutsideLibrary(debugInfo = "${op.from} does not resolve inside ${op.fromRoot}"),

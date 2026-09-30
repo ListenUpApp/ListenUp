@@ -154,7 +154,7 @@ fun booksModule(
             )
         }
         single<BookIngestPort> { get<BookRepository>() }
-        single { CoverStorage() }
+        single { CoverStorage(broker = get<LibraryWriteBroker>()) }
         single { UserPermissionPolicy(db = get<ListenUpDatabase>()) }
         single {
             BookDeleter(

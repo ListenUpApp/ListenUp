@@ -85,7 +85,11 @@ sealed interface WriteOp {
         val bytes: ByteArray,
     ) : WriteOp
 
-    /** Deletes [target]. Idempotency rule: a missing target means the delete already happened — skip. */
+    /**
+     * Deletes the entry at [target]. Idempotency rule: a missing target means the delete already
+     * happened — skip. A symbolic link is removed itself, dangling or not, and its target is never
+     * touched. A library folder root is refused (an empty one would otherwise be removed).
+     */
     data class DeleteFile(
         val target: Path,
     ) : WriteOp
@@ -95,7 +99,8 @@ sealed interface WriteOp {
      * means the delete already happened (or the directory was never left behind) — skip. A
      * directory that still has contents (an untracked file a caller's plan didn't know about, or
      * new content that landed mid-move) is left in place rather than force-deleted — cleanup is
-     * best-effort and never blocks the rest of the manifest.
+     * best-effort and never blocks the rest of the manifest. A symbolic link is left in place
+     * too: it is not an empty directory, whatever it points at.
      *
      * Best-effort is what makes this the right op for an **ancestor walk**: Delete Book emits one
      * per level above a removed book, deepest first, and the chain stops on its own at the first

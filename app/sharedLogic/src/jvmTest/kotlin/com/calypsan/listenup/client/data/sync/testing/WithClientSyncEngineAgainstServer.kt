@@ -71,6 +71,9 @@ import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.server.api.BookAccessPolicy
+import com.calypsan.listenup.server.librarywrite.LibraryWriteBroker
+import com.calypsan.listenup.server.librarywrite.SelfWriteRegistry
+import com.calypsan.listenup.server.librarywrite.WriteJournal
 import com.calypsan.listenup.server.api.bookServiceScopedTo
 import com.calypsan.listenup.server.api.createBookService
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -279,7 +282,18 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 repo = serverRepos.bookRepo,
                 contributorRepo = serverRepos.contributorRepo,
                 seriesRepo = serverRepos.seriesRepo,
-                coverStorage = CoverStorage(),
+                // These syncs never delete a filesystem cover, so the broker's roots stay empty:
+                // any write it were asked for would be refused rather than land on disk.
+                coverStorage =
+                    CoverStorage(
+                        LibraryWriteBroker(
+                            SelfWriteRegistry { 0L },
+                            WriteJournal(
+                                kotlinx.io.files.Path(Files.createTempDirectory("listenup-c3-journal-").toString()),
+                            ),
+                            { emptyList() },
+                        ),
+                    ),
                 sql = serverSqlDb,
                 driver = serverDriver,
                 genreRepo = serverRepos.genreRepo,

@@ -25,6 +25,7 @@ import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.cover.CoverStorage
+import com.calypsan.listenup.server.librarywrite.testBroker
 import com.calypsan.listenup.server.cover.PendingCover
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -194,7 +195,7 @@ internal fun makeBookServiceAndRepo(
             repo = repo,
             contributorRepo = contributorRepo,
             seriesRepo = seriesRepo,
-            coverStorage = CoverStorage(),
+            coverStorage = CoverStorage(testBroker()),
             sql = db.sql,
             genreRepo = genreRepo,
             accessPolicy = BookAccessPolicy(db.sql, db.driver),

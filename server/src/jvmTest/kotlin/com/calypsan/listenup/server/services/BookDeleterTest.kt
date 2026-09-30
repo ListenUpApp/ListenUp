@@ -17,6 +17,7 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverStorage
+import com.calypsan.listenup.server.librarywrite.testBroker
 import com.calypsan.listenup.server.librarywrite.LibraryWriteBroker
 import com.calypsan.listenup.server.librarywrite.SelfWriteRegistry
 import com.calypsan.listenup.server.librarywrite.SqlLibraryRootProvider
@@ -491,7 +492,7 @@ private class DeleterRig(
             repo = repo,
             contributorRepo = ContributorRepository(dbs.sql, bus, registry),
             seriesRepo = SeriesRepository(dbs.sql, bus, registry),
-            coverStorage = CoverStorage(),
+            coverStorage = CoverStorage(testBroker()),
             sql = dbs.sql,
             genreRepo = GenreRepository(dbs.sql, bus, registry),
             accessPolicy = BookAccessPolicy(db = dbs.sql, driver = dbs.driver),

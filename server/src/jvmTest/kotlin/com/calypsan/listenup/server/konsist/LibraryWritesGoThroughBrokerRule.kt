@@ -8,11 +8,10 @@ import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
 /**
  * Konsist guard pinning the Foundation-Trio invariant that
  * [com.calypsan.listenup.server.librarywrite.LibraryWriteBroker] is the **sole component that
- * writes inside library folders**. The packages that handle library-folder content (`scanner`
- * today; `organize` and `upload` when those phases land — the prefix list already names them so
- * they are born covered) must contain no direct filesystem-write token; every mutation routes
- * through the broker, which suppresses the watcher, journals multi-op manifests, and degrades
- * typed on unwritable roots.
+ * writes inside library folders**. The packages that handle library-folder content (`scanner`,
+ * `organize`, `upload`, `cover` and `sidecar`) must contain no direct filesystem-write token;
+ * every mutation routes through the broker, which suppresses the watcher, journals multi-op
+ * manifests, confines every path to a live library folder, and degrades typed on unwritable roots.
  *
  * Token-based like [SidecarParsersAreReadOnly]: comments are stripped so a mention in KDoc can't
  * false-fail. The floor assertions keep the rule non-vacuous — it must observe both the broker
@@ -27,6 +26,10 @@ class LibraryWritesGoThroughBrokerRule :
                 "com.calypsan.listenup.server.scanner",
                 "com.calypsan.listenup.server.organize",
                 "com.calypsan.listenup.server.upload",
+                // Filesystem-source covers live in the book's own folder, and the sidecar is
+                // written next to the audio — both are library content.
+                "com.calypsan.listenup.server.cover",
+                "com.calypsan.listenup.server.sidecar",
             )
 
         /** The kotlinx-io write surfaces (and the repo's helpers over them) a checked package must not touch. */
@@ -39,6 +42,8 @@ class LibraryWritesGoThroughBrokerRule :
                 ".writeText(",
                 ".writeBytes(",
                 "deleteRecursively(",
+                // The io layer's link-safe single-entry delete: a write primitive like the rest.
+                "deleteEntry(",
                 "createTempFileIn(",
             )
 
@@ -55,6 +60,10 @@ class LibraryWritesGoThroughBrokerRule :
                 // file becomes library content it goes through the broker as a
                 // WriteOp.ImportFile, which is exactly the boundary this rule protects.
                 "server/upload/UploadStaging.kt",
+                // CoverDerivatives caches resized covers under $LISTENUP_HOME/cache/covers — the
+                // server data home, never a library folder (see its `baseDir` KDoc). The one cover
+                // write that does land in a library folder, CoverStorage's delete, is a broker op.
+                "server/cover/CoverDerivatives.kt",
             )
 
         test("library-content packages have no direct FS-write tokens — the broker is the sole library writer") {

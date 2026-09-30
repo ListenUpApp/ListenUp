@@ -20,6 +20,7 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverStorage
+import com.calypsan.listenup.server.librarywrite.testBroker
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
@@ -63,7 +64,7 @@ class BookServiceImplSetContributorsTest :
                         repo = repo,
                         contributorRepo = contributorRepo,
                         seriesRepo = seriesRepo,
-                        coverStorage = CoverStorage(),
+                        coverStorage = CoverStorage(testBroker()),
                         sql = db.sql,
                         genreRepo = genreRepo,
                         accessPolicy = BookAccessPolicy(db.sql, db.driver),
@@ -120,7 +121,7 @@ class BookServiceImplSetContributorsTest :
                         repo = repo,
                         contributorRepo = contributorRepo,
                         seriesRepo = seriesRepo,
-                        coverStorage = CoverStorage(),
+                        coverStorage = CoverStorage(testBroker()),
                         sql = db.sql,
                         genreRepo = genreRepo,
                         accessPolicy = BookAccessPolicy(db.sql, db.driver),
@@ -177,7 +178,7 @@ class BookServiceImplSetContributorsTest :
                         repo = repo,
                         contributorRepo = contributorRepo,
                         seriesRepo = seriesRepo,
-                        coverStorage = CoverStorage(),
+                        coverStorage = CoverStorage(testBroker()),
                         sql = db.sql,
                         genreRepo = genreRepo,
                         accessPolicy = BookAccessPolicy(db.sql, db.driver),
@@ -243,7 +244,7 @@ class BookServiceImplSetContributorsTest :
                         repo = repo,
                         contributorRepo = contributorRepo,
                         seriesRepo = seriesRepo,
-                        coverStorage = CoverStorage(),
+                        coverStorage = CoverStorage(testBroker()),
                         sql = db.sql,
                         genreRepo = genreRepo,
                         accessPolicy = BookAccessPolicy(db.sql, db.driver),
@@ -288,7 +289,7 @@ class BookServiceImplSetContributorsTest :
                         repo = repo,
                         contributorRepo = contributorRepo,
                         seriesRepo = seriesRepo,
-                        coverStorage = CoverStorage(),
+                        coverStorage = CoverStorage(testBroker()),
                         sql = db.sql,
                         genreRepo = genreRepo,
                         accessPolicy = BookAccessPolicy(db.sql, db.driver),
@@ -335,7 +336,7 @@ class BookServiceImplSetContributorsTest :
                         repo = repo,
                         contributorRepo = contributorRepo,
                         seriesRepo = seriesRepo,
-                        coverStorage = CoverStorage(),
+                        coverStorage = CoverStorage(testBroker()),
                         sql = db.sql,
                         genreRepo = genreRepo,
                         accessPolicy = BookAccessPolicy(db.sql, db.driver),
@@ -398,7 +399,7 @@ class BookServiceImplSetContributorsTest :
                         repo = repo,
                         contributorRepo = contributorRepo,
                         seriesRepo = seriesRepo,
-                        coverStorage = CoverStorage(),
+                        coverStorage = CoverStorage(testBroker()),
                         sql = db.sql,
                         genreRepo = genreRepo,
                         accessPolicy = BookAccessPolicy(db.sql, db.driver),

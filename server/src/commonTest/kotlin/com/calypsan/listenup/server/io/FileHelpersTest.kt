@@ -21,6 +21,15 @@ class FileHelpersTest :
         test("isUnder is false for an unrelated path") {
             Path("/other/x").isUnder(Path("/lib/books")) shouldBe false
         }
+        test("isUnder is false for a path that climbs out of the base through ..") {
+            Path("/lib/books/../outside/x").isUnder(Path("/lib/books")) shouldBe false
+        }
+        test("isUnder is true for a path that climbs back into the base through ..") {
+            Path("/lib/books/a/../b").isUnder(Path("/lib/books")) shouldBe true
+        }
+        test("isUnder folds . and .. in the base too") {
+            Path("/lib/books/x").isUnder(Path("/lib/./other/../books")) shouldBe true
+        }
 
         test("relativeTo returns empty string when path equals base") {
             Path("/mnt/lib").relativeTo(Path("/mnt/lib")) shouldBe ""
