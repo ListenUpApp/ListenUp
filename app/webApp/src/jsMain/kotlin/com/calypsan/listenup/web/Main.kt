@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.data.settings.seedServerUrlFromOrigin
 import com.calypsan.listenup.client.di.jsSharedModules
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.playback.PlaybackManager
@@ -23,6 +24,7 @@ import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.web.lifecycle.Playhead
 import com.calypsan.listenup.web.lifecycle.flushPositionWhenHidden
+import com.calypsan.listenup.web.lifecycle.keepCoverCookieFreshWhileVisible
 import com.calypsan.listenup.web.lifecycle.recoverSyncOnReturn
 import com.calypsan.listenup.web.di.webPlaybackModule
 import com.calypsan.listenup.web.features.auth.AuthGate
@@ -157,6 +159,17 @@ fun main() {
         )
         recoverSyncOnReturn(
             recover = { koin.get<SyncRepository>().recoverRealtime() },
+            isVisible = { document.asDynamic().visibilityState == "visible" },
+            scope = this,
+        )
+        // Covers authenticate with a cookie the DOM sends on its own; keep its token usable while
+        // the tab is on screen (and only then). See keepCoverCookieFreshWhileVisible.
+        keepCoverCookieFreshWhileVisible(
+            ensureFresh = {
+                if (koin.get<AuthSession>().authState.value is AuthState.Authenticated) {
+                    koin.get<AudioTokenProvider>().prepareForPlayback()
+                }
+            },
             isVisible = { document.asDynamic().visibilityState == "visible" },
             scope = this,
         )
