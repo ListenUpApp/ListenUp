@@ -121,4 +121,41 @@ class LocalizationGeneratorTest {
         val ex = assertFailsWith<IllegalArgumentException> { LocalizationGenerator.androidXml(colliding) }
         assertTrue(ex.message!!.contains("a_b_c"))
     }
+
+    // Compose Resources substitutes only positional specifiers, so an unpositioned `%d` reaches an
+    // Android screen verbatim ("%d of %d" did, on the series cards). The generator refuses one.
+    @Test
+    fun `an unpositioned specifier fails the build, naming the key and the specifier`() {
+        for (specifier in listOf("%d", "%s", "%f", "%.1f", "%3d")) {
+            val ex =
+                assertFailsWith<IllegalArgumentException>(specifier) {
+                    LocalizationGenerator.androidXml(mapOf("series.x_of_y" to "$specifier of things"))
+                }
+            assertTrue(ex.message!!.contains("series.x_of_y"), ex.message)
+            assertTrue(ex.message!!.contains(specifier), ex.message)
+        }
+    }
+
+    @Test
+    fun `every offending key is named, not just the first`() {
+        val ex =
+            assertFailsWith<IllegalArgumentException> {
+                LocalizationGenerator.androidXml(mapOf("a.one" to "%d one", "b.two" to "two %s"))
+            }
+        assertTrue(ex.message!!.contains("a.one") && ex.message!!.contains("b.two"), ex.message)
+    }
+
+    @Test
+    fun `positional specifiers, an escaped percent and a literal percent all pass`() {
+        val xml =
+            LocalizationGenerator.androidXml(
+                mapOf(
+                    "a.positional" to "%1${'$'}d of %2${'$'}d, %1${'$'}s, %1${'$'}.1f",
+                    "a.escaped" to "100%%",
+                    "a.literal" to "%1${'$'}d% complete",
+                    "a.lone" to "50 % off",
+                ),
+            )
+        assertTrue(xml.contains("""<string name="a_literal">%1${'$'}d% complete</string>"""))
+    }
 }

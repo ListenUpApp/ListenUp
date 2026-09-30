@@ -64,6 +64,21 @@ object LocalizationGenerator {
         }
 
     /**
+     * The `s`/`d`/`f` specifiers in [value] that carry no `n$` position (`%d`, `%.1f`, …). An escaped
+     * `%%` and a lone literal `%` are not specifiers and never count.
+     */
+    private fun unpositionedSpecifiers(value: String): List<String> =
+        FORMAT_TOKEN
+            .findAll(value)
+            .filter { token ->
+                val (position, conversion) = token.destructured
+                conversion in PLACEHOLDER_CONVERSIONS && '$' !in position
+            }.map { it.value }
+            .toList()
+
+    private val PLACEHOLDER_CONVERSIONS = setOf("s", "d", "f")
+
+    /**
      * A format specifier — optional `n$` position, width, precision, then a conversion the catalog
      * uses (`s`, `d`, `f`, or an escaped `%%`) — or, with no conversion, a lone literal `%`. Flags are
      * deliberately not recognised: the space flag would read "% complete" as a `% c` specifier.
@@ -89,7 +104,8 @@ object LocalizationGenerator {
 
     /**
      * Renders a flattened locale map as an Android `strings.xml` document: snake_case resource
-     * names, sorted alphabetically, values XML-escaped. Format specifiers are preserved verbatim.
+     * names, sorted alphabetically, values XML-escaped. Format specifiers are preserved verbatim,
+     * and every one must be positional — an unpositioned `%d` fails here, naming its key.
      */
     fun androidXml(strings: Map<String, String>): String {
         // Two distinct dotted keys can collapse to the same snake_case resource name
@@ -99,6 +115,14 @@ object LocalizationGenerator {
         require(collisions.isEmpty()) {
             "Snake-case key collision in Android resources: " +
                 collisions.entries.joinToString("; ") { (snake, keys) -> "$snake <- ${keys.sorted()}" }
+        }
+        val unpositioned =
+            strings.toSortedMap().mapNotNull { (key, value) ->
+                unpositionedSpecifiers(value).takeIf { it.isNotEmpty() }?.let { "$key: ${it.joinToString()}" }
+            }
+        require(unpositioned.isEmpty()) {
+            "Format specifiers need a position (%1\$d, not %d) — Compose Resources renders an " +
+                "unpositioned one verbatim: " + unpositioned.joinToString("; ")
         }
         return buildString {
             appendLine("""<?xml version="1.0" encoding="utf-8"?>""")
