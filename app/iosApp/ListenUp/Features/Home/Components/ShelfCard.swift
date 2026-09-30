@@ -119,6 +119,9 @@ struct MyShelvesRow: View {
                     Image(systemName: "plus")
                         .font(.body.weight(.semibold))
                         .foregroundStyle(Color.luTint)
+                        // The glyph draws ~20pt; the finger gets 44 (the accessibility audit
+                        // flagged the bare glyph's hit area as too small).
+                        .minimumTapTarget(visualSize: 20)
                         .accessibilityLabel(String(localized: "shelf.create_shelf_title"))
                 }
                 .buttonStyle(.plain)
