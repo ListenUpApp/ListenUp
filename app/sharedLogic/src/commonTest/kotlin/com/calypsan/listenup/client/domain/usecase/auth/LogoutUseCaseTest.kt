@@ -2,7 +2,19 @@ package com.calypsan.listenup.client.domain.usecase.auth
 
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.data.remote.DefaultRpcCacheInvalidator
 import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
+import com.calypsan.listenup.client.data.remote.RpcConnection
+import com.calypsan.listenup.client.data.remote.RpcProxyCache
+import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.core.ServerUrl
+import dev.mokkery.answering.calls
+import io.kotest.matchers.shouldBe
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.websocket.WebSockets
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.LibraryResetHelper
@@ -16,6 +28,11 @@ import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
+
+/** A fake proxy that records which stored token its connection was opened with. */
+private data class MintedAs(
+    val token: String?,
+)
 
 private class LogoutFixture {
     val authRepository: AuthRepository = mock()
@@ -182,6 +199,80 @@ class LogoutUseCaseTest :
                     fixture.libraryResetHelper.clearLibraryData(discardPendingOperations = true)
                     fixture.authSession.clearAuthTokens()
                 }
+            }
+        }
+
+        // An idempotent read in flight when the first sweep force-closes its connection retries on a
+        // FRESH lease — and that connect mints its socket ticket from the token still stored, because
+        // tokens are cleared last. The sweep after the clear is what closes that socket; without it the
+        // previous user's socket becomes the channel's live connection and serves the next login.
+        test("logout sweeps the RPC connections again after the tokens are cleared") {
+            runTest {
+                val fixture = createFixture()
+                val useCase = fixture.build()
+
+                useCase()
+
+                verifySuspend(order) {
+                    fixture.authSession.clearAuthTokens()
+                    fixture.rpcCacheInvalidator.invalidateAll()
+                }
+            }
+        }
+
+        test("local-only logout sweeps the RPC connections again after the tokens are cleared") {
+            runTest {
+                val fixture = createFixture()
+                val useCase = fixture.build()
+
+                useCase.logoutLocally()
+
+                verifySuspend(order) {
+                    fixture.authSession.clearAuthTokens()
+                    fixture.rpcCacheInvalidator.invalidateAll()
+                }
+            }
+        }
+
+        test("a connection opened mid-logout, on the old token, is never leased after logout") {
+            runTest {
+                // The real sweep over a real connection cache whose connect "mints" from whatever token is
+                // stored at that moment — so each connection remembers the identity it was opened as.
+                var storedToken: String? = "user-a"
+                val cache =
+                    RpcProxyCache(
+                        apiClientFactory =
+                            mock<ApiClientFactory> {
+                                everySuspend { getClient() } calls {
+                                    HttpClient(MockEngine { respond("") }) { install(WebSockets) }
+                                }
+                            },
+                        serverConfig = mock<ServerConfig> { everySuspend { getActiveUrl() } returns ServerUrl("http://localhost") },
+                    ) { _, _ -> RpcConnection(MintedAs(storedToken)) {} }
+                cache.call { it } shouldBe MintedAs("user-a")
+
+                val fixture = createFixture()
+                everySuspend { fixture.authSession.clearAuthTokens() } calls { storedToken = null }
+                // A retry racing the logout: after the first sweep, before the tokens are cleared, it
+                // leases — and connects — afresh on the old token.
+                everySuspend { fixture.libraryResetHelper.clearLibraryData(discardPendingOperations = true) } calls {
+                    cache.call { it } shouldBe MintedAs("user-a")
+                }
+                val useCase =
+                    LogoutUseCase(
+                        authRepository = fixture.authRepository,
+                        authSession = fixture.authSession,
+                        userRepository = fixture.userRepository,
+                        syncRepository = fixture.syncRepository,
+                        rpcCacheInvalidator = DefaultRpcCacheInvalidator(caches = listOf(cache)),
+                        libraryResetHelper = fixture.libraryResetHelper,
+                    )
+
+                useCase()
+
+                // The next user signs in; their first call must ride a connection opened as them.
+                storedToken = "user-b"
+                cache.call { it } shouldBe MintedAs("user-b")
             }
         }
     })

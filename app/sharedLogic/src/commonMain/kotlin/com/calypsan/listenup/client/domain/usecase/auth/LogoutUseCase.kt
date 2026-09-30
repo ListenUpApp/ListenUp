@@ -74,7 +74,13 @@ open class LogoutUseCase(
         libraryResetHelper.clearLibraryData(discardPendingOperations = true)
         // 4. Tokens die after the data they'd otherwise let a stray request re-fetch.
         authSession.clearAuthTokens()
-        // 5. Finally drop the cached user rows themselves.
+        // 5. Sweep again, now that no token remains to open a connection with. Step 2 force-closes
+        // work in flight, and an idempotent read it closed retries at once on a FRESH connection —
+        // opened, until step 4, on this user's token. Nothing sweeps at login, so that connection
+        // would become the channel's live one and serve the next user. Anything opened from here on
+        // carries no identity.
+        rpcCacheInvalidator.invalidateAll()
+        // 6. Finally drop the cached user rows themselves.
         userRepository.clearUsers()
     }
 }
