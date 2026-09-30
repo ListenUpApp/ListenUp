@@ -60,7 +60,8 @@ class SessionService(
      * and would normally read it as a stolen-token replay and revoke the whole family — a dropped
      * packet or a killed process forcing a logout. Within this window of the last NORMAL rotation we
      * instead treat the retry as benign: rotate again on the same family and hand back a usable token.
-     * Reuse after the window still hard-revokes — the grace branch preserves the replayed row's
+     * Reuse after the window hard-revokes once the latest rotation is confirmed (see [rotate] for the
+     * lost-reply rule that covers an unconfirmed one) — the grace branch preserves the replayed row's
      * `last_used_at` and `expires_at`, so the window drains from the last normal rotation and a
      * replay chain can neither hold itself open indefinitely nor renew the refresh TTL.
      *
@@ -127,9 +128,29 @@ class SessionService(
     }
 
     /**
-     * Returns null if the token is unrecognized or matches `previous_hash`
-     * (replay → family revoked as a side effect). [clientVersion], when the client reports it,
-     * replaces the version recorded at sign-in, so the session says what the device runs now.
+     * Returns null if the token is unrecognized, or matches `previous_hash` as a confirmed replay
+     * (family revoked as a side effect). [clientVersion], when the client reports it, replaces the
+     * version recorded at sign-in, so the session says what the device runs now.
+     *
+     * A `previous_hash` match is read three ways:
+     *  - within [reuseGracePeriod] of the last normal rotation — a lost-response retry: rotate again;
+     *  - after it, while the latest rotation is UNCONFIRMED (no access token minted at or after it has
+     *    ever been used — see [isLive]) — a lost reply: the client never received the new pair, so
+     *    rotate again;
+     *  - after it, once the latest rotation is CONFIRMED — the rightful holder demonstrably moved on,
+     *    so the old token is being reused: revoke the whole family.
+     *
+     * The lost-reply rule exists because a client frozen or killed by the OS mid-refresh presents
+     * its old token on the next launch, commonly hours later, and a family revoke there signed the
+     * user out on every device for a dropped packet.
+     *
+     * **Security trade-off.** A thief holding the pre-rotation refresh token who replays it before
+     * the rightful client has used any access token from the newer rotation takes over the session;
+     * the rightful client's next refresh then fails as unknown, which is the visible signal. The
+     * exposure is no longer a fixed 30 minutes but "until the client's first authenticated call
+     * after rotating" — normally seconds for a live client, but unbounded in the lost-reply case
+     * itself, because there the client never gets that access token and the window stays open until
+     * the old token is replayed. Once the rotation is confirmed, a late replay revokes as before.
      */
     suspend fun rotate(
         token: RefreshToken,
@@ -155,6 +176,7 @@ class SessionService(
                     refresh_token_hash = newHash,
                     last_used_at = now,
                     expires_at = newExpires,
+                    rotated_at = now,
                     client_version = clientVersion,
                     id = live.id,
                 )
@@ -203,6 +225,34 @@ class SessionService(
                     refresh_token_hash = newHash,
                     last_used_at = replay.last_used_at,
                     expires_at = replay.expires_at,
+                    rotated_at = now,
+                    client_version = clientVersion,
+                    id = replay.id,
+                )
+                return@suspendTransaction RotatedSession(
+                    sessionId = SessionId(replay.id),
+                    userId = UserId(replay.user_id),
+                    refreshToken = RefreshToken(newRaw),
+                    expiresAt = replay.expires_at,
+                )
+            }
+
+            if (replay.rotation_confirmed_at == null && replay.revoked_at == null && replay.expires_at > now) {
+                // No access token from the latest rotation has ever been used, so there is no
+                // evidence its reply reached anyone: a client killed or frozen mid-refresh is
+                // presenting the token it still holds. Rotate again instead of revoking. The
+                // unused token from the lost reply is replaced, so it dies here; last_used_at and
+                // expires_at stay anchored exactly as in the grace branch.
+                logger.info {
+                    "Lost-reply re-rotation: session=${replay.id}, " +
+                        "${(now - replay.last_used_at).milliseconds.inWholeMinutes} min since last rotation, never confirmed"
+                }
+                db.sessionsQueries.rotate(
+                    previous_hash = incomingHash,
+                    refresh_token_hash = newHash,
+                    last_used_at = replay.last_used_at,
+                    expires_at = replay.expires_at,
+                    rotated_at = now,
                     client_version = clientVersion,
                     id = replay.id,
                 )
@@ -216,7 +266,8 @@ class SessionService(
 
             // Identifiers only — never token material or hashes.
             logger.warn {
-                "Replay of a rotated refresh token outside the grace window. Revoking session family: " +
+                "Replay of a rotated refresh token outside the grace window, after its successor was confirmed. " +
+                    "Revoking session family: " +
                     "session=${replay.id}, family=${replay.family_id}, user=${replay.user_id}, " +
                     "${(now - replay.last_used_at).milliseconds.inWholeMinutes} min since last rotation"
             }
@@ -285,15 +336,44 @@ class SessionService(
         }
     }
 
-    suspend fun isLive(sessionId: SessionId): Boolean =
+    /**
+     * Whether the session is live (not revoked, not expired) — checked on every authenticated
+     * request. When [issuedAtEpochSeconds], the presented access token's `iat`, is at or after the
+     * session's latest rotation, that rotation's reply demonstrably reached the client, and this
+     * records it once ([Sessions.rotation_confirmed_at]) for [rotate]'s lost-reply rule.
+     *
+     * Hot path: the common case is a read only. The write happens at most once per rotation — the
+     * first confirming request; a concurrent burst races on a conditional UPDATE that only an
+     * unconfirmed row matches, and every later request sees the stamp and skips it. `iat` has
+     * one-second resolution, so a token minted in the same second as, but before, a rotation would
+     * also confirm it; that needs two rotations within one second, and errs toward revoking.
+     */
+    suspend fun isLive(
+        sessionId: SessionId,
+        issuedAtEpochSeconds: Long? = null,
+    ): Boolean =
         suspendTransaction(db) {
             val s =
                 db.sessionsQueries
                     .selectById(id = sessionId.value)
                     .executeAsOneOrNull()
                     ?: return@suspendTransaction false
-            s.revoked_at == null && s.expires_at > clock.now().toEpochMilliseconds()
+            val now = clock.now().toEpochMilliseconds()
+            val live = s.revoked_at == null && s.expires_at > now
+            val rotatedAt = s.rotated_at
+            if (live && s.rotation_confirmed_at == null && rotatedAt != null &&
+                mintedSince(issuedAtEpochSeconds, rotatedAt)
+            ) {
+                db.sessionsQueries.confirmRotation(confirmed_at = now, id = s.id, rotated_at = rotatedAt)
+            }
+            live
         }
+
+    /** Whether an access token issued at [issuedAtEpochSeconds] was minted at or after [rotatedAtMillis]. */
+    private fun mintedSince(
+        issuedAtEpochSeconds: Long?,
+        rotatedAtMillis: Long,
+    ): Boolean = issuedAtEpochSeconds != null && issuedAtEpochSeconds >= rotatedAtMillis / MILLIS_PER_SECOND
 
     suspend fun listActiveFor(userId: UserId): List<Sessions> =
         suspendTransaction(db) {
@@ -329,6 +409,7 @@ class SessionService(
 
     companion object {
         private val DEFAULT_REFRESH_TTL: Duration = 30.days
+        private const val MILLIS_PER_SECOND = 1_000L
 
         /**
          * The one source of truth for the lost-response reuse-grace window (C4) — `authModule`

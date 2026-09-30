@@ -196,6 +196,28 @@ class AuthEndToEndTest :
             }
         }
 
+        // The overnight sign-out: the server rotated, the reply never reached the app (killed or
+        // frozen mid-refresh), and the app presented its old token on the next launch — past the
+        // grace window (0 in this fixture). No access token from that rotation was ever used, so it
+        // is a lost reply: the session survives and the app gets a working pair.
+        test("a refresh whose reply was lost is recovered by the old token, even after the grace window") {
+            runBlocking {
+                val fix = autoClose(fixture())
+                bootstrap(fix)
+                val heldToken = requireNotNull(fix.authSession.getRefreshToken())
+                val heldAccess = requireNotNull(fix.authSession.getAccessToken())
+                val sessionId = fix.authSession.getSessionId() ?: ""
+                val userId = fix.authSession.getUserId() ?: ""
+
+                fix.authRepository.refreshAccessToken().shouldBeInstanceOf<AppResult.Success<*>>()
+                // The reply is "lost": the app still holds what it had before the rotation.
+                fix.authSession.saveAuthTokens(heldAccess, heldToken, sessionId, userId)
+
+                fix.authRepository.refreshAccessToken().shouldBeInstanceOf<AppResult.Success<*>>()
+                fix.authRepository.listSessions().shouldBeInstanceOf<AppResult.Success<*>>()
+            }
+        }
+
         test("replaying a revoked refresh token returns InvalidRefreshToken") {
             runBlocking {
                 val fix = autoClose(fixture())
@@ -214,9 +236,13 @@ class AuthEndToEndTest :
                 val originalRefresh = secondFix.authSession.getRefreshToken()
                 requireNotNull(originalRefresh)
 
-                // Rotate once.
+                // Rotate once, and use the new access token — the reply demonstrably arrived, so the
+                // old token surfacing again is reuse, not a lost reply (SessionService.rotate).
                 secondFix.authRepository
                     .refreshAccessToken()
+                    .shouldBeInstanceOf<AppResult.Success<*>>()
+                secondFix.authRepository
+                    .listSessions()
                     .shouldBeInstanceOf<AppResult.Success<*>>()
 
                 // Now overwrite the stored refresh token with the original (replay).

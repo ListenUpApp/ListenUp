@@ -32,6 +32,7 @@ import com.calypsan.listenup.server.api.InviteServiceImpl
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.audio.CoverUrlSigner
+import com.calypsan.listenup.server.auth.SessionLiveness
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.auth.UserRoleLookup
@@ -188,7 +189,7 @@ private fun Application.rpcServiceBundle(): RpcServices =
     RpcServices(
         authService = koinGet<AuthServiceImpl>(),
         // Session-liveness probe for the C2 streaming gate — the same lookup the JWT auth wall uses.
-        sessionLiveness = koinGet<SessionService>()::isLive,
+        sessionLiveness = SessionLiveness(koinGet<SessionService>()::isLive),
         instanceService = koinGet<InstanceService>(),
         scannerService = koinGet<ScannerService>(),
         bookService = koinGet<BookService>(),

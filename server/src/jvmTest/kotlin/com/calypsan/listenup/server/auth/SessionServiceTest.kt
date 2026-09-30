@@ -19,6 +19,7 @@ import io.kotest.matchers.string.shouldNotContain
 import io.ktor.server.config.MapApplicationConfig
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -89,6 +90,8 @@ class SessionServiceTest :
 
             val issued = svc.createSession(UserId("u-1"))
             val firstRotation = svc.rotate(issued.refreshToken).shouldNotBeNull()
+            // The rightful client received that reply and used its access token.
+            svc.confirmReplyReceived(issued, mutClock)
 
             // Adversary replays the original (now-stale) refresh token beyond the lost-response
             // grace window — an unambiguous reuse attack.
@@ -189,9 +192,10 @@ class SessionServiceTest :
             val issued = svc.createSession(UserId("u-1"))
             svc.rotate(issued.refreshToken).shouldNotBeNull()
 
-            // A grace retry keeps the family alive.
+            // A grace retry keeps the family alive, and the client receives and uses its reply.
             mutClock.instant = mutClock.instant + 10.seconds
             svc.rotate(issued.refreshToken).shouldNotBeNull()
+            svc.confirmReplyReceived(issued, mutClock)
 
             // The same original token surfacing long after the window is an attack → family revoke.
             mutClock.instant = mutClock.instant + 31.minutes
@@ -214,9 +218,11 @@ class SessionServiceTest :
             val afterNormalRotation =
                 db.sessionsQueries.selectById(issued.sessionId.value).executeAsOne()
 
-            // A lost-response retry well inside the window — accepted, as it should be.
+            // A lost-response retry well inside the window — accepted, as it should be — and this
+            // time the reply lands and is used.
             mutClock.instant = mutClock.instant + 20.minutes
             svc.rotate(issued.refreshToken).shouldNotBeNull()
+            svc.confirmReplyReceived(issued, mutClock)
 
             // The grace branch must preserve BOTH anchors. If it wrote last_used_at = now the
             // window would re-arm on every replay (a captured token replayed once per window would
@@ -247,6 +253,7 @@ class SessionServiceTest :
 
             val issued = svc.createSession(UserId("u-1"))
             svc.rotate(issued.refreshToken).shouldNotBeNull()
+            svc.confirmReplyReceived(issued, mutClock)
             mutClock.instant = mutClock.instant + elapsed
             val replay = svc.rotate(issued.refreshToken)
 
@@ -258,6 +265,112 @@ class SessionServiceTest :
             // Accepted ⇔ not revoked: the two outcomes are exclusive, never both or neither.
             (replay != null) shouldBe !revoked
             return replay != null
+        }
+
+        // ── Lost reply vs. replay after grace (2026-09-30) ──────────────────────────────────────
+        //
+        // A client killed or frozen mid-refresh never receives the rotation's reply, keeps the old
+        // refresh token, and presents it on its next launch — often more than 30 minutes later.
+        // That used to revoke the whole family. The server cannot tell it from theft by the refresh
+        // token alone; what tells them apart is whether an access token from the new rotation was
+        // ever used — proof the reply arrived.
+
+        test("a replay after grace while the rotation is unconfirmed is a lost reply: it rotates and never revokes") {
+            val db = freshDb()
+            db.seedTestUser("u-1")
+            val mutClock = MutableClock(Instant.parse("2026-05-02T12:00:00Z"))
+            val svc = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = mutClock)
+            val issued = svc.createSession(UserId("u-1"))
+            val lostReply = svc.rotate(issued.refreshToken).shouldNotBeNull()
+
+            mutClock.instant = mutClock.instant + 3.hours
+            val recovered = svc.rotate(issued.refreshToken).shouldNotBeNull()
+
+            recovered.sessionId shouldBe issued.sessionId
+            recovered.refreshToken shouldNotBe lostReply.refreshToken
+            db.sessionsQueries
+                .selectById(issued.sessionId.value)
+                .executeAsOne()
+                .revoked_at shouldBe null
+            svc.isLive(issued.sessionId) shouldBe true
+            // The unused token from the lost reply is dead; the recovered one is the live pair.
+            svc.rotate(lostReply.refreshToken) shouldBe null
+            svc.rotate(recovered.refreshToken).shouldNotBeNull()
+        }
+
+        test("a replay after grace once the rotation is confirmed still revokes the whole family") {
+            val db = freshDb()
+            db.seedTestUser("u-1")
+            val mutClock = MutableClock(Instant.parse("2026-05-02T12:00:00Z"))
+            val svc = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = mutClock)
+            val issued = svc.createSession(UserId("u-1"))
+            val rotated = svc.rotate(issued.refreshToken).shouldNotBeNull()
+            mutClock.instant = mutClock.instant + 5.minutes
+            svc.confirmReplyReceived(issued, mutClock, issuedAt = mutClock.instant - 5.minutes)
+
+            mutClock.instant = mutClock.instant + 3.hours
+            svc.rotate(issued.refreshToken) shouldBe null
+
+            db.sessionsQueries
+                .selectById(issued.sessionId.value)
+                .executeAsOne()
+                .revoked_at shouldNotBe null
+            svc.rotate(rotated.refreshToken) shouldBe null
+        }
+
+        test("a replay within grace rotates as before, confirmed or not") {
+            val db = freshDb()
+            db.seedTestUser("u-1")
+            val mutClock = MutableClock(Instant.parse("2026-05-02T12:00:00Z"))
+            val svc = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = mutClock)
+            val issued = svc.createSession(UserId("u-1"))
+            svc.rotate(issued.refreshToken).shouldNotBeNull()
+            svc.confirmReplyReceived(issued, mutClock)
+
+            mutClock.instant = mutClock.instant + 10.minutes
+            svc.rotate(issued.refreshToken).shouldNotBeNull()
+
+            db.sessionsQueries
+                .selectById(issued.sessionId.value)
+                .executeAsOne()
+                .revoked_at shouldBe null
+        }
+
+        test("only an access token issued at or after the latest rotation confirms it") {
+            val db = freshDb()
+            db.seedTestUser("u-1")
+            val mutClock = MutableClock(Instant.parse("2026-05-02T12:00:00Z"))
+            val svc = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = mutClock)
+            val issued = svc.createSession(UserId("u-1"))
+
+            fun confirmedAt() =
+                db.sessionsQueries
+                    .selectById(issued.sessionId.value)
+                    .executeAsOne()
+                    .rotation_confirmed_at
+
+            // A token minted before the rotation — the client still on its old access token.
+            mutClock.instant = mutClock.instant + 10.minutes
+            val beforeRotation = mutClock.instant - 1.seconds
+            val first = svc.rotate(issued.refreshToken).shouldNotBeNull()
+            svc.isLive(issued.sessionId, issuedAtEpochSeconds = beforeRotation.epochSeconds) shouldBe true
+            confirmedAt() shouldBe null
+
+            // The rotation's own token confirms it, once: later uses don't rewrite the moment.
+            val atRotation = mutClock.instant
+            mutClock.instant = mutClock.instant + 1.minutes
+            svc.isLive(issued.sessionId, issuedAtEpochSeconds = atRotation.epochSeconds) shouldBe true
+            val confirmed = confirmedAt().shouldNotBeNull()
+            mutClock.instant = mutClock.instant + 1.minutes
+            repeat(5) { svc.isLive(issued.sessionId, issuedAtEpochSeconds = atRotation.epochSeconds) }
+            confirmedAt() shouldBe confirmed
+
+            // A new rotation resets it, and the previous rotation's token can't confirm the new one.
+            mutClock.instant = mutClock.instant + 10.minutes
+            svc.rotate(first.refreshToken).shouldNotBeNull()
+            confirmedAt() shouldBe null
+            svc.isLive(issued.sessionId, issuedAtEpochSeconds = atRotation.epochSeconds) shouldBe true
+            confirmedAt() shouldBe null
         }
 
         test("the grace window is exactly 30 minutes, and its final millisecond is inside it") {
@@ -386,3 +499,12 @@ class SessionServiceTest :
             rotated.sessionId shouldBe target.sessionId
         }
     })
+
+/** The rightful client used an access token minted at [issuedAt] (default: now) — the reply arrived. */
+private suspend fun SessionService.confirmReplyReceived(
+    issued: IssuedSession,
+    clock: MutableClock,
+    issuedAt: Instant = clock.instant,
+) {
+    isLive(issued.sessionId, issuedAtEpochSeconds = issuedAt.epochSeconds) shouldBe true
+}

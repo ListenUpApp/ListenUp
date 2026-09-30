@@ -186,7 +186,7 @@ private suspend fun principalFor(
             logJwtRejection("token verification failed")
             return null
         }
-    if (!sessionLiveness.isLive(claims.sessionId)) {
+    if (!sessionLiveness.isLive(claims.sessionId, claims.issuedAtEpochSeconds)) {
         logJwtRejection("session no longer live for sessionId=${claims.sessionId}")
         return null
     }

@@ -61,7 +61,7 @@ internal fun streamLiveness(
     liveness: SessionLiveness,
 ): suspend () -> Boolean =
     {
-        provider.current()?.sessionId?.let { liveness.isLive(it) } ?: false
+        provider.current()?.sessionId?.let { liveness.isLive(it, issuedAtEpochSeconds = null) } ?: false
     }
 
 /**

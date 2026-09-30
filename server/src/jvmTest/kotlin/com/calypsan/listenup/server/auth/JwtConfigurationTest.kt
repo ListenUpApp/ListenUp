@@ -29,6 +29,12 @@ class JwtConfigurationTest :
                 clock = clock,
             )
 
+        test("verify reports when the token was issued, so a session can tell which rotation minted it") {
+            val token = cfg.issue(userId = UserId("u-1"), sessionId = SessionId("s-1"), role = UserRole.MEMBER)
+
+            cfg.verify(token).issuedAtEpochSeconds shouldBe clock.now().epochSeconds
+        }
+
         test("rejects a secret shorter than 32 bytes") {
             shouldThrow<IllegalArgumentException> {
                 JwtConfiguration(secret = "short", issuer = "x", audience = "y")

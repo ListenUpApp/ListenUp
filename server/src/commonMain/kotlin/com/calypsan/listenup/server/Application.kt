@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server
 
+import com.calypsan.listenup.server.auth.SessionLiveness
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.backup.MaintenanceState
@@ -58,7 +59,7 @@ fun Application.module() {
     val jwt by inject<JwtConfiguration>()
     val sessions by inject<SessionService>()
     val socketTickets by inject<SocketTicketStore>()
-    installJwtAuth(jwt, sessions::isLive, socketTickets)
+    installJwtAuth(jwt, SessionLiveness(sessions::isLive), socketTickets)
 
     installAppRoutes(homeDir)
 

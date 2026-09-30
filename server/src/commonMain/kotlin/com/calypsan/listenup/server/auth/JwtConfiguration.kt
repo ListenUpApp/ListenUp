@@ -17,12 +17,13 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-/** The verified claims from a valid access token: the authenticated user, their session, role, and expiry. */
+/** The verified claims from a valid access token: the authenticated user, their session, role, expiry, and issue time. */
 data class AccessTokenClaims(
     val userId: UserId,
     val sessionId: SessionId,
     val role: UserRole,
     val expiresAt: Long, // unix millis
+    val issuedAtEpochSeconds: Long? = null,
 )
 
 /** Thrown when an access token fails verification — bad signature, malformed structure, or an invalid/expired claim. */
@@ -120,6 +121,7 @@ data class JwtConfiguration(
             sessionId = SessionId(payload.jti ?: throw JwtVerificationException("missing jti")),
             role = role,
             expiresAt = exp * 1000,
+            issuedAtEpochSeconds = payload.iat,
         )
     }
 

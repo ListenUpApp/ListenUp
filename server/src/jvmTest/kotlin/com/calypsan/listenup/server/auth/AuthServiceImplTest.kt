@@ -391,10 +391,15 @@ class AuthServiceImplTest :
                         .shouldBeInstanceOf<RegisterResult.Authenticated>()
                 val original = first.session.refreshToken
 
-                svc.refreshSession(RefreshRequest(original)).shouldSucceed()
+                val rotated = svc.refreshSession(RefreshRequest(original)).shouldSucceed()
+                // The rightful client received the new pair and used its access token.
+                val claims =
+                    JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, mutClock)
+                        .verify(rotated.accessToken.value)
+                svc.sessions.isLive(claims.sessionId, claims.issuedAtEpochSeconds) shouldBe true
 
                 // Past the lost-response grace window (SessionService.DEFAULT_REUSE_GRACE, 30 min),
-                // replaying the original token is an unambiguous reuse attack → family revoke.
+                // replaying the original token after the holder moved on is reuse → family revoke.
                 mutClock.instant = mutClock.instant + 31.minutes
                 val err =
                     svc
