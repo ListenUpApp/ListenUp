@@ -8,12 +8,8 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
-import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -177,15 +173,16 @@ class HardcoverGraphQlClient(
             }
         }
 
-    private suspend fun <T> execute(
+    /**
+     * Sends one GraphQL request and classifies the answer ([classifyHardcoverResponse]). Never throws
+     * anything but [CancellationException]: an unreachable Hardcover is [HardcoverCall.Failed].
+     */
+    internal suspend fun call(
         accessToken: String,
         query: String,
         variables: JsonObject,
         label: String,
-        unauthorized: T,
-        unavailable: (String) -> T,
-        onSuccess: (String) -> T,
-    ): T =
+    ): HardcoverCall<String> =
         try {
             val response =
                 http.post("$apiBaseUrl/v1/graphql") {
@@ -198,15 +195,50 @@ class HardcoverGraphQlClient(
                         ),
                     )
                 }
-            when {
-                response.status == HttpStatusCode.Unauthorized -> unauthorized
-                !response.status.isSuccess() -> unavailable("$label ${response.status}")
-                else -> onSuccess(response.bodyAsText())
-            }
+            classifyHardcoverResponse(
+                status = response.status,
+                retryAfter = response.headers[HttpHeaders.RetryAfter],
+                wwwAuthenticate = response.headers[HttpHeaders.WWWAuthenticate],
+                body = response.bodyAsText(),
+                label = label,
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            unavailable(e.message ?: e::class.simpleName.orEmpty())
+            HardcoverCall.Failed("$label: ${e.message ?: e::class.simpleName.orEmpty()}")
+        }
+
+    /** [call], then [decode] an [HardcoverCall.Ok] body; a body that won't decode is [HardcoverCall.Failed]. */
+    internal suspend fun <T> fetch(
+        accessToken: String,
+        query: String,
+        variables: JsonObject,
+        label: String,
+        decode: (String) -> T,
+    ): HardcoverCall<T> {
+        val body = call(accessToken, query, variables, label).valueOr { return it }
+        return try {
+            HardcoverCall.Ok(decode(body))
+        } catch (e: IllegalArgumentException) {
+            HardcoverCall.Failed("$label: undecodable answer (${e.message})")
+        }
+    }
+
+    private suspend fun <T> execute(
+        accessToken: String,
+        query: String,
+        variables: JsonObject,
+        label: String,
+        unauthorized: T,
+        unavailable: (String) -> T,
+        onSuccess: (String) -> T,
+    ): T =
+        when (val result = fetch(accessToken, query, variables, label, onSuccess)) {
+            is HardcoverCall.Ok -> result.value
+            HardcoverCall.Unauthorized -> unauthorized
+            is HardcoverCall.MissingScope -> unavailable("$label: missing scope ${result.scope}")
+            is HardcoverCall.Throttled -> unavailable("$label: throttled")
+            is HardcoverCall.Failed -> unavailable(result.detail)
         }
 
     private companion object {
@@ -221,76 +253,3 @@ class HardcoverGraphQlClient(
                 "order_by:{ratings_count:desc}, limit:5){ $BOOK_FIELDS } }"
     }
 }
-
-@Serializable
-private data class GraphQlRequest(
-    @SerialName("query") val query: String,
-    @SerialName("variables") val variables: JsonObject = JsonObject(emptyMap()),
-)
-
-@Serializable
-private data class MeResponse(
-    @SerialName("data") val data: MeData? = null,
-)
-
-@Serializable
-private data class MeData(
-    @SerialName("me") val me: List<MeWire> = emptyList(),
-)
-
-@Serializable
-private data class MeWire(
-    @SerialName("id") val id: Long,
-    @SerialName("username") val username: String,
-)
-
-@Serializable
-private data class EditionsResponse(
-    @SerialName("data") val data: EditionsData? = null,
-)
-
-@Serializable
-private data class EditionsData(
-    @SerialName("editions") val editions: List<EditionWire> = emptyList(),
-)
-
-@Serializable
-private data class EditionWire(
-    @SerialName("book") val book: BookWire? = null,
-)
-
-@Serializable
-private data class BooksResponse(
-    @SerialName("data") val data: BooksData? = null,
-)
-
-@Serializable
-private data class BooksData(
-    @SerialName("books") val books: List<BookWire> = emptyList(),
-)
-
-@Serializable
-private data class BookWire(
-    @SerialName("title") val title: String,
-    @SerialName("rating") val rating: Double? = null,
-    @SerialName("ratings_count") val ratingsCount: Int = 0,
-    @SerialName("contributions") val contributions: List<ContributionWire> = emptyList(),
-) {
-    fun toCandidate() =
-        HardcoverBookCandidate(
-            title = title,
-            author = contributions.firstOrNull()?.author?.name,
-            average = rating.takeIf { ratingsCount > 0 },
-            count = ratingsCount,
-        )
-}
-
-@Serializable
-private data class ContributionWire(
-    @SerialName("author") val author: AuthorWire? = null,
-)
-
-@Serializable
-private data class AuthorWire(
-    @SerialName("name") val name: String? = null,
-)
