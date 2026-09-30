@@ -193,6 +193,8 @@ internal class RpcChannel<S : Any> internal constructor(
 
     override suspend fun invalidate() = dispatch.invalidate()
 
+    override suspend fun retire() = dispatch.retire()
+
     /** Anchor for test-support extensions (`RpcChannel.forTest`). */
     internal companion object
 }
@@ -268,7 +270,7 @@ internal inline fun <reified S : Any> Module.rpcChannel(policy: RpcPolicy = RpcP
                                 },
                             )
                         }
-                    client.rpc(url).withService<S>()
+                    client.rpc(url).asConnection { withService<S>() }
                 },
             policy = policy,
             evidence = get(),

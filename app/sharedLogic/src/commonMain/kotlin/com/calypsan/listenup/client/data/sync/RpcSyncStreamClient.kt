@@ -206,11 +206,12 @@ internal class RpcSyncStreamClient(
                     "treating as half-open and resubscribing"
             }
             // To RpcProxyCache this cancellation is indistinguishable from a caller cancel,
-            // which deliberately does NOT invalidate the proxy generation — so without this,
+            // which deliberately does NOT retire the proxy generation — so without this,
             // the resubscribe would re-lease the same possibly-half-open socket and recovery
             // would ride on the WS ping layer alone (minutes in the buffered-writes case).
-            // Invalidate so the next subscribe dials a fresh connection.
-            channel.invalidate()
+            // Retire so the next subscribe dials a fresh connection; not invalidate, which would
+            // also tear down the pulls sharing this channel over what is no identity change.
+            channel.retire()
         }
         return reason
     }

@@ -10,6 +10,7 @@ import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocket
 import kotlinx.browser.window
+import kotlinx.coroutines.cancel
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.serialization.json.json
@@ -62,14 +63,19 @@ suspend fun probeRpcTransport(
             }
         }
 
+    val rpcClient = client.rpc(mountUrl)
     return try {
-        val service = client.rpc(mountUrl).withService<AuthServicePublic>()
+        val service = rpcClient.withService<AuthServicePublic>()
         when (val result = service.login(LoginRequest(email = email, password = password))) {
             is AppResult.Success -> RpcTransportProbe(socketOpened = true, errorCode = null)
             is AppResult.Failure -> RpcTransportProbe(socketOpened = true, errorCode = result.error.code)
         }
     } finally {
+        // HttpClient.close() alone leaves the RPC socket open (it only completes the client's job); close
+        // the RPC client and cancel the HttpClient too, as KtorInstanceRpcFactory does.
+        rpcClient.close()
         client.close()
+        client.cancel()
     }
 }
 
@@ -144,8 +150,9 @@ suspend fun probeProductionWebSocketConfig(
             }
         }
 
+    val rpcClient = client.rpc(wsUrl)
     return try {
-        val service = client.rpc(wsUrl).withService<AuthServicePublic>()
+        val service = rpcClient.withService<AuthServicePublic>()
         val loginErrorCode =
             when (val result = service.login(LoginRequest(email = email, password = password))) {
                 is AppResult.Success -> null
@@ -172,6 +179,10 @@ suspend fun probeProductionWebSocketConfig(
             pingIntervalExceptionMessage = pingIntervalExceptionMessage,
         )
     } finally {
+        // HttpClient.close() alone leaves the RPC socket open (it only completes the client's job); close
+        // the RPC client and cancel the HttpClient too, as KtorInstanceRpcFactory does.
+        rpcClient.close()
         client.close()
+        client.cancel()
     }
 }

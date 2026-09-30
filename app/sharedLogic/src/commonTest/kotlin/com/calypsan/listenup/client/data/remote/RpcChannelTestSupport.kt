@@ -36,6 +36,8 @@ internal class DirectRpcDispatch<S : Any>(
     override fun <R> streaming(subscribe: suspend (S) -> Flow<R>): Flow<R> = flow { emitAll(subscribe(service)) }
 
     override suspend fun invalidate() = Unit
+
+    override suspend fun retire() = Unit
 }
 
 /**
@@ -71,6 +73,8 @@ internal class ScriptedRpcDispatch<S : Any>(
         }
 
     override suspend fun invalidate() = Unit
+
+    override suspend fun retire() = Unit
 }
 
 /**
@@ -107,7 +111,7 @@ internal inline fun <reified S : Any> RpcChannel.Companion.forServer(
 ): RpcChannel<S> =
     RpcChannel(
         RpcProxyCache(apiClientFactory, serverConfig, authRecovery) { client, baseUrl ->
-            client.rpc("$baseUrl${policy.mount}").withService<S>()
+            client.rpc("$baseUrl${policy.mount}").asConnection { withService<S>() }
         },
         policy,
     )

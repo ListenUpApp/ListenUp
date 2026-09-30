@@ -184,4 +184,36 @@ class LogoutUseCaseTest :
                 }
             }
         }
+
+        // An idempotent read in flight when the first sweep force-closes its connection retries on a
+        // FRESH lease — and that connect mints its socket ticket from the token still stored, because
+        // tokens are cleared last. The sweep after the clear is what closes that socket; without it the
+        // previous user's socket becomes the channel's live connection and serves the next login.
+        test("logout sweeps the RPC connections again after the tokens are cleared") {
+            runTest {
+                val fixture = createFixture()
+                val useCase = fixture.build()
+
+                useCase()
+
+                verifySuspend(order) {
+                    fixture.authSession.clearAuthTokens()
+                    fixture.rpcCacheInvalidator.invalidateAll()
+                }
+            }
+        }
+
+        test("local-only logout sweeps the RPC connections again after the tokens are cleared") {
+            runTest {
+                val fixture = createFixture()
+                val useCase = fixture.build()
+
+                useCase.logoutLocally()
+
+                verifySuspend(order) {
+                    fixture.authSession.clearAuthTokens()
+                    fixture.rpcCacheInvalidator.invalidateAll()
+                }
+            }
+        }
     })

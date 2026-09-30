@@ -94,7 +94,7 @@ class RpcProxyCacheCallTest :
                     handshakeStatusVisible,
                 ) { _, _ ->
                     connectCount++
-                    FakeProxy(script.removeFirst())
+                    RpcConnection(FakeProxy(script.removeFirst())) {}
                 }
             return cache to { connectCount }
         }
@@ -563,7 +563,7 @@ class RpcProxyCacheCallTest :
                     RpcProxyCache(mockFactory(), mockServerConfig()) { client, _ ->
                         connectCount++
                         capturedClients += client
-                        FakeProxy { awaitCancellation() }
+                        RpcConnection(FakeProxy { awaitCancellation() }) {}
                     }
 
                 // A sibling call leases the shared proxy/client and parks IN FLIGHT inside its own block.

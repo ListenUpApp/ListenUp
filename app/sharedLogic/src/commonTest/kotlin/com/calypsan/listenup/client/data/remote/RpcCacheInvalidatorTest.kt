@@ -40,9 +40,14 @@ class RpcCacheInvalidatorTest :
 
         class RecordingRpcCache : RemoteCache {
             var invalidations = 0
+            var retirements = 0
 
             override suspend fun invalidate() {
                 invalidations++
+            }
+
+            override suspend fun retire() {
+                retirements++
             }
         }
 
@@ -56,7 +61,9 @@ class RpcCacheInvalidatorTest :
 
                 apiClient.fullInvalidations shouldBe 1
                 apiClient.requestOnlyInvalidations shouldBe 0
+                // An identity change closes every RPC connection outright.
                 rpcCache.invalidations shouldBe 1
+                rpcCache.retirements shouldBe 0
             }
         }
 
@@ -71,9 +78,11 @@ class RpcCacheInvalidatorTest :
                 // ApiClientFactory takes the scoped path — the streaming client is NOT closed.
                 apiClient.requestOnlyInvalidations shouldBe 1
                 apiClient.fullInvalidations shouldBe 0
-                // Every other RemoteCache (the RPC proxy caches) still gets a full invalidate so the
-                // next RPC call rebinds to the live connection.
-                rpcCache.invalidations shouldBe 1
+                // Every other RemoteCache (the RPC proxy caches) is RETIRED so the next RPC call rebinds to
+                // the live connection — never force-closed, which would abort the very firehose whose
+                // reconnect triggered this sweep.
+                rpcCache.retirements shouldBe 1
+                rpcCache.invalidations shouldBe 0
             }
         }
     })

@@ -122,4 +122,6 @@ private class BoundRecordingDispatch : RpcDispatch<Unit> {
     override fun <R> streaming(subscribe: suspend (Unit) -> Flow<R>): Flow<R> = emptyFlow()
 
     override suspend fun invalidate() = Unit
+
+    override suspend fun retire() = Unit
 }

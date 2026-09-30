@@ -169,13 +169,14 @@ class RpcSyncStreamClientTest :
             val scope = TestScope(StandardTestDispatcher())
             var subscriptions = 0
             var invalidations = 0
-            var invalidationsAtSecondSubscribe = -1
+            var retirements = 0
+            var retirementsAtSecondSubscribe = -1
             val service =
                 object : FakeSyncStreamService() {
                     override fun observeEvents(sinceRevision: Long?): Flow<RpcEvent<SyncFrame>> =
                         flow {
                             subscriptions++
-                            if (subscriptions == 2) invalidationsAtSecondSubscribe = invalidations
+                            if (subscriptions == 2) retirementsAtSecondSubscribe = retirements
                             emit(RpcEvent.Data(heartbeatFrame())) // hello
                             awaitCancellation() // then silence — a half-open socket
                         }
@@ -196,6 +197,10 @@ class RpcSyncStreamClientTest :
                     override suspend fun invalidate() {
                         invalidations++
                     }
+
+                    override suspend fun retire() {
+                        retirements++
+                    }
                 }
             val client =
                 RpcSyncStreamClient(
@@ -211,14 +216,17 @@ class RpcSyncStreamClientTest :
 
             // Silence past the 75s watchdog + the 1s backoff: the loop resubscribes — but a
             // watchdog cancellation looks like a caller cancel to RpcProxyCache, which never
-            // invalidates on those. The client must invalidate explicitly, BEFORE the next
-            // subscribe, so the fresh lease dials a fresh connection instead of re-leasing
-            // the half-open one (else recovery rides on the WS ping layer alone).
+            // retires on those. The client must retire the connection explicitly, BEFORE the
+            // next subscribe, so the fresh lease dials a fresh connection instead of re-leasing
+            // the half-open one (else recovery rides on the WS ping layer alone). Retire, not
+            // invalidate: a half-open firehose is no identity change, and force-closing would
+            // also tear down the pulls sharing the channel.
             scope.testScheduler.advanceTimeBy(80_000)
             scope.testScheduler.runCurrent()
             subscriptions shouldBe 2
-            invalidations shouldBe 1
-            invalidationsAtSecondSubscribe shouldBe 1
+            retirements shouldBe 1
+            retirementsAtSecondSubscribe shouldBe 1
+            invalidations shouldBe 0
 
             client.disconnect()
             scope.testScheduler.runCurrent()
