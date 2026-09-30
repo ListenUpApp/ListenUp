@@ -774,6 +774,8 @@ UploadError
 UploadError_SealedType
 UploadFinalizeResult
 UploadRepository
+UploadSelectionRefusal
+UploadSelectionRefusal_SealedType
 UploadStep
 UploadStep_SealedType
 UploadedBook

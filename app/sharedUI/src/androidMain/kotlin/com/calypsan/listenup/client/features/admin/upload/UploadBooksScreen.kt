@@ -38,7 +38,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.calypsan.listenup.api.dto.uploads.UploadLimits
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ScallopBadge
@@ -47,6 +46,8 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.repository.UploadCandidate
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksViewModel
+import com.calypsan.listenup.client.presentation.admin.upload.UploadSelectionRefusal
+import com.calypsan.listenup.client.presentation.admin.upload.uploadSelectionRefusal
 import com.calypsan.listenup.client.features.bookdetail.formatFileSize
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.util.rememberUploadFilePicker
@@ -80,38 +81,6 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
- * Why a selection was refused before a single byte went out.
- *
- * Checking client-side is a courtesy — the server enforces every one of these per request — but
- * discovering a 70 GiB selection is over the cap after uploading 60 of them is the difference
- * between a dialog and a wasted evening.
- */
-private sealed interface SelectionRefusal {
-    data class TooManyFiles(
-        val count: Int,
-    ) : SelectionRefusal
-
-    data class TooLarge(
-        val bytes: Long,
-    ) : SelectionRefusal
-
-    data class FileTooLarge(
-        val filename: String,
-        val bytes: Long,
-    ) : SelectionRefusal
-}
-
-/** The first cap [candidates] breaks, or null when the selection is within every one of them. */
-private fun refusalFor(candidates: List<UploadCandidate>): SelectionRefusal? {
-    if (candidates.size > UploadLimits.MAX_FILES) return SelectionRefusal.TooManyFiles(candidates.size)
-    candidates.firstOrNull { (it.source.size ?: 0L) > UploadLimits.MAX_FILE_BYTES }?.let {
-        return SelectionRefusal.FileTooLarge(it.source.filename, it.source.size ?: 0L)
-    }
-    val total = candidates.sumOf { it.source.size ?: 0L }
-    return if (total > UploadLimits.MAX_SESSION_BYTES) SelectionRefusal.TooLarge(total) else null
-}
-
-/**
  * Upload books into the library from this device.
  *
  * There is deliberately no "is this one book or three?" step. The picker sends the structure the
@@ -127,7 +96,7 @@ fun UploadBooksScreen(
 ) {
     val haptics = LocalHaptics.current
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var refusal by remember { mutableStateOf<SelectionRefusal?>(null) }
+    var refusal by remember { mutableStateOf<UploadSelectionRefusal?>(null) }
     var emptySelection by remember { mutableStateOf(false) }
 
     fun offer(candidates: List<UploadCandidate>) {
@@ -135,7 +104,7 @@ fun UploadBooksScreen(
             emptySelection = true
             return
         }
-        when (val refused = refusalFor(candidates)) {
+        when (val refused = uploadSelectionRefusal(candidates)) {
             null -> viewModel.onFilesPicked(candidates)
             else -> refusal = refused
         }
@@ -218,38 +187,38 @@ fun UploadBooksScreen(
     }
 }
 
-private fun SelectionRefusal.titleRes() =
+private fun UploadSelectionRefusal.titleRes() =
     when (this) {
-        is SelectionRefusal.TooManyFiles -> Res.string.admin_upload_books_too_many_files_title
-        is SelectionRefusal.TooLarge -> Res.string.admin_upload_books_too_large_title
-        is SelectionRefusal.FileTooLarge -> Res.string.admin_upload_books_file_too_large_title
+        is UploadSelectionRefusal.TooManyFiles -> Res.string.admin_upload_books_too_many_files_title
+        is UploadSelectionRefusal.TooLarge -> Res.string.admin_upload_books_too_large_title
+        is UploadSelectionRefusal.FileTooLarge -> Res.string.admin_upload_books_file_too_large_title
     }
 
 @Composable
-private fun SelectionRefusal.body(): String =
+private fun UploadSelectionRefusal.body(): String =
     when (this) {
-        is SelectionRefusal.TooManyFiles -> {
+        is UploadSelectionRefusal.TooManyFiles -> {
             stringResource(
                 Res.string.admin_upload_books_too_many_files_body,
-                UploadLimits.MAX_FILES,
+                limit,
                 count,
             )
         }
 
-        is SelectionRefusal.TooLarge -> {
+        is UploadSelectionRefusal.TooLarge -> {
             stringResource(
                 Res.string.admin_upload_books_too_large_body,
-                formatFileSize(UploadLimits.MAX_SESSION_BYTES),
+                formatFileSize(limitBytes),
                 formatFileSize(bytes),
             )
         }
 
-        is SelectionRefusal.FileTooLarge -> {
+        is UploadSelectionRefusal.FileTooLarge -> {
             stringResource(
                 Res.string.admin_upload_books_file_too_large_body,
                 filename,
                 formatFileSize(bytes),
-                formatFileSize(UploadLimits.MAX_FILE_BYTES),
+                formatFileSize(limitBytes),
             )
         }
     }

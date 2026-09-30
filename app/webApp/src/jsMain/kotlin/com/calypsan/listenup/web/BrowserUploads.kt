@@ -1,6 +1,8 @@
 package com.calypsan.listenup.web
 
 import com.calypsan.listenup.client.domain.repository.UploadCandidate
+import com.calypsan.listenup.client.presentation.admin.upload.UploadSelectionRefusal
+import com.calypsan.listenup.web.features.bookdetail.formatBytes
 import org.w3c.dom.HTMLInputElement
 import org.w3c.files.File
 
@@ -24,6 +26,28 @@ internal suspend fun candidatesFrom(files: List<File>): List<UploadCandidate>? {
         UploadCandidate(relPath = relPathOf(file), source = BrowserFileSource(file, bytes))
     }
 }
+
+/**
+ * What a refused selection says, naming the limit it broke — the same sentences Android's dialogs
+ * use. The shared `uploadSelectionRefusal` decides; this only words it.
+ */
+internal fun uploadRefusalSentence(refusal: UploadSelectionRefusal): String =
+    when (refusal) {
+        is UploadSelectionRefusal.TooManyFiles -> {
+            "One upload can carry ${refusal.limit} files. That selection has ${refusal.count}, " +
+                "so try it in smaller batches."
+        }
+
+        is UploadSelectionRefusal.TooLarge -> {
+            "One upload can carry ${formatBytes(refusal.limitBytes)}. That selection is " +
+                "${formatBytes(refusal.bytes)}, so try it in smaller batches."
+        }
+
+        is UploadSelectionRefusal.FileTooLarge -> {
+            "\u201c${refusal.filename}\u201d is ${formatBytes(refusal.bytes)}, and a single file can be at most " +
+                "${formatBytes(refusal.limitBytes)}."
+        }
+    }
 
 /**
  * Where one picked file sits relative to the selection root.

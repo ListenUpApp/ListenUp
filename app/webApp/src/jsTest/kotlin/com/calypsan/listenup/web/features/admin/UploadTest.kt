@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.uploads.UploadedBook
 import com.calypsan.listenup.api.dto.uploads.UploadedBookStatus
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
+import com.calypsan.listenup.client.presentation.admin.upload.UploadSelectionRefusal
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
@@ -21,6 +22,7 @@ import org.w3c.files.File
 import com.calypsan.listenup.web.UPLOAD_BYTE_CEILING
 import com.calypsan.listenup.web.candidatesFrom
 import com.calypsan.listenup.web.relPathOf
+import com.calypsan.listenup.web.uploadRefusalSentence
 
 internal fun uploaded(
     title: String,
@@ -216,6 +218,18 @@ class UploadTest :
             candidatesFrom(listOf(oversizeFile())).shouldBeNull()
         }
 
+        // The shared rule decides what is refused; the browser only has to say it. Same sentences as
+        // Android's dialogs, so an admin reads the same limit on every client.
+        test("a refused selection is said in a sentence naming the limit it broke") {
+            uploadRefusalSentence(UploadSelectionRefusal.TooManyFiles(count = 1_200, limit = 1_000)) shouldBe
+                "One upload can carry 1000 files. That selection has 1200, so try it in smaller batches."
+            uploadRefusalSentence(
+                UploadSelectionRefusal.FileTooLarge(filename = "big.m4b", bytes = 3 * GIB, limitBytes = 2 * GIB),
+            ) shouldBe "\u201cbig.m4b\u201d is 3.0 GB, and a single file can be at most 2.0 GB."
+            uploadRefusalSentence(UploadSelectionRefusal.TooLarge(bytes = 5 * GIB, limitBytes = 4 * GIB)) shouldBe
+                "One upload can carry 4.0 GB. That selection is 5.0 GB, so try it in smaller batches."
+        }
+
         test("a failed session says why and offers to start over") {
             var reset = 0
             val host = page(UploadBooksUiState.Error(InternalError(debugInfo = "boom")), onReset = { reset++ })
@@ -266,3 +280,5 @@ private fun inFolderFile(
 ) = browserFile(name, content, relativePath, size = null)
 
 private fun oversizeFile() = browserFile("big.m4b", "x", relativePath = null, size = UPLOAD_BYTE_CEILING + 1)
+
+private const val GIB = 1024L * 1024 * 1024
