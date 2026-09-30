@@ -431,6 +431,9 @@ private extension View {
             .navigationDestination(for: LibrarySettingsDestination.self) { _ in
                 LibrarySettingsView()
             }
+            .navigationDestination(for: OrganizeSettingsDestination.self) { _ in
+                OrganizeSettingsView()
+            }
             .navigationDestination(for: AdminBackupsDestination.self) { _ in
                 AdminBackupsView()
             }

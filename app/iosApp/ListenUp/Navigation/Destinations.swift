@@ -163,6 +163,10 @@ struct AdminCollectionDetailDestination: Hashable, Codable {
 /// Management. Manages the single library's scan folders and triggers a rescan.
 struct LibrarySettingsDestination: Hashable, Codable {}
 
+/// The File organization screen (admin / root users only), reached from Administration ›
+/// Management. Sets where books live on disk, and sweeps the existing library into that shape.
+struct OrganizeSettingsDestination: Hashable, Codable {}
+
 /// The admin Backups screen (admin / root users only), reached from Administration › Management.
 /// Lists server backups; creates, deletes, restores, and restores-from-file.
 struct AdminBackupsDestination: Hashable, Codable {}
