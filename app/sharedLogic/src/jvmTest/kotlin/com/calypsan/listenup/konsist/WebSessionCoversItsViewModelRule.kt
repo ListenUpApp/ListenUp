@@ -207,10 +207,6 @@ private val EXCUSED =
         "ContributorMetadataViewModel.reset",
         "ContributorMetadataViewModel.selectAsin",
         "MetadataViewModel.reset",
-        // Library setup.
-        "LibrarySetupViewModel.checkLibraryStatus",
-        "LibrarySetupViewModel.clearSelection",
-        "LibrarySetupViewModel.selectPath",
         // Admin.
         "OrganizeSettingsViewModel.clearError",
         "SyncIndicatorViewModel.toggleExpanded",

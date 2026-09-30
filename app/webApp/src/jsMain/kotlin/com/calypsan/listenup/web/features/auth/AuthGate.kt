@@ -65,6 +65,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.web.design.Button
+import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.features.admin.AdminSessions
 
 /**
@@ -219,7 +221,7 @@ fun AuthGate(
                     authGraph = authGraph,
                     onDismissOutdated = health.onDismiss,
                 )
-                LibrarySetupGate(openLibrarySetup) {
+                LibrarySetupGate(openLibrarySetup, sessionLapsed = state is AuthState.SessionLapsed) {
                     WebAppRoot(
                         router = router,
                         openBookDetail = openBookDetail,
@@ -305,10 +307,24 @@ private fun SetupBranch(authGraph: AuthGraph) {
  * While the status probe is in flight neither branch renders: showing the app for the half-second
  * before the answer arrives would flash an empty library at precisely the person who is about to
  * be told why it is empty.
+ *
+ * ## A probe that failed
+ *
+ * The ViewModel reports one as `error` with `needsSetup` still false — which used to read here as
+ * "nothing to set up", dropping a fresh admin into an empty shell with a toast that vanished and no
+ * way to ask again. The rule now is Android's `AppStartupViewModel.resolveOfflineOrFail`, so the
+ * two clients answer the same failure the same way:
+ *  - **a library already in this browser** opens the app. Offline-first: a server that is down at
+ *    sign-in must not take away a mirror that reads perfectly well.
+ *  - **a lapsed session** opens the app too. A retry would fail against the same dead credentials,
+ *    and the wall would paint over the sign-in banner — the only way back in.
+ *  - **otherwise** a retry panel, which re-runs the probe.
+ * Until the mirror has answered, the boot surface holds — the same reason as the probe itself.
  */
 @Composable
 private fun LibrarySetupGate(
     openLibrarySetup: OpenLibrarySetup,
+    sessionLapsed: Boolean,
     content: @Composable () -> Unit,
 ) {
     val session = remember { openLibrarySetup() }
@@ -320,12 +336,28 @@ private fun LibrarySetupGate(
         session.navActions.collect { finished = true }
     }
 
+    val checkFailed = state.error != null && !state.needsSetup && !state.isCheckingStatus
+    // Null until the mirror answers. Asked only when the probe has failed — the common path never
+    // touches it.
+    var hasLocalLibrary by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(checkFailed) {
+        if (checkFailed && hasLocalLibrary == null) hasLocalLibrary = session.hasLocalLibrary()
+    }
+
     when {
-        finished || (!state.needsSetup && !state.isCheckingStatus) -> {
+        finished || (!state.needsSetup && !state.isCheckingStatus && !checkFailed) -> {
             content()
         }
 
-        state.isCheckingStatus -> {
+        checkFailed && (sessionLapsed || hasLocalLibrary == true) -> {
+            content()
+        }
+
+        checkFailed && hasLocalLibrary == false -> {
+            SetupCheckFailed(onRetry = session.onCheckStatus)
+        }
+
+        state.isCheckingStatus || checkFailed -> {
             AuthBoot()
         }
 
@@ -337,8 +369,31 @@ private fun LibrarySetupGate(
                 onToggleFolder = session.onToggleFolder,
                 onComplete = session.onComplete,
                 onDismissError = session.onDismissError,
+                onSelectFolder = session.onSelectFolder,
+                onClearSelection = session.onClearSelection,
             )
         }
+    }
+}
+
+/**
+ * The server could not say whether setup is needed, and nothing local can stand in for it.
+ *
+ * Android's `SetupCheckFailedScreen`, in the sign-in screens' layout: an honest failure with the
+ * one move that can fix it, rather than an empty app that looks like a library with no books.
+ */
+@Composable
+private fun SetupCheckFailed(onRetry: () -> Unit) {
+    AuthLayout(
+        title = "Couldn't check library setup",
+        subtitle = "We couldn't reach your server to check your library setup. Check your connection and try again.",
+    ) {
+        Button(
+            kind = ButtonKind.Primary,
+            fill = true,
+            onClick = onRetry,
+            attrs = { classes("setup-check-retry") },
+        ) { Text("Try again") }
     }
 }
 

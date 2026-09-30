@@ -63,9 +63,20 @@ class LibrarySetupPageTest :
             onToggleFolder: (String) -> Unit = {},
             onComplete: () -> Unit = {},
             onDismissError: () -> Unit = {},
+            onSelectFolder: (String) -> Unit = {},
+            onClearSelection: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
-                LibrarySetupPage(state, onOpenFolder, onNavigateUp, onToggleFolder, onComplete, onDismissError)
+                LibrarySetupPage(
+                    state,
+                    onOpenFolder,
+                    onNavigateUp,
+                    onToggleFolder,
+                    onComplete,
+                    onDismissError,
+                    onSelectFolder,
+                    onClearSelection,
+                )
             }
 
         // A file picker that looks like your own file picker and is not is a trap.
@@ -173,6 +184,43 @@ class LibrarySetupPageTest :
             go.click()
 
             completed shouldBe 1
+        }
+
+        test("the folder you are standing in can be chosen as a whole") {
+            // Android and iOS both offer this. Without it, a library whose books sit directly in
+            // the folder you browsed to — the most common layout — could only be chosen by going
+            // up a level and ticking it there.
+            val chosen = mutableListOf<String>()
+            val host = page(setupState(currentPath = "/srv/Audiobooks"), onSelectFolder = { chosen += it })
+
+            val use = host.querySelector(".lsetup-use") as HTMLButtonElement
+            use.textContent.orEmpty() shouldContain "Use this folder"
+            use.click()
+
+            chosen shouldBe listOf("/srv/Audiobooks")
+        }
+
+        test("the folder you are standing in, once chosen, says so instead of offering again") {
+            val host = page(setupState(currentPath = "/srv/Audiobooks", selectedPaths = setOf("/srv/Audiobooks")))
+
+            val use = host.querySelector(".lsetup-use") as HTMLButtonElement
+            use.disabled shouldBe true
+            use.textContent.orEmpty() shouldContain "Chosen"
+        }
+
+        test("a selection can be cleared in one move") {
+            var clears = 0
+            val host = page(setupState(selectedPaths = setOf("/a", "/b")), onClearSelection = { clears++ })
+
+            (host.querySelector(".lsetup-clear") as HTMLElement).click()
+
+            clears shouldBe 1
+        }
+
+        test("with nothing chosen there is nothing to clear") {
+            val host = page(setupState(selectedPaths = emptySet()))
+
+            host.querySelector(".lsetup-clear") shouldBe null
         }
 
         test("the count says how many folders are chosen") {

@@ -85,6 +85,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .lsetup-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: var(--r-sm); background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 
 .luw .lsetup-crumb { display: flex; align-items: center; gap: 10px; }
+.luw .lsetup-use { flex: none; }
 .luw .lsetup-up { flex: none; width: 34px; height: 34px; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink-2); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 @media (hover: hover) { .luw .lsetup-up:not(:disabled):hover { border-color: var(--coral); color: var(--coral-text); } }
 /* At the root there is nowhere up to go, and the control says so rather than sitting inert. */
@@ -111,6 +112,8 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 /* Always present, even at zero, so ticking the first folder does not shove the list upward. */
 .luw .lsetup-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: 14px; border-top: 1px solid var(--line); }
 .luw .lsetup-count { font-size: 0.85rem; font-weight: 600; color: var(--ink-2); }
+/* Pushed right so the bar reads count … Clear Continue; the count stays where it was. */
+.luw .lsetup-clear { margin-left: auto; }
 .luw .lsetup-go:disabled { opacity: 0.4; cursor: default; }
 
 /* ---- a person's own page. The avatar circle is shared with anywhere else a user is shown. */

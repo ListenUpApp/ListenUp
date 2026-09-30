@@ -1495,6 +1495,8 @@ private fun librarySetupShapes(): List<@Composable () -> Unit> =
                 onToggleFolder = {},
                 onComplete = {},
                 onDismissError = {},
+                onSelectFolder = {},
+                onClearSelection = {},
             )
         },
         {
@@ -1505,6 +1507,8 @@ private fun librarySetupShapes(): List<@Composable () -> Unit> =
                 onToggleFolder = {},
                 onComplete = {},
                 onDismissError = {},
+                onSelectFolder = {},
+                onClearSelection = {},
             )
         },
         {
@@ -1515,6 +1519,8 @@ private fun librarySetupShapes(): List<@Composable () -> Unit> =
                 onToggleFolder = {},
                 onComplete = {},
                 onDismissError = {},
+                onSelectFolder = {},
+                onClearSelection = {},
             )
         },
     )
