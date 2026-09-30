@@ -446,9 +446,14 @@ private struct SettingsLabel: View {
                 .fill(tint)
                 .frame(width: 29, height: 29)
                 .overlay {
+                    // Scaled to fit a fixed box, so a wide symbol ("textformat.abc") shrinks
+                    // into the tile instead of overflowing it.
                     Image(systemName: systemImage)
-                        .font(.system(size: 15, weight: .semibold)) // decorative fixed size
+                        .resizable()
+                        .scaledToFit()
+                        .fontWeight(.semibold)
                         .foregroundStyle(.white)
+                        .frame(width: 20, height: 16)
                 }
                 .accessibilityHidden(true)
         }
