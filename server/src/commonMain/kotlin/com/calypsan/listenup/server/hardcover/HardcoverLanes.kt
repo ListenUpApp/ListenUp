@@ -83,7 +83,9 @@ internal class HardcoverLanes(
                     }
 
                     is LaneStep.Sleep -> {
-                        withTimeoutOrNull((next.untilMs - now()).coerceIn(0L, MAX_SLEEP.inWholeMilliseconds)) { wake.receive() }
+                        withTimeoutOrNull(
+                            (next.untilMs - now()).coerceIn(0L, MAX_SLEEP.inWholeMilliseconds),
+                        ) { wake.receive() }
                     }
 
                     LaneStep.Stop -> {

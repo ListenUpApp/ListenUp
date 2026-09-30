@@ -213,7 +213,11 @@ class HardcoverServiceImplTest :
                 pulls.staleChecks shouldBe listOf(OTHER_USER)
 
                 pulls.syncNowResult = AppResult.Failure(HardcoverError.NotConnected())
-                serviceFor(USER).syncNow().shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<HardcoverError.NotConnected>()
+                serviceFor(USER)
+                    .syncNow()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<HardcoverError.NotConnected>()
             }
         }
 

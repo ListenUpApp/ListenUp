@@ -146,32 +146,7 @@ fun hardcoverModule(
                 scope = applicationScope,
             )
         }
-        single { HardcoverPullStore(sql = get(), clock = get()) }
-        single { HardcoverShelfResolver(sql = get(), access = get()) }
-        single {
-            HardcoverPuller(
-                userBooks = get(),
-                store = get(),
-                resolver = get(),
-                links = get(),
-                rateLimiter = get(),
-                sql = get(),
-                clock = get(),
-            )
-        }
-        single {
-            HardcoverPullWorker(
-                puller = get(),
-                store = get(),
-                tokens = get(),
-                connections = get(),
-                linker = get(),
-                gate = get(),
-                pushNudge = get(),
-                clock = get(),
-            )
-        }
-        single<HardcoverPullRequests> { get<HardcoverPullWorker>() }
+        hardcoverPull()
         single {
             HardcoverBookLinking(
                 graphQl = get(),
@@ -199,6 +174,39 @@ fun hardcoverModule(
         }
         single<HardcoverService> { get<HardcoverServiceImpl>() }
     }
+
+/**
+ * The pull (spec B3): its store, the shelf resolver, the puller, and the per-user pull worker — also
+ * bound as the [HardcoverPullRequests] that "Sync now", the foreground nudge and manual linking use.
+ */
+private fun Module.hardcoverPull() {
+    single { HardcoverPullStore(sql = get(), clock = get()) }
+    single { HardcoverShelfResolver(sql = get(), access = get()) }
+    single {
+        HardcoverPuller(
+            userBooks = get(),
+            store = get(),
+            resolver = get(),
+            links = get(),
+            rateLimiter = get(),
+            sql = get(),
+            clock = get(),
+        )
+    }
+    single {
+        HardcoverPullWorker(
+            puller = get(),
+            store = get(),
+            tokens = get(),
+            connections = get(),
+            linker = get(),
+            gate = get(),
+            pushNudge = get(),
+            clock = get(),
+        )
+    }
+    single<HardcoverPullRequests> { get<HardcoverPullWorker>() }
+}
 
 /**
  * Dedicated [HttpClient] for Hardcover. No content negotiation: both clients decode Hardcover's

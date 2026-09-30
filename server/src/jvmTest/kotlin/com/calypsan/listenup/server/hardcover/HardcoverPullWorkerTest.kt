@@ -249,7 +249,8 @@ class HardcoverPullWorkerTest :
                 connect()
                 hardcover.failNext(FakeReply(HttpStatusCode.Forbidden, """{"error":"insufficient_scope","scope":"read:library"}"""))
                 worker.step(USER) shouldBe LaneStep.Stop
-                connections.connectionFor(USER).shouldBeInstanceOf<StoredConnection.Broken>().reason shouldBe HardcoverBrokenReason.MISSING_SCOPE
+                connections.connectionFor(USER).shouldBeInstanceOf<StoredConnection.Broken>().reason shouldBe
+                    HardcoverBrokenReason.MISSING_SCOPE
             }
         }
 
@@ -278,10 +279,18 @@ class HardcoverPullWorkerTest :
 
         test("Sync now without a working connection says so, and pulls nothing") {
             pullWorkerTest {
-                worker.syncNow(USER).shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<HardcoverError.NotConnected>()
+                worker
+                    .syncNow(USER)
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<HardcoverError.NotConnected>()
                 connect()
                 connections.markBroken(USER, HardcoverBrokenReason.REVOKED)
-                worker.syncNow(USER).shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<HardcoverError.ConnectionBroken>()
+                worker
+                    .syncNow(USER)
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<HardcoverError.ConnectionBroken>()
                 pushNudges shouldBe emptyList()
                 hardcover.operations shouldBe emptyList()
             }

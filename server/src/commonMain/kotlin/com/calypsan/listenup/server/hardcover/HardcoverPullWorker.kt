@@ -96,7 +96,11 @@ class HardcoverPullWorker(
     override suspend fun syncNow(userId: String): AppResult<Unit> {
         when (connections.connectionFor(userId)) {
             null -> return AppResult.Failure(HardcoverError.NotConnected())
-            is StoredConnection.Broken -> return AppResult.Failure(HardcoverError.ConnectionBroken(debugInfo = "syncNow"))
+
+            is StoredConnection.Broken -> return AppResult.Failure(
+                HardcoverError.ConnectionBroken(debugInfo = "syncNow"),
+            )
+
             is StoredConnection.Healthy -> Unit
         }
         requestFullPull(userId)
@@ -168,7 +172,11 @@ class HardcoverPullWorker(
             is HardcoverCall.Throttled -> {
                 val wait =
                     page.retryAfterMs
-                        ?: exponentialBackoff(bumpFailures(userId), PULL_THROTTLE_BACKOFF_BASE, PULL_INTERVAL).inWholeMilliseconds
+                        ?: exponentialBackoff(
+                            bumpFailures(userId),
+                            PULL_THROTTLE_BACKOFF_BASE,
+                            PULL_INTERVAL,
+                        ).inWholeMilliseconds
                 gate.pause(userId, now + wait)
                 retryAt(userId, now + wait)
             }
@@ -176,7 +184,10 @@ class HardcoverPullWorker(
             is HardcoverCall.Failed -> {
                 val attempts = bumpFailures(userId)
                 if (attempts >= PULL_MAX_ATTEMPTS) connections.recordPullError(userId, page.detail)
-                retryAt(userId, now + exponentialBackoff(attempts, PULL_FAILURE_BACKOFF_BASE, PULL_INTERVAL).inWholeMilliseconds)
+                retryAt(
+                    userId,
+                    now + exponentialBackoff(attempts, PULL_FAILURE_BACKOFF_BASE, PULL_INTERVAL).inWholeMilliseconds,
+                )
             }
         }
     }
@@ -254,7 +265,13 @@ class HardcoverPullWorker(
             }
         }
 
-    private fun bumpFailures(userId: String): Int = synchronized(lock) { ((failures[userId] ?: 0) + 1).also { failures[userId] = it } }
+    private fun bumpFailures(userId: String): Int =
+        synchronized(lock) {
+            ((failures[userId] ?: 0) + 1).also {
+                failures[userId] =
+                    it
+            }
+        }
 
     private fun forget(userId: String) {
         synchronized(lock) {
