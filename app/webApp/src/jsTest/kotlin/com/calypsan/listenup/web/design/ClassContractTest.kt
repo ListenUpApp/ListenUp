@@ -2182,6 +2182,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
                 onOpenProfile = {},
                 onSelectPeriod = {},
                 onSelectCategory = {},
+                onRefresh = {},
             )
         }
 

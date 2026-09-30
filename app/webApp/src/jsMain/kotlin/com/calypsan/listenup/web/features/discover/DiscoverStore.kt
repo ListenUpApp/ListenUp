@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
 /**
- * An open Discover session: four independent state streams, the two gestures the page accepts, and
+ * An open Discover session: its independent state streams, the three gestures the page accepts, and
  * the teardown for all of it.
  *
  * Discover is backed by THREE ViewModels, one more than Home, and for the same reason Home needed
@@ -42,6 +42,12 @@ class DiscoverSession(
     val activity: StateFlow<ActivityFeedUiState>,
     val onSelectPeriod: (LeaderboardPeriod) -> Unit,
     val onSelectCategory: (LeaderboardCategory) -> Unit,
+    /**
+     * A fresh load of the book row and the shared shelves — the two sections [DiscoverViewModel]
+     * can bring back from an error. The page offers it only there, as "Try again"; web has no
+     * page-level refresh.
+     */
+    val onRefresh: () -> Unit,
     val close: () -> Unit,
 )
 
@@ -78,6 +84,10 @@ fun graphDiscover(koin: Koin): OpenDiscover =
             activity = activity.state,
             onSelectPeriod = leaderboard::selectPeriod,
             onSelectCategory = leaderboard::selectCategory,
+            // ⛔ `ActivityFeedViewModel.refresh` is deliberately NOT wired: its state ends on Error,
+            // so a refresh cannot bring the feed back. WebSessionCoversItsViewModelRule matches by
+            // name per file, so this line reads to it as covering that one too — it does not.
+            onRefresh = discover::refresh,
             close = store::clear,
         )
     }
@@ -92,6 +102,7 @@ fun fixedDiscover(
     activity: ActivityFeedUiState = ActivityFeedUiState.Loading,
     onSelectPeriod: (LeaderboardPeriod) -> Unit = {},
     onSelectCategory: (LeaderboardCategory) -> Unit = {},
+    onRefresh: () -> Unit = {},
 ): OpenDiscover =
     {
         DiscoverSession(
@@ -103,6 +114,7 @@ fun fixedDiscover(
             activity = MutableStateFlow(activity),
             onSelectPeriod = onSelectPeriod,
             onSelectCategory = onSelectCategory,
+            onRefresh = onRefresh,
             close = {},
         )
     }

@@ -438,6 +438,8 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
    would make the page jump less, but five different ones is five things to keep in sync. */
 .luw .disc-skel { height: 9rem; border-radius: var(--r-lg); }
 .luw .disc-error { margin: 0; font-size: 0.9rem; color: var(--coral-text); }
+/* The failed row's way back — Library's "Try again", spaced the same. */
+.luw .disc-retry { margin-top: var(--sp-8); }
 
 /* Book grids — Something new, Recently added. Auto-fill so the row count follows the viewport
    rather than a breakpoint table. */

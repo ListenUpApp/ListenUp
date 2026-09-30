@@ -953,6 +953,7 @@ private fun DiscoverRoute(
             onOpenProfile = { id -> router.navigate(Route(listOf(PROFILE_KEY, id))) },
             onSelectPeriod = session.onSelectPeriod,
             onSelectCategory = session.onSelectCategory,
+            onRefresh = session.onRefresh,
             selection = selection,
         )
     }

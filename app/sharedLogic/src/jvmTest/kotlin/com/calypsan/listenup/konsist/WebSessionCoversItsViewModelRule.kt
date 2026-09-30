@@ -215,8 +215,6 @@ private val EXCUSED =
         "ChapterEditorViewModel.replaceAll",
         // Manual refresh: check whether web refreshes on navigation before building a control.
         "HomeViewModel.refresh",
-        "DiscoverViewModel.refresh",
-        "ActivityFeedViewModel.refresh",
         "UserProfileViewModel.refresh",
     )
 
