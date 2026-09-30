@@ -515,6 +515,7 @@ OrganizeSettingsEvent_SealedType
 OrganizeSettingsUiState
 OrganizeSettingsUiState_SealedType
 OrganizeSettingsViewModel
+OutsideShare
 PartGroup
 PasswordChange
 PasswordResetRepository
@@ -573,6 +574,7 @@ RatingError
 RatingError_SealedType
 RatingLabels
 RatingSourceStatus
+RatingSourceUnavailable
 Reachability
 Reachability_SealedType
 Reader
@@ -608,6 +610,8 @@ ScanError_SealedType
 ScanIssue
 ScanIssueReason
 ScanProgressState
+ScoreSource
+ScoreSource_SealedType
 ScrubDrag
 SearchFacets
 SearchHit

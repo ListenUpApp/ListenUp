@@ -11,8 +11,10 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.hardcover.HardcoverRatingConnection
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.metadata.spi.RatingSource
+import com.calypsan.listenup.server.metadata.spi.RatingSourceAvailability
 import com.calypsan.listenup.server.ratings.RatingSourceSettings
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.LibraryRepository
@@ -20,6 +22,7 @@ import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sidecar.SIDECAR_WRITES_ENABLED_KEY
 import com.calypsan.listenup.server.sync.BookExternalRatingRepository
 import com.calypsan.listenup.server.sync.ChangeBus
+import kotlin.time.Clock
 
 /** Max length for the operator-set server name. */
 private const val MAX_SERVER_NAME = 100
@@ -48,6 +51,8 @@ internal class AdminSettingsServiceImpl(
     private val externalRatings: BookExternalRatingRepository? = null,
     /** Every registered [RatingSource] — what [getRatingSources] enumerates. */
     private val providerRegistry: MetadataProviderRegistry? = null,
+    /** Whose Hardcover account [getRatingSources] names on the Hardcover row. */
+    private val hardcoverConnection: HardcoverRatingConnection? = null,
 ) : AdminSettingsService {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): AdminSettingsServiceImpl =
@@ -60,6 +65,7 @@ internal class AdminSettingsServiceImpl(
             sourceSettings,
             externalRatings,
             providerRegistry,
+            hardcoverConnection,
         )
 
     override suspend fun getServerSettings(): AppResult<AdminServerSettings> {
@@ -126,6 +132,7 @@ internal class AdminSettingsServiceImpl(
     private suspend fun ratingSourceStatuses(): List<RatingSourceStatus> {
         val sources = sourceSettings ?: return emptyList()
         val registry = providerRegistry ?: return emptyList()
+        val now = Clock.System.now().toEpochMilliseconds()
         return registry.capable<RatingSource>().map { source ->
             val (lastFetchedAt, lastError) = sources.health(source.ratingSource)
             RatingSourceStatus(
@@ -133,6 +140,14 @@ internal class AdminSettingsServiceImpl(
                 enabled = sources.isEnabled(source.ratingSource),
                 lastFetchedAt = lastFetchedAt,
                 lastError = lastError,
+                pausedUntil = sources.pausedUntil(source.ratingSource, now),
+                unavailable = (source.availability() as? RatingSourceAvailability.Unavailable)?.reason,
+                connectionUsername =
+                    if (source.ratingSource == ExternalRatingSource.HARDCOVER) {
+                        hardcoverConnection?.pick()?.hardcoverUsername
+                    } else {
+                        null
+                    },
             )
         }
     }

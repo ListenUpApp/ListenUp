@@ -8,7 +8,6 @@ import com.calypsan.listenup.client.domain.model.ExternalRating
 import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.domain.model.ListenerRating
 import com.calypsan.listenup.client.domain.model.RatingLabels
-import com.calypsan.listenup.client.domain.model.combineExternalRatings
 import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.core.error.ErrorBus
@@ -29,10 +28,14 @@ sealed interface BookRatingsUiState {
     /**
      * @property listeners your listeners' average, or null when nobody has rated the book.
      * @property mine the signed-in listener's rating, or null when they haven't rated it.
-     * @property external the outside-world headline score, or null when no enabled source has
-     *   rated the book yet.
+     * @property external the ListenUp score — every enabled outside catalog plus this server's
+     *   listeners, calibrated over the library — or null when no source has rated the book yet.
+     *   Its [CombinedScore.shares] give each source's weight for the breakdown rows (the listeners'
+     *   under [com.calypsan.listenup.client.domain.model.ScoreSource.Listeners]) and
+     *   [CombinedScore.sourceCount] the "Combined from N sources" line. The same value the
+     *   library's Rating sort uses.
      * @property breakdown the per-source outside ratings backing [external], highest rating count
-     *   first — the sheet one tap away from the headline.
+     *   first — the sheet one tap away from the headline. The listeners' row is [listeners].
      * @property canRefresh whether the signed-in listener may trigger [BookRatingsViewModel.refreshExternal]
      *   (admin or root).
      * @property isRefreshingExternal whether a [BookRatingsViewModel.refreshExternal] is still in
@@ -85,17 +88,17 @@ class BookRatingsViewModel(
         combine(
             repository.observeForBook(bookId),
             currentUserId,
-            repository.observeExternalForBook(bookId),
+            repository.observeExternalForBook(bookId).combine(repository.observeCombinedScore(bookId), ::Pair),
             userRepository.observeIsAdmin(),
             isRefreshingExternal,
-        ) { ratings, me, external, isAdmin, refreshing ->
+        ) { ratings, me, (external, score), isAdmin, refreshing ->
             BookRatingsUiState.Ready(
                 listeners =
                     ratings.takeIf { it.isNotEmpty() }?.let { rs ->
                         ListenerAverage(averageHalfStars = rs.map { it.halfStars }.average(), count = rs.size)
                     },
                 mine = ratings.firstOrNull { it.userId == me },
-                external = combineExternalRatings(external),
+                external = score,
                 breakdown = external,
                 canRefresh = isAdmin,
                 isRefreshingExternal = refreshing,

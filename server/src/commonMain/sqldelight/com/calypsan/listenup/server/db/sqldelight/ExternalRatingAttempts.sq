@@ -1,21 +1,26 @@
 -- external_rating_attempts: server-internal memory of the last time ExternalRatingsFetcher
--- attempted a book, regardless of outcome. Schema matches V74__book_external_ratings.sql exactly.
--- Not synced — see BookExternalRatings.sq's `selectSweepCandidates` for why the nightly sweep
--- needs it: a book whose ASIN Audible never rates (or that always errors) earns no
--- book_external_ratings row and would otherwise sort first every single night, forever, starving
--- every other book of its share of the sweep.
+-- attempted a book with one source, regardless of outcome. Schema matches
+-- V75__external_rating_attempts_per_source.sql exactly. Not synced.
+--
+-- Two readers need it. The nightly sweep (BookExternalRatings.sq's `selectSweepCandidates`): a book
+-- no source ever rates earns no book_external_ratings row and would otherwise sort first every
+-- single night, forever, starving every other book of its share of the sweep. And the backfill
+-- (BookExternalRatings.sq's `selectBooksMissingAttempt`): keyed per source, so a source added or
+-- switched on later reaches every book it has never tried, not just the books no source has tried.
 CREATE TABLE external_rating_attempts (
-    book_id      TEXT    NOT NULL PRIMARY KEY REFERENCES books(id) ON DELETE CASCADE,
-    attempted_at INTEGER NOT NULL
+    book_id      TEXT    NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    source       TEXT    NOT NULL,
+    attempted_at INTEGER NOT NULL,
+    PRIMARY KEY (book_id, source)
 );
 
--- Records (or overwrites) the instant a fetch was attempted for a book. INSERT OR REPLACE, not
+-- Records (or overwrites) the instant a source was attempted for a book. INSERT OR REPLACE, not
 -- ON CONFLICT ... DO UPDATE — the sqldelight dialect (sqlite_3_18) predates that syntax (see
 -- SidecarWriteState.sq's `upsert` and NotificationPrefs.sq/PushTokens.sq's comments on the same).
 recordAttempt:
-INSERT OR REPLACE INTO external_rating_attempts (book_id, attempted_at)
-VALUES (:book_id, :attempted_at);
+INSERT OR REPLACE INTO external_rating_attempts (book_id, source, attempted_at)
+VALUES (:book_id, :source, :attempted_at);
 
--- The recorded attempt instant for a book, if one exists.
-selectAttemptedAt:
-SELECT attempted_at FROM external_rating_attempts WHERE book_id = :book_id;
+-- Every source that has ever attempted this book.
+selectAttemptedSources:
+SELECT source FROM external_rating_attempts WHERE book_id = :book_id;

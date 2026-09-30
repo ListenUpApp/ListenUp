@@ -16,6 +16,7 @@ import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleClient
+import com.calypsan.listenup.server.hardcover.HardcoverRatingSource
 import com.calypsan.listenup.server.metadata.audible.AudibleRateLimiter
 import com.calypsan.listenup.server.metadata.audnexus.AudnexusApi
 import com.calypsan.listenup.server.metadata.audnexus.AudnexusClient
@@ -165,7 +166,8 @@ fun metadataModule(imageHome: Path): Module =
         single {
             MetadataProviderRegistry(
                 providers =
-                    listOf(get<AudibleProvider>(), get<AudnexusProvider>(), get<ITunesProvider>()) + customProviders(),
+                    listOf(get<AudibleProvider>(), get<AudnexusProvider>(), get<ITunesProvider>()) +
+                        get<HardcoverRatingSource>() + customProviders(),
             )
         }
 
@@ -240,10 +242,10 @@ fun metadataModule(imageHome: Path): Module =
 /**
  * Outside-ratings bindings: the admin per-source enabled/health settings, the fetcher every
  * trigger (match-apply, nightly sweep, admin refresh, backfill) runs through, the
- * [ExternalRatingsBackfill] that catches a never-attempted book up promptly (triggered after every
- * completed scan — see `ApplicationStartup.startBackgroundTasks` — and run first by the sweep
- * below), and the nightly sweep task itself. Split out to keep [metadataModule] under the length
- * budget.
+ * [ExternalRatingsBackfill] that catches a book up promptly with every runnable source that has
+ * never tried it (triggered after every completed scan, a source switched back on and a Hardcover
+ * connection — see `ApplicationStartup.startBackgroundTasks` — and run first by the sweep below),
+ * and the nightly sweep task itself. Split out to keep [metadataModule] under the length budget.
  */
 private fun Module.ratingsBindings() {
     single { RatingSourceSettings(settings = get()) }

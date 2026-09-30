@@ -4,12 +4,14 @@ import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.server.metadata.spi.ExternalRatingMeta
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.metadata.spi.RatingSource
+import com.calypsan.listenup.server.metadata.spi.RatingSourceAvailability
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.sync.BookExternalRatingRepository
 import com.calypsan.listenup.server.util.runCatchingCancellable
@@ -41,7 +43,7 @@ open class ExternalRatingsFetcher(
     private val clock: Clock = Clock.System,
 ) {
     /**
-     * How many enabled sources were consulted ([tried]), and how many of those gave a definite
+     * How many runnable (enabled, unpaused, available) sources were consulted ([tried]), and how many of those gave a definite
      * answer ([answered]) — a rating or a confident "no rating". `tried > answered` means at least
      * one enabled source failed.
      */
@@ -51,29 +53,41 @@ open class ExternalRatingsFetcher(
     )
 
     /**
-     * Runs every enabled [RatingSource] for [bookId] in [locale]. A book that no longer exists is a
+     * Runs every runnable [RatingSource] among [sources] (all of them by default) for [bookId] in
+     * [locale], recording an attempt for each source it runs. A book that no longer exists is a
      * harmless no-op [Outcome] of zero/zero. [refresh] bypasses each source's provider-side cache.
+     * The backfill narrows [sources] to the ones that have never tried the book.
      */
     open suspend fun fetch(
         bookId: BookId,
         locale: MetadataLocale,
         refresh: Boolean,
+        sources: Set<ExternalRatingSource> = ExternalRatingSource.entries.toSet(),
     ): Outcome {
         val identity = books.findById(bookId)?.toIdentity() ?: return Outcome(tried = 0, answered = 0)
 
         var tried = 0
         var answered = 0
         for (source in registry.capable<RatingSource>()) {
-            if (!sourceSettings.isEnabled(source.ratingSource)) continue
+            if (source.ratingSource !in sources || !canRun(source)) continue
             tried++
             if (runOne(source, bookId, identity, locale, refresh)) answered++
+            // Remembered per source, regardless of outcome — a book a source fails (or confidently
+            // has no rating for) never earns a book_external_ratings row, so without this the nightly
+            // sweep would put it right back at the front of the queue, and the backfill would offer
+            // it to that source again. See ExternalRatingAttempts.sq.
+            ratings.recordAttempt(bookId.value, source.ratingSource, clock.now().toEpochMilliseconds())
         }
-        // Remembered regardless of outcome — a book every enabled source fails (or confidently has
-        // no rating for) never earns a book_external_ratings row, so without this the nightly sweep
-        // would put it right back at the front of the queue next time too. See recordAttempt's KDoc.
-        if (tried > 0) ratings.recordAttempt(bookId.value, clock.now().toEpochMilliseconds())
         return Outcome(tried = tried, answered = answered)
     }
+
+    /** The sources that can run right now: enabled, not paused, and available. */
+    suspend fun runnableSources(): Set<ExternalRatingSource> =
+        registry
+            .capable<RatingSource>()
+            .filter { canRun(it) }
+            .map { it.ratingSource }
+            .toSet()
 
     /**
      * Re-fetches [bookId] in the region its rating was last found in (see [localeFor]), falling back
@@ -81,6 +95,12 @@ open class ExternalRatingsFetcher(
      * for a US one just because the request carries no region.
      */
     suspend fun refresh(bookId: BookId): Outcome = fetch(bookId, ratings.localeFor(bookId.value), refresh = true)
+
+    /** A disabled, paused or unavailable source is skipped outright: not tried, no failure recorded. */
+    private suspend fun canRun(source: RatingSource): Boolean =
+        sourceSettings.isEnabled(source.ratingSource) &&
+            sourceSettings.pausedUntil(source.ratingSource, clock.now().toEpochMilliseconds()) == null &&
+            source.availability() is RatingSourceAvailability.Available
 
     /** Runs [source] contained: a thrown fault or a typed failure is recorded as health, never re-thrown. */
     private suspend fun runOne(
@@ -148,8 +168,9 @@ internal suspend fun BookExternalRatingRepository.localeFor(
  */
 private fun BookSyncPayload.toIdentity(): BookIdentity =
     BookIdentity(
-        asin = asin,
-        isbn = isbn,
+        // Blank is absent: a source keyed on either must fall through, not look up "".
+        asin = asin?.takeIf { it.isNotBlank() },
+        isbn = isbn?.takeIf { it.isNotBlank() },
         title = title,
         primaryAuthor =
             contributors.firstOrNull { ContributorRole.fromApiValue(it.role) == ContributorRole.AUTHOR }?.name,

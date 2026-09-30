@@ -4,6 +4,8 @@ import com.calypsan.listenup.api.BookRatingService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.BookRatingMutation
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.ExternalRatingSource.AUDIBLE
+import com.calypsan.listenup.api.sync.ExternalRatingSource.HARDCOVER
 import com.calypsan.listenup.client.data.local.db.BookExternalRatingEntity
 import com.calypsan.listenup.client.data.local.db.BookRatingEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
@@ -14,9 +16,11 @@ import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
-import com.calypsan.listenup.client.domain.model.CombinedScore
 import com.calypsan.listenup.client.domain.model.ExternalRating
 import com.calypsan.listenup.client.domain.model.ListenerAverage
+import com.calypsan.listenup.client.domain.model.ScoreSource
+import com.calypsan.listenup.client.domain.model.SourceCalibration
+import com.calypsan.listenup.client.domain.model.listenUpScore
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import dev.mokkery.mock
@@ -26,6 +30,7 @@ import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -230,21 +235,90 @@ class BookRatingRepositoryImplTest :
             }
         }
 
-        test("observeCombinedScores groups enabled, known-source rows by book and excludes the rest") {
+        test("observeCombinedScores calibrates over every enabled known-source row and scores each book with it") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 // b1: two enabled known sources -> combined.
                 db.bookExternalRatingDao().upsert(externalEntity("b1", "AUDIBLE", average = 4.0, count = 100))
                 db.bookExternalRatingDao().upsert(externalEntity("b1", "HARDCOVER", average = 5.0, count = 300))
-                // b2: only a disabled row -> no combined score at all.
+                // b2: only a disabled row -> no combined score at all, and it teaches the calibration nothing.
                 db.bookExternalRatingDao().upsert(externalEntity("b2", "AUDIBLE", average = 2.0, count = 5, enabled = false))
                 // b3: only an UNKNOWN-source row -> no combined score at all.
                 db.bookExternalRatingDao().upsert(externalEntity("b3", "UNKNOWN", average = 1.0, count = 1))
+                // b4: a second book on Audible's curve, which b1's score is calibrated against too.
+                db.bookExternalRatingDao().upsert(externalEntity("b4", "AUDIBLE", average = 4.9, count = 50))
                 val repo = repo(db)
 
                 val scores = repo.observeCombinedScores().first()
 
-                scores shouldContainExactly mapOf("b1" to CombinedScore(average = 4.75, count = 400))
+                val b1 = listOf(ExternalRating(AUDIBLE, 4.0, 100), ExternalRating(HARDCOVER, 5.0, 300))
+                val b4 = listOf(ExternalRating(AUDIBLE, 4.9, 50))
+                val calibration = SourceCalibration.from(outside = b1 + b4, listeners = emptyList())
+                scores shouldContainExactly
+                    mapOf(
+                        "b1" to listenUpScore(b1, null, calibration).shouldNotBeNull(),
+                        "b4" to listenUpScore(b4, null, calibration).shouldNotBeNull(),
+                    )
+                scores.getValue("b1").average shouldNotBe listenUpScore(b1, null, SourceCalibration.PRIORS)?.average
+                db.close()
+            }
+        }
+
+        test("this server's listeners join the score, and a book only they rated is scored too") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                db.bookExternalRatingDao().upsert(externalEntity("b1", "AUDIBLE", average = 4.7, count = 1_007))
+                db.bookRatingDao().upsert(entity("b1", "ann", halfStars = 10))
+                db.bookRatingDao().upsert(entity("b1", "bob", halfStars = 8))
+                db.bookRatingDao().upsert(entity("b5", "ann", halfStars = 6))
+                db.bookRatingDao().upsert(entity("b5", "bob", halfStars = 2, deletedAt = 5L))
+                val repo = repo(db)
+
+                val scores = repo.observeCombinedScores().first()
+
+                val listenersB1 = ListenerAverage(averageHalfStars = 9.0, count = 2)
+                val listenersB5 = ListenerAverage(averageHalfStars = 6.0, count = 1)
+                val calibration =
+                    SourceCalibration.from(
+                        outside = listOf(ExternalRating(AUDIBLE, 4.7, 1_007)),
+                        listeners = listOf(listenersB1, listenersB5),
+                    )
+                scores shouldContainExactly
+                    mapOf(
+                        "b1" to listenUpScore(listOf(ExternalRating(AUDIBLE, 4.7, 1_007)), listenersB1, calibration).shouldNotBeNull(),
+                        "b5" to listenUpScore(emptyList(), listenersB5, calibration).shouldNotBeNull(),
+                    )
+                scores.getValue("b1").shares.keys shouldBe setOf(ScoreSource.Outside(AUDIBLE), ScoreSource.Listeners)
+                scores.getValue("b1").count shouldBe 1_009
+                db.close()
+            }
+        }
+
+        test("every member sees the same score: the signed-in listener changes nothing") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                db.bookExternalRatingDao().upsert(externalEntity("b1", "HARDCOVER", average = 4.1, count = 9_000))
+                db.bookRatingDao().upsert(entity("b1", "me", halfStars = 10))
+                db.bookRatingDao().upsert(entity("b1", "ann", halfStars = 4))
+
+                val mine = repo(db, userId = "me").observeCombinedScores().first()
+                val anns = repo(db, userId = "ann").observeCombinedScores().first()
+
+                mine shouldBe anns
+                db.close()
+            }
+        }
+
+        test("observeCombinedScore is the same score the library sorts by") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                db.bookExternalRatingDao().upsert(externalEntity("b1", "AUDIBLE", average = 4.2, count = 300))
+                db.bookExternalRatingDao().upsert(externalEntity("b2", "AUDIBLE", average = 3.6, count = 80))
+                db.bookRatingDao().upsert(entity("b1", "ann", halfStars = 9))
+                val repo = repo(db)
+
+                repo.observeCombinedScore("b1").first() shouldBe repo.observeCombinedScores().first()["b1"]
+                repo.observeCombinedScore("nothing").first().shouldBeNull()
                 db.close()
             }
         }

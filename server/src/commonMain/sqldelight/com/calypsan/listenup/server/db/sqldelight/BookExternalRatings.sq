@@ -83,13 +83,14 @@ SET average = :average, count = :count, enabled = :enabled, region = :region, fe
     client_op_id = :client_op_id
 WHERE book_id = :book_id AND source = :source;
 
--- The book ids a sweep should refresh next: live books with an ASIN, ordered by how long it has
--- been since the book was last genuinely touched — the earliest of any of its sources' fetches
--- (so a book with one stale source among several keeps rotating in), or the last recorded fetch
--- *attempt* (external_rating_attempts — see that table's own comment), whichever is MORE recent.
--- A book with neither sorts as if touched at instant 0 — first in line. Without the attempts
--- half, a book that never earns a row (Audible has no rating for its ASIN, or every fetch errors)
--- would sort first FOREVER, consuming the whole nightly quota and starving every other book.
+-- The book ids a sweep should refresh next: every live book, ordered by how long it has been since
+-- the book was last genuinely touched — the earliest of any of its sources' fetches (so a book with
+-- one stale source among several keeps rotating in), or its most recent fetch *attempt* by any source
+-- (external_rating_attempts — see that table's own comment), whichever is MORE recent. A book with
+-- neither sorts as if touched at instant 0 — first in line. Without the attempts half, a book that
+-- never earns a row (no source rates it, or every fetch errors) would sort first FOREVER, consuming
+-- the whole nightly quota and starving every other book. No ASIN is required: each source decides
+-- for itself whether it can rate a book (Hardcover also matches by ISBN or title).
 selectSweepCandidates:
 SELECT b.id FROM books b
 LEFT JOIN (
@@ -98,14 +99,18 @@ LEFT JOIN (
     WHERE deleted_at IS NULL
     GROUP BY book_id
 ) r ON r.book_id = b.id
-LEFT JOIN external_rating_attempts a ON a.book_id = b.id
-WHERE b.deleted_at IS NULL AND b.asin IS NOT NULL AND b.asin != ''
+LEFT JOIN (
+    SELECT book_id, MAX(attempted_at) AS attempted_at
+    FROM external_rating_attempts
+    GROUP BY book_id
+) a ON a.book_id = b.id
+WHERE b.deleted_at IS NULL
 ORDER BY MAX(COALESCE(r.fetched_at, 0), COALESCE(a.attempted_at, 0)) ASC, b.id ASC
 LIMIT :limit;
 
--- The sweep's 1/30th-a-night arithmetic denominator.
-countBooksWithAsin:
-SELECT COUNT(*) FROM books WHERE deleted_at IS NULL AND asin IS NOT NULL AND asin != '';
+-- The sweep's 1/30th-a-night arithmetic denominator: every live book is eligible.
+countLiveBooks:
+SELECT COUNT(*) FROM books WHERE deleted_at IS NULL;
 
 -- The most recently fetched source's region for this book, reused so a refetch (nightly sweep or
 -- admin refresh) runs in the same region a rating was last found in. Null when the book has never
@@ -113,14 +118,20 @@ SELECT COUNT(*) FROM books WHERE deleted_at IS NULL AND asin IS NOT NULL AND asi
 selectRegionForBook:
 SELECT region FROM book_external_ratings WHERE book_id = :book_id AND deleted_at IS NULL ORDER BY fetched_at DESC LIMIT 1;
 
--- Live, ASIN-bearing books ExternalRatingsFetcher has NEVER once attempted — no
--- external_rating_attempts row at all (see that table's own comment). ExternalRatingsBackfill's
--- queue: it pages through this with :limit and loops until it comes back empty, so a huge library
--- is never built as one giant in-memory list and a book added mid-pass is still picked up by the
--- next page. Ordered by id purely for determinism across pages/tests.
-selectNeverAttempted:
+-- Live books, after :after in id order, that at least one of :sources has never attempted — fewer
+-- than :source_count of them have an external_rating_attempts row (the caller passes the size of
+-- :sources). ExternalRatingsBackfill's queue: it walks the library in id order a page at a time
+-- (keyset on :after), so a huge library is never built as one in-memory list and a pass always
+-- ends. The caller passes only the sources that can run right now, so a source with no connection
+-- never makes every book a candidate; once it can run, its missing books are exactly what this
+-- returns.
+selectBooksMissingAttempt:
 SELECT b.id FROM books b
-LEFT JOIN external_rating_attempts a ON a.book_id = b.id
-WHERE b.deleted_at IS NULL AND b.asin IS NOT NULL AND b.asin != '' AND a.book_id IS NULL
+WHERE b.deleted_at IS NULL
+  AND b.id > :after
+  AND (
+    SELECT COUNT(*) FROM external_rating_attempts a
+    WHERE a.book_id = b.id AND a.source IN :sources
+  ) < :source_count
 ORDER BY b.id ASC
 LIMIT :limit;

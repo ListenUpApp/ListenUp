@@ -40,3 +40,13 @@ UPDATE hardcover_connections SET broken_reason = :broken_reason WHERE user_id = 
 
 deleteByUser:
 DELETE FROM hardcover_connections WHERE user_id = :user_id;
+
+-- Users whose connection is not marked broken, ROOT then ADMIN then MEMBER (oldest connection first
+-- within a role): the accounts the server may borrow to look up a book's Hardcover rating.
+-- Soft-deleted users are skipped.
+selectHealthyUserIds:
+SELECT c.user_id
+FROM hardcover_connections AS c
+JOIN users AS u ON u.id = c.user_id
+WHERE c.broken_reason IS NULL AND u.deleted_at IS NULL
+ORDER BY CASE u.role WHEN 'ROOT' THEN 0 WHEN 'ADMIN' THEN 1 ELSE 2 END, c.connected_at, c.user_id;

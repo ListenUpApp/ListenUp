@@ -61,7 +61,17 @@ final class BookRatingsObserver {
                     ListenersAverage(averageHalfStars: $0.averageHalfStars, count: Int($0.count))
                 },
                 mine: ready.mine.map { MyRating(halfStars: Int($0.halfStars), note: $0.note) },
-                external: ready.external.map { ExternalScore(average: $0.average, count: Int($0.count)) },
+                external: ready.external.map {
+                    ExternalScore(
+                        average: $0.average,
+                        count: Int($0.count),
+                        outsideShares: Dictionary(
+                            $0.outsideShares.map { ($0.source, $0.share) },
+                            uniquingKeysWith: { first, _ in first }
+                        ),
+                        listenersShare: $0.listenersShare
+                    )
+                },
                 breakdown: ready.breakdown.map {
                     ExternalRatingRow(source: $0.source, average: $0.average, count: Int($0.count))
                 },
@@ -87,7 +97,9 @@ struct BookRatingsSnapshot: Equatable {
     let listeners: ListenersAverage?
     /// The signed-in listener's rating, or nil when they haven't rated it.
     let mine: MyRating?
-    /// The outside world's headline score, or nil when no enabled source has rated the book yet.
+    /// The ListenUp score, or nil when no enabled source (nor any listener) has rated the book yet.
+    /// A score only your listeners gave is still here — `BookRatingSection.headline(_:)` decides
+    /// not to show it.
     let external: ExternalScore?
     /// Every enabled source's rating backing [external], highest rating count first — the sheet
     /// one tap away from the headline.
@@ -111,11 +123,33 @@ struct MyRating: Equatable {
     let note: String?
 }
 
-/// The outside world's combined score: every enabled source's average, weighted by how many
-/// ratings each is over.
+/// The ListenUp score: every enabled outside catalog, plus your listeners, each on its own curve
+/// and combined onto one — with how much of the score each source carries.
 struct ExternalScore: Equatable {
     let average: Double
     let count: Int
+    /// Each outside catalog's share of the score (0...1); a catalog with no ratings is absent.
+    let outsideShares: [ExternalRatingSource: Double]
+    /// Your listeners' share of the score, or nil when they are not part of it.
+    let listenersShare: Double?
+
+    init(
+        average: Double,
+        count: Int,
+        outsideShares: [ExternalRatingSource: Double] = [:],
+        listenersShare: Double? = nil
+    ) {
+        self.average = average
+        self.count = count
+        self.outsideShares = outsideShares
+        self.listenersShare = listenersShare
+    }
+
+    /// How many sources the score was combined from ("Combined from N sources").
+    var sourceCount: Int { outsideShares.count + (listenersShare == nil ? 0 : 1) }
+
+    /// Whether your listeners are the score's only source — Book Detail then shows no headline.
+    var isListenersOnly: Bool { outsideShares.isEmpty && listenersShare != nil }
 }
 
 /// One outside catalog's rating of the book — a row in the breakdown sheet.

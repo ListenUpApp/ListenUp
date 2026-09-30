@@ -263,36 +263,58 @@ class BookExternalRatingRepository(
             db.bookExternalRatingsQueries.selectSweepCandidates(limit).executeAsList()
         }
 
-    /** How many live books carry an ASIN — the sweep's 1/30th-a-night denominator. */
-    suspend fun countBooksWithAsin(): Long =
+    /** How many live books there are — the sweep's 1/30th-a-night denominator. */
+    suspend fun countLiveBooks(): Long =
         suspendTransaction(db) {
-            db.bookExternalRatingsQueries.countBooksWithAsin().executeAsOne()
+            db.bookExternalRatingsQueries.countLiveBooks().executeAsOne()
         }
 
     /**
-     * Records that a fetch was attempted for [bookId] at [at], regardless of outcome — see
-     * `ExternalRatingAttempts.sq` and `BookExternalRatings.sq`'s `selectSweepCandidates` for why:
-     * without this, a book that never earns a `book_external_ratings` row (no rating for its ASIN,
-     * or every source erroring) would sort first in the nightly sweep forever, starving every
-     * other book. Idempotent per book — a repeat attempt overwrites the instant.
+     * Records that [source] was attempted for [bookId] at [at], regardless of outcome — see
+     * `ExternalRatingAttempts.sq` for its two readers: the nightly sweep's ordering (without it, a
+     * book that never earns a `book_external_ratings` row would sort first forever) and the
+     * backfill's per-source queue. Idempotent per (book, source) — a repeat overwrites the instant.
      */
     suspend fun recordAttempt(
         bookId: String,
+        source: ExternalRatingSource,
         at: Long,
     ) = suspendTransaction(db) {
-        db.externalRatingAttemptsQueries.recordAttempt(book_id = bookId, attempted_at = at)
+        db.externalRatingAttemptsQueries.recordAttempt(book_id = bookId, source = source.name, attempted_at = at)
     }
 
-    /**
-     * Live, ASIN-bearing books [com.calypsan.listenup.server.ratings.ExternalRatingsFetcher] has
-     * never once attempted — see `BookExternalRatings.sq`'s `selectNeverAttempted`.
-     * [com.calypsan.listenup.server.ratings.ExternalRatingsBackfill]'s queue, paged by [limit] so a
-     * huge library is never built as one in-memory list.
-     */
-    suspend fun neverAttempted(limit: Long): List<String> =
+    /** Every source that has ever attempted [bookId]. */
+    suspend fun attemptedSources(bookId: String): Set<ExternalRatingSource> =
         suspendTransaction(db) {
-            db.bookExternalRatingsQueries.selectNeverAttempted(limit).executeAsList()
+            db.externalRatingAttemptsQueries
+                .selectAttemptedSources(bookId)
+                .executeAsList()
+                .mapNotNull { name -> ExternalRatingSource.entries.firstOrNull { it.name == name } }
+                .toSet()
         }
+
+    /**
+     * Up to [limit] live books, after [after] in id order, that at least one of [sources] has never
+     * attempted — see `BookExternalRatings.sq`'s `selectBooksMissingAttempt`.
+     * [com.calypsan.listenup.server.ratings.ExternalRatingsBackfill]'s queue, walked a page at a time.
+     * No sources, no candidates.
+     */
+    suspend fun booksMissingAttempt(
+        sources: Set<ExternalRatingSource>,
+        after: String,
+        limit: Long,
+    ): List<String> {
+        if (sources.isEmpty()) return emptyList()
+        return suspendTransaction(db) {
+            db.bookExternalRatingsQueries
+                .selectBooksMissingAttempt(
+                    after = after,
+                    sources = sources.map { it.name },
+                    source_count = sources.size.toLong(),
+                    limit = limit,
+                ).executeAsList()
+        }
+    }
 
     /** [bookId]'s most recently fetched source's region, or null when it has never had a live row. */
     suspend fun regionForBook(bookId: String): String? =

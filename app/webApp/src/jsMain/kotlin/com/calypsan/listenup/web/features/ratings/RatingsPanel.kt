@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.domain.model.CombinedScore
 import com.calypsan.listenup.client.domain.model.ExternalRating
 import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.domain.model.ListenerRating
+import com.calypsan.listenup.client.domain.model.ScoreSource
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.domain.ListenerRatingLimits
 import com.calypsan.listenup.domain.averageLabel
@@ -27,13 +28,16 @@ import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import kotlin.math.roundToInt
 
 /**
- * The rating panel on Book Detail, above Readers: the outside world's headline score (when any
- * enabled source has rated the book), then your listeners' average, then either "Rate" or your
+ * The rating panel on Book Detail, above Readers: the ListenUp score's headline (when any enabled
+ * outside source has rated the book), then your listeners' average, then either "Rate" or your
  * own stars with "Edit". [RateBookDialog] opens from the listener half; [BreakdownDialog] opens
  * from the headline. Before any score exists, an admin sees [RefreshRatingsAction] where the
- * headline would sit instead — there is no headline yet to open the breakdown from.
+ * headline would sit instead — there is no headline yet to open the breakdown from. A book only
+ * your listeners have rated has no headline either: their own line already says what they think,
+ * and a second number read off ListenUp's curve would look like a contradiction.
  *
  * Loading draws **nothing**, like the Readers panel beside it — a panel that flashed "Rate" and
  * then swapped it for the rating you already left would be inviting you to do something done.
@@ -54,7 +58,9 @@ fun RatingsPanel(
 
     Panel(title = "Ratings") {
         Div(attrs = { classes("rt") }) {
-            val external = ready.external
+            // A listeners-only score would repeat the listeners' line below as a second,
+            // recalibrated number; their line says it plainly instead.
+            val external = ready.external?.takeUnless { it.isListenersOnly }
             if (external != null) {
                 ExternalHeadline(external, onOpen = { isBreakdownOpen = true })
             } else if (ready.canRefresh) {
@@ -95,6 +101,8 @@ fun RatingsPanel(
     BreakdownDialog(
         open = isBreakdownOpen,
         breakdown = ready.breakdown,
+        score = ready.external,
+        listeners = ready.listeners,
         canRefresh = ready.canRefresh,
         isRefreshing = ready.isRefreshingExternal,
         onRefresh = onRefreshExternal,
@@ -128,8 +136,8 @@ private fun RefreshRatingsAction(
 private fun refreshLabel(isRefreshing: Boolean): String = if (isRefreshing) "Refreshing…" else "Refresh ratings"
 
 /**
- * "★ 4.4 · 12k ratings" on screen; "Rated 4.4 out of 5 stars by 12k readers elsewhere" to a screen
- * reader. A button, not a label — tapping it opens [BreakdownDialog].
+ * The ListenUp score's headline: "★ 4.4 · 12k ratings" on screen; "Rated 4.4 out of 5 stars from
+ * 12k ratings" to a screen reader (en.json's `book.detail_rating_external_a11y`). A button, not a label — tapping it opens [BreakdownDialog].
  *
  * The average is [averageLabel], never [ListenerRatingLimits.starsLabel]: the outside score is
  * a continuous average, not a half-star pick, and rounding it to the nearest half would print
@@ -145,9 +153,9 @@ private fun ExternalHeadline(
     val visible = if (external.count == 1) "$average · 1 rating" else "$average · $count ratings"
     val a11y =
         if (external.count == 1) {
-            "Rated $average out of 5 stars by 1 reader elsewhere"
+            "Rated $average out of 5 stars from 1 rating"
         } else {
-            "Rated $average out of 5 stars by $count readers elsewhere"
+            "Rated $average out of 5 stars from $count ratings"
         }
     Button(
         kind = ButtonKind.Secondary,
@@ -163,8 +171,11 @@ private fun ExternalHeadline(
 }
 
 /**
- * The outside-world breakdown: one row per source behind the headline, and — admin only — a
- * refresh. Opened from [ExternalHeadline].
+ * The ListenUp score's breakdown, opened from [ExternalHeadline]: "Combined from N sources" when
+ * [score] has more than one, one row per outside source in [breakdown] with its share of the score
+ * ("Audible · 4.7 · 1k · 38%"), a "Your listeners" row when they are part of it ("Your listeners ·
+ * 4.0 · 3 · 20%"), and — admin only — a refresh. Each row's average is on the source's own curve,
+ * not ListenUp's.
  *
  * [onRefresh] calls [com.calypsan.listenup.client.presentation.bookdetail.BookRatingsViewModel.refreshExternal];
  * [isRefreshing] is the ViewModel's own
@@ -176,6 +187,8 @@ private fun ExternalHeadline(
 private fun BreakdownDialog(
     open: Boolean,
     breakdown: List<ExternalRating>,
+    score: CombinedScore?,
+    listeners: ListenerAverage?,
     canRefresh: Boolean,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
@@ -184,17 +197,28 @@ private fun BreakdownDialog(
     if (!open) return
 
     ModalDialog(open = true, title = "Ratings", onDismiss = onDismiss) {
+        if (score != null && score.sourceCount >= 2) {
+            Div(attrs = { classes("rt-combined") }) { Text("Combined from ${score.sourceCount} sources") }
+        }
         Div(attrs = { classes("rt-sources") }) {
             breakdown.forEach { rating ->
                 key(rating.source) {
-                    Div(attrs = { classes("rt-source-row") }) {
-                        Text(
-                            "${sourceDisplayName(
-                                rating.source,
-                            )} · ${averageLabel(rating.average)} · ${compactCount(rating.count)}",
-                        )
-                    }
+                    SourceRow(
+                        label = sourceDisplayName(rating.source),
+                        average = rating.average,
+                        count = rating.count,
+                        share = score?.shares?.get(ScoreSource.Outside(rating.source)),
+                    )
                 }
+            }
+            val listenersShare = score?.shares?.get(ScoreSource.Listeners)
+            if (listeners != null && listenersShare != null) {
+                SourceRow(
+                    label = "Your listeners",
+                    average = listeners.averageHalfStars / 2,
+                    count = listeners.count,
+                    share = listenersShare,
+                )
             }
         }
         if (canRefresh) {
@@ -208,6 +232,23 @@ private fun BreakdownDialog(
         Div(attrs = { classes("dlg-actions") }) {
             Button(kind = ButtonKind.Primary, onClick = onDismiss) { Text("Close") }
         }
+    }
+}
+
+/**
+ * One source's row: "Audible · 4.7 · 1k", and its share of the score as a whole percent when it
+ * has one ("Audible · 4.7 · 1k · 38%").
+ */
+@Composable
+private fun SourceRow(
+    label: String,
+    average: Double,
+    count: Int,
+    share: Double?,
+) {
+    val figures = "$label · ${averageLabel(average)} · ${compactCount(count)}"
+    Div(attrs = { classes("rt-source-row") }) {
+        Text(if (share == null) figures else "$figures · ${(share * PERCENT).roundToInt()}%")
     }
 }
 
@@ -298,6 +339,9 @@ fun RateBookDialog(
         )
     }
 }
+
+/** A share of the score, as a whole percent. */
+private const val PERCENT = 100
 
 /** Room for a couple of sentences — the note is capped at 280 characters. */
 private const val NOTE_ROWS = 3

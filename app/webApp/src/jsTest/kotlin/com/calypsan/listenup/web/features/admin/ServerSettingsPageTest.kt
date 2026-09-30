@@ -1,9 +1,11 @@
 package com.calypsan.listenup.web.features.admin
 
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
+import com.calypsan.listenup.api.dto.admin.RatingSourceUnavailable
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
+import com.calypsan.listenup.client.util.formatDateLong
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
@@ -86,6 +88,31 @@ private fun input(
 private fun switches(host: HTMLElement) = host.querySelectorAll(".srv-toggle .sw-in").asList().filterIsInstance<HTMLInputElement>()
 
 private fun saveButton(host: HTMLElement) = host.querySelector(".edit-actions button[type=submit]") as HTMLElement
+
+private fun healthStatus(
+    source: ExternalRatingSource = ExternalRatingSource.HARDCOVER,
+    lastFetchedAt: Long? = null,
+    lastError: String? = null,
+    pausedUntil: Long? = null,
+    unavailable: RatingSourceUnavailable? = null,
+    connectionUsername: String? = null,
+) = RatingSourceStatus(
+    source = source,
+    enabled = true,
+    lastFetchedAt = lastFetchedAt,
+    lastError = lastError,
+    pausedUntil = pausedUntil,
+    unavailable = unavailable,
+    connectionUsername = connectionUsername,
+)
+
+/** The one rating-source row's lines under its name, top to bottom. */
+private fun healthLines(host: HTMLElement): List<String> =
+    host.querySelectorAll(".srv-toggle-d > *").asList().map { it.textContent.orEmpty() }
+
+/** A week after the page's `nowMs` — a pause that has not ended. */
+private const val IN_A_WEEK_MS = 1_800_000_000_000L
+private const val NOW_MS = IN_A_WEEK_MS - 7L * 24 * 60 * 60 * 1000
 
 /**
  * Server settings.
@@ -317,5 +344,82 @@ class ServerSettingsPageTest :
             awaitFrame()
 
             flicked shouldContainExactly listOf(ExternalRatingSource.AUDIBLE to false)
+        }
+
+        // --- Health lines, in priority order: the same states and words as Android ---
+
+        fun oneSource(status: RatingSourceStatus): HTMLElement = page(readyServerSettings(ratingSources = listOf(status)), nowMs = NOW_MS)
+
+        test("a source the server has not set up says so, above a pause and an error") {
+            val host =
+                oneSource(
+                    healthStatus(
+                        unavailable = RatingSourceUnavailable.NOT_CONFIGURED,
+                        pausedUntil = IN_A_WEEK_MS,
+                        lastError = "Timed out",
+                    ),
+                )
+
+            healthLines(host) shouldContainExactly listOf("Not set up on this server")
+        }
+
+        test("a source waiting for a Hardcover connection asks for one") {
+            val host = oneSource(healthStatus(unavailable = RatingSourceUnavailable.NO_CONNECTION, lastFetchedAt = 1L))
+
+            healthLines(host) shouldContainExactly listOf("Connect a Hardcover account to enable")
+        }
+
+        test("a reason from a newer server still reads as unavailable") {
+            val host = oneSource(healthStatus(unavailable = RatingSourceUnavailable.UNKNOWN))
+
+            healthLines(host) shouldContainExactly listOf("Unavailable on this server")
+        }
+
+        test("an unavailable source's switch stays operable") {
+            val host = oneSource(healthStatus(unavailable = RatingSourceUnavailable.NO_CONNECTION))
+
+            // Turning an unavailable source off is still meaningful — only a save in flight locks it.
+            switches(host)[2].hasAttribute("disabled") shouldBe false
+        }
+
+        test("a paused source says until when, and why") {
+            val host =
+                oneSource(
+                    healthStatus(source = ExternalRatingSource.GOODREADS, pausedUntil = IN_A_WEEK_MS, lastError = "Timed out"),
+                )
+
+            healthLines(host) shouldContainExactly listOf("Paused until ${formatDateLong(IN_A_WEEK_MS)}: Timed out")
+        }
+
+        test("a paused source with no recorded reason still says until when") {
+            val host = oneSource(healthStatus(source = ExternalRatingSource.GOODREADS, pausedUntil = IN_A_WEEK_MS))
+
+            healthLines(host) shouldContainExactly listOf("Paused until ${formatDateLong(IN_A_WEEK_MS)}")
+        }
+
+        test("a failing source that is not paused reports its last error") {
+            val host =
+                oneSource(healthStatus(source = ExternalRatingSource.AUDIBLE, lastError = "Timed out", lastFetchedAt = 1L))
+
+            healthLines(host) shouldContainExactly listOf("Last attempt failed: Timed out")
+        }
+
+        test("a healthy source says when it last fetched") {
+            val host = oneSource(healthStatus(source = ExternalRatingSource.AUDIBLE, lastFetchedAt = NOW_MS))
+
+            healthLines(host) shouldContainExactly listOf("Last fetched Just now")
+        }
+
+        test("a source that never ran says so") {
+            val host = oneSource(healthStatus(source = ExternalRatingSource.AUDIBLE))
+
+            healthLines(host) shouldContainExactly listOf("Not fetched yet")
+        }
+
+        test("Hardcover names whose account it uses on a second line") {
+            val host = oneSource(healthStatus(lastFetchedAt = NOW_MS, connectionUsername = "simon"))
+
+            healthLines(host) shouldContainExactly
+                listOf("Last fetched Just now", "Using simon's Hardcover account")
         }
     })

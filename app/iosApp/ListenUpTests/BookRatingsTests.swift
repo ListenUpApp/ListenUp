@@ -94,7 +94,15 @@ struct BookRatingsTests {
         let state = BookRatingsUiStateReady(
             listeners: nil,
             mine: nil,
-            external: CombinedScore(average: 4.4, count: 12_000),
+            external: CombinedScore(
+                average: 4.4,
+                count: 12_000,
+                outsideShares: [
+                    OutsideShare(source: .audible, share: 0.6),
+                    OutsideShare(source: .goodreads, share: 0.4)
+                ],
+                listenersShare: nil
+            ),
             breakdown: [
                 externalRating(source: .audible, average: 4.5, count: 8_100),
                 externalRating(source: .goodreads, average: 4.1, count: 3_900)
@@ -108,7 +116,12 @@ struct BookRatingsTests {
         #expect(phase == .ready(BookRatingsSnapshot(
             listeners: nil,
             mine: nil,
-            external: ExternalScore(average: 4.4, count: 12_000),
+            external: ExternalScore(
+                average: 4.4,
+                count: 12_000,
+                outsideShares: [.audible: 0.6, .goodreads: 0.4],
+                listenersShare: nil
+            ),
             breakdown: [
                 ExternalRatingRow(source: .audible, average: 4.5, count: 8_100),
                 ExternalRatingRow(source: .goodreads, average: 4.1, count: 3_900)
@@ -116,6 +129,30 @@ struct BookRatingsTests {
             canRefresh: true,
             isRefreshingExternal: true
         )))
+    }
+
+    @Test func readyCarriesTheListenersShareOfTheScore() {
+        let state = BookRatingsUiStateReady(
+            listeners: ListenerAverage(averageHalfStars: 8, count: 3),
+            mine: nil,
+            external: CombinedScore(
+                average: 4.3,
+                count: 1_010,
+                outsideShares: [OutsideShare(source: .audible, share: 0.8)],
+                listenersShare: 0.2
+            ),
+            breakdown: [externalRating(source: .audible, average: 4.7, count: 1_007)],
+            canRefresh: false,
+            isRefreshingExternal: false
+        )
+
+        guard case .ready(let snapshot) = BookRatingsObserver.phase(from: state) else {
+            Issue.record("expected a ready phase")
+            return
+        }
+        #expect(snapshot.external?.outsideShares == [.audible: 0.8])
+        #expect(snapshot.external?.listenersShare == 0.2)
+        #expect(snapshot.external?.sourceCount == 2)
     }
 
     // MARK: - Headline text (averageLabel + compactCount, NOT starsLabel — starsLabel rounds to a
@@ -138,12 +175,45 @@ struct BookRatingsTests {
 
     @Test func externalSentenceSpeaksAverageAndCompactCount() {
         let sentence = BookRatingSection.externalSentence(ExternalScore(average: 4.4, count: 12_000))
-        #expect(sentence == "Rated 4.4 out of 5 stars by 12k readers elsewhere")
+        #expect(sentence == "Rated 4.4 out of 5 stars from 12k ratings")
     }
 
-    @Test func externalSentenceSaysOneReaderForExactlyOne() {
+    @Test func externalSentenceSaysOneRatingForExactlyOne() {
         let sentence = BookRatingSection.externalSentence(ExternalScore(average: 4.4, count: 1))
-        #expect(sentence == "Rated 4.4 out of 5 stars by 1 reader elsewhere")
+        #expect(sentence == "Rated 4.4 out of 5 stars from 1 rating")
+    }
+
+    // MARK: - A score only your listeners gave
+
+    private func snapshot(external: ExternalScore?, canRefresh: Bool = false) -> BookRatingsSnapshot {
+        BookRatingsSnapshot(
+            listeners: ListenersAverage(averageHalfStars: 10, count: 1),
+            mine: nil,
+            external: external,
+            breakdown: [],
+            canRefresh: canRefresh,
+            isRefreshingExternal: false
+        )
+    }
+
+    @Test func aListenersOnlyScoreHasNoHeadline() {
+        // Their own line already says it; a second number read off ListenUp's curve would look
+        // like a contradiction (a lone 5 stars scores about 4.4).
+        let listenersOnly = ExternalScore(average: 4.4, count: 1, outsideShares: [:], listenersShare: 1)
+        #expect(listenersOnly.isListenersOnly)
+        #expect(BookRatingSection.headline(snapshot(external: listenersOnly)) == nil)
+    }
+
+    @Test func aScoreAnOutsideSourceJoinsKeepsItsHeadline() {
+        let mixed = ExternalScore(average: 4.3, count: 1_008, outsideShares: [.audible: 0.9], listenersShare: 0.1)
+        #expect(!mixed.isListenersOnly)
+        #expect(BookRatingSection.headline(snapshot(external: mixed)) == mixed)
+    }
+
+    @Test func anAdminSeesRefreshWhereAListenersOnlyHeadlineWouldSit() {
+        let listenersOnly = ExternalScore(average: 4.4, count: 1, outsideShares: [:], listenersShare: 1)
+        #expect(BookRatingSection.showsRefreshAction(snapshot(external: listenersOnly, canRefresh: true)))
+        #expect(!BookRatingSection.showsRefreshAction(snapshot(external: listenersOnly, canRefresh: false)))
     }
 
     @Test func starsLabelSpeaksTheSharedDefinition() {
@@ -224,6 +294,50 @@ struct BookRatingsTests {
     @Test func sourceRowShowsNameAverageAndCompactCount() {
         let row = RatingBreakdownSheet.sourceRow(ExternalRatingRow(source: .audible, average: 4.5, count: 8_100))
         #expect(row == "Audible · 4.5 · 8.1k")
+    }
+
+    @Test func aSourceRowCarriesItsShareOfTheScore() {
+        let row = RatingBreakdownSheet.sourceRow(
+            ExternalRatingRow(source: .audible, average: 4.7, count: 1_007),
+            share: 0.38
+        )
+        #expect(row == "Audible · 4.7 · 1k · 38%")
+    }
+
+    @Test func combinedFromNamesHowManySourcesWhenThereAreSeveral() {
+        let three = ExternalScore(
+            average: 4.3,
+            count: 101_068,
+            outsideShares: [.audible: 0.4, .hardcover: 0.2, .goodreads: 0.4],
+            listenersShare: nil
+        )
+        #expect(RatingBreakdownSheet.combinedFrom(three) == "Combined from 3 sources")
+    }
+
+    @Test func combinedFromIsSilentForOneSource() {
+        let one = ExternalScore(average: 4.4, count: 1_007, outsideShares: [.audible: 1], listenersShare: nil)
+        #expect(RatingBreakdownSheet.combinedFrom(one) == nil)
+        #expect(RatingBreakdownSheet.combinedFrom(nil) == nil)
+    }
+
+    @Test func yourListenersAreARowWhenTheyArePartOfTheScore() {
+        let score = ExternalScore(average: 4.3, count: 1_010, outsideShares: [.audible: 0.8], listenersShare: 0.2)
+        let rows = RatingBreakdownSheet.rows(
+            breakdown: [ExternalRatingRow(source: .audible, average: 4.7, count: 1_007)],
+            score: score,
+            listeners: ListenersAverage(averageHalfStars: 8, count: 3)
+        )
+        #expect(rows == ["Audible · 4.7 · 1k · 80%", "Your listeners · 4.0 · 3 · 20%"])
+    }
+
+    @Test func yourListenersAreNoRowWhenTheScoreLeavesThemOut() {
+        let score = ExternalScore(average: 4.4, count: 1_007, outsideShares: [.audible: 1], listenersShare: nil)
+        let rows = RatingBreakdownSheet.rows(
+            breakdown: [ExternalRatingRow(source: .audible, average: 4.7, count: 1_007)],
+            score: score,
+            listeners: ListenersAverage(averageHalfStars: 8, count: 3)
+        )
+        #expect(rows == ["Audible · 4.7 · 1k · 100%"])
     }
 
     @Test func sourceRowSpeaksAGoodreadsRowToo() {

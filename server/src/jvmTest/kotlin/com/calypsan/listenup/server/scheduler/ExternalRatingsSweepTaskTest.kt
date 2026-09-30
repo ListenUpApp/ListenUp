@@ -58,10 +58,9 @@ class ExternalRatingsSweepTaskTest :
                 genreRepository = GenreRepository(this, bus, registry),
             )
 
-        test("runOnce does nothing when no book carries an ASIN") {
+        test("runOnce does nothing in an empty library") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
-                sql.seedTestBook("book1") // no ASIN
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val books = sql.bookRepo(bus, registry, driver)
@@ -87,6 +86,41 @@ class ExternalRatingsSweepTaskTest :
                 runTest {
                     task.runOnce() shouldBe 0
                     audible.calledAsins shouldBe emptyList()
+                }
+            }
+        }
+
+        test("the nightly quota counts books without an ASIN, and sweeps them") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                // 31 books, none with an ASIN — ceil(31 / 30) = 2. Hardcover can rate
+                // a book by ISBN or title, so an ASIN-less book is as eligible as any other.
+                (1..31).forEach { sql.seedTestBook("book%02d".format(it)) }
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val books = sql.bookRepo(bus, registry, driver)
+                val ratings = BookExternalRatingRepository(db = sql, bus = bus, registry = registry, driver = driver)
+                val settings = RatingSourceSettings(ServerSettingsRepository(sql, RegistrationPolicy.CLOSED))
+                val audible = RecordingRatingSource()
+                val fetcher =
+                    ExternalRatingsFetcher(
+                        registry = MetadataProviderRegistry(listOf(audible)),
+                        ratings = ratings,
+                        sourceSettings = settings,
+                        books = books,
+                        clock = FixedClock(now),
+                    )
+                val task =
+                    ExternalRatingsSweepTask(
+                        fetcher = fetcher,
+                        ratings = ratings,
+                        backfill = ExternalRatingsBackfillRunner {},
+                        clock = FixedClock(now),
+                    )
+
+                runTest {
+                    task.runOnce() shouldBe 2
+                    audible.calls shouldBe 2
                 }
             }
         }
@@ -156,9 +190,10 @@ class ExternalRatingsSweepTaskTest :
                             bookId: BookId,
                             locale: MetadataLocale,
                             refresh: Boolean,
+                            sources: Set<ExternalRatingSource>,
                         ): Outcome {
                             if (bookId.value == "boom") error("boom")
-                            return super.fetch(bookId, locale, refresh)
+                            return super.fetch(bookId, locale, refresh, sources)
                         }
                     }
                 val task =
@@ -208,9 +243,10 @@ class ExternalRatingsSweepTaskTest :
                             bookId: BookId,
                             locale: MetadataLocale,
                             refresh: Boolean,
+                            sources: Set<ExternalRatingSource>,
                         ): Outcome {
                             calls += "refresh:${bookId.value}"
-                            return super.fetch(bookId, locale, refresh)
+                            return super.fetch(bookId, locale, refresh, sources)
                         }
                     }
                 val backfill = ExternalRatingsBackfillRunner { calls += "backfill" }
@@ -241,11 +277,15 @@ private class RecordingRatingSource(
 
     val calledAsins = mutableListOf<String>()
 
+    var calls = 0
+        private set
+
     override suspend fun getRating(
         book: BookIdentity,
         locale: MetadataLocale,
         refresh: Boolean,
     ): AppResult<ExternalRatingMeta?> {
+        calls++
         book.asin?.let { calledAsins += it }
         return result
     }
