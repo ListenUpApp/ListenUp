@@ -91,6 +91,23 @@ class LocalizationGeneratorTest {
     }
 
     @Test
+    fun `a literal percent sign is doubled for iOS so String(format) keeps it`() {
+        // Compose Resources renders a lone `%` literally and never unescapes `%%`, so the catalog
+        // writes "50%" as `%1$d%`. iOS `String(format:)` swallows that trailing `%` ("50 complete").
+        assertEquals("%1${'$'}d%% complete", LocalizationGenerator.androidToIosFormat("%1${'$'}d% complete"))
+        assertEquals("%1${'$'}@%%", LocalizationGenerator.androidToIosFormat("%1${'$'}s%"))
+        assertEquals(
+            "%1${'$'}@ · %2${'$'}@ · %3${'$'}@ · %4${'$'}@%%",
+            LocalizationGenerator.androidToIosFormat("%1${'$'}s · %2${'$'}s · %3${'$'}s · %4${'$'}s%"),
+        )
+        assertEquals("%1${'$'}d%% · %2${'$'}@", LocalizationGenerator.androidToIosFormat("%1${'$'}d% · %2${'$'}s"))
+        assertEquals("%d of %d", LocalizationGenerator.androidToIosFormat("%d of %d"))
+        assertEquals("%1${'$'}@s", LocalizationGenerator.androidToIosFormat("%1${'$'}ss"))
+        assertEquals("100%%", LocalizationGenerator.androidToIosFormat("100%%"))
+        assertEquals("%.1f", LocalizationGenerator.androidToIosFormat("%.1f"))
+    }
+
+    @Test
     fun `generation is deterministic`() {
         val a = LocalizationGenerator.xcstrings(mapOf("en" to LocalizationGenerator.parse(en)), "en")
         val b = LocalizationGenerator.xcstrings(mapOf("en" to LocalizationGenerator.parse(en)), "en")

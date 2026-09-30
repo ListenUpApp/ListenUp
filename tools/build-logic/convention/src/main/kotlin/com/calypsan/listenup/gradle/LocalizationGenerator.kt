@@ -49,13 +49,26 @@ object LocalizationGenerator {
     /**
      * Converts Android-style string format specifiers to the iOS equivalents:
      * `%1$s` -> `%1$@`, `%s` -> `%@`. Numeric specifiers (`%1$d`, `%2$f`, …) are left unchanged.
+     *
+     * A `%` that starts no specifier is a literal percent sign ("%1$d% complete"). Compose Resources
+     * renders it as written, but iOS `String(format:)` would swallow it, so it is doubled to `%%`.
      */
-    fun androidToIosFormat(value: String): String {
-        val dollar = '$'
-        return Regex("%(\\d+)\\${'$'}s")
-            .replace(value) { "%${it.groupValues[1]}$dollar@" }
-            .replace("%s", "%@")
-    }
+    fun androidToIosFormat(value: String): String =
+        FORMAT_TOKEN.replace(value) { token ->
+            val (position, conversion) = token.destructured
+            when (conversion) {
+                "" -> if (position.isEmpty()) "%%" else token.value
+                "s" -> "%$position@"
+                else -> token.value
+            }
+        }
+
+    /**
+     * A format specifier — optional `n$` position, width, precision, then a conversion the catalog
+     * uses (`s`, `d`, `f`, or an escaped `%%`) — or, with no conversion, a lone literal `%`. Flags are
+     * deliberately not recognised: the space flag would read "% complete" as a `% c` specifier.
+     */
+    private val FORMAT_TOKEN = Regex("""%((?:\d+\$)?\d*(?:\.\d+)?)([sdf%]?)""")
 
     /**
      * Escapes a value for inclusion as XML string content.
