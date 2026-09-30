@@ -407,7 +407,7 @@ class ServerSettingsPageTest :
         test("a healthy source says when it last fetched") {
             val host = oneSource(healthStatus(source = ExternalRatingSource.AUDIBLE, lastFetchedAt = NOW_MS))
 
-            healthLines(host) shouldContainExactly listOf("Last fetched Just now")
+            healthLines(host) shouldContainExactly listOf("Last fetched just now")
         }
 
         test("a source that never ran says so") {
@@ -420,6 +420,6 @@ class ServerSettingsPageTest :
             val host = oneSource(healthStatus(lastFetchedAt = NOW_MS, connectionUsername = "simon"))
 
             healthLines(host) shouldContainExactly
-                listOf("Last fetched Just now", "Using simon's Hardcover account")
+                listOf("Last fetched just now", "Using simon's Hardcover account")
         }
     })

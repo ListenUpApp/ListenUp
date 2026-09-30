@@ -92,6 +92,7 @@ import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.util.ratingSourceLabel
+import com.calypsan.listenup.client.design.util.isJustNow
 import com.calypsan.listenup.client.design.util.relativeTime
 import com.calypsan.listenup.client.util.formatDateLong
 import com.calypsan.listenup.client.design.util.rememberCopyToClipboard
@@ -144,6 +145,7 @@ import listenup.composeapp.generated.resources.admin_push_setting_subtitle
 import listenup.composeapp.generated.resources.admin_push_setting_title
 import listenup.composeapp.generated.resources.admin_rating_source_error
 import listenup.composeapp.generated.resources.admin_rating_source_last_fetched
+import listenup.composeapp.generated.resources.admin_rating_source_last_fetched_just_now
 import listenup.composeapp.generated.resources.admin_rating_source_never_fetched
 import listenup.composeapp.generated.resources.admin_rating_source_no_connection
 import listenup.composeapp.generated.resources.admin_rating_source_not_configured
@@ -882,6 +884,10 @@ private fun ratingSourceHealthLine(status: RatingSourceStatus): String {
 
         lastError != null -> {
             stringResource(Res.string.admin_rating_source_error, lastError)
+        }
+
+        lastFetchedAt != null && isJustNow(lastFetchedAt) -> {
+            stringResource(Res.string.admin_rating_source_last_fetched_just_now)
         }
 
         lastFetchedAt != null -> {

@@ -111,6 +111,20 @@ fun relativeLastActive(
     }
 }
 
+/**
+ * [relativeLastActive] shaped for the middle of a sentence ("Last fetched just now"): the two
+ * phrases capitalised only because they usually stand alone drop their capital; a month name
+ * keeps its own.
+ */
+fun relativeLastActiveInSentence(
+    lastUsedAtMs: Long,
+    nowMs: Long,
+): String =
+    when (val phrase = relativeLastActive(lastUsedAtMs, nowMs)) {
+        "Just now", "Yesterday" -> phrase.lowercase()
+        else -> phrase
+    }
+
 private const val MILLIS_PER_DAY = 24L * 60 * 60 * 1000
 private const val MILLIS_PER_MINUTE = 60L * 1000
 private const val MILLIS_PER_HOUR = 60L * 60 * 1000

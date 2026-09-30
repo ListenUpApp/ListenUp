@@ -10,7 +10,7 @@ import com.calypsan.listenup.api.dto.admin.RatingSourceUnavailable
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
 import com.calypsan.listenup.client.util.formatDateLong
-import com.calypsan.listenup.client.util.relativeLastActive
+import com.calypsan.listenup.client.util.relativeLastActiveInSentence
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
@@ -273,7 +273,7 @@ private fun ratingSourceHealth(
         }
 
         lastFetchedAt != null -> {
-            "Last fetched ${relativeLastActive(lastFetchedAt, nowMs)}"
+            "Last fetched ${relativeLastActiveInSentence(lastFetchedAt, nowMs)}"
         }
 
         else -> {
