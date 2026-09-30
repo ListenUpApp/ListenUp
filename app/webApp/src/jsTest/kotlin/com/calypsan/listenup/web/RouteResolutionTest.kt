@@ -41,6 +41,56 @@ class RouteResolutionTest :
                 .orEmpty()
                 .trim()
 
+        // A link that lost its id, or grew a segment no page reads, names nothing — the rule
+        // `/admin/user` set. Before it was applied everywhere, `/book` rendered the library grid
+        // (a book, a person and a series all keep Library lit) and `/book/42/nonsense` rendered the
+        // book, so a broken link looked like a working one.
+        listOf(
+            "/book",
+            "/contributor",
+            "/series",
+            "/tag",
+            "/mood",
+            "/genre",
+            "/profile",
+            "/shelf",
+            "/books",
+            "/book/42/nonsense",
+            "/book/42/edit/nonsense",
+            "/contributor/c1/nonsense",
+            "/contributor/c1/books/nonsense",
+            "/series/s1/nonsense",
+            "/series/s1/edit/nonsense",
+            "/profile/u1/nonsense",
+            "/tag/t1/nonsense",
+            "/mood/m1/nonsense",
+            "/genre/g1/nonsense",
+            "/library/nonsense",
+            "/library/series/nonsense",
+            "/discover/nonsense",
+            "/notifications/nonsense",
+            "/home/nonsense",
+            "/search/book/nonsense",
+            "/books/edit/nonsense?ids=b1",
+            "/settings/devices/nonsense",
+            "/admin/library/nonsense",
+            "/admin/imports/nonsense",
+            "/admin/imports/new/nonsense",
+            "/admin/collections/c1/nonsense",
+            "/admin/user/u1/nonsense",
+        ).forEach { path ->
+            test("$path is not found") {
+                val (host, router, composition) = mountAt(path, isAdmin = flowOf(true))
+
+                try {
+                    (host.querySelector(".shell-main h1") as HTMLElement).textContent?.trim() shouldBe "Page not found"
+                } finally {
+                    composition.dispose()
+                    router.dispose()
+                }
+            }
+        }
+
         // "The root URL is Home" pins the sidebar. This pins the page: a branch order that let the
         // root fall through to another page would still light Home in the sidebar.
         test("/ opens Home's session and shows Home") {
