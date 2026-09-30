@@ -99,6 +99,8 @@ import com.calypsan.listenup.web.features.home.OpenHome
 import com.calypsan.listenup.web.features.admin.AdminPage
 import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsEvent
 import com.calypsan.listenup.web.candidatesFrom
+import com.calypsan.listenup.web.uploadRefusalSentence
+import com.calypsan.listenup.client.presentation.admin.upload.uploadSelectionRefusal
 import com.calypsan.listenup.web.features.admin.AdminSessions
 import com.calypsan.listenup.web.features.admin.OpenOrganize
 import com.calypsan.listenup.web.features.admin.OpenUpload
@@ -3526,10 +3528,19 @@ private fun UploadRoute(
             if (files.isNotEmpty()) {
                 scope.launch {
                     val candidates = candidatesFrom(files)
-                    if (candidates == null) {
-                        onToast("That is too much for one browser upload. Add it in smaller batches.")
-                    } else if (candidates.isNotEmpty()) {
-                        session.onFilesPicked(candidates)
+                    val refusal = candidates?.let(::uploadSelectionRefusal)
+                    when {
+                        candidates == null -> {
+                            onToast("That is too much for one browser upload. Add it in smaller batches.")
+                        }
+
+                        refusal != null -> {
+                            onToast(uploadRefusalSentence(refusal))
+                        }
+
+                        candidates.isNotEmpty() -> {
+                            session.onFilesPicked(candidates)
+                        }
                     }
                 }
             }
