@@ -431,6 +431,7 @@ ListenerAverage
 ListenerRating
 ListenerRatingLimits
 ListeningEventRecorder
+LocalNetworkAccess
 LocalPreferences
 LogSinkRegistry
 LoginErrorType

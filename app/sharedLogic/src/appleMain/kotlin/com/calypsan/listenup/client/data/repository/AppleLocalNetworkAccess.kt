@@ -68,7 +68,7 @@ internal fun localNetworkVerdict(
  * the probe asks it directly. The simulator does not enforce Local Network privacy, so this only
  * ever reports a denial on a physical device.
  */
-class AppleLocalNetworkAccess : LocalNetworkAccess {
+internal class AppleLocalNetworkAccess : LocalNetworkAccess {
     private val probeQueue = dispatch_queue_create("com.calypsan.listenup.local-network-probe", null)
 
     override suspend fun isDeniedFor(
