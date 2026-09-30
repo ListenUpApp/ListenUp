@@ -46,6 +46,7 @@ import listenup.composeapp.generated.resources.startup_setup_check_failed_title
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
@@ -548,11 +549,14 @@ private suspend fun handleShortcutAction(
             onSelectShellDestination(ShellDestination.Library)
         }
 
-        is ShortcutAction.NavigateToBook -> {
-            logger.info { "Navigating to book: ${action.bookId}" }
-            // Ensure we're on Shell first, then navigate to book detail
+        is ShortcutAction.NavigateToBook,
+        is ShortcutAction.NavigateToAbsImport,
+        is ShortcutAction.NavigateToPendingApprovals,
+        is ShortcutAction.NavigateToUserProfile,
+        -> {
+            logger.info { "Navigating for shortcut: $action" }
             resetToShell(backStack)
-            backStack.add(BookDetail(action.bookId))
+            backStack.addAll(action.screensAboveShell())
         }
 
         is ShortcutAction.SleepTimer -> {
@@ -565,30 +569,36 @@ private suspend fun handleShortcutAction(
                 // Let the user interact with sleep timer in the player
             }
         }
-
-        is ShortcutAction.NavigateToAbsImport -> {
-            logger.info { "Navigating to ABS import: ${action.importId}" }
-            resetToShell(backStack)
-            backStack.add(AdminBackups)
-            backStack.add(ImportFlow)
-        }
-
-        is ShortcutAction.NavigateToPendingApprovals -> {
-            // Lands on the Admin screen, which carries the pending list and its approve/deny
-            // controls — the point of the notification is to make the decision reachable in one
-            // tap, so it has to open somewhere the decision can actually be made.
-            logger.info { "Navigating to pending approvals for ${action.userId}" }
-            resetToShell(backStack)
-            backStack.add(Admin)
-        }
-
-        is ShortcutAction.NavigateToUserProfile -> {
-            logger.info { "Navigating to user profile ${action.userId}" }
-            resetToShell(backStack)
-            backStack.add(UserProfile(action.userId))
-        }
     }
 }
+
+/**
+ * The screens a navigating [ShortcutAction] stacks on the shell, bottom first — empty for the
+ * actions that play rather than navigate.
+ *
+ * The last hop of every notification tap, shade tap and launcher shortcut: the target mapping
+ * before it (`toShortcutAction`) has its own specs, and this is the half that decides which screen
+ * actually opens.
+ */
+internal fun ShortcutAction.screensAboveShell(): List<Route> =
+    when (this) {
+        is ShortcutAction.NavigateToBook -> listOf(BookDetail(bookId))
+
+        is ShortcutAction.NavigateToAbsImport -> listOf(AdminBackups, ImportFlow)
+
+        // Admin carries the pending list and its approve/deny controls — the point of the
+        // notification is to make the decision reachable in one tap, so it has to open somewhere
+        // the decision can actually be made.
+        is ShortcutAction.NavigateToPendingApprovals -> listOf(Admin)
+
+        is ShortcutAction.NavigateToUserProfile -> listOf(UserProfile(userId))
+
+        ShortcutAction.Resume,
+        is ShortcutAction.PlayBook,
+        ShortcutAction.Search,
+        is ShortcutAction.SleepTimer,
+        -> emptyList()
+    }
 
 /**
  * Navigation graph for authenticated users.
@@ -909,19 +919,14 @@ private fun authenticatedNavEntries(
         pendingSelectionExit = pendingSelectionExit,
     )
     librarySetupEntry(backStack, startupViewModel, scope, syncRepository)
-    bookEntries(backStack, scope, snackbarHostState, pendingSelectionExit)
-    seriesEntries(backStack)
-    contributorEntries(backStack)
-    adminEntries(backStack)
-    profileEntries(
+    destinationEntries(
         backStack = backStack,
+        scope = scope,
+        snackbarHostState = snackbarHostState,
+        pendingSelectionExit = pendingSelectionExit,
         profileRefreshKey = profileRefreshKey,
         onProfileRefreshed = onProfileRefreshed,
-    )
-    shelfEntries(backStack)
-    notificationEntries(
-        backStack = backStack,
-        onAction =
+        onNotificationAction =
             shortcutActionDispatcher(
                 scope = scope,
                 homeRepository = homeRepository,
@@ -929,9 +934,6 @@ private fun authenticatedNavEntries(
                 backStack = backStack,
                 onSelectShellDestination = onShellDestinationChange,
             ),
-    )
-    settingsEntries(
-        backStack = backStack,
         onSignOut = onSignOut,
     )
     // Re-auth entry pushed by the shell banner's "Sign in" action while SessionLapsed.
@@ -960,6 +962,40 @@ private fun authenticatedNavEntries(
             },
         )
     }
+}
+
+/**
+ * Every screen pushed above the shell — each [Route] a tap, a link or a notification can open.
+ *
+ * Split from [authenticatedNavEntries] so the set is reachable without the shell's live
+ * ViewModels: `DestinationEntriesTest` asks it for every [Route] and fails on any that would reach
+ * the provider's "Unknown screen" fallback, which is a crash on the device the moment it is opened.
+ */
+internal fun EntryProviderScope<NavKey>.destinationEntries(
+    backStack: NavBackStack<NavKey>,
+    scope: CoroutineScope,
+    snackbarHostState: SnackbarHostState,
+    pendingSelectionExit: PendingSelectionExit,
+    profileRefreshKey: Int,
+    onProfileRefreshed: () -> Unit,
+    onNotificationAction: (ShortcutAction) -> Unit,
+    onSignOut: () -> Unit,
+) {
+    bookEntries(backStack, scope, snackbarHostState, pendingSelectionExit)
+    seriesEntries(backStack)
+    contributorEntries(backStack)
+    adminEntries(backStack)
+    profileEntries(
+        backStack = backStack,
+        profileRefreshKey = profileRefreshKey,
+        onProfileRefreshed = onProfileRefreshed,
+    )
+    shelfEntries(backStack)
+    notificationEntries(backStack = backStack, onAction = onNotificationAction)
+    settingsEntries(
+        backStack = backStack,
+        onSignOut = onSignOut,
+    )
 }
 
 /**

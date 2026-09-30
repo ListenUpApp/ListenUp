@@ -431,7 +431,7 @@ class WebAppRootTest :
                 host.querySelector(".edit-body").shouldNotBeNull()
                 // ⛔ The book's own page must not also be up. `/book/{id}` is a prefix of this
                 // route, and a branch order that tests it first makes the form unreachable.
-                host.querySelector(".bd-title") shouldBe null
+                host.querySelector(".bd-head") shouldBe null
             } finally {
                 router.dispose()
             }
@@ -569,7 +569,7 @@ class WebAppRootTest :
                 host.querySelectorAll(".rdr-row").length shouldBe 1
                 (host.querySelector(".crumb a") as HTMLElement).textContent?.trim() shouldBe "The Institute"
                 // ⛔ The book's own page must not also be up — `/book/{id}` is a prefix of this route.
-                host.querySelector(".bd-title") shouldBe null
+                host.querySelector(".bd-head") shouldBe null
             } finally {
                 router.dispose()
             }
@@ -798,7 +798,7 @@ class WebAppRootTest :
                 (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Edit chapters"
                 // ⛔ The book's own page must not also be up. `/book/{id}` is a prefix of this
                 // route, and a branch order that tests it first makes the editor unreachable.
-                host.querySelector(".bd-title") shouldBe null
+                host.querySelector(".bd-head") shouldBe null
             } finally {
                 router.dispose()
             }

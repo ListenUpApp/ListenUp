@@ -56,6 +56,28 @@ struct MainShellModelTests {
         #expect(shell.path(for: .home).isEmpty)
     }
 
+    // The two tests above prove a tap lands somewhere; these prove where. A swapped destination —
+    // the admin tap opening the book inbox, say — still pushes exactly one screen.
+    @Test func aBookTapOpensThatBook() {
+        let shell = MainShellModel()
+        shell.route(.book(id: "b1"), on: .home)
+        #expect(encoded(shell.path(for: .home)) == encoded(NavigationPath([BookDestination(id: "b1")])))
+    }
+
+    @Test func aProfileTapOpensThatListenersProfile() {
+        let shell = MainShellModel()
+        shell.route(.profile(userId: "u1"), on: .home)
+        #expect(encoded(shell.path(for: .home)) == encoded(NavigationPath([ProfileDestination(userId: "u1")])))
+    }
+
+    /// Administration, not the admin inbox: the inbox holds freshly scanned books, and the pending
+    /// registrations — and their approve/deny controls — are on Administration.
+    @Test func anApprovalTapOpensAdministration() {
+        let shell = MainShellModel()
+        shell.route(.adminApprovals, on: .home)
+        #expect(encoded(shell.path(for: .home)) == encoded(NavigationPath([AdminDestination()])))
+    }
+
     @Test func findSelectsSearchAndRequestsFocus() {
         let shell = MainShellModel()
         shell.isPlayerPresented = true

@@ -27,13 +27,17 @@ import com.calypsan.listenup.web.features.admin.fixedCollections
 import com.calypsan.listenup.web.features.admin.fixedRestore
 import com.calypsan.listenup.web.features.admin.fixedServerSettings
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
+import com.calypsan.listenup.web.features.devices.OpenDevices
 import com.calypsan.listenup.web.features.devices.fixedDevices
 import com.calypsan.listenup.web.features.hardcover.OpenHardcover
 import com.calypsan.listenup.web.features.hardcover.fixedHardcover
 import com.calypsan.listenup.web.features.settings.OpenSettings
 import com.calypsan.listenup.web.features.settings.fixedSettings
+import com.calypsan.listenup.web.features.shelf.OpenShelfDetail
+import com.calypsan.listenup.web.features.shelf.OpenShelfEdit
 import com.calypsan.listenup.web.features.shelf.fixedShelfDetail
 import com.calypsan.listenup.web.features.shelf.fixedShelfEdit
+import com.calypsan.listenup.web.features.discover.OpenDiscover
 import com.calypsan.listenup.web.features.discover.fixedDiscover
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
@@ -226,6 +230,10 @@ internal fun mountAt(
     openUserDetail: OpenUserDetail = fixedUserDetail(UserDetailUiState.Loading),
     openUpload: OpenUpload = fixedUpload(UploadBooksUiState.Idle),
     openOrganize: OpenOrganize = fixedOrganize(OrganizeSettingsUiState.Loading),
+    openDiscover: OpenDiscover = fixedDiscover(),
+    openDevices: OpenDevices = fixedDevices(),
+    openShelfDetail: OpenShelfDetail = fixedShelfDetail(),
+    openShelfEdit: OpenShelfEdit = fixedShelfEdit(),
     onToast: (String) -> Unit = {},
     openPlayback: OpenPlayback = fixedPlayback(),
     compositionProbe: (String) -> Unit = {},
@@ -261,10 +269,10 @@ internal fun mountAt(
                     openProfile = openProfile,
                     openEditProfile = openEditProfile,
                     openHome = openHome,
-                    openDiscover = fixedDiscover(),
+                    openDiscover = openDiscover,
                     openSettings = openSettings,
                     openLicences = openLicences,
-                    openDevices = fixedDevices(),
+                    openDevices = openDevices,
                     openHardcover = openHardcover,
                     openAdmin = openAdmin,
                     admin =
@@ -284,8 +292,8 @@ internal fun mountAt(
                             upload = openUpload,
                             organize = openOrganize,
                         ),
-                    openShelfDetail = fixedShelfDetail(),
-                    openShelfEdit = fixedShelfEdit(),
+                    openShelfDetail = openShelfDetail,
+                    openShelfEdit = openShelfEdit,
                     openLibrary = openLibrary,
                     openSearch = openSearch,
                     openMultiSelect = openMultiSelect,

@@ -410,6 +410,51 @@ fun WebAppRoot(
 }
 
 /**
+ * Whether any page serves this path's shape — the whole URL grammar, in one table.
+ *
+ * Each page's branch reads only the segments it cares about, so without this a link that lost its
+ * id (`/book`) or grew a segment nothing reads (`/book/42/nonsense`) resolved to whatever page its
+ * prefix matched — the library grid, or the book — and a broken link looked like a working one.
+ * The same rule `/admin/user` already followed: a path no page names is not found.
+ */
+private fun Route.isServed(): Boolean = segments.isEmpty() || ROUTE_SHAPES[segments.first()]?.invoke(segments) == true
+
+/** `/{key}` alone, or `/{key}/{section}` for one of [sections]. */
+private fun List<String>.isSection(vararg sections: String): Boolean = size == 1 || (size == 2 && this[1] in sections)
+
+/** `/{key}/{id}`, or `/{key}/{id}/{sub}` for one of [subs]. */
+private fun List<String>.isIdWith(vararg subs: String): Boolean = size == 2 || (size == 3 && this[2] in subs)
+
+/**
+ * `/admin`, `/admin/{page}`, and the three families under it that name one thing by id — plus
+ * `/admin/imports/new`, whose third segment is a literal rather than an id.
+ */
+private fun List<String>.isAdminShape(): Boolean =
+    size <= 2 ||
+        (size == 3 && (this[1] in ADMIN_ID_PAGES || (this[1] == IMPORTS_KEY && this[2] == NEW_KEY)))
+
+/** Every first segment the shell serves, and the shapes that may follow it. */
+private val ROUTE_SHAPES: Map<String, (List<String>) -> Boolean> =
+    mapOf(
+        HOME_KEY to { it.size == 1 },
+        DISCOVER_KEY to { it.size == 1 },
+        NOTIFICATIONS_KEY to { it.size == 1 },
+        LIBRARY_KEY to { it.isSection(CONTRIBUTORS_KEY, SERIES_KEY) },
+        SEARCH_KEY to { it.size <= 2 },
+        SETTINGS_KEY to { it.isSection(DEVICES_KEY, NOTIFICATIONS_KEY, HARDCOVER_KEY, LICENCES_KEY) },
+        BOOK_KEY to { it.isIdWith(EDIT_KEY, CHAPTERS_KEY, MATCH_KEY, READERS_KEY) },
+        BOOKS_KEY to { it.size == 2 && it[1] == EDIT_KEY },
+        CONTRIBUTOR_KEY to { it.isIdWith(EDIT_KEY, BOOKS_KEY, MATCH_KEY) },
+        SERIES_KEY to { it.isIdWith(EDIT_KEY) },
+        PROFILE_KEY to { it.isIdWith(EDIT_KEY) },
+        TAG_KEY to { it.size == 2 },
+        MOOD_KEY to { it.size == 2 },
+        GENRE_KEY to { it.size == 2 },
+        SHELF_KEY to { shelfRouteOf(it) != null },
+        ADMIN_KEY to { it.isAdminShape() },
+    )
+
+/**
  * `/books/edit?ids=…` — the books the bulk editor is open over, or empty when this is not that route.
  *
  * The ids ride the query rather than the path: a path segment of forty uuids is not a URL anyone
@@ -721,7 +766,9 @@ private fun RouteContent(
     // `/book/{id}/edit` sets this too, and never reaches anything that looks at it.
     val editingProfile = route.segments.getOrNull(2) == EDIT_KEY
 
-    if (bulkEditIds.isNotEmpty()) {
+    if (!route.isServed()) {
+        NotFoundPage(onGoHome = { router.navigate(Route(emptyList())) })
+    } else if (bulkEditIds.isNotEmpty()) {
         BulkEditRoute(
             router = router,
             openBulkEdit = openBulkEdit,
@@ -3027,6 +3074,9 @@ private const val INVITE_KEY = "invite"
 
 /** `/admin/user/{id}` — one member and what they may do. */
 private const val USER_KEY = "user"
+
+/** The admin pages that name one thing by the segment after them: `/admin/{page}/{id}`. */
+private val ADMIN_ID_PAGES = setOf(COLLECTIONS_KEY, BACKUPS_KEY, USER_KEY)
 
 /** `/admin/upload` — putting books in from this machine. */
 private const val UPLOAD_KEY = "upload"

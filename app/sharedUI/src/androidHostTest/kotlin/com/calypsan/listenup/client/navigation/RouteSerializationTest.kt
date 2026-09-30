@@ -19,7 +19,7 @@ class RouteSerializationTest :
         }
 
         test("every AuthRoute subtype encodes and decodes to an equal value") {
-            val samples: List<AuthRoute> = listOf(ServerSelect, ServerSetup, Setup, Login, Register, ForgotPassword)
+            val samples: List<AuthRoute> = sampleAuthRoutes()
             for (sample in samples) {
                 val encoded = json.encodeToString(AuthRoute.serializer(), sample)
                 val decoded = json.decodeFromString(AuthRoute.serializer(), encoded)
@@ -27,21 +27,26 @@ class RouteSerializationTest :
             }
         }
 
-        test("every Route subtype is reachable via sealedSubclasses") {
-            val subclasses = Route::class.sealedSubclasses
-            // Sanity check — Route has at least the canonical subtypes
-            val names = subclasses.map { it.simpleName }.toSet()
-            ("Shell" in names) shouldBe true
-            ("BookDetail" in names) shouldBe true
+        // A back stack is saved by serializing it, so a route that cannot round-trip is a crash on
+        // the first process death with it on the stack. The round-trip above only proves the routes
+        // it was given — these two make sure it was given all of them.
+        test("every Route subtype has a round-trip sample") {
+            sampleRoutes().map { it::class }.toSet() shouldBe Route::class.sealedSubclasses.toSet()
+        }
+
+        test("every AuthRoute subtype has a round-trip sample") {
+            sampleAuthRoutes().map { it::class }.toSet() shouldBe AuthRoute::class.sealedSubclasses.toSet()
         }
     })
 
+/** One sample value per AuthRoute subtype. */
+private fun sampleAuthRoutes(): List<AuthRoute> = listOf(ServerSelect, ServerSetup, Setup, Login, Register, ForgotPassword)
+
 /**
- * Construct one sample value per Route subtype. For data class subtypes with
- * required arguments, supply a deterministic test value (e.g., "test-id").
- * Update this list whenever a new Route subtype is added.
+ * One sample value per Route subtype, with deterministic arguments where the subtype takes any.
+ * `every Route subtype has a round-trip sample` fails until a new subtype is added here.
  */
-private fun sampleRoutes(): List<Route> =
+internal fun sampleRoutes(): List<Route> =
     buildList {
         // Core
         add(Shell)
@@ -50,6 +55,8 @@ private fun sampleRoutes(): List<Route> =
         add(BookEdit(bookId = "test-book-id"))
         add(MatchPreview(bookId = "test-book-id", asin = "test-asin", region = MetadataLocale.DEFAULT))
         add(MetadataSearch(bookId = "test-book-id"))
+        add(ChapterEditor(bookId = "test-book-id"))
+        add(BulkEdit(bookIds = listOf("test-book-a", "test-book-b")))
         add(SeriesDetail(seriesId = "test-series-id"))
         add(
             BrowseFacet(
@@ -71,7 +78,6 @@ private fun sampleRoutes(): List<Route> =
                 region = MetadataLocale.DEFAULT,
             ),
         )
-        add(InviteRegistration(serverUrl = "https://example.test", inviteCode = "test-code"))
 
         // Admin
         add(Admin)
@@ -88,13 +94,19 @@ private fun sampleRoutes(): List<Route> =
         add(AdminBackups)
         add(CreateBackup)
         add(RestoreBackup(backupId = "test-backup-id"))
+        add(RestoreFromFile)
 
         // ABS Import — single linear flow (the legacy list/detail/wizard routes were removed)
         add(ImportFlow)
+        add(UploadBooks)
 
         // Settings / misc
         add(Settings)
+        add(Devices)
+        add(Notifications)
+        add(NotificationSettings)
         add(Licenses)
+        add(LicenseDetail(uniqueId = "test-license-id"))
         add(Storage)
         add(HardcoverSettings)
 
