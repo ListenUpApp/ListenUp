@@ -1103,6 +1103,8 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .sel-target[disabled] { opacity: .55; cursor: default; }
 .luw .sel-target-n { flex: 1; min-width: 0; font-size: 0.9rem; font-weight: 650; }
 .luw .sel-target-s { font-size: 0.74rem; color: var(--ink-3); }
+/* Already holds the book: a coral check, like iOS's trailing checkmark. Still pickable (re-adding is a no-op). */
+.luw .sel-target-ck { flex: none; align-self: center; color: var(--coral-text); }
 
 /* Bulk edit. A bulk edit has no undo, so this screen's whole job is to be understood BEFORE Apply
    rather than after: every field says what it will do, and a panel says what the whole form will. */

@@ -10,6 +10,8 @@ import com.calypsan.listenup.web.design.EmptyLook
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.DialogActions
 import com.calypsan.listenup.web.design.Field
+import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.ModalDialog
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.dom.Button
@@ -18,11 +20,17 @@ import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
-/** One destination a selection can be added to — a shelf or a collection, told apart by the caller. */
+/**
+ * One destination a selection can be added to — a shelf or a collection, told apart by the caller.
+ *
+ * [holdsSelection] marks a destination the books are already in. It is a mark, not a toggle: picking
+ * it again still adds (a no-op on the server) and closes, exactly as iOS's checked row does.
+ */
 internal class PickerTarget(
     val id: String,
     val name: String,
     val subtitle: String?,
+    val holdsSelection: Boolean = false,
 )
 
 /**
@@ -58,12 +66,23 @@ internal fun SelectionPicker(
                     key(target.id) {
                         Button(attrs = {
                             classes("sel-target")
+                            if (target.holdsSelection) classes("sel-target-on")
                             attr(ATTR_TYPE, VALUE_BUTTON)
                             disabledWhen(isBusy)
                             onClick { onPick(target.id) }
                         }) {
                             Span(attrs = { classes("sel-target-n") }) { Text(target.name) }
                             target.subtitle?.let { Span(attrs = { classes("sel-target-s") }) { Text(it) } }
+                            if (target.holdsSelection) {
+                                Icon(
+                                    WebIcon.Check,
+                                    size = CHECK_ICON_SIZE,
+                                    strokeWidth = CHECK_STROKE,
+                                    attrs = { classes("sel-target-ck") },
+                                )
+                                // The check is drawn for the eye; this says the same thing to a reader.
+                                Span(attrs = { classes("sr-only") }) { Text("Selected") }
+                            }
                         }
                     }
                 }
@@ -91,3 +110,7 @@ internal fun bookCountLabel(count: Int): String = if (count == 1) "1 book" else 
 private const val ATTR_TYPE = "type"
 
 private const val VALUE_BUTTON = "button"
+
+private const val CHECK_ICON_SIZE = 16
+
+private const val CHECK_STROKE = 2.4

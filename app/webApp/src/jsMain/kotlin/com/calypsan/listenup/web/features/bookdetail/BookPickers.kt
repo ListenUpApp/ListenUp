@@ -15,11 +15,13 @@ import org.jetbrains.compose.web.dom.Text
 /**
  * Everything the two "file this book somewhere" pickers need, as one value.
  *
- * A bundle because it is eleven members that always travel together, and because a page signature
+ * A bundle because it is twelve members that always travel together, and because a page signature
  * is a bad place to discover that a feature has that many moving parts.
  */
 data class BookPickers(
     val myShelves: List<Shelf> = emptyList(),
+    /** The subset of [myShelves] that already holds this book — marked in the picker, as on iOS. */
+    val shelvesContainingBook: List<Shelf> = emptyList(),
     val collections: List<Collection> = emptyList(),
     val onShowShelfPicker: () -> Unit = {},
     val onHideShelfPicker: () -> Unit = {},
@@ -47,10 +49,11 @@ fun BookPickerDialogs(
     pickers: BookPickers,
 ) {
     if (ready.showShelfPicker) {
+        val holdingIds = pickers.shelvesContainingBook.mapTo(HashSet()) { it.id }
         SelectionPicker(
             title = "Add to shelf",
             count = 1,
-            targets = pickers.myShelves.map { PickerTarget(it.id.value, it.name, null) },
+            targets = pickers.myShelves.map { PickerTarget(it.id.value, it.name, null, it.id in holdingIds) },
             emptyMessage = "You have no shelves yet.",
             createLabel = "Create shelf",
             isBusy = ready.isAddingToShelf,
