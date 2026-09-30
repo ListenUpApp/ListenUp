@@ -1,8 +1,12 @@
 package com.calypsan.listenup.server.cover
 
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.librarywrite.LibraryWriteBroker
+import com.calypsan.listenup.server.librarywrite.WriteManifest
+import com.calypsan.listenup.server.librarywrite.WriteOp
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.io.files.Path
-import kotlinx.io.files.SystemFileSystem
+import kotlin.uuid.Uuid
 
 private val logger = loggerFor<CoverStorage>()
 
@@ -31,19 +35,33 @@ private val logger = loggerFor<CoverStorage>()
  * source from the [CoverPayload.source][com.calypsan.listenup.api.sync.CoverPayload.source]
  * field on the book payload and skip calling this class entirely.
  *
+ * The file sits inside a library folder, so the delete goes through [broker] like every other
+ * library write: it is refused if the path resolves outside every library folder (a book
+ * directory swapped for a link to another disk, say), and the watcher swallows it as a self-write.
+ *
  * Stateless. Constructed once at startup; safe for concurrent use.
  */
-class CoverStorage {
+class CoverStorage(
+    private val broker: LibraryWriteBroker,
+) {
     /**
      * Best-effort delete of the file at [path]. Idempotent: a non-existent
-     * file is not an error. Any failure is logged at WARN and swallowed —
-     * never thrown — so a flaky filesystem can't break the RPC contract.
+     * file is not an error. Any failure — including a refusal from [broker] — is
+     * logged at WARN and swallowed, so a flaky filesystem can't break the RPC contract.
      */
-    fun delete(path: Path) {
-        try {
-            SystemFileSystem.delete(path, mustExist = false)
-        } catch (e: Exception) {
-            logger.warn(e) { "CoverStorage.delete failed for path=$path" }
+    suspend fun delete(path: Path) {
+        val result =
+            broker.executeManifest(
+                WriteManifest(
+                    opId = "delete-cover-${Uuid.random()}",
+                    ops = listOf(WriteOp.DeleteFile(path)),
+                    // The caller has already moved on; a refused cover delete must not run itself
+                    // at the next boot. The orphan sweep is the fallback, as it always was.
+                    resumeAfterReportedFailure = false,
+                ),
+            )
+        if (result is AppResult.Failure) {
+            logger.warn { "CoverStorage.delete failed for path=$path: ${result.error.debugInfo}" }
         }
     }
 }

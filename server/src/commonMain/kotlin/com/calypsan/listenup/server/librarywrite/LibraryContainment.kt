@@ -1,6 +1,9 @@
 package com.calypsan.listenup.server.librarywrite
 
+import com.calypsan.listenup.server.io.isSymlink
 import com.calypsan.listenup.server.io.isUnder
+import com.calypsan.listenup.server.io.lexicallyNormalized
+import kotlinx.io.IOException
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
@@ -20,80 +23,84 @@ fun interface LibraryRootProvider {
 }
 
 /**
- * [this] with `.` and `..` segments folded away textually, without touching the filesystem.
+ * How a symbolic link that is the **final** segment of a path is judged.
  *
- * Purely lexical on purpose: it runs *before* the filesystem is consulted so that a path whose
- * later segments don't exist yet (the normal case for a file about to be written) still has its
- * escapes collapsed. `..` above an absolute root is clamped at `/`, matching the kernel.
+ * Links before the final segment are always followed — the kernel walks through them, and so does
+ * containment. The final one depends on what the operation does to it.
  */
-internal fun Path.lexicallyNormalized(): Path {
-    val raw = toString()
-    val absolute = raw.startsWith("/")
-    val segments = ArrayDeque<String>()
-    for (segment in raw.split('/')) {
-        when {
-            segment.isEmpty() || segment == "." -> {
-                Unit
-            }
+internal enum class FinalLink {
+    /** Judge the link where it points. For ops that act *through* it: creating, listing or removing a directory. */
+    Follow,
 
-            segment == ".." -> {
-                when {
-                    segments.isNotEmpty() && segments.last() != ".." -> segments.removeLast()
-
-                    // A relative path may legitimately still lead with `..`; an absolute one cannot
-                    // climb above `/`, so the segment is simply dropped.
-                    !absolute -> segments.addLast(segment)
-
-                    else -> Unit
-                }
-            }
-
-            else -> {
-                segments.addLast(segment)
-            }
-        }
-    }
-    val joined = segments.joinToString("/")
-    return Path(if (absolute) "/$joined" else joined.ifEmpty { "." })
+    /**
+     * Judge the link where it sits. For ops whose syscall acts on the directory entry itself —
+     * `unlink(2)` and `rename(2)` never follow a final link — so a link inside the library may be
+     * deleted, moved or replaced wherever it points, and its target is never touched.
+     */
+    InPlace,
 }
 
 /**
- * [path] reduced to the form containment may safely compare: lexically normalised, then with its
- * longest existing ancestor resolved through [SystemFileSystem.resolve] so symbolic links are
- * followed, and the not-yet-existing tail re-appended.
+ * [path] as the kernel will see it, reduced to a form containment may safely compare — or `null`
+ * when it cannot be resolved, which containment treats as outside.
  *
- * The two-part shape is forced by [SystemFileSystem.resolve] throwing on a path that does not
- * exist — which a write target usually does not. Resolving the existing ancestor is what closes
- * the symlink hole: a book directory that is a link out of the library resolves to its real
- * location here, and is refused there.
+ * The longest prefix of the **raw** path that exists is resolved through [SystemFileSystem.resolve]
+ * (`realpath(3)` natively, the canonical file on the JVM), then the not-yet-existing tail is
+ * re-appended and only *that* is folded lexically. The order is the whole point: `..` after a
+ * symbolic link climbs from where the link points, so folding the raw path as text first turns
+ * `<root>/link/../x` into `<root>/x` while the kernel writes `<link target's parent>/x`. The tail is
+ * safe to fold because none of it exists yet, so none of it can be a link.
+ *
+ * `null` when a missing prefix is nonetheless a symbolic link: a dangling link, or one caught in a
+ * loop. Neither can be resolved, and a dangling link is one `mkdir` away from leading outside.
+ *
+ * With [finalLink] = [FinalLink.InPlace] a final segment that is itself a link is not resolved:
+ * its parent is, and the link's own name is appended.
  */
-internal fun resolvedForContainment(path: Path): Path {
-    val normalized = path.lexicallyNormalized()
-    val tail = mutableListOf<String>()
-    var cursor: Path? = normalized
+internal fun resolvedForContainment(
+    path: Path,
+    finalLink: FinalLink = FinalLink.Follow,
+): Path? {
+    if (finalLink == FinalLink.InPlace && isSymlink(path)) {
+        val parent = path.parent ?: return null
+        return resolvedForContainment(parent)?.let { Path(it, path.name) }
+    }
+    val tail = ArrayDeque<String>()
+    var cursor: Path? = path
     while (cursor != null) {
         if (SystemFileSystem.exists(cursor)) {
-            val base = runCatching { SystemFileSystem.resolve(cursor) }.getOrElse { cursor }
-            return if (tail.isEmpty()) base else Path("$base/${tail.asReversed().joinToString("/")}")
+            val resolved = realPathOrNull(cursor) ?: return null
+            return Path(resolved, *tail.toTypedArray()).lexicallyNormalized()
         }
-        tail.add(cursor.name)
+        if (isSymlink(cursor)) return null
+        tail.addFirst(cursor.name)
         cursor = cursor.parent
     }
-    return normalized
+    return path.lexicallyNormalized()
 }
 
+/** [SystemFileSystem.resolve], or null when it cannot resolve [path] (it throws rather than returning nothing). */
+private fun realPathOrNull(path: Path): Path? =
+    try {
+        SystemFileSystem.resolve(path)
+    } catch (_: IOException) {
+        null
+    } catch (_: IllegalStateException) {
+        // The native `realpath` failing between the exists() check and the call (the path vanished,
+        // or became a loop) surfaces as IllegalStateException rather than an IOException.
+        null
+    }
+
 /**
- * True when [target] resolves inside at least one of [roots].
- *
- * Both sides go through [resolvedForContainment] first, which is what makes the underlying
- * string-prefix comparison sound: on raw paths a prefix test accepts `<root>/../outside/x`, and
- * that is exactly the escape this guards. Empty [roots] returns `false` — fail closed.
+ * True when [target] resolves inside at least one of [roots], compared segment by segment on
+ * resolved paths (see [resolvedForContainment]). Fails closed: empty [roots], or a [target] that
+ * cannot be resolved, is outside. A root that cannot be resolved admits nothing.
  */
 internal fun isInsideAnyRoot(
     target: Path,
     roots: List<Path>,
+    finalLink: FinalLink = FinalLink.Follow,
 ): Boolean {
-    if (roots.isEmpty()) return false
-    val resolvedTarget = resolvedForContainment(target)
-    return roots.any { resolvedTarget.isUnder(resolvedForContainment(it)) }
+    val resolvedTarget = resolvedForContainment(target, finalLink) ?: return false
+    return roots.any { root -> resolvedForContainment(root)?.let { resolvedTarget.isUnder(it) } == true }
 }

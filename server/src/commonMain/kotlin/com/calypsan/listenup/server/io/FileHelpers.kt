@@ -55,11 +55,64 @@ internal fun Path.relativeTo(base: Path): String? {
     }
 }
 
-/** True if [this] is [base] itself or nested under it (string-prefix on normalized paths). */
+/**
+ * True if [this] is [base] itself or nested under it, compared segment by segment after both sides
+ * are [lexicallyNormalized] — so `<base>/../outside/x` is not under `<base>`, and `/lib/books-extra`
+ * is not under `/lib/books`.
+ *
+ * Purely lexical: it never consults the filesystem, so it cannot see symbolic links. Where a link
+ * could carry a path somewhere else, resolve both sides first (the library-write broker's
+ * `resolvedForContainment`) and compare the results with this.
+ */
 internal fun Path.isUnder(base: Path): Boolean {
-    val p = this.toString()
-    val b = base.toString().trimEnd('/')
-    return p == b || p.startsWith("$b/")
+    val path = lexicallyNormalized()
+    val root = base.lexicallyNormalized()
+    if (path.isAbsolute != root.isAbsolute) return false
+    val pathSegments = path.segments()
+    val rootSegments = root.segments()
+    return pathSegments.size >= rootSegments.size && pathSegments.subList(0, rootSegments.size) == rootSegments
+}
+
+private fun Path.segments(): List<String> = toString().split('/').filter { it.isNotEmpty() && it != "." }
+
+/**
+ * [this] with `.` and `..` segments folded away textually, without touching the filesystem.
+ *
+ * Lexical on purpose, and only sound where no symbolic link can sit in the folded part: the kernel
+ * applies `..` to where a link *points*, so `<dir>/link/..` is the link target's parent, not
+ * `<dir>`. Callers that face real directories fold only the not-yet-existing tail of a path this
+ * way (see the broker's `resolvedForContainment`). `..` above an absolute root is clamped at `/`,
+ * matching the kernel.
+ */
+internal fun Path.lexicallyNormalized(): Path {
+    val raw = toString()
+    val absolute = raw.startsWith("/")
+    val segments = ArrayDeque<String>()
+    for (segment in raw.split('/')) {
+        when {
+            segment.isEmpty() || segment == "." -> {
+                Unit
+            }
+
+            segment == ".." -> {
+                when {
+                    segments.isNotEmpty() && segments.last() != ".." -> segments.removeLast()
+
+                    // A relative path may legitimately still lead with `..`; an absolute one cannot
+                    // climb above `/`, so the segment is simply dropped.
+                    !absolute -> segments.addLast(segment)
+
+                    else -> Unit
+                }
+            }
+
+            else -> {
+                segments.addLast(segment)
+            }
+        }
+    }
+    val joined = segments.joinToString("/")
+    return Path(if (absolute) "/$joined" else joined.ifEmpty { "." })
 }
 
 private fun randomHex(): String =

@@ -79,7 +79,9 @@ internal fun resolveUploadTarget(
     }
 
     val target = segments.fold(sessionDir) { acc, segment -> Path(acc, segment) }
-    if (!resolvedForContainment(target).isUnder(resolvedForContainment(sessionDir))) {
+    val resolvedTarget = resolvedForContainment(target)
+    val resolvedSession = resolvedForContainment(sessionDir)
+    if (resolvedTarget == null || resolvedSession == null || !resolvedTarget.isUnder(resolvedSession)) {
         return UploadTarget.Refused("relPath resolves outside the session directory: ${normalized.excerpt()}")
     }
     return UploadTarget.Accepted(target)

@@ -164,7 +164,9 @@ class BookDeleter(
         id: BookId,
         rootRelPath: String,
     ): AppResult.Failure? {
-        val resolved = resolvedForContainment(bookDir)
+        // An unresolvable bookDir (a dangling or looping link) is left to the broker, which
+        // refuses it as outside the library before anything is touched.
+        val resolved = resolvedForContainment(bookDir) ?: return null
         val isRoot =
             suspendTransaction(sql) {
                 sql.libraryFoldersQueries.selectLiveRootPaths().executeAsList()
@@ -190,7 +192,8 @@ class BookDeleter(
         bookDir: Path,
         id: BookId,
     ): AppResult.Failure? {
-        val target = resolvedForContainment(bookDir)
+        // Unresolvable: the broker refuses it as outside the library, so there is nothing to share.
+        val target = resolvedForContainment(bookDir) ?: return null
         val rootsByFolderId =
             suspendTransaction(sql) {
                 sql.libraryFoldersQueries
@@ -204,7 +207,7 @@ class BookDeleter(
             }.filterNot { it.id == id.value }
         for (other in others) {
             val otherRoot = rootsByFolderId[other.folder_id] ?: continue
-            val otherDir = resolvedForContainment(Path(otherRoot, other.root_rel_path))
+            val otherDir = resolvedForContainment(Path(otherRoot, other.root_rel_path)) ?: continue
             // BOTH directions. The obvious one is another book beneath the target — delete the
             // target and its files go too. The other is the target sitting beneath ANOTHER book's
             // directory: deleting it then removes a subtree of a live book, whose row is left

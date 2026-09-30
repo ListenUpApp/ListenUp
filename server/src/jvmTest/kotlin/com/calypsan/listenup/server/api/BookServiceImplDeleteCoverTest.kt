@@ -21,6 +21,11 @@ import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.cover.CoverStorage
+import com.calypsan.listenup.server.librarywrite.LibraryWriteBroker
+import com.calypsan.listenup.server.librarywrite.SelfWriteRegistry
+import com.calypsan.listenup.server.librarywrite.SqlLibraryRootProvider
+import com.calypsan.listenup.server.librarywrite.WriteJournal
+import com.calypsan.listenup.server.librarywrite.tempJournalDir
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -73,6 +78,37 @@ class BookServiceImplDeleteCoverTest :
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
                     repo.findById(BookId("b1"))?.cover shouldBe null
                     coverFile.exists() shouldBe false
+                }
+            }
+        }
+
+        test("deleteBookCover does not follow a book directory that has become a link out of the library") {
+            // The cover file is deleted inside a library folder, so it goes through the broker and
+            // its containment like every other library write. Here the book's directory was
+            // replaced by a link to another disk after the scan; the user's file out there stays.
+            withSqlDatabase {
+                val db = this
+                val base = Files.createTempDirectory("listenup-test-cover-escape-").toAbsolutePath()
+                val libraryRoot = base.resolve("library").apply { createDirectories() }
+                val elsewhere = base.resolve("elsewhere").apply { createDirectories() }
+                sql.seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+                val (service, repo) = newService(db)
+                runTest {
+                    val theirCover = elsewhere.resolve("cover.jpg").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+                    libraryRoot.resolve("Sanderson").createDirectories()
+                    Files.createSymbolicLink(libraryRoot.resolve("Sanderson/b1"), elsewhere)
+                    repo.upsert(
+                        bookFixture(
+                            id = "b1",
+                            title = "The Way of Kings",
+                            rootRelPath = "Sanderson/b1",
+                            cover = CoverPayload(source = CoverSource.FILESYSTEM, hash = "abc123"),
+                        ),
+                    )
+
+                    service.deleteBookCover(BookId("b1"))
+
+                    theirCover.exists() shouldBe true
                 }
             }
         }
@@ -250,7 +286,11 @@ private fun newService(
             repo = repo,
             contributorRepo = contributorRepo,
             seriesRepo = seriesRepo,
-            coverStorage = CoverStorage(),
+            // The production root provider, so the broker admits exactly the seeded library folder.
+            coverStorage =
+                CoverStorage(
+                    LibraryWriteBroker(SelfWriteRegistry { 0L }, WriteJournal(tempJournalDir()), SqlLibraryRootProvider(db.sql)),
+                ),
             sql = db.sql,
             genreRepo = genreRepo,
             accessPolicy = BookAccessPolicy(db.sql, db.driver),

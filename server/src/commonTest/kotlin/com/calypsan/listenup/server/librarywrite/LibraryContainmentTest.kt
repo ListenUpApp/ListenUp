@@ -1,0 +1,300 @@
+package com.calypsan.listenup.server.librarywrite
+
+import com.calypsan.listenup.api.error.LibraryWriteError
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.io.isSymlink
+import io.kotest.assertions.withClue
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.io.buffered
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
+import kotlinx.io.files.SystemTemporaryDirectory
+import kotlinx.io.readByteArray
+import kotlin.random.Random
+
+/**
+ * Containment on real directories and real symbolic links, on the JVM and on the native server.
+ *
+ * `LibraryWriteBrokerContainmentTest` (jvmTest) pins the first escapes found. This spec is the
+ * wider sweep, in commonTest so the Kotlin/Native build — the one that actually ships — resolves
+ * links through its own `realpath` and is held to the same answers.
+ *
+ * Every broker here is given a **narrow** root (the fixture's own `library/`), with the escape
+ * target in a sibling `outside/`. Under a broad allow-list the escapes would land inside it and
+ * the refusals would prove nothing. Refusals are asserted as [LibraryWriteError.OutsideLibrary]
+ * specifically, not just "a failure": an I/O error that happens to stop a write is luck, and the
+ * point of the guard is that it does not depend on luck.
+ *
+ * One rule runs through the symlink cases. Unlink and rename act on the link itself, so for ops
+ * built on them — writes, moves, file deletes — a link as the **final** segment is judged where it
+ * sits. Directory ops (ensure, delete-if-empty, recursive delete) act through the link, so they
+ * are judged where it points. A link anywhere *before* the final segment is always followed.
+ */
+class LibraryContainmentTest :
+    FunSpec({
+
+        /** `<base>/library` (the root), `<base>/outside` (the rest of the disk), and a user's file out there. */
+        class Fixture(
+            val base: Path,
+        ) {
+            val root = Path(base, "library").also { SystemFileSystem.createDirectories(it) }
+            val outside = Path(base, "outside").also { SystemFileSystem.createDirectories(it) }
+            val victim = Path(outside, "precious.txt").also { plant(it, USER_DATA) }
+
+            fun broker(roots: List<Path> = listOf(root)): LibraryWriteBroker =
+                LibraryWriteBroker(
+                    registry = SelfWriteRegistry { 0L },
+                    journal = WriteJournal(Path(base, "journal")),
+                    libraryRoots = { roots },
+                )
+        }
+
+        fun fixture(): Fixture =
+            Fixture(
+                Path(SystemTemporaryDirectory, "containment-${Random.nextLong().toULong().toString(16)}")
+                    .also { SystemFileSystem.createDirectories(it) },
+            )
+
+        suspend fun LibraryWriteBroker.perform(vararg ops: WriteOp): AppResult<Unit> =
+            executeManifest(WriteManifest(opId = "containment-${Random.nextLong().toULong()}", ops = ops.toList()))
+
+        fun AppResult<*>.shouldBeOutsideLibrary() {
+            val failure = shouldBeInstanceOf<AppResult.Failure>()
+            failure.error.shouldBeInstanceOf<LibraryWriteError.OutsideLibrary>()
+        }
+
+        test("CONTROL — a legitimate write inside the root lands") {
+            val f = fixture()
+            val target = Path(f.root, "Book", "listenup.json")
+
+            f.broker().writeFile(target, CLOBBER).shouldBeInstanceOf<AppResult.Success<WrittenFile>>()
+
+            readAll(target) shouldBe CLOBBER
+        }
+
+        context("`..` traversal") {
+            test("a target climbing out through `..` is refused") {
+                val f = fixture()
+                SystemFileSystem.createDirectories(Path(f.root, "Book"))
+
+                f
+                    .broker()
+                    .writeFile(Path(f.root, "Book", "..", "..", "outside", "precious.txt"), CLOBBER)
+                    .shouldBeOutsideLibrary()
+
+                readAll(f.victim) shouldBe USER_DATA
+            }
+
+            test("`..` after a symlink climbs from where the link POINTS, as the kernel does") {
+                // <root>/Link -> <outside>/Deep, so <root>/Link/.. is <outside>, not <root>. Folding
+                // the `..` away as text first reads the path as <root>/precious.txt and waves it in.
+                val f = fixture()
+                val deep = Path(f.outside, "Deep").also { SystemFileSystem.createDirectories(it) }
+                createSymbolicLink(Path(f.root, "Link"), deep)
+
+                f.broker().writeFile(Path(f.root, "Link", "..", "precious.txt"), CLOBBER).shouldBeOutsideLibrary()
+
+                withClue("the user's file the kernel would really have written must be untouched") {
+                    readAll(f.victim) shouldBe USER_DATA
+                }
+            }
+
+            test("`..` that stays inside the root is not an escape") {
+                val f = fixture()
+                SystemFileSystem.createDirectories(Path(f.root, "Book"))
+                val target = Path(f.root, "Book", "..", "Other", "listenup.json")
+
+                f.broker().writeFile(target, CLOBBER).shouldBeInstanceOf<AppResult.Success<WrittenFile>>()
+
+                readAll(Path(f.root, "Other", "listenup.json")) shouldBe CLOBBER
+            }
+        }
+
+        context("symlinked directories") {
+            test("a write through a book directory linked outside the root is refused") {
+                val f = fixture()
+                val real = Path(f.outside, "RealBook").also { SystemFileSystem.createDirectories(it) }
+                createSymbolicLink(Path(f.root, "Book"), real)
+
+                f.broker().writeFile(Path(f.root, "Book", "listenup.json"), CLOBBER).shouldBeOutsideLibrary()
+
+                SystemFileSystem.exists(Path(real, "listenup.json")) shouldBe false
+            }
+
+            test("a not-yet-existing target beneath a linked directory is refused, and nothing is created out there") {
+                val f = fixture()
+                val real = Path(f.outside, "RealBook").also { SystemFileSystem.createDirectories(it) }
+                createSymbolicLink(Path(f.root, "Book"), real)
+
+                f
+                    .broker()
+                    .writeFile(Path(f.root, "Book", "Disc 1", "Extras", "listenup.json"), CLOBBER)
+                    .shouldBeOutsideLibrary()
+
+                SystemFileSystem.exists(Path(real, "Disc 1")) shouldBe false
+            }
+
+            test("a dangling link in the path is refused rather than guessed at") {
+                // Nothing to resolve it against yet — the day its target appears, the same path
+                // leads outside. Refusing now is the only answer that stays right.
+                val f = fixture()
+                val notYet = Path(f.outside, "NotYet")
+                createSymbolicLink(Path(f.root, "Book"), notYet)
+
+                f.broker().writeFile(Path(f.root, "Book", "listenup.json"), CLOBBER).shouldBeOutsideLibrary()
+
+                SystemFileSystem.exists(notYet) shouldBe false
+            }
+
+            test("a symlink loop is refused as unresolvable, not left to fail by accident") {
+                val f = fixture()
+                val a = Path(f.root, "A")
+                val b = Path(f.root, "B")
+                createSymbolicLink(a, b)
+                createSymbolicLink(b, a)
+
+                f.broker().writeFile(Path(a, "listenup.json"), CLOBBER).shouldBeOutsideLibrary()
+            }
+
+            test("a delete-if-empty of a directory link is judged where the link points") {
+                val f = fixture()
+                val emptyOutside = Path(f.outside, "EmptyBook").also { SystemFileSystem.createDirectories(it) }
+                createSymbolicLink(Path(f.root, "Book"), emptyOutside)
+
+                f.broker().perform(WriteOp.DeleteDirIfEmpty(Path(f.root, "Book"))).shouldBeOutsideLibrary()
+
+                SystemFileSystem.exists(emptyOutside) shouldBe true
+            }
+        }
+
+        context("moves check both ends") {
+            test("a move whose source is outside the root is refused") {
+                val f = fixture()
+                val stolen = Path(f.root, "stolen.txt")
+
+                f.broker().perform(WriteOp.MoveFile(f.victim, stolen)).shouldBeOutsideLibrary()
+
+                readAll(f.victim) shouldBe USER_DATA
+                SystemFileSystem.exists(stolen) shouldBe false
+            }
+
+            test("a move whose destination is outside the root is refused") {
+                val f = fixture()
+                val track = Path(f.root, "Book", "01.mp3").also { plant(it, USER_DATA) }
+                val away = Path(f.outside, "01.mp3")
+
+                f.broker().perform(WriteOp.MoveFile(track, away)).shouldBeOutsideLibrary()
+
+                readAll(track) shouldBe USER_DATA
+                SystemFileSystem.exists(away) shouldBe false
+            }
+
+            test("a move whose destination sits beneath a linked-out directory is refused") {
+                val f = fixture()
+                val track = Path(f.root, "Book", "01.mp3").also { plant(it, USER_DATA) }
+                val real = Path(f.outside, "RealBook").also { SystemFileSystem.createDirectories(it) }
+                createSymbolicLink(Path(f.root, "Linked"), real)
+
+                f.broker().perform(WriteOp.MoveFile(track, Path(f.root, "Linked", "01.mp3"))).shouldBeOutsideLibrary()
+
+                readAll(track) shouldBe USER_DATA
+                SystemFileSystem.exists(Path(real, "01.mp3")) shouldBe false
+            }
+        }
+
+        context("deleting a symlink entry vs following it") {
+            test("deleting a link that sits inside the root removes the link, never its target") {
+                val f = fixture()
+                val link = Path(f.root, "Book", "cover.jpg")
+                SystemFileSystem.createDirectories(Path(f.root, "Book"))
+                createSymbolicLink(link, f.victim)
+
+                f.broker().perform(WriteOp.DeleteFile(link)).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                withClue("the link entry itself is gone") { isSymlink(link) shouldBe false }
+                withClue("and the file it pointed at, outside the library, is untouched") {
+                    readAll(f.victim) shouldBe USER_DATA
+                }
+            }
+
+            test("deleting a file THROUGH a linked-out directory is refused") {
+                val f = fixture()
+                createSymbolicLink(Path(f.root, "Book"), f.outside)
+
+                f.broker().perform(WriteOp.DeleteFile(Path(f.root, "Book", "precious.txt"))).shouldBeOutsideLibrary()
+
+                readAll(f.victim) shouldBe USER_DATA
+            }
+        }
+
+        context("multiple roots") {
+            test("writes land in every live root, a move between two roots is allowed, and a neighbour is not a root") {
+                val f = fixture()
+                val second = Path(f.base, "library-two").also { SystemFileSystem.createDirectories(it) }
+                // Shares `library` as a string prefix with the first root — a raw prefix test says "inside".
+                val lookalike = Path(f.base, "library-extra").also { SystemFileSystem.createDirectories(it) }
+                val broker = f.broker(roots = listOf(f.root, second))
+
+                val inFirst = Path(f.root, "Book", "01.mp3")
+                broker.writeFile(inFirst, CLOBBER).shouldBeInstanceOf<AppResult.Success<WrittenFile>>()
+                broker
+                    .writeFile(Path(second, "Book", "listenup.json"), CLOBBER)
+                    .shouldBeInstanceOf<AppResult.Success<WrittenFile>>()
+
+                val inSecond = Path(second, "Moved", "01.mp3")
+                broker
+                    .perform(WriteOp.EnsureDir(Path(second, "Moved")), WriteOp.MoveFile(inFirst, inSecond))
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                readAll(inSecond) shouldBe CLOBBER
+
+                broker.writeFile(Path(lookalike, "listenup.json"), CLOBBER).shouldBeOutsideLibrary()
+                SystemFileSystem.exists(Path(lookalike, "listenup.json")) shouldBe false
+            }
+
+            test("with no library folders configured, nothing is writable") {
+                val f = fixture()
+
+                f.broker(roots = emptyList()).writeFile(Path(f.root, "listenup.json"), CLOBBER).shouldBeOutsideLibrary()
+            }
+        }
+
+        context("the root itself") {
+            test("the root is inside itself — ensuring it succeeds — but it can never be removed") {
+                val f = fixture()
+                val broker = f.broker()
+
+                broker.perform(WriteOp.EnsureDir(f.root)).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                val removal = broker.perform(WriteOp.DeleteDirIfEmpty(f.root)).shouldBeInstanceOf<AppResult.Failure>()
+                removal.error.shouldBeInstanceOf<LibraryWriteError.ProtectedPath>()
+                SystemFileSystem.exists(f.root) shouldBe true
+            }
+
+            test("a root configured through a symlink accepts writes by either spelling") {
+                // `/srv/audiobooks -> /mnt/drive/audiobooks` is an ordinary way to configure a library.
+                val f = fixture()
+                val alias = Path(f.base, "library-alias")
+                createSymbolicLink(alias, f.root)
+                val broker = f.broker(roots = listOf(alias))
+
+                broker.writeFile(Path(alias, "Book", "a.json"), CLOBBER).shouldBeInstanceOf<AppResult.Success<WrittenFile>>()
+                broker.writeFile(Path(f.root, "Book", "b.json"), CLOBBER).shouldBeInstanceOf<AppResult.Success<WrittenFile>>()
+                broker.writeFile(Path(f.outside, "c.json"), CLOBBER).shouldBeOutsideLibrary()
+            }
+        }
+    })
+
+private val USER_DATA = "USER DATA — NOT OURS".encodeToByteArray()
+private val CLOBBER = "CLOBBERED BY THE BROKER".encodeToByteArray()
+
+private fun readAll(path: Path): ByteArray = SystemFileSystem.source(path).buffered().use { it.readByteArray() }
+
+private fun plant(
+    path: Path,
+    bytes: ByteArray,
+) {
+    path.parent?.let { SystemFileSystem.createDirectories(it) }
+    SystemFileSystem.sink(path).buffered().use { it.write(bytes) }
+}

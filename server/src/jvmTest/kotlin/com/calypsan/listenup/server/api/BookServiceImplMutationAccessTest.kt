@@ -15,6 +15,7 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverStorage
+import com.calypsan.listenup.server.librarywrite.testBroker
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
@@ -71,7 +72,7 @@ class BookServiceImplMutationAccessTest :
                     repo = bookRepo,
                     contributorRepo = contributorRepo,
                     seriesRepo = seriesRepo,
-                    coverStorage = CoverStorage(),
+                    coverStorage = CoverStorage(testBroker()),
                     sql = sql,
                     genreRepo = genreRepo,
                     accessPolicy = BookAccessPolicy(sql, driver),
