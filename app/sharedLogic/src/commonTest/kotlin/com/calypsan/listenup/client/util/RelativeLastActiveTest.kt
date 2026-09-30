@@ -33,4 +33,13 @@ class RelativeLastActiveTest :
         test("future or clock-skew clamps to Just now") {
             relativeLastActive(now + 10_000L, now) shouldBe "Just now"
         }
+        test("inside a sentence, the standalone capitals drop") {
+            // "Last fetched Just now" — the phrase is capitalised for a label of its own.
+            relativeLastActiveInSentence(ago(30_000L), now) shouldBe "just now"
+            relativeLastActiveInSentence(ago(25 * hour), now) shouldBe "yesterday"
+            relativeLastActiveInSentence(ago(5 * minute), now) shouldBe "5 minutes ago"
+        }
+        test("inside a sentence, a month name keeps its capital") {
+            relativeLastActiveInSentence(ago(200 * day), now) shouldBe relativeLastActive(ago(200 * day), now)
+        }
     })

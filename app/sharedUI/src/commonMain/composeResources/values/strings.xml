@@ -161,6 +161,7 @@
     <string name="admin_push_setting_title">Push notifications</string>
     <string name="admin_rating_source_error">Last attempt failed: %1$s</string>
     <string name="admin_rating_source_last_fetched">Last fetched %1$s</string>
+    <string name="admin_rating_source_last_fetched_just_now">Last fetched just now</string>
     <string name="admin_rating_source_never_fetched">Not fetched yet</string>
     <string name="admin_rating_source_no_connection">Connect a Hardcover account to enable</string>
     <string name="admin_rating_source_not_configured">Not set up on this server</string>

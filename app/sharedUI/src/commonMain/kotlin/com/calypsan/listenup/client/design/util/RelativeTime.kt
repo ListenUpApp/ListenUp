@@ -35,8 +35,7 @@ private const val HOURS_PER_DAY = 24L
  */
 @Composable
 fun relativeTime(occurredAtMs: Long): String {
-    val nowMs = Clock.System.now().toEpochMilliseconds()
-    val minutes = (nowMs - occurredAtMs).coerceAtLeast(0L) / MS_PER_MINUTE
+    val minutes = minutesSince(occurredAtMs)
     return when {
         minutes < 1L -> {
             stringResource(Res.string.discover_time_ago_now)
@@ -58,3 +57,12 @@ fun relativeTime(occurredAtMs: Long): String {
         }
     }
 }
+
+/**
+ * True while [occurredAtMs] is inside [relativeTime]'s "just now" bucket, for callers that set the
+ * phrase inside a sentence of their own ("Last fetched just now") and need their own wording for it.
+ */
+fun isJustNow(occurredAtMs: Long): Boolean = minutesSince(occurredAtMs) < 1L
+
+private fun minutesSince(occurredAtMs: Long): Long =
+    (Clock.System.now().toEpochMilliseconds() - occurredAtMs).coerceAtLeast(0L) / MS_PER_MINUTE

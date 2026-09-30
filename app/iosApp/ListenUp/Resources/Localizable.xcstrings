@@ -1611,6 +1611,16 @@
         }
       }
     },
+    "admin.rating_source_last_fetched_just_now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last fetched just now"
+          }
+        }
+      }
+    },
     "admin.rating_source_never_fetched": {
       "localizations": {
         "en": {

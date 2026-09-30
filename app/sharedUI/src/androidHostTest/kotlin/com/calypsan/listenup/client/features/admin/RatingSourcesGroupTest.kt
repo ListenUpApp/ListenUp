@@ -216,7 +216,7 @@ class RatingSourcesGroupTest {
     fun `a healthy source says when it last fetched`() {
         showOne(status(source = ExternalRatingSource.AUDIBLE, lastFetchedAt = Clock.System.now().toEpochMilliseconds()))
 
-        assertRowReads(ExternalRatingSource.AUDIBLE, "Audible", "Last fetched Just now")
+        assertRowReads(ExternalRatingSource.AUDIBLE, "Audible", "Last fetched just now")
     }
 
     @Test
@@ -233,7 +233,7 @@ class RatingSourcesGroupTest {
         assertRowReads(
             ExternalRatingSource.HARDCOVER,
             "Hardcover",
-            "Last fetched Just now\nUsing simon's Hardcover account",
+            "Last fetched just now\nUsing simon's Hardcover account",
         )
     }
 }
