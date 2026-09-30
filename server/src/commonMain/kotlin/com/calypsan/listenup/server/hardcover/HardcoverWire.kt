@@ -118,3 +118,40 @@ internal data class ContributionWire(
 internal data class AuthorWire(
     @SerialName("name") val name: String? = null,
 )
+
+@Serializable
+internal data class UserBooksResponse(
+    @SerialName("data") val data: UserBooksData? = null,
+)
+
+@Serializable
+internal data class UserBooksData(
+    @SerialName("me") val me: List<UserBooksMeWire> = emptyList(),
+)
+
+@Serializable
+internal data class UserBooksMeWire(
+    @SerialName("user_books") val userBooks: List<UserBookWire> = emptyList(),
+)
+
+@Serializable
+internal data class UserBookWire(
+    @SerialName("id") val id: Long,
+    @SerialName("status_id") val statusId: Int = 0,
+    @SerialName("user_book_reads") val reads: List<UserBookReadWire> = emptyList(),
+)
+
+@Serializable
+internal data class UserBookReadWire(
+    @SerialName("id") val id: Long,
+    @SerialName("started_at") val startedAt: String? = null,
+    @SerialName("finished_at") val finishedAt: String? = null,
+    @SerialName("progress_seconds") val progressSeconds: Long? = null,
+)
+
+/** What Hardcover's own mutations (`insert_user_book` and friends) answer: an id, or an error. */
+@Serializable
+internal data class MutationResultWire(
+    @SerialName("id") val id: Long? = null,
+    @SerialName("error") val error: String? = null,
+)
