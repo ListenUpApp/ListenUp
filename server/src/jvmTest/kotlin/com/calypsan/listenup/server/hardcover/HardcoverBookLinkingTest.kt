@@ -77,7 +77,8 @@ private class LinkingRig(
         )
     }
 
-    suspend fun connect() = connections.save(USER, HardcoverMe(42, "reader"), HardcoverTokens("hc_at_1", "hc_rt_1", 604_800, HARDCOVER_SCOPES))
+    suspend fun connect() =
+        connections.save(USER, HardcoverMe(42, "reader"), HardcoverTokens("hc_at_1", "hc_rt_1", 604_800, HARDCOVER_SCOPES))
 
     fun serviceAs(role: UserRole) = service.copyWith(PrincipalProvider { UserPrincipal(UserId(USER), SessionId("s"), role) })
 }
@@ -110,7 +111,9 @@ class HardcoverBookLinkingTest :
         test("a blank search is a validation error and never reaches Hardcover") {
             linkingTest {
                 connect()
-                serviceAs(UserRole.ROOT).searchCatalog("   ").shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<ValidationError>()
+                serviceAs(
+                    UserRole.ROOT,
+                ).searchCatalog("   ").shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<ValidationError>()
                 hardcover.operations shouldBe emptyList()
             }
         }
@@ -202,13 +205,22 @@ class HardcoverBookLinkingTest :
 
         test("every new method fails closed without a caller") {
             linkingTest {
-                service.searchCatalog("x").shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<AuthError.PermissionDenied>()
+                service
+                    .searchCatalog("x")
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.PermissionDenied>()
                 service
                     .linkBook(BookId(BOOK), 1L, null)
                     .shouldBeInstanceOf<AppResult.Failure>()
                     .error
                     .shouldBeInstanceOf<AuthError.PermissionDenied>()
-                service.unlinkBook(BookId(BOOK)).shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<AuthError.PermissionDenied>()
+                service
+                    .unlinkBook(
+                        BookId(BOOK),
+                    ).shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.PermissionDenied>()
             }
         }
     })

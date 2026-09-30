@@ -43,7 +43,11 @@ class HardcoverMatchBackfill(
     /** Launches [run] for [userId] and returns at once. */
     fun trigger(userId: String): Job =
         scope.launch {
-            runCatchingCancellable { run(userId) }.onFailure { log.warn(it) { "hardcover match pass failed user=$userId" } }
+            runCatchingCancellable {
+                run(
+                    userId,
+                )
+            }.onFailure { log.warn(it) { "hardcover match pass failed user=$userId" } }
         }
 
     private companion object {

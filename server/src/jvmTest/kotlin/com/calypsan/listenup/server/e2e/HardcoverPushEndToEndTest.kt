@@ -104,7 +104,12 @@ class HardcoverPushEndToEndTest :
                     )
                     val playback = authedService<PlaybackService>(session.accessToken.value)
                     val startedAt = System.currentTimeMillis() - 10 * 60_000L
-                    val startedOn = Instant.fromEpochMilliseconds(startedAt).toLocalDateTime(TimeZone.UTC).date.toString()
+                    val startedOn =
+                        Instant
+                            .fromEpochMilliseconds(startedAt)
+                            .toLocalDateTime(TimeZone.UTC)
+                            .date
+                            .toString()
 
                     playback
                         .recordPosition(
@@ -157,7 +162,11 @@ class HardcoverPushEndToEndTest :
                         val shelf = hardcover.shelfFor(427_578L).shouldNotBeNull()
                         shelf.statusId shouldBe HardcoverStatus.READ
                         shelf.reads.single().finishedAt shouldBe
-                            Instant.fromEpochMilliseconds(finishedAt).toLocalDateTime(TimeZone.UTC).date.toString()
+                            Instant
+                                .fromEpochMilliseconds(finishedAt)
+                                .toLocalDateTime(TimeZone.UTC)
+                                .date
+                                .toString()
                     }
                     // One shelf entry and one read: nothing was duplicated on the way.
                     hardcover.operations.filter { it.startsWith("insert_") } shouldBe listOf("insert_user_book", "insert_user_book_read")
@@ -169,7 +178,12 @@ class HardcoverPushEndToEndTest :
                         val sent = update.variables.getValue("read").jsonObject
                         (sent["started_at"] ?: JsonNull).toString() shouldBe "\"$startedOn\""
                     }
-                    val read = hardcover.shelfFor(427_578L).shouldNotBeNull().reads.single()
+                    val read =
+                        hardcover
+                            .shelfFor(427_578L)
+                            .shouldNotBeNull()
+                            .reads
+                            .single()
                     read.startedAt shouldBe startedOn
                     read.progressSeconds shouldBe 90L
                     read.editionId shouldBe 9_001L

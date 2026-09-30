@@ -64,7 +64,9 @@ class HardcoverMatchBackfillTest :
             withSqlDatabase {
                 seedStarted(this, "book-a", "book-b")
                 val hardcover = FakeHardcoverLibrary()
-                hardcover.addEdition(FakeHardcoverLibrary.Edition(9_001L, 427_578L, "Project Hail Mary", listOf("Andy Weir"), asin = "B08G9RZBTT"))
+                hardcover.addEdition(
+                    FakeHardcoverLibrary.Edition(9_001L, 427_578L, "Project Hail Mary", listOf("Andy Weir"), asin = "B08G9RZBTT"),
+                )
                 val identities =
                     mapOf(
                         "book-a" to BookIdentity(asin = "B08G9RZBTT", title = "Project Hail Mary"),
@@ -89,9 +91,19 @@ class HardcoverMatchBackfillTest :
             withSqlDatabase {
                 seedStarted(this, "book-a", "book-b")
                 val hardcover = FakeHardcoverLibrary()
-                hardcover.addEdition(FakeHardcoverLibrary.Edition(9_001L, 427_578L, "Project Hail Mary", listOf("Andy Weir"), asin = "B08G9RZBTT"))
+                hardcover.addEdition(
+                    FakeHardcoverLibrary.Edition(9_001L, 427_578L, "Project Hail Mary", listOf("Andy Weir"), asin = "B08G9RZBTT"),
+                )
                 val (backfill, connections) =
-                    backfillFor(this, hardcover) { if (it == "book-b") BookIdentity(asin = "B08G9RZBTT", title = "Project Hail Mary") else null }
+                    backfillFor(this, hardcover) {
+                        if (it ==
+                            "book-b"
+                        ) {
+                            BookIdentity(asin = "B08G9RZBTT", title = "Project Hail Mary")
+                        } else {
+                            null
+                        }
+                    }
                 val links = HardcoverBookLinkStore(sql)
                 runTest {
                     connections.save(USER, HardcoverMe(42, "reader"), HardcoverTokens("hc_at_1", "hc_rt_1", 604_800, HARDCOVER_SCOPES))

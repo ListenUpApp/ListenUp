@@ -66,7 +66,13 @@ fun hardcoverModule(
     module {
         single { HardcoverTokenCipher(HardcoverTokenCipher.deriveKey(get<JwtConfiguration>().secret)) }
         single(HARDCOVER_HTTP) { hardcoverHttpClient() }
-        single { HardcoverOAuthClient(http = get(HARDCOVER_HTTP), clientId = clientId.orEmpty(), apiBaseUrl = apiBaseUrl) }
+        single {
+            HardcoverOAuthClient(
+                http = get(HARDCOVER_HTTP),
+                clientId = clientId.orEmpty(),
+                apiBaseUrl = apiBaseUrl,
+            )
+        }
         single { HardcoverGraphQlClient(http = get(HARDCOVER_HTTP), apiBaseUrl = apiBaseUrl) }
         single { HardcoverConnectionStore(sql = get(), cipher = get(), clock = get()) }
         single {
@@ -123,7 +129,15 @@ fun hardcoverModule(
             )
         }
         single<HardcoverPushHook> { get<HardcoverPushRecorder>() }
-        single { HardcoverMatchBackfill(links = get(), matcher = get(), tokens = get(), identities = get(), scope = applicationScope) }
+        single {
+            HardcoverMatchBackfill(
+                links = get(),
+                matcher = get(),
+                tokens = get(),
+                identities = get(),
+                scope = applicationScope,
+            )
+        }
         single {
             HardcoverBookLinking(
                 graphQl = get(),

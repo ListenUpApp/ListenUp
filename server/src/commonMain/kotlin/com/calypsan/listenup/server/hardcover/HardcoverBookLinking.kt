@@ -31,20 +31,37 @@ class HardcoverBookLinking(
     ): AppResult<List<HardcoverBookCandidate>> {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) {
-            return AppResult.Failure(ValidationError(message = "Type a title or an author to search for.", field = "query"))
+            return AppResult.Failure(
+                ValidationError(message = "Type a title or an author to search for.", field = "query"),
+            )
         }
         val token =
             when (val lookup = tokens.accessToken(userId)) {
                 is TokenLookup.Valid -> lookup.accessToken
+
                 TokenLookup.NotConnected -> return AppResult.Failure(HardcoverError.NotConnected())
-                is TokenLookup.Broken -> return AppResult.Failure(HardcoverError.ConnectionBroken(debugInfo = "search: ${lookup.reason}"))
-                TokenLookup.Unavailable -> return AppResult.Failure(HardcoverError.Unavailable(debugInfo = "search: token refresh unavailable"))
+
+                is TokenLookup.Broken -> return AppResult.Failure(
+                    HardcoverError.ConnectionBroken(debugInfo = "search: ${lookup.reason}"),
+                )
+
+                TokenLookup.Unavailable -> return AppResult.Failure(
+                    HardcoverError.Unavailable(debugInfo = "search: token refresh unavailable"),
+                )
             }
         rateLimiter.await()
         val hits = graphQl.searchBooks(token, trimmed).valueOr { return it.toFailure("searchBooks") }
         if (hits.isEmpty()) return AppResult.Success(emptyList())
         rateLimiter.await()
-        val books = graphQl.booksByIds(token, hits.map { it.bookId }).valueOr { return it.toFailure("booksByIds") }.associateBy { it.id }
+        val books =
+            graphQl
+                .booksByIds(
+                    token,
+                    hits.map {
+                        it.bookId
+                    },
+                ).valueOr { return it.toFailure("booksByIds") }
+                .associateBy { it.id }
         return AppResult.Success(
             hits.map { hit ->
                 val book = books[hit.bookId]
@@ -70,7 +87,14 @@ class HardcoverBookLinking(
         if (hcBookId <= 0 || (hcEditionId != null && hcEditionId <= 0)) {
             return AppResult.Failure(ValidationError(message = "That isn't a Hardcover book.", field = "hcBookId"))
         }
-        if (!access.canAccess(userId, role, bookId)) return AppResult.Failure(BookError.NotFound(debugInfo = "bookId=$bookId"))
+        if (!access.canAccess(
+                userId,
+                role,
+                bookId,
+            )
+        ) {
+            return AppResult.Failure(BookError.NotFound(debugInfo = "bookId=$bookId"))
+        }
         if (!connections.hasConnection(userId)) return AppResult.Failure(HardcoverError.NotConnected())
         links.linkManually(userId, bookId, hcBookId, hcEditionId)
         outbox.unpark(userId, bookId)
@@ -84,7 +108,14 @@ class HardcoverBookLinking(
         role: UserRole,
         bookId: String,
     ): AppResult<Unit> {
-        if (!access.canAccess(userId, role, bookId)) return AppResult.Failure(BookError.NotFound(debugInfo = "bookId=$bookId"))
+        if (!access.canAccess(
+                userId,
+                role,
+                bookId,
+            )
+        ) {
+            return AppResult.Failure(BookError.NotFound(debugInfo = "bookId=$bookId"))
+        }
         links.unlink(userId, bookId)
         return AppResult.Success(Unit)
     }
@@ -92,8 +123,15 @@ class HardcoverBookLinking(
     private fun HardcoverCall<Nothing>.toFailure(what: String): AppResult.Failure =
         AppResult.Failure(
             when (this) {
-                HardcoverCall.Unauthorized, is HardcoverCall.MissingScope -> HardcoverError.ConnectionBroken(debugInfo = "$what: $this")
-                else -> HardcoverError.Unavailable(debugInfo = "$what: $this")
+                HardcoverCall.Unauthorized, is HardcoverCall.MissingScope -> {
+                    HardcoverError.ConnectionBroken(
+                        debugInfo = "$what: $this",
+                    )
+                }
+
+                else -> {
+                    HardcoverError.Unavailable(debugInfo = "$what: $this")
+                }
             },
         )
 }

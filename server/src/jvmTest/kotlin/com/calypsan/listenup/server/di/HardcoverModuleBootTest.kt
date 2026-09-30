@@ -74,7 +74,7 @@ class HardcoverModuleBootTest :
                 service.disconnect().shouldSucceed()
             }
         }
-    
+
         test("hardcover.apiBaseUrl points the Hardcover clients at another host") {
             testApplication {
                 useIsolatedTestConfig(hardcoverClientId = "listenup-test-client", hardcoverApiBaseUrl = "http://127.0.0.1:9")

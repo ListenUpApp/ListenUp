@@ -151,7 +151,9 @@ class HardcoverPushWorker(
                     }
 
                     is LaneStep.Sleep -> {
-                        withTimeoutOrNull((step.untilMs - now()).coerceIn(0L, MAX_SLEEP.inWholeMilliseconds)) { wake.receive() }
+                        withTimeoutOrNull(
+                            (step.untilMs - now()).coerceIn(0L, MAX_SLEEP.inWholeMilliseconds),
+                        ) { wake.receive() }
                     }
 
                     LaneStep.Stop -> {
@@ -187,7 +189,12 @@ class HardcoverPushWorker(
         val identity = identities.identityOf(row.bookId)
         if (identity == null) {
             // Not dropped: the book may come back. It waits, visibly, like any other failing row.
-            outbox.reschedule(row.id, row.attempts + 1, now() + CAPPED_RETRY_INTERVAL.inWholeMilliseconds, "book not in the library")
+            outbox.reschedule(
+                row.id,
+                row.attempts + 1,
+                now() + CAPPED_RETRY_INTERVAL.inWholeMilliseconds,
+                "book not in the library",
+            )
             return LaneStep.Continue
         }
         val match = matcher.match(token, identity).valueOr { return onFailure(row, token, it) }
@@ -217,7 +224,9 @@ class HardcoverPushWorker(
             }
 
             is HardcoverCall.Throttled -> {
-                val wait = failure.retryAfterMs ?: exponentialBackoff(attempts, THROTTLE_BACKOFF_BASE, BACKOFF_CAP).inWholeMilliseconds
+                val wait =
+                    failure.retryAfterMs
+                        ?: exponentialBackoff(attempts, THROTTLE_BACKOFF_BASE, BACKOFF_CAP).inWholeMilliseconds
                 outbox.reschedule(row.id, attempts, now + wait, "throttled by Hardcover")
                 synchronized(lock) { pausedUntil[row.userId] = now + wait }
                 LaneStep.Sleep(now + wait)
@@ -225,7 +234,16 @@ class HardcoverPushWorker(
 
             is HardcoverCall.Failed -> {
                 val capped = attempts >= PUSH_MAX_ATTEMPTS
-                val wait = if (capped) CAPPED_RETRY_INTERVAL else exponentialBackoff(attempts, FAILURE_BACKOFF_BASE, BACKOFF_CAP)
+                val wait =
+                    if (capped) {
+                        CAPPED_RETRY_INTERVAL
+                    } else {
+                        exponentialBackoff(
+                            attempts,
+                            FAILURE_BACKOFF_BASE,
+                            BACKOFF_CAP,
+                        )
+                    }
                 if (capped) connections.recordPushError(row.userId, failure.detail)
                 outbox.reschedule(row.id, attempts, now + wait.inWholeMilliseconds, failure.detail)
                 LaneStep.Continue

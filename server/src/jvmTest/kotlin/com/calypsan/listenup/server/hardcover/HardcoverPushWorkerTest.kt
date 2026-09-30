@@ -81,11 +81,19 @@ private class WorkerRig(
         sql.seedTestLibraryAndFolder()
         sql.seedTestBook(BOOK)
         hardcover.addEdition(
-            FakeHardcoverLibrary.Edition(9_001L, 427_578L, "Project Hail Mary", listOf("Andy Weir"), asin = "B08G9RZBTT", readingFormatId = 2),
+            FakeHardcoverLibrary.Edition(
+                9_001L,
+                427_578L,
+                "Project Hail Mary",
+                listOf("Andy Weir"),
+                asin = "B08G9RZBTT",
+                readingFormatId = 2,
+            ),
         )
     }
 
-    suspend fun connect() = connections.save(USER, HardcoverMe(42, "reader"), HardcoverTokens("hc_at_1", "hc_rt_1", 604_800, HARDCOVER_SCOPES))
+    suspend fun connect() =
+        connections.save(USER, HardcoverMe(42, "reader"), HardcoverTokens("hc_at_1", "hc_rt_1", 604_800, HARDCOVER_SCOPES))
 
     suspend fun linkBook() = links.recordAutomaticMatch(USER, BOOK, HardcoverMatch(427_578L, 9_001L, HardcoverMatchMethod.ASIN))
 
@@ -259,7 +267,8 @@ class HardcoverPushWorkerTest :
                 hardcover.failNext(FakeReply(HttpStatusCode.Forbidden, """{"error":"insufficient_scope","scope":"write:library"}"""))
 
                 worker.step(USER) shouldBe LaneStep.Stop
-                connections.connectionFor(USER).shouldBeInstanceOf<StoredConnection.Broken>().reason shouldBe HardcoverBrokenReason.MISSING_SCOPE
+                connections.connectionFor(USER).shouldBeInstanceOf<StoredConnection.Broken>().reason shouldBe
+                    HardcoverBrokenReason.MISSING_SCOPE
                 outbox.pendingFor(USER).size shouldBe 1
             }
         }
