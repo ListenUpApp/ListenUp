@@ -195,7 +195,7 @@ final class FakeProgressReporting: PlaybackProgressReporting {
     /// this returns, `isVisible` and `phase.playingState` are consistent, but `isPlaying` is
     /// **not yet true**. The engine's first "playing" status event (auto-emitted by
     /// `FakePlaybackEngine.play()`) promotes `.buffering → .playing` shortly after; a test that
-    /// needs `isPlaying == true` should `await awaitUntil { coordinator.isPlaying }` after this.
+    /// needs `isPlaying == true` should `await awaitObservation { coordinator.isPlaying }` after this.
     func waitForStarted(bookId: String) async {
         await gate.wait { [weak self] in self?.startedCalls.contains { $0.0 == bookId } ?? false }
     }
