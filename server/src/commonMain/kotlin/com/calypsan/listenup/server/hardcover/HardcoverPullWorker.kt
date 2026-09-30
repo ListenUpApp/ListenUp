@@ -60,9 +60,10 @@ interface HardcoverPullRequests {
  * shows on the connection; 401 refreshes once, and a second 401 is `Broken(REVOKED)`; 403
  * `insufficient_scope` is `Broken(MISSING_SCOPE)`. A lane stops only when there's no working connection.
  *
- * A full pull asked for ([syncNow], [onMatchChanged]) is written at once, and written again inside
- * the gate before the next page: a full pull already running could otherwise complete over the
- * request and quietly turn it into an incremental one.
+ * A request that lands while a page is in flight is never lost: the pull it asks for stays due when
+ * that page's step reschedules, and a full pull asked for ([syncNow], [onMatchChanged]) is written at
+ * once and written again inside the gate before the next page, so a full pull already running can't
+ * complete over the request and quietly turn it into an incremental one.
  */
 class HardcoverPullWorker(
     private val puller: HardcoverPuller,
@@ -79,6 +80,7 @@ class HardcoverPullWorker(
     private val caughtUpAt = HashMap<String, Long>()
     private val failures = HashMap<String, Int>()
     private val refreshed = HashSet<String>()
+    private val pullWanted = HashSet<String>()
     private val fullPullWanted = HashSet<String>()
     private val lanes = HardcoverLanes("pull", clock) { step(it) }
 
@@ -127,6 +129,8 @@ class HardcoverPullWorker(
         gate.pausedUntil(userId)?.takeIf { it > now }?.let { return LaneStep.Sleep(it) }
         val due = synchronized(lock) { dueAt[userId] } ?: now
         if (due > now) return LaneStep.Sleep(due)
+        // From here, a request made before this step is being served; one made during it is not.
+        synchronized(lock) { pullWanted.remove(userId) }
         val token =
             when (val lookup = tokens.accessToken(userId)) {
                 is TokenLookup.Valid -> {
@@ -229,23 +233,33 @@ class HardcoverPullWorker(
     }
 
     private fun pullNow(userId: String) {
-        synchronized(lock) { dueAt[userId] = now() }
+        synchronized(lock) {
+            dueAt[userId] = now()
+            pullWanted += userId
+        }
         lanes.nudge(userId)
     }
 
+    /** The next pull is at [at] — unless one was asked for while this step ran, which stays due now. */
     private fun retryAt(
         userId: String,
         at: Long,
-    ): LaneStep {
-        synchronized(lock) { dueAt[userId] = at }
-        return LaneStep.Sleep(at)
-    }
+    ): LaneStep =
+        synchronized(lock) {
+            if (userId in pullWanted) {
+                LaneStep.Sleep(dueAt.getValue(userId))
+            } else {
+                dueAt[userId] = at
+                LaneStep.Sleep(at)
+            }
+        }
 
     private fun bumpFailures(userId: String): Int = synchronized(lock) { ((failures[userId] ?: 0) + 1).also { failures[userId] = it } }
 
     private fun forget(userId: String) {
         synchronized(lock) {
             dueAt.remove(userId)
+            pullWanted.remove(userId)
             failures.remove(userId)
             refreshed.remove(userId)
         }

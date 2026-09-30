@@ -197,12 +197,17 @@ class FakeHardcoverLibrary(
             shelves.forEach { shelf -> if (shelf.reads.removeAll { it.id == readId }) touchForRead(shelf) }
         }
 
+    /** Runs while a request is in flight, before it is answered: what happens during a Hardcover call. */
+    @Volatile
+    var whileInFlight: (suspend () -> Unit)? = null
+
     /** A [HardcoverGraphQlClient] whose every request this fake answers. */
     fun client(): HardcoverGraphQlClient =
         HardcoverGraphQlClient(
             http =
                 HttpClient(
                     MockEngine { request ->
+                        whileInFlight?.invoke()
                         val reply = handle((request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString())
                         respond(
                             reply.body,

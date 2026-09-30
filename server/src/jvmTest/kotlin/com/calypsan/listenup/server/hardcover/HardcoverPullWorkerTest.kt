@@ -1,6 +1,8 @@
 package com.calypsan.listenup.server.hardcover
 
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
+import com.calypsan.listenup.api.error.HardcoverError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.testing.MutableClock
@@ -271,6 +273,90 @@ class HardcoverPullWorkerTest :
                 } finally {
                     scope.cancel()
                 }
+            }
+        }
+
+        test("Sync now without a working connection says so, and pulls nothing") {
+            pullWorkerTest {
+                worker.syncNow(USER).shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<HardcoverError.NotConnected>()
+                connect()
+                connections.markBroken(USER, HardcoverBrokenReason.REVOKED)
+                worker.syncNow(USER).shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<HardcoverError.ConnectionBroken>()
+                pushNudges shouldBe emptyList()
+                hardcover.operations shouldBe emptyList()
+            }
+        }
+
+        test("Sync now pulls the whole shelf at once and wakes the push lane") {
+            pullWorkerTest {
+                connect()
+                worker.step(USER)
+                at(T0 + 60_000L)
+                worker.step(USER) shouldBe LaneStep.Sleep(T0 + INTERVAL_MS)
+
+                worker.syncNow(USER) shouldBe AppResult.Success(Unit)
+
+                pushNudges shouldBe listOf(USER)
+                worker.step(USER).shouldBeInstanceOf<LaneStep.Sleep>()
+                pulls() shouldBe 2
+                lastAfter() shouldBe PULL_EPOCH
+            }
+        }
+
+        test("Sync now asked while a full pull is finishing still gets its own full pull") {
+            pullWorkerTest {
+                connect()
+                hardcover.seedShelf(1L, HardcoverStatus.READ, null to null)
+                // The first pull is a full one; Sync now lands while its last page is in flight.
+                hardcover.whileInFlight = {
+                    hardcover.whileInFlight = null
+                    worker.syncNow(USER) shouldBe AppResult.Success(Unit)
+                }
+                worker.step(USER).shouldBeInstanceOf<LaneStep.Sleep>()
+                pulls() shouldBe 1
+
+                worker.step(USER).shouldBeInstanceOf<LaneStep.Sleep>()
+                pulls() shouldBe 2
+                lastAfter() shouldBe PULL_EPOCH
+            }
+        }
+
+        test("a foreground right after a pull asks nothing; one later pulls what changed") {
+            pullWorkerTest {
+                connect()
+                worker.step(USER)
+
+                at(T0 + PULL_STALE_AFTER.inWholeMilliseconds - 1)
+                worker.syncIfStale(USER)
+                worker.step(USER).shouldBeInstanceOf<LaneStep.Sleep>()
+                pulls() shouldBe 1
+
+                at(T0 + PULL_STALE_AFTER.inWholeMilliseconds)
+                worker.syncIfStale(USER)
+                worker.step(USER).shouldBeInstanceOf<LaneStep.Sleep>()
+                pulls() shouldBe 2
+            }
+        }
+
+        test("a foreground with no connection is quietly nothing") {
+            pullWorkerTest {
+                worker.syncIfStale(USER)
+                hardcover.operations shouldBe emptyList()
+            }
+        }
+
+        test("a changed match forgets that book's pulled reads and re-pulls the whole shelf") {
+            pullWorkerTest {
+                connect()
+                worker.step(USER)
+                store.commitPage(USER, listOf(PulledBook("book-x", listOf(PulledRead(7L, 100L)), null)), "c", 1L, T0)
+                at(T0 + 60_000L)
+
+                worker.onMatchChanged(USER, "book-x")
+
+                store.pulledReads(USER) shouldBe emptyList()
+                worker.step(USER).shouldBeInstanceOf<LaneStep.Sleep>()
+                lastAfter() shouldBe PULL_EPOCH
             }
         }
     })
