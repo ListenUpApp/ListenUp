@@ -6,7 +6,11 @@ import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.domain.model.BookContributor
@@ -110,6 +114,12 @@ fun BookDetailPage(
     selection: Set<Int> = emptySet(),
     onSelectionChange: (Set<Int>) -> Unit = {},
     bookId: String? = null,
+    /**
+     * Delete this book's folder from the server (admin-only; the menu gates it). The confirm dialog
+     * is the page's own, so these are the ViewModel's two calls, not "open the dialog".
+     */
+    onDeleteBook: () -> Unit = {},
+    onClearDeleteError: () -> Unit = {},
 ) {
     Div(attrs = { classes("bd") }) {
         // The breadcrumb renders in every state, including the ones with no book: a page that
@@ -130,6 +140,9 @@ fun BookDetailPage(
             onMatchMetadata = onMatchMetadata,
             onOpenContributor = onOpenContributor,
             onOpenSeries = onOpenSeries,
+            documents = documents,
+            onDeleteBook = onDeleteBook,
+            onClearDeleteError = onClearDeleteError,
         )
 
         when (state) {
@@ -247,6 +260,9 @@ private fun SharedHeader(
     onMatchMetadata: () -> Unit,
     onOpenContributor: (String) -> Unit,
     onOpenSeries: (String) -> Unit,
+    documents: List<BookDocument>,
+    onDeleteBook: () -> Unit,
+    onClearDeleteError: () -> Unit,
 ) {
     // Error renders no header at all: a page that cannot show the book must not show a cover and
     // the word "Loading" above the reason it failed. `BookDetailPanesTest` and `BookDetailTest`
@@ -254,6 +270,7 @@ private fun SharedHeader(
     if (state is BookDetailUiState.Error) return
     val ready = state as? BookDetailUiState.Ready
     val id = ready?.book?.id?.value ?: bookId ?: return
+    var showDeleteDialog by remember(id) { mutableStateOf(false) }
 
     Div(attrs = { classes("bd-head") }) {
         Cover(
@@ -311,8 +328,29 @@ private fun SharedHeader(
                             onAddToShelf = pickers.onShowShelfPicker,
                             onAddToCollection = pickers.onShowCollectionPicker,
                             onShare = onShare,
+                            onDeleteBook = {
+                                // A refusal left over from a dialog dismissed mid-flight must not
+                                // greet the next attempt.
+                                onClearDeleteError()
+                                showDeleteDialog = true
+                            },
                         )
                         BookPickerDialogs(ready = loaded, pickers = pickers)
+                        // Gated on isAdmin as well as the flag, as the collection picker is: the
+                        // dialog must not render for a member even if the flag ever leaked true.
+                        if (showDeleteDialog && loaded.isAdmin) {
+                            DeleteBookDialog(
+                                ready = loaded,
+                                documents = documents,
+                                onConfirm = onDeleteBook,
+                                // Left open on failure so the refusal is readable; success leaves
+                                // the page on BookDeleted and never returns here.
+                                onDismiss = {
+                                    showDeleteDialog = false
+                                    onClearDeleteError()
+                                },
+                            )
+                        }
                     }
                     // Icon-only, so the accessible name is the attribute, not the content —
                     // BookDetailEditButtonTest pins both the label and that it matches Play's height.

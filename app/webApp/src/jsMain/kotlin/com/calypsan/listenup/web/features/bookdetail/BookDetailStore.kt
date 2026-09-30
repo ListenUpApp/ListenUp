@@ -7,7 +7,10 @@ import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailNavAction
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 import com.calypsan.listenup.client.domain.model.BookDocument
@@ -87,6 +90,23 @@ class BookDetailSession(
      * and re-opens it rather than waiting out the automatic backoff.
      */
     val onRetryConnection: () -> Unit,
+    /**
+     * **Permanently deletes this book's folder from the server** — admin-only, gated in the menu
+     * and refused server-side for anyone else.
+     *
+     * ⛔ Web shipped without this for a month on a note saying Delete Book was "parked on next".
+     * It was not: Android has offered it since #1338. The ViewModel carries the refusal back in
+     * `Ready.deleteError`, and success arrives on [navActions] rather than in state.
+     */
+    val onDeleteBook: () -> Unit,
+    /** Clears a delete refusal, so a dismissed dialog reopens clean. */
+    val onClearDeleteError: () -> Unit,
+    /**
+     * The ViewModel's one-shot navigation events. Web honours only `BookDeleted` — leave the page
+     * for the library. The document-viewer events never fire here, because `onOpenDocument` is
+     * deliberately unwired (see [documents]).
+     */
+    val navActions: Flow<BookDetailNavAction>,
     val close: () -> Unit,
 )
 
@@ -131,6 +151,9 @@ fun graphBookDetail(koin: Koin): OpenBookDetail =
             onShare = { title -> shareBook(koin, bookId, title) },
             documents = viewModel.documents,
             onRetryConnection = viewModel::retryConnection,
+            onDeleteBook = viewModel::deleteBook,
+            onClearDeleteError = viewModel::clearDeleteError,
+            navActions = viewModel.navActions,
             close = store::clear,
         )
     }
@@ -157,6 +180,9 @@ fun fixedBookDetail(
     onShare: suspend (String) -> ShareOutcome = { ShareOutcome.SHARED },
     documents: List<BookDocument> = emptyList(),
     onRetryConnection: () -> Unit = {},
+    onDeleteBook: () -> Unit = {},
+    onClearDeleteError: () -> Unit = {},
+    navActions: Flow<BookDetailNavAction> = emptyFlow(),
 ): OpenBookDetail =
     {
         BookDetailSession(
@@ -179,6 +205,9 @@ fun fixedBookDetail(
             onShare = onShare,
             documents = MutableStateFlow(documents),
             onRetryConnection = onRetryConnection,
+            onDeleteBook = onDeleteBook,
+            onClearDeleteError = onClearDeleteError,
+            navActions = navActions,
             close = {},
         )
     }

@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent
 import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsEvent
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailNavAction
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent
@@ -943,6 +944,33 @@ class WebAppRootTest :
                 awaitFrame()
 
                 window.location.pathname shouldBe "/book/b-kings/match"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a deleted book leaves its own page for the library, and says why") {
+            // ⛔ The book's row is about to vanish when the tombstone syncs. Staying would leave the
+            // reader on a page describing a book that no longer exists; leaving silently would read
+            // as the app losing their place.
+            val navActions = Channel<BookDetailNavAction>(Channel.BUFFERED)
+            val toasts = mutableListOf<String>()
+            val (_, router) =
+                mountAt(
+                    "/book/b-kings",
+                    openBookDetail = fixedBookDetail(readyBook(), navActions = navActions.receiveAsFlow()),
+                    onToast = { toasts += it },
+                )
+
+            try {
+                awaitFrame()
+                navActions.send(BookDetailNavAction.BookDeleted)
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    while (window.location.pathname != "/library") delay(NAV_POLL)
+                }
+
+                window.location.pathname shouldBe "/library"
+                toasts shouldBe listOf("“The Institute” was deleted.")
             } finally {
                 router.dispose()
             }

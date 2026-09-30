@@ -31,6 +31,15 @@ struct BookDetailHeaderModel: Equatable {
     let seriesId: String?
 }
 
+/// What the screen does with one of the ViewModel's one-shot `BookDetailNavAction`s, as a native
+/// value — so the mapping is testable without a live ViewModel behind it.
+enum BookDetailNavReaction: Equatable {
+    case openDocument(localPath: String)
+    case showComingSoon
+    /// The book was deleted from the server, folder and all: purge this device's copy and leave.
+    case leaveDeletedBook
+}
+
 /// Observes `BookDetailViewModel` — flattens the sealed `BookDetailUiState` into
 /// flat `@Observable` properties, plus a download-status secondary flow. Thin over `FlowBridge`.
 @Observable
@@ -134,6 +143,19 @@ final class BookDetailObserver {
     private(set) var isMarkingComplete: Bool = false
     private(set) var isDiscardingProgress: Bool = false
     private(set) var isRestarting: Bool = false
+
+    // MARK: - Delete book (admin)
+
+    /// True while the delete is in flight — the menu entry goes quiet so a second press can't race it.
+    private(set) var isDeletingBook: Bool = false
+    /// Set once the server has deleted the book; the view leaves the screen on it.
+    private(set) var didDeleteBook: Bool = false
+    /// Audio file sizes, snapshotted per book so the confirmation never re-bridges `audioFiles`.
+    private var audioFileSizes: [Int64] = []
+    /// What ListenUp knows is in the book's folder — audio plus documents, which live there too.
+    var trackedForDeletion: BookDeletion.Tracked {
+        BookDeletion.Tracked(audioFileSizes: audioFileSizes, documentSizes: documents.map(\.size))
+    }
 
     /// True while a play request for THIS book is in flight — drives the Resume/Play button's
     /// busy variant (spinner + "Preparing…" label, including to VoiceOver). Sourced directly from
@@ -279,6 +301,16 @@ final class BookDetailObserver {
     func dismissReader() { documentToOpen = nil }
     func dismissComingSoon() { showComingSoon = false }
 
+    // MARK: - Delete book (admin)
+
+    /// **Permanently deletes this book's folder from the server.** Admin-only: the menu entry is gated
+    /// on `isAdmin` and the server refuses anyone else. A refusal reaches the user through the shared
+    /// error bus — `ErrorAlertCenter`'s alert — so it is deliberately not presented a second time here.
+    func deleteBook() { viewModel.deleteBook() }
+
+    /// Clears a previous refusal so a fresh confirmation starts clean.
+    func clearDeleteError() { viewModel.clearDeleteError() }
+
     // MARK: - Progress
 
     func discardProgress() { viewModel.discardProgress() }
@@ -335,6 +367,7 @@ final class BookDetailObserver {
             isMarkingComplete = r.isMarkingComplete
             isDiscardingProgress = r.isDiscardingProgress
             isRestarting = r.isRestarting
+            isDeletingBook = r.isDeletingBook
             canPlay = r.canPlay
             canDownload = r.canDownload
             showServerWarning = r.showServerWarning
@@ -370,6 +403,7 @@ final class BookDetailObserver {
         )
         audioFormat = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.bookdetail
             .audioFormatDisplay(files: book.audioFiles)
+        audioFileSizes = book.audioFiles.map { $0.size }
         heroAuthors = book.authors.map { CastMember(id: $0.id, name: $0.name, roles: Array($0.roles)) }
         heroNarrators = book.narrators.map { CastMember(id: $0.id, name: $0.name, roles: Array($0.roles)) }
         if observingDownloadForBookId != book.idString {
@@ -397,17 +431,29 @@ final class BookDetailObserver {
     }
 
     private func applyNavAction(_ action: BookDetailNavAction) {
+        switch Self.navReaction(to: action) {
+        case .openDocument(let localPath):
+            documentToOpen = ReaderDocument(localPath: localPath, title: title)
+        case .showComingSoon:
+            showComingSoon = true
+        case .leaveDeletedBook:
+            // Purge this device's copy before leaving, as Android does: the files are gone on the
+            // server, so a download left behind would keep playing a book that no longer exists —
+            // offline, indefinitely, with no way to reach it from the library.
+            deleteDownload()
+            didDeleteBook = true
+        }
+    }
+
+    /// Pure: which reaction a nav action asks for.
+    nonisolated static func navReaction(to action: BookDetailNavAction) -> BookDetailNavReaction {
         switch action.sealedType() {
         case .openDocumentViewer(let openType):
-            let open = openType.value
-            documentToOpen = ReaderDocument(localPath: open.localPath, title: title)
+            return .openDocument(localPath: openType.value.localPath)
         case .showViewerComingSoon:
-            showComingSoon = true
+            return .showComingSoon
         case .bookDeleted:
-            // Delete Book ships on Compose first; iOS has no delete affordance yet, so nothing here
-            // can emit this. Named explicitly rather than swept into `.unknown` so the switch stays
-            // exhaustive, and so whoever adds the iOS entry point lands on this line.
-            Log.error("BookDetailNavAction.BookDeleted reached iOS, which has no delete affordance")
+            return .leaveDeletedBook
         }
     }
 

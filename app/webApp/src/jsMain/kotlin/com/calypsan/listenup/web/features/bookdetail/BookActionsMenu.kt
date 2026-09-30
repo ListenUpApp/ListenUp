@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.web.design.ActionsMenu
+import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.MenuAction
 import com.calypsan.listenup.web.design.WebIcon
 
@@ -31,19 +32,63 @@ fun BookActionsMenu(
     onAddToShelf: () -> Unit,
     onAddToCollection: () -> Unit,
     onShare: () -> Unit,
+    onDeleteBook: () -> Unit,
 ) {
+    // ⛔ The two actions that erase a listening position ask first, as both natives do. Web fired
+    // them on the click, so one stray press on a menu item threw away where a reader was in a
+    // twenty-hour book with no way back.
+    var pending by remember { mutableStateOf<ProgressConfirmation?>(null) }
+
     val items =
-        progressActions(ready, onMarkComplete, onDiscardProgress, onRestart) +
+        progressActions(
+            ready = ready,
+            onMarkComplete = onMarkComplete,
+            onDiscardProgress = { pending = ProgressConfirmation.MarkNotStarted },
+            onRestart = { pending = ProgressConfirmation.Restart },
+        ) +
             filingActions(ready, onAddToShelf, onAddToCollection) +
             // Always offered, unlike the progress actions: sharing says nothing about your own
             // relationship to the book, so there is no state in which it would do nothing.
-            MenuAction("Share", WebIcon.Share, onShare)
+            MenuAction("Share", WebIcon.Share, onShare) +
+            deleteActions(ready, onDeleteBook)
 
     // ⛔ One flag for all three: they are the same round-trip through the same repository, and a
     // second request while one is in flight would race it to the same position record.
     val busy = ready.isMarkingComplete || ready.isDiscardingProgress || ready.isRestarting
 
     ActionsMenu(items = items, enabled = !busy)
+
+    pending?.let { confirmation ->
+        ConfirmDialog(
+            open = true,
+            title = confirmation.verb,
+            body = confirmation.prompt,
+            confirmLabel = confirmation.verb,
+            onConfirm = {
+                pending = null
+                when (confirmation) {
+                    ProgressConfirmation.MarkNotStarted -> onDiscardProgress()
+                    ProgressConfirmation.Restart -> onRestart()
+                }
+            },
+            onDismiss = { pending = null },
+        )
+    }
+}
+
+/**
+ * The two progress actions that cannot be undone, and what each asks — the natives' strings
+ * (`book_detail_mark_not_started_prompt`, `book_detail_restart_prompt`) character for character.
+ */
+private enum class ProgressConfirmation(
+    val verb: String,
+    val prompt: String,
+) {
+    MarkNotStarted("Mark as not started", "Clear your progress and mark this as not started?"),
+    Restart(
+        "Restart book",
+        "Start over from the beginning? This resets your position to the start of the book.",
+    ),
 }
 
 /**
@@ -91,6 +136,20 @@ internal fun filingActions(
             add(MenuAction("Add to collection", WebIcon.Layers, onAddToCollection))
         }
     }
+
+/**
+ * Deleting the book — its folder and everything in it — from the server's disk.
+ *
+ * ⛔ Admin-only, like collections and for a stronger reason: removing files from a self-hosted
+ * library is not a member's call. The server refuses it too; this keeps a member from being offered
+ * a control that can only fail. Last in the menu, after everything that can be undone, and with an
+ * ellipsis because choosing it opens the dialog that spells out what goes — it deletes nothing.
+ */
+internal fun deleteActions(
+    ready: BookDetailUiState.Ready,
+    onDeleteBook: () -> Unit,
+): List<MenuAction> =
+    if (ready.isAdmin) listOf(MenuAction("Delete book…", WebIcon.Trash, onDeleteBook)) else emptyList()
 
 private const val ICON_SIZE = 18
 

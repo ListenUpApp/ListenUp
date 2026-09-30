@@ -28,6 +28,7 @@ import listenup.composeapp.generated.resources.chapter_editor_title
 import listenup.composeapp.generated.resources.book_detail_mark_as_finished
 import listenup.composeapp.generated.resources.book_detail_mark_as_not_started
 import listenup.composeapp.generated.resources.book_detail_restart_book
+import listenup.composeapp.generated.resources.common_book
 import listenup.composeapp.generated.resources.common_delete_name
 import listenup.composeapp.generated.resources.common_share
 import listenup.composeapp.generated.resources.metadata_match_on_audible
@@ -169,7 +170,11 @@ fun BookActionsMenu(
 
             val haptics = LocalHaptics.current
             DropdownMenuItem(
-                text = { Text(text = stringResource(Res.string.common_delete_name, "Book")) },
+                text = {
+                    Text(
+                        text = stringResource(Res.string.common_delete_name, stringResource(Res.string.common_book)),
+                    )
+                },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Outlined.Delete,
