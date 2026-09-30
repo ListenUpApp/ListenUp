@@ -46,6 +46,8 @@ class BookDetailSession(
      * even once the actions existed the pickers would have had nothing to show.
      */
     val myShelves: StateFlow<List<Shelf>>,
+    /** The subset of [myShelves] already holding this book, so the picker can mark them as iOS does. */
+    val shelvesContainingBook: StateFlow<List<Shelf>>,
     val collections: StateFlow<List<Collection>>,
     val onShowShelfPicker: () -> Unit,
     val onHideShelfPicker: () -> Unit,
@@ -137,6 +139,7 @@ fun graphBookDetail(koin: Koin): OpenBookDetail =
             onDiscardProgress = viewModel::discardProgress,
             onRestart = viewModel::restartBook,
             myShelves = viewModel.myShelves,
+            shelvesContainingBook = viewModel.shelvesContainingBook,
             collections = viewModel.collections,
             onShowShelfPicker = viewModel::showShelfPicker,
             onHideShelfPicker = viewModel::hideShelfPicker,
@@ -166,6 +169,7 @@ fun fixedBookDetail(
     onDiscardProgress: () -> Unit = {},
     onRestart: () -> Unit = {},
     myShelves: List<Shelf> = emptyList(),
+    shelvesContainingBook: List<Shelf> = emptyList(),
     collections: List<Collection> = emptyList(),
     onShowShelfPicker: () -> Unit = {},
     onHideShelfPicker: () -> Unit = {},
@@ -191,6 +195,7 @@ fun fixedBookDetail(
             onDiscardProgress = onDiscardProgress,
             onRestart = onRestart,
             myShelves = MutableStateFlow(myShelves),
+            shelvesContainingBook = MutableStateFlow(shelvesContainingBook),
             collections = MutableStateFlow(collections),
             onShowShelfPicker = onShowShelfPicker,
             onHideShelfPicker = onHideShelfPicker,

@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.features.library
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.stateDescription
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -19,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FilterList
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,6 +54,7 @@ import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_add_to_shelf
 import listenup.composeapp.generated.resources.common_cancel
+import listenup.composeapp.generated.resources.common_selected
 import listenup.composeapp.generated.resources.library_create_add
 import listenup.composeapp.generated.resources.library_create_new_shelf
 import listenup.composeapp.generated.resources.common_shelf_name_hint
@@ -73,6 +76,8 @@ import androidx.compose.material3.BottomSheetDefaults
  * @param onCreateAndAddToShelf Called to create a new shelf and add books to it
  * @param onDismiss Called when the sheet is dismissed
  * @param isLoading Whether an add operation is in progress
+ * @param shelvesContainingBook Shelves that already hold the book (single-book flow only) — marked
+ *   with a check, as iOS does. A mark, not a toggle: tapping one still adds, a server no-op.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,8 +88,10 @@ fun ShelfPickerSheet(
     onCreateAndAddToShelf: (name: String) -> Unit,
     onDismiss: () -> Unit,
     isLoading: Boolean = false,
+    shelvesContainingBook: List<Shelf> = emptyList(),
 ) {
     val haptics = LocalHaptics.current
+    val holdingIds = remember(shelvesContainingBook) { shelvesContainingBook.mapTo(HashSet()) { it.id } }
     var showCreateDialog by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
@@ -158,6 +165,7 @@ fun ShelfPickerSheet(
                         ) { shelf ->
                             ShelfRow(
                                 shelf = shelf,
+                                holdsBook = shelf.id in holdingIds,
                                 onClick = {
                                     haptics.commit()
                                     onShelfSelected(shelf.id.value)
@@ -260,9 +268,11 @@ private fun CreateNewShelfRow(
 @Composable
 private fun ShelfRow(
     shelf: Shelf,
+    holdsBook: Boolean,
     onClick: () -> Unit,
     enabled: Boolean = true,
 ) {
+    val selectedDescription = stringResource(Res.string.common_selected)
     // Derive a stable icon color from the owner id (no avatar color on the contract).
     val iconColor =
         remember(shelf.ownerId) {
@@ -273,7 +283,11 @@ private fun ShelfRow(
         onClick = onClick,
         enabled = enabled,
         color = Color.Transparent,
-        modifier = Modifier.semantics { role = Role.Button },
+        modifier =
+            Modifier.semantics {
+                role = Role.Button
+                if (holdsBook) stateDescription = selectedDescription
+            },
     ) {
         Row(
             modifier =
@@ -323,6 +337,17 @@ private fun ShelfRow(
                         },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            if (holdsBook) {
+                Spacer(Modifier.width(Spacing.sm))
+                // Drawn for the eye; the row's stateDescription says the same thing to TalkBack.
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
                 )
             }
         }

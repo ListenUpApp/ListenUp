@@ -484,6 +484,7 @@ private fun BookDetailReadyContent(
 
     if (state.showShelfPicker) {
         val myShelves by viewModel.myShelves.collectAsStateWithLifecycle()
+        val shelvesContainingBook by viewModel.shelvesContainingBook.collectAsStateWithLifecycle()
 
         ShelfPickerSheet(
             shelves = myShelves,
@@ -492,6 +493,7 @@ private fun BookDetailReadyContent(
             onCreateAndAddToShelf = { name -> viewModel.createShelfAndAddBook(name) },
             onDismiss = { viewModel.hideShelfPicker() },
             isLoading = state.isAddingToShelf,
+            shelvesContainingBook = shelvesContainingBook,
         )
     }
 

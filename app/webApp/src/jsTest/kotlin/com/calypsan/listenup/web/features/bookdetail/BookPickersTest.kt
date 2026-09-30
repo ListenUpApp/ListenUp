@@ -102,6 +102,44 @@ class BookPickersTest :
             closeAny(host)
         }
 
+        test("a shelf that already holds the book is marked as holding it, to the eye and to a reader") {
+            val host =
+                dialogs(
+                    readyBook().copy(showShelfPicker = true),
+                    BookPickers(
+                        myShelves = listOf(shelf("s1", "Bedtime"), shelf("s2", "Commute")),
+                        shelvesContainingBook = listOf(shelf("s1", "Bedtime")),
+                    ),
+                )
+
+            val (bedtime, commute) = host.querySelectorAll(".sel-target").asList().filterIsInstance<HTMLElement>()
+            bedtime.classList.contains("sel-target-on") shouldBe true
+            bedtime.querySelector(".sel-target-ck").shouldNotBeNull()
+            bedtime.querySelector(".sr-only")?.textContent shouldBe "Selected"
+            commute.classList.contains("sel-target-on") shouldBe false
+            commute.querySelector(".sel-target-ck").shouldBeNull()
+            closeAny(host)
+        }
+
+        test("tapping a shelf that already holds the book still picks it, exactly as iOS does") {
+            val picked = mutableListOf<String>()
+            val host =
+                dialogs(
+                    readyBook().copy(showShelfPicker = true),
+                    BookPickers(
+                        myShelves = listOf(shelf("s1")),
+                        shelvesContainingBook = listOf(shelf("s1")),
+                        onAddToShelf = { picked += it },
+                    ),
+                )
+
+            (host.querySelector(".sel-target") as HTMLButtonElement).click()
+            awaitFrame()
+
+            picked shouldContainExactly listOf("s1")
+            closeAny(host)
+        }
+
         test("a listener with no shelves is told so, and can still make one") {
             val host = dialogs(readyBook().copy(showShelfPicker = true), BookPickers())
 

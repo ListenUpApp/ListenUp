@@ -1756,6 +1756,7 @@ private fun BookRouteContent(
 private fun bookPickersFor(detailSession: BookDetailSession): BookPickers =
     BookPickers(
         myShelves = detailSession.myShelves.collectAsState().value,
+        shelvesContainingBook = detailSession.shelvesContainingBook.collectAsState().value,
         collections = detailSession.collections.collectAsState().value,
         onShowShelfPicker = detailSession.onShowShelfPicker,
         onHideShelfPicker = detailSession.onHideShelfPicker,
