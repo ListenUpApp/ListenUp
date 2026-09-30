@@ -25,7 +25,8 @@ import org.w3c.dom.asList
  *
  * What these pin: the grid keeps the ViewModel's order rather than re-sorting here, both sort
  * controls report through [LibraryUiEvent] so the shared ViewModel keeps owning persistence, the
- * Series chip is the active one, progress is stated only for a series actually begun, and an empty
+ * Series chip is the active one, progress reads as iOS and Android word it ("Complete", "X of Y",
+ * "Not started" — Simon's call, 2026-09-30), and an empty
  * tab tells "no series" apart from "still scanning".
  */
 class SeriesListPageTest :
@@ -94,7 +95,7 @@ class SeriesListPageTest :
                     ),
                 )
 
-            (root.querySelector(".srs-progress") as HTMLElement).textContent shouldBe "3 of 7 finished"
+            (root.querySelector(".srs-progress") as HTMLElement).textContent shouldBe "3 of 7"
         }
 
         test("a finished series says so rather than counting to itself") {
@@ -106,12 +107,10 @@ class SeriesListPageTest :
                     ),
                 )
 
-            (root.querySelector(".srs-progress") as HTMLElement).textContent shouldBe "Finished"
+            (root.querySelector(".srs-progress") as HTMLElement).textContent shouldBe "Complete"
         }
 
-        // A "0 of 7" line on every untouched series is noise on a page whose job is to show what
-        // there is to read.
-        test("an unstarted series carries no progress line at all") {
+        test("an unstarted series says it is not started, quietly") {
             val root =
                 seriesPage(
                     contractLibrary(
@@ -120,7 +119,22 @@ class SeriesListPageTest :
                     ),
                 )
 
-            root.querySelector(".srs-progress") shouldBe null
+            val line = root.querySelector(".srs-progress") as HTMLElement
+            line.textContent shouldBe "Not started"
+            line.classList.contains("srs-progress-idle") shouldBe true
+        }
+
+        // The same fallback as iOS's `progressFor`: no aggregate for a series means nothing finished.
+        test("a series the aggregate has no entry for reads as not started") {
+            val root =
+                seriesPage(
+                    contractLibrary(
+                        series = listOf(seriesWith("s1", "The Dark Tower", 7)),
+                        seriesProgress = emptyMap(),
+                    ),
+                )
+
+            (root.querySelector(".srs-progress") as HTMLElement).textContent shouldBe "Not started"
         }
 
         test("the sort row marks the active category and reports a change through the shared event") {

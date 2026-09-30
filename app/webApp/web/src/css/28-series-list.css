@@ -28,5 +28,6 @@
   flex: none;
 }
 .srs-count { font-size: 0.76rem; line-height: 1.25; color: var(--ink-3); }
-/* Only rendered once a series has been started, so it can afford to be the accent. */
+/* The accent once a series is begun; an untouched one says "Not started" in muted ink, as iOS does. */
 .srs-progress { font-size: 0.76rem; line-height: 1.25; font-weight: 600; color: var(--coral-text); }
+.srs-progress-idle { font-weight: 400; color: var(--ink-3); }
