@@ -373,6 +373,61 @@ class SessionServiceTest :
             confirmedAt() shouldBe null
         }
 
+        // Confirmation is bookkeeping for the lost-reply rule; authentication must never hang on it.
+        // Under WAL contention the write can fail (SQLITE_BUSY past the timeout) — the request it
+        // rides on is still a valid, live session and must authenticate.
+        test("a confirmation write that fails still authenticates the request") {
+            val test = migratedTestDatabase()
+            val db = test.db
+            db.seedTestUser("u-1")
+            val mutClock = MutableClock(Instant.parse("2026-05-02T12:00:00Z"))
+            val svc = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = mutClock)
+            val issued = svc.createSession(UserId("u-1"))
+            svc.rotate(issued.refreshToken).shouldNotBeNull()
+            test.driver.execute(
+                null,
+                "CREATE TRIGGER fail_confirm BEFORE UPDATE OF rotation_confirmed_at ON sessions " +
+                    "BEGIN SELECT RAISE(ABORT, 'database is locked'); END",
+                0,
+            )
+
+            svc.isLive(issued.sessionId, issuedAtEpochSeconds = mutClock.instant.epochSeconds) shouldBe true
+
+            db.sessionsQueries
+                .selectById(issued.sessionId.value)
+                .executeAsOne()
+                .rotation_confirmed_at shouldBe null
+        }
+
+        test("a confirmation for a rotation that has since been superseded is never written") {
+            val db = freshDb()
+            db.seedTestUser("u-1")
+            val mutClock = MutableClock(Instant.parse("2026-05-02T12:00:00Z"))
+            val svc = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = mutClock)
+            val issued = svc.createSession(UserId("u-1"))
+            val first = svc.rotate(issued.refreshToken).shouldNotBeNull()
+            val firstRotatedAt =
+                db.sessionsQueries
+                    .selectById(issued.sessionId.value)
+                    .executeAsOne()
+                    .rotated_at
+                    .shouldNotBeNull()
+            mutClock.instant = mutClock.instant + 1.minutes
+            svc.rotate(first.refreshToken).shouldNotBeNull()
+
+            // A request that read the row before the second rotation writes its confirmation late.
+            db.sessionsQueries.confirmRotation(
+                confirmed_at = mutClock.instant.toEpochMilliseconds(),
+                id = issued.sessionId.value,
+                rotated_at = firstRotatedAt,
+            )
+
+            db.sessionsQueries
+                .selectById(issued.sessionId.value)
+                .executeAsOne()
+                .rotation_confirmed_at shouldBe null
+        }
+
         test("the grace window is exactly 30 minutes, and its final millisecond is inside it") {
             // The 14 min / 16 min cases elsewhere in this file are satisfied by ANY window in
             // [14, 16) — the number itself was untested. These pin it to the millisecond, and pin

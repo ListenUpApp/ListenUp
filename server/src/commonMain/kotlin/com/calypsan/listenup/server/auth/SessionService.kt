@@ -10,6 +10,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Sessions
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.logging.loggerFor
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlin.time.Duration
@@ -147,10 +148,13 @@ class SessionService(
      * **Security trade-off.** A thief holding the pre-rotation refresh token who replays it before
      * the rightful client has used any access token from the newer rotation takes over the session;
      * the rightful client's next refresh then fails as unknown, which is the visible signal. The
-     * exposure is no longer a fixed 30 minutes but "until the client's first authenticated call
-     * after rotating" — normally seconds for a live client, but unbounded in the lost-reply case
-     * itself, because there the client never gets that access token and the window stays open until
-     * the old token is replayed. Once the rotation is confirmed, a late replay revokes as before.
+     * exposure is no longer a fixed 30 minutes: it lasts until the new access token first reaches
+     * [isLive] — the first RPC socket connect or bearer HTTP request that carries it. An RPC call on
+     * a socket opened before the rotation does NOT carry it (the socket's principal was bound at its
+     * upgrade), so a client must present the new token deliberately; the shared client does so right
+     * after every rotation it makes. In the lost-reply case itself the window is unbounded, because
+     * there the client never gets that access token and the window stays open until the old token is
+     * replayed. Once the rotation is confirmed, a late replay revokes as before.
      */
     suspend fun rotate(
         token: RefreshToken,
@@ -340,34 +344,57 @@ class SessionService(
      * Whether the session is live (not revoked, not expired) — checked on every authenticated
      * request. When [issuedAtEpochSeconds], the presented access token's `iat`, is at or after the
      * session's latest rotation, that rotation's reply demonstrably reached the client, and this
-     * records it once ([Sessions.rotation_confirmed_at]) for [rotate]'s lost-reply rule.
+     * records it ([Sessions.rotation_confirmed_at]) for [rotate]'s lost-reply rule.
      *
-     * Hot path: the common case is a read only. The write happens at most once per rotation — the
-     * first confirming request; a concurrent burst races on a conditional UPDATE that only an
-     * unconfirmed row matches, and every later request sees the stamp and skips it. `iat` has
-     * one-second resolution, so a token minted in the same second as, but before, a rotation would
-     * also confirm it; that needs two rotations within one second, and errs toward revoking.
+     * Hot path: the common case is one read. The confirmation write is a SEPARATE, short transaction
+     * after the read, and best-effort: a write that fails (SQLITE_BUSY under WAL contention past the
+     * busy timeout) is logged and the request still authenticates — confirmation is bookkeeping for
+     * a later replay decision, never a reason to reject a live session. A missed confirmation only
+     * leaves a late replay of the previous token re-rotating instead of revoking; the next request
+     * carrying the new token tries again.
+     *
+     * The write is a conditional UPDATE that only an unconfirmed row whose `rotated_at` still equals
+     * the one read here can match. So a burst of concurrent first requests writes at most once, and
+     * a rotation that lands between the read and the write is never confirmed by the old rotation's
+     * token. `iat` has one-second resolution, so a token minted in the same second as, but before, a
+     * rotation also confirms it; that needs two rotations within one second, and errs toward revoking.
      */
     suspend fun isLive(
         sessionId: SessionId,
         issuedAtEpochSeconds: Long? = null,
-    ): Boolean =
-        suspendTransaction(db) {
-            val s =
+    ): Boolean {
+        val s: Sessions =
+            suspendTransaction<Sessions?>(db) {
                 db.sessionsQueries
                     .selectById(id = sessionId.value)
                     .executeAsOneOrNull()
-                    ?: return@suspendTransaction false
-            val now = clock.now().toEpochMilliseconds()
-            val live = s.revoked_at == null && s.expires_at > now
-            val rotatedAt = s.rotated_at
-            if (live && s.rotation_confirmed_at == null && rotatedAt != null &&
-                mintedSince(issuedAtEpochSeconds, rotatedAt)
-            ) {
-                db.sessionsQueries.confirmRotation(confirmed_at = now, id = s.id, rotated_at = rotatedAt)
-            }
-            live
+            } ?: return false
+        val now = clock.now().toEpochMilliseconds()
+        val live = s.revoked_at == null && s.expires_at > now
+        val rotatedAt = s.rotated_at
+        if (live && s.rotation_confirmed_at == null && rotatedAt != null &&
+            mintedSince(issuedAtEpochSeconds, rotatedAt)
+        ) {
+            confirmRotationBestEffort(s.id, rotatedAt, now)
         }
+        return live
+    }
+
+    private suspend fun confirmRotationBestEffort(
+        id: String,
+        rotatedAt: Long,
+        now: Long,
+    ) {
+        try {
+            suspendTransaction(db) {
+                db.sessionsQueries.confirmRotation(confirmed_at = now, id = id, rotated_at = rotatedAt)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "Could not record rotation confirmation for session=$id; the request still authenticates" }
+        }
+    }
 
     /** Whether an access token issued at [issuedAtEpochSeconds] was minted at or after [rotatedAtMillis]. */
     private fun mintedSince(
