@@ -246,6 +246,8 @@ final class FakeSleepTiming: SleepTiming {
     func setDurationTimer(minutes: Int) {}
     func setEndOfChapterTimer() {}
     func cancelTimer() {}
+    private(set) var extensions: [Int] = []
+    func extendTimer(minutes: Int) { extensions.append(minutes) }
 
     // The fake is `@MainActor` (its `SleepTiming` protocol is), so a predicate closure
     // reading `self` can't cross into the non-isolated gate. Use the keyed API, which keeps

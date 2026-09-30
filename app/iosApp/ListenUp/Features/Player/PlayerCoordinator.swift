@@ -148,7 +148,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private let preparer: PlaybackPreparing
     /// Internal, not private — see `engine` above.
     let progress: PlaybackProgressReporting
-    private let sleep: SleepTiming
+    let sleep: SleepTiming
     private let documentProvider: BookDocumentProviding
     /// Reactive source of the user's skip-interval settings — observed so transport, glyphs and
     /// lock-screen controls track a mid-session change. Optional so fake-injected tests skip it.
@@ -503,10 +503,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
         let interval = seconds ?? skipBackwardSec
         seekTo(positionMs: max(bookPositionMs - Int64(interval) * 1000, 0))
     }
-
-    func setSleepTimer(minutes: Int) { sleep.setDurationTimer(minutes: minutes) }
-    func setSleepTimerEndOfChapter() { sleep.setEndOfChapterTimer() }
-    func cancelSleepTimer() { sleep.cancelTimer() }
 
     /// Download the current book's first PDF (if needed) and set `documentToOpen`
     /// to present `DocumentReaderView`. Audio playback is not affected.

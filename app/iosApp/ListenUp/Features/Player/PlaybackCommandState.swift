@@ -14,14 +14,23 @@ struct PlaybackCommandState: Equatable {
     let canSeek: Bool
     let hasPreviousChapter: Bool
     let hasNextChapter: Bool
+    /// "Add more time" can run: a countdown is ticking on a loaded book. An end-of-chapter timer
+    /// has no countdown to grow (`SleepTimerOption.canExtend`).
+    let canExtendSleepTimer: Bool
 
     /// Nothing loaded — or no window is showing the tab shell.
     static let unavailable = PlaybackCommandState(
         canTogglePlayback: false, showsPause: false, canSeek: false,
-        hasPreviousChapter: false, hasNextChapter: false
+        hasPreviousChapter: false, hasNextChapter: false, canExtendSleepTimer: false
     )
 
-    static func from(phase: PlayerPhase, chapterIndex: Int, totalChapters: Int) -> PlaybackCommandState {
+    static func from(
+        phase: PlayerPhase,
+        chapterIndex: Int,
+        totalChapters: Int,
+        sleepTimerActive: Bool = false,
+        sleepTimerIsEndOfChapter: Bool = false
+    ) -> PlaybackCommandState {
         let isLoaded = phase.playingState != nil
         let isErrored: Bool = if case .error = phase { true } else { false }
         let isActive: Bool = switch phase {
@@ -33,7 +42,10 @@ struct PlaybackCommandState: Equatable {
             showsPause: isLoaded && isActive,
             canSeek: isLoaded,
             hasPreviousChapter: isLoaded && chapterIndex > 0,
-            hasNextChapter: isLoaded && chapterIndex < totalChapters - 1
+            hasNextChapter: isLoaded && chapterIndex < totalChapters - 1,
+            canExtendSleepTimer: isLoaded && SleepTimerOption.canExtend(
+                isActive: sleepTimerActive, isEndOfChapter: sleepTimerIsEndOfChapter
+            )
         )
     }
 }
