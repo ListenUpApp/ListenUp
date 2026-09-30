@@ -7,6 +7,7 @@ import Shared
 /// - In the compact tab bar a segmented `Picker` switches the sections (HIG, Segmented controls:
 ///   "consider a segmented control to switch between closely related subviews"). It replaces the
 ///   swipe pager and chip row, which hid the sections behind a gesture and drew their own selection.
+///   It is the first row of every section's scroll view (`LibrarySectionPicker`), not a pinned bar.
 /// - In the iPad sidebar each section is its own entry, so there is no picker and the title names
 ///   the section (`LibraryChrome`).
 /// - The section's sort lives in the toolbar's Sort menu; its count is the navigation subtitle.
@@ -39,13 +40,6 @@ struct LibraryView: View {
                 loadingState
             }
         }
-        // The picker sits in a top bar of its own, under the large title, where the scroll edge
-        // effect treats it as chrome rather than content (HIG, Toolbars).
-        .safeAreaBar(edge: .top) {
-            if chrome.showsSectionPicker, !isSelecting {
-                sectionPicker
-            }
-        }
         .navigationTitle(chrome.title(section: selectedTab))
         .navigationSubtitle(sectionCount ?? "")
         // While selecting, collapse the large "Library" title so the toolbar's principal item shows
@@ -74,20 +68,11 @@ struct LibraryView: View {
 
     // MARK: - Section picker
 
-    /// Text-only segments with noun labels (HIG, Segmented controls: "prefer using either text or
-    /// images — not a mix of both"; "use nouns or noun phrases for segment labels"). Four segments
-    /// sit within the HIG's "no more than about five segments on iPhone".
-    private var sectionPicker: some View {
-        Picker(String(localized: "common.library"), selection: $selectedTab) {
-            ForEach(LibraryTab.allCases) { section in
-                Text(section.title).tag(section)
-            }
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        .padding(.horizontal, Spacing.m)
-        .padding(.bottom, Spacing.xs)
-        .haptic(.selectionTick, trigger: selectedTab)
+    /// The section switcher each section shows as its first row; none in the iPad sidebar (where
+    /// the sidebar switches) or while selecting books.
+    private var sectionPicker: LibrarySectionPicker? {
+        guard chrome.showsSectionPicker, !isSelecting else { return nil }
+        return LibrarySectionPicker(selection: $selectedTab)
     }
 
     /// The section's size, e.g. "24 series", shown as the navigation subtitle.
@@ -203,26 +188,30 @@ struct LibraryView: View {
                 errorMessage: observer.errorMessage,
                 ignoreTitleArticles: observer.ignoreTitleArticles,
                 onRefresh: { observer.refresh() },
-                selection: selection
+                selection: selection,
+                picker: sectionPicker
             )
         case .series:
             SeriesContent(
                 seriesList: observer.series,
                 seriesProgress: observer.seriesProgress,
                 sortState: observer.seriesSortState,
-                letterIndex: observer.seriesLetterIndex
+                letterIndex: observer.seriesLetterIndex,
+                picker: sectionPicker
             )
         case .authors:
             ContributorListContent(
                 sections: observer.authorSections,
                 sortState: observer.authorsSortState,
-                roleKind: .author
+                roleKind: .author,
+                picker: sectionPicker
             )
         case .narrators:
             ContributorListContent(
                 sections: observer.narratorSections,
                 sortState: observer.narratorsSortState,
-                roleKind: .narrator
+                roleKind: .narrator,
+                picker: sectionPicker
             )
         }
     }
@@ -231,6 +220,7 @@ struct LibraryView: View {
 
     private var loadingState: some View {
         ScrollView {
+            sectionPicker?.headerRow(horizontalMargin: Spacing.m)
             LazyVGrid(
                 columns: [GridItem(.adaptive(minimum: 150), spacing: 16)],
                 spacing: 20

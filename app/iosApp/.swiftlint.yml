@@ -162,6 +162,19 @@ custom_rules:
       system draws the bar's scroll-edge effect (HIG, Toolbars).
     severity: error
 
+  # On iOS 26.5 a top `.safeAreaBar` under a large navigation title draws its scroll-edge effect over
+  # the title: "Library" rendered blurred and washed out whenever a scroll view sat beneath the
+  # section picker's bar (Pass 7 Simulator matrix). Content under a large title scrolls with the
+  # list instead, like `LibrarySectionPicker`. The regex anchors at the start of a file that sets a
+  # navigation title and matches any top `safeAreaBar` in it.
+  top_bar_under_navigation_title:
+    name: "Top bar under a navigation title"
+    regex: '(?s)\A(?=.*\.navigationTitle\().*?\.safeAreaBar\(\s*edge:\s*\.top\b'
+    message: >-
+      A top `safeAreaBar` blurs the large title above it on iOS 26.5. Make the content the first
+      row of the scroll view, as `LibrarySectionPicker` does (HIG, Toolbars).
+    severity: error
+
   # A literal `.system(size:)` never follows Dynamic Type. 65 of them reached the app, ~7 on text a
   # reader reads — a 10.5pt "THIS DEVICE" badge, a licence body, hero percentages (2026-09-29 iOS
   # audit, accessibility). HIG, Typography: "Make sure your app's layout adapts to all font sizes."

@@ -17,6 +17,8 @@ struct SeriesContent: View {
     /// once per content change by `LibraryObserver` rather than on every render of this body
     /// (2026-09-29 iOS audit, performance).
     let letterIndex: [(letter: String, firstId: String)]
+    /// The section switcher, shown as the first row in every state; `nil` in the iPad sidebar.
+    var picker: LibrarySectionPicker?
 
     @Environment(\.horizontalSizeClass) private var sizeClass
 
@@ -41,6 +43,7 @@ struct SeriesContent: View {
 
         return ScrollViewReader { proxy in
             ScrollView {
+                picker?.headerRow(horizontalMargin: horizontalMargin)
                 Group {
                     if sizeClass == .compact {
                         iPhoneList
@@ -124,10 +127,12 @@ struct SeriesContent: View {
     // MARK: - Empty State
 
     private var emptyState: some View {
-        ContentUnavailableView(
-            String(format: String(localized: "common.no_items_yet"), "series"),
-            systemImage: "books.vertical",
-            description: Text(String(format: String(localized: "library.empty_tab_description"), "Series"))
-        )
+        LibrarySectionState(picker: picker) {
+            ContentUnavailableView(
+                String(format: String(localized: "common.no_items_yet"), "series"),
+                systemImage: "books.vertical",
+                description: Text(String(format: String(localized: "library.empty_tab_description"), "Series"))
+            )
+        }
     }
 }

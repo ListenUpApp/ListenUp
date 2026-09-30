@@ -17,6 +17,8 @@ struct ContributorListContent: View {
     let sections: [ContributorLetterGrouping.Group]
     let sortState: SortState?
     let roleKind: RoleChip.Kind
+    /// The section switcher, shown as the first row in every state; `nil` in the iPad sidebar.
+    var picker: LibrarySectionPicker?
 
     @State private var isScrolling = false
     @State private var scrollTarget: String?
@@ -84,6 +86,14 @@ struct ContributorListContent: View {
 
     private var list: some View {
         List {
+            // The switcher as the list's first row: clear, edge to edge within the inset column.
+            if let picker {
+                Section {
+                    picker
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                }
+            }
             ForEach(sections, id: \.letter) { group in
                 Section {
                     ForEach(group.items) { person in
@@ -99,6 +109,7 @@ struct ContributorListContent: View {
 
     private func grid(columns: Int) -> some View {
         ScrollView {
+            picker?.headerRow(horizontalMargin: Spacing.xxl)
             LazyVGrid(
                 columns: Array(repeating: GridItem(.flexible(), spacing: 16, alignment: .top), count: columns),
                 alignment: .leading,
@@ -127,7 +138,7 @@ struct ContributorListContent: View {
     }
 
     private var emptyState: some View {
-        ScrollView {
+        LibrarySectionState(picker: picker) {
             ContentUnavailableView(
                 String(localized: "library.contributors_empty"),
                 systemImage: isAuthors ? "person.fill" : "waveform.circle.fill",
@@ -136,9 +147,7 @@ struct ContributorListContent: View {
                     String(localized: isAuthors ? "library.authors" : "library.narrators")
                 ))
             )
-            .frame(maxWidth: .infinity, minHeight: 360)
         }
-        .scrollContentBackground(.hidden)
         .background(Color.luSurface)
     }
 }

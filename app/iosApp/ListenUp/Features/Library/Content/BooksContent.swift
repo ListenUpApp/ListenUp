@@ -22,6 +22,8 @@ struct BooksContent: View {
     /// Drives multi-select on the grid. When `isSelecting`, taps toggle selection instead of
     /// navigating; a long-press is the secondary entry into selection mode.
     let selection: BookSelectionObserver
+    /// The section switcher, shown as the first row in every state; `nil` in the iPad sidebar.
+    var picker: LibrarySectionPicker?
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -77,6 +79,7 @@ struct BooksContent: View {
         // carries its `.id` anchor so the scrubber's `scrollTo` still lands on the letter.
         return ScrollViewReader { proxy in
             ScrollView {
+                picker?.headerRow(horizontalMargin: layout.sideMargin)
                 LazyVGrid(columns: columns, alignment: .leading, spacing: layout.gridSpacing) {
                     ForEach(letterSections) { section in
                         Section {
@@ -191,6 +194,7 @@ struct BooksContent: View {
 
     private var loadingGrid: some View {
         ScrollView {
+            picker?.headerRow(horizontalMargin: layout.sideMargin)
             LazyVGrid(columns: columns, spacing: 20) {
                 ForEach(0 ..< 8, id: \.self) { _ in
                     BookCoverShimmer()
@@ -204,16 +208,24 @@ struct BooksContent: View {
     // MARK: - Empty State
 
     private var emptyState: some View {
-        ContentUnavailableView(
-            String(localized: "library.empty_title"),
-            systemImage: "books.vertical",
-            description: Text(String(localized: "library.empty_description"))
-        )
+        LibrarySectionState(picker: picker) {
+            ContentUnavailableView(
+                String(localized: "library.empty_title"),
+                systemImage: "books.vertical",
+                description: Text(String(localized: "library.empty_description"))
+            )
+        }
     }
 
     // MARK: - Error State
 
     private func errorState(message: String) -> some View {
+        LibrarySectionState(picker: picker) {
+            errorContent(message: message)
+        }
+    }
+
+    private func errorContent(message: String) -> some View {
         ContentUnavailableView {
             Label(String(localized: "library.sync_failed"), systemImage: "exclamationmark.triangle")
         } description: {
