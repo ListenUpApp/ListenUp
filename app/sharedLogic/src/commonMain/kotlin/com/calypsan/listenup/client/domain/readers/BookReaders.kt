@@ -29,6 +29,8 @@ data class BookReaders(
  *   otherwise. Non-null ⇒ reading now.
  * @property finishes Dated completions (epoch ms), newest-first; may be empty.
  * @property rating This reader's rating of the book, when they left one.
+ * @property hardcoverFinishes Reads logged on Hardcover and pulled (#601 B3), epoch ms newest-first.
+ *   Apart from [finishes] so every surface can badge them; they never count as listening.
  */
 data class Reader(
     val userId: String,
@@ -37,4 +39,5 @@ data class Reader(
     val currentProgressPct: Int?,
     val finishes: List<Long>,
     val rating: ListenerRating? = null,
+    val hardcoverFinishes: List<Long> = emptyList(),
 )

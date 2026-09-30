@@ -276,3 +276,16 @@ internal val MIGRATION_10_11 =
             connection.executeDdl("DELETE FROM `sync_cursor` WHERE `domainName` = 'book_external_ratings'")
         }
     }
+
+/**
+ * v11 → v12: `book_readership.hardcoverFinishesJson` — the reads a reader logged on Hardcover (#601 B3),
+ * cached beside their ListenUp finishes so the Readers section badges them offline too. Pure
+ * `ADD COLUMN` with an empty default, per the migration policy in [ListenUpDatabase]: a cached reader
+ * simply has no Hardcover reads until the next readership refresh.
+ */
+internal val MIGRATION_11_12 =
+    object : Migration(11, 12) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE `book_readership` ADD COLUMN `hardcoverFinishesJson` TEXT NOT NULL DEFAULT ''")
+        }
+    }
