@@ -5,6 +5,10 @@ import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.server.hardcover.HardcoverBookLinking
+import com.calypsan.listenup.server.hardcover.HardcoverPushHook
+import com.calypsan.listenup.server.hardcover.HardcoverPushRecorder
+import com.calypsan.listenup.server.hardcover.HardcoverPushWorker
 import com.calypsan.listenup.server.hardcover.HardcoverTokenProvider
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.testing.authedService
@@ -15,6 +19,7 @@ import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.flow.first
@@ -58,12 +63,26 @@ class HardcoverModuleBootTest :
                 application {
                     module()
                     koinGet<HardcoverTokenProvider>().shouldNotBeNull()
+                    koinGet<HardcoverPushWorker>().shouldNotBeNull()
+                    koinGet<HardcoverPushHook>().shouldBeInstanceOf<HardcoverPushRecorder>()
+                    koinGet<HardcoverBookLinking>().shouldNotBeNull()
                 }
 
                 val service = authedService<HardcoverService>(rootToken())
 
                 service.observeConnection().first() shouldBe RpcEvent.Data(HardcoverConnection.NotConnected())
                 service.disconnect().shouldSucceed()
+            }
+        }
+    
+        test("hardcover.apiBaseUrl points the Hardcover clients at another host") {
+            testApplication {
+                useIsolatedTestConfig(hardcoverClientId = "listenup-test-client", hardcoverApiBaseUrl = "http://127.0.0.1:9")
+                application { module() }
+                val service = authedService<HardcoverService>(rootToken())
+                // Port 9 (discard) refuses the device request, so the sign-in fails as unreachable —
+                // proof the configured host, not api.hardcover.app, was asked.
+                service.startLink().shouldFailWith<HardcoverError.Unavailable>()
             }
         }
     })

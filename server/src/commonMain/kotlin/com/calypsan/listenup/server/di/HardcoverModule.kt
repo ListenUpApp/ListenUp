@@ -52,18 +52,22 @@ private val HARDCOVER_HTTP = named("hardcoverHttp")
  * `Application.resolveHardcoverClientId`). The graph is built either way, so watching and
  * disconnecting keep working; only [HardcoverService.startLink] refuses, with NotConfigured.
  *
+ * [apiBaseUrl] is where both clients send requests (`hardcover.apiBaseUrl`, resolved by
+ * `Application.resolveHardcoverApiBaseUrl`): Hardcover itself, unless a test points it at a fake.
+ *
  * The cipher's key derives from the JWT secret, so a backup restored onto a server with a different
  * secret reads its connections as broken instead of handing out someone else's tokens.
  */
 fun hardcoverModule(
     clientId: String?,
+    apiBaseUrl: String,
     applicationScope: CoroutineScope,
 ): Module =
     module {
         single { HardcoverTokenCipher(HardcoverTokenCipher.deriveKey(get<JwtConfiguration>().secret)) }
         single(HARDCOVER_HTTP) { hardcoverHttpClient() }
-        single { HardcoverOAuthClient(http = get(HARDCOVER_HTTP), clientId = clientId.orEmpty()) }
-        single { HardcoverGraphQlClient(http = get(HARDCOVER_HTTP)) }
+        single { HardcoverOAuthClient(http = get(HARDCOVER_HTTP), clientId = clientId.orEmpty(), apiBaseUrl = apiBaseUrl) }
+        single { HardcoverGraphQlClient(http = get(HARDCOVER_HTTP), apiBaseUrl = apiBaseUrl) }
         single { HardcoverConnectionStore(sql = get(), cipher = get(), clock = get()) }
         single {
             HardcoverLinker(

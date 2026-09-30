@@ -117,6 +117,7 @@ fun playbackModule(
                 publicProfileMaintainer = get(),
                 activityRecorder = get(),
                 statsBackfill = get(),
+                hardcoverPush = get(),
             )
         }
         single(createdAtStart = true) {

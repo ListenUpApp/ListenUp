@@ -5,6 +5,7 @@ package com.calypsan.listenup.server
 import com.calypsan.listenup.server.auth.RootResetToken
 import com.calypsan.listenup.server.db.DataDirLock
 import com.calypsan.listenup.server.db.resolveListenupHome
+import com.calypsan.listenup.server.hardcover.HARDCOVER_API_BASE_URL
 import com.calypsan.listenup.server.io.readEnv
 import com.calypsan.listenup.server.io.userHomeDir
 import com.calypsan.listenup.server.push.PushConfig
@@ -233,6 +234,19 @@ internal fun Application.resolveHardcoverClientId(): String? {
     val fromEnv = readEnv("LISTENUP_HARDCOVER_CLIENT_ID")
     return (fromConfig ?: fromEnv)?.trim()?.takeIf { it.isNotEmpty() }
 }
+
+/**
+ * The Hardcover API's base URL: `hardcover.apiBaseUrl`, else [HARDCOVER_API_BASE_URL]. Blank reads as
+ * the default. Tests point it at a fake Hardcover; an operator could point it at a staging instance.
+ */
+internal fun Application.resolveHardcoverApiBaseUrl(): String =
+    environment.config
+        .propertyOrNull("hardcover.apiBaseUrl")
+        ?.getString()
+        ?.trim()
+        ?.trimEnd('/')
+        ?.takeIf { it.isNotEmpty() }
+        ?: HARDCOVER_API_BASE_URL
 
 internal fun ApplicationConfig.rescanOnStartup(): Boolean =
     propertyOrNull("scan.rescanOnStartup")?.getString()?.toBoolean() ?: true

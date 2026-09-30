@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server
 
+import com.calypsan.listenup.server.hardcover.HARDCOVER_API_BASE_URL
 import com.calypsan.listenup.server.hardcover.HARDCOVER_LISTENUP_CLIENT_ID
 
 /**
@@ -65,4 +66,7 @@ internal val SERVER_CONFIG_DEFAULTS: List<ServerConfigDefault> =
         // ListenUp's registered app, so every install can connect Hardcover with no setup. An operator
         // who sets it empty turns the integration off: connecting answers "not set up".
         ServerConfigDefault("hardcover.clientId", HARDCOVER_LISTENUP_CLIENT_ID, "LISTENUP_HARDCOVER_CLIENT_ID"),
+        // Where the Hardcover clients send requests. Only a test (pointing a real server at a fake
+        // Hardcover) or an operator trying a Hardcover staging instance changes it; no env var.
+        ServerConfigDefault("hardcover.apiBaseUrl", HARDCOVER_API_BASE_URL, null),
     )

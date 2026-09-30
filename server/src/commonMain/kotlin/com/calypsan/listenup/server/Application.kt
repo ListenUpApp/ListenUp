@@ -33,6 +33,7 @@ fun Application.module() {
     val pushRelayUrl = resolvePushRelayUrl()
     val pushSenderToken = resolvePushSenderToken()
     val hardcoverClientId = resolveHardcoverClientId()
+    val hardcoverApiBaseUrl = resolveHardcoverApiBaseUrl()
 
     installDependencies(
         seedProfile,
@@ -44,6 +45,7 @@ fun Application.module() {
         pushRelayUrl,
         pushSenderToken,
         hardcoverClientId,
+        hardcoverApiBaseUrl,
     )
 
     backfillPublicProfiles()
