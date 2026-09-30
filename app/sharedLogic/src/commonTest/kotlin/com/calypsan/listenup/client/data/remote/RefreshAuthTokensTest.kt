@@ -22,6 +22,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.ktor.http.URLProtocol
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 
@@ -135,6 +136,31 @@ class RefreshAuthTokensTest :
                 shouldThrow<TransientAuthRefreshException> {
                     refreshAuthTokens(authSession) { AppResult.Failure(AuthError.CredentialsUnavailable()) }
                 }
+            }
+        }
+
+        // M3: the WebSocket branch. An RPC upgrade's 401 must come back as a 401 (null here) so
+        // RpcAuthRecovery can classify it; only blob requests raise the transient failure.
+        test("a transient refresh failure on an RPC socket upgrade hands the 401 back for RPC recovery") {
+            runTest {
+                val authSession = mock<AuthSession>()
+                val failing: RefreshAccessToken = { AppResult.Failure(InternalError()) }
+
+                bearerRefreshFor(URLProtocol.WS, authSession, failing).shouldBeNull()
+                bearerRefreshFor(URLProtocol.WSS, authSession, failing).shouldBeNull()
+                shouldThrow<TransientAuthRefreshException> { bearerRefreshFor(URLProtocol.HTTP, authSession, failing) }
+                shouldThrow<TransientAuthRefreshException> { bearerRefreshFor(URLProtocol.HTTPS, authSession, failing) }
+            }
+        }
+
+        test("a dead refresh token lapses the session on a socket upgrade too") {
+            runTest {
+                val authSession = mock<AuthSession>()
+                everySuspend { authSession.clearSessionCredentials() } returns Unit
+
+                bearerRefreshFor(URLProtocol.WS, authSession) { AppResult.Failure(AuthError.SessionExpired()) }.shouldBeNull()
+
+                verifySuspend { authSession.clearSessionCredentials() }
             }
         }
 

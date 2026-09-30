@@ -327,15 +327,7 @@ internal class KtorApiClientFactory(
 
                     // Refresh tokens when receiving 401 Unauthorized
                     refreshTokens {
-                        try {
-                            refreshAuthTokens(authSession, refreshAccessToken)
-                        } catch (e: TransientAuthRefreshException) {
-                            // An RPC socket's upgrade 401 is healed by RpcAuthRecovery, which needs to
-                            // SEE that 401 to classify it — so hand it back. A blob request has no such
-                            // heal: its 401 would read as SessionExpired and lapse the session.
-                            val protocol = response.call.request.url.protocol
-                            if (protocol == URLProtocol.WS || protocol == URLProtocol.WSS) null else throw e
-                        }
+                        bearerRefreshFor(response.call.request.url.protocol, authSession, refreshAccessToken)
                     }
 
                     // Send bearer for every request EXCEPT auth endpoints (login, refresh,
@@ -462,6 +454,23 @@ internal class KtorApiClientFactory(
         }
     }
 }
+
+/**
+ * The bearer plugin's refresh, per transport. An RPC socket's upgrade 401 is healed by
+ * [RpcAuthRecovery], which needs to SEE that 401 to classify it — so a transient failure there
+ * hands the 401 back (null). A blob request has no such heal: its 401 would read as SessionExpired
+ * and lapse the session, so the transient failure is raised instead ([refreshAuthTokens]).
+ */
+internal suspend fun bearerRefreshFor(
+    protocol: URLProtocol,
+    authSession: AuthSession,
+    refreshAccessToken: RefreshAccessToken,
+): BearerTokens? =
+    try {
+        refreshAuthTokens(authSession, refreshAccessToken)
+    } catch (e: TransientAuthRefreshException) {
+        if (protocol == URLProtocol.WS || protocol == URLProtocol.WSS) null else throw e
+    }
 
 /**
  * Bridges the bearer plugin's `refreshTokens { }` block to
