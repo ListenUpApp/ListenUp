@@ -1,6 +1,8 @@
 package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
+import org.jetbrains.compose.web.dom.P
+import org.jetbrains.compose.web.dom.Text
 
 /**
  * Asks before something irreversible happens.
@@ -25,6 +27,11 @@ import androidx.compose.runtime.Composable
  *
  * @param confirmLabel The verb, not "OK" — someone reading only the buttons should still know what
  *   is about to happen.
+ * @param error Why the last attempt was refused, rendered inside the dialog and announced. A caller
+ *   that keeps the dialog open on failure needs this: the refusal is only useful where the decision
+ *   is being made, and a toast over a dialog that still says "are you sure?" reads as success.
+ * @param confirmEnabled False while the confirmed work is in flight, so a second press cannot race
+ *   the first.
  */
 @Composable
 fun ConfirmDialog(
@@ -34,9 +41,22 @@ fun ConfirmDialog(
     confirmLabel: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    error: String? = null,
+    confirmEnabled: Boolean = true,
 ) {
     ModalDialog(open = open, title = title, onDismiss = onDismiss) {
         DialogText(body)
-        DialogActions(confirmLabel = confirmLabel, onConfirm = onConfirm, onDismiss = onDismiss)
+        error?.let { message ->
+            P(attrs = {
+                classes("dlg-err")
+                attr("role", "alert")
+            }) { Text(message) }
+        }
+        DialogActions(
+            confirmLabel = confirmLabel,
+            onConfirm = onConfirm,
+            onDismiss = onDismiss,
+            confirmEnabled = confirmEnabled,
+        )
     }
 }

@@ -19,6 +19,19 @@ private fun menuItems(host: HTMLElement): List<String> =
         .filterIsInstance<HTMLElement>()
         .map { it.textContent.orEmpty().trim() }
 
+private const val CANCEL = 0
+
+private const val CONFIRM = 1
+
+private fun dialogButton(
+    host: HTMLElement,
+    index: Int,
+): HTMLElement = host.querySelectorAll("dialog.dlg .dlg-actions button").item(index) as HTMLElement
+
+private fun dialogTitle(host: HTMLElement): String? = host.querySelector("dialog.dlg .dlg-t")?.textContent
+
+private fun dialogBody(host: HTMLElement): String? = host.querySelector("dialog.dlg .dlg-p")?.textContent
+
 private fun item(
     host: HTMLElement,
     label: String,
@@ -50,6 +63,7 @@ class BookActionsMenuTest :
             onAddToShelf: () -> Unit = {},
             onAddToCollection: () -> Unit = {},
             onShare: () -> Unit = {},
+            onDeleteBook: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
                 BookActionsMenu(
@@ -60,6 +74,7 @@ class BookActionsMenuTest :
                     onAddToShelf = onAddToShelf,
                     onAddToCollection = onAddToCollection,
                     onShare = onShare,
+                    onDeleteBook = onDeleteBook,
                 )
             }
 
@@ -93,7 +108,7 @@ class BookActionsMenuTest :
             menuItems(host) shouldContainExactly listOf("Mark as not started", "Restart book", "Add to shelf", "Share")
         }
 
-        test("each action reports itself") {
+        test("each action reports itself — the two that erase progress only once confirmed") {
             var completed = 0
             var discarded = 0
             var restarted = 0
@@ -114,12 +129,90 @@ class BookActionsMenuTest :
             openMenu(host)
             item(host, "Mark as not started").shouldNotBeNull().click()
             awaitFrame()
+            discarded shouldBe 0
+            dialogButton(host, CONFIRM).click()
+            awaitFrame()
             discarded shouldBe 1
 
             openMenu(host)
             item(host, "Restart book").shouldNotBeNull().click()
             awaitFrame()
+            restarted shouldBe 0
+            dialogButton(host, CONFIRM).click()
+            awaitFrame()
             restarted shouldBe 1
+        }
+
+        test("Mark as not started asks first, in the natives' words") {
+            // ⛔ Both natives confirm this; web used to clear a reader's progress on one stray click.
+            val host = openMenu(menu(readyBook().copy(progress = 0.4f)))
+
+            item(host, "Mark as not started").shouldNotBeNull().click()
+            awaitFrame()
+
+            dialogTitle(host) shouldBe "Mark as not started"
+            dialogBody(host) shouldBe "Clear your progress and mark this as not started?"
+            dialogButton(host, CONFIRM).textContent shouldBe "Mark as not started"
+        }
+
+        test("Restart book asks first, in the natives' words") {
+            val host = openMenu(menu(readyBook().copy(progress = 0.4f)))
+
+            item(host, "Restart book").shouldNotBeNull().click()
+            awaitFrame()
+
+            dialogTitle(host) shouldBe "Restart book"
+            dialogBody(host) shouldBe
+                "Start over from the beginning? This resets your position to the start of the book."
+            dialogButton(host, CONFIRM).textContent shouldBe "Restart book"
+        }
+
+        test("cancelling either confirmation changes nothing") {
+            var discarded = 0
+            var restarted = 0
+            val host =
+                openMenu(
+                    menu(
+                        readyBook().copy(progress = 0.4f),
+                        onDiscardProgress = { discarded++ },
+                        onRestart = { restarted++ },
+                    ),
+                )
+
+            item(host, "Mark as not started").shouldNotBeNull().click()
+            awaitFrame()
+            dialogButton(host, CANCEL).click()
+            awaitFrame()
+            host.querySelector("dialog.dlg").shouldBeNull()
+
+            openMenu(host)
+            item(host, "Restart book").shouldNotBeNull().click()
+            awaitFrame()
+            dialogButton(host, CANCEL).click()
+            awaitFrame()
+
+            discarded shouldBe 0
+            restarted shouldBe 0
+            host.querySelector("dialog.dlg").shouldBeNull()
+        }
+
+        test("an admin is offered Delete book, last, and choosing it asks for the dialog") {
+            var asked = 0
+            val host = openMenu(menu(readyBook().copy(isAdmin = true), onDeleteBook = { asked++ }))
+
+            menuItems(host).last() shouldBe "Delete book…"
+            item(host, "Delete book…").shouldNotBeNull().click()
+            awaitFrame()
+
+            asked shouldBe 1
+        }
+
+        test("a member is never offered Delete book") {
+            // ⛔ Deleting removes a folder from the server's disk. Admin-gated on every client and
+            // refused server-side too — the menu must not even suggest it to a member.
+            val host = openMenu(menu(readyBook().copy(isAdmin = false)))
+
+            item(host, "Delete book…").shouldBeNull()
         }
 
         test("choosing an action closes the menu") {

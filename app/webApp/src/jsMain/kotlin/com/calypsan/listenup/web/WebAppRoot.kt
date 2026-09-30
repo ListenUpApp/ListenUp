@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsEvent
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailNavAction
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookedit.BookEditNavAction
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailNavAction
@@ -1672,6 +1673,18 @@ private fun BookRouteContent(
     // composition. `rememberCoroutineScope` ties the work to this page: navigate away mid-share and
     // it is cancelled rather than resolving into a toast over a book the reader has left.
     val shareScope = rememberCoroutineScope()
+    LaunchedEffect(detailSession) {
+        detailSession.navActions.collect { action ->
+            if (action is BookDetailNavAction.BookDeleted) {
+                // Leave before the tombstone syncs and the row vanishes underneath the page, and say
+                // why — a page that simply disappears reads as the app losing the reader's place.
+                // (Web keeps no downloads, so there is no local copy to purge as Android does.)
+                val title = (detailSession.state.value as? BookDetailUiState.Ready)?.book?.title
+                router.navigate(Route(listOf(LIBRARY_KEY)))
+                onToast(if (title != null) "“$title” was deleted." else "The book was deleted.")
+            }
+        }
+    }
     BookDetailPage(
         state = detailSession.state.collectAsState().value,
         tab = route.query["tab"] ?: "overview",
@@ -1716,6 +1729,8 @@ private fun BookRouteContent(
         },
         documents = detailSession.documents.collectAsState().value,
         onRetryConnection = detailSession.onRetryConnection,
+        onDeleteBook = detailSession.onDeleteBook,
+        onClearDeleteError = detailSession.onClearDeleteError,
         pickers = bookPickersFor(detailSession),
         onEdit = { router.navigate(Route(listOf(BOOK_KEY, bookId, EDIT_KEY))) },
         onEditChapters = { router.navigate(Route(listOf(BOOK_KEY, bookId, CHAPTERS_KEY))) },

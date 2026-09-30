@@ -38,6 +38,11 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   margin: 0; font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink);
 }
 .luw .dlg-p, dialog.dlg .dlg-p { margin: 0; font-size: 0.9rem; line-height: 1.55; color: var(--ink-2); }
+/* A refusal inside a dialog that stays open for it — the pick-error voice, not a banner. */
+.luw .dlg-err, dialog.dlg .dlg-err {
+  margin: 0; padding: var(--sp-8) var(--sp-12); border-radius: 10px;
+  background: var(--coral-soft); color: var(--coral-text); font-size: var(--fs-small); font-weight: 600;
+}
 .luw .dlg-actions, dialog.dlg .dlg-actions {
   display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 0.5rem; flex-wrap: wrap;
 }
