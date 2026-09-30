@@ -2641,6 +2641,16 @@
         }
       }
     },
+    "admin.upload_books_keep_open": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep ListenUp open until the upload finishes — iOS pauses it soon after you leave."
+          }
+        }
+      }
+    },
     "admin.upload_books_keep_uploading": {
       "localizations": {
         "en": {

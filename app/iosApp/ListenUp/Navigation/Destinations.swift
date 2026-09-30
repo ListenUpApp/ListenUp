@@ -167,6 +167,10 @@ struct LibrarySettingsDestination: Hashable, Codable {}
 /// Management. Sets where books live on disk, and sweeps the existing library into that shape.
 struct OrganizeSettingsDestination: Hashable, Codable {}
 
+/// The Upload Books screen (admin / root users only), reached from Administration › Management.
+/// Streams a picked folder or set of files from this device into the library.
+struct UploadBooksDestination: Hashable, Codable {}
+
 /// The admin Backups screen (admin / root users only), reached from Administration › Management.
 /// Lists server backups; creates, deletes, restores, and restores-from-file.
 struct AdminBackupsDestination: Hashable, Codable {}

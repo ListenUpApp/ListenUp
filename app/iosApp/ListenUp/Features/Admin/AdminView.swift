@@ -301,6 +301,13 @@ struct AdminView: View {
                     subtitle: String(localized: "admin.organize_subtitle")
                 )
             }
+            NavigationLink(value: UploadBooksDestination()) {
+                NavigationActionRow(
+                    systemImage: "square.and.arrow.up.on.square.fill",
+                    title: String(localized: "admin.upload_books"),
+                    subtitle: String(localized: "admin.upload_books_subtitle")
+                )
+            }
             NavigationLink(value: AdminBackupsDestination()) {
                 NavigationActionRow(
                     systemImage: "archivebox.fill",

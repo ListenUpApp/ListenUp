@@ -264,6 +264,7 @@
     <string name="admin_upload_books_finalizing">Adding to your library</string>
     <string name="admin_upload_books_finished_title">Upload finished</string>
     <string name="admin_upload_books_imported">%1$d added</string>
+    <string name="admin_upload_books_keep_open">Keep ListenUp open until the upload finishes — iOS pauses it soon after you leave.</string>
     <string name="admin_upload_books_keep_uploading">Keep uploading</string>
     <string name="admin_upload_books_nothing_found">Nothing to upload — that selection had no files in it.</string>
     <string name="admin_upload_books_step_choose">Choose books</string>
