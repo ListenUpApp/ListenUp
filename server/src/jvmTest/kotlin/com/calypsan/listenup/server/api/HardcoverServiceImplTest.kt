@@ -116,6 +116,7 @@ private class Rig(
                 rateLimiter = HardcoverRateLimiter(),
                 pulls = pulls,
             ),
+            pulls = pulls,
         )
 
     fun serviceFor(userId: String) = unscoped.copyWith(principalOf(userId))
@@ -188,7 +189,31 @@ class HardcoverServiceImplTest :
                     .shouldBeInstanceOf<RpcEvent.Error>()
                     .error
                     .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                unscoped
+                    .syncNow()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                unscoped
+                    .syncIfStale()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                pulls.syncNowCalls shouldBe emptyList()
+                pulls.staleChecks shouldBe emptyList()
                 hardcover.paths shouldBe emptyList()
+            }
+        }
+
+        test("Sync now and the foreground nudge act for the caller, and Sync now passes on the pull's answer") {
+            serviceTest {
+                serviceFor(USER).syncNow() shouldBe AppResult.Success(Unit)
+                serviceFor(OTHER_USER).syncIfStale() shouldBe AppResult.Success(Unit)
+                pulls.syncNowCalls shouldBe listOf(USER)
+                pulls.staleChecks shouldBe listOf(OTHER_USER)
+
+                pulls.syncNowResult = AppResult.Failure(HardcoverError.NotConnected())
+                serviceFor(USER).syncNow().shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<HardcoverError.NotConnected>()
             }
         }
 

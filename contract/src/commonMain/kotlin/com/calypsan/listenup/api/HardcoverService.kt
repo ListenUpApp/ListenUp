@@ -63,4 +63,21 @@ interface HardcoverService {
      * [com.calypsan.listenup.api.error.BookError.NotFound] for a book the caller can't see.
      */
     suspend fun unlinkBook(bookId: BookId): AppResult<Unit>
+
+    /**
+     * Pulls the caller's Hardcover shelf now — in full, so anything deleted there disappears here too —
+     * and sends any pushes that are waiting. Returns as soon as the work is queued; it runs on the server.
+     *
+     * Errors: [com.calypsan.listenup.api.error.HardcoverError.NotConnected] without a connection,
+     * [com.calypsan.listenup.api.error.HardcoverError.ConnectionBroken] when it needs a reconnect.
+     */
+    suspend fun syncNow(): AppResult<Unit>
+
+    /**
+     * A client came to the foreground: the server pulls what changed on the caller's Hardcover shelf if
+     * the last pull is more than a couple of minutes old. Cheap and idempotent — a client calls it on
+     * every foreground — and it succeeds, doing nothing, when there's no working connection. Returns
+     * as soon as any pull is queued.
+     */
+    suspend fun syncIfStale(): AppResult<Unit>
 }

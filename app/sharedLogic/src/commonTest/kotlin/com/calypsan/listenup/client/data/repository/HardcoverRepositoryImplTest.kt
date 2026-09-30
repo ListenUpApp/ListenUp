@@ -200,6 +200,16 @@ private class FakeHardcoverService(
     ): AppResult<Unit> = AppResult.Failure(HardcoverError.NotConfigured())
 
     override suspend fun unlinkBook(bookId: BookId): AppResult<Unit> = AppResult.Failure(HardcoverError.NotConfigured())
+
+    var syncIfStaleCount = 0
+        private set
+
+    override suspend fun syncNow(): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun syncIfStale(): AppResult<Unit> {
+        syncIfStaleCount++
+        return AppResult.Success(Unit)
+    }
 }
 
 /** Records the [idempotent] flag each unary call was dispatched with, then delegates to the service. */

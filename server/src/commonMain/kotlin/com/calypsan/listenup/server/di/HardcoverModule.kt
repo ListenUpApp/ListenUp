@@ -190,6 +190,7 @@ fun hardcoverModule(
                 linker = get(),
                 clientIdConfigured = clientId != null,
                 linking = get(),
+                pulls = get(),
                 principal =
                     PrincipalProvider {
                         error("Unscoped HardcoverService — call copyWith(PrincipalProvider) at the route")

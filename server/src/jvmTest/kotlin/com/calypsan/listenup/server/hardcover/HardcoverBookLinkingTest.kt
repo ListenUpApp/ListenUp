@@ -61,7 +61,7 @@ private class LinkingRig(
             rateLimiter = NoWaitRateLimiter(),
             pulls = pulls,
         )
-    val service = HardcoverServiceImpl(linker, clientIdConfigured = true, linking = linking)
+    val service = HardcoverServiceImpl(linker, clientIdConfigured = true, linking = linking, pulls = pulls)
 
     init {
         sql.seedTestUser(USER)

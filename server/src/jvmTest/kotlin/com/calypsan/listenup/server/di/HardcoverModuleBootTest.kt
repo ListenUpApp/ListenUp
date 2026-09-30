@@ -75,6 +75,10 @@ class HardcoverModuleBootTest :
                 val service = authedService<HardcoverService>(rootToken())
 
                 service.observeConnection().first() shouldBe RpcEvent.Data(HardcoverConnection.NotConnected())
+                // Over the real RPC mount: a foreground nudge with no connection is quietly fine,
+                // and Sync now says there is nothing to sync with.
+                service.syncIfStale().shouldSucceed()
+                service.syncNow().shouldFailWith<HardcoverError.NotConnected>()
                 service.disconnect().shouldSucceed()
             }
         }

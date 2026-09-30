@@ -12,6 +12,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.hardcover.HardcoverBookLinking
 import com.calypsan.listenup.server.hardcover.HardcoverLinker
+import com.calypsan.listenup.server.hardcover.HardcoverPullRequests
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
@@ -26,7 +27,8 @@ import kotlinx.coroutines.flow.map
  * is off, and [startLink] answers [HardcoverError.NotConfigured] before anything reaches Hardcover.
  * A caller with no connection then watches [HardcoverConnection.NotOffered], so clients hide the
  * entry instead of offering a dead end. Watching and disconnecting still work, so a connection made
- * before the id was cleared can still be seen and ended. Manual linking delegates to [HardcoverBookLinking].
+ * before the id was cleared can still be seen and ended. Manual linking delegates to [HardcoverBookLinking];
+ * syncing to [HardcoverPullRequests].
  *
  * Route handlers call [copyWith] to bind each connection to the authenticated principal. Without
  * one, every method fails closed with [AuthError.PermissionDenied].
@@ -35,11 +37,12 @@ class HardcoverServiceImpl(
     private val linker: HardcoverLinker,
     private val clientIdConfigured: Boolean,
     private val linking: HardcoverBookLinking,
+    private val pulls: HardcoverPullRequests,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : HardcoverService {
     /** Returns a copy scoped to [provider]. The RPC mount calls this per connection. */
     fun copyWith(provider: PrincipalProvider): HardcoverServiceImpl =
-        HardcoverServiceImpl(linker, clientIdConfigured, linking, provider)
+        HardcoverServiceImpl(linker, clientIdConfigured, linking, pulls, provider)
 
     override suspend fun startLink(): AppResult<HardcoverLinkPrompt> {
         val userId = callerId() ?: return permissionDenied()
@@ -80,6 +83,17 @@ class HardcoverServiceImpl(
     override suspend fun unlinkBook(bookId: BookId): AppResult<Unit> {
         val caller = principal.current() ?: return permissionDenied()
         return linking.unlink(caller.userId.value, caller.role, bookId.value)
+    }
+
+    override suspend fun syncNow(): AppResult<Unit> {
+        val userId = callerId() ?: return permissionDenied()
+        return pulls.syncNow(userId)
+    }
+
+    override suspend fun syncIfStale(): AppResult<Unit> {
+        val userId = callerId() ?: return permissionDenied()
+        pulls.syncIfStale(userId)
+        return AppResult.Success(Unit)
     }
 
     private fun HardcoverConnection.offeredOrNot(): HardcoverConnection =
