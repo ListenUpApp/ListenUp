@@ -22,6 +22,10 @@ import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import java.time.Instant
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import java.util.concurrent.CopyOnWriteArrayList
 
 /** One answer from [FakeHardcoverLibrary]: status, body and any extra headers. */
@@ -52,9 +56,17 @@ class NoWaitRateLimiter : HardcoverRateLimiter() {
  *
  * Like the real Hardcover (seen live, 2026-09-30), `insert_user_book` at Currently Reading opens a
  * read of its own, dated [FAKE_TODAY] at the shelved edition.
+ *
+ * Every shelf carries an `updated_at` ([Shelf.updatedAt]), stamped from a counter so it only ever
+ * grows, and the changed-since query the pull sends pages by `(updated_at, id)`. Stamps are written
+ * the way Hasura writes them, trailing fractional zeros trimmed (`…00.1+00:00`, `…01+00:00`), and
+ * compared as instants, as Postgres compares a `timestamptz` — never as strings. Whether a read's
+ * insert, update or deletion bumps its shelf is [readChangesTouchShelf]: an update does on the real
+ * Hardcover (seen live 2026-09-30), a deletion is unverified, so the pull is tested both ways.
  */
 class FakeHardcoverLibrary(
     private val readUpdates: ReadUpdates = ReadUpdates.PATCH,
+    private val readChangesTouchShelf: Boolean = true,
 ) {
     /** How `update_user_book_read` treats the `DatesReadInput` fields a request omits. */
     enum class ReadUpdates {
@@ -87,6 +99,7 @@ class FakeHardcoverLibrary(
         var statusId: Int,
         val editionId: Long?,
         val reads: MutableList<Read> = mutableListOf(),
+        var updatedAt: String = "",
     )
 
     /** One catalog edition, with the book fields the lookups return. */
@@ -106,6 +119,18 @@ class FakeHardcoverLibrary(
     private val editions = mutableListOf<Edition>()
     private val scripted = ArrayDeque<FakeReply>()
     private var nextId = 5_000L
+    private var tick = 0L
+
+    /** A strictly increasing `timestamptz` string, 100 ms apart, its fraction trimmed as Hasura trims it. */
+    private fun stamp(): String = hasuraTimestamp(STAMP_BASE.plusMillis(++tick * STAMP_STEP_MS))
+
+    private fun touch(shelf: Shelf) {
+        shelf.updatedAt = stamp()
+    }
+
+    private fun touchForRead(shelf: Shelf) {
+        if (readChangesTouchShelf) touch(shelf)
+    }
 
     /** Every request's operation name, in the order Hardcover received them. */
     val operations = CopyOnWriteArrayList<String>()
@@ -124,24 +149,52 @@ class FakeHardcoverLibrary(
         hcBookId: Long,
         statusId: Int,
         vararg reads: Pair<String?, String?>,
+        editionId: Long? = null,
     ): Shelf =
         synchronized(lock) {
-            Shelf(nextId++, hcBookId, statusId, null).also { shelf ->
+            Shelf(nextId++, hcBookId, statusId, editionId).also { shelf ->
                 reads.forEach { (started, finished) -> shelf.reads += Read(nextId++, started, finished, null) }
+                touch(shelf)
                 shelves += shelf
             }
         }
+
+    /** Appends a read to [hcBookId]'s shelf entry and answers its id. */
+    fun seedRead(
+        hcBookId: Long,
+        startedAt: String?,
+        finishedAt: String?,
+    ): Long =
+        synchronized(lock) {
+            val shelf = shelves.first { it.bookId == hcBookId }
+            Read(nextId++, startedAt, finishedAt, null)
+                .also {
+                    shelf.reads += it
+                    touchForRead(shelf)
+                }.id
+        }
+
+    /** Changes read [readId] as the user would on Hardcover's site. */
+    fun editRead(
+        readId: Long,
+        change: (Read) -> Unit,
+    ) = synchronized(lock) {
+        val shelf = shelves.first { s -> s.reads.any { it.id == readId } }
+        change(shelf.reads.first { it.id == readId })
+        touchForRead(shelf)
+    }
+
+    /** Pins [hcBookId]'s shelf to [updatedAt] (any `timestamptz` text), to put entries on the same instant. */
+    fun setUpdatedAt(
+        hcBookId: Long,
+        updatedAt: String,
+    ) = synchronized(lock) { shelves.first { it.bookId == hcBookId }.updatedAt = updatedAt }
 
     fun deleteShelf(hcBookId: Long) = synchronized(lock) { shelves.removeAll { it.bookId == hcBookId } }
 
     fun deleteRead(readId: Long) =
         synchronized(lock) {
-            shelves.forEach { shelf ->
-                shelf.reads.removeAll {
-                    it.id ==
-                        readId
-                }
-            }
+            shelves.forEach { shelf -> if (shelf.reads.removeAll { it.id == readId }) touchForRead(shelf) }
         }
 
     /** A [HardcoverGraphQlClient] whose every request this fake answers. */
@@ -182,6 +235,7 @@ class FakeHardcoverLibrary(
             "update_user_book_read(" in query -> "update_user_book_read"
             "insert_user_book(" in query -> "insert_user_book"
             "update_user_book(" in query -> "update_user_book"
+            "updated_at:{_gt" in query -> "user_books_changed"
             "user_books(" in query -> "user_books"
             "asin:{_eq" in query -> "edition_by_asin"
             "isbn_13" in query -> "edition_by_isbn"
@@ -200,6 +254,10 @@ class FakeHardcoverLibrary(
                 ok(userBooksJson(variables.long("bookId")))
             }
 
+            "user_books_changed" -> {
+                ok(changedJson(variables.string("after"), variables.long("afterId"), variables.int("limit")))
+            }
+
             "insert_user_book" -> {
                 val input = variables.obj("object")
                 val shelf =
@@ -214,6 +272,7 @@ class FakeHardcoverLibrary(
                             editionId = shelf.editionId,
                         )
                 }
+                touch(shelf)
                 shelves += shelf
                 mutation("insert_user_book", shelf.id)
             }
@@ -221,6 +280,7 @@ class FakeHardcoverLibrary(
             "update_user_book" -> {
                 shelves.firstOrNull { it.id == variables.long("id") }?.let { shelf ->
                     shelf.statusId = variables.obj("object").int("status_id")
+                    touch(shelf)
                     mutation("update_user_book", shelf.id)
                 } ?: mutationError("update_user_book", "User book not found")
             }
@@ -237,6 +297,7 @@ class FakeHardcoverLibrary(
                             input.longOrNull("edition_id"),
                         )
                     shelf.reads += read
+                    touchForRead(shelf)
                     mutation("insert_user_book_read", read.id)
                 } ?: mutationError("insert_user_book_read", "User book not found")
             }
@@ -244,6 +305,7 @@ class FakeHardcoverLibrary(
             "update_user_book_read" -> {
                 shelves.flatMap { it.reads }.firstOrNull { it.id == variables.long("id") }?.let { read ->
                     updateRead(read, variables.obj("read"))
+                    shelves.first { s -> s.reads.any { it === read } }.let(::touchForRead)
                     mutation("update_user_book_read", read.id)
                 } ?: mutationError("update_user_book_read", "Read not found")
             }
@@ -331,6 +393,62 @@ class FakeHardcoverLibrary(
                     }
                 }
             }
+        }
+
+    /**
+     * The pull's page: shelves after (after, afterId) by (updated_at, id), with their edition and book.
+     * `updated_at` compares as an instant, as Postgres compares a `timestamptz`.
+     */
+    private fun changedJson(
+        after: String,
+        afterId: Long,
+        limit: Int,
+    ): JsonObject {
+        val cursor = instantOf(after)
+        return buildJsonObject {
+            putJsonObject("data") {
+                putJsonArray("me") {
+                    addJsonObject {
+                        putJsonArray("user_books") {
+                            shelves
+                                .filter {
+                                    val at = instantOf(it.updatedAt)
+                                    at > cursor || (at == cursor && it.id > afterId)
+                                }.sortedWith(compareBy<Shelf>({ instantOf(it.updatedAt) }, { it.id }))
+                                .take(limit)
+                                .forEach { shelf -> add(changedShelfJson(shelf)) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun changedShelfJson(shelf: Shelf): JsonObject =
+        buildJsonObject {
+            put("id", shelf.id)
+            put("book_id", shelf.bookId)
+            put("updated_at", shelf.updatedAt)
+            putJsonArray("user_book_reads") {
+                shelf.reads.sortedBy { it.id }.forEach { read ->
+                    addJsonObject {
+                        put("id", read.id)
+                        put("finished_at", read.finishedAt)
+                    }
+                }
+            }
+            val edition = editions.firstOrNull { it.id == shelf.editionId }
+            if (edition == null) {
+                put("edition", null as String?)
+            } else {
+                putJsonObject("edition") {
+                    put("asin", edition.asin)
+                    put("isbn_13", edition.isbn13)
+                    put("isbn_10", null as String?)
+                }
+            }
+            val book = editions.firstOrNull { it.bookId == shelf.bookId }
+            if (book == null) put("book", null as String?) else put("book", bookJson(book))
         }
 
     private fun editionsJson(found: List<Edition>): JsonObject =
@@ -427,4 +545,21 @@ class FakeHardcoverLibrary(
     private fun JsonObject.string(key: String): String = getValue(key).jsonPrimitive.content
 
     private fun JsonObject.stringOrNull(key: String): String? = get(key)?.jsonPrimitive?.contentOrNull
+
+    private companion object {
+        val STAMP_BASE: Instant = Instant.parse("2026-09-30T00:00:00Z")
+        const val STAMP_STEP_MS = 100L
+
+        fun instantOf(timestamptz: String): Instant = OffsetDateTime.parse(timestamptz).toInstant()
+    }
+}
+
+/**
+ * [instant] as Hasura writes a `timestamptz`: `+00:00`, and the fraction's trailing zeros trimmed, the
+ * whole fraction gone when it is zero (`…19.1+00:00`, `…19.10654+00:00`, `…19+00:00`; seen live 2026-09-30).
+ */
+fun hasuraTimestamp(instant: Instant): String {
+    val seconds = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss").withZone(ZoneOffset.UTC).format(instant)
+    val fraction = (instant.nano / 1_000).toString().padStart(6, '0').trimEnd('0')
+    return if (fraction.isEmpty()) "$seconds+00:00" else "$seconds.$fraction+00:00"
 }
