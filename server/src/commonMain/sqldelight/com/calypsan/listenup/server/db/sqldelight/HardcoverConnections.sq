@@ -73,3 +73,34 @@ UPDATE hardcover_connections SET push_error = :push_error WHERE user_id = :user_
 
 selectPushHealth:
 SELECT last_synced_at, push_error FROM hardcover_connections WHERE user_id = :user_id;
+
+-- ── The pull (#601 B3) ───────────────────────────────────────────────────────
+-- pull_cursor is Hardcover's own updated_at text, stored and sent back verbatim: never compared here.
+
+selectPullState:
+SELECT pull_cursor, pull_cursor_id, full_pull_started_at, last_full_pull_at
+FROM hardcover_connections WHERE user_id = :user_id;
+
+updatePullCursor:
+UPDATE hardcover_connections SET pull_cursor = :pull_cursor, pull_cursor_id = :pull_cursor_id WHERE user_id = :user_id;
+
+-- A full pull starts from the beginning of the shelf.
+startFullPull:
+UPDATE hardcover_connections
+SET pull_cursor = NULL, pull_cursor_id = NULL, full_pull_started_at = :full_pull_started_at
+WHERE user_id = :user_id;
+
+finishFullPull:
+UPDATE hardcover_connections SET full_pull_started_at = NULL, last_full_pull_at = :last_full_pull_at
+WHERE user_id = :user_id;
+
+-- The next pull is a full one ("Sync now", a changed match). A full pull already running restarts.
+requestFullPull:
+UPDATE hardcover_connections SET full_pull_started_at = NULL, last_full_pull_at = NULL WHERE user_id = :user_id;
+
+-- A pull caught up: remember when, and clear any error that had outlasted its retry cap.
+markPulled:
+UPDATE hardcover_connections SET last_synced_at = :last_synced_at, pull_error = NULL WHERE user_id = :user_id;
+
+recordPullError:
+UPDATE hardcover_connections SET pull_error = :pull_error WHERE user_id = :user_id;

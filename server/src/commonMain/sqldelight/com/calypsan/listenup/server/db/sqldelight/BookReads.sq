@@ -72,3 +72,41 @@ SELECT EXISTS(SELECT 1 FROM book_reads WHERE user_id = :userId AND book_id = :bo
 -- multiple rows; the streak reducer collapses same-day duplicates.
 finishedAtForUser:
 SELECT finished_at FROM book_reads WHERE user_id = :userId AND source <> 'hardcover';
+
+-- ── Pulled Hardcover reads (#601 B3). Written only by HardcoverPullStore / HardcoverConnectionStore. ──
+
+-- A pulled read's row id derives from its Hardcover id (pulledReadRowId), so writing it again is a no-op.
+insertPulled:
+INSERT OR IGNORE INTO book_reads (id, user_id, book_id, finished_at, source, created_at, hc_read_id)
+VALUES (:id, :user_id, :book_id, :finished_at, 'hardcover', :created_at, :hc_read_id);
+
+-- A pulled read's finish date changed on Hardcover, or it now resolves to another book.
+updatePulled:
+UPDATE book_reads SET book_id = :book_id, finished_at = :finished_at
+WHERE user_id = :user_id AND hc_read_id = :hc_read_id AND source = 'hardcover';
+
+deletePulledForUserBook:
+DELETE FROM book_reads WHERE user_id = :user_id AND book_id = :book_id AND source = 'hardcover';
+
+-- Reads gone from a shelf entry (deleted, or no longer finished) go; the rest stay.
+deletePulledForUserBookExcept:
+DELETE FROM book_reads
+WHERE user_id = :user_id AND book_id = :book_id AND source = 'hardcover' AND hc_read_id NOT IN :keep;
+
+-- A full pull has completed: pulled reads of books whose shelf entry it never saw are gone from Hardcover.
+deletePulledNotSeenSince:
+DELETE FROM book_reads
+WHERE user_id = :user_id AND source = 'hardcover'
+  AND book_id NOT IN (
+    SELECT l.book_id FROM hardcover_book_links AS l
+    WHERE l.user_id = :user_id AND l.match_state = 'LINKED' AND l.pull_seen_at >= :since
+  );
+
+-- Disconnect, or a different Hardcover account: the mirror goes with the connection.
+deletePulledForUser:
+DELETE FROM book_reads WHERE user_id = :user_id AND source = 'hardcover';
+
+pulledForUser:
+SELECT book_id, finished_at, hc_read_id FROM book_reads
+WHERE user_id = :user_id AND source = 'hardcover'
+ORDER BY book_id, hc_read_id;

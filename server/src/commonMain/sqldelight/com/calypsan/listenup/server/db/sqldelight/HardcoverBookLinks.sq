@@ -110,3 +110,7 @@ WHERE user_id = :user_id AND hc_book_id = :hc_book_id AND match_state = 'LINKED'
 -- Whether the book has any link row at all: a NEEDS_MATCH row is the user's to settle, never the pull's.
 hasLink:
 SELECT EXISTS(SELECT 1 FROM hardcover_book_links WHERE user_id = :user_id AND book_id = :book_id);
+
+-- The pull saw this book's shelf entry at :pull_seen_at (a completed full pull deletes what it didn't see).
+markPullSeen:
+UPDATE hardcover_book_links SET pull_seen_at = :pull_seen_at WHERE user_id = :user_id AND book_id = :book_id;

@@ -43,6 +43,13 @@ private val CLASSIFIED: Map<String, ReadsSide> =
         "BookReads.updateFinishedAtById" to ReadsSide.BY_ID,
         "BookReads.existsForUserBook" to ReadsSide.LISTENUP_ONLY,
         "BookReads.finishedAtForUser" to ReadsSide.LISTENUP_ONLY,
+        "BookReads.insertPulled" to ReadsSide.HARDCOVER_ONLY,
+        "BookReads.updatePulled" to ReadsSide.HARDCOVER_ONLY,
+        "BookReads.deletePulledForUserBook" to ReadsSide.HARDCOVER_ONLY,
+        "BookReads.deletePulledForUserBookExcept" to ReadsSide.HARDCOVER_ONLY,
+        "BookReads.deletePulledNotSeenSince" to ReadsSide.HARDCOVER_ONLY,
+        "BookReads.deletePulledForUser" to ReadsSide.HARDCOVER_ONLY,
+        "BookReads.pulledForUser" to ReadsSide.HARDCOVER_ONLY,
     )
 
 /** Production files that may touch `bookReadsQueries` directly, relative to the server's commonMain kotlin root. */
@@ -52,6 +59,8 @@ private val READS_CALLERS: Set<String> =
         "com/calypsan/listenup/server/services/PublicProfileMaintainer.kt",
         "com/calypsan/listenup/server/services/UserStatsDerivation.kt",
         "com/calypsan/listenup/server/hardcover/HardcoverPushRecorder.kt",
+        "com/calypsan/listenup/server/hardcover/HardcoverPullStore.kt",
+        "com/calypsan/listenup/server/hardcover/HardcoverConnectionStore.kt",
     )
 
 private val LABEL = Regex("""^([A-Za-z][A-Za-z0-9_]*):\s*$""")

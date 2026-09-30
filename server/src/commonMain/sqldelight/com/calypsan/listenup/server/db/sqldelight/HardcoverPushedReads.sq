@@ -14,3 +14,7 @@ VALUES (:user_id, :hc_read_id, :book_id, :recorded_at);
 
 isPushedRead:
 SELECT EXISTS(SELECT 1 FROM hardcover_pushed_reads WHERE user_id = :user_id AND hc_read_id = :hc_read_id);
+
+-- The pull's echo check, a page at a time: which of :hc_read_ids ListenUp opened or continued.
+pushedAmong:
+SELECT hc_read_id FROM hardcover_pushed_reads WHERE user_id = :user_id AND hc_read_id IN :hc_read_ids;

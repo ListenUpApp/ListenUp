@@ -67,8 +67,8 @@ data class HardcoverPushHealth(
  * [StoredConnection.Broken] with [HardcoverBrokenReason.CANNOT_DECRYPT]. That is derived on every
  * read rather than written back, so restoring the original secret heals it with no migration.
  *
- * It also owns push health, and forgets a user's book links and pending pushes when the connection
- * ends or changes account.
+ * It also owns push and pull health, and forgets a user's book links, pending pushes and pulled reads
+ * when the connection ends or changes account.
  */
 class HardcoverConnectionStore(
     private val sql: ListenUpDatabase,
@@ -100,10 +100,12 @@ class HardcoverConnectionStore(
     ): HardcoverConnection.Connected {
         val now = clock.now().toEpochMilliseconds()
         suspendTransaction(sql) {
-            // Links and pending pushes hold ids from ONE Hardcover account: connecting a different one
-            // must not write to the old account's records. The pushed-read ledger stays either way.
+            // Links, pending pushes and pulled reads belong to ONE Hardcover account: connecting a different
+            // one must neither write to the old account's records nor show its reads. The same account
+            // keeps them all. upsertConnection replaces the row, so its pull cursor restarts either way
+            // (the pull is idempotent). The pushed-read ledger stays either way.
             val previousAccount = queries.selectHcUserId(userId).executeAsOneOrNull()
-            if (previousAccount != null && previousAccount != me.id) forgetPushState(userId)
+            if (previousAccount != null && previousAccount != me.id) forgetSyncState(userId)
             queries.upsertConnection(
                 user_id = userId,
                 hc_user_id = me.id,
@@ -157,13 +159,14 @@ class HardcoverConnectionStore(
     }
 
     /**
-     * Forgets [userId]'s connection, their book links and their pending pushes. The pushed-read ledger
+     * Forgets [userId]'s connection, their book links, their pending pushes and their pulled Hardcover
+     * reads. The pushed-read ledger
      * survives, so a later reconnect never pulls ListenUp's own reads back. A no-op when there is none.
      */
     suspend fun delete(userId: String) {
         suspendTransaction(sql) {
             queries.deleteByUser(userId)
-            forgetPushState(userId)
+            forgetSyncState(userId)
         }
     }
 
@@ -187,6 +190,22 @@ class HardcoverConnectionStore(
         suspendTransaction(sql) { queries.recordPushError(push_error = detail, user_id = userId) }
     }
 
+    /** A pull caught up at [at]: remember it as the last sync, and clear any recorded pull error. */
+    suspend fun markPulled(
+        userId: String,
+        at: Long,
+    ) {
+        suspendTransaction(sql) { queries.markPulled(last_synced_at = at, user_id = userId) }
+    }
+
+    /** A pull failed past its retry cap with [detail]; it keeps retrying on schedule. */
+    suspend fun recordPullError(
+        userId: String,
+        detail: String,
+    ) {
+        suspendTransaction(sql) { queries.recordPullError(pull_error = detail, user_id = userId) }
+    }
+
     /** [userId]'s push health, or null without a connection. */
     suspend fun pushHealth(userId: String): HardcoverPushHealth? =
         suspendTransaction(sql) {
@@ -197,9 +216,14 @@ class HardcoverConnectionStore(
                 ?.let { HardcoverPushHealth(it.last_synced_at, it.push_error) }
         }
 
-    private fun forgetPushState(userId: String) {
+    /**
+     * Everything tied to one Hardcover account: the book links, the pending pushes and the pulled reads.
+     * The pushed-read ledger stays, so a reconnect never pulls ListenUp's own reads back.
+     */
+    private fun forgetSyncState(userId: String) {
         sql.hardcoverBookLinksQueries.deleteForUser(userId)
         sql.hardcoverOutboxQueries.deleteForUser(userId)
+        sql.bookReadsQueries.deletePulledForUser(userId)
     }
 
     private fun Hardcover_connections.toStored(): StoredConnection {
