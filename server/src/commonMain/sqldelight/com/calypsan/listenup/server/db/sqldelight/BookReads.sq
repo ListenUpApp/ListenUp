@@ -1,18 +1,25 @@
--- book_reads: append-only per-completion read history — one row per time a user finishes
--- a book. Re-reads stack as distinct rows. PLAIN (NON-syncable) server-only persistence,
--- read by the readership RPC, never streamed over sync. Rows are never updated or deleted.
--- Column set matches V34__book_reads.sql exactly.
+-- book_reads: per-completion read history — one row per time a user finished a book. Re-reads stack
+-- as distinct rows. PLAIN (NON-syncable) server-only persistence, read by the readership RPC, never
+-- streamed over sync. source says whose read it is:
+--   'playback'  — ListenUp listening (recordCompletion); a replay may move its finished_at forward;
+--   'reconcile' — a finish recovered from a finished position during a stats rebuild;
+--   'hardcover' — a read logged on Hardcover and pulled (#601 B3). hc_read_id names it; it is deleted
+--                 when that read vanishes from Hardcover, and it never counts as listening.
+-- EVERY query below is classified in BookReadsQueriesClassifiedTest: a query that means "what the user
+-- listened to" carries `source <> 'hardcover'` literally.
 CREATE TABLE book_reads (
     id          TEXT    NOT NULL PRIMARY KEY,
     user_id     TEXT    NOT NULL,
     book_id     TEXT    NOT NULL,
     finished_at INTEGER NOT NULL,
     source      TEXT    NOT NULL,
-    created_at  INTEGER NOT NULL
+    created_at  INTEGER NOT NULL,
+    hc_read_id  INTEGER
 );
 
 CREATE INDEX idx_book_reads_book      ON book_reads(book_id);
 CREATE INDEX idx_book_reads_user_book ON book_reads(user_id, book_id);
+CREATE UNIQUE INDEX idx_book_reads_user_hc_read ON book_reads(user_id, hc_read_id);
 
 -- Append a completion row unconditionally (a fresh id per finish, so re-reads stack).
 insert:

@@ -14,6 +14,7 @@ CREATE TABLE hardcover_book_links (
     suppressed_listen_through_started_at INTEGER,
     last_progress_pushed_at              INTEGER,
     updated_at                           INTEGER NOT NULL,
+    pull_seen_at                         INTEGER,
     PRIMARY KEY (user_id, book_id)
 );
 

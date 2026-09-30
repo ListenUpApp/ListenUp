@@ -99,7 +99,7 @@ class BookReadsRepository(
                     user_id = userId,
                     book_id = bookId,
                     finished_at = finishedAtMs,
-                    source = "playback",
+                    source = BookReadSource.PLAYBACK,
                     created_at = createdAt,
                 )
             } else {

@@ -14,7 +14,12 @@ CREATE TABLE hardcover_connections (
     connected_at       INTEGER NOT NULL,
     broken_reason      TEXT,
     last_synced_at     INTEGER,
-    push_error         TEXT
+    push_error         TEXT,
+    pull_cursor          TEXT,
+    pull_cursor_id       INTEGER,
+    full_pull_started_at INTEGER,
+    last_full_pull_at    INTEGER,
+    pull_error           TEXT
 );
 
 selectByUser:

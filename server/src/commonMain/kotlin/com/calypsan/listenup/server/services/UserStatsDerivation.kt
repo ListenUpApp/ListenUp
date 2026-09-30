@@ -33,7 +33,7 @@ suspend fun reconcileBookReadsFromPositions(
                     user_id = userId,
                     book_id = finished.book_id,
                     finished_at = finished.last_played_at,
-                    source = "reconcile",
+                    source = BookReadSource.RECONCILE,
                     created_at = nowMs,
                 )
             }
