@@ -12,13 +12,14 @@ struct LocalNetworkNotice: View {
     @Environment(\.openURL) private var openURL
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Spacing.s) {
             Label {
                 Text(String(localized: "error.server_connect_local_network_permission_denied"))
                     .font(.subheadline)
             } icon: {
+                // A warning, so the warning amber — coral is kept for actions (#1509).
                 Image(systemName: "wifi.exclamationmark")
-                    .foregroundStyle(Color.listenUpOrange)
+                    .foregroundStyle(Color.luWarning)
             }
             Text(String(localized: "connect.local_network_hint_ios"))
                 .font(.footnote).foregroundStyle(.secondary)
@@ -28,9 +29,9 @@ struct LocalNetworkNotice: View {
             .buttonStyle(.bordered)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
+        .padding(Spacing.m)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
                 .fill(Color(.secondarySystemGroupedBackground))
         )
         .accessibilityElement(children: .contain)
