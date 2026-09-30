@@ -17,10 +17,13 @@ import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import kotlinx.coroutines.flow.flowOf
+import org.junit.After
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.compose.KoinApplication
+import org.koin.core.context.stopKoin
 import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
 
@@ -32,6 +35,17 @@ import org.robolectric.RobolectricTestRunner
 class ReaderRowHardcoverTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    /**
+     * The composable KoinApplication registers its container as the global Koin context, and adopts one
+     * already running. Cleared on both sides: a spec that ran before this one must not hand the avatar
+     * its container, and this one must not leave its container to the next.
+     */
+    @Before
+    @After
+    fun stopGlobalKoin() {
+        stopKoin()
+    }
 
     private fun row(isOnHardcover: Boolean) =
         ReaderRowUi(
