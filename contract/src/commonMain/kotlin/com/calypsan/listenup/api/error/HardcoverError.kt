@@ -9,7 +9,9 @@ import kotlinx.serialization.Serializable
  * HTTP status mapping (wired in `AppErrorStatusPages.kt`):
  * - [NotConfigured] → 503
  * - [Unavailable] → 503
+ * - [ConnectionBroken] → 409
  * - [AlreadyConnected] → 409
+ * - [NotConnected] → 409
  */
 @Serializable
 sealed interface HardcoverError : AppError {
@@ -61,6 +63,18 @@ sealed interface HardcoverError : AppError {
     ) : HardcoverError {
         override val message: String = "You're already connected to Hardcover."
         override val code: String = "HARDCOVER_ALREADY_CONNECTED"
+        override val isRetryable: Boolean = false
+    }
+
+    /** The caller has no Hardcover account connected, so there is nothing to search or link with. */
+    @Serializable
+    @SerialName("HardcoverError.NotConnected")
+    data class NotConnected(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : HardcoverError {
+        override val message: String = "Connect your Hardcover account first."
+        override val code: String = "HARDCOVER_NOT_CONNECTED"
         override val isRetryable: Boolean = false
     }
 }
