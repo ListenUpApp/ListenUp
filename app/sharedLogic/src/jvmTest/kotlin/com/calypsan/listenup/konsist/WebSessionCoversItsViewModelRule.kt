@@ -180,6 +180,20 @@ private val EXCUSED =
         "SettingsViewModel.setHapticFeedbackEnabled",
         "SettingsViewModel.setDefaultSleepTimerMin",
         "SettingsViewModel.sendTestNotification",
+        // Organize's error is an inline `role="alert"` line under the form (OrganizePage), and every
+        // action the ViewModel takes clears it before it runs. A dismiss control would be a second,
+        // redundant way to make the same message go away.
+        "OrganizeSettingsViewModel.clearError",
+        // Expands the pending-operations panel. Declined for web 2026-09-09: web carries no such
+        // panel — in-flight sync is chrome the reader has nothing to decide about — and wires only
+        // the dead-letter half of this ViewModel (see DeadLetterStore).
+        "SyncIndicatorViewModel.toggleExpanded",
+        // Pull-to-refresh. Simon's call, 2026-09-30: web has no page-level refresh on Home. Reloading
+        // the tab rebuilds the sessions and re-syncs, and live sync keeps the page fresh while it is
+        // open — a Refresh control would be a third way to do what two already do. (Discover is not
+        // listed: its failed rows offer "Try again", which wires `refresh`. The activity feed is not
+        // listed either, but only because it shares DiscoverStore and this rule matches per file.)
+        "HomeViewModel.refresh",
         // ── FALSE POSITIVE (capability present under another name) ────────────────────────────
         // Reached via onResultClicked, which IS onResultSelected(hit.id, hit.type, hit.name).
         "SearchViewModel.onResultSelected",
@@ -195,6 +209,14 @@ private val EXCUSED =
         // A building block. Clients drive the two wrappers that cover it — `selectBook` and
         // `skipBook` — and web wires both.
         "ImportFlowViewModel.setBookOverride",
+        // Web retries a profile through `loadProfile(userId, forceRefresh = true)` — see ProfileStore.
+        // `refresh` re-requests the CURRENT profile, which is the same request by another name.
+        "UserProfileViewModel.refresh",
+        // Called by `showAddMemberSheet`, which web wires: opening the sheet is what loads the users.
+        "AdminCollectionDetailViewModel.loadUsersForSharing",
+        // A deep-link wrapper — `selectCandidate` with a bare ASIN — used by the natives' match-preview
+        // route when it is opened from a link. Web reaches the same preview through selectCandidate.
+        "ContributorMetadataViewModel.selectAsin",
         // ── UNREVIEWED — an offender nobody has triaged yet. NOT a to-do list. ────────────────
         //
         // ⛔ Do not build from this section. Three times now a cluster here has turned out to be a
@@ -203,16 +225,6 @@ private val EXCUSED =
         // web's own KDoc already explains the omission — this rule strips comments, so a documented
         // decision is indistinguishable from an oversight until a human looks. Then move it up to a
         // labelled section or close it and delete the line.
-        // Metadata wizards.
-        "ContributorMetadataViewModel.selectAsin",
-        // Admin.
-        "OrganizeSettingsViewModel.clearError",
-        "SyncIndicatorViewModel.toggleExpanded",
-        // Surfaced 2026-09-27, when the rule learned to see `koin.get<X> { parametersOf(…) }`.
-        "AdminCollectionDetailViewModel.loadUsersForSharing",
-        // Manual refresh: check whether web refreshes on navigation before building a control.
-        "HomeViewModel.refresh",
-        "UserProfileViewModel.refresh",
     )
 
 /**
