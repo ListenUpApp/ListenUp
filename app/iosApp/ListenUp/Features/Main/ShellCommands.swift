@@ -53,7 +53,9 @@ struct ListenUpCommands: Commands {
         return PlaybackCommandState.from(
             phase: player.phase,
             chapterIndex: player.chapterIndex,
-            totalChapters: player.totalChapters
+            totalChapters: player.totalChapters,
+            sleepTimerActive: player.sleepTimerActive,
+            sleepTimerIsEndOfChapter: player.sleepTimerMode == "endOfChapter"
         )
     }
 
@@ -92,12 +94,28 @@ struct ListenUpCommands: Commands {
         Divider()
         sleepTimerMenu
             .disabled(!state.canSeek)
+        addSleepTimeMenu
+            .disabled(!state.canExtendSleepTimer)
     }
 
     private var sleepTimerMenu: some View {
         Picker(String(localized: "player.sleep_timer"), selection: sleepSelection) {
             ForEach(SleepTimerOption.menuOptions, id: \.self) { option in
                 Text(option.title).tag(Optional(option))
+            }
+        }
+    }
+
+    /// The player sleep menu's "Add more time" ladder, as a submenu beside the picker. It stays
+    /// listed and dims when there is no countdown to grow — HIG, The menu bar: "If a menu bar item
+    /// isn't actionable, disable the action instead of hiding it from the menu." No key bindings:
+    /// HIG, Keyboards keeps custom shortcuts for the most frequent commands.
+    private var addSleepTimeMenu: some View {
+        Menu(String(localized: "player.add_more_time")) {
+            ForEach(SleepTimerOption.extensionMinutes, id: \.self) { minutes in
+                Button(String(format: String(localized: "player.extend_minutes"), minutes)) {
+                    player?.extendSleepTimer(minutes: minutes)
+                }
             }
         }
     }

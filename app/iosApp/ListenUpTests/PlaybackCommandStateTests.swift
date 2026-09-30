@@ -45,4 +45,29 @@ struct PlaybackCommandStateTests {
         #expect(!state.showsPause)
         #expect(!state.canSeek)
     }
+
+    /// "Add more time" stays listed but dims unless a countdown is running on a loaded book: an
+    /// end-of-chapter timer has no countdown to grow, and with no timer there is nothing to extend.
+    @Test func onlyARunningCountdownOnALoadedBookCanBeExtended() {
+        let countdown = PlaybackCommandState.from(
+            phase: .playing(loaded), chapterIndex: 0, totalChapters: 1,
+            sleepTimerActive: true, sleepTimerIsEndOfChapter: false
+        )
+        #expect(countdown.canExtendSleepTimer)
+        let endOfChapter = PlaybackCommandState.from(
+            phase: .playing(loaded), chapterIndex: 0, totalChapters: 1,
+            sleepTimerActive: true, sleepTimerIsEndOfChapter: true
+        )
+        #expect(!endOfChapter.canExtendSleepTimer)
+        let noTimer = PlaybackCommandState.from(
+            phase: .playing(loaded), chapterIndex: 0, totalChapters: 1,
+            sleepTimerActive: false, sleepTimerIsEndOfChapter: false
+        )
+        #expect(!noTimer.canExtendSleepTimer)
+        let nothingLoaded = PlaybackCommandState.from(
+            phase: .idle, chapterIndex: 0, totalChapters: 0,
+            sleepTimerActive: true, sleepTimerIsEndOfChapter: false
+        )
+        #expect(!nothingLoaded.canExtendSleepTimer)
+    }
 }
