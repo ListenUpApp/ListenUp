@@ -127,6 +127,12 @@ internal interface ApiClientFactory : RemoteCache {
     suspend fun invalidateRequestClientOnly()
 
     /**
+     * Retiring the request client is refreshing it: it carries no stream to spare, so a same-identity
+     * sweep rebinds it exactly as [invalidateRequestClientOnly] does.
+     */
+    override suspend fun retire() = invalidateRequestClientOnly()
+
+    /**
      * Eagerly create and cache the authenticated client without exposing it.
      *
      * Lets cross-module startup code prime the lazy client (so the first real request doesn't pay the

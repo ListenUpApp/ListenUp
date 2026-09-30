@@ -36,6 +36,8 @@ internal class DirectRpcDispatch<S : Any>(
     override fun <R> streaming(subscribe: suspend (S) -> Flow<R>): Flow<R> = flow { emitAll(subscribe(service)) }
 
     override suspend fun invalidate() = Unit
+
+    override suspend fun retire() = Unit
 }
 
 /**
@@ -71,6 +73,8 @@ internal class ScriptedRpcDispatch<S : Any>(
         }
 
     override suspend fun invalidate() = Unit
+
+    override suspend fun retire() = Unit
 }
 
 /**

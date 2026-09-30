@@ -23,8 +23,9 @@ interface RemoteCache {
     /**
      * Drop the cached connection(s) so the next call reconnects fresh, but let work already riding
      * them finish: each closes once nothing is using it. For a sweep on the SAME identity — the
-     * firehose-reconnect sweep, which must not abort the firehose that triggered it. A cache with no
-     * in-flight work to spare retires by invalidating.
+     * firehose-reconnect sweep, which must not abort the firehose that triggered it. Deliberately
+     * abstract: for a cache that carries a stream, falling back to [invalidate] would be exactly the
+     * force-close this exists to avoid, so every cache states what retiring means for it.
      */
-    suspend fun retire() = invalidate()
+    suspend fun retire()
 }

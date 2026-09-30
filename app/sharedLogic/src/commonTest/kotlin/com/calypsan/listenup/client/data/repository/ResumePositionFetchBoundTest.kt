@@ -95,6 +95,8 @@ private class RecordingDispatch<S : Any>(
     override fun <R> streaming(subscribe: suspend (S) -> Flow<R>): Flow<R> = emptyFlow()
 
     override suspend fun invalidate() = Unit
+
+    override suspend fun retire() = Unit
 }
 
 /**
