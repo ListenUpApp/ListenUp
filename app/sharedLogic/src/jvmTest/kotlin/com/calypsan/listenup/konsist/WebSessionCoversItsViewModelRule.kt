@@ -207,21 +207,14 @@ private val EXCUSED =
         "ContributorMetadataViewModel.reset",
         "ContributorMetadataViewModel.selectAsin",
         "MetadataViewModel.reset",
-        // Library setup.
-        "LibrarySetupViewModel.checkLibraryStatus",
-        "LibrarySetupViewModel.clearSelection",
-        "LibrarySetupViewModel.selectPath",
         // Admin.
         "OrganizeSettingsViewModel.clearError",
         "SyncIndicatorViewModel.toggleExpanded",
         // Surfaced 2026-09-27, when the rule learned to see `koin.get<X> { parametersOf(…) }`.
-        "AdminCollectionDetailViewModel.clearSaveSuccess",
         "AdminCollectionDetailViewModel.loadUsersForSharing",
         "ChapterEditorViewModel.replaceAll",
         // Manual refresh: check whether web refreshes on navigation before building a control.
         "HomeViewModel.refresh",
-        "DiscoverViewModel.refresh",
-        "ActivityFeedViewModel.refresh",
         "UserProfileViewModel.refresh",
     )
 

@@ -17,6 +17,8 @@ import com.calypsan.listenup.client.presentation.discover.leaderboardEntries
 import com.calypsan.listenup.client.presentation.discover.leaderboardLabel
 import com.calypsan.listenup.client.util.relativeLastActive
 import com.calypsan.listenup.web.design.UnderHeading
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.features.books.press
@@ -105,14 +107,19 @@ fun DiscoverPage(
     onOpenProfile: (String) -> Unit,
     onSelectPeriod: (LeaderboardPeriod) -> Unit,
     onSelectCategory: (LeaderboardCategory) -> Unit,
+    /**
+     * Asks Discover's ViewModel for a fresh load — offered only on the sections that call can bring
+     * back from an error. Not a page-level refresh: web deliberately has none.
+     */
+    onRefresh: () -> Unit,
 ) {
     Div(attrs = { classes("disc") }) {
         PageHeader(title = "Discover")
 
         CurrentlyListeningSection(currentlyListening, nowMs, onOpenBook, onOpenProfile, selection)
-        DiscoverBooksSection(books, onOpenBook, selection)
+        DiscoverBooksSection(books, onOpenBook, selection, onRefresh)
         RecentlyAddedSection(recentlyAdded, onOpenBook, selection)
-        SharedShelvesSection(shelves, onOpenShelf, onOpenProfile)
+        SharedShelvesSection(shelves, onOpenShelf, onOpenProfile, onRefresh)
         LeaderboardSection(leaderboard, onSelectPeriod, onSelectCategory, onOpenProfile)
         ActivityFeedSection(activity, nowMs, onOpenBook, onOpenProfile)
     }
@@ -202,6 +209,7 @@ private fun DiscoverBooksSection(
     state: DiscoverBooksUiState,
     onOpenBook: (String) -> Unit,
     selection: BookSelection?,
+    onRefresh: () -> Unit,
 ) {
     Section("Something new") {
         when (state) {
@@ -210,7 +218,7 @@ private fun DiscoverBooksSection(
             }
 
             is DiscoverBooksUiState.Error -> {
-                SectionError(state.message)
+                SectionError(state.message, onRetry = onRefresh)
             }
 
             is DiscoverBooksUiState.Ready -> {
@@ -469,9 +477,25 @@ private fun SectionSkeleton() {
     Div(attrs = { classes("skel", "disc-skel") })
 }
 
+/**
+ * A section that failed, and — when [onRetry] is given — the one way back without reloading the tab.
+ *
+ * [onRetry] is passed only where the ViewModel can actually recover that section. A "Try again"
+ * over a flow that has already ended would be a control that does nothing, which is worse than none.
+ */
 @Composable
-private fun SectionError(message: String) {
+private fun SectionError(
+    message: String,
+    onRetry: (() -> Unit)? = null,
+) {
     P(attrs = { classes("disc-error") }) { Text(message) }
+    onRetry?.let { retry ->
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = retry,
+            attrs = { classes("disc-retry") },
+        ) { Text("Try again") }
+    }
 }
 
 @Composable
@@ -525,6 +549,7 @@ private fun SharedShelvesSection(
     state: DiscoverShelvesUiState,
     onOpenShelf: (String) -> Unit,
     onOpenProfile: (String) -> Unit,
+    onRefresh: () -> Unit,
 ) {
     Section("Shelves from others") {
         when (state) {
@@ -533,7 +558,7 @@ private fun SharedShelvesSection(
             }
 
             is DiscoverShelvesUiState.Error -> {
-                SectionError(state.message)
+                SectionError(state.message, onRetry = onRefresh)
             }
 
             is DiscoverShelvesUiState.Ready -> {

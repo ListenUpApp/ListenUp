@@ -42,6 +42,9 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import io.kotest.matchers.types.shouldBeSameInstanceAs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
+import kotlinx.coroutines.flow.FlowCollector
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.isActive
@@ -1211,6 +1214,30 @@ class LibraryViewModelTest :
             }
         }
 
+        test("RefreshRequested after the pipeline failed restarts it and leaves Error") {
+            // ⛔ The regression: Error is what the pipeline's own fallback emits as it TERMINATES, so
+            // before this fix the Retry button on web and Android re-synced books into Room while the
+            // screen sat on "can't be shown" for good — only leaving and re-entering it after the
+            // subscription timeout could bring the library back.
+            runTest {
+                val fixture = createFixture()
+                // The scan flag is one of the upstreams with no per-source fallback, so a throw here
+                // reaches the pipeline-level catch. Fails on its first collection, healthy after.
+                every { fixture.syncRepository.isServerScanning } returns FailsOnFirstCollect(false)
+                everySuspend { fixture.bookRepository.refreshBooks() } returns AppResult.Success(Unit)
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.uiState.collect { } }
+                advanceUntilIdle()
+                viewModel.uiState.value.shouldBeInstanceOf<LibraryUiState.Error>()
+
+                viewModel.onEvent(LibraryUiEvent.RefreshRequested)
+                advanceUntilIdle()
+
+                viewModel.uiState.value.shouldBeInstanceOf<LibraryUiState.Loaded>()
+                verifySuspend { fixture.bookRepository.refreshBooks() }
+            }
+        }
+
         // ========== SeriesProgress Tests ==========
 
         test("seriesProgress aggregates finished books per series") {
@@ -1570,3 +1597,21 @@ class LibraryViewModelTest :
             }
         }
     })
+
+/**
+ * A [StateFlow] whose first collection throws and whose later ones behave — the shape of an upstream
+ * that failed once and recovered. A StateFlow because that is what `SyncRepository` exposes.
+ */
+@OptIn(ExperimentalForInheritanceCoroutinesApi::class)
+private class FailsOnFirstCollect<T>(
+    initial: T,
+    private val delegate: MutableStateFlow<T> = MutableStateFlow(initial),
+) : StateFlow<T> by delegate {
+    private var collections = 0
+
+    override suspend fun collect(collector: FlowCollector<T>): Nothing {
+        collections++
+        if (collections == 1) throw SimulatedFailure("transient")
+        delegate.collect(collector)
+    }
+}

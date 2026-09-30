@@ -5,6 +5,7 @@ import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.CollectionBookItem
@@ -58,7 +59,14 @@ fun CollectionDetailPage(
     onRevokeShare: (String) -> Unit,
     onClearError: () -> Unit,
     onOpenCollections: () -> Unit,
+    /**
+     * A rename landed. The host says so and clears the ViewModel's flag — once per save, because
+     * the effect below keys on the flag and clearing it is what re-arms it.
+     */
+    onSaveConfirmed: () -> Unit,
 ) {
+    val saved = (state as? AdminCollectionDetailUiState.Ready)?.saveSuccess == true
+    LaunchedEffect(saved) { if (saved) onSaveConfirmed() }
     val name = (state as? AdminCollectionDetailUiState.Ready)?.collection?.name ?: "Collection"
     Div(attrs = { classes("cdet") }) {
         Breadcrumb(trail = listOf("Collections", name), onNavigate = { onOpenCollections() })

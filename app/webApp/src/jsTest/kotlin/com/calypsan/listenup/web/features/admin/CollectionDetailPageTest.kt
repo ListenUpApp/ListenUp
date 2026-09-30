@@ -99,6 +99,7 @@ private fun page(
     onRevokeShare: (String) -> Unit = {},
     onClearError: () -> Unit = {},
     onOpenCollections: () -> Unit = {},
+    onSaveConfirmed: () -> Unit = {},
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
@@ -119,6 +120,7 @@ private fun page(
             onRevokeShare = onRevokeShare,
             onClearError = onClearError,
             onOpenCollections = onOpenCollections,
+            onSaveConfirmed = onSaveConfirmed,
         )
     }
     return host
@@ -160,6 +162,24 @@ class CollectionDetailPageTest :
 
             host.querySelector(".page-t")?.textContent shouldBe "Bedtime"
             (host.querySelector("#cdet-name") as HTMLInputElement).value shouldBe "Bedtime"
+        }
+
+        // Android and iOS both confirm a rename. Web used to save and say nothing: the Save button
+        // vanished, which reads just as well as "it gave up" as "it worked".
+        test("a rename that lands is confirmed exactly once") {
+            var confirmations = 0
+            page(readyDetail().copy(saveSuccess = true), onSaveConfirmed = { confirmations++ })
+            awaitFrame()
+
+            confirmations shouldBe 1
+        }
+
+        test("nothing saved, nothing confirmed") {
+            var confirmations = 0
+            page(readyDetail(), onSaveConfirmed = { confirmations++ })
+            awaitFrame()
+
+            confirmations shouldBe 0
         }
 
         test("typing a new name reports it") {

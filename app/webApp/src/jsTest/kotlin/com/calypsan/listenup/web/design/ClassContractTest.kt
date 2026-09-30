@@ -460,6 +460,16 @@ class ClassContractTest :
                         )
                         LibraryPage(state = contractLibrary(), onEvent = {}, onOpenBook = {}, onSelectFacet = {})
                         LibraryPage(state = LibraryUiState.Loading, onEvent = {}, onOpenBook = {}, onSelectFacet = {})
+                        // The error state's Retry, and a live scan's strip above the grid.
+                        LibraryPage(state = LibraryUiState.Error("nope"), onEvent = {}, onOpenBook = {}, onSelectFacet = {})
+                        LibraryPage(
+                            state =
+                                contractLibrary(books = listOf(contractBook("b1", "Dune")))
+                                    .copy(isServerScanning = true, scanProgress = scanning()),
+                            onEvent = {},
+                            onOpenBook = {},
+                            onSelectFacet = {},
+                        )
                         // Every Contributors state: a populated author list, a populated narrator
                         // list (so `.contrib-role-chip.is-narrator` actually renders — an empty
                         // list here would exercise no row at all), the empty state, and the null
@@ -1485,6 +1495,8 @@ private fun librarySetupShapes(): List<@Composable () -> Unit> =
                 onToggleFolder = {},
                 onComplete = {},
                 onDismissError = {},
+                onSelectFolder = {},
+                onClearSelection = {},
             )
         },
         {
@@ -1495,6 +1507,8 @@ private fun librarySetupShapes(): List<@Composable () -> Unit> =
                 onToggleFolder = {},
                 onComplete = {},
                 onDismissError = {},
+                onSelectFolder = {},
+                onClearSelection = {},
             )
         },
         {
@@ -1505,6 +1519,8 @@ private fun librarySetupShapes(): List<@Composable () -> Unit> =
                 onToggleFolder = {},
                 onComplete = {},
                 onDismissError = {},
+                onSelectFolder = {},
+                onClearSelection = {},
             )
         },
     )
@@ -1811,11 +1827,11 @@ private fun bookHit() =
     )
 
 private fun collectionShapes(): List<@Composable () -> Unit> {
-    fun list(state: AdminCollectionsUiState): @Composable () -> Unit = { CollectionsPage(state, {}, {}, {}, {}, {}) }
+    fun list(state: AdminCollectionsUiState): @Composable () -> Unit = { CollectionsPage(state, {}, {}, {}, {}, {}, {}) }
 
     fun detail(state: AdminCollectionDetailUiState): @Composable () -> Unit =
         {
-            CollectionDetailPage(state, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+            CollectionDetailPage(state, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
         }
 
     return listOf(
@@ -2056,6 +2072,7 @@ private fun playerShapes(): List<@Composable () -> Unit> =
                 onOpenBook = {},
                 onOpenSeries = {},
                 onOpenContributor = {},
+                onCloseBook = {},
                 onDismiss = {},
             )
             NowPlayingPanel(
@@ -2084,6 +2101,7 @@ private fun playerShapes(): List<@Composable () -> Unit> =
                 onOpenBook = {},
                 onOpenSeries = {},
                 onOpenContributor = {},
+                onCloseBook = {},
                 onDismiss = {},
             )
         },
@@ -2164,6 +2182,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
                 onOpenProfile = {},
                 onSelectPeriod = {},
                 onSelectCategory = {},
+                onRefresh = {},
             )
         }
 

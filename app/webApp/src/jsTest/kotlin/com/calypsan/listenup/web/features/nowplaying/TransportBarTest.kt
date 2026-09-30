@@ -1,6 +1,8 @@
 package com.calypsan.listenup.web.features.nowplaying
 
 import com.calypsan.listenup.client.playback.PlaybackState
+import com.calypsan.listenup.client.playback.SleepTimerMode
+import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
@@ -526,6 +528,46 @@ class TransportBarTest :
             player.state.value shouldBe PlaybackState.Idle
             player.isPaused shouldBe true
 
+            URL.revokeObjectURL(segment.url)
+        }
+
+        test("closing the book stops the audio and hides the bar, but leaves the session usable") {
+            // The listener's "I'm done with this one" — not a sign-out. The audio stops, the bar
+            // goes, any sleep timer is dropped, and where they got to is recorded before the
+            // manager forgets the book. The session itself must survive: the next Play in this tab
+            // has to work without a reload.
+            val player = HtmlAudioPlayer()
+            val segment = silentSegment(AUDIO_SEGMENT_MS)
+            val manager = fakePlaybackManager(segment, title = "Dune")
+            val playback =
+                LivePlayback(
+                    manager,
+                    WebPlaybackController(player, manager),
+                    player,
+                    FakePlaybackPreferences(),
+                    FakeBookRepository(),
+                )
+            val host = mounts.mount { TransportBarHost(playback.asSession(), {}, {}, {}) }
+
+            playback.playBook(BookId("book-1"))
+            withTimeout(PLAYING_TIMEOUT_MS) { manager.isPlaying.first { it } }
+            playback.setSleepTimer(SleepTimerMode.Duration(minutes = 30))
+            awaitFrame()
+            host.querySelector(".tport").shouldNotBeNull()
+
+            playback.closeBook()
+            awaitFrame()
+
+            player.isPaused shouldBe true
+            manager.recordedStates shouldBe listOf(BookId("book-1") to PlaybackState.Paused)
+            playback.state.value shouldBe null
+            playback.sleepTimer.value shouldBe SleepTimerState.Inactive
+            host.querySelector(".tport") shouldBe null
+
+            playback.playBook(BookId("book-1"))
+            player.awaitState(PlaybackState.Playing)
+
+            playback.close()
             URL.revokeObjectURL(segment.url)
         }
 

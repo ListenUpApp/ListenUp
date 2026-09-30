@@ -95,7 +95,15 @@ internal class FakePlaybackManager(
         isBuffering.value = buffering
     }
 
+    /**
+     * Every state reported to the manager by someone OTHER than the player bridge in
+     * [startPlayback], with the book it was filed under — the transitions a real
+     * `PlaybackManagerImpl` would persist through its reporter.
+     */
+    val recordedStates = mutableListOf<Pair<BookId?, PlaybackState>>()
+
     override fun setPlaybackState(state: PlaybackState) {
+        recordedStates += currentBookId.value to state
         playbackState.value = state
     }
 

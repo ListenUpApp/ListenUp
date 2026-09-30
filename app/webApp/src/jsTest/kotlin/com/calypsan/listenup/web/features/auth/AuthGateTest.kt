@@ -443,6 +443,77 @@ class AuthGateTest :
             host.querySelectorAll(".auth-boot").length shouldBe 1
         }
 
+        // Android's `SetupCheckFailedScreen`. The ViewModel reports a failed probe as `error` with
+        // `needsSetup` still false, which the gate used to read as "no setup needed" — dropping a
+        // fresh admin into an empty shell with a toast that vanished, and no way to ask again.
+        test("a failed setup check with nothing local offers to check again instead of an empty app") {
+            var checks = 0
+            val host =
+                mountGate(
+                    FakeAuthGraph(authenticated()),
+                    openLibrarySetup =
+                        fixedLibrarySetup(
+                            setupState(needsSetup = false, error = "Couldn't reach the server."),
+                            onCheckStatus = { checks++ },
+                            hasLocalLibrary = { false },
+                        ),
+                )
+
+            val retry =
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    var found: HTMLElement? = null
+                    while (found == null) {
+                        found = host.querySelector(".setup-check-retry") as? HTMLElement
+                        if (found == null) delay(10)
+                    }
+                    found
+                }
+            host.querySelector(".shell") shouldBe null
+            retry.click()
+
+            checks shouldBe 1
+        }
+
+        // ⛔ Offline-first. Android's `resolveOfflineOrFail` opens a returning reader offline
+        // rather than walling them out; a wall here would take away a library that is sitting in
+        // OPFS and reads perfectly well, because the server happened to be down at sign-in.
+        test("a failed setup check over a library already in this browser opens the app") {
+            val host =
+                mountGate(
+                    FakeAuthGraph(authenticated()),
+                    openLibrarySetup =
+                        fixedLibrarySetup(
+                            setupState(needsSetup = false, error = "Couldn't reach the server."),
+                            hasLocalLibrary = { true },
+                        ),
+                )
+
+            withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                while (host.querySelector(".shell") == null) delay(10)
+            }
+            host.querySelector(".setup-check-retry") shouldBe null
+        }
+
+        // A lapsed session would fail the retry against the same dead credentials, and the wall
+        // would paint over the banner that is the only way back in — Android resolves Ready here.
+        test("a failed setup check under a lapsed session keeps the app and its sign-in banner") {
+            val host =
+                mountGate(
+                    FakeAuthGraph(AuthState.SessionLapsed(UserId("u1"))),
+                    openLibrarySetup =
+                        fixedLibrarySetup(
+                            setupState(needsSetup = false, error = "Your session expired."),
+                            hasLocalLibrary = { false },
+                        ),
+                    openConnectionHealth = fixedConnectionHealth(ConnectionHealthUi.SessionExpired),
+                )
+
+            withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                while (host.querySelector(".shell") == null) delay(10)
+            }
+            host.querySelector(".setup-check-retry") shouldBe null
+        }
+
         // ⛔ The ViewModel does NOT flip `needsSetup` back to false on success — its last act is to
         // start the scan and emit the one-shot. A gate re-reading the state would show the wizard
         // again, over a library that was just configured, forever.

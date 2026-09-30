@@ -31,6 +31,7 @@ import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -39,6 +40,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
@@ -144,6 +146,7 @@ private data class BookSeriesSortKey(
  * Multi-select selection state lives in [BookMultiSelectViewModel], a per-screen VM the
  * Library screen drives independently of this content pipeline.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class LibraryViewModel(
     private val bookRepository: BookRepository,
     private val seriesRepository: SeriesRepository,
@@ -279,7 +282,27 @@ class LibraryViewModel(
             // on every firehose heartbeat or scan-progress tick when the values haven't actually changed.
         ).distinctUntilChanged()
 
+    /**
+     * Bumped to re-run the state pipeline after it failed — see [onEvent]'s `RefreshRequested`.
+     *
+     * ⛔ Needed because [LibraryUiState.Error] is what the pipeline's fallback emits as it
+     * TERMINATES: the upstream is done, and `stateIn` holds that last value until the subscription
+     * lapses. Without a restart, a Retry could re-sync every book into Room while the screen went on
+     * saying the library can't be shown. The fallback therefore sits INSIDE the [flatMapLatest], so
+     * a failure ends one run of the pipeline rather than the flow the screen is subscribed to.
+     */
+    private val pipelineRuns = MutableStateFlow(0)
+
     val uiState: StateFlow<LibraryUiState> =
+        pipelineRuns
+            .flatMapLatest { libraryStatePipeline() }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                initialValue = LibraryUiState.Loading,
+            )
+
+    private fun libraryStatePipeline(): Flow<LibraryUiState> =
         combine(
             revisedContent,
             progressSnapshot,
@@ -298,11 +321,7 @@ class LibraryViewModel(
             .fallbackTo { e ->
                 logger.error(e) { "Library state pipeline failed" }
                 LibraryUiState.Error("Failed to load library")
-            }.stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-                initialValue = LibraryUiState.Loading,
-            )
+            }
 
     // ═══════════════════════════════════════════════════════════════════════
     // INITIALIZATION
@@ -381,6 +400,9 @@ class LibraryViewModel(
     fun onEvent(event: LibraryUiEvent) {
         when (event) {
             is LibraryUiEvent.RefreshRequested -> {
+                // Only a failed pipeline is restarted. A healthy one is already live on Room, and
+                // re-running it would re-sort the whole library to say the same thing.
+                if (uiState.value is LibraryUiState.Error) pipelineRuns.update { it + 1 }
                 refreshBooks()
             }
 

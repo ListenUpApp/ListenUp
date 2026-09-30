@@ -164,6 +164,7 @@ private fun session(
         onCancelSleepTimer = {},
         onExtendSleepTimer = {},
         onDismissError = {},
+        onCloseBook = {},
         close = {},
     )
 

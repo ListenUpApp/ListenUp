@@ -953,6 +953,7 @@ private fun DiscoverRoute(
             onOpenProfile = { id -> router.navigate(Route(listOf(PROFILE_KEY, id))) },
             onSelectPeriod = session.onSelectPeriod,
             onSelectCategory = session.onSelectCategory,
+            onRefresh = session.onRefresh,
             selection = selection,
         )
     }
@@ -2638,6 +2639,7 @@ private fun RestoreRoute(
 private fun CollectionsRoute(
     router: Router,
     openCollections: OpenCollections,
+    onToast: (String) -> Unit,
 ) {
     val session = remember { openCollections() }
     DisposableEffect(session) { onDispose { session.close() } }
@@ -2649,6 +2651,10 @@ private fun CollectionsRoute(
         onClearError = session.onClearError,
         onOpenCollection = { id -> router.navigate(Route(listOf(ADMIN_KEY, COLLECTIONS_KEY, id))) },
         onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+        onCreateConfirmed = {
+            onToast("Collection created.")
+            session.onClearCreateSuccess()
+        },
     )
 }
 
@@ -2664,6 +2670,7 @@ private fun CollectionDetailRoute(
     router: Router,
     openCollectionDetail: OpenCollectionDetail,
     collectionId: String,
+    onToast: (String) -> Unit,
 ) {
     val session = remember(collectionId) { openCollectionDetail(collectionId) }
     DisposableEffect(session) { onDispose { session.close() } }
@@ -2683,6 +2690,10 @@ private fun CollectionDetailRoute(
         onRevokeShare = session.onRevokeShare,
         onClearError = session.onClearError,
         onOpenCollections = { router.navigate(Route(listOf(ADMIN_KEY, COLLECTIONS_KEY))) },
+        onSaveConfirmed = {
+            onToast("Collection renamed.")
+            session.onClearSaveSuccess()
+        },
     )
 }
 
@@ -3449,9 +3460,14 @@ private fun AdminRouteContent(
         // beneath it and the detail page becomes unreachable by link.
         COLLECTIONS_KEY -> {
             if (id != null) {
-                CollectionDetailRoute(router = router, openCollectionDetail = admin.collectionDetail, collectionId = id)
+                CollectionDetailRoute(
+                    router = router,
+                    openCollectionDetail = admin.collectionDetail,
+                    collectionId = id,
+                    onToast = onToast,
+                )
             } else {
-                CollectionsRoute(router = router, openCollections = admin.collections)
+                CollectionsRoute(router = router, openCollections = admin.collections, onToast = onToast)
             }
         }
 

@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.setup
 
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
+import com.calypsan.listenup.web.design.ButtonSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.DirectoryEntry
@@ -45,6 +46,8 @@ fun LibrarySetupPage(
     onToggleFolder: (String) -> Unit,
     onComplete: () -> Unit,
     onDismissError: () -> Unit,
+    onSelectFolder: (String) -> Unit,
+    onClearSelection: () -> Unit,
 ) {
     Div(attrs = { classes("lsetup") }) {
         PageHeader(
@@ -67,7 +70,7 @@ fun LibrarySetupPage(
             }
         }
 
-        Breadcrumb(state, onNavigateUp)
+        Breadcrumb(state, onNavigateUp, onUseCurrentFolder = { onSelectFolder(state.currentPath) })
 
         when {
             state.isCheckingStatus || state.isLoadingDirectories -> {
@@ -94,22 +97,28 @@ fun LibrarySetupPage(
             }
         }
 
-        SelectionBar(state, onComplete)
+        SelectionBar(state, onComplete, onClearSelection)
     }
 }
 
 /**
- * Where you are on the server, and the way back up.
+ * Where you are on the server, the way back up, and a way to choose where you are standing.
  *
  * The whole crumb is one control rather than a per-segment trail. `LibrarySetupViewModel` offers
  * `navigateUp()` and `loadDirectory(path)` — it has no notion of jumping three levels at once, and
  * a crumb whose middle segments were clickable would be inventing one. Up is the movement the
  * ViewModel actually has, so up is what is offered.
+ *
+ * "Use this folder" is Android's and iOS's answer to the commonest layout: books sitting directly
+ * in the folder you browsed into. Without it that folder could only be chosen from its parent's
+ * list. Once chosen it says so and stops offering, rather than silently doing nothing on a second
+ * press — un-choosing lives on the row's checkbox and in Clear.
  */
 @Composable
 private fun Breadcrumb(
     state: LibrarySetupUiState,
     onNavigateUp: () -> Unit,
+    onUseCurrentFolder: () -> Unit,
 ) {
     Div(attrs = { classes("lsetup-crumb") }) {
         Button(attrs = {
@@ -122,6 +131,17 @@ private fun Breadcrumb(
             onClick { onNavigateUp() }
         }) { Icon(WebIcon.ChevronLeft, size = CRUMB_ICON_SIZE) }
         Span(attrs = { classes("lsetup-path", "mono") }) { Text(state.currentPath) }
+        val chosen = state.currentPath in state.selectedPaths
+        Button(
+            kind = ButtonKind.Secondary,
+            size = ButtonSize.Sm,
+            enabled = !chosen,
+            onClick = onUseCurrentFolder,
+            attrs = { classes("lsetup-use") },
+        ) {
+            if (chosen) Icon(WebIcon.Check, size = CHECK_ICON_SIZE)
+            Text(if (chosen) "Chosen" else "Use this folder")
+        }
     }
 }
 
@@ -185,10 +205,21 @@ private fun FolderRow(
 private fun SelectionBar(
     state: LibrarySetupUiState,
     onComplete: () -> Unit,
+    onClearSelection: () -> Unit,
 ) {
     val count = state.selectedPaths.size
     Div(attrs = { classes("lsetup-bar") }) {
         Span(attrs = { classes("lsetup-count") }) { Text(selectionLabel(count)) }
+        // Only with something to clear: the folders chosen may be scattered across the tree, and
+        // un-ticking each means finding it again. The bar keeps its height either way.
+        if (count > 0 && !state.isCreatingLibrary) {
+            Button(
+                kind = ButtonKind.Ghost,
+                size = ButtonSize.Sm,
+                onClick = onClearSelection,
+                attrs = { classes("lsetup-clear") },
+            ) { Text("Clear") }
+        }
         Button(
             kind = ButtonKind.Primary,
             onClick = { onComplete() },

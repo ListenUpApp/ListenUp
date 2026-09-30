@@ -95,6 +95,7 @@ class NowPlayingPanelTest :
             onOpenBook: (String) -> Unit = {},
             onOpenSeries: (String) -> Unit = {},
             onOpenContributor: (String) -> Unit = {},
+            onCloseBook: () -> Unit = {},
         ): HTMLElement {
             val host =
                 mounts.mount {
@@ -114,6 +115,7 @@ class NowPlayingPanelTest :
                         onOpenBook = onOpenBook,
                         onOpenSeries = onOpenSeries,
                         onOpenContributor = onOpenContributor,
+                        onCloseBook = onCloseBook,
                     )
                 }
             (host.querySelector(".tport-expand") as HTMLElement).click()
@@ -260,6 +262,21 @@ class NowPlayingPanelTest :
             (host.querySelector(".np-goto") as HTMLElement).click()
 
             opened shouldBe listOf("b42")
+        }
+
+        test("Close book reports exactly one press and puts the player away") {
+            // Android's player offers this from its overflow menu; without it a web listener who is
+            // done with a book can only pause it, and the bar goes on naming it on every page.
+            var closes = 0
+            val host = openPanel(onCloseBook = { closes++ })
+
+            val close = host.querySelector(".np-close-book") as HTMLElement
+            close.textContent.orEmpty() shouldContain "Close book"
+            close.click()
+            awaitFrame()
+
+            closes shouldBe 1
+            host.querySelector(".np-dlg[open]") shouldBe null
         }
 
         test("the panel's play control reports a press and says which action it is") {

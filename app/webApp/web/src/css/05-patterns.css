@@ -260,6 +260,8 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 @media (hover: hover) { .np-goto:hover { border-color:var(--coral); color:var(--coral-text); } }
 .np-goto:focus { outline:none; }
 .np-goto:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+/* Ends the session rather than adjusting it, so it stands below the chips, not among them. */
+.np-close-book { align-self:flex-start; }
 
 @media (max-width: 639px) {
   /* The cover is the first thing to go: it is the largest element and the only one that carries

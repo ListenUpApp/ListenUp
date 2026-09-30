@@ -108,6 +108,7 @@ private fun page(
     onOpenProfile: (String) -> Unit = {},
     onSelectPeriod: (LeaderboardPeriod) -> Unit = {},
     onSelectCategory: (LeaderboardCategory) -> Unit = {},
+    onRefresh: () -> Unit = {},
     selection: BookSelection? = null,
 ) {
     DiscoverPage(
@@ -123,6 +124,7 @@ private fun page(
         onOpenProfile = onOpenProfile,
         onSelectPeriod = onSelectPeriod,
         onSelectCategory = onSelectCategory,
+        onRefresh = onRefresh,
         selection = selection,
     )
 }
@@ -163,6 +165,49 @@ class DiscoverPageTest :
 
             host.querySelectorAll(".disc-error").length shouldBe 1
             host.querySelectorAll(".disc-listener").length shouldBe 1
+        }
+
+        test("a failed book row offers Try again, and pressing it asks for a fresh load") {
+            // Before this the row was a dead end: the only way back was reloading the tab.
+            var refreshes = 0
+            val root =
+                mounts.mount {
+                    page(books = DiscoverBooksUiState.Error("Failed to load discover books"), onRefresh = { refreshes++ })
+                }
+
+            val retry = root.querySelector(".disc-retry") as HTMLElement
+            retry.textContent shouldBe "Try again"
+            retry.click()
+
+            refreshes shouldBe 1
+        }
+
+        test("failed shared shelves offer Try again too, since the same refresh re-fetches them") {
+            var refreshes = 0
+            val root =
+                mounts.mount {
+                    page(shelves = DiscoverShelvesUiState.Error("Failed to load discover shelves"), onRefresh = { refreshes++ })
+                }
+
+            (root.querySelector(".disc-retry") as HTMLElement).click()
+
+            refreshes shouldBe 1
+        }
+
+        test("a section refresh cannot bring back offers no Try again") {
+            // Listeners, recently added, the leaderboard and the feed end their flow on error;
+            // refresh() never reaches them, so a button there would be a control that does nothing.
+            val root =
+                mounts.mount {
+                    page(
+                        currentlyListening = CurrentlyListeningUiState.Error("nope"),
+                        recentlyAdded = RecentlyAddedUiState.Error("nope"),
+                        leaderboard = LeaderboardUiState.Error(isRetryable = true),
+                        activityState = ActivityFeedUiState.Error("nope"),
+                    )
+                }
+
+            root.querySelectorAll(".disc-retry").length shouldBe 0
         }
 
         test("a live listener is marked as listening now, not as a stale timestamp") {
