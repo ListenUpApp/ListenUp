@@ -166,7 +166,7 @@ internal suspend fun BookExternalRatingRepository.localeFor(
  * author/duration shape [com.calypsan.listenup.server.api.MetadataLookupServiceImpl] builds for the
  * phase-1 match scorer.
  */
-private fun BookSyncPayload.toIdentity(): BookIdentity =
+internal fun BookSyncPayload.toIdentity(): BookIdentity =
     BookIdentity(
         // Blank is absent: a source keyed on either must fall through, not look up "".
         asin = asin?.takeIf { it.isNotBlank() },
