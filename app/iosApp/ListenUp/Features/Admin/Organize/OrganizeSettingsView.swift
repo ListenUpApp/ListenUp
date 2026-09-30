@@ -67,14 +67,14 @@ struct OrganizeSettingsView: View {
             rulePicker(
                 String(localized: "admin.organize_structure"),
                 options: OrganizeReadyModel.presets,
-                selection: Binding(get: { model.preset }, set: observer.setPreset),
+                selection: Binding(get: { model.preset }, set: { observer.setPreset($0) }),
                 title: OrganizeReadyModel.title
             )
             if model.showsSeriesPrefix {
                 rulePicker(
                     String(localized: "admin.organize_series_prefix"),
                     options: OrganizeReadyModel.seriesPrefixes,
-                    selection: Binding(get: { model.seriesPrefix }, set: observer.setSeriesPrefix),
+                    selection: Binding(get: { model.seriesPrefix }, set: { observer.setSeriesPrefix($0) }),
                     title: OrganizeReadyModel.title
                 )
             }
@@ -82,7 +82,7 @@ struct OrganizeSettingsView: View {
                 rulePicker(
                     String(localized: "admin.organize_author_form"),
                     options: OrganizeReadyModel.authorForms,
-                    selection: Binding(get: { model.authorForm }, set: observer.setAuthorForm),
+                    selection: Binding(get: { model.authorForm }, set: { observer.setAuthorForm($0) }),
                     title: OrganizeReadyModel.title
                 )
             }
