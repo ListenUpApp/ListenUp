@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -440,6 +442,7 @@ internal fun ReaderRow(
  * The line under a reader's name: progress while they are reading, "Read {date}" beside a "Hardcover"
  * label for a read logged there, "Finished {date}" for a ListenUp finish, or "Rated".
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ReaderStateLine(reader: ReaderRowUi) {
     if (reader.isReading) {
@@ -462,10 +465,13 @@ private fun ReaderStateLine(reader: ReaderRowUi) {
             }
         }
     } else if (reader.finishedWhen != null && reader.isOnHardcover) {
-        Row(
+        // Flows rather than a Row: at a large font scale the label wraps beneath the date instead of
+        // crushing it.
+        FlowRow(
             modifier = Modifier.padding(top = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            itemVerticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
                 text = stringResource(Res.string.book_detail_readers_read, reader.finishedWhen),

@@ -74,15 +74,7 @@ struct BookReadersSection: View {
                 if reader.isReading {
                     progress(reader)
                 } else if let finished = reader.lastFinished, reader.lastFinishedOnHardcover {
-                    HStack(spacing: Spacing.xs) {
-                        Text(String(
-                            format: String(localized: "book.detail_readers_read"),
-                            finished.formatted(date: .abbreviated, time: .omitted)
-                        ))
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        SourceBadge(label: String(localized: "book.detail_readers_hardcover"))
-                    }
+                    readOnHardcover(finished)
                 } else if let finished = reader.lastFinished {
                     Text(String(
                         format: String(localized: "book.detail_readers_finished"),
@@ -111,6 +103,28 @@ struct BookReadersSection: View {
         .padding(.vertical, Spacing.s)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel(for: reader))
+    }
+
+    /// "Read {date}" beside a Hardcover badge — or beneath it when the text size leaves no room, so a
+    /// large Dynamic Type size wraps the badge rather than crushing the date.
+    private func readOnHardcover(_ finished: Date) -> some View {
+        let read = Text(String(
+            format: String(localized: "book.detail_readers_read"),
+            finished.formatted(date: .abbreviated, time: .omitted)
+        ))
+        .font(.footnote)
+        .foregroundStyle(.secondary)
+        let badge = SourceBadge(label: String(localized: "book.detail_readers_hardcover"))
+        return ViewThatFits(in: .horizontal) {
+            HStack(spacing: Spacing.xs) {
+                read.fixedSize()
+                badge
+            }
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                read
+                badge
+            }
+        }
     }
 
     private func avatar(_ reader: BookReaderRow) -> some View {
