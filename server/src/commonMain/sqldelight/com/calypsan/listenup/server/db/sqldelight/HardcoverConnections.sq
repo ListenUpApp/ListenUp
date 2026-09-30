@@ -12,7 +12,9 @@ CREATE TABLE hardcover_connections (
     refresh_expires_at INTEGER NOT NULL,
     scopes             TEXT    NOT NULL,
     connected_at       INTEGER NOT NULL,
-    broken_reason      TEXT
+    broken_reason      TEXT,
+    last_synced_at     INTEGER,
+    push_error         TEXT
 );
 
 selectByUser:
@@ -50,3 +52,19 @@ FROM hardcover_connections AS c
 JOIN users AS u ON u.id = c.user_id
 WHERE c.broken_reason IS NULL AND u.deleted_at IS NULL
 ORDER BY CASE u.role WHEN 'ROOT' THEN 0 WHEN 'ADMIN' THEN 1 ELSE 2 END, c.connected_at, c.user_id;
+
+existsForUser:
+SELECT EXISTS(SELECT 1 FROM hardcover_connections WHERE user_id = :user_id);
+
+selectHcUserId:
+SELECT hc_user_id FROM hardcover_connections WHERE user_id = :user_id;
+
+-- A push landed: remember when, and clear any error that had outlasted the retry cap.
+markSynced:
+UPDATE hardcover_connections SET last_synced_at = :last_synced_at, push_error = NULL WHERE user_id = :user_id;
+
+recordPushError:
+UPDATE hardcover_connections SET push_error = :push_error WHERE user_id = :user_id;
+
+selectPushHealth:
+SELECT last_synced_at, push_error FROM hardcover_connections WHERE user_id = :user_id;

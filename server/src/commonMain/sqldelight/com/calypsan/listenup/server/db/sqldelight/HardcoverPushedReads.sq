@@ -1,0 +1,16 @@
+-- hardcover_pushed_reads: every Hardcover read ListenUp opened or continued, kept so the pull (B3)
+-- can skip its own pushes. No FK to books on purpose (see V76); FK → users lives in the migration.
+CREATE TABLE hardcover_pushed_reads (
+    user_id     TEXT    NOT NULL,
+    hc_read_id  INTEGER NOT NULL,
+    book_id     TEXT    NOT NULL,
+    recorded_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, hc_read_id)
+);
+
+recordPushedRead:
+INSERT OR IGNORE INTO hardcover_pushed_reads (user_id, hc_read_id, book_id, recorded_at)
+VALUES (:user_id, :hc_read_id, :book_id, :recorded_at);
+
+isPushedRead:
+SELECT EXISTS(SELECT 1 FROM hardcover_pushed_reads WHERE user_id = :user_id AND hc_read_id = :hc_read_id);

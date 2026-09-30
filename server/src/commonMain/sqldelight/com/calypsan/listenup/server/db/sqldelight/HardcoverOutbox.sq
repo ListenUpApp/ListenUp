@@ -1,0 +1,84 @@
+-- hardcover_outbox: pushes waiting for Hardcover, drained in id order on one lane per user. PROGRESS
+-- rows coalesce: at most one per (user, book), holding the newest position. A row whose book link is
+-- NEEDS_MATCH is parked (skipped) until the user links the book.
+-- FKs (→ users, → books ON DELETE CASCADE) live in the migration DDL.
+CREATE TABLE hardcover_outbox (
+    id                        INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    user_id                   TEXT    NOT NULL,
+    book_id                   TEXT    NOT NULL,
+    listen_through_started_at INTEGER NOT NULL,
+    op                        TEXT    NOT NULL,
+    payload                   TEXT    NOT NULL,
+    created_at                INTEGER NOT NULL,
+    attempts                  INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at           INTEGER NOT NULL,
+    last_error                TEXT
+);
+
+CREATE INDEX idx_hardcover_outbox_user_book ON hardcover_outbox(user_id, book_id, op);
+
+insertOp:
+INSERT INTO hardcover_outbox (user_id, book_id, listen_through_started_at, op, payload, created_at, attempts, next_attempt_at, last_error)
+VALUES (:user_id, :book_id, :listen_through_started_at, :op, :payload, :created_at, 0, :next_attempt_at, NULL);
+
+-- Folds a new position into the queued PROGRESS row, keeping its place in the queue and its due time.
+coalesceProgress:
+UPDATE hardcover_outbox SET payload = :payload, listen_through_started_at = :listen_through_started_at
+WHERE user_id = :user_id AND book_id = :book_id AND op = 'PROGRESS';
+
+deletePendingProgress:
+DELETE FROM hardcover_outbox WHERE user_id = :user_id AND book_id = :book_id AND op = 'PROGRESS';
+
+-- The next row the user's lane may run: due, not parked behind NEEDS_MATCH, and the oldest row of its
+-- book (a book's operations always run in order; other books are not held up by it).
+selectHead:
+SELECT o.id, o.user_id, o.book_id, o.listen_through_started_at, o.op, o.payload, o.attempts
+FROM hardcover_outbox AS o
+LEFT JOIN hardcover_book_links AS l ON l.user_id = o.user_id AND l.book_id = o.book_id
+WHERE o.user_id = :user_id
+  AND o.next_attempt_at <= :now
+  AND (l.match_state IS NULL OR l.match_state = 'LINKED')
+  AND NOT EXISTS (
+      SELECT 1 FROM hardcover_outbox AS e
+      WHERE e.user_id = o.user_id AND e.book_id = o.book_id AND e.id < o.id
+  )
+ORDER BY o.id
+LIMIT 1;
+
+-- When the lane next has something to do: the earliest due time among the rows selectHead could pick.
+selectNextWake:
+SELECT o.next_attempt_at
+FROM hardcover_outbox AS o
+LEFT JOIN hardcover_book_links AS l ON l.user_id = o.user_id AND l.book_id = o.book_id
+WHERE o.user_id = :user_id
+  AND (l.match_state IS NULL OR l.match_state = 'LINKED')
+  AND NOT EXISTS (
+      SELECT 1 FROM hardcover_outbox AS e
+      WHERE e.user_id = o.user_id AND e.book_id = o.book_id AND e.id < o.id
+  )
+ORDER BY o.next_attempt_at
+LIMIT 1;
+
+deleteById:
+DELETE FROM hardcover_outbox WHERE id = :id;
+
+reschedule:
+UPDATE hardcover_outbox SET attempts = :attempts, next_attempt_at = :next_attempt_at, last_error = :last_error
+WHERE id = :id;
+
+deleteListenThrough:
+DELETE FROM hardcover_outbox
+WHERE user_id = :user_id AND book_id = :book_id AND listen_through_started_at = :listen_through_started_at;
+
+-- A manual link makes a parked book's rows due now.
+unpark:
+UPDATE hardcover_outbox SET next_attempt_at = :now WHERE user_id = :user_id AND book_id = :book_id;
+
+usersWithPending:
+SELECT DISTINCT user_id FROM hardcover_outbox;
+
+deleteForUser:
+DELETE FROM hardcover_outbox WHERE user_id = :user_id;
+
+selectForUser:
+SELECT * FROM hardcover_outbox WHERE user_id = :user_id ORDER BY id;
