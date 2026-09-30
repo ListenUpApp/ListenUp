@@ -68,6 +68,13 @@ class CachedAudioTokenProvider(
     private val authSession: AuthSession,
     private val authRepository: AuthRepository,
     private val clock: Clock = Clock.System,
+    /**
+     * Told after every rotation this provider performs. The server only learns the rotation's reply
+     * arrived when the new access token reaches it, and a play-start refresh otherwise leaves it
+     * unpresented for as long as the existing RPC socket lives; see
+     * [com.calypsan.listenup.client.di.sharedAudioTokenProvider] for the production hook.
+     */
+    private val onSessionRotated: () -> Unit = {},
 ) : AudioTokenProvider {
     @Volatile
     private var cachedToken: AccessToken? = null
@@ -162,6 +169,7 @@ class CachedAudioTokenProvider(
                 cachedToken = session.accessToken
                 tokenExpiresAt = session.accessTokenExpiresAt
                 logger.info { "Token refreshed successfully" }
+                onSessionRotated()
             }
 
             is AppResult.Failure -> {
@@ -177,17 +185,18 @@ class CachedAudioTokenProvider(
     }
 
     /**
-     * Fallback path when refresh fails: surface whatever is in [AuthSession]
-     * so cached/local content still plays. Server-side expiry is unknown
-     * here — assume the stored access token is at most 50 minutes from
-     * being useful, matching the legacy heuristic. The next playback
-     * attempt will trigger another refresh attempt.
+     * Fallback path when refresh fails or runs past its budget: surface whatever is in [AuthSession]
+     * so cached/local content still plays, cached until the stored token's own `exp` — so an already
+     * expired one is never mistaken for usable, and the next request adopts the rotation that may be
+     * landing behind it instead of serving a dead token for [STORED_TOKEN_GRACE]. Only a token whose
+     * expiry can't be decoded gets that synthetic grace (the legacy heuristic), which is what keeps
+     * an offline, undecodable token from retrying the network on every request.
      */
     private suspend fun fallbackToStored() {
         val stored = authSession.getAccessToken()
         if (stored != null) {
             cachedToken = stored
-            tokenExpiresAt = now() + STORED_TOKEN_GRACE.inWholeMilliseconds
+            tokenExpiresAt = jwtExpiryMillis(stored.value) ?: (now() + STORED_TOKEN_GRACE.inWholeMilliseconds)
             logger.debug { "Token loaded from storage (fallback)" }
         } else {
             cachedToken = null

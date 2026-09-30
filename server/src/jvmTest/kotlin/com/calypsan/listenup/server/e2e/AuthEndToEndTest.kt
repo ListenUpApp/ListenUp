@@ -4,11 +4,14 @@ import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeEmpty
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.runBlocking
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * End-to-end auth tests — real `Application.module()` over CIO + real
@@ -215,6 +218,22 @@ class AuthEndToEndTest :
 
                 fix.authRepository.refreshAccessToken().shouldBeInstanceOf<AppResult.Success<*>>()
                 fix.authRepository.listSessions().shouldBeInstanceOf<AppResult.Success<*>>()
+            }
+        }
+
+        // I1: a playback-start rotation must reach the server promptly. The client's authed socket
+        // was opened with the old token and would carry on with it; without an explicit present,
+        // an Android Auto start followed by a process death left the rotation unconfirmed.
+        test("a rotation made for playback is confirmed on the server without waiting for a reconnect") {
+            runBlocking {
+                val fix = autoClose(fixture())
+                bootstrap(fix)
+                // Open the authed socket on the pre-rotation token.
+                fix.authRepository.listSessions().shouldBeInstanceOf<AppResult.Success<*>>()
+
+                fix.audioTokenProvider().refreshToken()
+
+                eventually(10.seconds) { fix.rotationConfirmedAt().shouldNotBeNull() }
             }
         }
 

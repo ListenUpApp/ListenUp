@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.e2e
 
+import com.calypsan.listenup.client.di.audioTokenProviderForTests
+import com.calypsan.listenup.client.playback.CachedAudioTokenProvider
 import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.client.di.clientApiClientFactoryTestModule
 import com.calypsan.listenup.client.di.clientAuthModuleForTests
@@ -58,6 +60,20 @@ internal class AuthEndToEndFixture private constructor(
 ) : AutoCloseable {
     val authRepository: AuthRepository = koin.koin.get()
     val authSession: AuthSession = koin.koin.get()
+
+    /** When the server recorded that the most recently rotated session's reply arrived, or null. */
+    fun rotationConfirmedAt(): Long? =
+        java.sql.DriverManager.getConnection("jdbc:sqlite:$databasePath").use { db ->
+            db
+                .createStatement()
+                .executeQuery(
+                    "SELECT rotation_confirmed_at FROM sessions WHERE previous_hash IS NOT NULL " +
+                        "ORDER BY rotated_at DESC LIMIT 1",
+                ).use { rs -> if (rs.next()) (rs.getObject(1) as Number?)?.toLong() else null }
+        }
+
+    /** The production audio-token authority over this fixture's client graph. */
+    fun audioTokenProvider(): CachedAudioTokenProvider = audioTokenProviderForTests(koin.koin)
 
     override fun close() {
         @Suppress("MagicNumber")

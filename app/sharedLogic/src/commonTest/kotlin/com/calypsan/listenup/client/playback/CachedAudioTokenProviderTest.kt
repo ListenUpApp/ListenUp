@@ -81,7 +81,10 @@ class CachedAudioTokenProviderTest :
         // streams authenticate by URL signature, so the provider now refreshes only when a
         // consumer asks for a usable token.
 
-        test("an idle app never rotates the session: not at cold start, not over hours in the background") {
+        // A regression pin for the removed construction-time refresh and 5-minute loop: nothing in
+        // the provider may schedule work of its own. Constructing it is what every background wake
+        // (SyncWorker, FCM, Android Auto) did, so this is the shape that used to rotate 37 times.
+        test("constructing the provider schedules nothing: no rotation at cold start or hours later") {
             runTest {
                 val clock = VirtualClock(testScheduler)
                 val repo =
@@ -192,6 +195,87 @@ class CachedAudioTokenProviderTest :
 
                 repo.calls shouldBe callsAtFirstPlay
                 provider.getToken() shouldBe rotatedElsewhere
+            }
+        }
+
+        // The server learns a rotation's reply arrived only when the new access token reaches it
+        // (its lost-reply rule). A play-start refresh leaves the old RPC socket in place, so without
+        // an announcement an Android Auto start followed by a process death left the rotation
+        // unconfirmed for good.
+        test("a rotation the provider performs is announced once; adopting a stored token announces nothing") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val repo =
+                    FakeAudioAuthRepository {
+                        AppResult.Success(
+                            contractSession(
+                                "t1",
+                                clock.now().toEpochMilliseconds() + 15.minutes.inWholeMilliseconds,
+                            ),
+                        )
+                    }
+                val storage = FakeStorageAuthSession(stored = null)
+                var announcements = 0
+                val provider = CachedAudioTokenProvider(storage, repo, clock, onSessionRotated = { announcements++ })
+
+                provider.prepareForPlayback()
+                announcements shouldBe 1
+
+                // A 401 forces another rotation: announced too.
+                provider.refreshToken()
+                announcements shouldBe 2
+
+                // A token another refresher stored is adopted without any rotation of ours.
+                advanceTimeBy(14.minutes)
+                storage.stored = AccessToken(jwtWithExp((clock.now().toEpochMilliseconds() + 15.minutes.inWholeMilliseconds) / 1000))
+                provider.prepareForPlayback()
+                announcements shouldBe 2
+            }
+        }
+
+        test("a failed rotation announces nothing") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val repo = FakeAudioAuthRepository { AppResult.Failure(AuthError.SessionExpired()) }
+                var announcements = 0
+                val provider =
+                    CachedAudioTokenProvider(FakeStorageAuthSession(stored = null), repo, clock, onSessionRotated = { announcements++ })
+
+                provider.prepareForPlayback()
+
+                announcements shouldBe 0
+            }
+        }
+
+        // I3: the 800 ms budget trips, the fallback caches the stored token — which is already
+        // expired — and used to treat it as good for 50 minutes. Meanwhile the rotation completed and
+        // was persisted, but the cache never looked again: iOS covers 401'd for the whole 50 minutes.
+        test("an expired stored token is never cached as usable, so a rotation that lands late is adopted") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val expired = jwtWithExp((clock.now().toEpochMilliseconds() - 60.seconds.inWholeMilliseconds) / 1000)
+                val storage = FakeStorageAuthSession(stored = AccessToken(expired))
+                val rotated = jwtWithExp((clock.now().toEpochMilliseconds() + 15.minutes.inWholeMilliseconds) / 1000)
+                // The real repository runs the rotation on its own scope: abandoning the wait never
+                // cancels it, and it persists when it lands. Model that on backgroundScope.
+                val repo =
+                    FakeAudioAuthRepository {
+                        backgroundScope.launch {
+                            delay(3.seconds)
+                            storage.stored = AccessToken(rotated)
+                        }
+                        delay(5.seconds)
+                        AppResult.Success(contractSession(rotated, clock.now().toEpochMilliseconds() + 15.minutes.inWholeMilliseconds))
+                    }
+                val provider = CachedAudioTokenProvider(storage, repo, clock)
+
+                provider.prepareForPlayback() // budget trips at 800 ms → fallback to the expired token
+                provider.getToken() shouldBe expired
+
+                advanceTimeBy(4.seconds) // the rotation has landed in storage
+                provider.prepareForPlayback()
+
+                provider.getToken() shouldBe rotated
             }
         }
 

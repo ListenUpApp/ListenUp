@@ -75,12 +75,7 @@ internal val browserPlaybackModule: Module =
         single<DownloadService> { NoDownloadsService() }
 
         // Audio token provider — shared core; no browser-specific surface needed.
-        single<AudioTokenProvider> {
-            CachedAudioTokenProvider(
-                authSession = get(),
-                authRepository = get(),
-            )
-        }
+        single<AudioTokenProvider> { sharedAudioTokenProvider() }
 
         // Position reporter for the PlaybackManagerImpl seam — the browser has no Media3
         // PlaybackService, so this is the only driver of listening-event recording here,

@@ -54,7 +54,7 @@ private val logger = KotlinLogging.logger {}
  * [scope] is where [refreshAccessToken]'s actual refresh runs — deliberately NOT the calling
  * coroutine. See that method's KDoc for why: a caller bounding its own wait with
  * `withTimeoutOrNull` (every current caller does — [com.calypsan.listenup.client.data.remote.RpcAuthRecoveryImpl],
- * [com.calypsan.listenup.client.playback.CachedAudioTokenProvider]'s forced and proactive refreshes
+ * [com.calypsan.listenup.client.playback.CachedAudioTokenProvider]'s forced and on-demand refreshes
  * — and any future one) must be able to give up without aborting a rotation another caller, or the
  * next call, is counting on. The invariant belongs here, at the single-flight itself, not
  * re-implemented per call site — every caller inherits cancellation-safety for free and needs only
@@ -105,7 +105,7 @@ internal class AuthRepositoryImpl(
     /**
      * Single-flight token refresh. The refresh token rotates on every use, so two
      * concurrent refreshes (e.g. the bearer plugin's on-401 path racing the
-     * playback token provider's proactive loop) would each present the same token —
+     * playback token provider's play-start refresh) would each present the same token —
      * the server's replay detection reads the second as a stolen token and revokes
      * the whole session family, force-logging-out the user mid-listen. Coalescing
      * concurrent callers onto one in-flight refresh keeps exactly one rotation.

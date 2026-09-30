@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.playback.CachedAudioTokenProvider
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
@@ -19,6 +20,9 @@ import org.koin.dsl.module
  */
 val androidPlaybackModule: Module =
     module {
+        // The shared audio-token core; sharedUI wraps it in AndroidAudioTokenProvider.
+        single<CachedAudioTokenProvider> { sharedAudioTokenProvider() }
+
         // Position reporter for the PlaybackManagerImpl seam. Android binds NO recorder:
         // `PlaybackService` already drives `ListeningEventRecorder` directly to integrate
         // with Media3, and those same Playing/Paused signals also reach PlaybackManagerImpl
