@@ -147,6 +147,7 @@ internal data class UserBookReadWire(
     @SerialName("started_at") val startedAt: String? = null,
     @SerialName("finished_at") val finishedAt: String? = null,
     @SerialName("progress_seconds") val progressSeconds: Long? = null,
+    @SerialName("edition_id") val editionId: Long? = null,
 )
 
 /** What Hardcover's own mutations (`insert_user_book` and friends) answer: an id, or an error. */

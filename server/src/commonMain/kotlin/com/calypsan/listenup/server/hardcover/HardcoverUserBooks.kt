@@ -17,12 +17,17 @@ object HardcoverStatus {
     const val READ: Int = 3
 }
 
-/** One read of a book on Hardcover (`user_book_reads`). Dates are Hardcover's `YYYY-MM-DD` strings. */
+/**
+ * One read of a book on Hardcover (`user_book_reads`), as far as ListenUp knows it. Dates are
+ * Hardcover's `YYYY-MM-DD` strings, passed through untouched. [HardcoverUserBooks.updateRead] sends
+ * the whole of it, so a change is always a copy of the read Hardcover last answered.
+ */
 data class HardcoverRead(
     val id: Long,
     val startedAt: String?,
     val finishedAt: String?,
     val progressSeconds: Long?,
+    val editionId: Long? = null,
 )
 
 /** The user's shelf entry for one Hardcover book (`user_books`), with its reads oldest first. */
@@ -72,6 +77,7 @@ class HardcoverUserBooks(
                                     it.startedAt,
                                     it.finishedAt,
                                     it.progressSeconds,
+                                    it.editionId,
                                 )
                             },
                     )
@@ -134,35 +140,28 @@ class HardcoverUserBooks(
             },
         )
 
-    /** Sets read [readId]'s audiobook position to [progressSeconds]. */
-    suspend fun recordProgress(
+    /**
+     * Writes [read]'s whole known state — start, finish, position and edition — to Hardcover. Only
+     * what ListenUp doesn't know is left out. Never a lone field: whether Hardcover treats a partial
+     * `DatesReadInput` as a patch or nulls what it omits is unverified, so every update is safe
+     * under the worse answer.
+     */
+    suspend fun updateRead(
         accessToken: String,
-        readId: Long,
-        progressSeconds: Long,
+        read: HardcoverRead,
     ): HardcoverCall<Unit> =
         mutate(
             accessToken,
             UPDATE_READ,
             "update_user_book_read",
             buildJsonObject {
-                put("id", readId)
-                putJsonObject("read") { put("progress_seconds", progressSeconds) }
-            },
-        ).map { }
-
-    /** Finishes read [readId] on [finishedAt]. */
-    suspend fun finishRead(
-        accessToken: String,
-        readId: Long,
-        finishedAt: LocalDate,
-    ): HardcoverCall<Unit> =
-        mutate(
-            accessToken,
-            UPDATE_READ,
-            "update_user_book_read",
-            buildJsonObject {
-                put("id", readId)
-                putJsonObject("read") { put("finished_at", finishedAt.toString()) }
+                put("id", read.id)
+                putJsonObject("read") {
+                    read.startedAt?.let { put("started_at", it) }
+                    read.finishedAt?.let { put("finished_at", it) }
+                    read.progressSeconds?.let { put("progress_seconds", it) }
+                    read.editionId?.let { put("edition_id", it) }
+                }
             },
         ).map { }
 
@@ -202,7 +201,7 @@ class HardcoverUserBooks(
     private companion object {
         const val USER_BOOK_QUERY =
             "query(\$bookId:Int!){ me { user_books(where:{book_id:{_eq:\$bookId}}, limit:1){ " +
-                "id status_id user_book_reads(order_by:{id:asc}){ id started_at finished_at progress_seconds } } } }"
+                "id status_id user_book_reads(order_by:{id:asc}){ id started_at finished_at progress_seconds edition_id } } } }"
         const val INSERT_USER_BOOK =
             "mutation(\$object:UserBookCreateInput!){ insert_user_book(object:\$object){ id error } }"
         const val UPDATE_USER_BOOK =

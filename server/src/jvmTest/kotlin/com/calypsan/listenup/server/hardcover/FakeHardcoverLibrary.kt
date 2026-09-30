@@ -40,15 +40,38 @@ class NoWaitRateLimiter : HardcoverRateLimiter() {
  * A small in-memory Hardcover: one user's shelf (`user_books` with their reads) and a catalog of
  * editions, answering exactly the GraphQL ListenUp sends. [failNext] queues answers served INSTEAD
  * of the real one, one per request, in order — how a test puts a 429 or a 401 in front of any call.
- * Every request's operation lands in [operations], in order.
+ * Every request's operation lands in [operations], and its operation with its variables in
+ * [requests], in order.
+ *
+ * [readUpdates] decides what `update_user_book_read` does with a `DatesReadInput` field the request
+ * leaves out. Hardcover's own behaviour is unverified (it can't be probed read-only), so push must
+ * survive the worse answer: [ReadUpdates.REPLACE] nulls every omitted field.
  */
-class FakeHardcoverLibrary {
+class FakeHardcoverLibrary(
+    private val readUpdates: ReadUpdates = ReadUpdates.PATCH,
+) {
+    /** How `update_user_book_read` treats the `DatesReadInput` fields a request omits. */
+    enum class ReadUpdates {
+        /** Omitted fields keep their values. */
+        PATCH,
+
+        /** Omitted fields become null: the input replaces the read. */
+        REPLACE,
+    }
+
+    /** One request as Hardcover received it: the operation and its GraphQL variables. */
+    data class Request(
+        val operation: String,
+        val variables: JsonObject,
+    )
+
     /** One `user_book_reads` row. */
     class Read(
         val id: Long,
         var startedAt: String?,
         var finishedAt: String?,
         var progressSeconds: Long?,
+        var editionId: Long? = null,
     )
 
     /** One `user_books` row. */
@@ -80,6 +103,9 @@ class FakeHardcoverLibrary {
 
     /** Every request's operation name, in the order Hardcover received them. */
     val operations = CopyOnWriteArrayList<String>()
+
+    /** Every request, with its variables, in the order Hardcover received them. */
+    val requests = CopyOnWriteArrayList<Request>()
 
     fun addEdition(edition: Edition) = synchronized(lock) { editions += edition }
 
@@ -140,6 +166,7 @@ class FakeHardcoverLibrary {
             val variables = request["variables"]?.jsonObject ?: JsonObject(emptyMap())
             val operation = operationOf(query)
             operations += operation
+            requests += Request(operation, variables)
             scripted.removeFirstOrNull() ?: answer(operation, variables)
         }
 
@@ -191,6 +218,7 @@ class FakeHardcoverLibrary {
                             input.stringOrNull("started_at"),
                             input.stringOrNull("finished_at"),
                             input.longOrNull("progress_seconds"),
+                            input.longOrNull("edition_id"),
                         )
                     shelf.reads += read
                     mutation("insert_user_book_read", read.id)
@@ -199,9 +227,7 @@ class FakeHardcoverLibrary {
 
             "update_user_book_read" -> {
                 shelves.flatMap { it.reads }.firstOrNull { it.id == variables.long("id") }?.let { read ->
-                    val input = variables.obj("read")
-                    input.longOrNull("progress_seconds")?.let { read.progressSeconds = it }
-                    input.stringOrNull("finished_at")?.let { read.finishedAt = it }
+                    updateRead(read, variables.obj("read"))
                     mutation("update_user_book_read", read.id)
                 } ?: mutationError("update_user_book_read", "Read not found")
             }
@@ -241,6 +267,27 @@ class FakeHardcoverLibrary {
             }
         }
 
+    private fun updateRead(
+        read: Read,
+        input: JsonObject,
+    ) {
+        when (readUpdates) {
+            ReadUpdates.PATCH -> {
+                if ("started_at" in input) read.startedAt = input.stringOrNull("started_at")
+                if ("finished_at" in input) read.finishedAt = input.stringOrNull("finished_at")
+                if ("progress_seconds" in input) read.progressSeconds = input.longOrNull("progress_seconds")
+                if ("edition_id" in input) read.editionId = input.longOrNull("edition_id")
+            }
+
+            ReadUpdates.REPLACE -> {
+                read.startedAt = input.stringOrNull("started_at")
+                read.finishedAt = input.stringOrNull("finished_at")
+                read.progressSeconds = input.longOrNull("progress_seconds")
+                read.editionId = input.longOrNull("edition_id")
+            }
+        }
+    }
+
     private fun userBooksJson(hcBookId: Long): JsonObject =
         buildJsonObject {
             putJsonObject("data") {
@@ -258,6 +305,7 @@ class FakeHardcoverLibrary {
                                                 put("started_at", read.startedAt)
                                                 put("finished_at", read.finishedAt)
                                                 put("progress_seconds", read.progressSeconds)
+                                                put("edition_id", read.editionId)
                                             }
                                         }
                                     }
