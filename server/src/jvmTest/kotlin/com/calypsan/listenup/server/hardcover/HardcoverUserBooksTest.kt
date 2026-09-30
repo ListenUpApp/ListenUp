@@ -85,7 +85,12 @@ class HardcoverUserBooksTest :
 
                 HardcoverUserBooks(hardcover.client()).updateRead("hc_at_1", read.copy(progressSeconds = 5_400L, finishedAt = "2026-06-01"))
 
-                val sent = hardcover.requests.single { it.operation == "update_user_book_read" }.variables.getValue("read").jsonObject
+                val sent =
+                    hardcover.requests
+                        .single { it.operation == "update_user_book_read" }
+                        .variables
+                        .getValue("read")
+                        .jsonObject
                 sent.keys shouldBe setOf("started_at", "finished_at", "progress_seconds", "edition_id")
                 sent.getValue("started_at").jsonPrimitive.content shouldBe "2026-05-22"
             }

@@ -188,7 +188,10 @@ class HardcoverPushExecutorTest :
                 runHead()
                 outbox.enqueueProgress(USER, BOOK, T0, positionSeconds = 60L, notBefore = T0)
                 runHead()
-                readUpdatesSent().single().getValue("started_at").jsonPrimitive.content shouldBe "2026-05-20"
+                readUpdatesSent()
+                    .single()
+                    .getValue("started_at")
+                    .jsonPrimitive.content shouldBe "2026-05-20"
             }
         }
 

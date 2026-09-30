@@ -158,7 +158,10 @@ class HardcoverPushRecorderTest :
 
                 listen("e2", endedAtMs = T0 + 90_000L, wallMs = 40_000L, endPositionMs = 70_000L)
                 queued() shouldBe
-                    listOf(HardcoverPushPayload.Start(startedAt = T0, isReread = false), HardcoverPushPayload.Progress(positionSeconds = 70L))
+                    listOf(
+                        HardcoverPushPayload.Start(startedAt = T0, isReread = false),
+                        HardcoverPushPayload.Progress(positionSeconds = 70L),
+                    )
                 nudged.toSet() shouldBe setOf(USER)
             }
         }
@@ -181,7 +184,11 @@ class HardcoverPushRecorderTest :
                 links.recordAutomaticMatch(USER, BOOK, HardcoverMatch(427_578L, null, HardcoverMatchMethod.ASIN))
                 links.markProgressPushed(USER, BOOK, at = T0)
                 listen("e1", endedAtMs = T0 + 90_000L, wallMs = 90_000L, endPositionMs = 90_000L)
-                outbox.pendingFor(USER).map { it.payload }.filterIsInstance<HardcoverPushPayload.Progress>().size shouldBe 1
+                outbox
+                    .pendingFor(USER)
+                    .map { it.payload }
+                    .filterIsInstance<HardcoverPushPayload.Progress>()
+                    .size shouldBe 1
                 outbox.nextWakeAt(USER) shouldBe T0 // START is due now…
                 val start = outbox.head(USER)!!
                 outbox.complete(start.id)

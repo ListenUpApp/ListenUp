@@ -47,7 +47,10 @@ class HardcoverOutboxTest :
                 outbox.enqueueProgress(USER, "book-1", listenThrough = T0, positionSeconds = 1_800L, notBefore = T0)
 
                 outbox.pendingFor(USER).map { it.payload } shouldBe
-                    listOf(HardcoverPushPayload.Start(startedAt = T0, isReread = false), HardcoverPushPayload.Progress(positionSeconds = 1_800L))
+                    listOf(
+                        HardcoverPushPayload.Start(startedAt = T0, isReread = false),
+                        HardcoverPushPayload.Progress(positionSeconds = 1_800L),
+                    )
             }
         }
 

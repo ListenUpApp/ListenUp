@@ -81,7 +81,12 @@ class HardcoverPushExecutor(
         suspend fun start(payload: HardcoverPushPayload.Start): PushOutcome {
             val open = openRead(startedAt = payload.startedAt).valueOr { return PushOutcome.Failed(it) }
             if (shelf != null && shelf.statusId != HardcoverStatus.READING) {
-                userBooks.setStatus(token, open.userBookId, HardcoverStatus.READING).valueOr { return PushOutcome.Failed(it) }
+                userBooks
+                    .setStatus(
+                        token,
+                        open.userBookId,
+                        HardcoverStatus.READING,
+                    ).valueOr { return PushOutcome.Failed(it) }
             }
             return PushOutcome.Done
         }
@@ -89,7 +94,12 @@ class HardcoverPushExecutor(
         suspend fun progress(payload: HardcoverPushPayload.Progress): PushOutcome {
             val open = openRead(startedAt = listenThroughStart).valueOr { return PushOutcome.Failed(it) }
             if (open.opened && shelf != null && shelf.statusId != HardcoverStatus.READING) {
-                userBooks.setStatus(token, open.userBookId, HardcoverStatus.READING).valueOr { return PushOutcome.Failed(it) }
+                userBooks
+                    .setStatus(
+                        token,
+                        open.userBookId,
+                        HardcoverStatus.READING,
+                    ).valueOr { return PushOutcome.Failed(it) }
             }
             userBooks
                 .updateRead(token, open.read.copy(progressSeconds = payload.positionSeconds))
@@ -104,7 +114,12 @@ class HardcoverPushExecutor(
                 .updateRead(token, open.read.copy(finishedAt = dateOf(payload.finishedAt).toString()))
                 .valueOr { return PushOutcome.Failed(it) }
             if (shelf == null || shelf.statusId != HardcoverStatus.READ) {
-                userBooks.setStatus(token, open.userBookId, HardcoverStatus.READ).valueOr { return PushOutcome.Failed(it) }
+                userBooks
+                    .setStatus(
+                        token,
+                        open.userBookId,
+                        HardcoverStatus.READ,
+                    ).valueOr { return PushOutcome.Failed(it) }
             }
             links.clearOpenRead(row.userId, row.bookId)
             return PushOutcome.Done
@@ -126,13 +141,32 @@ class HardcoverPushExecutor(
             }
             val userBookId =
                 shelf?.id
-                    ?: userBooks.createUserBook(token, hcBookId, link.hcEditionId, HardcoverStatus.READING).valueOr { return it }
+                    ?: userBooks
+                        .createUserBook(
+                            token,
+                            hcBookId,
+                            link.hcEditionId,
+                            HardcoverStatus.READING,
+                        ).valueOr { return it }
             val read =
                 shelf?.openRead
                     ?: run {
                         val startedOn = startedAt?.let(::dateOf)
-                        val readId = userBooks.openRead(token, userBookId, startedOn, link.hcEditionId).valueOr { return it }
-                        HardcoverRead(readId, startedOn?.toString(), finishedAt = null, progressSeconds = null, editionId = link.hcEditionId)
+                        val readId =
+                            userBooks
+                                .openRead(
+                                    token,
+                                    userBookId,
+                                    startedOn,
+                                    link.hcEditionId,
+                                ).valueOr { return it }
+                        HardcoverRead(
+                            readId,
+                            startedOn?.toString(),
+                            finishedAt = null,
+                            progressSeconds = null,
+                            editionId = link.hcEditionId,
+                        )
                     }
             links.recordOpenRead(row.userId, row.bookId, userBookId, read.id, row.listenThrough)
             links.recordPushedRead(row.userId, read.id, row.bookId)
@@ -158,7 +192,9 @@ class HardcoverPushExecutor(
     }
 
     private suspend fun suppress(row: HardcoverOutboxRow): PushOutcome {
-        log.info { "hardcover: user=${row.userId} book=${row.bookId} deleted on Hardcover; listen-through ${row.listenThrough} goes quiet" }
+        log.info {
+            "hardcover: user=${row.userId} book=${row.bookId} deleted on Hardcover; listen-through ${row.listenThrough} goes quiet"
+        }
         links.suppress(row.userId, row.bookId, row.listenThrough)
         outbox.dropListenThrough(row.userId, row.bookId, row.listenThrough)
         return PushOutcome.Suppressed

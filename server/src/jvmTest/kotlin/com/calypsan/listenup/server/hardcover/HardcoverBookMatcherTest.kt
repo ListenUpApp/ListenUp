@@ -65,7 +65,11 @@ class HardcoverBookMatcherTest :
             runTest {
                 val (matcher, _) =
                     matcherOver(
-                        HAIL_MARY_PAPERBACK.copy(id = LIVE_ISBN_EDITION, readingFormatId = 2, defaultAudioEditionId = LIVE_DEFAULT_AUDIO_EDITION),
+                        HAIL_MARY_PAPERBACK.copy(
+                            id = LIVE_ISBN_EDITION,
+                            readingFormatId = 2,
+                            defaultAudioEditionId = LIVE_DEFAULT_AUDIO_EDITION,
+                        ),
                     )
                 matcher.match("hc_at_1", BookIdentity(isbn = "9780593135204", title = "Project Hail Mary")) shouldBe
                     HardcoverCall.Ok(HardcoverMatch(427_578L, LIVE_ISBN_EDITION, HardcoverMatchMethod.ISBN))
@@ -76,7 +80,11 @@ class HardcoverBookMatcherTest :
             runTest {
                 val (matcher, _) =
                     matcherOver(
-                        HAIL_MARY_PAPERBACK.copy(id = LIVE_ISBN_EDITION, readingFormatId = 3, defaultAudioEditionId = LIVE_DEFAULT_AUDIO_EDITION),
+                        HAIL_MARY_PAPERBACK.copy(
+                            id = LIVE_ISBN_EDITION,
+                            readingFormatId = 3,
+                            defaultAudioEditionId = LIVE_DEFAULT_AUDIO_EDITION,
+                        ),
                     )
                 matcher.match("hc_at_1", BookIdentity(isbn = "9780593135204", title = "Project Hail Mary")) shouldBe
                     HardcoverCall.Ok(HardcoverMatch(427_578L, LIVE_DEFAULT_AUDIO_EDITION, HardcoverMatchMethod.ISBN))
@@ -122,7 +130,10 @@ class HardcoverBookMatcherTest :
                 val first = FakeHardcoverLibrary.Edition(1L, 229_211L, "The Best Christmas Pageant Ever", listOf("Barbara Robinson"))
                 val duplicate = first.copy(id = 2L, bookId = 317_024L)
                 val (matcher, _) = matcherOver(first, duplicate)
-                matcher.match("hc_at_1", BookIdentity(title = "The Best Christmas Pageant Ever", primaryAuthor = "Barbara Robinson")) shouldBe
+                matcher.match(
+                    "hc_at_1",
+                    BookIdentity(title = "The Best Christmas Pageant Ever", primaryAuthor = "Barbara Robinson"),
+                ) shouldBe
                     HardcoverCall.Ok(null)
             }
         }
@@ -130,7 +141,8 @@ class HardcoverBookMatcherTest :
         test("a title hit by a different author is no match") {
             runTest {
                 val (matcher, _) = matcherOver(HAIL_MARY_AUDIO.copy(asin = null, authors = listOf("Someone Else")))
-                matcher.match("hc_at_1", BookIdentity(title = "Project Hail Mary", primaryAuthor = "Andy Weir")) shouldBe HardcoverCall.Ok(null)
+                matcher.match("hc_at_1", BookIdentity(title = "Project Hail Mary", primaryAuthor = "Andy Weir")) shouldBe
+                    HardcoverCall.Ok(null)
             }
         }
 
@@ -146,7 +158,8 @@ class HardcoverBookMatcherTest :
             runTest {
                 val (matcher, hardcover) = matcherOver(HAIL_MARY_AUDIO)
                 hardcover.failNext(FakeReply(HttpStatusCode.ServiceUnavailable))
-                matcher.match("hc_at_1", BookIdentity(asin = "B08G9RZBTT", title = "Project Hail Mary")) shouldBe HardcoverCall.Throttled(null)
+                matcher.match("hc_at_1", BookIdentity(asin = "B08G9RZBTT", title = "Project Hail Mary")) shouldBe
+                    HardcoverCall.Throttled(null)
             }
         }
     })

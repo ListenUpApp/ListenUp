@@ -82,7 +82,12 @@ class StatsRecorder(
         val appended = bookReadsRepository.recordCompletion(event.userId, event.bookId, finishedAtMs)
         closeAwaitingListenThrough(event.userId, event.bookId, finishedAtMs)
         // Only a genuinely new read reaches Hardcover: a merged replay is the same read, already pushed.
-        if (appended) pushToHardcover(event.userId, "finish") { onReadAppended(event.userId, event.bookId, finishedAtMs) }
+        if (appended) {
+            pushToHardcover(
+                event.userId,
+                "finish",
+            ) { onReadAppended(event.userId, event.bookId, finishedAtMs) }
+        }
         if (currentCoroutineContext()[StatsCascadeDeferred.Key] == null) {
             val tz = sql.homeTimeZone(event.userId)
             val base = userStatsRepo.getForUser(event.userId) ?: emptyStatsFor(event.userId)

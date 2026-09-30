@@ -70,13 +70,26 @@ class HardcoverBookMatcher(
         }
         if (book.primaryAuthor == null) return HardcoverCall.Ok(null)
         rateLimiter.await()
-        val confident = graphQl.booksTitled(accessToken, book.title).valueOr { return it }.filter { it.isConfidentMatchFor(book) }
+        val confident =
+            graphQl
+                .booksTitled(accessToken, book.title)
+                .valueOr {
+                    return it
+                }.filter { it.isConfidentMatchFor(book) }
         return HardcoverCall.Ok(
-            confident.singleOrNull()?.let { HardcoverMatch(it.id, it.defaultAudioEditionId, HardcoverMatchMethod.SEARCH) },
+            confident.singleOrNull()?.let {
+                HardcoverMatch(
+                    it.id,
+                    it.defaultAudioEditionId,
+                    HardcoverMatchMethod.SEARCH,
+                )
+            },
         )
     }
 }
 
 /** Title and at least one credited author agree, by the rule ratings use. An author-less record never does. */
 internal fun HardcoverCatalogBook.isConfidentMatchFor(book: BookIdentity): Boolean =
-    authors.any { author -> MatchScorer.isConfidentRatingMatch(book, BookMatch(title = title, author = author, score = 0.0)) }
+    authors.any { author ->
+        MatchScorer.isConfidentRatingMatch(book, BookMatch(title = title, author = author, score = 0.0))
+    }

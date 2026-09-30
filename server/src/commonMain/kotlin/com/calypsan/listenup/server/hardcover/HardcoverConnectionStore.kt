@@ -168,7 +168,8 @@ class HardcoverConnectionStore(
     }
 
     /** Whether [userId] has a connection row at all, healthy or broken — whether pushes should queue. */
-    suspend fun hasConnection(userId: String): Boolean = suspendTransaction(sql) { queries.existsForUser(userId).executeAsOne() }
+    suspend fun hasConnection(userId: String): Boolean =
+        suspendTransaction(sql) { queries.existsForUser(userId).executeAsOne() }
 
     /** A push landed at [at]: remember it and clear any recorded error. */
     suspend fun markSynced(
@@ -189,7 +190,11 @@ class HardcoverConnectionStore(
     /** [userId]'s push health, or null without a connection. */
     suspend fun pushHealth(userId: String): HardcoverPushHealth? =
         suspendTransaction(sql) {
-            queries.selectPushHealth(userId).executeAsOneOrNull()?.let { HardcoverPushHealth(it.last_synced_at, it.push_error) }
+            queries
+                .selectPushHealth(
+                    userId,
+                ).executeAsOneOrNull()
+                ?.let { HardcoverPushHealth(it.last_synced_at, it.push_error) }
         }
 
     private fun forgetPushState(userId: String) {

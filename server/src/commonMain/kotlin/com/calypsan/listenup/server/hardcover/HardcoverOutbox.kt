@@ -83,8 +83,12 @@ class HardcoverOutbox(
         suspendTransaction(sql) {
             val folded =
                 queries
-                    .coalesceProgress(payload = payload, listen_through_started_at = listenThrough, user_id = userId, book_id = bookId)
-                    .value
+                    .coalesceProgress(
+                        payload = payload,
+                        listen_through_started_at = listenThrough,
+                        user_id = userId,
+                        book_id = bookId,
+                    ).value
             if (folded == 0L) {
                 queries.insertOp(
                     user_id = userId,
@@ -124,11 +128,19 @@ class HardcoverOutbox(
     /** The next row [userId]'s lane may run now, or null. */
     suspend fun head(userId: String): HardcoverOutboxRow? =
         suspendTransaction(sql) { queries.selectHead(user_id = userId, now = now()).executeAsOneOrNull() }?.let {
-            HardcoverOutboxRow(it.id, it.user_id, it.book_id, it.listen_through_started_at, decode(it.payload), it.attempts.toInt())
+            HardcoverOutboxRow(
+                it.id,
+                it.user_id,
+                it.book_id,
+                it.listen_through_started_at,
+                decode(it.payload),
+                it.attempts.toInt(),
+            )
         }
 
     /** When [userId]'s lane next has a row to run (epoch ms), or null when every row is parked or none exist. */
-    suspend fun nextWakeAt(userId: String): Long? = suspendTransaction(sql) { queries.selectNextWake(userId).executeAsOneOrNull() }
+    suspend fun nextWakeAt(userId: String): Long? =
+        suspendTransaction(sql) { queries.selectNextWake(userId).executeAsOneOrNull() }
 
     /** Row [id] reached Hardcover. */
     suspend fun complete(id: Long) {
@@ -143,7 +155,12 @@ class HardcoverOutbox(
         lastError: String,
     ) {
         suspendTransaction(sql) {
-            queries.reschedule(attempts = attempts.toLong(), next_attempt_at = nextAttemptAt, last_error = lastError, id = id)
+            queries.reschedule(
+                attempts = attempts.toLong(),
+                next_attempt_at = nextAttemptAt,
+                last_error = lastError,
+                id = id,
+            )
         }
     }
 
@@ -167,12 +184,20 @@ class HardcoverOutbox(
     }
 
     /** Every user with at least one queued row — the lanes to start at boot. */
-    suspend fun usersWithPending(): List<String> = suspendTransaction(sql) { queries.usersWithPending().executeAsList() }
+    suspend fun usersWithPending(): List<String> =
+        suspendTransaction(sql) { queries.usersWithPending().executeAsList() }
 
     /** Every queued row of [userId], in queue order. */
     suspend fun pendingFor(userId: String): List<HardcoverOutboxRow> =
         suspendTransaction(sql) { queries.selectForUser(userId).executeAsList() }.map {
-            HardcoverOutboxRow(it.id, it.user_id, it.book_id, it.listen_through_started_at, decode(it.payload), it.attempts.toInt())
+            HardcoverOutboxRow(
+                it.id,
+                it.user_id,
+                it.book_id,
+                it.listen_through_started_at,
+                decode(it.payload),
+                it.attempts.toInt(),
+            )
         }
 
     private suspend fun insert(
@@ -197,9 +222,11 @@ class HardcoverOutbox(
 
     private fun now() = clock.now().toEpochMilliseconds()
 
-    private fun encode(payload: HardcoverPushPayload): String = hardcoverJson.encodeToString(HardcoverPushPayload.serializer(), payload)
+    private fun encode(payload: HardcoverPushPayload): String =
+        hardcoverJson.encodeToString(HardcoverPushPayload.serializer(), payload)
 
-    private fun decode(payload: String): HardcoverPushPayload = hardcoverJson.decodeFromString(HardcoverPushPayload.serializer(), payload)
+    private fun decode(payload: String): HardcoverPushPayload =
+        hardcoverJson.decodeFromString(HardcoverPushPayload.serializer(), payload)
 
     private fun HardcoverPushPayload.op(): String =
         when (this) {

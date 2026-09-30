@@ -43,7 +43,8 @@ class HardcoverBookLinkStore(
     suspend fun linkFor(
         userId: String,
         bookId: String,
-    ): HardcoverBookLink? = suspendTransaction(sql) { queries.selectLink(userId, bookId).executeAsOneOrNull() }?.toLink()
+    ): HardcoverBookLink? =
+        suspendTransaction(sql) { queries.selectLink(userId, bookId).executeAsOneOrNull() }?.toLink()
 
     /** Records an automatic [match] — or NEEDS_MATCH when null — unless the book already has a link. */
     suspend fun recordAutomaticMatch(
@@ -77,7 +78,13 @@ class HardcoverBookLinkStore(
         val at = now()
         suspendTransaction(sql) {
             queries.insertPlaceholder(user_id = userId, book_id = bookId, updated_at = at)
-            queries.linkManually(hc_book_id = hcBookId, hc_edition_id = hcEditionId, updated_at = at, user_id = userId, book_id = bookId)
+            queries.linkManually(
+                hc_book_id = hcBookId,
+                hc_edition_id = hcEditionId,
+                updated_at = at,
+                user_id = userId,
+                book_id = bookId,
+            )
         }
     }
 
@@ -155,7 +162,9 @@ class HardcoverBookLinkStore(
         bookId: String,
         at: Long,
     ) {
-        suspendTransaction(sql) { queries.markProgressPushed(last_progress_pushed_at = at, user_id = userId, book_id = bookId) }
+        suspendTransaction(
+            sql,
+        ) { queries.markProgressPushed(last_progress_pushed_at = at, user_id = userId, book_id = bookId) }
     }
 
     /** Remembers that Hardcover read [readId] carries ListenUp's own listening. Idempotent. */
@@ -165,7 +174,12 @@ class HardcoverBookLinkStore(
         bookId: String,
     ) {
         suspendTransaction(sql) {
-            sql.hardcoverPushedReadsQueries.recordPushedRead(user_id = userId, hc_read_id = readId, book_id = bookId, recorded_at = now())
+            sql.hardcoverPushedReadsQueries.recordPushedRead(
+                user_id = userId,
+                hc_read_id = readId,
+                book_id = bookId,
+                recorded_at = now(),
+            )
         }
     }
 

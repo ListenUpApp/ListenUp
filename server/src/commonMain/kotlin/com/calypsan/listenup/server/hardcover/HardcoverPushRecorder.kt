@@ -125,7 +125,9 @@ class HardcoverPushRecorder(
     ) {
         if (!connections.hasConnection(userId)) return
         val listenThrough =
-            suspendTransaction(sql) { sql.listenThroughsQueries.selectCurrent(userId, bookId).executeAsOneOrNull() }?.started_at
+            suspendTransaction(
+                sql,
+            ) { sql.listenThroughsQueries.selectCurrent(userId, bookId).executeAsOneOrNull() }?.started_at
                 ?: LEGACY_LISTEN_THROUGH
         if (links.linkFor(userId, bookId)?.suppressedListenThrough == listenThrough) return
         outbox.enqueueFinish(userId, bookId, listenThrough, finishedAt)
@@ -142,7 +144,13 @@ class HardcoverPushRecorder(
     ): Long? =
         suspendTransaction(sql) {
             val current = sql.listenThroughsQueries.selectCurrent(userId, bookId).executeAsOneOrNull()
-            val lastFinish = sql.bookReadsQueries.latestFinishForUserBook(userId, bookId).executeAsOneOrNull()?.finished_at
+            val lastFinish =
+                sql.bookReadsQueries
+                    .latestFinishForUserBook(
+                        userId,
+                        bookId,
+                    ).executeAsOneOrNull()
+                    ?.finished_at
             val listenThrough = current?.started_at ?: LEGACY_LISTEN_THROUGH
             when {
                 current != null && current.real_started_at == null -> null
