@@ -42,6 +42,8 @@ class LibraryWritesGoThroughBrokerRule :
                 ".writeText(",
                 ".writeBytes(",
                 "deleteRecursively(",
+                // The io layer's link-safe single-entry delete: a write primitive like the rest.
+                "deleteEntry(",
                 "createTempFileIn(",
             )
 
