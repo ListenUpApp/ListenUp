@@ -42,7 +42,13 @@ data class CurrentlyListeningSession(
     @SerialName("isLive") val isLive: Boolean,
 )
 
-/** One reader of a book: their live progress (if reading) plus their dated finish history. */
+/**
+ * One reader of a book: their live progress (if reading) plus their dated finish history.
+ *
+ * [hardcoverFinishes] are reads the user logged on Hardcover that ListenUp pulled (#601 B3). They are
+ * kept apart from [finishes] on purpose: a client that predates the field never shows a Hardcover
+ * read at all, rather than showing one without its "Hardcover" badge.
+ */
 @Serializable
 @SerialName("BookReaderEntry")
 data class BookReaderEntry(
@@ -51,8 +57,10 @@ data class BookReaderEntry(
     val avatarType: String,
     /** 0..100 when the user has an in-progress (unfinished) position; null otherwise. */
     val currentProgressPct: Int?,
-    /** finished_at epoch ms, newest-first; empty when the user is only currently reading. */
+    /** ListenUp finishes, finished_at epoch ms, newest-first; empty when the user is only currently reading. */
     val finishes: List<Long>,
+    /** Hardcover reads, finished_at epoch ms, newest-first; empty when the user has none. */
+    val hardcoverFinishes: List<Long> = emptyList(),
 )
 
 /** The full readership of a book: everyone (incl. the caller) who is reading or has finished it. */

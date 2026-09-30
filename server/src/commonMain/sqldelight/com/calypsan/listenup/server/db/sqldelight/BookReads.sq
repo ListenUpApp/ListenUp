@@ -26,47 +26,49 @@ insert:
 INSERT INTO book_reads (id, user_id, book_id, finished_at, source, created_at)
 VALUES (:id, :user_id, :book_id, :finished_at, :source, :created_at);
 
--- All completions of a book across all users, newest-first.
+-- Every finish of a book across all users, newest-first — Hardcover reads INCLUDED: the Readers section
+-- shows them, badged. SocialServiceImpl.bookReadership splits them from ListenUp's by source.
 finishesForBook:
 SELECT * FROM book_reads
 WHERE book_id = :bookId
 ORDER BY finished_at DESC;
 
--- All completion timestamps for a single user+book pair, newest-first.
+-- This user's ListenUp completions of one book, newest-first.
 finishesForUserBook:
 SELECT finished_at FROM book_reads
-WHERE user_id = :userId AND book_id = :bookId
+WHERE user_id = :userId AND book_id = :bookId AND source <> 'hardcover'
 ORDER BY finished_at DESC;
 
--- Distinct books a user finished at/after a cutoff — the windowed "books finished" leaderboard
--- metric (re-reads of the same book collapse to one via COUNT DISTINCT).
+-- Distinct books a user finished IN LISTENUP at/after a cutoff — the windowed "books finished"
+-- leaderboard metric (re-reads of the same book collapse to one via COUNT DISTINCT).
 countDistinctFinishedSince:
 SELECT COUNT(DISTINCT book_id) FROM book_reads
-WHERE user_id = :userId AND finished_at >= :cutoffMs;
+WHERE user_id = :userId AND finished_at >= :cutoffMs AND source <> 'hardcover';
 
--- All-time completions for a user (re-reads counted) — the all-time booksFinished metric, now sourced
--- from this primitive so it agrees with the windowed counts above.
+-- All-time ListenUp completions for a user (re-reads counted) — the all-time booksFinished metric.
 countForUser:
-SELECT COUNT(*) FROM book_reads WHERE user_id = :userId;
+SELECT COUNT(*) FROM book_reads WHERE user_id = :userId AND source <> 'hardcover';
 
--- The most recent completion row for a user+book pair (id + timestamp). The re-read rule reads its
--- finished_at as the "previous finish" and, on a below-threshold replay, updates that row in place.
+-- The most recent ListenUp completion for a user+book pair (id + timestamp). The re-read rule reads its
+-- finished_at as the "previous finish" and, on a below-threshold replay, updates that row in place —
+-- so a pulled Hardcover read must never be it.
 latestFinishForUserBook:
 SELECT id, finished_at FROM book_reads
-WHERE user_id = :userId AND book_id = :bookId
+WHERE user_id = :userId AND book_id = :bookId AND source <> 'hardcover'
 ORDER BY finished_at DESC
 LIMIT 1;
 
--- Move an existing completion's finish time forward (the below-threshold "same read" case).
+-- Move an existing completion's finish time forward (the below-threshold "same read" case). Only ever
+-- given an id from latestFinishForUserBook, which excludes Hardcover reads.
 updateFinishedAtById:
 UPDATE book_reads SET finished_at = :finished_at WHERE id = :id;
 
--- True iff the user has any completion row for this book — gates the idempotent reconcile insert.
+-- True iff the user has a ListenUp completion row for this book — gates the idempotent reconcile insert.
 existsForUserBook:
-SELECT EXISTS(SELECT 1 FROM book_reads WHERE user_id = :userId AND book_id = :bookId);
+SELECT EXISTS(SELECT 1 FROM book_reads WHERE user_id = :userId AND book_id = :bookId AND source <> 'hardcover');
 
--- Stats support: every completion timestamp for a user. Feeds the streak day-set so an imported
+-- Stats support: every ListenUp completion timestamp for a user. Feeds the streak day-set so an imported
 -- finish that never produced a listening_events session still counts as a listening day. Re-reads add
 -- multiple rows; the streak reducer collapses same-day duplicates.
 finishedAtForUser:
-SELECT finished_at FROM book_reads WHERE user_id = :userId;
+SELECT finished_at FROM book_reads WHERE user_id = :userId AND source <> 'hardcover';

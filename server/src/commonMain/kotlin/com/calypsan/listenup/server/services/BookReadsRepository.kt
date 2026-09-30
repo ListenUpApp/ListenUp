@@ -109,7 +109,7 @@ class BookReadsRepository(
         }
     }
 
-    /** All completions of [bookId] across all users, newest-first. */
+    /** All completions of [bookId] across all users, newest-first — pulled Hardcover reads included (see [BookReadRow.source]). */
     suspend fun finishesForBook(bookId: String): List<BookReadRow> =
         suspendTransaction(db) {
             db.bookReadsQueries
@@ -118,7 +118,7 @@ class BookReadsRepository(
                 .map { it.toRow() }
         }
 
-    /** All completion timestamps for a single user+book pair, newest-first. */
+    /** ListenUp completion timestamps for a single user+book pair, newest-first; pulled Hardcover reads excluded. */
     suspend fun finishesForUserBook(
         userId: String,
         bookId: String,

@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.services.ActiveSessionRepository
+import com.calypsan.listenup.server.services.BookReadSource
 import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
@@ -122,9 +123,12 @@ internal class SocialServiceImpl(
         val totalDuration = books.findById(bookId)?.totalDuration ?: 0L
         val readingSince = clock.now().toEpochMilliseconds() - READING_WINDOW.inWholeMilliseconds
         val inProgress = playbackPositions.listInProgressForBook(bookId.value, readingSince) // List<userId, positionMs>
-        val finishesByUser = bookReads.finishesForBook(bookId.value).groupBy { it.userId } // newest-first per user
+        // Newest-first per user. Hardcover reads travel apart so every client can badge them.
+        val (pulled, listened) = bookReads.finishesForBook(bookId.value).partition { it.source == BookReadSource.HARDCOVER }
+        val finishesByUser = listened.groupBy { it.userId }
+        val hardcoverByUser = pulled.groupBy { it.userId }
 
-        val userIds = (inProgress.map { it.first } + finishesByUser.keys).toSet()
+        val userIds = (inProgress.map { it.first } + finishesByUser.keys + hardcoverByUser.keys).toSet()
         val identities = publicProfiles.identities(userIds)
 
         val entries =
@@ -141,13 +145,16 @@ internal class SocialServiceImpl(
                     avatarType = identity.avatarType,
                     currentProgressPct = pct,
                     finishes = finishesByUser[uid]?.map { it.finishedAt } ?: emptyList(),
+                    hardcoverFinishes = hardcoverByUser[uid]?.map { it.finishedAt } ?: emptyList(),
                 )
             }
-        // Reading-first, then most-recent finish desc.
+        // Reading-first, then most-recent finish (either kind) desc.
         val ordered =
             entries.sortedWith(
                 compareByDescending<BookReaderEntry> { it.currentProgressPct != null }
-                    .thenByDescending { it.finishes.firstOrNull() ?: Long.MIN_VALUE },
+                    .thenByDescending {
+                        maxOf(it.finishes.firstOrNull() ?: Long.MIN_VALUE, it.hardcoverFinishes.firstOrNull() ?: Long.MIN_VALUE)
+                    },
             )
         return AppResult.Success(BookReadership(readers = ordered))
     }
