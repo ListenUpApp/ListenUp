@@ -44,5 +44,6 @@ fun TransportBarHost(
         onOpenBook = onOpenBook,
         onOpenSeries = onOpenSeries,
         onOpenContributor = onOpenContributor,
+        onCloseBook = playback.onCloseBook,
     )
 }

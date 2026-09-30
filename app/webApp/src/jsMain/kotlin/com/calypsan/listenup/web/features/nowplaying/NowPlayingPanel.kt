@@ -5,7 +5,10 @@ import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.nowplaying.isSameVolumeBoost
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.Cover
+import com.calypsan.listenup.web.design.Button as DsButton
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
@@ -61,6 +64,7 @@ internal fun NowPlayingPanel(
     onOpenBook: (String) -> Unit,
     onOpenSeries: (String) -> Unit,
     onOpenContributor: (String) -> Unit,
+    onCloseBook: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     PlayerDialog(open = open, title = "Now playing", panelClass = "np-dlg", onDismiss = onDismiss) {
@@ -141,6 +145,20 @@ internal fun NowPlayingPanel(
                     Icon(WebIcon.ChevronRight, size = GOTO_ICON_SIZE)
                 }
             }
+        }
+
+        // Android's player offers this from its overflow menu. Here it sits apart from the chips,
+        // because it is the one control that ends the session rather than adjusting it — and
+        // without it a listener done with a book could only pause it, leaving the bar naming it
+        // on every page. No confirmation, matching Android: nothing is lost, the position is
+        // saved, and the book is one Play away.
+        DsButton(
+            kind = ButtonKind.Ghost,
+            size = ButtonSize.Sm,
+            onClick = onCloseBook,
+            attrs = { classes("np-close-book") },
+        ) {
+            Text("Close book")
         }
     }
 }

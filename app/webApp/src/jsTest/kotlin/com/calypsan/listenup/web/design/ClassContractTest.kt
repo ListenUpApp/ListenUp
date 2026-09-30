@@ -2056,6 +2056,7 @@ private fun playerShapes(): List<@Composable () -> Unit> =
                 onOpenBook = {},
                 onOpenSeries = {},
                 onOpenContributor = {},
+                onCloseBook = {},
                 onDismiss = {},
             )
             NowPlayingPanel(
@@ -2084,6 +2085,7 @@ private fun playerShapes(): List<@Composable () -> Unit> =
                 onOpenBook = {},
                 onOpenSeries = {},
                 onOpenContributor = {},
+                onCloseBook = {},
                 onDismiss = {},
             )
         },

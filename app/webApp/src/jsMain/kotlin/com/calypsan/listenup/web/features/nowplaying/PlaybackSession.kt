@@ -94,6 +94,8 @@ class PlaybackSession(
     val onCancelSleepTimer: () -> Unit,
     val onExtendSleepTimer: (Int) -> Unit,
     val onDismissError: () -> Unit,
+    /** Finish with the playing book: stop it and put the bar away. The session stays open. */
+    val onCloseBook: () -> Unit,
     val close: () -> Unit,
 )
 
@@ -214,6 +216,7 @@ fun fixedPlayback(
             onCancelSleepTimer = {},
             onExtendSleepTimer = {},
             onDismissError = {},
+            onCloseBook = {},
             close = {},
         )
     }
@@ -773,6 +776,35 @@ internal class LivePlayback(
     fun extendSleepTimer(minutes: Int) = sleepTimerManager.extendTimer(minutes)
 
     /**
+     * Finish with the playing book: stop it, forget it, and put the bar away.
+     *
+     * Mirrors `NowPlayingViewModel.closeBook` — stop, [PlaybackManager.clearPlayback], cancel the
+     * sleep timer — with two differences this client needs:
+     *
+     *  - **The pause is recorded before the manager forgets the book.** On web the only thing that
+     *    persists a pause is the manager's own observation of the player, and [PlaybackManager.clearPlayback]
+     *    cancels that observation synchronously — so the element's `pause` event would arrive to no
+     *    one, and up to ten seconds of listening (the persist interval) would be lost along with the
+     *    open listening span. Reporting `Paused` here files the position under the book while it is
+     *    still the current one. Android needs no such step: its `PlaybackService` owns persistence.
+     *  - **[HtmlAudioPlayer.releasePlayer], not `PlaybackController.stop()`.** Web's `stop()` is a
+     *    pause and a seek to zero, which leaves hls.js attached and fetching segments for a book
+     *    nobody is listening to. Release forgets the media entirely, and `load()` revives it for
+     *    the next book — the same reasoning [close] gives.
+     *
+     * ⛔ Deliberately does NOT cancel [scope]. That is [close]'s job, and only the shell unmounting
+     * calls it; closing a book is something a listener does mid-session, and the next Play in this
+     * tab must still work.
+     */
+    fun closeBook() {
+        if (playbackManager.isPlaying.value) playbackManager.setPlaybackState(PlaybackState.Paused)
+        audioPlayer.releasePlayer()
+        playbackManager.clearPlayback()
+        sleepTimerManager.cancelTimer()
+        title.value = null
+    }
+
+    /**
      * End the listening session: stop the audio, then stop observing it.
      *
      * [HtmlAudioPlayer.releasePlayer] rather than [HtmlAudioPlayer.pause], because the only thing
@@ -821,6 +853,7 @@ internal class LivePlayback(
             onCancelSleepTimer = ::cancelSleepTimer,
             onExtendSleepTimer = ::extendSleepTimer,
             onDismissError = ::dismissError,
+            onCloseBook = ::closeBook,
             close = ::close,
         )
 }

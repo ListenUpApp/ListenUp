@@ -93,6 +93,7 @@ fun TransportBar(
     onOpenBook: (String) -> Unit = {},
     onOpenSeries: (String) -> Unit = {},
     onOpenContributor: (String) -> Unit = {},
+    onCloseBook: () -> Unit = {},
 ) {
     if (state == null) return
 
@@ -169,6 +170,10 @@ fun TransportBar(
         onOpenBook = onOpenBook,
         onOpenSeries = onOpenSeries,
         onOpenContributor = onOpenContributor,
+        onCloseBook = {
+            expandedOpen = false
+            onCloseBook()
+        },
         onDismiss = { expandedOpen = false },
     )
 
