@@ -9,14 +9,29 @@ private const val HEX_RADIX = 16
 private const val TEMP_NAME_HEX_CHARS = 16
 private const val MAX_TEMP_FILE_ATTEMPTS = 10_000
 
-/** Deletes [path] and everything under it (post-order: children before parents). No-op if absent. */
-internal fun deleteRecursively(path: Path) {
-    if (!SystemFileSystem.exists(path)) return
-    val meta = SystemFileSystem.metadataOrNull(path)
-    if (meta?.isDirectory == true) {
-        for (child in SystemFileSystem.list(path)) deleteRecursively(child)
+/**
+ * Deletes [path] and everything under it (post-order: children before parents). No-op if absent.
+ *
+ * A symbolic link is a leaf, always: it is unlinked via [deleteEntry] and never descended into or
+ * followed, whatever it points at and whether or not it resolves. Asking `metadataOrNull` first
+ * would follow a link to a directory and walk — and empty — somebody else's files; asking `exists`
+ * first would read a dangling link as absent and leave it behind, so the parent's removal failed.
+ * That includes [path] itself: a link passed as the root is unlinked, its target left untouched.
+ *
+ * [beforeEach] runs for every entry just before it is removed — the library-write broker claims
+ * each one with its self-write registry there, so the watcher swallows the burst.
+ */
+internal fun deleteRecursively(
+    path: Path,
+    beforeEach: (Path) -> Unit = {},
+) {
+    val isLink = isSymlink(path)
+    if (!isLink && !SystemFileSystem.exists(path)) return
+    if (!isLink && SystemFileSystem.metadataOrNull(path)?.isDirectory == true) {
+        for (child in SystemFileSystem.list(path)) deleteRecursively(child, beforeEach)
     }
-    SystemFileSystem.delete(path, mustExist = false)
+    beforeEach(path)
+    deleteEntry(path)
 }
 
 /** Creates a uniquely-named empty file inside [dir] (which must exist) and returns its path. */
