@@ -119,6 +119,11 @@ class DiscoverViewModel(
      * Bumped by [refresh] to trigger a fresh random selection. We do not observe the
      * upstream flow reactively because the SQL uses RANDOM() — a live subscription
      * would reshuffle on every invalidation.
+     *
+     * ⛔ The fallback sits INSIDE the [flatMapLatest], so a failure ends one load rather than the
+     * flow the screen is subscribed to. Outside it, the Error was the flow's last word: every later
+     * [refresh] bumped a trigger nothing was collecting any more. `LibraryViewModel` has the same
+     * shape for the same reason.
      */
     private val discoverBooksRefreshTrigger = MutableStateFlow(0)
 
@@ -129,10 +134,10 @@ class DiscoverViewModel(
                     emit(DiscoverBooksUiState.Loading as DiscoverBooksUiState)
                     val books = bookRepository.observeRandomUnstartedBooks(limit = 10).first()
                     emit(DiscoverBooksUiState.Ready(books = books.map { it.toDiscoverUiBook() }))
+                }.fallbackTo { e ->
+                    logger.error(e) { "Error loading discover books" }
+                    DiscoverBooksUiState.Error("Failed to load discover books")
                 }
-            }.fallbackTo { e ->
-                logger.error(e) { "Error loading discover books" }
-                DiscoverBooksUiState.Error("Failed to load discover books")
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),

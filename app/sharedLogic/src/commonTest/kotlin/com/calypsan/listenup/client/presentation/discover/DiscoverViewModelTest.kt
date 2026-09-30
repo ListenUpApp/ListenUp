@@ -470,6 +470,31 @@ class DiscoverViewModelTest :
             }
         }
 
+        test("discoverBooksState recovers from Error when refresh is called") {
+            // ⛔ The regression: the fallback used to sit OUTSIDE the refresh trigger's flatMapLatest,
+            // so the Error it emitted was the flow's last word — every later refresh bumped a trigger
+            // nothing was collecting any more, and the section stayed on Error for good.
+            runTest {
+                val fixture = createFixture(randomBooks = listOf(createDiscoveryBook(id = "r-1")))
+                var collections = 0
+                every { fixture.bookRepository.observeRandomUnstartedBooks(any()) } returns
+                    flow {
+                        collections++
+                        if (collections == 1) throw SimulatedFailure("transient")
+                        emit(listOf(createDiscoveryBook(id = "r-1")))
+                    }
+                val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
+                advanceUntilIdle()
+                viewModel.discoverBooksState.value.shouldBeInstanceOf<DiscoverBooksUiState.Error>()
+
+                viewModel.refresh()
+                advanceUntilIdle()
+
+                val ready = viewModel.discoverBooksState.value.shouldBeInstanceOf<DiscoverBooksUiState.Ready>()
+                ready.books.first().id shouldBe "r-1"
+            }
+        }
+
         // ========== Discover RPC Load Tests ==========
 
         test("discover shelves are loaded on init when authenticated") {
