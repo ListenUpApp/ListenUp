@@ -216,21 +216,6 @@ data class ContributorMetadataPreview(
     val region: MetadataLocale,
 ) : Route
 
-/**
- * Invite registration screen - claim an invite and create account.
- *
- * Shown when the app is opened via an invite deep link.
- * User only needs to set a password; other details come from the invite.
- *
- * @property serverUrl The server URL from the invite link.
- * @property inviteCode The invite code from the URL.
- */
-@Serializable
-data class InviteRegistration(
-    val serverUrl: String,
-    val inviteCode: String,
-) : Route
-
 // Admin Routes
 
 /**

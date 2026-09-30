@@ -48,10 +48,6 @@ class DestinationEntriesTest :
                     // Registered beside the shell itself, where their live ViewModels are.
                     Shell::class,
                     LibrarySetup::class,
-                    // ⛔ No entry anywhere and no call site that pushes it: a dead route, left as it
-                    // is by the spec that found it. Giving it an entry, or deleting it, fails this
-                    // line — update it then.
-                    InviteRegistration::class,
                 )
         }
     })

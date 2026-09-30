@@ -78,7 +78,6 @@ internal fun sampleRoutes(): List<Route> =
                 region = MetadataLocale.DEFAULT,
             ),
         )
-        add(InviteRegistration(serverUrl = "https://example.test", inviteCode = "test-code"))
 
         // Admin
         add(Admin)
