@@ -10,11 +10,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -28,23 +30,34 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.util.formatDateLong
+import com.calypsan.listenup.client.presentation.bookdetail.FinishDates
+import com.calypsan.listenup.client.presentation.bookdetail.FinishDatesProblem
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
-import kotlinx.datetime.toLocalDateTime
-import kotlin.time.Instant
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.book_detail_mark_as_read
+import listenup.composeapp.generated.resources.book_detail_finish_dates_before_start
+import listenup.composeapp.generated.resources.book_detail_finish_dates_in_future
+import listenup.composeapp.generated.resources.book_detail_finished
+import listenup.composeapp.generated.resources.book_detail_mark_as_finished
+import listenup.composeapp.generated.resources.book_detail_started
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_ok
 import listenup.composeapp.generated.resources.common_select_date
 
 /**
- * Dialog for marking a book as read with start and end date pickers.
+ * Asks when the reader started and finished a book before marking it finished.
  *
- * Allows users to record historical reading dates when marking a book complete.
- * Pre-populates start date from existing progress if available.
+ * Mostly for logging books read before ListenUp: the form opens on the recorded start day (today if
+ * there is none) and today, so confirming without touching it records exactly what a one-tap finish
+ * would. Days are held as calendar days in [FinishDates] and only become instants at confirm, in the
+ * reader's own [timeZone] — the dialog used to keep the picker's UTC-midnight millis, which read
+ * back as the day before anywhere west of Greenwich.
+ *
+ * Neither day may be in the future (the pickers refuse them), and the finish may not precede the
+ * start (the form says so and holds the confirm).
  *
  * @param startedAtMs Existing start date in epoch milliseconds (from playback position)
  * @param onConfirm Called with (startedAtMs, finishedAtMs) when user confirms
@@ -56,47 +69,61 @@ fun MarkCompleteDialog(
     startedAtMs: Long?,
     onConfirm: (startedAt: Long, finishedAt: Long) -> Unit,
     onDismiss: () -> Unit,
+    nowMs: Long = remember { currentEpochMilliseconds() },
+    timeZone: TimeZone = remember { TimeZone.currentSystemDefault() },
 ) {
-    val now = remember { currentEpochMilliseconds() }
+    val opened = remember(startedAtMs, nowMs, timeZone) { FinishDates.initial(startedAtMs, nowMs, timeZone) }
+    val today = opened.finished
 
-    // Initial values: startedAt from existing progress or today, finishedAt = today
-    val initialStartMillis = startedAtMs ?: now
-    val initialFinishMillis = now
-
-    var startDateMillis by remember { mutableStateOf(initialStartMillis) }
-    var finishDateMillis by remember { mutableStateOf(initialFinishMillis) }
+    var dates by remember(opened) { mutableStateOf(opened) }
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showFinishDatePicker by remember { mutableStateOf(false) }
 
+    val problem = dates.problem(today)
+
     ListenUpAlertDialog(
         onDismissRequest = onDismiss,
-        title = stringResource(Res.string.book_detail_mark_as_read),
-        confirmText = stringResource(Res.string.book_detail_mark_as_read),
-        onConfirm = { onConfirm(startDateMillis, finishDateMillis) },
+        title = stringResource(Res.string.book_detail_mark_as_finished),
+        confirmText = stringResource(Res.string.book_detail_mark_as_finished),
+        onConfirm = {
+            val stamps = dates.toTimestamps(startedAtMs, nowMs, timeZone)
+            onConfirm(stamps.startedAtMs, stamps.finishedAtMs)
+        },
         dismissText = stringResource(Res.string.common_cancel),
         onDismiss = onDismiss,
+        confirmEnabled = problem == null,
     ) {
         Column(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             DateField(
-                label = "Started",
-                millis = startDateMillis,
+                label = stringResource(Res.string.book_detail_started),
+                date = dates.started,
+                timeZone = timeZone,
                 onClick = { showStartDatePicker = true },
             )
             DateField(
-                label = "Finished",
-                millis = finishDateMillis,
+                label = stringResource(Res.string.book_detail_finished),
+                date = dates.finished,
+                timeZone = timeZone,
                 onClick = { showFinishDatePicker = true },
             )
+            problem?.let {
+                Text(
+                    text = stringResource(it.message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
         }
     }
 
     if (showStartDatePicker) {
         DatePickerDialogWrapper(
-            initialMillis = startDateMillis,
-            onDateSelected = { millis ->
-                startDateMillis = millis
+            initialDate = dates.started,
+            latestDate = today,
+            onDateSelected = { date ->
+                dates = dates.copy(started = date)
                 showStartDatePicker = false
             },
             onDismiss = { showStartDatePicker = false },
@@ -105,9 +132,10 @@ fun MarkCompleteDialog(
 
     if (showFinishDatePicker) {
         DatePickerDialogWrapper(
-            initialMillis = finishDateMillis,
-            onDateSelected = { millis ->
-                finishDateMillis = millis
+            initialDate = dates.finished,
+            latestDate = today,
+            onDateSelected = { date ->
+                dates = dates.copy(finished = date)
                 showFinishDatePicker = false
             },
             onDismiss = { showFinishDatePicker = false },
@@ -115,16 +143,24 @@ fun MarkCompleteDialog(
     }
 }
 
+private val FinishDatesProblem.message: StringResource
+    get() =
+        when (this) {
+            FinishDatesProblem.FinishedBeforeStarted -> Res.string.book_detail_finish_dates_before_start
+            FinishDatesProblem.InTheFuture -> Res.string.book_detail_finish_dates_in_future
+        }
+
 /**
  * Read-only text field that displays a date and opens a picker on tap.
  */
 @Composable
 private fun DateField(
     label: String,
-    millis: Long,
+    date: LocalDate,
+    timeZone: TimeZone,
     onClick: () -> Unit,
 ) {
-    val displayText = formatDateLong(millis)
+    val displayText = formatDateLong(date.atStartOfDayIn(timeZone).toEpochMilliseconds())
 
     Box(modifier = Modifier.fillMaxWidth()) {
         OutlinedTextField(
@@ -157,22 +193,31 @@ private fun DateField(
 
 /**
  * Wrapper around Material 3 DatePickerDialog.
+ *
+ * The M3 picker speaks UTC-midnight millis for a calendar day, so the day goes in and comes out
+ * through UTC and nowhere else — the reader's zone is applied once, at confirm, by [FinishDates].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DatePickerDialogWrapper(
-    initialMillis: Long,
-    onDateSelected: (Long) -> Unit,
+    initialDate: LocalDate,
+    latestDate: LocalDate,
+    onDateSelected: (LocalDate) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val haptics = LocalHaptics.current
-    // Convert to UTC start-of-day for the picker
-    val initialDate = epochMillisToLocalDate(initialMillis)
-    val initialSelectionMillis = initialDate.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
+    val latestMillis = latestDate.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
 
     val datePickerState =
         rememberDatePickerState(
-            initialSelectedDateMillis = initialSelectionMillis,
+            initialSelectedDateMillis = initialDate.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds(),
+            yearRange = DatePickerDefaults.YearRange.first..latestDate.year,
+            selectableDates =
+                object : SelectableDates {
+                    override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis <= latestMillis
+
+                    override fun isSelectableYear(year: Int): Boolean = year <= latestDate.year
+                },
         )
 
     DatePickerDialog(
@@ -183,7 +228,7 @@ private fun DatePickerDialogWrapper(
                     datePickerState.selectedDateMillis?.let { selectedMillis ->
                         // Inside the let: OK with nothing selected commits nothing.
                         haptics.commit()
-                        onDateSelected(selectedMillis)
+                        onDateSelected(FinishDates.dayOf(selectedMillis, TimeZone.UTC))
                     }
                 },
             ) {
@@ -205,9 +250,3 @@ private fun DatePickerDialogWrapper(
         DatePicker(state = datePickerState)
     }
 }
-
-private fun epochMillisToLocalDate(millis: Long): LocalDate =
-    Instant
-        .fromEpochMilliseconds(millis)
-        .toLocalDateTime(TimeZone.UTC)
-        .date

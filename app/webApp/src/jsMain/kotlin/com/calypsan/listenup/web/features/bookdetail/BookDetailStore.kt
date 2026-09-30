@@ -27,14 +27,14 @@ import com.calypsan.listenup.client.domain.model.Shelf
 class BookDetailSession(
     val state: StateFlow<BookDetailUiState>,
     /**
-     * Mark the book finished.
+     * Mark the book finished, on the days the reader chose (epoch milliseconds).
      *
      * ⛔ These three were the whole of web's Book Detail gap: the page consumed `state` and exposed
      * no action at all, so a reader could look at a book on the web and never change their own
      * relationship to it. `BookDetailViewModel` has had all three since it was written, and both
      * native clients offer them from the book's overflow menu.
      */
-    val onMarkComplete: () -> Unit,
+    val onMarkComplete: (startedAt: Long, finishedAt: Long) -> Unit,
     /** Clear progress entirely — the "start over / did not finish" answer. */
     val onDiscardProgress: () -> Unit,
     /** Keep the book started but send the position back to zero. */
@@ -135,7 +135,7 @@ fun graphBookDetail(koin: Koin): OpenBookDetail =
         viewModel.loadBook(bookId)
         BookDetailSession(
             state = viewModel.state,
-            onMarkComplete = { viewModel.markComplete() },
+            onMarkComplete = { startedAt, finishedAt -> viewModel.markComplete(startedAt, finishedAt) },
             onDiscardProgress = viewModel::discardProgress,
             onRestart = viewModel::restartBook,
             myShelves = viewModel.myShelves,
@@ -165,7 +165,7 @@ fun graphBookDetail(koin: Koin): OpenBookDetail =
 @Suppress("LongParameterList")
 fun fixedBookDetail(
     state: BookDetailUiState,
-    onMarkComplete: () -> Unit = {},
+    onMarkComplete: (Long, Long) -> Unit = { _, _ -> },
     onDiscardProgress: () -> Unit = {},
     onRestart: () -> Unit = {},
     myShelves: List<Shelf> = emptyList(),

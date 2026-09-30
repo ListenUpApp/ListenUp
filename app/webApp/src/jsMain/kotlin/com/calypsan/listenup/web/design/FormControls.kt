@@ -1,9 +1,11 @@
 package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
+import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.attributes.selected
 import org.jetbrains.compose.web.dom.CheckboxInput
 import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.Label
 import org.jetbrains.compose.web.dom.Option
 import org.jetbrains.compose.web.dom.Select
@@ -126,6 +128,44 @@ fun CheckboxField(
             onChange { event -> onChange(event.value) }
         }
         Text(label)
+    }
+}
+
+/**
+ * A calendar-day picker: the browser's own `<input type=date>`, in the field chrome.
+ *
+ * [value] and [onInput] speak ISO `yyyy-mm-dd`, which is what the element itself speaks — the
+ * browser renders it in the reader's locale, and the caller parses it into a `LocalDate`. An empty
+ * string is a cleared field, not an error to hide.
+ *
+ * [min] and [max] bound the picker. They do not bound a keyboard, so a caller that must refuse a
+ * day still checks it.
+ */
+@Composable
+fun DateField(
+    label: String,
+    value: String,
+    onInput: (String) -> Unit,
+    min: String? = null,
+    max: String? = null,
+    id: String? = null,
+) {
+    val fieldId = rememberFieldId(id)
+    Div(attrs = { classes("f-wrap") }) {
+        Label(attrs = {
+            classes("f-label")
+            attr("for", fieldId)
+        }) { Text(label) }
+        Div(attrs = { classes("f-box") }) {
+            Input(type = InputType.Date) {
+                classes("f-input")
+                value(value)
+                attr("id", fieldId)
+                min?.let { attr("min", it) }
+                max?.let { attr("max", it) }
+                onInput { event -> onInput(event.value) }
+            }
+        }
     }
 }
 

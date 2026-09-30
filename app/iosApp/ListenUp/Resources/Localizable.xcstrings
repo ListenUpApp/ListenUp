@@ -4131,6 +4131,26 @@
         }
       }
     },
+    "book.detail_finish_dates_before_start": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The finish date can’t be before the start date."
+          }
+        }
+      }
+    },
+    "book.detail_finish_dates_in_future": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These dates can’t be in the future."
+          }
+        }
+      }
+    },
     "book.detail_finished": {
       "localizations": {
         "en": {
@@ -4201,32 +4221,12 @@
         }
       }
     },
-    "book.detail_mark_as_finished_prompt": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mark as finished?"
-          }
-        }
-      }
-    },
     "book.detail_mark_as_not_started": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Mark as not started"
-          }
-        }
-      }
-    },
-    "book.detail_mark_as_read": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mark as read"
           }
         }
       }
@@ -4837,6 +4837,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Show less"
+          }
+        }
+      }
+    },
+    "book.detail_started": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Started"
           }
         }
       }

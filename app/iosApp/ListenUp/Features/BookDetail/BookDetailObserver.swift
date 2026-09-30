@@ -319,18 +319,73 @@ final class BookDetailObserver {
     /// in-flight write; the shared VM resets progress/complete on success.
     func restartBook() { viewModel.restartBook() }
 
-    func markFinished() {
+    /// Mark the book finished on the days the reader chose in the sheet. Days they left alone keep
+    /// the instant the sheet opened with, so confirming untouched sends exactly what the one-tap
+    /// finish always sent.
+    func markFinished(started: Date, finished: Date) {
         let ts = Self.markCompleteTimestamps(
+            started: started,
+            finished: finished,
             startedAtMs: startedAtMs,
-            now: Int64(Date().timeIntervalSince1970 * 1000)
+            now: Self.nowMs(),
+            calendar: .current
         )
         viewModel.markComplete(startedAt: ts.start, finishedAt: ts.finish)
     }
 
-    /// Pure: started defaults to `now` when unknown; finished is always `now`.
-    nonisolated static func markCompleteTimestamps(startedAtMs: Int64?, now: Int64) -> (start: Int64, finish: Int64) {
-        (start: startedAtMs ?? now, finish: now)
+    static func nowMs() -> Int64 { Int64(Date().timeIntervalSince1970 * 1000) }
+
+    /// Pure: the days the sheet opens on — the recorded start day (today if unknown), and today —
+    /// as start-of-day `Date`s in [calendar]. Mirrors `FinishDates.initial` in sharedLogic.
+    nonisolated static func finishDaysOpened(
+        startedAtMs: Int64?,
+        now: Int64,
+        calendar: Calendar
+    ) -> (started: Date, finished: Date) {
+        (
+            started: calendar.startOfDay(for: date(ms: startedAtMs ?? now)),
+            finished: calendar.startOfDay(for: date(ms: now))
+        )
     }
+
+    /// Pure: why these days can't be saved, or nil — the shared `FinishDatesProblem`, by the rule of
+    /// `FinishDates.problem` (whose `LocalDate`s don't cross Swift Export usefully).
+    nonisolated static func finishDatesProblem(
+        started: Date,
+        finished: Date,
+        now: Int64,
+        calendar: Calendar
+    ) -> FinishDatesProblem? {
+        let today = calendar.startOfDay(for: date(ms: now))
+        let startDay = calendar.startOfDay(for: started)
+        let finishDay = calendar.startOfDay(for: finished)
+        if startDay > today || finishDay > today { return .InTheFuture }
+        if finishDay < startDay { return .FinishedBeforeStarted }
+        return nil
+    }
+
+    /// Pure: the epoch milliseconds for the chosen days. An unchanged day keeps the instant it
+    /// opened with; a changed one is the start of that day in [calendar]; the finish never precedes
+    /// the start. Mirrors `FinishDates.toTimestamps`.
+    nonisolated static func markCompleteTimestamps(
+        started: Date,
+        finished: Date,
+        startedAtMs: Int64?,
+        now: Int64,
+        calendar: Calendar
+    ) -> (start: Int64, finish: Int64) {
+        let openedStart = startedAtMs ?? now
+        let start = calendar.isDate(started, inSameDayAs: date(ms: openedStart))
+            ? openedStart
+            : ms(calendar.startOfDay(for: started))
+        let finish = calendar.isDate(finished, inSameDayAs: date(ms: now))
+            ? now
+            : ms(calendar.startOfDay(for: finished))
+        return (start: start, finish: max(finish, start))
+    }
+
+    private nonisolated static func date(ms: Int64) -> Date { Date(timeIntervalSince1970: Double(ms) / 1000) }
+    private nonisolated static func ms(_ date: Date) -> Int64 { Int64((date.timeIntervalSince1970 * 1000).rounded()) }
 
     // MARK: - State mapping
 
