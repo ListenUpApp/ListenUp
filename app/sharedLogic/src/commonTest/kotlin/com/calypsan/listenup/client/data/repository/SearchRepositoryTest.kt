@@ -21,7 +21,6 @@ import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.booleans.shouldBeFalse
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
@@ -113,20 +112,6 @@ class SearchRepositoryTest :
                 result.hits.map { it.type } shouldContainExactlyInAnyOrder
                     listOf(SearchHitType.BOOK, SearchHitType.CONTRIBUTOR, SearchHitType.SERIES)
                 result.hits.first { it.type == SearchHitType.BOOK }.name shouldBe "Mistborn"
-            }
-        }
-
-        test("local results are not flagged as an offline fallback") {
-            runTest {
-                val repo =
-                    repository {
-                        everySuspend { searchBooks(any(), any()) } returns listOf(bookResult())
-                        everySuspend { searchContributors(any(), any()) } returns emptyList()
-                        everySuspend { searchSeries(any(), any()) } returns emptyList()
-                        everySuspend { searchTags(any(), any()) } returns emptyList()
-                    }
-
-                repo.search("test").isOfflineResult.shouldBeFalse()
             }
         }
 

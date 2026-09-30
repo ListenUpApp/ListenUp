@@ -76,7 +76,6 @@ class FakeSearchRepository : SearchRepository {
             tookMs = 10,
             hits = searchResults.take(limit),
             facets = SearchFacets(),
-            isOfflineResult = false,
         )
     }
 }

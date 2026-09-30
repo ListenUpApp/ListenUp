@@ -124,7 +124,6 @@ internal class SearchRepositoryImpl(
                 tookMs = duration.inWholeMilliseconds,
                 hits = result,
                 facets = SearchFacets(), // No facets in local search
-                isOfflineResult = false,
             )
         }
 

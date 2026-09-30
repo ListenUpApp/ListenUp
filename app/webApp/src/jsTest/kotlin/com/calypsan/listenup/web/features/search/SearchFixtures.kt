@@ -46,7 +46,6 @@ internal fun searchResult(
     query: String,
     hits: List<SearchHit>,
     total: Int = hits.size,
-    isOfflineResult: Boolean = false,
 ): SearchResult =
     SearchResult(
         query = query,
@@ -54,5 +53,4 @@ internal fun searchResult(
         tookMs = 0,
         hits = hits,
         facets = SearchFacets(),
-        isOfflineResult = isOfflineResult,
     )
