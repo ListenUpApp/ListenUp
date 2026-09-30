@@ -8,11 +8,12 @@ import Shared
 /// details sections. A narrow width stacks everything; a wide one splits into a left rail
 /// (hero + resume + pills), sized from the width, beside a flexible right column (description,
 /// chapters, details) — see `DetailColumns`. All state comes from `BookDetailObserver`; the overflow menu offers
-/// Mark as Not Started.
+/// the progress resets and, for an admin, Delete Book.
 struct BookDetailView: View {
     let bookId: String
 
     @Environment(\.dependencies) private var deps
+    @Environment(\.dismiss) private var dismiss
     @State var observer: BookDetailObserver?
     @State private var readersObserver: BookReadersObserver?
     @State private var ratingsObserver: BookRatingsObserver?
@@ -119,6 +120,11 @@ struct BookDetailView: View {
             )
         ) {
             Button(String(localized: "common.ok"), role: .cancel) { observer?.dismissComingSoon() }
+        }
+        // The book was deleted (the observer has already purged this device's copy): leave before
+        // the tombstone syncs and the row vanishes underneath the screen.
+        .onChange(of: observer?.didDeleteBook ?? false) { _, deleted in
+            if deleted { dismiss() }
         }
         .task(id: bookId) {
             guard observer == nil else { return }
@@ -380,6 +386,7 @@ struct BookDetailView: View {
 
     @State var showDiscardConfirmation = false
     @State var showRestartConfirmation = false
+    @State var showDeleteBookConfirmation = false
     @State var showEdit = false
     @State var showChapterEditor = false
     @State var showMetadataMatch = false
