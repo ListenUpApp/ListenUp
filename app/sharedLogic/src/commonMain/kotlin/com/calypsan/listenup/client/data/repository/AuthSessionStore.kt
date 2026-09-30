@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.SecureStorage
+import com.calypsan.listenup.core.SecureStorageUnavailableException
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.PendingRegistration
@@ -16,6 +17,7 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -25,6 +27,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import com.calypsan.listenup.client.domain.model.AuthState as DomainAuthState
 
@@ -211,9 +215,7 @@ internal class AuthSessionStore(
             return DomainAuthState.NeedsServerUrl
         }
 
-        val hasToken = getAccessToken() != null
-        val userId = getUserId()
-        val sessionId = getSessionId()
+        val (hasToken, userId, sessionId) = readSessionCredentials()
 
         if (hasToken && userId != null && sessionId != null) {
             return DomainAuthState.Authenticated(UserId(userId), SessionId(sessionId))
@@ -261,6 +263,49 @@ internal class AuthSessionStore(
         // setup form would be actively wrong.
         return checkServerStatus()
     }
+
+    /** What cold start knows about the held session: whether an access token is stored, and whose. */
+    private data class SessionCredentials(
+        val hasAccessToken: Boolean,
+        val userId: String?,
+        val sessionId: String?,
+    )
+
+    /**
+     * Reads the session's credentials for [deriveAuthState] without mistaking "unreadable right now"
+     * for "absent" — the difference between a Keystore blip and a wipe. Through the folding `read()`,
+     * a blip on `user_id` beside a readable access token looked like the corruption branch and
+     * cleared every credential; a blip on the access token looked like a lapsed session.
+     *
+     * An unreadable credential is retried on [CREDENTIAL_READ_RETRY_DELAYS]. An access token that
+     * stays unreadable is still a stored one: its bytes are on disk, so the session is held and the
+     * next authenticated call decides. An identity that stays unreadable past every retry is treated
+     * as absent — the pre-existing self-heal — because a Keystore that cannot decrypt it for that long
+     * is not blipping, and a fresh sign-in is the only way back to a readable store.
+     */
+    private suspend fun readSessionCredentials(): SessionCredentials {
+        for (wait in CREDENTIAL_READ_RETRY_DELAYS) {
+            try {
+                return SessionCredentials(
+                    hasAccessToken = accessTokenIsStored(),
+                    userId = secureStorage.readCredential(KEY_USER_ID),
+                    sessionId = secureStorage.readCredential(KEY_SESSION_ID),
+                )
+            } catch (e: SecureStorageUnavailableException) {
+                logger.warn { "Cold start couldn't read '${e.key}' yet; retrying in $wait" }
+                delay(wait)
+            }
+        }
+        logger.warn { "Session identity still unreadable after every retry; treating it as absent" }
+        return SessionCredentials(accessTokenIsStored(), getUserId(), getSessionId())
+    }
+
+    private suspend fun accessTokenIsStored(): Boolean =
+        try {
+            secureStorage.readCredential(KEY_ACCESS_TOKEN) != null
+        } catch (_: SecureStorageUnavailableException) {
+            true
+        }
 
     /**
      * Hit the server's instance endpoint to learn whether setup is required.
@@ -355,6 +400,9 @@ internal class AuthSessionStore(
     }
 
     private companion object {
+        /** Waits between cold-start credential reads while the Keystore is unavailable: ~5 s in all. */
+        val CREDENTIAL_READ_RETRY_DELAYS = listOf(250.milliseconds, 1.seconds, 4.seconds)
+
         const val KEY_ACCESS_TOKEN = "access_token"
         const val KEY_REFRESH_TOKEN = "refresh_token"
         const val KEY_SESSION_ID = "session_id"
