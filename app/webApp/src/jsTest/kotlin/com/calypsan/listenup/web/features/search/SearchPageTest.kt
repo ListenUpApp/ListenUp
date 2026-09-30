@@ -305,39 +305,6 @@ class SearchPageTest :
             }
         }
 
-        test("an offline result says so, honestly") {
-            val root =
-                searchPage(
-                    state =
-                        SearchUiState.Results(
-                            query = "dune",
-                            selectedTypes = emptySet(),
-                            result =
-                                searchResult(
-                                    query = "dune",
-                                    hits = listOf(bookHit("b1", "Dune")),
-                                    isOfflineResult = true,
-                                ),
-                        ),
-                )
-
-            root.querySelector(".banner.info") shouldNotBe null
-        }
-
-        test("a non-offline result carries no offline banner") {
-            val root =
-                searchPage(
-                    state =
-                        SearchUiState.Results(
-                            query = "dune",
-                            selectedTypes = emptySet(),
-                            result = searchResult(query = "dune", hits = listOf(bookHit("b1", "Dune"))),
-                        ),
-                )
-
-            root.querySelector(".banner.info") shouldBe null
-        }
-
         test("a hit type with no destination renders non-interactively, never as a dead click") {
             // Only BOOK is in openableTypes here — CONTRIBUTOR has no route wired yet. Its row
             // must show its data but carry none of the button contract: no tabindex, no role, no

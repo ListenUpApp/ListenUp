@@ -193,9 +193,7 @@ class SearchViewModel(
                     types = typesList,
                     limit = DEFAULT_RESULT_LIMIT,
                 )
-            logger.info {
-                "Search completed: ${result.total} results for '$query' (offline=${result.isOfflineResult})"
-            }
+            logger.info { "Search completed: ${result.total} results for '$query'" }
             emit(Phase.Results(result))
         } catch (cancel: kotlin.coroutines.cancellation.CancellationException) {
             throw cancel

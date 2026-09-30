@@ -1134,7 +1134,6 @@ class ClassContractTest :
                                                     bookHit("b1", "Dune", author = "Frank Herbert"),
                                                     contributorHit("c1", "Frank Herbert"),
                                                 ),
-                                            isOfflineResult = true,
                                         ),
                                 ),
                             onQueryChanged = {},

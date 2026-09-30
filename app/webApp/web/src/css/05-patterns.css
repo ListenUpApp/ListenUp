@@ -317,7 +317,6 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .banner { display:flex; align-items:center; gap:11px; padding:0 var(--sp-16); min-height:44px; font-size:var(--fs-ui); font-weight:600; border-bottom:1px solid; }
 .banner.warn { background:var(--warn-soft); color:var(--warn); border-color:color-mix(in srgb, var(--warn) 22%, var(--warn-soft)); }
 .banner.err  { background:var(--danger-soft); color:var(--danger); border-color:color-mix(in srgb, var(--danger) 22%, var(--danger-soft)); }
-.banner.info { background:var(--surface-2); color:var(--ink-2); border-color:var(--line); }
 
 /* ---- page header — the one page title. `PageHeader` is the only thing that renders `.page-t`, so
    every page's H1 is the same size, weight and tracking; the 31 per-page title rules it replaced

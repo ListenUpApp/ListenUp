@@ -87,5 +87,4 @@ data class SearchResult(
     val tookMs: Long,
     val hits: List<SearchHit>,
     val facets: SearchFacets = SearchFacets(),
-    val isOfflineResult: Boolean = false,
 )

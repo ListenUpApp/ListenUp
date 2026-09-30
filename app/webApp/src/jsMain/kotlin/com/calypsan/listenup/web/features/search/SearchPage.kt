@@ -82,10 +82,6 @@ fun SearchPage(
             }
         }
 
-        if (state is SearchUiState.Results && state.result.isOfflineResult) {
-            Div(attrs = { classes("banner", "info") }) { Text("Showing offline results") }
-        }
-
         when (state) {
             is SearchUiState.Idle -> {
                 IdlePrompt()
