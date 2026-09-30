@@ -109,14 +109,19 @@ sealed interface ServerConnectError : AppError {
     }
 
     /**
-     * Discovery cannot proceed because the user denied
-     * [android.permission.ACCESS_LOCAL_NETWORK]. Android 17 requires this
-     * permission for any mDNS / multicast traffic; without it discovery is
-     * silently dropped by the platform.
+     * The operating system is blocking ListenUp from the user's local network because the user
+     * has not allowed it — Android 17's `ACCESS_LOCAL_NETWORK` permission, or iOS's Local Network
+     * privacy setting.
      *
-     * The UI auto-navigates to manual URL entry on denial. To retry
-     * discovery, grant the permission in system settings and open a fresh
-     * server-select flow.
+     * The gate covers both halves of connecting: discovery (mDNS/Bonjour) and any connection to a
+     * LAN address, including one the user typed by hand. Neither platform reports the block on a
+     * connection — a denied connect just times out — so the connect screens raise this only
+     * after a connect has failed and the platform confirms the gate was the cause; a server
+     * reached over a VPN is never blamed on it.
+     *
+     * Not retryable by middleware: the user has to allow access (the permission dialog on
+     * Android, Settings on iOS). The connect screens offer that action and re-run the attempt
+     * when access comes back.
      */
     @Serializable
     @SerialName("ServerConnectError.LocalNetworkPermissionDenied")
@@ -124,7 +129,8 @@ sealed interface ServerConnectError : AppError {
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
     ) : ServerConnectError {
-        override val message: String = "Local network access is required to discover servers on your network."
+        override val message: String =
+            "ListenUp needs local network access to find and connect to servers on your network."
         override val code: String = "SERVER_CONNECT_LOCAL_NETWORK_PERMISSION_DENIED"
         override val isRetryable: Boolean = false
     }

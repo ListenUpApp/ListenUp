@@ -43,6 +43,7 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.ServerWithStatus
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
 import com.calypsan.listenup.client.features.permission.RequestLocalNetworkPermission
+import com.calypsan.listenup.client.presentation.error.localizedString
 import com.calypsan.listenup.client.presentation.connect.ServerSelectUiEvent
 import com.calypsan.listenup.client.presentation.connect.ServerSelectUiState
 import com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel
@@ -112,7 +113,7 @@ fun ServerSelectScreen(
     LaunchedEffect(state) {
         val current = state
         if (current is ServerSelectUiState.Error) {
-            snackbarHostState.showSnackbar(current.message)
+            snackbarHostState.showSnackbar(current.error.localizedString())
             viewModel.onEvent(ServerSelectUiEvent.ErrorDismissed)
         }
     }

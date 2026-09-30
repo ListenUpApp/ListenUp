@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.discovery
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 
 /**
  * Browser "discovery": permanently nothing found, by design rather than by failure.
@@ -14,6 +15,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
  */
 class NoDiscoveryService : ServerDiscoveryService {
     override fun discover(): Flow<List<DiscoveredServer>> = MutableStateFlow(emptyList())
+
+    // A browser never browses, so nothing is ever denied.
+    override fun observeLocalNetworkDenied(): Flow<Boolean> = flowOf(false)
 
     override fun startDiscovery() {
         // Nothing to start: there is no protocol to speak.

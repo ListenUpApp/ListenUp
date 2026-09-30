@@ -101,7 +101,7 @@ final class ServerSelectViewModelWrapper {
         case .error(let sType):
             let s = sType.value
             isDiscovering = false; isConnecting = false
-            selectedServerId = s.selectedServerId; error = s.message
+            selectedServerId = s.selectedServerId; error = s.error.message
         }
     }
 

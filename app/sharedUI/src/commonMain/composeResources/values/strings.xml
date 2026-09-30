@@ -844,6 +844,10 @@ One beautiful library.</string>
     <string name="connect_enter_server_url">Enter your ListenUp server URL</string>
     <string name="connect_enter_server_url_directly">Enter server URL directly</string>
     <string name="connect_listenup_server">ListenUp server</string>
+    <string name="connect_local_network_allow">Allow access</string>
+    <string name="connect_local_network_hint_android">In Settings, open Permissions and allow Nearby devices.</string>
+    <string name="connect_local_network_hint_ios">In Settings, turn on Local Network for ListenUp.</string>
+    <string name="connect_local_network_open_settings">Open Settings</string>
     <string name="connect_make_sure_your_listenup_server">Make sure your ListenUp server is running on the same network</string>
     <string name="connect_on_your_network">On your network</string>
     <string name="connect_rescan">Rescan</string>
@@ -1001,6 +1005,7 @@ One beautiful library.</string>
     <string name="error_hardcover_not_configured">Hardcover isn't set up on this server.</string>
     <string name="error_hardcover_unavailable">Hardcover can't be reached right now. Try again shortly.</string>
     <string name="error_not_found">Not found.</string>
+    <string name="error_server_connect_local_network_permission_denied">ListenUp needs local network access to find and connect to servers on your network.</string>
     <string name="error_transport_network_unavailable">Can't reach the server. Check your connection.</string>
     <string name="error_transport_timeout">The request took too long. Please try again.</string>
     <string name="error_unknown">Something went wrong.</string>

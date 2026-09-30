@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.presentation.error
 
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.TransportError
 import kotlinx.coroutines.test.runTest
 import listenup.composeapp.generated.resources.Res
@@ -51,6 +52,15 @@ class AppErrorLocalizationTest {
     fun `resolved resolves a dynamically-keyed error to a non-null resource`() {
         AuthError.SessionExpired().resolved() shouldNotBe null
     }
+
+    @Test
+    fun `the local network denial resolves to its own catalog entry`() =
+        runTest {
+            val error = ServerConnectError.LocalNetworkPermissionDenied()
+            error.resolved() shouldNotBe null
+            error.localizedString() shouldBe
+                "ListenUp needs local network access to find and connect to servers on your network."
+        }
 
     @Test
     fun `resolved returns null for an unmapped error code`() {

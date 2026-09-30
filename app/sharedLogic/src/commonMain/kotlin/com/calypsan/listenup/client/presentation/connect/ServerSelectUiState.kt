@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.connect
 
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.domain.model.ServerWithStatus
 
 /**
@@ -29,11 +30,17 @@ sealed interface ServerSelectUiState {
         val selectedServerId: String,
     ) : ServerSelectUiState
 
-    /** Activation failed. */
+    /**
+     * Activating a server failed, or discovery itself was refused.
+     *
+     * [selectedServerId] names the server whose activation failed; it is null when the failure
+     * belongs to discovery (the platform refused to browse). [error] is the typed cause — the
+     * screen renders it, so the ViewModel carries no copy.
+     */
     data class Error(
         override val servers: List<ServerWithStatus>,
-        val selectedServerId: String,
-        val message: String,
+        val selectedServerId: String?,
+        val error: AppError,
     ) : ServerSelectUiState
 }
 

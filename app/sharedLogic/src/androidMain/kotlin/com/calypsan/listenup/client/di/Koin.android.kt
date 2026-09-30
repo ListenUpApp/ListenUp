@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.domain.repository.LocalNetworkAccess
+import com.calypsan.listenup.client.data.repository.AndroidLocalNetworkAccess
 import com.calypsan.listenup.client.data.discovery.NsdDiscoveryService
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
 import com.calypsan.listenup.client.playback.PlaybackControllerActivator
@@ -56,11 +58,13 @@ fun Koin.activatePlaybackController() {
 
 /**
  * Android-specific discovery module.
- * Provides NsdManager-based mDNS discovery.
+ * Provides NsdManager-based mDNS discovery, and the `ACCESS_LOCAL_NETWORK` gate check the
+ * connect screens consult after a failed connect.
  */
 internal actual val platformDiscoveryModule: Module =
     module {
         single { NsdDiscoveryService(context = get()) } bind ServerDiscoveryService::class
+        single { AndroidLocalNetworkAccess(context = get()) } bind LocalNetworkAccess::class
     }
 
 /**

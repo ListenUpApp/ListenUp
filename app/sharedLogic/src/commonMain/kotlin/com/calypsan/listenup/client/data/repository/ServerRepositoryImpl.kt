@@ -32,6 +32,8 @@ internal class ServerRepositoryImpl(
                 .map { ServerWithStatus(server = it.toServer(), isOnline = true) }
         }
 
+    override fun observeLocalNetworkDenied(): Flow<Boolean> = discoveryService.observeLocalNetworkDenied()
+
     override fun startDiscovery() {
         discoveryService.startDiscovery()
     }

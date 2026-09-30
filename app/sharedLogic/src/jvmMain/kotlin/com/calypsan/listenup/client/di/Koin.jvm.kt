@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.domain.repository.LocalNetworkAccess
+import com.calypsan.listenup.client.data.repository.UngatedLocalNetworkAccess
 import com.calypsan.listenup.core.CachingSecureStorage
 import com.calypsan.listenup.core.JvmSecureStorage
 import com.calypsan.listenup.core.SecureStorage
@@ -114,6 +116,8 @@ fun clientApiClientFactoryTestModule(): Module =
 internal actual val platformDiscoveryModule: Module =
     module {
         single { JmDnsDiscoveryService() } bind ServerDiscoveryService::class
+        // Desktop has no local-network privacy gate.
+        single<LocalNetworkAccess> { UngatedLocalNetworkAccess }
     }
 
 /**

@@ -7,6 +7,7 @@ import android.os.Build
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
@@ -57,6 +58,10 @@ internal class NsdDiscoveryService(
     }
 
     override fun discover(): Flow<List<DiscoveredServer>> = serversState.map { it.values.toList() }
+
+    // NsdManager drops a browse the permission blocks without a callback, so there is nothing to
+    // report here; ServerSelectScreen learns of the denial from the permission request instead.
+    override fun observeLocalNetworkDenied(): Flow<Boolean> = flowOf(false)
 
     override fun startDiscovery() {
         if (isDiscovering) {
