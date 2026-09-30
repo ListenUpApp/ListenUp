@@ -11,12 +11,16 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.VerifiedServer
+import com.calypsan.listenup.client.test.fake.FakeLocalNetworkAccess
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CoroutineScope
@@ -44,16 +48,40 @@ class ServerConnectViewModelTest :
         class TestFixture {
             val serverConfig: ServerConfig = mock()
             val instanceRepository: InstanceRepository = mock()
+            val localNetworkAccess = FakeLocalNetworkAccess()
 
             fun build(appScope: CoroutineScope): ServerConnectViewModel =
                 ServerConnectViewModel(
                     adoptServer = AdoptServerUseCase(serverConfig) {},
                     instanceRepository = instanceRepository,
+                    localNetworkAccess = localNetworkAccess,
                     appScope = appScope,
                 )
         }
 
         fun createFixture(): TestFixture = TestFixture()
+
+        fun TestFixture.stubAdoption() {
+            everySuspend { serverConfig.setServerUrl(any()) } returns Unit
+            everySuspend { serverConfig.getConnectedServerId() } returns null
+            everySuspend { serverConfig.getLibraryServerId() } returns null
+            everySuspend { serverConfig.setLibraryServerId(any()) } returns Unit
+            everySuspend { serverConfig.setConnectedServerId(any()) } returns Unit
+        }
+
+        fun verifiedServer(url: String) =
+            VerifiedServer(
+                serverInfo =
+                    ServerInfo(
+                        name = "ListenUp",
+                        version = "0.0.1",
+                        apiVersion = "v1",
+                        setupRequired = false,
+                        registrationPolicy = RegistrationPolicy.OPEN,
+                        instanceId = "inst-lan",
+                    ),
+                verifiedUrl = url,
+            )
 
         beforeTest {
             Dispatchers.setMain(testDispatcher)
@@ -227,6 +255,216 @@ class ServerConnectViewModelTest :
 
                 val errorState = viewModel.state.value.shouldBeInstanceOf<ServerConnectUiState.Error>()
                 errorState.error.shouldBeInstanceOf<ServerConnectError.VerificationFailed>()
+            }
+        }
+
+        // ========== Local network permission (Android 17 / iOS) ==========
+        //
+        // A connect the OS blocks for want of local-network permission times out exactly like a
+        // server that is switched off. The gate is asked only after such a failure, so a server
+        // reached over an ungated VPN is never blamed on the permission.
+
+        test("a timeout the local-network gate explains maps to LocalNetworkPermissionDenied") {
+            runTest {
+                val fixture = createFixture()
+                fixture.localNetworkAccess.denied = true
+                everySuspend { fixture.instanceRepository.verifyServer("http://192.168.1.5:8080") } returns
+                    AppResult.Failure(TransportError.Timeout(debugInfo = "connect timed out"))
+
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
+                viewModel.submitUrl("http://192.168.1.5:8080")
+                advanceUntilIdle()
+
+                val errorState = viewModel.state.value.shouldBeInstanceOf<ServerConnectUiState.Error>()
+                errorState.error.shouldBeInstanceOf<ServerConnectError.LocalNetworkPermissionDenied>()
+            }
+        }
+
+        test("an unavailable network the local-network gate explains maps to LocalNetworkPermissionDenied") {
+            runTest {
+                val fixture = createFixture()
+                fixture.localNetworkAccess.denied = true
+                everySuspend { fixture.instanceRepository.verifyServer("http://192.168.1.5:8080") } returns
+                    AppResult.Failure(TransportError.NetworkUnavailable(debugInfo = "connection refused"))
+
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
+                viewModel.submitUrl("http://192.168.1.5:8080")
+                advanceUntilIdle()
+
+                val errorState = viewModel.state.value.shouldBeInstanceOf<ServerConnectUiState.Error>()
+                errorState.error.shouldBeInstanceOf<ServerConnectError.LocalNetworkPermissionDenied>()
+            }
+        }
+
+        test("a timeout the gate does not explain stays ServerNotReachable") {
+            runTest {
+                val fixture = createFixture()
+                fixture.localNetworkAccess.denied = false
+                everySuspend { fixture.instanceRepository.verifyServer("http://192.168.1.5:8080") } returns
+                    AppResult.Failure(TransportError.Timeout(debugInfo = "connect timed out"))
+
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
+                viewModel.submitUrl("http://192.168.1.5:8080")
+                advanceUntilIdle()
+
+                val errorState = viewModel.state.value.shouldBeInstanceOf<ServerConnectUiState.Error>()
+                errorState.error.shouldBeInstanceOf<ServerConnectError.ServerNotReachable>()
+                fixture.localNetworkAccess.queries shouldBe listOf("192.168.1.5" to 8080)
+            }
+        }
+
+        test("a server that answered is never blamed on the permission, and the gate is not consulted") {
+            runTest {
+                val fixture = createFixture()
+                fixture.localNetworkAccess.denied = true
+                everySuspend { fixture.instanceRepository.verifyServer("http://192.168.1.5:8080") } returns
+                    AppResult.Failure(TransportError.Server4xx(statusCode = 404, debugInfo = "Not Found"))
+
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
+                viewModel.submitUrl("http://192.168.1.5:8080")
+                advanceUntilIdle()
+
+                val errorState = viewModel.state.value.shouldBeInstanceOf<ServerConnectUiState.Error>()
+                errorState.error.shouldBeInstanceOf<ServerConnectError.NotListenUpServer>()
+                fixture.localNetworkAccess.queries.shouldBeEmpty()
+            }
+        }
+
+        test("a URL typed without a scheme reaches the gate as its host and port") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.instanceRepository.verifyServer("192.168.1.5:8080") } returns
+                    AppResult.Failure(TransportError.Timeout(debugInfo = "connect timed out"))
+
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
+                viewModel.submitUrl("192.168.1.5:8080")
+                advanceUntilIdle()
+
+                fixture.localNetworkAccess.queries shouldBe listOf("192.168.1.5" to 8080)
+            }
+        }
+
+        test("retryAfterLocalNetworkGrant re-runs the attempt the permission blocked") {
+            runTest {
+                val fixture = createFixture()
+                fixture.localNetworkAccess.denied = true
+                var serverAnswers = false
+                everySuspend { fixture.instanceRepository.verifyServer("http://192.168.1.5:8080") } calls {
+                    if (serverAnswers) {
+                        AppResult.Success(verifiedServer("http://192.168.1.5:8080"))
+                    } else {
+                        AppResult.Failure(TransportError.Timeout(debugInfo = "connect timed out"))
+                    }
+                }
+                fixture.stubAdoption()
+
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
+                viewModel.submitUrl("http://192.168.1.5:8080")
+                advanceUntilIdle()
+                viewModel.state.value
+                    .shouldBeInstanceOf<ServerConnectUiState.Error>()
+                    .error
+                    .shouldBeInstanceOf<ServerConnectError.LocalNetworkPermissionDenied>()
+
+                // The user allows access in the dialog or in Settings and comes back.
+                fixture.localNetworkAccess.denied = false
+                serverAnswers = true
+                viewModel.retryAfterLocalNetworkGrant()
+                advanceUntilIdle()
+
+                viewModel.state.value shouldBe ServerConnectUiState.Verified
+            }
+        }
+
+        test("retryAfterLocalNetworkGrant leaves any other failure alone") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.instanceRepository.verifyServer("http://192.168.1.5:8080") } returns
+                    AppResult.Failure(TransportError.Timeout(debugInfo = "connect timed out"))
+
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
+                viewModel.submitUrl("http://192.168.1.5:8080")
+                advanceUntilIdle()
+
+                viewModel.retryAfterLocalNetworkGrant()
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<ServerConnectUiState.Error>()
+                    .error
+                    .shouldBeInstanceOf<ServerConnectError.ServerNotReachable>()
+                verifySuspend(VerifyMode.exactly(1)) { fixture.instanceRepository.verifyServer(any()) }
+            }
+        }
+
+        test("two retries in the same moment verify the server once") {
+            runTest {
+                val fixture = createFixture()
+                fixture.localNetworkAccess.denied = true
+                everySuspend { fixture.instanceRepository.verifyServer("http://192.168.1.5:8080") } returns
+                    AppResult.Failure(TransportError.Timeout(debugInfo = "connect timed out"))
+
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
+                viewModel.submitUrl("http://192.168.1.5:8080")
+                advanceUntilIdle()
+
+                // Android's resume effect and the grant callback can both fire before either retry
+                // has been dispatched; only one may reach the network.
+                viewModel.retryAfterLocalNetworkGrant()
+                viewModel.retryAfterLocalNetworkGrant()
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.exactly(2)) { fixture.instanceRepository.verifyServer(any()) }
+            }
+        }
+
+        test("submitUrl reports Verifying before the attempt is dispatched") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.instanceRepository.verifyServer("http://192.168.1.5:8080") } returns
+                    AppResult.Failure(TransportError.Timeout(debugInfo = "connect timed out"))
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
+
+                viewModel.submitUrl("http://192.168.1.5:8080")
+
+                viewModel.state.value shouldBe ServerConnectUiState.Verifying
+            }
+        }
+
+        test("a gate that fails to answer leaves the screen on ServerNotReachable, not spinning") {
+            runTest {
+                val fixture = createFixture()
+                fixture.localNetworkAccess.failure = IllegalStateException("probe exploded")
+                everySuspend { fixture.instanceRepository.verifyServer("http://192.168.1.5:8080") } returns
+                    AppResult.Failure(TransportError.Timeout(debugInfo = "connect timed out"))
+
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
+                viewModel.submitUrl("http://192.168.1.5:8080")
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<ServerConnectUiState.Error>()
+                    .error
+                    .shouldBeInstanceOf<ServerConnectError.ServerNotReachable>()
+            }
+        }
+
+        test("isClearlyRemoteAddress tells a remote server from one that might be local") {
+            val viewModel = createFixture().build(CoroutineScope(testDispatcher))
+
+            viewModel.isClearlyRemoteAddress("https://yourname.listenup.app") shouldBe true
+            viewModel.isClearlyRemoteAddress("nas.lan") shouldBe false
+        }
+
+        test("retryAfterLocalNetworkGrant before any attempt does nothing") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
+
+                viewModel.retryAfterLocalNetworkGrant()
+                advanceUntilIdle()
+
+                viewModel.state.value shouldBe ServerConnectUiState.Idle
             }
         }
 

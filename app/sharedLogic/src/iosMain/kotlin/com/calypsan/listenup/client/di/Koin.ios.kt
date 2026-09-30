@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.domain.repository.LocalNetworkAccess
+import com.calypsan.listenup.client.data.repository.AppleLocalNetworkAccess
 import com.calypsan.listenup.core.configureLogging
 import com.calypsan.listenup.api.push.PushPlatform
 import com.calypsan.listenup.client.data.discovery.AppleDiscoveryService
@@ -129,11 +131,13 @@ internal val iosPushModule: Module =
 
 /**
  * iOS-specific discovery module.
- * Provides Bonjour-based mDNS discovery using NSNetServiceBrowser.
+ * Provides Bonjour-based mDNS discovery using NSNetServiceBrowser, and the TN3179 probe the
+ * connect screens use to tell a Local Network privacy denial from a dead server.
  */
 internal actual val platformDiscoveryModule: Module =
     module {
         single { AppleDiscoveryService() } bind ServerDiscoveryService::class
+        single { AppleLocalNetworkAccess() } bind LocalNetworkAccess::class
     }
 
 /**

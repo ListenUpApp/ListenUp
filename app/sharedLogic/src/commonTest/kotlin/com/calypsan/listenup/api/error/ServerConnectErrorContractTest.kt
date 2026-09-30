@@ -29,7 +29,7 @@ class ServerConnectErrorContractTest :
 
         test("LocalNetworkPermissionDenied carries the expected message and code") {
             val error = ServerConnectError.LocalNetworkPermissionDenied()
-            error.message shouldBe "Local network access is required to discover servers on your network."
+            error.message shouldBe "ListenUp needs local network access to find and connect to servers on your network."
             error.code shouldBe "SERVER_CONNECT_LOCAL_NETWORK_PERMISSION_DENIED"
             error.isRetryable shouldBe false
         }

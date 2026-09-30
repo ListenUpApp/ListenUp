@@ -39,4 +39,13 @@ class ServerConnectErrorTest :
             err.code shouldBe "SERVER_CONNECT_VERIFICATION_FAILED"
             err.isRetryable shouldBe true
         }
+
+        test("LocalNetworkPermissionDenied names both finding and connecting, and is not auto-retryable") {
+            // The same denial blocks a hand-typed LAN address, not only discovery, so the copy can't
+            // promise that manual entry is the way around it.
+            val err: AppError = ServerConnectError.LocalNetworkPermissionDenied()
+            err.message shouldBe "ListenUp needs local network access to find and connect to servers on your network."
+            err.code shouldBe "SERVER_CONNECT_LOCAL_NETWORK_PERMISSION_DENIED"
+            err.isRetryable shouldBe false
+        }
     })

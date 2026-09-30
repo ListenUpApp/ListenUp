@@ -42,6 +42,7 @@ private val logger = KotlinLogging.logger {}
 internal class AppleDiscoveryService : ServerDiscoveryService {
     private val serviceBrowser = NSNetServiceBrowser()
     private val serversState = MutableStateFlow<Map<String, DiscoveredServer>>(emptyMap())
+    private val localNetworkDenied = MutableStateFlow(false)
 
     /**
      * Guards the bookkeeping maps + [isDiscovering] flag against concurrent mutation from the
@@ -72,6 +73,8 @@ internal class AppleDiscoveryService : ServerDiscoveryService {
 
     override fun discover(): Flow<List<DiscoveredServer>> = serversState.map { it.values.toList() }
 
+    override fun observeLocalNetworkDenied(): Flow<Boolean> = localNetworkDenied
+
     override fun startDiscovery() {
         val delegate =
             withLock {
@@ -82,6 +85,8 @@ internal class AppleDiscoveryService : ServerDiscoveryService {
                 isDiscovering = true
                 BrowserDelegate().also { browserDelegate = it }
             }
+        // A fresh browse gets a fresh verdict: the user may have allowed access since.
+        localNetworkDenied.value = false
 
         logger.info { "Starting mDNS discovery for $SERVICE_TYPE" }
         serviceBrowser.delegate = delegate
@@ -297,6 +302,9 @@ internal class AppleDiscoveryService : ServerDiscoveryService {
         ) {
             logger.error { "Service browser failed to search: $didNotSearch" }
             withLock { isDiscovering = false }
+            // Local Network privacy refuses the browse with kDNSServiceErr_PolicyDenied (TN3179).
+            // Surface it so the picker can say why it is empty instead of searching forever.
+            if (isBonjourPolicyDenial(didNotSearch)) localNetworkDenied.value = true
         }
 
         @ObjCSignatureOverride

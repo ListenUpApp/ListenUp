@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.domain.repository.LocalNetworkAccess
+import com.calypsan.listenup.client.data.repository.UngatedLocalNetworkAccess
 import com.calypsan.listenup.client.core.CookieMirroringSecureStorage
 import com.calypsan.listenup.client.data.discovery.NoDiscoveryService
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
@@ -48,6 +50,8 @@ fun jsSharedModules(): List<Module> = sharedModules + browserPlaybackModule
 internal actual val platformDiscoveryModule: Module =
     module {
         single<ServerDiscoveryService> { NoDiscoveryService() }
+        // A browser talks only to its own origin; no local-network privacy gate applies.
+        single<LocalNetworkAccess> { UngatedLocalNetworkAccess }
     }
 
 /**

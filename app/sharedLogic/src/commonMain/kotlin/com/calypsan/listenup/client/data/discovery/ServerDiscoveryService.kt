@@ -66,6 +66,17 @@ interface ServerDiscoveryService {
     fun discover(): Flow<List<DiscoveredServer>>
 
     /**
+     * True while the platform is refusing to browse because the user has not allowed local
+     * network access. Resets when discovery is started again.
+     *
+     * Only iOS can report this: Bonjour fails the browse with `kDNSServiceErr_PolicyDenied`
+     * (Apple TN3179). Android's NsdManager drops a denied browse silently, so there the screen
+     * learns of the denial from the permission request itself; desktop and the browser have no
+     * such gate. Those implementations stay `false`.
+     */
+    fun observeLocalNetworkDenied(): Flow<Boolean>
+
+    /**
      * Start discovery in the background.
      * Call this when the app becomes active.
      */

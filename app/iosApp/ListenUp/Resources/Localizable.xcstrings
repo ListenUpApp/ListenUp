@@ -8441,6 +8441,46 @@
         }
       }
     },
+    "connect.local_network_allow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow access"
+          }
+        }
+      }
+    },
+    "connect.local_network_hint_android": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In Settings, open Permissions and allow Nearby devices."
+          }
+        }
+      }
+    },
+    "connect.local_network_hint_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In Settings, turn on Local Network for ListenUp."
+          }
+        }
+      }
+    },
+    "connect.local_network_open_settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Settings"
+          }
+        }
+      }
+    },
     "connect.make_sure_your_listenup_server": {
       "localizations": {
         "en": {
@@ -10007,6 +10047,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Not found."
+          }
+        }
+      }
+    },
+    "error.server_connect_local_network_permission_denied": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ListenUp needs local network access to find and connect to servers on your network."
           }
         }
       }

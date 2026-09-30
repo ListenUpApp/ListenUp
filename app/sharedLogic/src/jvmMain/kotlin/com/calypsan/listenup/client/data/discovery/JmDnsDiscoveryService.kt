@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -42,6 +43,9 @@ internal class JmDnsDiscoveryService : ServerDiscoveryService {
     }
 
     override fun discover(): Flow<List<DiscoveredServer>> = serversState.map { it.values.toList() }
+
+    // Desktop has no local-network privacy gate.
+    override fun observeLocalNetworkDenied(): Flow<Boolean> = flowOf(false)
 
     override fun startDiscovery() {
         if (isDiscovering) {

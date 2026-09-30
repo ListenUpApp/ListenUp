@@ -43,6 +43,8 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.ServerWithStatus
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
 import com.calypsan.listenup.client.features.permission.RequestLocalNetworkPermission
+import com.calypsan.listenup.client.features.permission.rememberLocalNetworkPermissionRecovery
+import com.calypsan.listenup.client.presentation.error.localizedString
 import com.calypsan.listenup.client.presentation.connect.ServerSelectUiEvent
 import com.calypsan.listenup.client.presentation.connect.ServerSelectUiState
 import com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel
@@ -82,22 +84,7 @@ fun ServerSelectScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Guard: forward the permission result exactly once per ViewModel lifetime.
-    // rememberSaveable (not remember) survives configuration changes — the same
-    // ViewModel instance continues after rotation, so without this guard a
-    // recomposition would fire a second permission callback and double-start
-    // discovery (or worse, trigger a spurious denial → navigate-to-manual-entry).
-    var permissionResolved by rememberSaveable { mutableStateOf(false) }
-    if (!permissionResolved) {
-        RequestLocalNetworkPermission { granted ->
-            permissionResolved = true
-            if (granted) {
-                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
-            } else {
-                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionDenied)
-            }
-        }
-    }
+    val rescan = rememberLocalNetworkAwareRescan(viewModel)
 
     LaunchedEffect(viewModel) {
         viewModel.navigationEvents.collect { event ->
@@ -112,7 +99,7 @@ fun ServerSelectScreen(
     LaunchedEffect(state) {
         val current = state
         if (current is ServerSelectUiState.Error) {
-            snackbarHostState.showSnackbar(current.message)
+            snackbarHostState.showSnackbar(current.error.localizedString())
             viewModel.onEvent(ServerSelectUiEvent.ErrorDismissed)
         }
     }
@@ -134,7 +121,7 @@ fun ServerSelectScreen(
             NetworkHeader(
                 count = state.servers.size,
                 isDiscovering = isDiscovering,
-                onRescan = { viewModel.onEvent(ServerSelectUiEvent.RefreshClicked) },
+                onRescan = rescan,
             )
 
             state.servers.forEach { serverWithStatus ->
@@ -159,6 +146,56 @@ fun ServerSelectScreen(
                     .align(Alignment.BottomCenter)
                     .padding(Spacing.lg),
         )
+    }
+}
+
+/**
+ * Asks for the local network permission on first composition and tells [viewModel] the answer,
+ * then keeps watching it: a grant that arrives after a denial — from Rescan's re-request or from
+ * Settings — starts discovery on return to this screen.
+ *
+ * Returns the Rescan action. Without the permission a rescan would find nothing, silently, so it
+ * asks again instead (or opens Settings once the system has stopped asking).
+ */
+@Composable
+private fun rememberLocalNetworkAwareRescan(viewModel: ServerSelectViewModel): () -> Unit {
+    val localNetwork = rememberLocalNetworkPermissionRecovery()
+
+    // Guard: forward the permission result exactly once per ViewModel lifetime.
+    // rememberSaveable (not remember) survives configuration changes — the same
+    // ViewModel instance continues after rotation, so without this guard a
+    // recomposition would fire a second permission callback and double-start
+    // discovery (or worse, trigger a spurious denial → navigate-to-manual-entry).
+    var permissionResolved by rememberSaveable { mutableStateOf(false) }
+    // Whether that first answer was a denial — the one case a later grant must still act on.
+    var permissionDenied by rememberSaveable { mutableStateOf(false) }
+    if (!permissionResolved) {
+        RequestLocalNetworkPermission { granted ->
+            permissionResolved = true
+            if (granted) {
+                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+            } else {
+                permissionDenied = true
+                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionDenied)
+            }
+        }
+    }
+
+    // A grant that arrives after the denial — from Rescan's re-request or from Settings — starts
+    // discovery (and re-runs any activation the denial blocked) on return to this screen.
+    LaunchedEffect(localNetwork.isGranted) {
+        if (permissionDenied && localNetwork.isGranted) {
+            permissionDenied = false
+            viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+        }
+    }
+
+    return {
+        if (permissionDenied && !localNetwork.isGranted) {
+            localNetwork.recover()
+        } else {
+            viewModel.onEvent(ServerSelectUiEvent.RefreshClicked)
+        }
     }
 }
 

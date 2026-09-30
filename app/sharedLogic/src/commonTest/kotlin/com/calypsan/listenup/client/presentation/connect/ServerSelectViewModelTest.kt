@@ -1,22 +1,23 @@
 package com.calypsan.listenup.client.presentation.connect
 
-import com.calypsan.listenup.client.domain.usecase.auth.AdoptServerUseCase
 import app.cash.turbine.test
+import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.ServerConnectError
-import com.calypsan.listenup.core.ServerUrl
-import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.Server
 import com.calypsan.listenup.client.domain.model.ServerWithStatus
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
-import com.calypsan.listenup.client.domain.repository.ServerRepository
+import com.calypsan.listenup.client.domain.usecase.auth.AdoptServerUseCase
+import com.calypsan.listenup.client.test.fake.FakeLocalNetworkAccess
+import com.calypsan.listenup.client.test.fake.FakeServerRepository
+import com.calypsan.listenup.core.ServerUrl
+import com.calypsan.listenup.core.error.ErrorBus
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.throws
-import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
-import dev.mokkery.verify
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
@@ -25,7 +26,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -62,6 +63,33 @@ class ServerSelectViewModelTest :
             isOnline = isOnline,
         )
 
+        class Fixture(
+            val serverRepository: FakeServerRepository = FakeServerRepository(),
+        ) {
+            val serverConfig: ServerConfig = mock()
+            val instanceRepository: InstanceRepository = mock()
+            val localNetworkAccess = FakeLocalNetworkAccess()
+            val errorBus = ErrorBus()
+
+            fun build(): ServerSelectViewModel =
+                ServerSelectViewModel(
+                    serverRepository = serverRepository,
+                    adoptServer = AdoptServerUseCase(serverConfig) {},
+                    instanceRepository = instanceRepository,
+                    localNetworkAccess = localNetworkAccess,
+                    errorBus = errorBus,
+                    appScope = CoroutineScope(testDispatcher),
+                )
+
+            fun stubAdoption() {
+                everySuspend { serverConfig.setServerUrl(any()) } returns Unit
+                everySuspend { serverConfig.getConnectedServerId() } returns null
+                everySuspend { serverConfig.getLibraryServerId() } returns null
+                everySuspend { serverConfig.setLibraryServerId(any()) } returns Unit
+                everySuspend { serverConfig.setConnectedServerId(any()) } returns Unit
+            }
+        }
+
         // Keep the VM's WhileSubscribed state flow hot for the duration of the test.
         fun TestScope.keepStateHot(viewModel: ServerSelectViewModel) {
             backgroundScope.launch { viewModel.state.collect { } }
@@ -77,45 +105,20 @@ class ServerSelectViewModelTest :
 
         test("initial state is Discovering with empty servers") {
             runTest {
-                val serverRepository: ServerRepository = mock()
-                val serverConfig: ServerConfig = mock()
-                val instanceRepository: InstanceRepository = mock()
-                every { serverRepository.observeServers() } returns
-                    kotlinx.coroutines.flow.flow { /* never emits */ }
-
-                val viewModel =
-                    ServerSelectViewModel(
-                        serverRepository,
-                        AdoptServerUseCase(serverConfig) {},
-                        instanceRepository,
-                        errorBus = ErrorBus(),
-                        appScope = CoroutineScope(testDispatcher),
-                    )
+                val fixture = Fixture(FakeServerRepository(serverFlow = flow { /* never emits */ }))
+                val viewModel = fixture.build()
                 keepStateHot(viewModel)
                 advanceUntilIdle()
 
-                val state = viewModel.state.value
-                val discovering = state.shouldBeInstanceOf<ServerSelectUiState.Discovering>()
+                val discovering = viewModel.state.value.shouldBeInstanceOf<ServerSelectUiState.Discovering>()
                 discovering.servers shouldBe emptyList()
             }
         }
 
         test("close stops mDNS discovery and is idempotent (#1192 iOS teardown)") {
             runTest {
-                val serverRepository: ServerRepository = mock()
-                val serverConfig: ServerConfig = mock()
-                val instanceRepository: InstanceRepository = mock()
-                every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
-                every { serverRepository.stopDiscovery() } returns Unit
-
-                val viewModel =
-                    ServerSelectViewModel(
-                        serverRepository,
-                        AdoptServerUseCase(serverConfig) {},
-                        instanceRepository,
-                        errorBus = ErrorBus(),
-                        appScope = CoroutineScope(testDispatcher),
-                    )
+                val fixture = Fixture()
+                val viewModel = fixture.build()
                 keepStateHot(viewModel)
                 advanceUntilIdle()
 
@@ -124,52 +127,27 @@ class ServerSelectViewModelTest :
                 viewModel.close()
                 viewModel.close() // idempotent — the second call must not stop discovery again
 
-                verify(VerifyMode.exactly(1)) { serverRepository.stopDiscovery() }
+                fixture.serverRepository.stopCount shouldBe 1
             }
         }
 
         test("LocalNetworkPermissionGranted starts server discovery") {
             runTest {
-                val serverRepository: ServerRepository = mock()
-                val serverConfig: ServerConfig = mock()
-                val instanceRepository: InstanceRepository = mock()
-                every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
-                every { serverRepository.startDiscovery() } returns Unit
-
-                val viewModel =
-                    ServerSelectViewModel(
-                        serverRepository,
-                        AdoptServerUseCase(serverConfig) {},
-                        instanceRepository,
-                        errorBus = ErrorBus(),
-                        appScope = CoroutineScope(testDispatcher),
-                    )
+                val fixture = Fixture()
+                val viewModel = fixture.build()
                 keepStateHot(viewModel)
 
                 viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
                 advanceUntilIdle()
 
-                verify { serverRepository.startDiscovery() }
+                fixture.serverRepository.startCount shouldBe 1
             }
         }
 
         test("LocalNetworkPermissionGranted then observeServers emission transitions Discovering to Ready") {
             runTest {
-                val serverRepository: ServerRepository = mock()
-                val serverConfig: ServerConfig = mock()
-                val instanceRepository: InstanceRepository = mock()
-                val serversFlow = MutableStateFlow<List<ServerWithStatus>>(emptyList())
-                every { serverRepository.observeServers() } returns serversFlow
-                every { serverRepository.startDiscovery() } returns Unit
-
-                val viewModel =
-                    ServerSelectViewModel(
-                        serverRepository,
-                        AdoptServerUseCase(serverConfig) {},
-                        instanceRepository,
-                        errorBus = ErrorBus(),
-                        appScope = CoroutineScope(testDispatcher),
-                    )
+                val fixture = Fixture()
+                val viewModel = fixture.build()
                 keepStateHot(viewModel)
 
                 viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
@@ -178,8 +156,7 @@ class ServerSelectViewModelTest :
                 // Initial emission (empty) flips to Ready
                 viewModel.state.value.shouldBeInstanceOf<ServerSelectUiState.Ready>()
 
-                val servers = listOf(createServerWithStatus())
-                serversFlow.value = servers
+                fixture.serverRepository.servers.value = listOf(createServerWithStatus())
                 advanceUntilIdle()
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<ServerSelectUiState.Ready>()
@@ -187,57 +164,73 @@ class ServerSelectViewModelTest :
             }
         }
 
-        test("LocalNetworkPermissionDenied emits error and navigates to manual entry") {
+        test("LocalNetworkPermissionDenied navigates to manual entry and leaves the explaining to that screen") {
             runTest {
-                val serverRepository: ServerRepository = mock()
-                val serverConfig: ServerConfig = mock()
-                val instanceRepository: InstanceRepository = mock()
-                every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
-                val errorBus = ErrorBus()
-
-                val viewModel =
-                    ServerSelectViewModel(
-                        serverRepository,
-                        AdoptServerUseCase(serverConfig) {},
-                        instanceRepository,
-                        errorBus = errorBus,
-                        appScope = CoroutineScope(testDispatcher),
-                    )
+                val fixture = Fixture()
+                val viewModel = fixture.build()
                 keepStateHot(viewModel)
                 advanceUntilIdle()
 
-                errorBus.errors.test {
+                // Before sign-in nothing collects the ErrorBus, so an emit here was dropped on the
+                // floor. Manual entry now shows the permission card itself.
+                fixture.errorBus.errors.test {
                     viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionDenied)
                     advanceUntilIdle()
-                    awaitItem().shouldBeInstanceOf<ServerConnectError.LocalNetworkPermissionDenied>()
+                    expectNoEvents()
                 }
 
                 viewModel.navigationEvents.test {
-                    // Navigation event was already trySend'd synchronously, should be buffered
                     awaitItem() shouldBe ServerSelectViewModel.NavigationEvent.GoToManualEntry
                 }
 
                 // Discovery must never start on the denial path.
-                verify(VerifyMode.not) { serverRepository.startDiscovery() }
+                fixture.serverRepository.startCount shouldBe 0
+            }
+        }
+
+        test("a browse the platform refuses surfaces LocalNetworkPermissionDenied for discovery itself") {
+            runTest {
+                val fixture = Fixture()
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+                advanceUntilIdle()
+
+                // iOS Bonjour answers a denied browse with kDNSServiceErr_PolicyDenied.
+                fixture.serverRepository.localNetworkDenied.value = true
+                advanceUntilIdle()
+
+                val error = viewModel.state.value.shouldBeInstanceOf<ServerSelectUiState.Error>()
+                error.selectedServerId shouldBe null
+                error.error.shouldBeInstanceOf<ServerConnectError.LocalNetworkPermissionDenied>()
+            }
+        }
+
+        test("LocalNetworkPermissionGranted after a refused browse restarts discovery and clears the error") {
+            runTest {
+                val fixture = Fixture()
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+                advanceUntilIdle()
+                fixture.serverRepository.localNetworkDenied.value = true
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<ServerSelectUiState.Error>()
+
+                // A fresh browse resets the platform's verdict.
+                fixture.serverRepository.localNetworkDenied.value = false
+                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+                advanceUntilIdle()
+
+                fixture.serverRepository.startCount shouldBe 2
+                viewModel.state.value.shouldBeInstanceOf<ServerSelectUiState.Ready>()
             }
         }
 
         test("ManualEntryClicked emits GoToManualEntry navigation event") {
             runTest {
-                val serverRepository: ServerRepository = mock()
-                val serverConfig: ServerConfig = mock()
-                val instanceRepository: InstanceRepository = mock()
-                every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
-                every { serverRepository.startDiscovery() } returns Unit
-
-                val viewModel =
-                    ServerSelectViewModel(
-                        serverRepository,
-                        AdoptServerUseCase(serverConfig) {},
-                        instanceRepository,
-                        errorBus = ErrorBus(),
-                        appScope = CoroutineScope(testDispatcher),
-                    )
+                val fixture = Fixture()
+                val viewModel = fixture.build()
                 keepStateHot(viewModel)
                 advanceUntilIdle()
 
@@ -251,21 +244,8 @@ class ServerSelectViewModelTest :
 
         test("RefreshClicked stops and restarts discovery") {
             runTest {
-                val serverRepository: ServerRepository = mock()
-                val serverConfig: ServerConfig = mock()
-                val instanceRepository: InstanceRepository = mock()
-                every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
-                every { serverRepository.startDiscovery() } returns Unit
-                every { serverRepository.stopDiscovery() } returns Unit
-
-                val viewModel =
-                    ServerSelectViewModel(
-                        serverRepository,
-                        AdoptServerUseCase(serverConfig) {},
-                        instanceRepository,
-                        errorBus = ErrorBus(),
-                        appScope = CoroutineScope(testDispatcher),
-                    )
+                val fixture = Fixture()
+                val viewModel = fixture.build()
                 keepStateHot(viewModel)
                 viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
                 advanceUntilIdle()
@@ -273,33 +253,19 @@ class ServerSelectViewModelTest :
                 viewModel.onEvent(ServerSelectUiEvent.RefreshClicked)
                 advanceUntilIdle()
 
-                verify { serverRepository.stopDiscovery() }
+                fixture.serverRepository.stopCount shouldBe 1
+                fixture.serverRepository.startCount shouldBe 2
             }
         }
 
         test("ServerSelected activates server and emits navigation") {
             runTest {
-                val serverRepository: ServerRepository = mock()
-                val serverConfig: ServerConfig = mock()
-                val instanceRepository: InstanceRepository = mock()
+                val fixture = Fixture()
                 val server = createServer()
-                every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
-                every { serverRepository.startDiscovery() } returns Unit
-                everySuspend { instanceRepository.findReachableUrl(any()) } returns server.localUrl
-                everySuspend { serverConfig.setServerUrl(any()) } returns Unit
-                everySuspend { serverConfig.getConnectedServerId() } returns null
-                everySuspend { serverConfig.getLibraryServerId() } returns null
-                everySuspend { serverConfig.setLibraryServerId(any()) } returns Unit
-                everySuspend { serverConfig.setConnectedServerId(any()) } returns Unit
+                everySuspend { fixture.instanceRepository.findReachableUrl(any()) } returns server.localUrl
+                fixture.stubAdoption()
 
-                val viewModel =
-                    ServerSelectViewModel(
-                        serverRepository,
-                        AdoptServerUseCase(serverConfig) {},
-                        instanceRepository,
-                        errorBus = ErrorBus(),
-                        appScope = CoroutineScope(testDispatcher),
-                    )
+                val viewModel = fixture.build()
                 keepStateHot(viewModel)
                 viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
                 advanceUntilIdle()
@@ -308,8 +274,8 @@ class ServerSelectViewModelTest :
                     viewModel.onEvent(ServerSelectUiEvent.ServerSelected(createServerWithStatus(server)))
                     advanceUntilIdle()
 
-                    verifySuspend { serverConfig.setServerUrl(ServerUrl(server.localUrl!!)) }
-                    verifySuspend { serverConfig.setConnectedServerId(server.id) }
+                    verifySuspend { fixture.serverConfig.setServerUrl(ServerUrl(server.localUrl!!)) }
+                    verifySuspend { fixture.serverConfig.setConnectedServerId(server.id) }
                     awaitItem() shouldBe ServerSelectViewModel.NavigationEvent.ServerActivated
                 }
 
@@ -320,29 +286,14 @@ class ServerSelectViewModelTest :
 
         test("ServerSelected tries every resolved local URL and activates the reachable fallback") {
             runTest {
-                val serverRepository: ServerRepository = mock()
-                val serverConfig: ServerConfig = mock()
-                val instanceRepository: InstanceRepository = mock()
+                val fixture = Fixture()
                 val primary = "http://192.168.86.39:8080"
                 val fallback = "http://192.168.86.37:8080"
                 val server = createServer(localUrl = primary).copy(localUrls = listOf(primary, fallback))
-                every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
-                every { serverRepository.startDiscovery() } returns Unit
-                everySuspend { instanceRepository.findReachableUrl(any()) } returns fallback
-                everySuspend { serverConfig.setServerUrl(any()) } returns Unit
-                everySuspend { serverConfig.getConnectedServerId() } returns null
-                everySuspend { serverConfig.getLibraryServerId() } returns null
-                everySuspend { serverConfig.setLibraryServerId(any()) } returns Unit
-                everySuspend { serverConfig.setConnectedServerId(any()) } returns Unit
+                everySuspend { fixture.instanceRepository.findReachableUrl(any()) } returns fallback
+                fixture.stubAdoption()
 
-                val viewModel =
-                    ServerSelectViewModel(
-                        serverRepository,
-                        AdoptServerUseCase(serverConfig) {},
-                        instanceRepository,
-                        errorBus = ErrorBus(),
-                        appScope = CoroutineScope(testDispatcher),
-                    )
+                val viewModel = fixture.build()
                 keepStateHot(viewModel)
                 viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
                 advanceUntilIdle()
@@ -352,29 +303,18 @@ class ServerSelectViewModelTest :
 
                 // The whole candidate list (best-first) reaches reachability, and the reachable
                 // fallback — not the unreachable primary — becomes the active URL.
-                verifySuspend { instanceRepository.findReachableUrl(listOf(primary, fallback)) }
-                verifySuspend { serverConfig.setServerUrl(ServerUrl(fallback)) }
+                verifySuspend { fixture.instanceRepository.findReachableUrl(listOf(primary, fallback)) }
+                verifySuspend { fixture.serverConfig.setServerUrl(ServerUrl(fallback)) }
             }
         }
 
-        test("ServerSelected failure transitions to Error state") {
+        test("an activation that throws carries the mapped AppError, not pre-rendered copy") {
             runTest {
-                val serverRepository: ServerRepository = mock()
-                val serverConfig: ServerConfig = mock()
-                val instanceRepository: InstanceRepository = mock()
+                val fixture = Fixture()
                 val server = createServer()
-                every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
-                every { serverRepository.startDiscovery() } returns Unit
-                everySuspend { instanceRepository.findReachableUrl(any()) } throws RuntimeException("Failed")
+                everySuspend { fixture.instanceRepository.findReachableUrl(any()) } throws RuntimeException("Failed")
 
-                val viewModel =
-                    ServerSelectViewModel(
-                        serverRepository,
-                        AdoptServerUseCase(serverConfig) {},
-                        instanceRepository,
-                        errorBus = ErrorBus(),
-                        appScope = CoroutineScope(testDispatcher),
-                    )
+                val viewModel = fixture.build()
                 keepStateHot(viewModel)
                 viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
                 advanceUntilIdle()
@@ -384,27 +324,132 @@ class ServerSelectViewModelTest :
 
                 val error = viewModel.state.value.shouldBeInstanceOf<ServerSelectUiState.Error>()
                 error.selectedServerId shouldBe server.id
+                // ErrorMapper's verdict for an unclassified throwable — never "Failed to connect: …".
+                error.error.shouldBeInstanceOf<InternalError>()
+            }
+        }
+
+        test("a discovered server that answers at no address is ServerNotReachable") {
+            runTest {
+                val fixture = Fixture()
+                val server = createServer()
+                everySuspend { fixture.instanceRepository.findReachableUrl(any()) } returns null
+
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+                advanceUntilIdle()
+
+                viewModel.onEvent(ServerSelectUiEvent.ServerSelected(createServerWithStatus(server)))
+                advanceUntilIdle()
+
+                val error = viewModel.state.value.shouldBeInstanceOf<ServerSelectUiState.Error>()
+                error.error.shouldBeInstanceOf<ServerConnectError.ServerNotReachable>()
+                fixture.localNetworkAccess.queries shouldBe listOf("192.168.1.100" to 8080)
+            }
+        }
+
+        test("a discovered server the local-network gate blocks is LocalNetworkPermissionDenied") {
+            runTest {
+                val fixture = Fixture()
+                fixture.localNetworkAccess.denied = true
+                val server = createServer()
+                everySuspend { fixture.instanceRepository.findReachableUrl(any()) } returns null
+
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+                advanceUntilIdle()
+
+                viewModel.onEvent(ServerSelectUiEvent.ServerSelected(createServerWithStatus(server)))
+                advanceUntilIdle()
+
+                val error = viewModel.state.value.shouldBeInstanceOf<ServerSelectUiState.Error>()
+                error.selectedServerId shouldBe server.id
+                error.error.shouldBeInstanceOf<ServerConnectError.LocalNetworkPermissionDenied>()
+            }
+        }
+
+        test("a grant after a blocked activation re-runs that activation") {
+            runTest {
+                val fixture = Fixture()
+                fixture.localNetworkAccess.denied = true
+                val server = createServer()
+                var reachable: String? = null
+                everySuspend { fixture.instanceRepository.findReachableUrl(any()) } calls { reachable }
+                fixture.stubAdoption()
+
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+                advanceUntilIdle()
+                viewModel.onEvent(ServerSelectUiEvent.ServerSelected(createServerWithStatus(server)))
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<ServerSelectUiState.Error>()
+
+                fixture.localNetworkAccess.denied = false
+                reachable = server.localUrl
+                viewModel.navigationEvents.test {
+                    viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+                    advanceUntilIdle()
+                    awaitItem() shouldBe ServerSelectViewModel.NavigationEvent.ServerActivated
+                }
+            }
+        }
+
+        // A blocked activation is re-run on a grant only while it is still the thing on screen.
+        // Once the user has moved on — rescanned, dismissed it, or tapped another server — a later
+        // grant must not activate a server they never tapped again.
+        listOf(
+            "a rescan" to { vm: ServerSelectViewModel, _: Fixture -> vm.onEvent(ServerSelectUiEvent.RefreshClicked) },
+            "dismissing the error" to { vm: ServerSelectViewModel, _: Fixture -> vm.onEvent(ServerSelectUiEvent.ErrorDismissed) },
+            "tapping another server that fails" to { vm: ServerSelectViewModel, f: Fixture ->
+                f.localNetworkAccess.denied = false
+                vm.onEvent(ServerSelectUiEvent.ServerSelected(createServerWithStatus(createServer(id = "server-2"))))
+            },
+        ).forEach { (movedOn, moveOn) ->
+            test("after $movedOn, a grant does not activate the server the permission once blocked") {
+                runTest {
+                    val fixture = Fixture()
+                    fixture.localNetworkAccess.denied = true
+                    val serverA = createServer()
+                    var reachable: String? = null
+                    everySuspend { fixture.instanceRepository.findReachableUrl(any()) } calls { reachable }
+                    fixture.stubAdoption()
+
+                    val viewModel = fixture.build()
+                    keepStateHot(viewModel)
+                    viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+                    advanceUntilIdle()
+                    viewModel.onEvent(ServerSelectUiEvent.ServerSelected(createServerWithStatus(serverA)))
+                    advanceUntilIdle()
+
+                    moveOn(viewModel, fixture)
+                    advanceUntilIdle()
+
+                    // The browse is refused, then access is granted: only discovery should restart.
+                    fixture.serverRepository.localNetworkDenied.value = true
+                    advanceUntilIdle()
+                    fixture.serverRepository.localNetworkDenied.value = false
+                    fixture.localNetworkAccess.denied = false
+                    reachable = serverA.localUrl
+                    viewModel.navigationEvents.test {
+                        viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+                        advanceUntilIdle()
+                        expectNoEvents()
+                    }
+                    verifySuspend(VerifyMode.not) { fixture.serverConfig.setServerUrl(any()) }
+                }
             }
         }
 
         test("ErrorDismissed transitions from Error back to Ready") {
             runTest {
-                val serverRepository: ServerRepository = mock()
-                val serverConfig: ServerConfig = mock()
-                val instanceRepository: InstanceRepository = mock()
+                val fixture = Fixture()
                 val server = createServer()
-                every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
-                every { serverRepository.startDiscovery() } returns Unit
-                everySuspend { instanceRepository.findReachableUrl(any()) } throws RuntimeException("Failed")
+                everySuspend { fixture.instanceRepository.findReachableUrl(any()) } throws RuntimeException("Failed")
 
-                val viewModel =
-                    ServerSelectViewModel(
-                        serverRepository,
-                        AdoptServerUseCase(serverConfig) {},
-                        instanceRepository,
-                        errorBus = ErrorBus(),
-                        appScope = CoroutineScope(testDispatcher),
-                    )
+                val viewModel = fixture.build()
                 keepStateHot(viewModel)
                 viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
                 advanceUntilIdle()

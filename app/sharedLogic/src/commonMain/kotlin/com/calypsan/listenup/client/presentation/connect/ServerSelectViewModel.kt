@@ -3,12 +3,14 @@ package com.calypsan.listenup.client.presentation.connect
 import com.calypsan.listenup.client.domain.usecase.auth.AdoptServerUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.ServerWithStatus
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.domain.repository.LocalNetworkAccess
 import com.calypsan.listenup.client.domain.repository.ServerRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
@@ -21,6 +23,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.take
@@ -46,13 +49,21 @@ private val logger = KotlinLogging.logger {}
  * requests [android.permission.ACCESS_LOCAL_NETWORK] on first composition
  * and fires [ServerSelectUiEvent.LocalNetworkPermissionGranted] or
  * [ServerSelectUiEvent.LocalNetworkPermissionDenied] to the VM. On denial
- * the VM emits [ServerConnectError.LocalNetworkPermissionDenied] to the
- * global error bus and navigates to manual entry (Never Stranded).
+ * the VM navigates to manual entry (Never Stranded), which explains the
+ * permission and offers the way to allow it.
+ *
+ * Local network denial reaches this screen two more ways, both surfaced as
+ * [ServerConnectError.LocalNetworkPermissionDenied] in [ServerSelectUiState.Error]:
+ * the platform refusing the browse itself (iOS Bonjour), and a selected server
+ * that answers at no address because [LocalNetworkAccess] confirms the gate
+ * blocked it. A later [ServerSelectUiEvent.LocalNetworkPermissionGranted]
+ * re-runs whichever of the two was blocked.
  */
 class ServerSelectViewModel(
     private val serverRepository: ServerRepository,
     private val adoptServer: AdoptServerUseCase,
     private val instanceRepository: InstanceRepository,
+    private val localNetworkAccess: LocalNetworkAccess,
     private val errorBus: ErrorBus,
     private val appScope: CoroutineScope,
 ) : ViewModel() {
@@ -63,6 +74,10 @@ class ServerSelectViewModel(
     private val isDiscovering = MutableStateFlow(true)
     private val overlay = MutableStateFlow<Overlay>(Overlay.None)
     private var discoveryJob: Job? = null
+    private var denialJob: Job? = null
+
+    /** The server whose activation the local-network gate last blocked, so a grant can re-run it. */
+    private var blockedSelection: ServerWithStatus? = null
     private var closed = false
 
     private sealed interface Overlay {
@@ -73,10 +88,13 @@ class ServerSelectViewModel(
             val serverId: String,
         ) : Overlay
 
-        /** Last connection attempt to [serverId] failed; [message] surfaces in the UI until dismissed. */
+        /**
+         * The last attempt failed; [error] surfaces in the UI until dismissed. [serverId] is the
+         * server whose activation failed, or null when discovery itself was refused.
+         */
         data class Failed(
-            val serverId: String,
-            val message: String,
+            val serverId: String?,
+            val error: AppError,
         ) : Overlay
     }
 
@@ -92,7 +110,7 @@ class ServerSelectViewModel(
                 }
 
                 is Overlay.Failed -> {
-                    ServerSelectUiState.Error(servers, current.serverId, current.message)
+                    ServerSelectUiState.Error(servers, current.serverId, current.error)
                 }
 
                 Overlay.None -> {
@@ -136,6 +154,22 @@ class ServerSelectViewModel(
                     isDiscovering.value = false
                 }
             }
+        denialJob?.cancel()
+        denialJob =
+            viewModelScope.launch {
+                serverRepository.observeLocalNetworkDenied().filter { it }.collect {
+                    logger.warn { "Platform refused the discovery browse: local network access denied" }
+                    isDiscovering.value = false
+                    overlay.value =
+                        Overlay.Failed(
+                            serverId = null,
+                            error =
+                                ServerConnectError.LocalNetworkPermissionDenied(
+                                    debugInfo = "Discovery browse refused by local network policy",
+                                ),
+                        )
+                }
+            }
     }
 
     fun onEvent(event: ServerSelectUiEvent) {
@@ -149,15 +183,17 @@ class ServerSelectViewModel(
             }
 
             ServerSelectUiEvent.RefreshClicked -> {
+                blockedSelection = null
                 handleRefreshClicked()
             }
 
             ServerSelectUiEvent.ErrorDismissed -> {
+                blockedSelection = null
                 overlay.update { if (it is Overlay.Failed) Overlay.None else it }
             }
 
             ServerSelectUiEvent.LocalNetworkPermissionGranted -> {
-                beginDiscovery()
+                handleLocalNetworkPermissionGranted()
             }
 
             ServerSelectUiEvent.LocalNetworkPermissionDenied -> {
@@ -166,15 +202,34 @@ class ServerSelectViewModel(
         }
     }
 
+    /**
+     * Start (or restart) discovery, and re-run whatever the local-network gate blocked. The
+     * screens send this whenever access may have come back — Android after the permission reads
+     * granted, iOS on appear and on every return to the foreground.
+     */
+    private fun handleLocalNetworkPermissionGranted() {
+        val blocked = overlay.value as? Overlay.Failed
+        val wasBlocked = blocked?.error is ServerConnectError.LocalNetworkPermissionDenied
+        if (wasBlocked) overlay.value = Overlay.None
+        beginDiscovery()
+        val retry = blockedSelection.takeIf { wasBlocked }
+        blockedSelection = null
+        retry?.let(::handleServerSelected)
+    }
+
     private fun handleLocalNetworkPermissionDenied() {
+        // No ErrorBus emit: before sign-in nothing collects it. Manual entry explains the
+        // permission itself, with the action that fixes it.
         logger.warn { "ACCESS_LOCAL_NETWORK permission denied — navigating to manual entry" }
-        errorBus.emit(ServerConnectError.LocalNetworkPermissionDenied())
         isDiscovering.value = false
         overlay.value = Overlay.None
         _navigationEvents.trySend(NavigationEvent.GoToManualEntry)
     }
 
     private fun handleServerSelected(serverWithStatus: ServerWithStatus) {
+        // A new tap supersedes whatever the permission blocked before: a later grant re-runs only
+        // the activation the user is still looking at.
+        blockedSelection = null
         val server = serverWithStatus.server
         logger.info { "Server selected: ${server.name} (${server.id})" }
 
@@ -188,7 +243,11 @@ class ServerSelectViewModel(
             }
         if (urlsToTry.isEmpty()) {
             logger.error { "Server has no URL configured" }
-            overlay.value = Overlay.Failed(server.id, "Server has no URL configured")
+            overlay.value =
+                Overlay.Failed(
+                    server.id,
+                    ServerConnectError.ServerNotReachable(debugInfo = "Server has no URL configured"),
+                )
             return
         }
 
@@ -210,20 +269,37 @@ class ServerSelectViewModel(
                     _navigationEvents.trySend(NavigationEvent.ServerActivated)
                 } else {
                     logger.warn { "Server discovered but not reachable at any URL: $urlsToTry" }
-                    overlay.value =
-                        Overlay.Failed(
-                            server.id,
-                            "Server found on network but not reachable. " +
-                                "Try adding it manually with the server's IP address.",
-                        )
+                    overlay.value = Overlay.Failed(server.id, unreachableError(serverWithStatus, urlsToTry))
                 }
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
+                val error = ErrorMapper.map(e)
+                errorBus.emit(error)
                 logger.error(e) { "Failed to activate server" }
-                overlay.value = Overlay.Failed(server.id, "Failed to connect: ${e.message}")
+                overlay.value = Overlay.Failed(server.id, error)
             }
+        }
+    }
+
+    /**
+     * Why a discovered server answered at none of its addresses. Asked only after that failure, of
+     * the primary address: if the local-network gate blocked it, say so (and remember the server so
+     * a grant can re-run the activation); otherwise the server is simply unreachable.
+     */
+    private suspend fun unreachableError(
+        serverWithStatus: ServerWithStatus,
+        urlsTried: List<String>,
+    ): ServerConnectError {
+        val primary = connectTarget(urlsTried.first())
+        val blocked = primary != null && localNetworkAccess.isDeniedFor(primary.host, primary.port)
+        return if (blocked) {
+            blockedSelection = serverWithStatus
+            ServerConnectError.LocalNetworkPermissionDenied(
+                debugInfo = "Local network access denied reaching $urlsTried",
+            )
+        } else {
+            ServerConnectError.ServerNotReachable(debugInfo = "Discovered but not reachable at $urlsTried")
         }
     }
 

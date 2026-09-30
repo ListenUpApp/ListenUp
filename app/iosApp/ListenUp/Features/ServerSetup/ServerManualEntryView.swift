@@ -10,6 +10,11 @@ struct ServerManualEntryView: View {
     // MARK: - State
 
     @State private var viewModel: ServerConnectViewModelWrapper
+    @Environment(\.scenePhase) private var scenePhase
+
+    /// True when the server picker already learned that Local Network access is off, so the notice
+    /// shows before the user even tries.
+    private let localNetworkDenied: Bool
 
     // MARK: - Navigation
 
@@ -17,7 +22,8 @@ struct ServerManualEntryView: View {
 
     // MARK: - Initialization
 
-    init(onBack: (() -> Void)? = nil) {
+    init(localNetworkDenied: Bool = false, onBack: (() -> Void)? = nil) {
+        self.localNetworkDenied = localNetworkDenied
         self.onBack = onBack
         _viewModel = State(initialValue: ServerConnectViewModelWrapper(
             viewModel: Dependencies.shared.makeServerConnectViewModel()
@@ -40,9 +46,14 @@ struct ServerManualEntryView: View {
                                           set: { viewModel.onUrlChanged($0) }),
                             entry: .url,
                             icon: "globe",
-                            error: viewModel.error,
+                            // The notice below carries the denial, with its fix; don't say it twice.
+                            error: showsLocalNetworkNotice ? nil : viewModel.error,
                             onSubmit: { if viewModel.isConnectEnabled { viewModel.onConnectClicked() } }
                         )
+                    }
+
+                    if showsLocalNetworkNotice {
+                        LocalNetworkNotice()
                     }
 
                     Text(String(localized: "connect.server_url_hint"))
@@ -66,8 +77,25 @@ struct ServerManualEntryView: View {
                 }
             }
         }
+        // Returning from Settings re-runs the attempt the denial blocked.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { viewModel.retryAfterLocalNetworkGrant() }
+        }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+}
+
+// MARK: - Private
+
+private extension ServerManualEntryView {
+    var showsLocalNetworkNotice: Bool {
+        ServerConnectViewModelWrapper.showsLocalNetworkNotice(
+            recovery: viewModel.recovery,
+            deniedByDiscovery: localNetworkDenied,
+            hasError: viewModel.error != nil,
+            isClearlyRemote: viewModel.isClearlyRemoteAddress
+        )
     }
 }
 

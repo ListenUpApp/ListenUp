@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.InviteRepository
+import com.calypsan.listenup.client.domain.repository.LocalNetworkAccess
 import com.calypsan.listenup.client.domain.repository.PasswordResetRepository
 import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -29,6 +30,7 @@ import org.koin.test.verify.verify
  *  - [ServerRepository] — owned by `connectionModule`.
  *  - [ServerConfig] — owned by `settingsModule`.
  *  - [InstanceRepository] — owned by `connectionModule`.
+ *  - [LocalNetworkAccess] — owned by `platformDiscoveryModule` (one binding per platform).
  *  - [ErrorBus] — owned by `appCoreModule`.
  *  - [CoroutineScope] — the app-lifetime scope, owned by `appCoreModule` (qualifier `appScope`).
  *  - [SetupUseCase] — owned by `authModule`.
@@ -54,6 +56,7 @@ class AuthPresentationModuleVerifyTest :
                         ServerRepository::class,
                         ServerConfig::class,
                         InstanceRepository::class,
+                        LocalNetworkAccess::class,
                         ErrorBus::class,
                         CoroutineScope::class,
                         SetupUseCase::class,

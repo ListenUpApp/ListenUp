@@ -1,6 +1,12 @@
 import Foundation
 import Shared
 
+/// What the user can do, from inside the app, about a connect failure.
+enum ConnectRecovery: Equatable {
+    /// Local Network access is off for ListenUp; only its page in Settings can turn it back on.
+    case openSettings
+}
+
 /// Observes `ServerConnectViewModel`'s `state` flow, flattening the sealed
 /// `ServerConnectUiState` into SwiftUI-native properties. Holds the URL text as
 /// wrapper input state (it is view input, not ViewModel state). Thin over `FlowBridge`.
@@ -13,6 +19,8 @@ final class ServerConnectViewModelWrapper {
     private(set) var isLoading: Bool = false
     private(set) var isVerified: Bool = false
     private(set) var error: String?
+    /// The action that can fix the current failure, when there is one.
+    private(set) var recovery: ConnectRecovery?
 
     /// Whether the Connect action should be enabled.
     var isConnectEnabled: Bool {
@@ -45,19 +53,59 @@ final class ServerConnectViewModelWrapper {
         viewModel.submitUrl(rawUrl: serverUrl)
     }
 
+    /// Called whenever the app returns to the foreground. iOS has no way to read the Local Network
+    /// permission, so the shared ViewModel re-runs the attempt only if the permission is what
+    /// blocked it; a still-denied retry fails the same way again.
+    func retryAfterLocalNetworkGrant() {
+        viewModel.retryAfterLocalNetworkGrant()
+    }
+
+    // MARK: - Error → affordance
+
+    /// The action that can fix [error], or nil when there is nothing the user can do from here.
+    ///
+    /// A Local Network denial maps to Settings: iOS shows its permission prompt once and offers no
+    /// API to ask again, and the HIG (Privacy) notes people "view the description — and update their
+    /// choice — in Settings". Apple TN3179 describes how the denial is detected.
+    static func recovery(for error: any AppError) -> ConnectRecovery? {
+        error is ServerConnectErrorLocalNetworkPermissionDenied ? .openSettings : nil
+    }
+
+    /// Whether the typed address is clearly a server off the local network (shared rule, no DNS).
+    var isClearlyRemoteAddress: Bool {
+        viewModel.isClearlyRemoteAddress(rawUrl: serverUrl)
+    }
+
+    /// Whether manual entry shows the Local Network notice.
+    ///
+    /// Always after a connect the denial blocked. Up front — before any attempt — only when the
+    /// picker learned Bonjour was refused, and then not while the typed address is clearly remote:
+    /// the permission can't be what stops a server off the local network.
+    static func showsLocalNetworkNotice(
+        recovery: ConnectRecovery?,
+        deniedByDiscovery: Bool,
+        hasError: Bool,
+        isClearlyRemote: Bool
+    ) -> Bool {
+        if recovery == .openSettings { return true }
+        return deniedByDiscovery && !hasError && !isClearlyRemote
+    }
+
     // MARK: - State mapping
 
     private func apply(_ state: ServerConnectUiState) {
         switch state.sealedType() {
         case .idle:
-            isLoading = false; isVerified = false; error = nil
+            isLoading = false; isVerified = false; error = nil; recovery = nil
         case .verifying:
-            isLoading = true; isVerified = false; error = nil
+            isLoading = true; isVerified = false; error = nil; recovery = nil
         case .verified:
-            isLoading = false; isVerified = true; error = nil
+            isLoading = false; isVerified = true; error = nil; recovery = nil
         case .error(let errorStateType):
             let errorState = errorStateType.value
-            isLoading = false; isVerified = false; error = errorState.error.message
+            isLoading = false; isVerified = false
+            error = errorState.error.message
+            recovery = Self.recovery(for: errorState.error)
         }
     }
 }

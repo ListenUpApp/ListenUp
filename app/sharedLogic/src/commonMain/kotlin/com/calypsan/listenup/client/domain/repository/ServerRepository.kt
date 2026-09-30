@@ -25,6 +25,12 @@ interface ServerRepository {
     fun observeServers(): Flow<List<ServerWithStatus>>
 
     /**
+     * Observe whether the platform is refusing to browse because local network access has been
+     * denied. See [com.calypsan.listenup.client.data.discovery.ServerDiscoveryService.observeLocalNetworkDenied].
+     */
+    fun observeLocalNetworkDenied(): Flow<Boolean>
+
+    /**
      * Start server discovery via mDNS.
      */
     fun startDiscovery()

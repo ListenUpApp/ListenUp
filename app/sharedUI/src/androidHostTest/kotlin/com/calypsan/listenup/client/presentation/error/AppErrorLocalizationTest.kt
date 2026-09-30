@@ -1,12 +1,14 @@
 package com.calypsan.listenup.client.presentation.error
 
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.TransportError
 import kotlinx.coroutines.test.runTest
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.error_conflict
 import listenup.composeapp.generated.resources.error_forbidden
 import listenup.composeapp.generated.resources.error_not_found
+import listenup.composeapp.generated.resources.error_server_connect_local_network_permission_denied
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -51,6 +53,14 @@ class AppErrorLocalizationTest {
     fun `resolved resolves a dynamically-keyed error to a non-null resource`() {
         AuthError.SessionExpired().resolved() shouldNotBe null
     }
+
+    @Test
+    fun `the local network denial resolves to its own catalog entry`() =
+        runTest {
+            // localizedString() would fall back to the identical message, so pin the resource itself.
+            ServerConnectError.LocalNetworkPermissionDenied().resolved() shouldBe
+                Res.string.error_server_connect_local_network_permission_denied
+        }
 
     @Test
     fun `resolved returns null for an unmapped error code`() {
