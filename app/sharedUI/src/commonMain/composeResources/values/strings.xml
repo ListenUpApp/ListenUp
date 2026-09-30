@@ -1206,7 +1206,7 @@ One beautiful library.</string>
     <string name="invite_subtitle">Enter the code from your invitation to get started.</string>
     <string name="invite_title">Join with an invite</string>
     <string name="library_add_audiobooks_to_your_server">Add audiobooks to your server to get started</string>
-    <string name="library_author_count">%d authors</string>
+    <string name="library_author_count">%1$d authors</string>
     <string name="library_authors">Authors</string>
     <string name="library_bookcount">%1$s</string>
     <string name="library_books">Books</string>
@@ -1227,10 +1227,10 @@ One beautiful library.</string>
     <string name="library_ignore_articles">Ignore A, An, The</string>
     <string name="library_index_jump">Jump to %1$s</string>
     <string name="library_loading_your_library">Loading your library...</string>
-    <string name="library_narrator_count">%d narrators</string>
+    <string name="library_narrator_count">%1$d narrators</string>
     <string name="library_narrators">Narrators</string>
     <string name="library_section_index">Section index</string>
-    <string name="library_series_count">%d series</string>
+    <string name="library_series_count">%1$d series</string>
     <string name="library_shelf">Shelf</string>
     <string name="library_shelf_name">Shelf name</string>
     <string name="library_sort">Sort</string>
@@ -1242,7 +1242,7 @@ One beautiful library.</string>
     <string name="library_sort_order">Order</string>
     <string name="library_summary">• %1$s</string>
     <string name="library_sync_failed">Sync failed</string>
-    <string name="library_title_count">%d titles</string>
+    <string name="library_title_count">%1$d titles</string>
     <string name="library_you_dont_have_any_shelves">You don't have any shelves yet</string>
     <string name="library_your_audiobooks_will_appear_here">Your audiobooks will appear here once the scan is complete</string>
     <string name="library_scan_authors">Authors</string>
