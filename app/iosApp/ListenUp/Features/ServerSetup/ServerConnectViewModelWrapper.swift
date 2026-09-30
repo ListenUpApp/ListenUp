@@ -71,6 +71,26 @@ final class ServerConnectViewModelWrapper {
         error is ServerConnectErrorLocalNetworkPermissionDenied ? .openSettings : nil
     }
 
+    /// Whether the typed address is clearly a server off the local network (shared rule, no DNS).
+    var isClearlyRemoteAddress: Bool {
+        viewModel.isClearlyRemoteAddress(rawUrl: serverUrl)
+    }
+
+    /// Whether manual entry shows the Local Network notice.
+    ///
+    /// Always after a connect the denial blocked. Up front — before any attempt — only when the
+    /// picker learned Bonjour was refused, and then not while the typed address is clearly remote:
+    /// the permission can't be what stops a server off the local network.
+    static func showsLocalNetworkNotice(
+        recovery: ConnectRecovery?,
+        deniedByDiscovery: Bool,
+        hasError: Bool,
+        isClearlyRemote: Bool
+    ) -> Bool {
+        if recovery == .openSettings { return true }
+        return deniedByDiscovery && !hasError && !isClearlyRemote
+    }
+
     // MARK: - State mapping
 
     private func apply(_ state: ServerConnectUiState) {

@@ -90,7 +90,12 @@ struct ServerManualEntryView: View {
 
 private extension ServerManualEntryView {
     var showsLocalNetworkNotice: Bool {
-        viewModel.recovery == .openSettings || (localNetworkDenied && viewModel.error == nil)
+        ServerConnectViewModelWrapper.showsLocalNetworkNotice(
+            recovery: viewModel.recovery,
+            deniedByDiscovery: localNetworkDenied,
+            hasError: viewModel.error != nil,
+            isClearlyRemote: viewModel.isClearlyRemoteAddress
+        )
     }
 }
 
