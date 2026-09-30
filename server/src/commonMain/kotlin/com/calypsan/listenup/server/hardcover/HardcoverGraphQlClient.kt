@@ -154,11 +154,27 @@ class HardcoverGraphQlClient(
         title: String,
     ): HardcoverCandidatesResult =
         when (val result = booksTitled(accessToken, title)) {
-            is HardcoverCall.Ok -> HardcoverCandidatesResult.Found(result.value)
-            HardcoverCall.Unauthorized -> HardcoverCandidatesResult.Unauthorized
-            is HardcoverCall.MissingScope -> HardcoverCandidatesResult.Unavailable("booksTitled: missing scope ${result.scope}")
-            is HardcoverCall.Throttled -> HardcoverCandidatesResult.Unavailable("booksTitled: throttled")
-            is HardcoverCall.Failed -> HardcoverCandidatesResult.Unavailable(result.detail)
+            is HardcoverCall.Ok -> {
+                HardcoverCandidatesResult.Found(result.value)
+            }
+
+            HardcoverCall.Unauthorized -> {
+                HardcoverCandidatesResult.Unauthorized
+            }
+
+            is HardcoverCall.MissingScope -> {
+                HardcoverCandidatesResult.Unavailable(
+                    "booksTitled: missing scope ${result.scope}",
+                )
+            }
+
+            is HardcoverCall.Throttled -> {
+                HardcoverCandidatesResult.Unavailable("booksTitled: throttled")
+            }
+
+            is HardcoverCall.Failed -> {
+                HardcoverCandidatesResult.Unavailable(result.detail)
+            }
         }
 
     /** The edition with Audible [asin] and its book, or null when Hardcover has none. */
@@ -166,14 +182,26 @@ class HardcoverGraphQlClient(
         accessToken: String,
         asin: String,
     ): HardcoverCall<HardcoverEditionHit?> =
-        fetch(accessToken, EDITION_BY_ASIN_QUERY, buildJsonObject { put("asin", asin) }, "editionByAsin", ::firstEdition)
+        fetch(
+            accessToken,
+            EDITION_BY_ASIN_QUERY,
+            buildJsonObject { put("asin", asin) },
+            "editionByAsin",
+            ::firstEdition,
+        )
 
     /** The edition with [isbn] as its ISBN-13 or ISBN-10, and its book, or null when Hardcover has none. */
     suspend fun editionByIsbn(
         accessToken: String,
         isbn: String,
     ): HardcoverCall<HardcoverEditionHit?> =
-        fetch(accessToken, EDITION_BY_ISBN_QUERY, buildJsonObject { put("isbn", isbn) }, "editionByIsbn", ::firstEdition)
+        fetch(
+            accessToken,
+            EDITION_BY_ISBN_QUERY,
+            buildJsonObject { put("isbn", isbn) },
+            "editionByIsbn",
+            ::firstEdition,
+        )
 
     /** Up to five books titled exactly [title], most-rated first. */
     suspend fun booksTitled(
@@ -196,8 +224,9 @@ class HardcoverGraphQlClient(
                 ?.hits
                 .orEmpty()
                 .mapNotNull { hit ->
-                    hit.document.id.content.toLongOrNull()?.let { id ->
-                        HardcoverSearchHit(id, hit.document.title, hit.document.authorNames, hit.document.releaseYear)
+                    val document = hit.document
+                    document.id.content.toLongOrNull()?.let { id ->
+                        HardcoverSearchHit(id, document.title, document.authorNames, document.releaseYear)
                     }
                 }
         }
@@ -222,7 +251,13 @@ class HardcoverGraphQlClient(
             ?.editions
             ?.firstOrNull()
             ?.let { edition ->
-                edition.book?.let { HardcoverEditionHit(edition.id, edition.readingFormatId == AUDIOBOOK_READING_FORMAT, it.toCatalogBook()) }
+                edition.book?.let {
+                    HardcoverEditionHit(
+                        edition.id,
+                        edition.readingFormatId == AUDIOBOOK_READING_FORMAT,
+                        it.toCatalogBook(),
+                    )
+                }
             }
 
     private fun books(body: String): List<HardcoverCatalogBook> =
@@ -245,10 +280,21 @@ class HardcoverGraphQlClient(
                 }
             }
 
-            HardcoverCall.Unauthorized -> HardcoverRatingResult.Unauthorized
-            is HardcoverCall.MissingScope -> HardcoverRatingResult.Unavailable("edition rating: missing scope $scope")
-            is HardcoverCall.Throttled -> HardcoverRatingResult.Unavailable("edition rating: throttled")
-            is HardcoverCall.Failed -> HardcoverRatingResult.Unavailable(detail)
+            HardcoverCall.Unauthorized -> {
+                HardcoverRatingResult.Unauthorized
+            }
+
+            is HardcoverCall.MissingScope -> {
+                HardcoverRatingResult.Unavailable("edition rating: missing scope $scope")
+            }
+
+            is HardcoverCall.Throttled -> {
+                HardcoverRatingResult.Unavailable("edition rating: throttled")
+            }
+
+            is HardcoverCall.Failed -> {
+                HardcoverRatingResult.Unavailable(detail)
+            }
         }
 
     /**

@@ -9,7 +9,14 @@ import javax.sql.DataSource
 private fun DataSource.execute(sql: String) = connection.use { c -> c.createStatement().use { it.execute(sql) } }
 
 private fun DataSource.count(sql: String): Long =
-    connection.use { c -> c.createStatement().use { s -> s.executeQuery(sql).use { rs -> rs.next(); rs.getLong(1) } } }
+    connection.use { c ->
+        c.createStatement().use { s ->
+            s.executeQuery(sql).use { rs ->
+                rs.next()
+                rs.getLong(1)
+            }
+        }
+    }
 
 private fun DataSource.pushColumns(): Pair<Long?, String?> =
     connection.use { c ->

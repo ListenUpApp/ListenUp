@@ -45,7 +45,7 @@ class HardcoverCatalogLookupsTest :
                         .editionByAsin("hc_at_1", "B08G9RZBTT")
                         .shouldBeInstanceOf<HardcoverCall.Ok<HardcoverEditionHit?>>()
                         .value!!
-                hit.book.id shouldBe 427578L
+                hit.book.id shouldBe 427_578L
                 hit.book.authors shouldBe listOf("Andy Weir")
                 catalog.sentBody shouldContain "asin:{_eq"
             }
@@ -59,9 +59,9 @@ class HardcoverCatalogLookupsTest :
                         .editionByIsbn("hc_at_1", "0593135202")
                         .shouldBeInstanceOf<HardcoverCall.Ok<HardcoverEditionHit?>>()
                         .value!!
-                hit.editionId shouldBe 31415L
+                hit.editionId shouldBe 31_415L
                 hit.isAudiobook shouldBe false
-                hit.book.defaultAudioEditionId shouldBe 9001L
+                hit.book.defaultAudioEditionId shouldBe 9_001L
                 catalog.sentBody shouldContain "isbn_13"
                 catalog.sentBody shouldContain "isbn_10"
             }
@@ -82,7 +82,7 @@ class HardcoverCatalogLookupsTest :
                         .booksTitled("hc_at_1", "The Best Christmas Pageant Ever")
                         .shouldBeInstanceOf<HardcoverCall.Ok<List<HardcoverCatalogBook>>>()
                         .value
-                books.map { it.id } shouldBe listOf(229211L, 317024L, 761573L, 2812044L)
+                books.map { it.id } shouldBe listOf(229_211L, 317_024L, 761_573L, 2_812_044L)
                 books.last().authors shouldBe emptyList()
             }
         }
@@ -95,7 +95,7 @@ class HardcoverCatalogLookupsTest :
                         .searchBooks("hc_at_1", "Project Hail Mary")
                         .shouldBeInstanceOf<HardcoverCall.Ok<List<HardcoverSearchHit>>>()
                         .value
-                hits.map { it.bookId } shouldBe listOf(427578L, 1234567L)
+                hits.map { it.bookId } shouldBe listOf(427_578L, 1_234_567L)
                 hits.first().authors shouldBe listOf("Andy Weir")
                 catalog.sentBody shouldContain "search(query:"
             }
@@ -106,11 +106,11 @@ class HardcoverCatalogLookupsTest :
                 val books =
                     RecordingCatalog(lookupFixture("books-by-ids.json"))
                         .client
-                        .booksByIds("hc_at_1", listOf(427578L, 1234567L))
+                        .booksByIds("hc_at_1", listOf(427_578L, 1_234_567L))
                         .shouldBeInstanceOf<HardcoverCall.Ok<List<HardcoverCatalogBook>>>()
                         .value
-                books.single { it.id == 427578L }.defaultAudioEditionId shouldBe 9001L
-                books.single { it.id == 427578L }.authors shouldBe listOf("Andy Weir", "Ray Porter")
+                books.single { it.id == 427_578L }.defaultAudioEditionId shouldBe 9_001L
+                books.single { it.id == 427_578L }.authors shouldBe listOf("Andy Weir", "Ray Porter")
             }
         }
 

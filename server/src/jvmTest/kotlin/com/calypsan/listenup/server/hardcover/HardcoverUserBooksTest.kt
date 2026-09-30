@@ -41,9 +41,24 @@ class HardcoverUserBooksTest :
                 val hardcover = FakeHardcoverLibrary()
                 val books = HardcoverUserBooks(hardcover.client())
 
-                val shelfId = books.createUserBook("hc_at_1", HC_BOOK, HC_EDITION, HardcoverStatus.READING).shouldBeInstanceOf<HardcoverCall.Ok<Long>>().value
+                val shelfId =
+                    books
+                        .createUserBook(
+                            "hc_at_1",
+                            HC_BOOK,
+                            HC_EDITION,
+                            HardcoverStatus.READING,
+                        ).shouldBeInstanceOf<HardcoverCall.Ok<Long>>()
+                        .value
                 val readId =
-                    books.openRead("hc_at_1", shelfId, LocalDate(2026, 5, 22), HC_EDITION).shouldBeInstanceOf<HardcoverCall.Ok<Long>>().value
+                    books
+                        .openRead(
+                            "hc_at_1",
+                            shelfId,
+                            LocalDate(2026, 5, 22),
+                            HC_EDITION,
+                        ).shouldBeInstanceOf<HardcoverCall.Ok<Long>>()
+                        .value
                 books.recordProgress("hc_at_1", readId, 5_400L) shouldBe HardcoverCall.Ok(Unit)
                 books.finishRead("hc_at_1", readId, LocalDate(2026, 6, 1)) shouldBe HardcoverCall.Ok(Unit)
                 books.setStatus("hc_at_1", shelfId, HardcoverStatus.READ) shouldBe HardcoverCall.Ok(Unit)
@@ -62,7 +77,12 @@ class HardcoverUserBooksTest :
                 val hardcover = FakeHardcoverLibrary()
                 val shelf = hardcover.seedShelf(HC_BOOK, HardcoverStatus.READING)
                 HardcoverUserBooks(hardcover.client()).openRead("hc_at_1", shelf.id, null, null)
-                hardcover.shelfFor(HC_BOOK)!!.reads.single().startedAt.shouldBeNull()
+                hardcover
+                    .shelfFor(HC_BOOK)!!
+                    .reads
+                    .single()
+                    .startedAt
+                    .shouldBeNull()
             }
         }
 

@@ -102,14 +102,18 @@ internal fun classifyHardcoverResponse(
 }
 
 private fun graphQlErrorIn(body: String): String? =
-    decodeOrNull<GraphQlErrorBody>(body)?.errors?.firstOrNull()?.message?.ifBlank { "GraphQL error" }
+    decodeOrNull<GraphQlErrorBody>(body)
+        ?.errors
+        ?.firstOrNull()
+        ?.message
+        ?.ifBlank { "GraphQL error" }
 
 private fun oauthErrorIn(body: String): OAuthErrorBody? = decodeOrNull<OAuthErrorBody>(body)
 
 private inline fun <reified T> decodeOrNull(body: String): T? =
     try {
         hardcoverJson.decodeFromString<T>(body)
-    } catch (e: IllegalArgumentException) {
+    } catch (_: IllegalArgumentException) {
         null
     }
 

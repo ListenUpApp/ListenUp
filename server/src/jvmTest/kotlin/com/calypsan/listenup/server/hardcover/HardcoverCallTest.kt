@@ -21,13 +21,23 @@ private fun clientAnswering(
     http =
         HttpClient(
             MockEngine {
-                respond(body, status, headersOf(*(headers.map { it.first to listOf(it.second) } + (HttpHeaders.ContentType to listOf("application/json"))).toTypedArray()))
+                respond(
+                    body,
+                    status,
+                    headersOf(
+                        *(
+                            headers.map { it.first to listOf(it.second) } +
+                                (HttpHeaders.ContentType to listOf("application/json"))
+                        ).toTypedArray(),
+                    ),
+                )
             },
         ),
     apiBaseUrl = "https://hc.test",
 )
 
-private suspend fun HardcoverGraphQlClient.probe(): HardcoverCall<String> = call("hc_at_1", "{ me { id } }", JsonObject(emptyMap()), "probe")
+private suspend fun HardcoverGraphQlClient.probe(): HardcoverCall<String> =
+    call("hc_at_1", "{ me { id } }", JsonObject(emptyMap()), "probe")
 
 /** Every answer Hardcover can give is classified the way the push worker's error policy reads it. */
 class HardcoverCallTest :
@@ -47,7 +57,10 @@ class HardcoverCallTest :
         }
 
         test("401 invalid_token is Unauthorized") {
-            runTest { clientAnswering(HttpStatusCode.Unauthorized, """{"error":"invalid_token"}""").probe() shouldBe HardcoverCall.Unauthorized }
+            runTest {
+                clientAnswering(HttpStatusCode.Unauthorized, """{"error":"invalid_token"}""").probe() shouldBe
+                    HardcoverCall.Unauthorized
+            }
         }
 
         test("403 insufficient_scope in the body is MissingScope with the scope") {

@@ -48,7 +48,12 @@ class HardcoverUserBooks(
         accessToken: String,
         hcBookId: Long,
     ): HardcoverCall<HardcoverUserBook?> =
-        graphQl.fetch(accessToken, USER_BOOK_QUERY, buildJsonObject { put("bookId", hcBookId) }, "userBookFor") { body ->
+        graphQl.fetch(
+            accessToken,
+            USER_BOOK_QUERY,
+            buildJsonObject { put("bookId", hcBookId) },
+            "userBookFor",
+        ) { body ->
             hardcoverJson
                 .decodeFromString<UserBooksResponse>(body)
                 .data
@@ -60,7 +65,15 @@ class HardcoverUserBooks(
                     HardcoverUserBook(
                         id = shelf.id,
                         statusId = shelf.statusId,
-                        reads = shelf.reads.map { HardcoverRead(it.id, it.startedAt, it.finishedAt, it.progressSeconds) },
+                        reads =
+                            shelf.reads.map {
+                                HardcoverRead(
+                                    it.id,
+                                    it.startedAt,
+                                    it.finishedAt,
+                                    it.progressSeconds,
+                                )
+                            },
                     )
                 }
         }
@@ -182,7 +195,7 @@ class HardcoverUserBooks(
                 ?.jsonObject
                 ?.get(field)
                 ?.let { hardcoverJson.decodeFromJsonElement<MutationResultWire>(it) }
-        } catch (e: IllegalArgumentException) {
+        } catch (_: IllegalArgumentException) {
             null
         }
 

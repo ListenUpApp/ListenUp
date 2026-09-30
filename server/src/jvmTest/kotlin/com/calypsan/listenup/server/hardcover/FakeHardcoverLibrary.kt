@@ -102,7 +102,15 @@ class FakeHardcoverLibrary {
 
     fun deleteShelf(hcBookId: Long) = synchronized(lock) { shelves.removeAll { it.bookId == hcBookId } }
 
-    fun deleteRead(readId: Long) = synchronized(lock) { shelves.forEach { shelf -> shelf.reads.removeAll { it.id == readId } } }
+    fun deleteRead(readId: Long) =
+        synchronized(lock) {
+            shelves.forEach { shelf ->
+                shelf.reads.removeAll {
+                    it.id ==
+                        readId
+                }
+            }
+        }
 
     /** A [HardcoverGraphQlClient] whose every request this fake answers. */
     fun client(): HardcoverGraphQlClient =
@@ -161,7 +169,8 @@ class FakeHardcoverLibrary {
 
             "insert_user_book" -> {
                 val input = variables.obj("object")
-                val shelf = Shelf(nextId++, input.long("book_id"), input.int("status_id"), input.longOrNull("edition_id"))
+                val shelf =
+                    Shelf(nextId++, input.long("book_id"), input.int("status_id"), input.longOrNull("edition_id"))
                 shelves += shelf
                 mutation("insert_user_book", shelf.id)
             }
@@ -176,7 +185,13 @@ class FakeHardcoverLibrary {
             "insert_user_book_read" -> {
                 shelves.firstOrNull { it.id == variables.long("userBookId") }?.let { shelf ->
                     val input = variables.obj("read")
-                    val read = Read(nextId++, input.stringOrNull("started_at"), input.stringOrNull("finished_at"), input.longOrNull("progress_seconds"))
+                    val read =
+                        Read(
+                            nextId++,
+                            input.stringOrNull("started_at"),
+                            input.stringOrNull("finished_at"),
+                            input.longOrNull("progress_seconds"),
+                        )
                     shelf.reads += read
                     mutation("insert_user_book_read", read.id)
                 } ?: mutationError("insert_user_book_read", "User book not found")
@@ -209,12 +224,20 @@ class FakeHardcoverLibrary {
             }
 
             "books_by_ids" -> {
-                val ids = variables.getValue("ids").jsonArray.map { it.jsonPrimitive.long }.toSet()
+                val ids =
+                    variables
+                        .getValue("ids")
+                        .jsonArray
+                        .map { it.jsonPrimitive.long }
+                        .toSet()
                 ok(booksJson(editions.filter { it.bookId in ids }.distinctBy { it.bookId }))
             }
 
             else -> {
-                FakeReply(HttpStatusCode.BadRequest, """{"errors":[{"message":"fake Hardcover: unsupported $operation"}]}""")
+                FakeReply(
+                    HttpStatusCode.BadRequest,
+                    """{"errors":[{"message":"fake Hardcover: unsupported $operation"}]}""",
+                )
             }
         }
 
