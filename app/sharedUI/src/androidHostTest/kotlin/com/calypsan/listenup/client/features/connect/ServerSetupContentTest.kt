@@ -35,12 +35,13 @@ class ServerSetupContentTest {
     private fun show(
         state: ServerConnectUiState,
         localNetwork: LocalNetworkPermissionRecovery,
+        serverUrl: String = "192.168.1.5:8080",
     ) {
         composeRule.setContent {
             MaterialTheme {
                 ServerSetupContent(
                     state = state,
-                    serverUrl = "192.168.1.5:8080",
+                    serverUrl = serverUrl,
                     onServerUrlChange = {},
                     onConnect = {},
                     localNetwork = localNetwork,
@@ -117,5 +118,34 @@ class ServerSetupContentTest {
 
         composeRule.onNodeWithText("Allow access").assertDoesNotExist()
         composeRule.onNodeWithText("Open Settings").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a clearly remote address sets the card aside even while the permission is denied`() {
+        show(
+            state = ServerConnectUiState.Idle,
+            localNetwork = recovery(isGranted = false),
+            serverUrl = "https://yourname.listenup.app",
+        )
+
+        composeRule.onNodeWithText("Allow access").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a name that might be local keeps the card`() {
+        show(state = ServerConnectUiState.Idle, localNetwork = recovery(isGranted = false), serverUrl = "nas.lan")
+
+        composeRule.onNodeWithText("Allow access").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `a failed local connect keeps the card even with a remote-looking address typed after it`() {
+        show(
+            state = ServerConnectUiState.Error(ServerConnectError.LocalNetworkPermissionDenied()),
+            localNetwork = recovery(isGranted = false),
+            serverUrl = "https://yourname.listenup.app",
+        )
+
+        composeRule.onNodeWithText("Allow access").performScrollTo().assertIsDisplayed()
     }
 }

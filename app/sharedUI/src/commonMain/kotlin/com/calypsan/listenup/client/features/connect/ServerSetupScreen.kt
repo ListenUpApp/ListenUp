@@ -33,6 +33,7 @@ import com.calypsan.listenup.client.features.permission.rememberLocalNetworkPerm
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.connect.ServerConnectUiState
 import com.calypsan.listenup.client.presentation.connect.ServerConnectViewModel
+import com.calypsan.listenup.client.presentation.connect.isClearlyRemoteServerAddress
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import listenup.composeapp.generated.resources.Res
@@ -135,8 +136,10 @@ internal fun ServerSetupContent(
             )
 
             // Shown up front whenever the permission is missing, not only after a failed connect:
-            // on Android 17 every LAN address will fail without it.
-            if (!localNetwork.isGranted || blockedByPermission) {
+            // on Android 17 every LAN address will fail without it. It steps aside while the typed
+            // address is clearly remote, which the permission can't be what blocks.
+            val upFront = !localNetwork.isGranted && !isClearlyRemoteServerAddress(serverUrl)
+            if (upFront || blockedByPermission) {
                 LocalNetworkAccessCard(localNetwork)
             }
 

@@ -115,6 +115,13 @@ class ServerConnectViewModel(
         if (blocked is ServerConnectError.LocalNetworkPermissionDenied) submitUrl(url)
     }
 
+    /**
+     * Whether [rawUrl] is clearly a server off the local network — see
+     * [isClearlyRemoteServerAddress]. The iOS manual-entry sheet uses it to set aside its Local
+     * Network notice while a remote address is typed.
+     */
+    fun isClearlyRemoteAddress(rawUrl: String): Boolean = isClearlyRemoteServerAddress(rawUrl)
+
     /** Clear any error state so the user can retry. */
     fun clearError() {
         if (state.value is ServerConnectUiState.Error) {

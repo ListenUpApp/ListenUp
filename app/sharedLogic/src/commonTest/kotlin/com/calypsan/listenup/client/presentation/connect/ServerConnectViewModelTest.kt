@@ -449,6 +449,13 @@ class ServerConnectViewModelTest :
             }
         }
 
+        test("isClearlyRemoteAddress tells a remote server from one that might be local") {
+            val viewModel = createFixture().build(CoroutineScope(testDispatcher))
+
+            viewModel.isClearlyRemoteAddress("https://yourname.listenup.app") shouldBe true
+            viewModel.isClearlyRemoteAddress("nas.lan") shouldBe false
+        }
+
         test("retryAfterLocalNetworkGrant before any attempt does nothing") {
             runTest {
                 val fixture = createFixture()
