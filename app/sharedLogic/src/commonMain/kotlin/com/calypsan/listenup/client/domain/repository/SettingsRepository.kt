@@ -58,6 +58,12 @@ interface AuthSession {
 
     suspend fun getAccessToken(): AccessToken?
 
+    /**
+     * The stored refresh token, or null when none is stored.
+     *
+     * @throws com.calypsan.listenup.core.SecureStorageUnavailableException when one is stored but
+     *   can't be read right now — a retryable condition, never a reason to end the session.
+     */
     suspend fun getRefreshToken(): RefreshToken?
 
     suspend fun getSessionId(): String?

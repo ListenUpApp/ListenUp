@@ -150,6 +150,7 @@ private fun AuthError.withCorrelationId(id: String?): AuthError =
         is AuthError.ResetCodeIncorrect -> copy(correlationId = id)
         is AuthError.ResetAttemptsExhausted -> copy(correlationId = id)
         is AuthError.RootResetUnavailable -> copy(correlationId = id)
+        is AuthError.CredentialsUnavailable -> copy(correlationId = id)
     }
 
 private fun ScanError.withCorrelationId(id: String?): ScanError =

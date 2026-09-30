@@ -13,5 +13,6 @@ package com.calypsan.listenup.client.data.remote
  * `SessionExpired`.
  */
 internal class TransientAuthRefreshException(
-    cause: Throwable,
-) : Exception("Token refresh transiently failed during a 401 heal — session kept, retry.", cause)
+    message: String = "Token refresh transiently failed during a 401 heal — session kept, retry.",
+    cause: Throwable? = null,
+) : Exception(message, cause)

@@ -132,8 +132,13 @@ internal class AuthSessionStore(
 
     override suspend fun getAccessToken(): AccessToken? = secureStorage.read(KEY_ACCESS_TOKEN)?.let { AccessToken(it) }
 
+    /**
+     * Null only when no refresh token is stored. One that is stored but unreadable right now throws
+     * [com.calypsan.listenup.core.SecureStorageUnavailableException]: read as absent, it ended the
+     * session over a Keystore blip.
+     */
     override suspend fun getRefreshToken(): RefreshToken? =
-        secureStorage.read(KEY_REFRESH_TOKEN)?.let { RefreshToken(it) }
+        secureStorage.readCredential(KEY_REFRESH_TOKEN)?.let { RefreshToken(it) }
 
     override suspend fun getSessionId(): String? = secureStorage.read(KEY_SESSION_ID)
 

@@ -47,6 +47,16 @@ class CachingSecureStorage(
             cache[key] ?: delegate.read(key)?.also { cache[key] = it }
         }
 
+    /**
+     * Same cache and serialization as [read], but a delegate that could not read the value right
+     * now surfaces as [SecureStorageUnavailableException] instead of a cached-looking `null`. The
+     * failure caches nothing, so the next read goes back to the delegate.
+     */
+    override suspend fun readCredential(key: String): String? =
+        mutex.withLock {
+            cache[key] ?: delegate.readCredential(key)?.also { cache[key] = it }
+        }
+
     override suspend fun delete(key: String) =
         mutex.withLock {
             delegate.delete(key)

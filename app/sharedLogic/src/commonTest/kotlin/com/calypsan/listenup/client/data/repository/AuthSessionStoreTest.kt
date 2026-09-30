@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.SecureStorage
+import com.calypsan.listenup.core.SecureStorageUnavailableException
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
@@ -20,6 +21,7 @@ import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -67,6 +69,26 @@ private class RecordingStorage : SecureStorage {
     override suspend fun clear() {
         data.clear()
     }
+}
+
+/**
+ * Storage holding a refresh token it cannot decrypt right now — the Android Keystore blip. Plain
+ * [read] folds the fault into null, as the Android actual does; [readCredential] reports it.
+ */
+private class UnreadableRefreshTokenStorage : SecureStorage {
+    override suspend fun save(
+        key: String,
+        value: String,
+    ) = Unit
+
+    override suspend fun read(key: String): String? = null
+
+    override suspend fun readCredential(key: String): String? =
+        if (key == "refresh_token") throw SecureStorageUnavailableException(key) else null
+
+    override suspend fun delete(key: String) = Unit
+
+    override suspend fun clear() = Unit
 }
 
 private fun createMockServerConfig(): ServerConfig = mock<ServerConfig>()
@@ -231,10 +253,26 @@ class AuthSessionStoreTest :
             }
         }
 
+        test("getRefreshToken reports a token it cannot read right now as unavailable, never as absent") {
+            runTest {
+                val store = createStore(storage = UnreadableRefreshTokenStorage())
+
+                shouldThrow<SecureStorageUnavailableException> { store.getRefreshToken() }
+            }
+        }
+
+        test("getRefreshToken returns null when no refresh token is stored") {
+            runTest {
+                val store = createStore(storage = RecordingStorage())
+
+                store.getRefreshToken() shouldBe null
+            }
+        }
+
         test("getRefreshToken returns stored token") {
             runTest {
                 val storage = createMockStorage()
-                everySuspend { storage.read("refresh_token") } returns "refresh456"
+                everySuspend { storage.readCredential("refresh_token") } returns "refresh456"
                 val store = createStore(storage = storage)
 
                 store.getRefreshToken() shouldBe RefreshToken("refresh456")

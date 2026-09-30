@@ -1,5 +1,6 @@
 package com.calypsan.listenup.core
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.joinAll
@@ -38,8 +39,70 @@ private class CountingSecureStorage : SecureStorage {
     }
 }
 
+/**
+ * A delegate that holds a value for [key] but cannot decrypt it for its first [failures] credential
+ * reads — the Android Keystore blip. Its plain [read] folds that into `null`, exactly as the
+ * Android actual does.
+ */
+private class FlakyCredentialStorage(
+    private val key: String,
+    private val value: String,
+    private var failures: Int,
+) : SecureStorage {
+    override suspend fun save(
+        key: String,
+        value: String,
+    ) = Unit
+
+    override suspend fun read(key: String): String? = runCatching { readCredential(key) }.getOrNull()
+
+    override suspend fun readCredential(key: String): String? {
+        if (key != this.key) return null
+        if (failures > 0) {
+            failures--
+            throw SecureStorageUnavailableException(key)
+        }
+        return value
+    }
+
+    override suspend fun delete(key: String) = Unit
+
+    override suspend fun clear() = Unit
+}
+
 class CachingSecureStorageTest :
     FunSpec({
+
+        test("readCredential passes an unreadable credential through as unavailable, not as absent") {
+            runTest {
+                val caching = CachingSecureStorage(FlakyCredentialStorage("refresh_token", "rt", failures = 1))
+
+                shouldThrow<SecureStorageUnavailableException> { caching.readCredential("refresh_token") }
+            }
+        }
+
+        test("an unreadable credential is not cached — the next read reaches the delegate and succeeds") {
+            runTest {
+                val caching = CachingSecureStorage(FlakyCredentialStorage("refresh_token", "rt", failures = 1))
+
+                runCatching { caching.readCredential("refresh_token") }
+
+                caching.readCredential("refresh_token") shouldBe "rt"
+                caching.read("refresh_token") shouldBe "rt"
+            }
+        }
+
+        test("readCredential serves a cached value without touching the delegate") {
+            runTest {
+                val delegate = CountingSecureStorage().apply { store["k"] = "v" }
+                val caching = CachingSecureStorage(delegate)
+
+                caching.read("k") shouldBe "v"
+                caching.readCredential("k") shouldBe "v"
+
+                delegate.readCounts["k"] shouldBe 1
+            }
+        }
 
         test("concurrent misses coalesce into a single delegate read") {
             runTest {
