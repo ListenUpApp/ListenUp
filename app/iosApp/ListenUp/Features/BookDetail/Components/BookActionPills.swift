@@ -23,10 +23,20 @@ struct BookActionPills: View {
 
     private let pillHeight: CGFloat = 44
 
+    /// Side by side while both labels fit on one line; stacked once they would wrap (a narrow
+    /// iPhone, a large text size), so the two buttons never end up at different heights with a
+    /// two-line label beside a one-line one (HIG, Typography: "Make sure your app's layout adapts to
+    /// all font sizes.").
     var body: some View {
-        HStack(spacing: 12) {
-            addToShelfPill
-            finishPill
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                addToShelfPill
+                finishPill
+            }
+            VStack(spacing: 12) {
+                addToShelfPill
+                finishPill
+            }
         }
     }
 
