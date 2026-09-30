@@ -423,7 +423,6 @@ One beautiful library.</string>
     <string name="book_detail_language">Language</string>
     <string name="book_detail_length">Length</string>
     <string name="book_detail_mark_as_finished">Mark as finished</string>
-    <string name="book_detail_mark_as_finished_prompt">Mark as finished?</string>
     <string name="book_detail_mark_as_not_started">Mark as not started</string>
     <string name="book_detail_mark_not_started_prompt">Clear your progress and mark this as not started?</string>
     <string name="book_detail_mood">Moods</string>

@@ -5,21 +5,22 @@ import SwiftUI
 ///
 /// Two system `.bordered` buttons — the secondary style beside the resume bar's prominent one
 /// (HIG, Buttons: "use a more prominent button style for that option and a less prominent style for
-/// the remaining ones"). The finish button presents a native
-/// `.confirmationDialog` before committing, disables itself while a mark is in
-/// flight, and collapses to a quiet, filled "Finished" state once the book is
-/// complete.
+/// the remaining ones"). The finish button asks for the started and finished days in a
+/// `MarkFinishedSheet` before committing (as Android and web do), disables itself while a mark is in
+/// flight, and collapses to a quiet, filled "Finished" state once the book is complete.
 ///
 /// Pure/presentational: it takes display flags and two closures. The assembly screen
 /// wires `onAddToShelf` → `observer.openShelfPicker()` and `onMarkFinished` →
-/// `observer.markFinished()`.
+/// `observer.markFinished(started:finished:)`.
 struct BookActionPills: View {
     let isComplete: Bool
     let isMarkingComplete: Bool
+    /// The recorded start, which the sheet opens on; nil opens it on today.
+    let startedAtMs: Int64?
     let onAddToShelf: () -> Void
-    let onMarkFinished: () -> Void
+    let onMarkFinished: (_ started: Date, _ finished: Date) -> Void
 
-    @State private var showFinishConfirmation = false
+    @State private var showFinishDates = false
 
     private let pillHeight: CGFloat = 44
 
@@ -64,7 +65,7 @@ struct BookActionPills: View {
 
     private var markFinishedButton: some View {
         Button {
-            showFinishConfirmation = true
+            showFinishDates = true
         } label: {
             Label(String(localized: "book.detail_mark_as_finished"), systemImage: "checkmark")
                 .frame(maxWidth: .infinity)
@@ -72,13 +73,8 @@ struct BookActionPills: View {
         .buttonStyle(.bordered)
         .controlSize(.large)
         .disabled(isMarkingComplete)
-        .confirmationDialog(
-            String(localized: "book.detail_mark_as_finished_prompt"),
-            isPresented: $showFinishConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button(String(localized: "book.detail_mark_as_finished"), action: onMarkFinished)
-            Button(String(localized: "common.cancel"), role: .cancel) {}
+        .sheet(isPresented: $showFinishDates) {
+            MarkFinishedSheet(startedAtMs: startedAtMs, onConfirm: onMarkFinished)
         }
     }
 
@@ -127,24 +123,27 @@ struct BookActionPills: View {
         BookActionPills(
             isComplete: false,
             isMarkingComplete: false,
+            startedAtMs: nil,
             onAddToShelf: {},
-            onMarkFinished: {}
+            onMarkFinished: { _, _ in }
         )
 
         // Marking in progress — finish pill disabled.
         BookActionPills(
             isComplete: false,
             isMarkingComplete: true,
+            startedAtMs: nil,
             onAddToShelf: {},
-            onMarkFinished: {}
+            onMarkFinished: { _, _ in }
         )
 
         // Finished — quiet finished state.
         BookActionPills(
             isComplete: true,
             isMarkingComplete: false,
+            startedAtMs: nil,
             onAddToShelf: {},
-            onMarkFinished: {}
+            onMarkFinished: { _, _ in }
         )
     }
     .padding()

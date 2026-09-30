@@ -4221,16 +4221,6 @@
         }
       }
     },
-    "book.detail_mark_as_finished_prompt": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mark as finished?"
-          }
-        }
-      }
-    },
     "book.detail_mark_as_not_started": {
       "localizations": {
         "en": {

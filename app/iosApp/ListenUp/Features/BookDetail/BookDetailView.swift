@@ -326,10 +326,11 @@ struct BookDetailView: View {
         BookActionPills(
             isComplete: observer.isComplete,
             isMarkingComplete: observer.isMarkingComplete,
+            startedAtMs: observer.startedAtMs,
             onAddToShelf: { observer.openShelfPicker() },
-            onMarkFinished: {
+            onMarkFinished: { started, finished in
                 bookActionCount += 1
-                observer.markFinished()
+                observer.markFinished(started: started, finished: finished)
             }
         )
     }
