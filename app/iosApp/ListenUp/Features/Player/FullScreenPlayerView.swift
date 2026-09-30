@@ -213,31 +213,30 @@ struct FullScreenPlayerView: View {
     /// Cover above the controls — phones in portrait, narrow windows, and the iPad column. The
     /// cover takes the height the controls leave over; when even the smallest cover cannot fit
     /// (small phones, accessibility text sizes), the column scrolls instead of clipping.
+    ///
+    /// One structure for both cases, so the measured controls keep a single identity. Two branches
+    /// (a fitted stack, else a scroll view) left the fitted branch's controls starting from the
+    /// height the scroll branch measured while the zoom presentation began at a tiny size — about
+    /// 530pt instead of 330 on an iPhone 17e — and the cover stayed stuck at ~155pt with empty
+    /// bands around it (Pass 7 Simulator matrix).
     @ViewBuilder
     private func stackedColumn(width: CGFloat, height: CGFloat, showsChapters: Bool) -> some View {
-        if let side = PlayerLayoutMode.stackedCoverSide(
+        let fittedSide = PlayerLayoutMode.stackedCoverSide(
             columnWidth: width,
             availableHeight: height,
             controlsHeight: controlsHeight
-        ) {
+        )
+        ScrollView {
             VStack(spacing: 0) {
-                Spacer(minLength: 12)
-                cover(side: side)
+                Spacer(minLength: fittedSide == nil ? Spacing.s : 12)
+                cover(side: fittedSide ?? PlayerLayoutMode.scrollingCoverSide(columnWidth: width))
                 Spacer(minLength: 20)
                 controlsColumn(showsChapters: showsChapters, showsVolume: true)
                     .padding(.horizontal, margin)
             }
-        } else {
-            ScrollView {
-                VStack(spacing: 20) {
-                    cover(side: PlayerLayoutMode.scrollingCoverSide(columnWidth: width))
-                        .padding(.top, Spacing.s)
-                    controlsColumn(showsChapters: showsChapters, showsVolume: true)
-                        .padding(.horizontal, margin)
-                }
-            }
-            .scrollBounceBehavior(.basedOnSize)
+            .frame(minHeight: height)
         }
+        .scrollBounceBehavior(.basedOnSize)
     }
 
     /// Titles, scrubber, transport, volume, and the secondary row at their natural height, which
