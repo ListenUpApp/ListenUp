@@ -206,7 +206,18 @@ internal class AuthSessionStore(
      * [deriveAuthState].
      */
     override suspend fun initializeAuthState() {
-        authState.value = deriveAuthState()
+        authState.value =
+            try {
+                deriveAuthState()
+            } catch (e: SecureStorageUnavailableException) {
+                // A storage that throws on a plain read (Apple's Keychain before first unlock) must
+                // not take cold start down with it, nor decide anything destructive: sign-in for this
+                // launch, every credential left where it is.
+                logger.warn {
+                    "Cold start couldn't read '${e.key}'; showing sign-in without touching stored credentials"
+                }
+                DomainAuthState.NeedsLogin(openRegistration = false)
+            }
     }
 
     private suspend fun deriveAuthState(): DomainAuthState {
@@ -215,7 +226,16 @@ internal class AuthSessionStore(
             return DomainAuthState.NeedsServerUrl
         }
 
-        val (hasToken, userId, sessionId) = readSessionCredentials()
+        val credentials = readSessionCredentials()
+        if (credentials == null) {
+            // Still unreadable after every retry. Nothing here is corrupt — the Keystore is out —
+            // so nothing is deleted: this launch signs in, and the next launch finds it all intact.
+            logger.warn {
+                "Session credentials still unreadable after every retry; sign-in for this launch, nothing deleted"
+            }
+            return DomainAuthState.NeedsLogin(openRegistration = getCachedOpenRegistration())
+        }
+        val (hasToken, userId, sessionId) = credentials
 
         if (hasToken && userId != null && sessionId != null) {
             return DomainAuthState.Authenticated(UserId(userId), SessionId(sessionId))
@@ -279,11 +299,11 @@ internal class AuthSessionStore(
      *
      * An unreadable credential is retried on [CREDENTIAL_READ_RETRY_DELAYS]. An access token that
      * stays unreadable is still a stored one: its bytes are on disk, so the session is held and the
-     * next authenticated call decides. An identity that stays unreadable past every retry is treated
-     * as absent — the pre-existing self-heal — because a Keystore that cannot decrypt it for that long
-     * is not blipping, and a fresh sign-in is the only way back to a readable store.
+     * next authenticated call decides. An identity that stays unreadable past every retry returns
+     * null — never "absent": the corruption self-heal (`clearAuthTokens`) is only for data that is
+     * genuinely missing, because wiping on an outage destroys a session whose bytes are all intact.
      */
-    private suspend fun readSessionCredentials(): SessionCredentials {
+    private suspend fun readSessionCredentials(): SessionCredentials? {
         for (wait in CREDENTIAL_READ_RETRY_DELAYS) {
             try {
                 return SessionCredentials(
@@ -296,8 +316,15 @@ internal class AuthSessionStore(
                 delay(wait)
             }
         }
-        logger.warn { "Session identity still unreadable after every retry; treating it as absent" }
-        return SessionCredentials(accessTokenIsStored(), getUserId(), getSessionId())
+        return try {
+            SessionCredentials(
+                hasAccessToken = accessTokenIsStored(),
+                userId = secureStorage.readCredential(KEY_USER_ID),
+                sessionId = secureStorage.readCredential(KEY_SESSION_ID),
+            )
+        } catch (_: SecureStorageUnavailableException) {
+            null
+        }
     }
 
     private suspend fun accessTokenIsStored(): Boolean =
@@ -348,7 +375,11 @@ internal class AuthSessionStore(
     }
 
     private suspend fun getCachedOpenRegistration(): Boolean =
-        secureStorage.read(KEY_OPEN_REGISTRATION)?.toBooleanStrictOrNull() ?: false
+        try {
+            secureStorage.read(KEY_OPEN_REGISTRATION)?.toBooleanStrictOrNull() ?: false
+        } catch (_: SecureStorageUnavailableException) {
+            false
+        }
 
     override suspend fun refreshOpenRegistration() {
         val currentState = authState.value

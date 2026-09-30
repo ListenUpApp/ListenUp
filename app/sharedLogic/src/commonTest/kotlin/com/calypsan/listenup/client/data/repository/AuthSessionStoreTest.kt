@@ -99,6 +99,8 @@ private class UnreadableRefreshTokenStorage : SecureStorage {
  */
 private class BlippingStorage(
     private val unreadableReads: MutableMap<String, Int>,
+    /** Android folds a fault into null on plain [read]; Apple's Keychain read throws instead. */
+    private val readFolds: Boolean = true,
 ) : SecureStorage {
     val data =
         mutableMapOf(
@@ -116,7 +118,8 @@ private class BlippingStorage(
         data[key] = value
     }
 
-    override suspend fun read(key: String): String? = runCatching { readCredential(key) }.getOrNull()
+    override suspend fun read(key: String): String? =
+        if (readFolds) runCatching { readCredential(key) }.getOrNull() else readCredential(key)
 
     override suspend fun readCredential(key: String): String? {
         val remaining = unreadableReads[key] ?: 0
@@ -785,7 +788,10 @@ class AuthSessionStoreTest :
             }
         }
 
-        test("a user_id that stays unreadable past every retry falls back to the corruption self-heal") {
+        // An unreadable identity is not a corrupt one. Wiping here destroyed a session whose every
+        // byte was still on disk; this launch shows sign-in instead, and the next launch — Keystore
+        // back — finds the session intact.
+        test("a user_id that stays unreadable past every retry signs this launch out without deleting anything") {
             runTest {
                 val storage = BlippingStorage(mutableMapOf("user_id" to Int.MAX_VALUE))
                 val store = createStore(storage = storage, serverConfig = configuredServer())
@@ -793,7 +799,48 @@ class AuthSessionStoreTest :
                 store.initializeAuthState()
 
                 store.authState.value.shouldBeInstanceOf<AuthState.NeedsLogin>()
-                storage.deleted.contains("access_token") shouldBe true
+                storage.deleted shouldBe emptyList()
+            }
+        }
+
+        test("a Keystore outage across every credential at cold start deletes nothing") {
+            runTest {
+                val storage =
+                    BlippingStorage(
+                        mutableMapOf("access_token" to Int.MAX_VALUE, "user_id" to Int.MAX_VALUE, "session_id" to Int.MAX_VALUE),
+                    )
+                val store = createStore(storage = storage, serverConfig = configuredServer())
+
+                store.initializeAuthState()
+
+                store.authState.value.shouldBeInstanceOf<AuthState.NeedsLogin>()
+                storage.deleted shouldBe emptyList()
+                storage.data.keys shouldBe setOf("access_token", "refresh_token", "user_id", "session_id")
+            }
+        }
+
+        test("a locked Keychain whose every read throws never throws out of cold start and deletes nothing") {
+            runTest {
+                val everything = Int.MAX_VALUE
+                val storage =
+                    BlippingStorage(
+                        mutableMapOf(
+                            "access_token" to everything,
+                            "refresh_token" to everything,
+                            "user_id" to everything,
+                            "session_id" to everything,
+                            "open_registration" to everything,
+                            "pending_user_id" to everything,
+                            "pending_email" to everything,
+                        ),
+                        readFolds = false,
+                    )
+                val store = createStore(storage = storage, serverConfig = configuredServer())
+
+                store.initializeAuthState()
+
+                store.authState.value.shouldBeInstanceOf<AuthState.NeedsLogin>()
+                storage.deleted shouldBe emptyList()
             }
         }
 
