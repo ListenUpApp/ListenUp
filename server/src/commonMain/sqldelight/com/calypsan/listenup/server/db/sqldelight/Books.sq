@@ -169,6 +169,19 @@ SELECT id FROM books WHERE library_id = :library_id AND isbn = :isbn AND deleted
 selectLiveIdsAndTitlesForLibrary:
 SELECT id, title FROM books WHERE library_id = :library_id AND deleted_at IS NULL;
 
+-- ── Hardcover pull reverse match (HardcoverShelfResolver) ────────────────────
+-- Across every library: the caller filters by what the user may see (BookAccessPolicy).
+
+selectLiveIdsByAsin:
+SELECT id FROM books WHERE asin = :asin AND deleted_at IS NULL;
+
+selectLiveIdsByIsbn:
+SELECT id FROM books WHERE isbn = :isbn AND deleted_at IS NULL;
+
+-- Titles are not pre-normalised in the database, so the resolver compares normalised values in memory.
+selectLiveIdsAndTitles:
+SELECT id, title FROM books WHERE deleted_at IS NULL;
+
 -- Mapping validation: which of the requested ids are LIVE (non-tombstoned) —
 -- MappingValidator rejects a book override pointing at a missing/soft-deleted book.
 selectLiveIdsByIds:

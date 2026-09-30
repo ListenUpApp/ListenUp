@@ -101,3 +101,12 @@ WHERE p.user_id = :user_id AND p.deleted_at IS NULL AND b.deleted_at IS NULL AND
   AND NOT EXISTS (SELECT 1 FROM hardcover_book_links AS l WHERE l.user_id = p.user_id AND l.book_id = p.book_id)
 ORDER BY p.book_id
 LIMIT :limit;
+
+-- The pull: which of the user's books are LINKED to Hardcover book :hc_book_id.
+linkedBooksFor:
+SELECT book_id FROM hardcover_book_links
+WHERE user_id = :user_id AND hc_book_id = :hc_book_id AND match_state = 'LINKED';
+
+-- Whether the book has any link row at all: a NEEDS_MATCH row is the user's to settle, never the pull's.
+hasLink:
+SELECT EXISTS(SELECT 1 FROM hardcover_book_links WHERE user_id = :user_id AND book_id = :book_id);
