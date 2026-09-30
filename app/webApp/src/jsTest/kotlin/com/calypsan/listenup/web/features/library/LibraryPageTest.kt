@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.library
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.SyncState
+import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
@@ -13,6 +14,7 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.design.LibraryFacet
+import com.calypsan.listenup.web.features.home.scanning
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -195,6 +197,52 @@ class LibraryPageTest :
             val root = render(loadedWith(emptyList(), syncing = false, building = false))
 
             root.textContent!! shouldContain "No books"
+        }
+
+        test("a library that cannot be shown offers a way to try again") {
+            // Android's error state carries Retry; without it a web reader who hit this had no move
+            // but reloading the tab.
+            val events = mutableListOf<LibraryUiEvent>()
+            val root =
+                mounts.mount {
+                    LibraryPage(
+                        state = LibraryUiState.Error("Failed to load library"),
+                        onEvent = { events += it },
+                        onOpenBook = {},
+                        onSelectFacet = {},
+                    )
+                }
+
+            (root.querySelector(".lib-retry") as HTMLElement).click()
+
+            events shouldBe listOf(LibraryUiEvent.RefreshRequested)
+        }
+
+        test("a running server scan says what it is doing above the books") {
+            val root =
+                render(
+                    loadedWith(listOf(bookItem("b1", "Dune")))
+                        .copy(isServerScanning = true, scanProgress = scanning(books = 40, booksTotal = 100)),
+                )
+
+            root.querySelector(".lib-status-t")!!.textContent shouldBe "Analyzing"
+            (root.querySelector(".lib-status-track") as HTMLElement).getAttribute("aria-valuenow") shouldBe "40"
+            root.querySelectorAll(".lib-card").length shouldBe 1
+        }
+
+        test("a finished scan leaves no strip behind, even if its last progress lingers") {
+            // `scanProgress` can outlive the scan by a frame; `isServerScanning` is what says it is
+            // still running, which is the gate Android's banner uses.
+            val root =
+                render(loadedWith(listOf(bookItem("b1", "Dune"))).copy(isServerScanning = false, scanProgress = scanning()))
+
+            root.querySelectorAll(".lib-status").length shouldBe 0
+        }
+
+        test("books still arriving are explained above a partial grid") {
+            val root = render(loadedWith(listOf(bookItem("b1", "Dune")), building = true))
+
+            root.textContent!! shouldContain "Building your library"
         }
 
         test("loading renders the placeholder, not an empty library") {

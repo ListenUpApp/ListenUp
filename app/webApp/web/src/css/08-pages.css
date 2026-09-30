@@ -15,16 +15,22 @@
 
 .luw .home-skel-line { width: 8rem; height: 0.95rem; border-radius: 6px; }
 
-/* The library-still-arriving strip. Sits between the greeting and the shelf because it explains
-   why the shelf may be short — above it, it reads as a page-level error; below, it is missed. */
-.luw .home-status {
+/* The library-still-arriving strip, shared by Home and Library. On Home it sits between the
+   greeting and the shelf because it explains why the shelf may be short — above it, it reads as a
+   page-level error; below, it is missed. On Library it sits above the grid for the same reason. */
+.luw .lib-status {
   display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
   padding: 0.7rem 0.95rem; border-radius: var(--r-md);
   background: var(--coral-soft); border: 1px solid var(--coral-ring);
 }
-.luw .home-status-t { font-weight: 700; font-size: 0.9rem; color: var(--ink); }
-.luw .home-status-sub { font-size: var(--fs-small); color: var(--ink-2); }
-.luw .home-status-track { flex: 1; min-width: 8rem; }
+.luw .lib-status-t { font-weight: 700; font-size: 0.9rem; color: var(--ink); }
+.luw .lib-status-sub { font-size: var(--fs-small); color: var(--ink-2); }
+.luw .lib-status-track { flex: 1; min-width: 8rem; }
+/* On Library the strip sits above the grid, so it needs the gap Home's column gives it for free. */
+.luw .lib-status.is-above-grid { margin-bottom: var(--sp-16); }
+.luw .lib-retry { margin-top: var(--sp-8); }
+/* The failed-setup-check panel's one move, filling the auth card like the sign-in submit does. */
+.luw .setup-check-retry { margin-top: var(--sp-8); }
 
 /* ---- The confirm dialog. `<dialog>` gives the top layer and the backdrop pseudo-element, so all
    this has to do is look like the rest of the app. */

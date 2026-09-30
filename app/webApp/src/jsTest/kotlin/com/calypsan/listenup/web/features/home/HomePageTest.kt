@@ -270,14 +270,14 @@ class HomePageTest :
         test("a running scan says what it is doing and how far along it is") {
             val host = homePage(readyHome(scanProgress = scanning(books = 40, booksTotal = 100)))
 
-            host.textOf(".home-status-t") shouldBe "Analyzing"
-            (host.querySelector(".home-status-track") as HTMLElement).getAttribute("aria-valuenow") shouldBe "40"
+            host.textOf(".lib-status-t") shouldBe "Analyzing"
+            (host.querySelector(".lib-status-track") as HTMLElement).getAttribute("aria-valuenow") shouldBe "40"
         }
 
         test("a scan outranks the initial seed, because only the scan can say how far along it is") {
             val host = homePage(readyHome(isBuildingInitialLibrary = true, scanProgress = scanning()))
 
-            host.count(".home-status") shouldBe 1
+            host.count(".lib-status") shouldBe 1
             host.textContent.orEmpty() shouldNotContain "Building your library"
         }
 
@@ -294,13 +294,13 @@ class HomePageTest :
             // that need no explanation. See LibraryUiState.Loaded's identical warning.
             val host = homePage(readyHome(isSyncing = true, isBuildingInitialLibrary = false))
 
-            host.count(".home-status") shouldBe 0
+            host.count(".lib-status") shouldBe 0
         }
 
         test("a quiet library says nothing at all") {
             val host = homePage(readyHome())
 
-            host.count(".home-status") shouldBe 0
+            host.count(".lib-status") shouldBe 0
         }
 
         // ── the other two page states ───────────────────────────────────────────

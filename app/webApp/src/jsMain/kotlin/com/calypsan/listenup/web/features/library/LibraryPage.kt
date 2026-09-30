@@ -106,7 +106,13 @@ fun LibraryPage(
         }
 
         is LibraryUiState.Error -> {
-            EmptyState(title = "Your library can't be shown", body = state.message)
+            EmptyState(title = "Your library can't be shown", body = state.message) {
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = { onEvent(LibraryUiEvent.RefreshRequested) },
+                    attrs = { classes("lib-retry") },
+                ) { Text("Try again") }
+            }
         }
 
         is LibraryUiState.Loaded -> {
@@ -132,6 +138,13 @@ private fun LoadedLibrary(
     selectedIds: Set<String>,
     onToggleSelect: (String) -> Unit,
 ) {
+    // Android's banner gate: `scanProgress` alone can outlive the scan it describes. The seed half
+    // is only offered over a partial grid — an empty one already says it is syncing, in its own words.
+    LibraryStatus(
+        scan = state.scanProgress.takeIf { state.isServerScanning },
+        isBuilding = state.isBuildingInitialLibrary && state.books.isNotEmpty(),
+        placement = "is-above-grid",
+    )
     if (state.books.isEmpty()) {
         EmptyLibrary(isBuilding = state.isBuildingInitialLibrary)
         return

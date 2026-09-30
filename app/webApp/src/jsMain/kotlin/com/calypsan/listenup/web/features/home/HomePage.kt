@@ -19,6 +19,7 @@ import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.web.features.books.press
+import com.calypsan.listenup.web.features.library.LibraryStatus
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
@@ -81,7 +82,7 @@ fun HomePage(
 
             is HomeUiState.Ready -> {
                 HomeHeader(greeting = state.greeting, onOpenSearch = onOpenSearch)
-                LibraryStatus(state)
+                LibraryStatus(scan = state.scanProgress, isBuilding = state.isBuildingInitialLibrary)
                 ContinueListening(state.continueListening, onOpenBook, onOpenLibrary, selection)
                 MyShelves(state.myShelves, onOpenShelf, onCreateShelf)
                 ThisWeek(stats)
@@ -113,56 +114,6 @@ private fun HomeHeader(
 }
 
 private const val SEARCH_ICON_SIZE = 18
-
-/**
- * The strip that says the library is still arriving.
- *
- * This has no counterpart in the design sheet, and it is the one section web needs most: a first
- * sync runs for minutes in a browser, and without this the page is a greeting above an empty row
- * with no explanation.
- *
- * ⛔ It reads `isBuildingInitialLibrary`, **not** `isSyncing`. `isSyncing` tracks the connection,
- * which is `Connected` for the whole of an initial seed — so it is *false* during precisely the
- * window this strip exists for, and driving the strip from it would show nothing at all while
- * thousands of books stream in. `LibraryUiState.Loaded` carries the same warning; Home's empty
- * shelf would have told the same lie its empty grid used to.
- *
- * A scan outranks the seed when both are live, because
- * [com.calypsan.listenup.client.domain.model.ScanProgressState] can say what is actually happening
- * and how far along it is.
- */
-@Composable
-private fun LibraryStatus(state: HomeUiState.Ready) {
-    val scan = state.scanProgress
-    when {
-        scan != null -> {
-            Div(attrs = { classes("home-status") }) {
-                Span(attrs = { classes("home-status-t") }) { Text(scan.phaseDisplayName) }
-                scan.progressFraction?.let { fraction ->
-                    ProgressBar(
-                        value = fraction,
-                        label = scan.phaseDisplayName,
-                        attrs = { classes("home-status-track") },
-                    )
-                }
-                scan.changesSummary?.let { summary ->
-                    Span(attrs = { classes("home-status-sub") }) { Text(summary) }
-                }
-            }
-        }
-
-        state.isBuildingInitialLibrary -> {
-            Div(attrs = { classes("home-status") }) {
-                Span(attrs = { classes("home-status-t") }) { Text("Building your library…") }
-                Span(attrs = { classes("home-status-sub") }) { Text("Books appear as they arrive.") }
-            }
-        }
-
-        else -> {
-            Unit
-        }
-    }
-}
 
 private const val PERCENT = 100
 

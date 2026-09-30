@@ -460,6 +460,16 @@ class ClassContractTest :
                         )
                         LibraryPage(state = contractLibrary(), onEvent = {}, onOpenBook = {}, onSelectFacet = {})
                         LibraryPage(state = LibraryUiState.Loading, onEvent = {}, onOpenBook = {}, onSelectFacet = {})
+                        // The error state's Retry, and a live scan's strip above the grid.
+                        LibraryPage(state = LibraryUiState.Error("nope"), onEvent = {}, onOpenBook = {}, onSelectFacet = {})
+                        LibraryPage(
+                            state =
+                                contractLibrary(books = listOf(contractBook("b1", "Dune")))
+                                    .copy(isServerScanning = true, scanProgress = scanning()),
+                            onEvent = {},
+                            onOpenBook = {},
+                            onSelectFacet = {},
+                        )
                         // Every Contributors state: a populated author list, a populated narrator
                         // list (so `.contrib-role-chip.is-narrator` actually renders — an empty
                         // list here would exercise no row at all), the empty state, and the null
