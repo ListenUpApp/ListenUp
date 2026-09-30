@@ -527,7 +527,7 @@
     "book_finished": "Finished",
     "complete": "Complete",
     "not_started": "Not started",
-    "x_of_y": "%d of %d",
+    "x_of_y": "%1$d of %2$d",
     "edit_title": "Edit series",
     "edit_name": "Name",
     "edit_description": "Description",

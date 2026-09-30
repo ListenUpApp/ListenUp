@@ -1603,7 +1603,7 @@ One beautiful library.</string>
     <string name="series_stat_books">Books</string>
     <string name="series_stat_finished">Finished</string>
     <string name="series_stat_total">Total</string>
-    <string name="series_x_of_y">%d of %d</string>
+    <string name="series_x_of_y">%1$d of %2$d</string>
     <string name="settings_app_version">App version</string>
     <string name="settings_appearance">Appearance</string>
     <string name="settings_are_you_sure_you_want">Are you sure you want to sign out? You'll need to sign in again to access your library.</string>
