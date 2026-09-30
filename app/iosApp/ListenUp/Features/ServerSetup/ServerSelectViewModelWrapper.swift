@@ -23,6 +23,12 @@ final class ServerSelectViewModelWrapper {
     private(set) var selectedServerId: String?
     private(set) var isConnecting: Bool = false
     private(set) var error: String?
+    /// The action that can fix the current failure, when there is one.
+    private(set) var recovery: ConnectRecovery?
+
+    /// True while Local Network access is known to be off (Bonjour refused the browse, or a
+    /// selected server was blocked by it).
+    var isLocalNetworkDenied: Bool { recovery == .openSettings }
 
     /// Navigation callbacks — set by the view.
     var onServerActivated: (() -> Void)?
@@ -55,7 +61,17 @@ final class ServerSelectViewModelWrapper {
     }
 
     func refresh() {
+        // A rescan is a fresh attempt: drop the last failure so it can't outlive the new browse.
+        if error != nil { dismissError() }
         viewModel.onEvent(event: ServerSelectUiEventRefreshClicked.shared)
+    }
+
+    /// Called whenever the app returns to the foreground. If Local Network access blocked the last
+    /// browse or activation, tell the shared ViewModel access may be back; it restarts discovery
+    /// and re-runs whatever was blocked. A still-denied retry fails the same way again.
+    func retryAfterLocalNetworkGrant() {
+        guard isLocalNetworkDenied else { return }
+        viewModel.onEvent(event: ServerSelectUiEventLocalNetworkPermissionGranted.shared)
     }
 
     func dismissError() {
@@ -92,16 +108,18 @@ final class ServerSelectViewModelWrapper {
         }
         switch state.sealedType() {
         case .discovering:
-            isDiscovering = true; isConnecting = false; selectedServerId = nil; error = nil
+            isDiscovering = true; isConnecting = false; selectedServerId = nil; error = nil; recovery = nil
         case .ready:
-            isDiscovering = false; isConnecting = false; selectedServerId = nil; error = nil
+            isDiscovering = false; isConnecting = false; selectedServerId = nil; error = nil; recovery = nil
         case .connecting(let sType):
             let s = sType.value
-            isDiscovering = false; isConnecting = true; selectedServerId = s.selectedServerId; error = nil
+            isDiscovering = false; isConnecting = true; selectedServerId = s.selectedServerId
+            error = nil; recovery = nil
         case .error(let sType):
             let s = sType.value
             isDiscovering = false; isConnecting = false
             selectedServerId = s.selectedServerId; error = s.error.message
+            recovery = ServerConnectViewModelWrapper.recovery(for: s.error)
         }
     }
 

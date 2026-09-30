@@ -10,15 +10,19 @@ struct ServerSelectView: View {
     // MARK: - State
 
     @State private var viewModel: ServerSelectViewModelWrapper
+    @Environment(\.scenePhase) private var scenePhase
 
     // MARK: - Navigation
 
     @Binding var showManualEntry: Bool
+    /// Mirrors the picker's knowledge that Local Network access is off, so manual entry can say so.
+    @Binding var localNetworkDenied: Bool
 
     // MARK: - Initialization
 
-    init(showManualEntry: Binding<Bool>) {
+    init(showManualEntry: Binding<Bool>, localNetworkDenied: Binding<Bool>) {
         self._showManualEntry = showManualEntry
+        self._localNetworkDenied = localNetworkDenied
         _viewModel = State(initialValue: ServerSelectViewModelWrapper(
             viewModel: Dependencies.shared.makeServerSelectViewModel()
         ))
@@ -38,6 +42,7 @@ struct ServerSelectView: View {
 
             groupHeader
             serverList
+            failure
         } footer: {
             Button {
                 if let first = viewModel.servers.first { viewModel.selectServer(first) }
@@ -50,6 +55,24 @@ struct ServerSelectView: View {
         .onAppear {
             viewModel.onManualEntryRequested = { showManualEntry = true }
             viewModel.startDiscovery()
+        }
+        .onChange(of: viewModel.isLocalNetworkDenied) { _, denied in localNetworkDenied = denied }
+        // Returning from Settings re-runs the browse or activation the denial blocked.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { viewModel.retryAfterLocalNetworkGrant() }
+        }
+    }
+
+    /// The last failure, inline under the list: the Local Network notice with its Settings link
+    /// when that is the cause, the error's own message otherwise.
+    @ViewBuilder
+    private var failure: some View {
+        if viewModel.recovery == .openSettings {
+            LocalNetworkNotice()
+        } else if let error = viewModel.error {
+            Label(error, systemImage: "exclamationmark.triangle")
+                .font(.footnote).foregroundStyle(.red)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -189,5 +212,5 @@ private struct DiscoveryRow: View {
 // MARK: - Previews
 
 #Preview("Server Select") {
-    ServerSelectView(showManualEntry: .constant(false))
+    ServerSelectView(showManualEntry: .constant(false), localNetworkDenied: .constant(false))
 }
