@@ -124,7 +124,8 @@ internal class SocialServiceImpl(
         val readingSince = clock.now().toEpochMilliseconds() - READING_WINDOW.inWholeMilliseconds
         val inProgress = playbackPositions.listInProgressForBook(bookId.value, readingSince) // List<userId, positionMs>
         // Newest-first per user. Hardcover reads travel apart so every client can badge them.
-        val (pulled, listened) = bookReads.finishesForBook(bookId.value).partition { it.source == BookReadSource.HARDCOVER }
+        val (pulled, listened) =
+            bookReads.finishesForBook(bookId.value).partition { it.source == BookReadSource.HARDCOVER }
         val finishesByUser = listened.groupBy { it.userId }
         val hardcoverByUser = pulled.groupBy { it.userId }
 
@@ -153,7 +154,10 @@ internal class SocialServiceImpl(
             entries.sortedWith(
                 compareByDescending<BookReaderEntry> { it.currentProgressPct != null }
                     .thenByDescending {
-                        maxOf(it.finishes.firstOrNull() ?: Long.MIN_VALUE, it.hardcoverFinishes.firstOrNull() ?: Long.MIN_VALUE)
+                        maxOf(
+                            it.finishes.firstOrNull() ?: Long.MIN_VALUE,
+                            it.hardcoverFinishes.firstOrNull() ?: Long.MIN_VALUE,
+                        )
                     },
             )
         return AppResult.Success(BookReadership(readers = ordered))

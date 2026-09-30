@@ -65,6 +65,7 @@ private fun bookReadsStatements(): Map<String, String> {
     root.walkTopDown().filter { it.extension == "sq" }.forEach { file ->
         var label: String? = null
         val body = StringBuilder()
+
         fun flush() {
             val name = label ?: return
             val sql = body.toString()
@@ -72,16 +73,12 @@ private fun bookReadsStatements(): Map<String, String> {
         }
         file.readLines().forEach { line ->
             val match = LABEL.matchEntire(line.trim())
-            when {
-                match != null -> {
-                    flush()
-                    label = match.groupValues[1]
-                    body.clear()
-                }
-
-                line.trimStart().startsWith("--") -> Unit
-
-                else -> body.appendLine(line)
+            if (match != null) {
+                flush()
+                label = match.groupValues[1]
+                body.clear()
+            } else if (!line.trimStart().startsWith("--")) {
+                body.appendLine(line)
             }
         }
         flush()
