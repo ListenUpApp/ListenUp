@@ -30,8 +30,8 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import io.ktor.server.websocket.WebSockets as ServerWebSockets
 
-/** How long a released upgrade is given to land on the server — loopback takes milliseconds. */
-private val UPGRADE_LANDING = 2.seconds
+/** How long an upgrade the server has let go of is given to open its session — loopback takes milliseconds. */
+private val UPGRADE_LANDING = 1.seconds
 
 /**
  * Real sockets against a real in-process server: after the client gives up on a connection, the
@@ -51,17 +51,27 @@ private val UPGRADE_LANDING = 2.seconds
 class RpcSocketLeakE2ETest :
     FunSpec({
 
-        /** A silent WebSocket server that counts open sessions and can hold the upgrade behind [upgradeGate]. */
+        /**
+         * A silent WebSocket server that can hold the upgrade behind [upgradeGate], and counts: upgrade
+         * requests that reached the gate, those the gate has let go of (passed, or abandoned by a client
+         * that hung up while held), sessions ever opened, and sessions open right now.
+         */
         class SilentServer(
             val upgradeGate: CompletableDeferred<Unit> = CompletableDeferred(Unit),
         ) {
             val upgradesReached = AtomicInteger(0)
+            val upgradesReleased = AtomicInteger(0)
+            val sessionsOpened = AtomicInteger(0)
             val openSessions = AtomicInteger(0)
             private val stallUpgrade =
                 createRouteScopedPlugin("StallUpgrade") {
                     onCall {
                         upgradesReached.incrementAndGet()
-                        upgradeGate.await()
+                        try {
+                            upgradeGate.await()
+                        } finally {
+                            upgradesReleased.incrementAndGet()
+                        }
                     }
                 }
             val server: EmbeddedServer<*, *> =
@@ -71,6 +81,7 @@ class RpcSocketLeakE2ETest :
                         route("/api/rpc/public") {
                             install(stallUpgrade)
                             webSocket {
+                                sessionsOpened.incrementAndGet()
                                 openSessions.incrementAndGet()
                                 try {
                                     for (frame in incoming) Unit
@@ -108,6 +119,17 @@ class RpcSocketLeakE2ETest :
             override suspend fun invalidate() = Unit
         }
 
+        /** Poll until [counter] reaches at least [atLeast] or [within] elapses; returns the last reading. */
+        suspend fun awaitCount(
+            counter: AtomicInteger,
+            atLeast: Int,
+            within: Duration = 10.seconds,
+        ): Int {
+            val deadline = TimeSource.Monotonic.markNow() + within
+            while (counter.get() < atLeast && deadline.hasNotPassedNow()) delay(20)
+            return counter.get()
+        }
+
         /** Poll until [openSessions] reads [expected] or [within] elapses; returns the last reading. */
         suspend fun settle(
             openSessions: AtomicInteger,
@@ -134,13 +156,14 @@ class RpcSocketLeakE2ETest :
                     shouldThrow<RpcOutcomeUnknownException> {
                         cache.call(timeout = 500.milliseconds) { it.getServerInfo() }
                     }
-                    silent.upgradesReached.get() shouldBe 1
+                    awaitCount(silent.upgradesReached, atLeast = 1) shouldBe 1
 
                     // The upgrade the timed-out call started now completes on the server.
                     silent.upgradeGate.complete(Unit)
 
-                    // Give a leaked upgrade ample time to land and park before reading the count: a
-                    // poll for zero would pass instantly, before the upgrade had even arrived.
+                    // Only once the server has let the held request go can a leaked upgrade land; then give
+                    // it time to open before reading the count — a poll for zero would pass instantly.
+                    awaitCount(silent.upgradesReleased, atLeast = 1) shouldBe 1
                     delay(UPGRADE_LANDING)
                     silent.openSessions.get() shouldBe 0
                 } finally {
@@ -159,6 +182,8 @@ class RpcSocketLeakE2ETest :
                         cache.call(timeout = 500.milliseconds) { it.getServerInfo() }
                     }
 
+                    // The session did open (so a zero below means it closed, not that it never came)…
+                    awaitCount(silent.sessionsOpened, atLeast = 1) shouldBe 1
                     settle(silent.openSessions, expected = 0) shouldBe 0
                 } finally {
                     silent.stop()
@@ -189,8 +214,9 @@ class RpcSocketLeakE2ETest :
 
                     // Three connections were each derived, used, and cancelled — the engine served them all
                     // and is still running for the request client that owns it.
-                    silent.upgradesReached.get() shouldBe 3
+                    awaitCount(silent.upgradesReached, atLeast = 3) shouldBe 3
                     shared.engine.coroutineContext.job.isActive shouldBe true
+                    awaitCount(silent.sessionsOpened, atLeast = 3) shouldBe 3
                     settle(silent.openSessions, expected = 0) shouldBe 0
 
                     // And nothing the cache let go of still pins it: closing the owner closes the engine.
@@ -213,7 +239,8 @@ class RpcSocketLeakE2ETest :
 
                     runCatching { factory.getServerInfo("ws://127.0.0.1:${silent.port}") }
 
-                    silent.upgradesReached.get() shouldBe 1
+                    awaitCount(silent.upgradesReached, atLeast = 1) shouldBe 1
+                    awaitCount(silent.sessionsOpened, atLeast = 1) shouldBe 1
                     settle(silent.openSessions, expected = 0) shouldBe 0
                 } finally {
                     silent.stop()
@@ -228,12 +255,13 @@ class RpcSocketLeakE2ETest :
                     val factory = KtorInstanceRpcFactory(requestTimeoutMillis = 800, socketTimeoutMillis = 800)
 
                     runCatching { factory.getServerInfo("ws://127.0.0.1:${silent.port}") }
-                    silent.upgradesReached.get() shouldBe 1
+                    awaitCount(silent.upgradesReached, atLeast = 1) shouldBe 1
 
                     silent.upgradeGate.complete(Unit)
 
-                    // Give a leaked upgrade ample time to land and park before reading the count: a
-                    // poll for zero would pass instantly, before the upgrade had even arrived.
+                    // Only once the server has let the held request go can a leaked upgrade land; then give
+                    // it time to open before reading the count — a poll for zero would pass instantly.
+                    awaitCount(silent.upgradesReleased, atLeast = 1) shouldBe 1
                     delay(UPGRADE_LANDING)
                     silent.openSessions.get() shouldBe 0
                 } finally {
