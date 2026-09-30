@@ -406,8 +406,6 @@ class LibraryViewModel(
                 refreshBooks()
             }
 
-            is LibraryUiEvent.BookClicked -> { /* Navigation handled by parent */ }
-
             // Books tab sort events
             is LibraryUiEvent.BooksCategoryChanged -> {
                 intent.update { it.copy(booksSortState = it.booksSortState.withCategory(event.category)) }
@@ -789,11 +787,6 @@ class LibraryViewModel(
  */
 sealed interface LibraryUiEvent {
     data object RefreshRequested : LibraryUiEvent
-
-    /** User tapped a book row; navigation is handled by the parent route. */
-    data class BookClicked(
-        val bookId: String,
-    ) : LibraryUiEvent
 
     // Books tab
 

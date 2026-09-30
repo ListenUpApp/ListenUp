@@ -79,19 +79,6 @@ class SeriesEditDelegate(
     }
 
     /**
-     * Clear the series search.
-     */
-    fun clearSearch() {
-        state.update {
-            it.copy(
-                seriesSearchQuery = "",
-                seriesSearchResults = emptyList(),
-            )
-        }
-        seriesQueryFlow.value = ""
-    }
-
-    /**
      * Select a series from search results.
      */
     fun selectSeries(result: SeriesSearchResult) {

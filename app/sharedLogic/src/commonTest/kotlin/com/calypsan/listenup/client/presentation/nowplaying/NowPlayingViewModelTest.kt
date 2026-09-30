@@ -689,7 +689,7 @@ class NowPlayingViewModelTest :
             }
         }
 
-        test("resetSpeedToDefault uses preference value and marks book as default and cycleSpeed wraps") {
+        test("resetSpeedToDefault uses preference value and marks book as default") {
             runTest(testDispatcher) {
                 val fixture = TestFixture()
                 everySuspend { fixture.playbackPreferences.getDefaultPlaybackSpeed() } returns 1.25f
@@ -701,14 +701,6 @@ class NowPlayingViewModelTest :
 
                 verify(VerifyMode.atLeast(1)) { fixture.playbackController.setPlaybackSpeed(1.25f) }
                 fixture.fakePm.speedResets shouldBe listOf(1.25f)
-
-                // cycleSpeed wraps from the highest value (3.0f) back to the lowest (0.5f).
-                // The cycle list is [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0].
-                fixture.fakePm.playbackSpeedFlow.value = 3.0f
-                vm.cycleSpeed()
-                advanceUntilIdle()
-                // cycleSpeed routes through setSpeed → onSpeedChanged, so speedChanges grows.
-                fixture.fakePm.speedChanges.last() shouldBe 0.5f
             }
         }
 

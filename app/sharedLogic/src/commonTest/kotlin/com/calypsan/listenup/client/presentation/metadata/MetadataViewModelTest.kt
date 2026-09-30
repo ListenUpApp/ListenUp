@@ -1017,27 +1017,6 @@ class MetadataViewModelTest :
             }
         }
 
-        // ── reset() ───────────────────────────────────────────────────────────
-
-        test("reset returns to Idle preserving region") {
-            runTest {
-                // changeRegion in Search now re-runs the search, so the repo must stub searchBooks.
-                val repo =
-                    mock<MetadataRepository> {
-                        everySuspend { searchBooks(any(), any(), any()) } returns
-                            AppResult.Success(MetadataSearchResults(emptyList()))
-                    }
-                val vm = buildVm(repo)
-                vm.initForBook("b1", "Dune", "FH")
-                vm.changeRegion(MetadataLocale("de"))
-                advanceUntilIdle()
-                vm.reset()
-
-                val state = vm.state.value.shouldBeInstanceOf<MetadataUiState.Idle>()
-                state.region shouldBe MetadataLocale("de")
-            }
-        }
-
         // ── buildCoverEntries (via Ready.coverEntries) ────────────────────────
 
         test("coverEntries includes iTunes HD and Audible options from preview") {

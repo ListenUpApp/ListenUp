@@ -685,10 +685,6 @@ class NowPlayingViewModel internal constructor(
         }
     }
 
-    fun cycleSpeed() {
-        setSpeed(nextPlaybackSpeed(playbackManager.playbackSpeed.value))
-    }
-
     /** Snapshot of the current book's chapters (non-reactive; for one-shot reads). */
     val chapters: List<Chapter> get() = playbackManager.chapters.value
 }

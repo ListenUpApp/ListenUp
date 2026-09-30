@@ -331,8 +331,6 @@ sealed interface BookEditUiEvent {
         val series: EditableSeries,
     ) : BookEditUiEvent
 
-    data object ClearSeriesSearch : BookEditUiEvent
-
     // Per-role contributor management
 
     /** User typed in the search box for a specific contributor role. */
@@ -351,11 +349,6 @@ sealed interface BookEditUiEvent {
     data class RoleContributorEntered(
         val role: ContributorRole,
         val name: String,
-    ) : BookEditUiEvent
-
-    /** User cleared the search query for a specific role. */
-    data class ClearRoleSearch(
-        val role: ContributorRole,
     ) : BookEditUiEvent
 
     /** User opted to show a previously-hidden role section so they can add contributors to it. */

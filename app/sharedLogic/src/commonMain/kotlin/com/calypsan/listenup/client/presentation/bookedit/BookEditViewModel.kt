@@ -285,10 +285,6 @@ class BookEditViewModel(
                 seriesDelegate.removeSeries(event.series)
             }
 
-            is BookEditUiEvent.ClearSeriesSearch -> {
-                seriesDelegate.clearSearch()
-            }
-
             // Contributor events - delegate to ContributorEditDelegate
             is BookEditUiEvent.RoleSearchQueryChanged -> {
                 contributorDelegate.updateSearchQuery(event.role, event.query)
@@ -300,10 +296,6 @@ class BookEditViewModel(
 
             is BookEditUiEvent.RoleContributorEntered -> {
                 contributorDelegate.addContributor(event.role, event.name)
-            }
-
-            is BookEditUiEvent.ClearRoleSearch -> {
-                contributorDelegate.clearSearch(event.role)
             }
 
             is BookEditUiEvent.AddRoleSection -> {
