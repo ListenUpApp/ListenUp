@@ -182,6 +182,7 @@ fun hardcoverModule(
                 nudge = get(),
                 access = get(),
                 rateLimiter = get(),
+                pulls = get(),
             )
         }
         single {

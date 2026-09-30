@@ -22,6 +22,7 @@ import com.calypsan.listenup.server.hardcover.HardcoverOAuthClient
 import com.calypsan.listenup.server.hardcover.HardcoverOutbox
 import com.calypsan.listenup.server.hardcover.HardcoverPushNudge
 import com.calypsan.listenup.server.hardcover.HardcoverRateLimiter
+import com.calypsan.listenup.server.hardcover.RecordingPullRequests
 import com.calypsan.listenup.server.hardcover.HardcoverTokenCipher
 import com.calypsan.listenup.server.hardcover.HardcoverTokenProvider
 import com.calypsan.listenup.server.hardcover.HardcoverTokens
@@ -99,6 +100,7 @@ private class Rig(
         )
     private val tokenProvider =
         HardcoverTokenProvider(HardcoverOAuthClient(hardcover.client, "listenup-test", "https://hc.test"), store, linker)
+    val pulls = RecordingPullRequests()
     val unscoped =
         HardcoverServiceImpl(
             linker,
@@ -112,6 +114,7 @@ private class Rig(
                 nudge = HardcoverPushNudge { },
                 access = BookAccessPolicy(dbs.sql, dbs.driver),
                 rateLimiter = HardcoverRateLimiter(),
+                pulls = pulls,
             ),
         )
 

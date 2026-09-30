@@ -48,6 +48,7 @@ private class LinkingRig(
     val nudged = CopyOnWriteArrayList<String>()
     private val oauth = HardcoverOAuthClient(HttpClient(), "id", "https://hc.test")
     private val linker = HardcoverLinker(oauth, hardcover.client(), connections, CoroutineScope(Dispatchers.Unconfined), clock)
+    val pulls = RecordingPullRequests()
     val linking =
         HardcoverBookLinking(
             graphQl = hardcover.client(),
@@ -58,6 +59,7 @@ private class LinkingRig(
             nudge = HardcoverPushNudge { nudged += it },
             access = BookAccessPolicy(dbs.sql, dbs.driver),
             rateLimiter = NoWaitRateLimiter(),
+            pulls = pulls,
         )
     val service = HardcoverServiceImpl(linker, clientIdConfigured = true, linking = linking)
 
@@ -221,6 +223,15 @@ class HardcoverBookLinkingTest :
                     ).shouldBeInstanceOf<AppResult.Failure>()
                     .error
                     .shouldBeInstanceOf<AuthError.PermissionDenied>()
+            }
+        }
+
+        test("linking or unlinking a book tells the pull its match changed") {
+            linkingTest {
+                connect()
+                serviceAs(UserRole.ROOT).linkBook(BookId(BOOK), 427_578L, 9_001L) shouldBe AppResult.Success(Unit)
+                serviceAs(UserRole.ROOT).unlinkBook(BookId(BOOK)) shouldBe AppResult.Success(Unit)
+                pulls.matchChanges shouldBe listOf(USER to BOOK, USER to BOOK)
             }
         }
     })
