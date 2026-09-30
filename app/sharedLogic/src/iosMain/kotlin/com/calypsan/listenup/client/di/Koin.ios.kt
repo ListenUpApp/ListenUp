@@ -57,6 +57,7 @@ import com.calypsan.listenup.client.presentation.admin.RestoreFromFileViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
 import com.calypsan.listenup.client.presentation.admin.imports.ImportFlowViewModel
+import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksViewModel
 import com.calypsan.listenup.client.presentation.auth.ForgotPasswordViewModel
 import com.calypsan.listenup.client.presentation.auth.LoginViewModel
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
@@ -334,6 +335,8 @@ object KoinHelper {
     fun getAdminBackupViewModel(): AdminBackupViewModel = resolve(AdminBackupViewModel::class)
 
     fun getOrganizeSettingsViewModel(): OrganizeSettingsViewModel = resolve(OrganizeSettingsViewModel::class)
+
+    fun getUploadBooksViewModel(): UploadBooksViewModel = resolve(UploadBooksViewModel::class)
 
     fun getRestoreFromFileViewModel(): RestoreFromFileViewModel = resolve(RestoreFromFileViewModel::class)
 

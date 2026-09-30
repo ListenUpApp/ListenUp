@@ -177,6 +177,7 @@ final class Dependencies {
     func createOrganizeSettingsViewModel() -> OrganizeSettingsViewModel {
         KoinHelper.shared.getOrganizeSettingsViewModel()
     }
+    func createUploadBooksViewModel() -> UploadBooksViewModel { KoinHelper.shared.getUploadBooksViewModel() }
     func createRestoreFromFileViewModel() -> RestoreFromFileViewModel { KoinHelper.shared.getRestoreFromFileViewModel() }
     func createRestoreBackupViewModel(backupId: String) -> RestoreBackupViewModel {
         KoinHelper.shared.getRestoreBackupViewModel(backupId: backupId)
