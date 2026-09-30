@@ -155,6 +155,13 @@ class SessionService(
      * after every rotation it makes. In the lost-reply case itself the window is unbounded, because
      * there the client never gets that access token and the window stays open until the old token is
      * replayed. Once the rotation is confirmed, a late replay revokes as before.
+     *
+     * **Relies on the client's save order.** If a client ever persisted the new access token but died
+     * before persisting the new refresh token, it would hold the OLD refresh token beside an access
+     * token that confirms the new rotation — and its next refresh would meet a confirmed rotation and
+     * revoke the family. A pre-existing class of torn write that confirmation makes reachable. The
+     * shared client closes it by writing the refresh token first (`AuthSessionStore.saveAuthTokens`,
+     * C9) to durable storage; any other client must do the same, or write both atomically.
      */
     suspend fun rotate(
         token: RefreshToken,
@@ -356,8 +363,18 @@ class SessionService(
      * The write is a conditional UPDATE that only an unconfirmed row whose `rotated_at` still equals
      * the one read here can match. So a burst of concurrent first requests writes at most once, and
      * a rotation that lands between the read and the write is never confirmed by the old rotation's
-     * token. `iat` has one-second resolution, so a token minted in the same second as, but before, a
-     * rotation also confirms it; that needs two rotations within one second, and errs toward revoking.
+     * token.
+     *
+     * Two known edges, both from comparing a whole-second `iat` with a millisecond `rotated_at`:
+     *  - An access token minted in the same second as, but before, a later rotation falsely confirms
+     *    it. That needs two rotations within one second — the client's recent-refresh reuse window and
+     *    single-flight make it unlikely — and it errs toward revoking.
+     *  - A wall-clock step backwards of more than a second between stamping `rotated_at` and minting
+     *    the rotation's access token makes that rotation impossible to confirm. That errs toward
+     *    re-rotation on a later replay.
+     *
+     * The future fix for both is a rotation-generation (`rot`) claim in the access JWT, compared for
+     * equality with a generation column instead of by time.
      */
     suspend fun isLive(
         sessionId: SessionId,

@@ -125,6 +125,13 @@ internal class AuthSessionStore(
             // Write order (C9): refresh → session → user → access. The access token is the readiness
             // signal a concurrent reader keys on, so it lands LAST — never a new access token paired
             // with a stale refresh token.
+            //
+            // The server's lost-reply rule makes this order load-bearing for the session itself: a
+            // process death after writing the new access token but before the new refresh token would
+            // leave the OLD refresh token beside an access token that confirms the new rotation, and
+            // the next refresh would then revoke the whole family. Refresh first (each save durable)
+            // rules that out; a torn write lands the recoverable way round — new refresh, old access.
+            // Writing both atomically would remove even that; don't reorder these lines.
             secureStorage.save(KEY_REFRESH_TOKEN, refresh.value)
             secureStorage.save(KEY_SESSION_ID, sessionId)
             secureStorage.save(KEY_USER_ID, userId)
