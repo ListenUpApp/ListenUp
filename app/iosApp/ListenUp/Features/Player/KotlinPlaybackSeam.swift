@@ -141,6 +141,7 @@ final class KotlinSleepTiming: SleepTiming {
     }
     func setEndOfChapterTimer() { manager.setTimer(mode: SleepTimerModeEndOfChapter.shared) }
     func cancelTimer() { manager.cancelTimer() }
+    func extendTimer(minutes: Int) { manager.extendTimer(additionalMinutes: Int32(minutes)) }
     func onBookChanged(bookId: String?) { manager.onBookChanged(bookId: bookId) }
     func onChapterChanged(newChapterIndex: Int) {
         manager.onChapterChanged(newChapterIndex: Int32(newChapterIndex))

@@ -22,6 +22,15 @@ enum SleepTimerOption: Hashable {
         return isEndOfChapter ? .endOfChapter : nil
     }
 
+    /// The "Add more time" ladder — the same 5/10/15 Android's sheet and web's picker offer.
+    static let extensionMinutes = [5, 10, 15]
+
+    /// Whether the timer has a countdown to add to. An end-of-chapter timer has none (the shared
+    /// timer would ignore the request), so the menu offers extending only to a running countdown.
+    static func canExtend(isActive: Bool, isEndOfChapter: Bool) -> Bool {
+        isActive && !isEndOfChapter
+    }
+
     var title: String {
         switch self {
         case .off: String(localized: "player.sleep_off")
@@ -83,6 +92,17 @@ struct SleepTimerMenu<Label: View>: View {
             } header: {
                 if observer.sleepTimerActive {
                     Text(observer.sleepTimerLabel)
+                }
+            }
+            // A separate section, so the actions that change a running timer read apart from the
+            // picker that replaces it — HIG, Menus: "Consider grouping logically related items."
+            if SleepTimerOption.canExtend(isActive: observer.sleepTimerActive, isEndOfChapter: isEndOfChapter) {
+                Section(String(localized: "player.add_more_time")) {
+                    ForEach(SleepTimerOption.extensionMinutes, id: \.self) { minutes in
+                        Button(String(format: String(localized: "player.extend_minutes"), minutes)) {
+                            observer.extendSleepTimer(minutes: minutes)
+                        }
+                    }
                 }
             }
         } label: {

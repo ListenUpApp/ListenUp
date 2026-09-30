@@ -54,4 +54,18 @@ struct SleepTimerOptionTests {
     @Test func aRunningCountdownChecksNothing() {
         #expect(SleepTimerOption.selection(isActive: true, isEndOfChapter: false) == nil)
     }
+
+    /// The same 5/10/15 ladder Android's sheet and web's picker offer, so a listener finds the
+    /// same choices on every device.
+    @Test func extendsByFiveTenOrFifteenMinutes() {
+        #expect(SleepTimerOption.extensionMinutes == [5, 10, 15])
+    }
+
+    /// Extending is arithmetic on a countdown: an end-of-chapter timer has none to add to, and
+    /// the shared manager ignores the request there — so the menu doesn't offer it.
+    @Test func onlyARunningCountdownCanBeExtended() {
+        #expect(SleepTimerOption.canExtend(isActive: true, isEndOfChapter: false))
+        #expect(!SleepTimerOption.canExtend(isActive: true, isEndOfChapter: true))
+        #expect(!SleepTimerOption.canExtend(isActive: false, isEndOfChapter: false))
+    }
 }

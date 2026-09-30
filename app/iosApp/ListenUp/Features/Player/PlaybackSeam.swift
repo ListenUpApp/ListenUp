@@ -143,6 +143,9 @@ protocol SleepTiming {
     func setDurationTimer(minutes: Int)
     func setEndOfChapterTimer()
     func cancelTimer()
+    /// Add minutes to a running countdown. The shared timer ignores it for an end-of-chapter timer
+    /// (there is no countdown to add to) and when nothing is running.
+    func extendTimer(minutes: Int)
     /// Tell the timer which book the listener is on. A change of book cancels any running timer
     /// and clears the end-of-chapter baseline — a timer is a request about *this* book's chapters,
     /// and carrying it into the next one fires the fade at a boundary nobody asked for, while the

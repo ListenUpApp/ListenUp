@@ -96,6 +96,18 @@ struct PlayerCoordinatorWiringTests {
         #expect(coordinator.narrators.map(\.id) == ["n1"])
     }
 
+    /// "+10 min" in the sleep menu reaches the shared timer, which owns the arithmetic (and the
+    /// rule that only a countdown can grow) — so iOS cannot drift from Android and web on it.
+    @Test func extendingTheSleepTimerAsksTheSharedTimer() {
+        let sleep = FakeSleepTiming()
+        let coordinator = PlayerCoordinator(
+            preparer: FakePlaybackPreparing(), progress: FakeProgressReporting(), sleep: sleep,
+            engine: FakePlaybackEngine()
+        )
+        coordinator.extendSleepTimer(minutes: 10)
+        #expect(sleep.extensions == [10])
+    }
+
     @Test func playLoadsAndStartsEngineAtResumePosition() async throws {
         let (coordinator, engine, progress) = makeCoordinator()
         coordinator.play(bookId: "book1")

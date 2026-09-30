@@ -507,6 +507,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     func setSleepTimer(minutes: Int) { sleep.setDurationTimer(minutes: minutes) }
     func setSleepTimerEndOfChapter() { sleep.setEndOfChapterTimer() }
     func cancelSleepTimer() { sleep.cancelTimer() }
+    func extendSleepTimer(minutes: Int) { sleep.extendTimer(minutes: minutes) }
 
     /// Download the current book's first PDF (if needed) and set `documentToOpen`
     /// to present `DocumentReaderView`. Audio playback is not affected.
