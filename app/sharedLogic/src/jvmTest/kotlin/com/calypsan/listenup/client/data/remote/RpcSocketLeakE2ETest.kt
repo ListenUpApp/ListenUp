@@ -30,6 +30,9 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import io.ktor.server.websocket.WebSockets as ServerWebSockets
 
+/** How long a released upgrade is given to land on the server — loopback takes milliseconds. */
+private val UPGRADE_LANDING = 2.seconds
+
 /**
  * Real sockets against a real in-process server: after the client gives up on a connection, the
  * server must see no WebSocket session left open behind it.
@@ -45,9 +48,6 @@ import io.ktor.server.websocket.WebSockets as ServerWebSockets
  *
  * `runBlocking`, not `runTest`: real I/O on the real clock.
  */
-/** How long a released upgrade is given to land on the server — loopback takes milliseconds. */
-private val UPGRADE_LANDING = 2.seconds
-
 class RpcSocketLeakE2ETest :
     FunSpec({
 
@@ -82,7 +82,13 @@ class RpcSocketLeakE2ETest :
                     }
                 }.start(wait = false)
 
-            val port: Int get() = runBlocking { server.engine.resolvedConnectors().first().port }
+            val port: Int get() =
+                runBlocking {
+                    server.engine
+                        .resolvedConnectors()
+                        .first()
+                        .port
+                }
 
             fun stop() = server.stop(gracePeriodMillis = 100, timeoutMillis = 500)
         }
@@ -189,7 +195,10 @@ class RpcSocketLeakE2ETest :
 
                     // And nothing the cache let go of still pins it: closing the owner closes the engine.
                     shared.close()
-                    withTimeout(5.seconds) { shared.engine.coroutineContext.job.join() }
+                    withTimeout(5.seconds) {
+                        shared.engine.coroutineContext.job
+                            .join()
+                    }
                 } finally {
                     silent.stop()
                 }
