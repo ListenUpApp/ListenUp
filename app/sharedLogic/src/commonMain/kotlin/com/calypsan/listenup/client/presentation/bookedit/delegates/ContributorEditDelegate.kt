@@ -91,19 +91,6 @@ class ContributorEditDelegate(
     }
 
     /**
-     * Clear search state for a role.
-     */
-    fun clearSearch(role: ContributorRole) {
-        state.update {
-            it.copy(
-                roleSearchQueries = it.roleSearchQueries + (role to ""),
-                roleSearchResults = it.roleSearchResults - role,
-            )
-        }
-        roleQueryFlows[role]?.value = ""
-    }
-
-    /**
      * Add a role section to visible roles.
      */
     fun addRoleSection(role: ContributorRole) {

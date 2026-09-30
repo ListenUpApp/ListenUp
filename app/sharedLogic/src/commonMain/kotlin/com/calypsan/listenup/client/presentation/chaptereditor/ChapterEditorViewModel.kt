@@ -218,8 +218,14 @@ class ChapterEditorViewModel(
     /** Removes [chapterId], merging its span into the chapter before it. */
     fun remove(chapterId: String) = edit { chapters, duration -> chapters.removed(chapterId, duration) }
 
-    /** Replaces the whole set — the commit step of drift correction. */
-    fun replaceAll(chapters: List<Chapter>) = edit { _, duration -> chapters.withDerivedDurations(duration) }
+    /**
+     * Replaces the whole set — the commit step of drift correction.
+     *
+     * `internal`, not public: [applyDrift] is its only production caller, and no client wires it
+     * directly. The spec that proves an invalid set is refused locally reaches it from the same
+     * module, which is the one place it is meant to be reachable from.
+     */
+    internal fun replaceAll(chapters: List<Chapter>) = edit { _, duration -> chapters.withDerivedDurations(duration) }
 
     /** Opens the guided drift flow with nothing pinned yet. */
     fun beginDrift() {

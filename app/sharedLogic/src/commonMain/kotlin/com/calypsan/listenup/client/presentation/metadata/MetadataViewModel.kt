@@ -699,11 +699,6 @@ class MetadataViewModel(
         )
     }
 
-    /** Reset back to [MetadataUiState.Idle]. Call when dismissing the flow. */
-    fun reset() {
-        state.value = MetadataUiState.Idle(region = state.value.region)
-    }
-
     private fun loadPreview(
         match: MetadataBook,
         region: MetadataLocale,

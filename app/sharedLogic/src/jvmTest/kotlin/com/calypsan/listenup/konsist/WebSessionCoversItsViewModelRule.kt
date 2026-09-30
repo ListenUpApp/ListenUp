@@ -204,15 +204,12 @@ private val EXCUSED =
         // decision is indistinguishable from an oversight until a human looks. Then move it up to a
         // labelled section or close it and delete the line.
         // Metadata wizards.
-        "ContributorMetadataViewModel.reset",
         "ContributorMetadataViewModel.selectAsin",
-        "MetadataViewModel.reset",
         // Admin.
         "OrganizeSettingsViewModel.clearError",
         "SyncIndicatorViewModel.toggleExpanded",
         // Surfaced 2026-09-27, when the rule learned to see `koin.get<X> { parametersOf(…) }`.
         "AdminCollectionDetailViewModel.loadUsersForSharing",
-        "ChapterEditorViewModel.replaceAll",
         // Manual refresh: check whether web refreshes on navigation before building a control.
         "HomeViewModel.refresh",
         "UserProfileViewModel.refresh",

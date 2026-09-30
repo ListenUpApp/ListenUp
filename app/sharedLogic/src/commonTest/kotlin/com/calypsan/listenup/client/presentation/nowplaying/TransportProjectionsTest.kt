@@ -44,32 +44,6 @@ class TransportProjectionsTest :
                     600_000L
             }
         }
-
-        context("nextPlaybackSpeed") {
-
-            test("steps up through the ladder") {
-                nextPlaybackSpeed(1.0f) shouldBe 1.25f
-                nextPlaybackSpeed(1.25f) shouldBe 1.5f
-                nextPlaybackSpeed(2.0f) shouldBe 2.5f
-            }
-
-            test("wraps from the top back to the slowest") {
-                // A cycle control with a dead end is a control that stops working, so the ladder is a
-                // ring: the listener who overshoots gets back by carrying on, not by hunting a reset.
-                nextPlaybackSpeed(3.0f) shouldBe 0.5f
-            }
-
-            test("tolerates a float that is a hair off a rung") {
-                // Speeds make a round trip through storage and the platform player, so 1.5 comes back
-                // as 1.4999999. Matching exactly would silently drop such a listener to the bottom.
-                nextPlaybackSpeed(1.4999999f) shouldBe 1.75f
-                nextPlaybackSpeed(1.5000001f) shouldBe 1.75f
-            }
-
-            test("a speed off the ladder entirely climbs to the next rung above it") {
-                nextPlaybackSpeed(1.1f) shouldBe 1.5f
-            }
-        }
     })
 
 class PlaybackSpeedVocabularyTest :

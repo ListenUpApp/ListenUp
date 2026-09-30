@@ -461,11 +461,6 @@ class ContributorMetadataViewModel(
         }
     }
 
-    /** Reset back to [ContributorMetadataUiState.Idle], keeping the chosen region. */
-    fun reset() {
-        state.value = ContributorMetadataUiState.Idle(region = state.value.region)
-    }
-
     private fun loadPreview(target: PreviewTarget) {
         viewModelScope.launch {
             try {

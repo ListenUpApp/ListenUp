@@ -3,11 +3,7 @@ package com.calypsan.listenup.client.presentation.nowplaying
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-/**
- * The playback speeds a cycle control steps through, slowest first.
- *
- * A ring rather than a list with ends: see [nextPlaybackSpeed].
- */
+/** The preset playback speeds the speed pickers offer, slowest first. */
 val PLAYBACK_SPEED_STEPS: List<Float> = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f, 2.5f, 3.0f)
 
 /** The slowest the player is asked to go. Below this a narrator stops being intelligible. */
@@ -83,23 +79,6 @@ fun skipTargetMs(
     } else {
         (currentPositionMs - distanceMs).coerceAtLeast(0L)
     }
-}
-
-/**
- * The speed one press of a cycle control moves to, wrapping from the fastest back to the slowest.
- *
- * The ladder is a ring on purpose: a cycle control with a dead end is a control that stops working,
- * and a listener who overshoots should get back by carrying on rather than by hunting for a reset.
- *
- * The comparison carries a tolerance because a speed makes a round trip through storage and the
- * platform player, so 1.5 comes back as 1.4999999. Matching a rung exactly would read that as
- * "below the ladder" and drop the listener to the bottom of it.
- */
-fun nextPlaybackSpeed(current: Float): Float {
-    val currentIndex = PLAYBACK_SPEED_STEPS.indexOfFirst { it >= current - SPEED_MATCH_TOLERANCE }
-    val nextIndex =
-        if (currentIndex == -1 || currentIndex >= PLAYBACK_SPEED_STEPS.lastIndex) 0 else currentIndex + 1
-    return PLAYBACK_SPEED_STEPS[nextIndex]
 }
 
 /** Slack allowed when matching a speed to a rung — see [isSamePlaybackSpeed]. */
