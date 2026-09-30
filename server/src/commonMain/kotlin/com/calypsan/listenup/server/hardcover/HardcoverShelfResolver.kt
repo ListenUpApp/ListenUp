@@ -60,9 +60,23 @@ class HardcoverShelfResolver(
                 }
             val resolution =
                 when {
-                    linked.size == 1 -> ShelfResolution.Linked(linked.single())
-                    linked.isEmpty() && entry.finishedReads.isNotEmpty() -> reverseMatch(userId, role, entry, titles, claimed)
-                    else -> null
+                    linked.size == 1 -> {
+                        ShelfResolution.Linked(linked.single())
+                    }
+
+                    linked.isEmpty() && entry.finishedReads.isNotEmpty() -> {
+                        reverseMatch(
+                            userId,
+                            role,
+                            entry,
+                            titles,
+                            claimed,
+                        )
+                    }
+
+                    else -> {
+                        null
+                    }
                 }
             if (resolution != null && claimed.add(resolution.bookId)) resolved[entry.userBookId] = resolution
         }
@@ -77,7 +91,12 @@ class HardcoverShelfResolver(
         claimed: Set<String>,
     ): ShelfResolution.Matched? {
         for (method in REVERSE_TIERS) {
-            val accessible = candidatesFor(method, entry, titles).distinct().filter { access.canAccess(userId, role, it) }
+            val accessible =
+                candidatesFor(
+                    method,
+                    entry,
+                    titles,
+                ).distinct().filter { access.canAccess(userId, role, it) }
             when {
                 accessible.isEmpty() -> {
                     continue
@@ -92,8 +111,17 @@ class HardcoverShelfResolver(
                     val bookId = accessible.single()
                     val taken =
                         bookId in claimed ||
-                            suspendTransaction(sql) { sql.hardcoverBookLinksQueries.hasLink(userId, bookId).executeAsOne() }
-                    return if (taken) null else ShelfResolution.Matched(bookId, HardcoverMatch(entry.hcBookId, entry.defaultAudioEditionId, method))
+                            suspendTransaction(
+                                sql,
+                            ) { sql.hardcoverBookLinksQueries.hasLink(userId, bookId).executeAsOne() }
+                    return if (taken) {
+                        null
+                    } else {
+                        ShelfResolution.Matched(
+                            bookId,
+                            HardcoverMatch(entry.hcBookId, entry.defaultAudioEditionId, method),
+                        )
+                    }
                 }
             }
         }
@@ -108,12 +136,15 @@ class HardcoverShelfResolver(
         when (method) {
             HardcoverMatchMethod.ASIN -> {
                 entry.editionAsin
-                    ?.let { asin -> suspendTransaction(sql) { sql.booksQueries.selectLiveIdsByAsin(asin).executeAsList() } }
-                    .orEmpty()
+                    ?.let { asin ->
+                        suspendTransaction(sql) { sql.booksQueries.selectLiveIdsByAsin(asin).executeAsList() }
+                    }.orEmpty()
             }
 
             HardcoverMatchMethod.ISBN -> {
-                suspendTransaction(sql) { entry.editionIsbns.flatMap { sql.booksQueries.selectLiveIdsByIsbn(it).executeAsList() } }
+                suspendTransaction(
+                    sql,
+                ) { entry.editionIsbns.flatMap { sql.booksQueries.selectLiveIdsByIsbn(it).executeAsList() } }
             }
 
             HardcoverMatchMethod.SEARCH -> {
@@ -131,7 +162,11 @@ class HardcoverShelfResolver(
         titles: TitleIndex,
     ): List<String> {
         val title = entry.title?.let(::normalizeText)?.takeIf { it.isNotEmpty() } ?: return emptyList()
-        val contributors = entry.authors.map(::normalizeText).filter { it.isNotEmpty() }.toSet()
+        val contributors =
+            entry.authors
+                .map(::normalizeText)
+                .filter { it.isNotEmpty() }
+                .toSet()
         if (contributors.isEmpty()) return emptyList()
         val ids = titles.idsTitled(title)
         if (ids.isEmpty()) return emptyList()

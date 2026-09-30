@@ -142,7 +142,11 @@ class HardcoverShelfFeedTest :
                     listOf("2026-09-30T18:04:19.1+00:00", "2026-09-30T18:04:19.10654+00:00", "2026-09-30T18:04:20+00:00")
                 hardcover.requests
                     .filter { it.operation == "user_books_changed" }
-                    .map { it.variables.getValue("after").jsonPrimitive.content } shouldBe
+                    .map {
+                        it.variables
+                            .getValue("after")
+                            .jsonPrimitive.content
+                    } shouldBe
                     listOf(EPOCH) + seen.map { it.updatedAt }
             }
         }

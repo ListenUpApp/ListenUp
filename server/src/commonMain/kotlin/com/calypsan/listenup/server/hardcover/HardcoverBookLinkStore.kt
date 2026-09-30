@@ -197,7 +197,14 @@ class HardcoverBookLinkStore(
         if (readIds.isEmpty()) {
             emptySet()
         } else {
-            suspendTransaction(sql) { sql.hardcoverPushedReadsQueries.pushedAmong(userId, readIds).executeAsList().toSet() }
+            suspendTransaction(
+                sql,
+            ) {
+                sql.hardcoverPushedReadsQueries
+                    .pushedAmong(userId, readIds)
+                    .executeAsList()
+                    .toSet()
+            }
         }
 
     /** Up to [limit] started, unmatched books of [userId] with ids after [after]. */

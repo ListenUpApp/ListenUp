@@ -44,8 +44,14 @@ private class StoreRig(
         )
 
     fun sources(): List<Pair<String, String>> =
-        sql.bookReadsQueries.finishesForBook("book-1").executeAsList().map { it.id to it.source } +
-            sql.bookReadsQueries.finishesForBook("book-2").executeAsList().map { it.id to it.source }
+        sql.bookReadsQueries
+            .finishesForBook("book-1")
+            .executeAsList()
+            .map { it.id to it.source } +
+            sql.bookReadsQueries
+                .finishesForBook("book-2")
+                .executeAsList()
+                .map { it.id to it.source }
 }
 
 private fun storeTest(block: suspend StoreRig.() -> Unit) = withSqlDatabase { runTest { StoreRig(sql).block() } }

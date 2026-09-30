@@ -68,7 +68,12 @@ class HardcoverPuller(
         val state =
             if (saved.fullPullStartedAt == null && isFullPullDue(saved.lastFullPullAt, now)) {
                 store.startFullPull(userId, now)
-                HardcoverPullState(cursor = null, cursorId = null, fullPullStartedAt = now, lastFullPullAt = saved.lastFullPullAt)
+                HardcoverPullState(
+                    cursor = null,
+                    cursorId = null,
+                    fullPullStartedAt = now,
+                    lastFullPullAt = saved.lastFullPullAt,
+                )
             } else {
                 saved
             }

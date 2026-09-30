@@ -58,14 +58,23 @@ class HardcoverPullStore(
     /** [userId]'s pull state, or null without a connection. */
     suspend fun pullState(userId: String): HardcoverPullState? =
         suspendTransaction(sql) { sql.hardcoverConnectionsQueries.selectPullState(userId).executeAsOneOrNull() }
-            ?.let { HardcoverPullState(it.pull_cursor, it.pull_cursor_id, it.full_pull_started_at, it.last_full_pull_at) }
+            ?.let {
+                HardcoverPullState(
+                    it.pull_cursor,
+                    it.pull_cursor_id,
+                    it.full_pull_started_at,
+                    it.last_full_pull_at,
+                )
+            }
 
     /** A full pull starts at [at]: the cursor goes back to the beginning of the shelf. */
     suspend fun startFullPull(
         userId: String,
         at: Long,
     ) {
-        suspendTransaction(sql) { sql.hardcoverConnectionsQueries.startFullPull(full_pull_started_at = at, user_id = userId) }
+        suspendTransaction(
+            sql,
+        ) { sql.hardcoverConnectionsQueries.startFullPull(full_pull_started_at = at, user_id = userId) }
     }
 
     /**
@@ -111,10 +120,19 @@ class HardcoverPullStore(
                         created_at = now,
                         hc_read_id = read.hcReadId,
                     )
-                    reads.updatePulled(book_id = book.bookId, finished_at = read.finishedAt, user_id = userId, hc_read_id = read.hcReadId)
+                    reads.updatePulled(
+                        book_id = book.bookId,
+                        finished_at = read.finishedAt,
+                        user_id = userId,
+                        hc_read_id = read.hcReadId,
+                    )
                 }
             }
-            sql.hardcoverConnectionsQueries.updatePullCursor(pull_cursor = cursor, pull_cursor_id = cursorId, user_id = userId)
+            sql.hardcoverConnectionsQueries.updatePullCursor(
+                pull_cursor = cursor,
+                pull_cursor_id = cursorId,
+                user_id = userId,
+            )
         }
     }
 

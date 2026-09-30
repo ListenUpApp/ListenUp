@@ -38,7 +38,11 @@ private fun PullRig.aftersFrom(from: Int): List<String> =
     hardcover.requests
         .drop(from)
         .filter { it.operation == "user_books_changed" }
-        .map { it.variables.getValue("after").jsonPrimitive.content }
+        .map {
+            it.variables
+                .getValue("after")
+                .jsonPrimitive.content
+        }
 
 /** Spec B3's targeted specs, end to end through the real push executor and puller against one fake Hardcover. */
 class HardcoverPullSpecsTest :
@@ -137,7 +141,10 @@ class HardcoverPullSpecsTest :
 
                 aftersFrom(before).first() shouldBe PULL_EPOCH
                 store.pulledReads(USER) shouldBe once
-                sql.bookReadsQueries.finishesForBook(BOOK).executeAsList().size shouldBe 1
+                sql.bookReadsQueries
+                    .finishesForBook(BOOK)
+                    .executeAsList()
+                    .size shouldBe 1
             }
         }
 
@@ -214,7 +221,14 @@ class HardcoverPullSpecsTest :
                 connect()
                 hardcover.seedShelf(HC_BOOK, HardcoverStatus.READ, "2016-01-01" to "2016-02-01", editionId = 9_001L)
                 pullAll()
-                sql.bookReadsQueries.insert(id = "lu", user_id = USER, book_id = BOOK, finished_at = T0, source = "playback", created_at = T0)
+                sql.bookReadsQueries.insert(
+                    id = "lu",
+                    user_id = USER,
+                    book_id = BOOK,
+                    finished_at = T0,
+                    source = "playback",
+                    created_at = T0,
+                )
                 hardcover.deleteShelf(HC_BOOK)
 
                 pullAll()
