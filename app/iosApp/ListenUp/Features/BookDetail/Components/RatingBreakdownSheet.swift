@@ -114,20 +114,12 @@ struct RatingBreakdownSheet: View {
         }
         let percent = "\(Int((share * 100).rounded()))"
         return String(
-            format: escapingLiteralPercents(String(localized: "book.detail_rating_source_row_share")),
+            format: String(localized: "book.detail_rating_source_row_share"),
             label,
             averageText,
             countText,
             percent
         )
-    }
-
-    /// The share template ends in a literal percent sign ("%4$@%"), which `String(format:)` would
-    /// swallow as an unfinished specifier; double every percent sign that starts no specifier.
-    private nonisolated static func escapingLiteralPercents(_ template: String) -> String {
-        template.replacing(/%%|%(?:\d+\$)?[@d]|%/) { match in
-            match.output == "%" ? "%%" : String(match.output)
-        }
     }
 }
 
