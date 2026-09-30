@@ -52,8 +52,14 @@ struct MainTabView: View {
         }
     }
 
-    /// A regular width shows the sidebar; a compact one (iPhone, 1/3 Split View) the tab bar.
-    private var usesSidebar: Bool { horizontalSizeClass == .regular }
+    /// A regular-width iPad window shows the sidebar; an iPhone (in either orientation) and a narrow
+    /// iPad window (1/3 Split View) the tab bar.
+    private var usesSidebar: Bool {
+        MainShellModel.usesSidebar(
+            horizontalSizeClass: horizontalSizeClass,
+            isPhone: UIDevice.current.userInterfaceIdiom == .phone
+        )
+    }
 
     var body: some View {
         @Bindable var shell = shell

@@ -111,6 +111,17 @@ final class MainShellModel {
 
     // MARK: - Compact tab bar ↔ sidebar
 
+    /// Whether the shell shows the sidebar's tabs (one entry per Library section, plus Downloads and
+    /// Settings) rather than the compact tab bar's.
+    ///
+    /// Only an iPad (or a future Mac) window at regular width has a sidebar to put them in. A Plus or
+    /// Pro Max iPhone in landscape also reports a regular width, but `.sidebarAdaptable` keeps a tab
+    /// bar on iPhone, so the sidebar's tab set there overflowed into "More" and buried Search,
+    /// Discover and Narrators (HIG, Tab bars: keep the tab bar's tabs the app's top-level sections).
+    static func usesSidebar(horizontalSizeClass: UserInterfaceSizeClass?, isPhone: Bool) -> Bool {
+        horizontalSizeClass == .regular && !isPhone
+    }
+
     /// Re-homes the selection when the window crosses between the compact tab bar and the sidebar.
     ///
     /// The compact bar has one Library tab; the sidebar has one entry per section, plus Downloads

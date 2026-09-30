@@ -5,6 +5,23 @@ import Testing
 @MainActor
 @Suite("Main shell navigation")
 struct MainShellModelTests {
+    // MARK: - Sidebar or tab bar
+
+    @Test func anIPadAtRegularWidthUsesTheSidebar() {
+        #expect(MainShellModel.usesSidebar(horizontalSizeClass: .regular, isPhone: false))
+    }
+
+    @Test func aNarrowIPadWindowUsesTheTabBar() {
+        #expect(!MainShellModel.usesSidebar(horizontalSizeClass: .compact, isPhone: false))
+    }
+
+    /// A Plus or Pro Max iPhone in landscape reports a regular width, but an iPhone has no sidebar:
+    /// taking the sidebar's tab set there flattened the Library sections into the tab bar and pushed
+    /// Search, Discover and Narrators into "More" (Pass 7 Simulator matrix).
+    @Test func anIPhoneInLandscapeKeepsTheTabBar() {
+        #expect(!MainShellModel.usesSidebar(horizontalSizeClass: .regular, isPhone: true))
+    }
+
     // MARK: - Opening destinations
 
     @Test func aDeepLinkWhileThePlayerIsOpenClosesItAndPushesUnderneath() {
