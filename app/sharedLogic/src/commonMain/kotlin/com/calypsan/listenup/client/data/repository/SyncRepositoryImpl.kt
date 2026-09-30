@@ -67,6 +67,10 @@ internal class SyncRepositoryImpl(
     // ConnectionCoordinator.reevaluate in DI. A lambda (not the coordinator) keeps this seam
     // trivially testable and avoids pulling the whole coordinator graph into the repository.
     private val reevaluateConnection: suspend () -> Unit,
+    // Tells the server a client came to the foreground, so it can pull this user's Hardcover shelf if
+    // it has gone stale — wired to HardcoverRepository.syncIfStale in DI. A lambda keeps Hardcover out
+    // of the sync engine and the seam trivially testable.
+    private val onForegrounded: suspend () -> AppResult<Unit>,
     private val syncEngineState: SyncEngineState,
     private val authSession: AuthSession,
     private val listeningEventRecorder: ListeningEventRecorder,
@@ -167,6 +171,17 @@ internal class SyncRepositoryImpl(
     override suspend fun recoverRealtime(forceReconcile: Boolean) {
         // Not authenticated → nothing to recover (URL re-resolution / reconnect are moot).
         if (startEngineForCurrentUser() is AppResult.Failure) return
+        // Every platform's foreground lands here. Nudge the server's Hardcover pull without waiting on
+        // it: a slow or unreachable Hardcover must never hold up sync recovery. startEngineForCurrentUser
+        // succeeds when nobody is signed in, so the user is checked here.
+        if (authSession.getUserId() != null) {
+            scope.launch {
+                val nudged = onForegrounded()
+                if (nudged is AppResult.Failure) {
+                    logger.debug { "Hardcover foreground nudge failed (${nudged.error.code}); the server's schedule covers it" }
+                }
+            }
+        }
         // Re-resolve the reachable server URL (LAN-first, mDNS relocate) as a relaunch would — a
         // server that moved (DHCP) needs its new address before we re-dial. A host:port change here
         // invalidates the streaming client (ConnectionCoordinator.observeActiveUrl → invalidateAll),

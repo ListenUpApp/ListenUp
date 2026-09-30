@@ -128,6 +128,7 @@ class ScanStreamIdentitySweepTest :
                         SyncRepositoryImpl(
                             syncEngine = engine,
                             reevaluateConnection = {},
+                            onForegrounded = { AppResult.Success(Unit) },
                             syncEngineState = state,
                             authSession = mock<AuthSession> { everySuspend { getUserId() } returns "user-test" },
                             listeningEventRecorder =

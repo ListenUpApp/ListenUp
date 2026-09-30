@@ -22,6 +22,7 @@ import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.module
+import com.calypsan.listenup.client.domain.repository.HardcoverRepository
 
 private const val APP_SCOPE = "appScope"
 
@@ -79,6 +80,7 @@ internal val libraryModule: Module =
             SyncRepositoryImpl(
                 syncEngine = get(),
                 reevaluateConnection = { get<ConnectionCoordinator>().reevaluate() },
+                onForegrounded = { get<HardcoverRepository>().syncIfStale() },
                 syncEngineState = get(),
                 authSession = get(),
                 listeningEventRecorder = get(),
