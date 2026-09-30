@@ -29,8 +29,11 @@ struct RescanPill: View {
             }
             .foregroundStyle(Color.listenUpOrange)
             .padding(.horizontal, Spacing.s)
-            .frame(height: 32)
+            // A floor, not a fixed height, so the label grows with Dynamic Type instead of clipping.
+            .frame(minHeight: 32)
             .authGlassControl(in: .capsule, reduceTransparency: reduceTransparency)
+            // The 32pt pill keeps a 44pt hit area (the accessibility audit flagged it as too small).
+            .minimumTapTarget(visualSize: 32)
         }
         .buttonStyle(.plain)
         .disabled(isBusy)
