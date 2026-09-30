@@ -261,7 +261,7 @@ private struct ContributorMetadataPreviewView: View {
                 .accessibilityAddTraits(.isHeader)
             Text(String(format: String(localized: "metadata.audible_source"), observer.region.displayName))
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -274,7 +274,7 @@ private struct ContributorMetadataPreviewView: View {
         VStack(alignment: .leading, spacing: 9) {
             Text(String(localized: "contributor.audible_region"))
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             RegionPicker(
                 options: MetadataRegionOption.all,
                 selection: observer.region,
