@@ -23,6 +23,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -326,19 +327,165 @@ class RpcProxyCacheConnectionLifecycleTest :
             }
         }
 
-        test("a connection whose close throws never throws into the caller") {
+        // ─── Regression guards ────────────────────────────────────────────────────────────────────
+        //
+        // Every path below already balanced its uses when these were written, so they were never red
+        // against the fix; each was watched fail by sabotaging the release or close-guard it pins —
+        // except "built but never collected", which pins that a subscription stays cold.
+
+        test("regression guard: an idempotent timeout's retry balances both connections") {
             runTest {
+                val ledger = Ledger()
+                val cache = ledgerCache(ledger, FakeProxy(), FakeProxy(onWork = { "retried" }))
+
+                cache.call(timeout = 50.milliseconds, idempotent = true) { it.work() } shouldBe "retried"
+
+                ledger.opened shouldBe 2
+                ledger.stillOpen shouldContainExactly listOf(1)
+                // The retry gave its use back too: retiring the live connection closes it at once.
+                cache.retire()
+                ledger.stillOpen.shouldBeEmpty()
+            }
+        }
+
+        test("regression guard: the auth-refresh retry closes the rejected connection and keeps the fresh one") {
+            runTest {
+                val ledger = Ledger()
+                val script =
+                    ArrayDeque(
+                        listOf(
+                            FakeProxy(onWork = { throw WebSocketException("expected status code 101 but was 401") }),
+                            FakeProxy(onWork = { "refreshed" }),
+                        ),
+                    )
                 val cache =
                     RpcProxyCache(
                         apiClientFactory = mockFactory(),
                         serverConfig = mockServerConfig(),
-                    ) { _, _ -> RpcConnection(FakeProxy()) { error("close blew up") } }
+                        authRecovery =
+                            object : RpcAuthRecovery {
+                                override suspend fun refreshAndRebuild() = AuthRecoveryOutcome.Refreshed
+                            },
+                    ) { _, _ -> ledger.connection(script.removeFirst()) }
+
+                cache.call { it.work() } shouldBe "refreshed"
+
+                ledger.stillOpen shouldContainExactly listOf(1)
+                // The retry gave its use back too: retiring the live connection closes it at once.
+                cache.retire()
+                ledger.stillOpen.shouldBeEmpty()
+            }
+        }
+
+        test("regression guard: a stream that fails after emitting closes its connection") {
+            runTest {
+                val ledger = Ledger()
+                val cache =
+                    ledgerCache(
+                        ledger,
+                        FakeProxy(
+                            onEvents = {
+                                flow {
+                                    emit("a")
+                                    throw WebSocketException("socket died mid-stream")
+                                }
+                            },
+                        ),
+                    )
+                val received = mutableListOf<String>()
+
+                shouldThrow<WebSocketException> { cache.streaming { it.events() }.collect { received += it } }
+
+                received shouldContainExactly listOf("a")
+                ledger.opened shouldBe 1
+                ledger.stillOpen.shouldBeEmpty()
+            }
+        }
+
+        test("regression guard: a first() truncation on a retired connection closes it") {
+            runTest {
+                val ledger = Ledger()
+                val events = Channel<String>(Channel.UNLIMITED)
+                val cache = ledgerCache(ledger, FakeProxy(onEvents = { events.receiveAsFlow() }))
+                val first = async { cache.streaming { it.events() }.first() }
+                runCurrent()
+
+                shouldThrow<RpcOutcomeUnknownException> {
+                    cache.call(timeout = 50.milliseconds) { it.work() }
+                }
+                ledger.stillOpen shouldContainExactly listOf(0)
+
+                events.send("only")
+                first.await() shouldBe "only"
+                ledger.stillOpen.shouldBeEmpty()
+            }
+        }
+
+        test("regression guard: a stream that is built but never collected opens nothing") {
+            runTest {
+                val ledger = Ledger()
+                val cache = ledgerCache(ledger, FakeProxy())
+
+                cache.streaming { it.events() }
+
+                ledger.opened shouldBe 0
+            }
+        }
+
+        test("regression guard: a connection whose close throws still gets its close attempted, and never throws into the caller") {
+            runTest {
+                var closeAttempts = 0
+                val cache =
+                    RpcProxyCache(
+                        apiClientFactory = mockFactory(),
+                        serverConfig = mockServerConfig(),
+                    ) { _, _ ->
+                        RpcConnection(FakeProxy()) {
+                            closeAttempts++
+                            error("close blew up")
+                        }
+                    }
 
                 // The retirement closes the connection inside the timeout path; the caller still sees
                 // the typed outcome, not the close's own failure.
                 shouldThrow<RpcOutcomeUnknownException> {
                     cache.call(timeout = 50.milliseconds) { it.work() }
                 }
+                closeAttempts shouldBe 1
+            }
+        }
+
+        test("regression guard: a close that throws in release never displaces the result it is releasing") {
+            runTest {
+                var closeAttempts = 0
+                val inFlightCanFinish = CompletableDeferred<Unit>()
+                val cache =
+                    RpcProxyCache(
+                        apiClientFactory = mockFactory(),
+                        serverConfig = mockServerConfig(),
+                    ) { _, _ ->
+                        RpcConnection(FakeProxy()) {
+                            closeAttempts++
+                            error("close blew up")
+                        }
+                    }
+                val inFlight =
+                    async(start = CoroutineStart.UNDISPATCHED) {
+                        cache.call {
+                            inFlightCanFinish.await()
+                            "the-result"
+                        }
+                    }
+                // Retire the connection under the in-flight call, so ITS release is the one that closes.
+                shouldThrow<RpcOutcomeUnknownException> {
+                    cache.call(timeout = 50.milliseconds) { it.work() }
+                }
+                closeAttempts shouldBe 0
+
+                inFlightCanFinish.complete(Unit)
+
+                inFlight.await() shouldBe "the-result"
+                closeAttempts shouldBe 1
             }
         }
     })
