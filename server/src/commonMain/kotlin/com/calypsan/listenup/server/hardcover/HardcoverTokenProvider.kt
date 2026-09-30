@@ -58,6 +58,35 @@ class HardcoverTokenProvider(
             }
         }
 
+    /**
+     * Hardcover rejected [rejectedToken] with a 401 before it expired — reset or revoked on their side.
+     * Refreshes once, under the same single-flight lock; if another caller already rotated past
+     * [rejectedToken], the current token is returned and the refresh chain is not spent again.
+     */
+    suspend fun refreshAfterRejection(
+        userId: String,
+        rejectedToken: String,
+    ): TokenLookup =
+        linker.withUserLock(userId) {
+            when (val stored = store.connectionFor(userId)) {
+                null -> {
+                    TokenLookup.NotConnected
+                }
+
+                is StoredConnection.Broken -> {
+                    TokenLookup.Broken(stored.reason)
+                }
+
+                is StoredConnection.Healthy -> {
+                    if (stored.credentials.accessToken != rejectedToken) {
+                        TokenLookup.Valid(stored.credentials.accessToken)
+                    } else {
+                        refresh(userId, stored, keepCurrentWhileUnreachable = false)
+                    }
+                }
+            }
+        }
+
     private suspend fun freshToken(
         userId: String,
         stored: StoredConnection.Healthy,
@@ -65,6 +94,20 @@ class HardcoverTokenProvider(
         val credentials = stored.credentials
         val now = clock.now().toEpochMilliseconds()
         if (credentials.accessExpiresAt - now > REFRESH_MARGIN_MS) return TokenLookup.Valid(credentials.accessToken)
+        return refresh(userId, stored, keepCurrentWhileUnreachable = true)
+    }
+
+    /**
+     * Rotates [stored]'s pair and commits it before handing out the new access token. While Hardcover
+     * is unreachable, [keepCurrentWhileUnreachable] keeps using a current token that hasn't expired yet
+     * — never one Hardcover has just rejected.
+     */
+    private suspend fun refresh(
+        userId: String,
+        stored: StoredConnection.Healthy,
+        keepCurrentWhileUnreachable: Boolean,
+    ): TokenLookup {
+        val credentials = stored.credentials
         return when (val refreshed = oauth.refresh(credentials.refreshToken)) {
             is RefreshResult.Granted -> {
                 store.saveRotated(userId, refreshed.tokens)
@@ -78,7 +121,7 @@ class HardcoverTokenProvider(
             }
 
             is RefreshResult.Unavailable -> {
-                if (credentials.accessExpiresAt > now) {
+                if (keepCurrentWhileUnreachable && credentials.accessExpiresAt > clock.now().toEpochMilliseconds()) {
                     TokenLookup.Valid(credentials.accessToken)
                 } else {
                     TokenLookup.Unavailable

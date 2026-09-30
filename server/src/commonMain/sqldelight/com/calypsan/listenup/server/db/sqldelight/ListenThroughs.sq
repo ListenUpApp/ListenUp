@@ -50,3 +50,8 @@ WHERE user_id = :user_id AND book_id = :book_id AND real_started_at IS NULL;
 closeAwaitingListenThrough:
 UPDATE listen_throughs SET real_started_at = :closed_at
 WHERE user_id = :user_id AND book_id = :book_id AND real_started_at IS NULL;
+
+-- The user's current listen-through of a book, announced or not, or none (a book already in
+-- progress before listen-throughs existed).
+selectCurrent:
+SELECT started_at, real_started_at FROM listen_throughs WHERE user_id = :user_id AND book_id = :book_id;

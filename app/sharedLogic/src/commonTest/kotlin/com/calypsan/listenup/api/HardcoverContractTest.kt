@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api
 
+import com.calypsan.listenup.api.dto.hardcover.HardcoverBookCandidate
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
@@ -47,6 +48,7 @@ class HardcoverContractTest :
             "HardcoverError.Unavailable" to HardcoverError.Unavailable(),
             "HardcoverError.ConnectionBroken" to HardcoverError.ConnectionBroken(),
             "HardcoverError.AlreadyConnected" to HardcoverError.AlreadyConnected(),
+            "HardcoverError.NotConnected" to HardcoverError.NotConnected(),
         ).forEach { (discriminator, error) ->
             test("$discriminator round-trips through AppError") {
                 val json = contractJson.encodeToString(AppError.serializer(), error)
@@ -60,5 +62,33 @@ class HardcoverContractTest :
             HardcoverError.NotConfigured().isRetryable shouldBe false
             HardcoverError.AlreadyConnected().isRetryable shouldBe false
             HardcoverError.ConnectionBroken().isRetryable shouldBe false
+            HardcoverError.NotConnected().isRetryable shouldBe false
+        }
+
+        test("a catalog candidate round-trips, with and without an edition") {
+            listOf(
+                HardcoverBookCandidate(
+                    hcBookId = 427_578L,
+                    hcEditionId = 9_001L,
+                    title = "Project Hail Mary",
+                    authors = listOf("Andy Weir"),
+                    releaseYear = 2021,
+                ),
+                HardcoverBookCandidate(hcBookId = 1L, hcEditionId = null, title = "Untitled", authors = emptyList(), releaseYear = null),
+            ).forEach { candidate ->
+                val json = contractJson.encodeToString(HardcoverBookCandidate.serializer(), candidate)
+                contractJson.decodeFromString(HardcoverBookCandidate.serializer(), json) shouldBe candidate
+            }
+        }
+
+        test("a catalog candidate's wire keys are pinned") {
+            val json =
+                contractJson.encodeToString(
+                    HardcoverBookCandidate.serializer(),
+                    HardcoverBookCandidate(hcBookId = 1L, hcEditionId = 2L, title = "T", authors = listOf("A"), releaseYear = 2020),
+                )
+            listOf("hcBookId", "hcEditionId", "title", "authors", "releaseYear").forEach { key ->
+                json.contains("\"$key\"") shouldBe true
+            }
         }
     })

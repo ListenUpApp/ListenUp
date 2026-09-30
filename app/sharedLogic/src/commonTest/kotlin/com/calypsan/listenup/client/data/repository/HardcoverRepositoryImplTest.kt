@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.repository
 
 import app.cash.turbine.test
 import com.calypsan.listenup.api.HardcoverService
+import com.calypsan.listenup.api.dto.hardcover.HardcoverBookCandidate
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
@@ -14,6 +15,7 @@ import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.RpcDispatch
 import com.calypsan.listenup.client.data.remote.RpcPolicy
 import com.calypsan.listenup.client.data.remote.forTest
+import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.Flow
@@ -187,6 +189,17 @@ private class FakeHardcoverService(
         disconnectCount++
         return disconnectResult
     }
+
+    override suspend fun searchCatalog(query: String): AppResult<List<HardcoverBookCandidate>> =
+        AppResult.Failure(HardcoverError.NotConfigured())
+
+    override suspend fun linkBook(
+        bookId: BookId,
+        hcBookId: Long,
+        hcEditionId: Long?,
+    ): AppResult<Unit> = AppResult.Failure(HardcoverError.NotConfigured())
+
+    override suspend fun unlinkBook(bookId: BookId): AppResult<Unit> = AppResult.Failure(HardcoverError.NotConfigured())
 }
 
 /** Records the [idempotent] flag each unary call was dispatched with, then delegates to the service. */

@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.SelectAwaitingRealStart
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.hardcover.HardcoverPushHook
 import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.util.KeyedMutex
 import com.calypsan.listenup.server.util.runCatchingCancellable
@@ -45,6 +46,7 @@ class StatsRecorder(
     private val activityRecorder: ActivityRecorder,
     private val statsBackfill: UserStatsBackfillService,
     private val clock: Clock = Clock.System,
+    private val hardcoverPush: HardcoverPushHook = HardcoverPushHook.None,
 ) {
     /**
      * Serializes [record] per user id: without this, two concurrent cascades for the same user
@@ -77,8 +79,15 @@ class StatsRecorder(
         val finishedAtMs = event.occurredAt.toEpochMilliseconds()
         // The coverage rule decides append-vs-merge on `book_reads`; the re-derive then reads the new
         // count. booksFinished is a pure function of `book_reads`, so a merge leaves it unchanged.
-        bookReadsRepository.recordCompletion(event.userId, event.bookId, finishedAtMs)
+        val appended = bookReadsRepository.recordCompletion(event.userId, event.bookId, finishedAtMs)
         closeAwaitingListenThrough(event.userId, event.bookId, finishedAtMs)
+        // Only a genuinely new read reaches Hardcover: a merged replay is the same read, already pushed.
+        if (appended) {
+            pushToHardcover(
+                event.userId,
+                "finish",
+            ) { onReadAppended(event.userId, event.bookId, finishedAtMs) }
+        }
         if (currentCoroutineContext()[StatsCascadeDeferred.Key] == null) {
             val tz = sql.homeTimeZone(event.userId)
             val base = userStatsRepo.getForUser(event.userId) ?: emptyStatsFor(event.userId)
@@ -180,6 +189,8 @@ class StatsRecorder(
                     it,
                 ) { "listen-through bookkeeping failed on session-close user=$userId book=${span.bookId}" }
             }
+        // After the real-start check, so a session that crosses the line queues START before its PROGRESS.
+        pushToHardcover(userId, "progress") { onSessionClosed(userId, span.bookId, span.endPositionMs) }
     }
 
     /**
@@ -204,6 +215,24 @@ class StatsRecorder(
             isReread = crossed.is_reread == 1L,
             occurredAt = crossed.started_at,
         )
+        pushToHardcover(userId, "start") {
+            onRealStart(userId, bookId, startedAt = crossed.started_at, isReread = crossed.is_reread == 1L)
+        }
+    }
+
+    /**
+     * Hands one event to Hardcover sync. Skipped under [StatsCascadeDeferred]: an import replays history,
+     * and history is never pushed. Best-effort — queueing a push must never fail the stats write that
+     * triggered it; the outbox is the retry mechanism for Hardcover itself, not for this bookkeeping.
+     */
+    private suspend fun pushToHardcover(
+        userId: String,
+        what: String,
+        block: suspend HardcoverPushHook.() -> Unit,
+    ) {
+        if (currentCoroutineContext()[StatsCascadeDeferred.Key] != null) return
+        runCatchingCancellable { hardcoverPush.block() }
+            .onFailure { log.warn(it) { "hardcover $what enqueue failed user=$userId" } }
     }
 
     /**

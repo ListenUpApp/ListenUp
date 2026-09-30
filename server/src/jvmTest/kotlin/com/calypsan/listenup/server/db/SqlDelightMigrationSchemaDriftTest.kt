@@ -136,6 +136,9 @@ private val SQ_TABLES =
         "genre_merge_receipt_aliases",
         "listen_throughs",
         "hardcover_connections",
+        "hardcover_book_links",
+        "hardcover_outbox",
+        "hardcover_pushed_reads",
     )
 
 /** A table's comparable shape: column → storage-class category, and the set of its indexes. */

@@ -42,6 +42,7 @@ import org.koin.ktor.ext.inject
  *   rationale as the `mdns.enabled = false` default above.
  * @param hardcoverClientId when set, adds `hardcover.clientId` so the Hardcover integration boots
  *   switched on. Unset (the default) boots it off, as a server with no client id does.
+ * @param hardcoverApiBaseUrl when set, points the Hardcover clients at this base URL, a fake Hardcover.
  */
 fun ApplicationTestBuilder.useIsolatedTestConfig(
     registrationPolicy: String? = "OPEN",
@@ -51,6 +52,7 @@ fun ApplicationTestBuilder.useIsolatedTestConfig(
     rescanOnStartup: Boolean = true,
     watchEnabled: Boolean = false,
     hardcoverClientId: String? = null,
+    hardcoverApiBaseUrl: String? = null,
 ) {
     val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
     environment {
@@ -83,6 +85,7 @@ fun ApplicationTestBuilder.useIsolatedTestConfig(
                 if (seedProfile != null) put("seed.profile", seedProfile)
                 if (homeDir != null) put("listenup.home", homeDir)
                 if (hardcoverClientId != null) put("hardcover.clientId", hardcoverClientId)
+                if (hardcoverApiBaseUrl != null) put("hardcover.apiBaseUrl", hardcoverApiBaseUrl)
             }
     }
 }

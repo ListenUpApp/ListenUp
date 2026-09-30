@@ -602,6 +602,7 @@ private fun HardcoverError.toHttpStatus(): HttpStatusCode =
         is HardcoverError.Unavailable -> HttpStatusCode.ServiceUnavailable
         is HardcoverError.ConnectionBroken -> HttpStatusCode.Conflict
         is HardcoverError.AlreadyConnected -> HttpStatusCode.Conflict
+        is HardcoverError.NotConnected -> HttpStatusCode.Conflict
     }
 
 private fun RatingError.toHttpStatus(): HttpStatusCode =

@@ -1,0 +1,102 @@
+-- hardcover_book_links: how each of a user's books is matched on Hardcover, and which Hardcover
+-- records ListenUp writes to for it. See V76__hardcover_push.sql for every column's meaning.
+-- FKs (→ users, → books ON DELETE CASCADE) live in the migration DDL.
+CREATE TABLE hardcover_book_links (
+    user_id                              TEXT    NOT NULL,
+    book_id                              TEXT    NOT NULL,
+    hc_book_id                           INTEGER,
+    hc_edition_id                        INTEGER,
+    match_method                         TEXT,
+    match_state                          TEXT    NOT NULL,
+    hc_user_book_id                      INTEGER,
+    open_hc_read_id                      INTEGER,
+    open_read_listen_through_started_at  INTEGER,
+    suppressed_listen_through_started_at INTEGER,
+    last_progress_pushed_at              INTEGER,
+    updated_at                           INTEGER NOT NULL,
+    PRIMARY KEY (user_id, book_id)
+);
+
+CREATE INDEX idx_hardcover_book_links_book ON hardcover_book_links(book_id);
+
+selectLink:
+SELECT * FROM hardcover_book_links WHERE user_id = :user_id AND book_id = :book_id;
+
+-- An automatic match (or NEEDS_MATCH) is written once and never overrides an existing row — least of
+-- all a MANUAL link the user chose.
+insertAutomatic:
+INSERT OR IGNORE INTO hardcover_book_links (user_id, book_id, hc_book_id, hc_edition_id, match_method, match_state, updated_at)
+VALUES (:user_id, :book_id, :hc_book_id, :hc_edition_id, :match_method, :match_state, :updated_at);
+
+-- The row a manual link or unlink then updates, when the book has never been matched.
+insertPlaceholder:
+INSERT OR IGNORE INTO hardcover_book_links (user_id, book_id, match_state, updated_at)
+VALUES (:user_id, :book_id, 'NEEDS_MATCH', :updated_at);
+
+-- A manual link. SQLite evaluates every right-hand side against the OLD row, so the CASEs compare the
+-- previous hc_book_id: the per-account Hardcover ids survive only when the book did not change.
+linkManually:
+UPDATE hardcover_book_links
+SET hc_user_book_id = CASE WHEN hc_book_id = :hc_book_id THEN hc_user_book_id ELSE NULL END,
+    open_hc_read_id = CASE WHEN hc_book_id = :hc_book_id THEN open_hc_read_id ELSE NULL END,
+    open_read_listen_through_started_at =
+        CASE WHEN hc_book_id = :hc_book_id THEN open_read_listen_through_started_at ELSE NULL END,
+    hc_book_id = :hc_book_id,
+    hc_edition_id = :hc_edition_id,
+    match_method = 'MANUAL',
+    match_state = 'LINKED',
+    updated_at = :updated_at
+WHERE user_id = :user_id AND book_id = :book_id;
+
+-- "Change match": back to NEEDS_MATCH, which parks the book's pushes until the user picks again.
+unlink:
+UPDATE hardcover_book_links
+SET hc_book_id = NULL, hc_edition_id = NULL, match_method = NULL, match_state = 'NEEDS_MATCH',
+    hc_user_book_id = NULL, open_hc_read_id = NULL, open_read_listen_through_started_at = NULL,
+    updated_at = :updated_at
+WHERE user_id = :user_id AND book_id = :book_id;
+
+recordOpenRead:
+UPDATE hardcover_book_links
+SET hc_user_book_id = :hc_user_book_id, open_hc_read_id = :open_hc_read_id,
+    open_read_listen_through_started_at = :open_read_listen_through_started_at, updated_at = :updated_at
+WHERE user_id = :user_id AND book_id = :book_id;
+
+clearOpenRead:
+UPDATE hardcover_book_links
+SET open_hc_read_id = NULL, open_read_listen_through_started_at = NULL, updated_at = :updated_at
+WHERE user_id = :user_id AND book_id = :book_id;
+
+-- The deletion rule: the user removed ListenUp's Hardcover record, so this listen-through goes quiet.
+suppress:
+UPDATE hardcover_book_links
+SET suppressed_listen_through_started_at = :suppressed_listen_through_started_at,
+    hc_user_book_id = NULL, open_hc_read_id = NULL, open_read_listen_through_started_at = NULL,
+    updated_at = :updated_at
+WHERE user_id = :user_id AND book_id = :book_id;
+
+-- A NEW listen-through clears a suppression; the suppressed one itself never does.
+clearSuppressionUnlessFor:
+UPDATE hardcover_book_links
+SET suppressed_listen_through_started_at = NULL, updated_at = :updated_at
+WHERE user_id = :user_id AND book_id = :book_id
+  AND suppressed_listen_through_started_at IS NOT NULL
+  AND suppressed_listen_through_started_at <> :listen_through_started_at;
+
+markProgressPushed:
+UPDATE hardcover_book_links SET last_progress_pushed_at = :last_progress_pushed_at
+WHERE user_id = :user_id AND book_id = :book_id;
+
+deleteForUser:
+DELETE FROM hardcover_book_links WHERE user_id = :user_id;
+
+-- The background match pass's work list: live books the user has started that have no link row
+-- yet, in id order after :after (a keyset cursor, so one pass always ends).
+unlinkedStartedBooks:
+SELECT p.book_id
+FROM playback_positions AS p
+JOIN books AS b ON b.id = p.book_id
+WHERE p.user_id = :user_id AND p.deleted_at IS NULL AND b.deleted_at IS NULL AND p.book_id > :after
+  AND NOT EXISTS (SELECT 1 FROM hardcover_book_links AS l WHERE l.user_id = p.user_id AND l.book_id = p.book_id)
+ORDER BY p.book_id
+LIMIT :limit;

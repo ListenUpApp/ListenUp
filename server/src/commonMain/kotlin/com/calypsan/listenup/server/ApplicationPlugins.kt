@@ -124,6 +124,7 @@ internal fun Application.installDependencies(
     pushRelayUrl: String,
     pushSenderToken: String?,
     hardcoverClientId: String?,
+    hardcoverApiBaseUrl: String,
 ) {
     // KoinIsolated (not Koin): the DI graph is scoped to THIS Application instance instead of the
     // process-global Koin context. Production runs one Application, so behaviour is unchanged — but
@@ -145,7 +146,7 @@ internal fun Application.installDependencies(
         modules += adminUserRosterModule()
         modules += shelfModule()
         modules += pushModule()
-        modules += hardcoverModule(hardcoverClientId, applicationScope)
+        modules += hardcoverModule(hardcoverClientId, hardcoverApiBaseUrl, applicationScope)
         modules += notificationModule()
         val httpPort =
             environment.config

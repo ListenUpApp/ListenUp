@@ -66,15 +66,16 @@ class BookReadsRepository(
      * coverage can't be assessed, so it appends (matching the pre-rule always-append behavior).
      *
      * The whole decision runs in one transaction so a concurrent completion can't interleave between
-     * the coverage read and the write.
+     * the coverage read and the write. Returns true when it appended a new read, and false when it
+     * merged into the previous one.
      */
     suspend fun recordCompletion(
         userId: String,
         bookId: String,
         finishedAtMs: Long,
-    ) {
+    ): Boolean {
         val createdAt = clock.now().toEpochMilliseconds()
-        suspendTransaction(db) {
+        return suspendTransaction(db) {
             // The id of the existing read to merge this finish into, or null to append a new read. The
             // first-ever finish (no previous row) always appends.
             val mergeIntoId: String? =
@@ -104,6 +105,7 @@ class BookReadsRepository(
             } else {
                 db.bookReadsQueries.updateFinishedAtById(finished_at = finishedAtMs, id = mergeIntoId)
             }
+            mergeIntoId == null
         }
     }
 

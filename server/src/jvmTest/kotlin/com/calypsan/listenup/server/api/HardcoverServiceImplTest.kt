@@ -12,12 +12,18 @@ import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.hardcover.HARDCOVER_SCOPES
+import com.calypsan.listenup.server.hardcover.HardcoverBookLinkStore
+import com.calypsan.listenup.server.hardcover.HardcoverBookLinking
 import com.calypsan.listenup.server.hardcover.HardcoverConnectionStore
 import com.calypsan.listenup.server.hardcover.HardcoverGraphQlClient
 import com.calypsan.listenup.server.hardcover.HardcoverLinker
 import com.calypsan.listenup.server.hardcover.HardcoverMe
 import com.calypsan.listenup.server.hardcover.HardcoverOAuthClient
+import com.calypsan.listenup.server.hardcover.HardcoverOutbox
+import com.calypsan.listenup.server.hardcover.HardcoverPushNudge
+import com.calypsan.listenup.server.hardcover.HardcoverRateLimiter
 import com.calypsan.listenup.server.hardcover.HardcoverTokenCipher
+import com.calypsan.listenup.server.hardcover.HardcoverTokenProvider
 import com.calypsan.listenup.server.hardcover.HardcoverTokens
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -91,7 +97,23 @@ private class Rig(
             store,
             scope.backgroundScope,
         )
-    val unscoped = HardcoverServiceImpl(linker, clientIdConfigured)
+    private val tokenProvider =
+        HardcoverTokenProvider(HardcoverOAuthClient(hardcover.client, "listenup-test", "https://hc.test"), store, linker)
+    val unscoped =
+        HardcoverServiceImpl(
+            linker,
+            clientIdConfigured,
+            HardcoverBookLinking(
+                graphQl = HardcoverGraphQlClient(hardcover.client, "https://hc.test"),
+                tokens = tokenProvider,
+                connections = store,
+                links = HardcoverBookLinkStore(dbs.sql),
+                outbox = HardcoverOutbox(dbs.sql),
+                nudge = HardcoverPushNudge { },
+                access = BookAccessPolicy(dbs.sql, dbs.driver),
+                rateLimiter = HardcoverRateLimiter(),
+            ),
+        )
 
     fun serviceFor(userId: String) = unscoped.copyWith(principalOf(userId))
 

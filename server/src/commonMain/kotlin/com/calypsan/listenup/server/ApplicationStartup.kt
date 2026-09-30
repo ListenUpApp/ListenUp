@@ -10,6 +10,8 @@ import com.calypsan.listenup.server.api.LibraryAdminServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.hardcover.HardcoverLinker
+import com.calypsan.listenup.server.hardcover.HardcoverMatchBackfill
+import com.calypsan.listenup.server.hardcover.HardcoverPushWorker
 import com.calypsan.listenup.server.librarywrite.LibraryWriteBroker
 import com.calypsan.listenup.server.librarywrite.LibraryWriteStatus
 import com.calypsan.listenup.server.mdns.MdnsAdvertiser
@@ -102,6 +104,12 @@ internal fun Application.startBackgroundTasks(
         signals = merge(koinGet<RatingSourceSettings>().reenabled, koinGet<HardcoverLinker>().connections),
         backfill = koinGet<ExternalRatingsBackfill>(),
     )
+    // Hardcover push: one lane per user drains the outbox — started now for anyone with rows left from
+    // before a restart, and on every reconnect. A fresh connection also starts the slow background match
+    // pass over the books that user has started.
+    koinGet<HardcoverPushWorker>().start(scope)
+    val hardcoverMatchBackfill = koinGet<HardcoverMatchBackfill>()
+    scope.launch { koinGet<HardcoverLinker>().connections.collect { hardcoverMatchBackfill.trigger(it) } }
     val orphanImageCleanupTask by inject<OrphanImageCleanupTask>()
     orphanImageCleanupTask.start(scope)
     val statsFreshnessSweepTask by inject<StatsFreshnessSweepTask>()

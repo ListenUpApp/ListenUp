@@ -89,4 +89,13 @@ internal val bookIdTableDispositions: Map<String, RemovalDisposition> =
         // immediately. Inert under a tombstoned parent — the sweep already excludes non-live books —
         // and a hard delete removes it via the FK, same reasoning as sidecar_write_state.
         "external_rating_attempts" to RemovalDisposition.HARD_CHILD,
+        // Hardcover push bookkeeping (FK ON DELETE CASCADE): which Hardcover book this user's copy is
+        // matched to, and the pushes still waiting for Hardcover. Inert under a tombstoned parent —
+        // nothing new is queued for a book nobody can play — and a hard delete removes both via the FK.
+        "hardcover_book_links" to RemovalDisposition.HARD_CHILD,
+        "hardcover_outbox" to RemovalDisposition.HARD_CHILD,
+        // Every Hardcover read ListenUp opened or continued. Deliberately NOT tied to the book: a book
+        // removed and re-added under a new id must still recognise its own pushes when B3 pulls, or
+        // ListenUp's reads would come back as "read on Hardcover".
+        "hardcover_pushed_reads" to RemovalDisposition.USER_DATA,
     )
