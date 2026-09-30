@@ -148,7 +148,8 @@ internal fun filingActions(
 internal fun deleteActions(
     ready: BookDetailUiState.Ready,
     onDeleteBook: () -> Unit,
-): List<MenuAction> = if (ready.isAdmin) listOf(MenuAction("Delete book…", WebIcon.Trash, onDeleteBook)) else emptyList()
+): List<MenuAction> =
+    if (ready.isAdmin) listOf(MenuAction("Delete book…", WebIcon.Trash, onDeleteBook)) else emptyList()
 
 private const val ICON_SIZE = 18
 

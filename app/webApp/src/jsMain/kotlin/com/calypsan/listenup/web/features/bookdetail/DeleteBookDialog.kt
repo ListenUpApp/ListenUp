@@ -49,13 +49,9 @@ internal fun DeleteBookDialog(
 
 /** What the reader is told when the server said no. */
 private fun refusal(error: AppError): String =
-    when (error) {
-        is BookError.FolderNotExclusive -> {
-            "“${error.otherBookTitle}” is in the same folder, so deleting this book would take it too. " +
-                "Nothing was deleted."
-        }
-
-        else -> {
-            error.message
-        }
+    if (error is BookError.FolderNotExclusive) {
+        "“${error.otherBookTitle}” is in the same folder, so deleting this book would take it too. " +
+            "Nothing was deleted."
+    } else {
+        error.message
     }
