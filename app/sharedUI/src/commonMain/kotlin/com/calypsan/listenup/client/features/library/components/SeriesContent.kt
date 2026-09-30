@@ -30,7 +30,9 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.AlphabetIndex
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.domain.model.SeriesProgress
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
+import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortState
 import com.calypsan.listenup.client.util.sortableTitle
@@ -48,6 +50,7 @@ import listenup.composeapp.generated.resources.library_empty_tab_description
  * in the series, with the series name and book count below.
  *
  * @param series List of series with their books
+ * @param seriesProgress Per-series finished counts; a series missing from it reads as not started
  * @param sortState Current sort state (category + direction)
  * @param ignoreArticles Whether leading articles (A / An / The) are ignored when sorting by name
  * @param onCategorySelected Called when user selects a new category
@@ -59,6 +62,7 @@ import listenup.composeapp.generated.resources.library_empty_tab_description
 @Composable
 fun SeriesContent(
     series: List<SeriesWithBooks>,
+    seriesProgress: Map<SeriesId, SeriesProgress>,
     sortState: SortState,
     ignoreArticles: Boolean,
     onCategorySelected: (SortCategory) -> Unit,
@@ -126,6 +130,9 @@ fun SeriesContent(
                         ) { seriesWithBooks ->
                             SeriesCard(
                                 seriesWithBooks = seriesWithBooks,
+                                progress =
+                                    seriesProgress[seriesWithBooks.series.id]
+                                        ?: SeriesProgress(finishedCount = 0, totalCount = seriesWithBooks.books.size),
                                 onClick = { onSeriesClick(seriesWithBooks.series.id.value) },
                             )
                         }

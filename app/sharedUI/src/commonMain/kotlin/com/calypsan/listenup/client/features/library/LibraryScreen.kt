@@ -258,6 +258,7 @@ private fun LibraryLoadedContent(
                     LibraryFilter.Series ->
                         SeriesContent(
                             series = state.series,
+                            seriesProgress = state.seriesProgress,
                             sortState = state.seriesSortState,
                             ignoreArticles = state.ignoreTitleArticles,
                             onCategorySelected = { onEvent(LibraryUiEvent.SeriesCategoryChanged(it)) },

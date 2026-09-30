@@ -12066,7 +12066,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%d authors"
+            "value": "%1$d authors"
           }
         }
       }
@@ -12276,7 +12276,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%d narrators"
+            "value": "%1$d narrators"
           }
         }
       }
@@ -12306,7 +12306,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%d series"
+            "value": "%1$d series"
           }
         }
       }
@@ -12426,7 +12426,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%d titles"
+            "value": "%1$d titles"
           }
         }
       }
@@ -16036,7 +16036,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%d of %d"
+            "value": "%1$d of %2$d"
           }
         }
       }

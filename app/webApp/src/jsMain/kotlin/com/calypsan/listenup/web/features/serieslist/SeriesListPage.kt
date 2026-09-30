@@ -103,7 +103,10 @@ private fun LoadedSeries(
     ) { entry ->
         SeriesCard(
             entry = entry,
-            progress = state.seriesProgress[entry.series.id],
+            // iOS's `progressFor` fallback: no aggregate for a series means nothing finished yet.
+            progress =
+                state.seriesProgress[entry.series.id]
+                    ?: SeriesProgress(finishedCount = 0, totalCount = entry.books.size),
             onOpen = { onOpenSeries(entry.series.id.value) },
         )
     }
@@ -118,7 +121,7 @@ private fun LoadedSeries(
 @Composable
 private fun SeriesCard(
     entry: SeriesWithBooks,
-    progress: SeriesProgress?,
+    progress: SeriesProgress,
     onOpen: () -> Unit,
 ) {
     Button(attrs = {
@@ -136,26 +139,26 @@ private fun SeriesCard(
         Div(attrs = { classes("srs-meta") }) {
             Span(attrs = { classes("srs-name") }) { Text(entry.series.name) }
             Span(attrs = { classes("srs-count") }) { Text(bookCountLabel(entry.books.size)) }
-            progress?.let { ProgressLine(it) }
+            ProgressLine(progress)
         }
     }
 }
 
 /**
- * "3 of 7 finished", or the completed state.
- *
- * Absent entirely when the aggregate says nothing has been started: a "0 of 7" line on every
- * untouched series is noise on a page whose job is to show what there is to read.
+ * "Complete", "3 of 7", or a muted "Not started" — worded exactly as iOS and Android word it
+ * (`series.complete`, `series.x_of_y`, `series.not_started`).
  */
 @Composable
 private fun ProgressLine(progress: SeriesProgress) {
-    if (progress.isNotStarted) return
-    Span(attrs = { classes("srs-progress") }) {
+    Span(attrs = {
+        classes("srs-progress")
+        if (progress.isNotStarted && !progress.isComplete) classes("srs-progress-idle")
+    }) {
         Text(
-            if (progress.isComplete) {
-                "Finished"
-            } else {
-                "${progress.finishedCount} of ${progress.totalCount} finished"
+            when {
+                progress.isComplete -> "Complete"
+                progress.isNotStarted -> "Not started"
+                else -> "${progress.finishedCount} of ${progress.totalCount}"
             },
         )
     }

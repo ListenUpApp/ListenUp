@@ -31,21 +31,25 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.FannedDeck
 import com.calypsan.listenup.client.design.components.FannedDeckCover
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.domain.model.SeriesProgress
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 
 /**
  * Series card with the signature M3 Expressive fanned cover deck.
  *
  * The deck of square covers is the hero; below it sit the series name and a
- * "*N* books · *Author*" line. Press uses a subtle scale for tactile feedback.
+ * "*N* books · *Author*" line, then how far through the series the listener is
+ * ([SeriesProgressBadge]). Press uses a subtle scale for tactile feedback.
  *
  * @param seriesWithBooks The series with its associated books
+ * @param progress How far through the series the listener is — shown beneath the meta line
  * @param onClick Callback when the card is clicked
  * @param modifier Optional modifier
  */
 @Composable
 fun SeriesCard(
     seriesWithBooks: SeriesWithBooks,
+    progress: SeriesProgress,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -148,6 +152,8 @@ fun SeriesCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            Spacer(modifier = Modifier.height(10.dp))
+            SeriesProgressBadge(progress = progress)
         }
     }
 }
