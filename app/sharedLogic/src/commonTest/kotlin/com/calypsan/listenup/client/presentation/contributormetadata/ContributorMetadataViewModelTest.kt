@@ -387,6 +387,34 @@ class ContributorMetadataViewModelTest :
             }
         }
 
+        test("apply after switching region applies the profile in the new region") {
+            runTest {
+                val metadataRepo = mock<MetadataRepository>()
+                everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns
+                    AppResult.Success(createProfile())
+                everySuspend { metadataRepo.applyContributorMetadata(any(), any(), any()) } returns
+                    AppResult.Success(Unit)
+                val vm = buildVm(metadataRepo)
+                vm.init("contributor-1")
+                advanceUntilIdle()
+                vm.selectCandidate(createHit())
+                advanceUntilIdle()
+                vm.changeRegion(MetadataLocale("uk"))
+                advanceUntilIdle()
+
+                vm.apply()
+                advanceUntilIdle()
+
+                verifySuspend {
+                    metadataRepo.applyContributorMetadata(
+                        ContributorId("contributor-1"),
+                        "B001ASIN01",
+                        MetadataLocale("uk"),
+                    )
+                }
+            }
+        }
+
         test("apply failure overlays applyError on the Ready preview and stays Ready") {
             runTest {
                 val metadataRepo = mock<MetadataRepository>()

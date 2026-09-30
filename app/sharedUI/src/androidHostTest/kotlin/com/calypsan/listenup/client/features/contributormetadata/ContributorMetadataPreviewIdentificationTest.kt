@@ -1,7 +1,9 @@
 package com.calypsan.listenup.client.features.contributormetadata
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.api.dto.MetadataContributorProfile
@@ -11,9 +13,6 @@ import com.calypsan.listenup.client.presentation.contributormetadata.Contributor
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorPreviewLoadState
 import com.calypsan.listenup.client.testing.Windows
-import com.calypsan.listenup.client.testing.assertRightOf
-import com.calypsan.listenup.client.testing.assertSideBySide
-import com.calypsan.listenup.client.testing.assertStacked
 import com.calypsan.listenup.core.ContributorId
 import org.junit.Rule
 import org.junit.Test
@@ -22,33 +21,43 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Previewing a contributor match on a tablet keeps who was matched — the name, the photo and the actions
- * — in a side panel, and reads the two biographies side by side beside it; on a phone every
- * comparison stacks in one column above the action bar.
+ * Apply updates the biography and the photo — it never renames the contributor. So the preview names
+ * WHO was matched (the Audible name plus "Audible · <region>") instead of setting the local name
+ * against the Audible one, which would promise a rename that never happens.
  */
 @RunWith(RobolectricTestRunner::class)
-class ContributorMetadataPreviewWideLayoutTest {
+class ContributorMetadataPreviewIdentificationTest {
     @get:Rule
     val composeRule = createComposeRule()
 
     @Test
-    @Config(qualifiers = Windows.TABLET)
-    fun `on a tablet the identity panel sits beside the biographies, read side by side`() {
+    @Config(qualifiers = Windows.PHONE)
+    fun `on a phone the matched person is identified, not compared by name`() {
         setContent()
-
-        assertSideBySide(composeRule.onNodeWithText("Brandon Sanderson"), composeRule.onNodeWithText("Biography"))
-        assertRightOf(composeRule.onNodeWithText("Biography"), composeRule.onNodeWithText("Image"))
-        assertSideBySide(composeRule.onNodeWithText(LOCAL_BIO), composeRule.onNodeWithText(AUDIBLE_BIO))
-        assertRightOf(composeRule.onNodeWithText("Biography"), composeRule.onNodeWithText("Apply"))
+        assertIdentifiedNotRenamed()
     }
 
     @Test
-    @Config(qualifiers = Windows.PHONE)
-    fun `on a phone the comparisons stack in one column`() {
+    @Config(qualifiers = Windows.TABLET)
+    fun `on a tablet the matched person is identified, not compared by name`() {
         setContent()
+        assertIdentifiedNotRenamed()
+    }
 
-        assertStacked(composeRule.onNodeWithText("Image"), composeRule.onNodeWithText("Biography"))
-        assertStacked(composeRule.onNodeWithText(LOCAL_BIO), composeRule.onNodeWithText(AUDIBLE_BIO))
+    private fun assertIdentifiedNotRenamed() {
+        // No name before-and-after: neither the local name as a "Current" value nor a "Name" row.
+        composeRule.onAllNodesWithText(LOCAL_NAME).assertCountEquals(0)
+        composeRule.onAllNodesWithText("Name").assertCountEquals(0)
+
+        // The matched name appears once, as identification, with where it came from.
+        composeRule.onAllNodesWithText(AUDIBLE_NAME).assertCountEquals(1)
+        composeRule.onNodeWithText("Audible · ${MetadataLocale.DEFAULT.displayName}").assertExists()
+
+        // What Apply actually changes is still compared.
+        composeRule.onNodeWithText("Biography").assertExists()
+        composeRule.onNodeWithText(LOCAL_BIO).assertExists()
+        composeRule.onNodeWithText(AUDIBLE_BIO).assertExists()
+        composeRule.onNodeWithText("Image").assertExists()
     }
 
     private fun setContent() {
@@ -66,8 +75,10 @@ class ContributorMetadataPreviewWideLayoutTest {
     }
 
     private companion object {
+        const val LOCAL_NAME = "B. Sanderson"
+        const val AUDIBLE_NAME = "Brandon Sanderson"
         const val LOCAL_BIO = "A writer of epic fantasy."
-        const val AUDIBLE_BIO = "Brandon Sanderson grew up in Lincoln, Nebraska."
+        const val AUDIBLE_BIO = "Grew up in Lincoln, Nebraska."
 
         val STATE =
             ContributorMetadataUiState.Preview(
@@ -78,19 +89,19 @@ class ContributorMetadataPreviewWideLayoutTest {
                         current =
                             Contributor(
                                 id = ContributorId("c1"),
-                                name = "B. Sanderson",
+                                name = LOCAL_NAME,
                                 description = LOCAL_BIO,
                             ),
                     ),
                 query = "Sanderson",
                 searchResults = emptyList(),
-                match = MetadataContributorHit(asin = "B1", name = "Brandon Sanderson"),
+                match = MetadataContributorHit(asin = "B1", name = AUDIBLE_NAME),
                 loadState =
                     ContributorPreviewLoadState.Ready(
                         profile =
                             MetadataContributorProfile(
                                 asin = "B1",
-                                name = "Brandon Sanderson",
+                                name = AUDIBLE_NAME,
                                 sortName = null,
                                 description = AUDIBLE_BIO,
                                 imageUrl = null,

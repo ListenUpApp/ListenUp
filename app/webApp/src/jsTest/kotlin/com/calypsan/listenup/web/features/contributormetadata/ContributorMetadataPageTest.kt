@@ -315,6 +315,48 @@ class ContributorMetadataPageTest :
                 .shouldNotBeNull() shouldContain "Unchanged"
         }
 
+        // Every platform agrees: an identical biography says so, rather than leaving the reader to
+        // diff two paragraphs by eye. Two empty ones are not "no change" — there is nothing to keep.
+        test("an identical biography says No change, and a different one does not") {
+            fun readyWith(
+                current: String?,
+                incoming: String?,
+            ) = page(
+                contributorPreviewState(
+                    ContributorPreviewLoadState.Ready(
+                        profile = contributorProfile(description = incoming),
+                        isApplying = false,
+                        applyError = null,
+                    ),
+                    current = localContributor(description = current),
+                ),
+            )
+
+            readyWith("Wrote Kvothe.", "Wrote Kvothe.").querySelector(".cmx-same")?.textContent shouldBe "No change"
+            readyWith("A writer.", "Wrote Kvothe.").querySelector(".cmx-same").shouldBeNull()
+            readyWith(null, null).querySelector(".cmx-same").shouldBeNull()
+        }
+
+        test("the Ready preview switches region without leaving it") {
+            val picked = mutableListOf<MetadataLocale>()
+            val host =
+                page(
+                    contributorPreviewState(
+                        ContributorPreviewLoadState.Ready(
+                            profile = contributorProfile(description = "Wrote Kvothe."),
+                            isApplying = false,
+                            applyError = null,
+                        ),
+                    ),
+                    onRegion = { picked += it },
+                )
+
+            button(host, "United Kingdom").shouldNotBeNull().click()
+            awaitFrame()
+
+            picked shouldContainExactly listOf(MetadataLocale("uk"))
+        }
+
         test("a contributor with no biography yet shows a placeholder, not a blank") {
             val host =
                 page(
