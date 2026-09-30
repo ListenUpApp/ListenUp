@@ -18,6 +18,7 @@ import dev.mokkery.answering.throws
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -392,6 +393,52 @@ class ServerSelectViewModelTest :
                     viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
                     advanceUntilIdle()
                     awaitItem() shouldBe ServerSelectViewModel.NavigationEvent.ServerActivated
+                }
+            }
+        }
+
+        // A blocked activation is re-run on a grant only while it is still the thing on screen.
+        // Once the user has moved on — rescanned, dismissed it, or tapped another server — a later
+        // grant must not activate a server they never tapped again.
+        listOf(
+            "a rescan" to { vm: ServerSelectViewModel, _: Fixture -> vm.onEvent(ServerSelectUiEvent.RefreshClicked) },
+            "dismissing the error" to { vm: ServerSelectViewModel, _: Fixture -> vm.onEvent(ServerSelectUiEvent.ErrorDismissed) },
+            "tapping another server that fails" to { vm: ServerSelectViewModel, f: Fixture ->
+                f.localNetworkAccess.denied = false
+                vm.onEvent(ServerSelectUiEvent.ServerSelected(createServerWithStatus(createServer(id = "server-2"))))
+            },
+        ).forEach { (movedOn, moveOn) ->
+            test("after $movedOn, a grant does not activate the server the permission once blocked") {
+                runTest {
+                    val fixture = Fixture()
+                    fixture.localNetworkAccess.denied = true
+                    val serverA = createServer()
+                    var reachable: String? = null
+                    everySuspend { fixture.instanceRepository.findReachableUrl(any()) } calls { reachable }
+                    fixture.stubAdoption()
+
+                    val viewModel = fixture.build()
+                    keepStateHot(viewModel)
+                    viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+                    advanceUntilIdle()
+                    viewModel.onEvent(ServerSelectUiEvent.ServerSelected(createServerWithStatus(serverA)))
+                    advanceUntilIdle()
+
+                    moveOn(viewModel, fixture)
+                    advanceUntilIdle()
+
+                    // The browse is refused, then access is granted: only discovery should restart.
+                    fixture.serverRepository.localNetworkDenied.value = true
+                    advanceUntilIdle()
+                    fixture.serverRepository.localNetworkDenied.value = false
+                    fixture.localNetworkAccess.denied = false
+                    reachable = serverA.localUrl
+                    viewModel.navigationEvents.test {
+                        viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+                        advanceUntilIdle()
+                        expectNoEvents()
+                    }
+                    verifySuspend(VerifyMode.not) { fixture.serverConfig.setServerUrl(any()) }
                 }
             }
         }

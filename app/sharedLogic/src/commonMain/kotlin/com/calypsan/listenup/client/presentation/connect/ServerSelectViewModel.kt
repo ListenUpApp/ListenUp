@@ -183,10 +183,12 @@ class ServerSelectViewModel(
             }
 
             ServerSelectUiEvent.RefreshClicked -> {
+                blockedSelection = null
                 handleRefreshClicked()
             }
 
             ServerSelectUiEvent.ErrorDismissed -> {
+                blockedSelection = null
                 overlay.update { if (it is Overlay.Failed) Overlay.None else it }
             }
 
@@ -225,6 +227,9 @@ class ServerSelectViewModel(
     }
 
     private fun handleServerSelected(serverWithStatus: ServerWithStatus) {
+        // A new tap supersedes whatever the permission blocked before: a later grant re-runs only
+        // the activation the user is still looking at.
+        blockedSelection = null
         val server = serverWithStatus.server
         logger.info { "Server selected: ${server.name} (${server.id})" }
 

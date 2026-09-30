@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.URLParserException
 import io.ktor.http.Url
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -75,14 +76,15 @@ class ServerConnectViewModel(
         }
 
         lastAttemptedUrl = url
+        // Set before the launch, not inside it: a second submit or retry arriving before this one
+        // is dispatched must see an attempt in flight, or both would verify and adopt.
+        state.value = ServerConnectUiState.Verifying
 
         // Runs on [appScope], NOT viewModelScope: a successful verify calls setServerUrl, which flips the
         // global auth state (→ CheckingServer → NeedsLogin). That swap tears this screen — and its
         // viewModelScope — down mid-flight, so on viewModelScope the activation would cancel itself
         // before completing, stranding the app on the "Checking server" spinner.
         appScope.launch {
-            state.value = ServerConnectUiState.Verifying
-
             state.value =
                 when (val result = instanceRepository.verifyServer(url)) {
                     is AppResult.Success -> {
@@ -192,7 +194,16 @@ class ServerConnectViewModel(
 
     private suspend fun isBlockedByLocalNetworkGate(url: String): Boolean {
         val target = connectTarget(url) ?: return false
-        return localNetworkAccess.isDeniedFor(target.host, target.port)
+        // The gate only refines an error that already happened. If asking it fails, fall back to
+        // the plain verdict rather than leaving the screen stuck on "Verifying".
+        return try {
+            localNetworkAccess.isDeniedFor(target.host, target.port)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "Local network gate could not answer for $url; reporting the server unreachable" }
+            false
+        }
     }
 
     companion object {
@@ -201,11 +212,19 @@ class ServerConnectViewModel(
 }
 
 /**
+ * Where a typed URL connects: the bare [host] (no URL brackets, IPv6 zone decoded) and the [port].
+ */
+internal data class ConnectTarget(
+    val host: String,
+    val port: Int,
+)
+
+/**
  * The host and port a typed URL connects to, with the scheme defaulted the way
  * [InstanceRepository.verifyServer] tries it first: plain `http` for an IP address (a LAN box
  * rarely has a certificate), `https` for a name. Null when the URL cannot be parsed.
  */
-internal fun connectTarget(rawUrl: String): Url? {
+internal fun connectTarget(rawUrl: String): ConnectTarget? {
     val withScheme =
         if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) {
             rawUrl
@@ -214,10 +233,18 @@ internal fun connectTarget(rawUrl: String): Url? {
         } else {
             "https://$rawUrl"
         }
-    return try {
-        Url(withScheme)
-    } catch (e: URLParserException) {
-        logger.debug(e) { "Could not derive a connect target from $rawUrl" }
-        null
-    }
+    val url =
+        try {
+            Url(withScheme)
+        } catch (e: URLParserException) {
+            logger.debug(e) { "Could not derive a connect target from $rawUrl" }
+            return null
+        }
+    return ConnectTarget(bareHost(url.host), url.port)
 }
+
+/**
+ * A URL host as the network APIs want it: Ktor keeps an IPv6 literal's brackets (`[fd00::5]`) and
+ * its zone percent-encoded (`%25en0`), and `nw_endpoint_create_host` accepts neither.
+ */
+private fun bareHost(urlHost: String): String = urlHost.removePrefix("[").removeSuffix("]").replace("%25", "%")

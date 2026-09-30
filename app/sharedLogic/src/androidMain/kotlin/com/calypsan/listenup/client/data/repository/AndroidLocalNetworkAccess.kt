@@ -8,17 +8,16 @@ import androidx.core.content.ContextCompat
 import com.calypsan.listenup.client.domain.repository.LocalNetworkAccess
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.withTimeoutOrNull
 import java.net.InetAddress
+import kotlin.time.Duration.Companion.seconds
 import java.net.UnknownHostException
 
 private val logger = KotlinLogging.logger {}
 
-/**
- * The first API level that enforces `ACCESS_LOCAL_NETWORK` for an app targeting it (Android 17).
- * API 36 declares the permission but does not block connections without it.
- */
-private const val LOCAL_NETWORK_ENFORCED_API = 37
+/** How long a DNS lookup may take before the host is treated as unresolved. */
+private val RESOLVE_TIMEOUT = 2.seconds
 
 /**
  * Android's [LocalNetworkAccess]: a connection is blocked by the gate when the platform enforces
@@ -50,17 +49,24 @@ internal class AndroidLocalNetworkAccess internal constructor(
         host: String,
         port: Int,
     ): Boolean {
-        if (sdkInt < LOCAL_NETWORK_ENFORCED_API || isGranted()) return false
+        if (sdkInt < LocalNetworkPermissionApi.ENFORCED || isGranted()) return false
         if (isLocalNetworkHost(host) || isAddressLiteral(host)) return isLocalNetworkHost(host)
-        return resolveHost(host).any(::isLocalNetworkHost)
+        // A resolver that never answers must not hold the connect screen: past the bound, the host
+        // is treated as unresolved, which never blames the permission.
+        val addresses = withTimeoutOrNull(RESOLVE_TIMEOUT) { resolveHost(host) } ?: emptyList()
+        return addresses.any(::isLocalNetworkHost)
     }
 
     private fun isAddressLiteral(host: String): Boolean = ':' in host || host.all { it.isDigit() || it == '.' }
 }
 
-/** Every address [host] resolves to, off the main thread; empty when it does not resolve. */
+/**
+ * Every address [host] resolves to, off the main thread; empty when it does not resolve.
+ * `getAllByName` blocks in the system resolver, so it runs interruptibly: the caller's timeout
+ * interrupts the thread instead of waiting out the resolver's own.
+ */
 private suspend fun resolveAddresses(host: String): List<String> =
-    withContext(Dispatchers.IO) {
+    runInterruptible(Dispatchers.IO) {
         try {
             InetAddress.getAllByName(host).mapNotNull { it.hostAddress }
         } catch (e: UnknownHostException) {

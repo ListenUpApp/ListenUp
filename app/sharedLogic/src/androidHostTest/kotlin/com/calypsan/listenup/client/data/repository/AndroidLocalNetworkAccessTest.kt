@@ -3,6 +3,9 @@ package com.calypsan.listenup.client.data.repository
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.test.runTest
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * [AndroidLocalNetworkAccess] decides, after a connect has already failed, whether Android 17's
@@ -97,5 +100,20 @@ class AndroidLocalNetworkAccessTest :
 
             access.isDeniedFor("nas.lan", 8080) shouldBe false
             lookups.shouldBeEmpty()
+        }
+
+        test("a resolver that never answers gives up rather than holding the connect screen") {
+            // InetAddress lookups block on the system resolver; an unreachable DNS server would
+            // otherwise keep "Verifying" up for a whole resolver timeout after the connect failed.
+            runTest(timeout = 5.seconds) {
+                val access =
+                    AndroidLocalNetworkAccess(
+                        sdkInt = android17,
+                        isGranted = { false },
+                        resolveHost = { awaitCancellation() },
+                    )
+
+                access.isDeniedFor("nas.lan", 8080) shouldBe false
+            }
         }
     })

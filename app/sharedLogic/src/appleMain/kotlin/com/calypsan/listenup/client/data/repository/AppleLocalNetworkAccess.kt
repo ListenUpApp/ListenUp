@@ -62,7 +62,8 @@ internal fun localNetworkVerdict(
  * iOS's [LocalNetworkAccess]: a short-lived TCP `NWConnection` probe to the host, per Apple
  * TN3179. There is no API to read the Local Network permission, but the system tells a
  * connection it blocked exactly why. The probe is cancelled as soon as the verdict is in (or
- * after [PROBE_TIMEOUT_MS]); it never sends a byte.
+ * after [PROBE_TIMEOUT_MS]). It sends no application data, but against a reachable host it does
+ * complete a TCP handshake before it is cancelled.
  *
  * No address classification here: iOS decides which destinations the privacy gate covers, and
  * the probe asks it directly. The simulator does not enforce Local Network privacy, so this only

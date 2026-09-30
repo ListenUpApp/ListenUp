@@ -397,6 +397,58 @@ class ServerConnectViewModelTest :
             }
         }
 
+        test("two retries in the same moment verify the server once") {
+            runTest {
+                val fixture = createFixture()
+                fixture.localNetworkAccess.denied = true
+                everySuspend { fixture.instanceRepository.verifyServer("http://192.168.1.5:8080") } returns
+                    AppResult.Failure(TransportError.Timeout(debugInfo = "connect timed out"))
+
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
+                viewModel.submitUrl("http://192.168.1.5:8080")
+                advanceUntilIdle()
+
+                // Android's resume effect and the grant callback can both fire before either retry
+                // has been dispatched; only one may reach the network.
+                viewModel.retryAfterLocalNetworkGrant()
+                viewModel.retryAfterLocalNetworkGrant()
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.exactly(2)) { fixture.instanceRepository.verifyServer(any()) }
+            }
+        }
+
+        test("submitUrl reports Verifying before the attempt is dispatched") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.instanceRepository.verifyServer("http://192.168.1.5:8080") } returns
+                    AppResult.Failure(TransportError.Timeout(debugInfo = "connect timed out"))
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
+
+                viewModel.submitUrl("http://192.168.1.5:8080")
+
+                viewModel.state.value shouldBe ServerConnectUiState.Verifying
+            }
+        }
+
+        test("a gate that fails to answer leaves the screen on ServerNotReachable, not spinning") {
+            runTest {
+                val fixture = createFixture()
+                fixture.localNetworkAccess.failure = IllegalStateException("probe exploded")
+                everySuspend { fixture.instanceRepository.verifyServer("http://192.168.1.5:8080") } returns
+                    AppResult.Failure(TransportError.Timeout(debugInfo = "connect timed out"))
+
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
+                viewModel.submitUrl("http://192.168.1.5:8080")
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<ServerConnectUiState.Error>()
+                    .error
+                    .shouldBeInstanceOf<ServerConnectError.ServerNotReachable>()
+            }
+        }
+
         test("retryAfterLocalNetworkGrant before any attempt does nothing") {
             runTest {
                 val fixture = createFixture()

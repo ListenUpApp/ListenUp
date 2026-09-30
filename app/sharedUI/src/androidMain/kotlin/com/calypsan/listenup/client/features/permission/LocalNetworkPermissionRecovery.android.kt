@@ -20,12 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
-
-/**
- * The first API level that blocks local network traffic without `ACCESS_LOCAL_NETWORK` (Android
- * 17). API 36 declares the permission but enforces nothing, so there it is never "denied".
- */
-private const val LOCAL_NETWORK_ENFORCED_API = 37
+import com.calypsan.listenup.client.data.repository.LocalNetworkPermissionApi
 
 /**
  * Android actual for [rememberLocalNetworkPermissionRecovery].
@@ -35,7 +30,8 @@ private const val LOCAL_NETWORK_ENFORCED_API = 37
  */
 @Composable
 actual fun rememberLocalNetworkPermissionRecovery(): LocalNetworkPermissionRecovery {
-    if (Build.VERSION.SDK_INT < LOCAL_NETWORK_ENFORCED_API) {
+    // Below ENFORCED nothing is blocked, so there the permission is never "denied".
+    if (Build.VERSION.SDK_INT < LocalNetworkPermissionApi.ENFORCED) {
         return remember {
             LocalNetworkPermissionRecovery(
                 isGranted = true,
