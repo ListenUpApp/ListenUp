@@ -127,7 +127,8 @@ class HardcoverPushWorkerTest :
                 outbox.pendingFor(USER).shouldBeEmpty()
                 links.linkFor(USER, BOOK)!!.method shouldBe HardcoverMatchMethod.ASIN
                 hardcover.shelfFor(427_578L)!!.statusId shouldBe HardcoverStatus.READING
-                hardcover.operations shouldBe listOf("edition_by_asin", "user_books", "insert_user_book", "insert_user_book_read")
+                hardcover.operations shouldBe
+                    listOf("edition_by_asin", "user_books", "insert_user_book", "user_books", "update_user_book_read")
                 connections.pushHealth(USER) shouldBe HardcoverPushHealth(lastSyncedAt = T0, pushError = null)
             }
         }

@@ -142,9 +142,9 @@ class HardcoverUserBooks(
 
     /**
      * Writes [read]'s whole known state — start, finish, position and edition — to Hardcover. Only
-     * what ListenUp doesn't know is left out. Never a lone field: whether Hardcover treats a partial
-     * `DatesReadInput` as a patch or nulls what it omits is unverified, so every update is safe
-     * under the worse answer.
+     * what ListenUp doesn't know is left out. Hardcover treats a partial `DatesReadInput` as a patch
+     * (seen live, 2026-09-30: a lone `progress_seconds` kept `started_at` and `edition_id`), so the
+     * whole read is belt and braces, not a necessity.
      */
     suspend fun updateRead(
         accessToken: String,

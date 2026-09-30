@@ -70,10 +70,12 @@ class HardcoverUserBooksTest :
                 val shelf = hardcover.shelfFor(HC_BOOK)!!
                 shelf.editionId shouldBe HC_EDITION
                 shelf.statusId shouldBe HardcoverStatus.READ
-                shelf.reads.single().startedAt shouldBe "2026-05-22"
-                shelf.reads.single().progressSeconds shouldBe 5_400L
-                shelf.reads.single().finishedAt shouldBe "2026-06-01"
-                shelf.reads.single().editionId shouldBe HC_EDITION
+                // Hardcover opens its own read on a Currently Reading shelving; this checks the one opened here.
+                val read = shelf.reads.single { it.id == readId }
+                read.startedAt shouldBe "2026-05-22"
+                read.progressSeconds shouldBe 5_400L
+                read.finishedAt shouldBe "2026-06-01"
+                read.editionId shouldBe HC_EDITION
             }
         }
 

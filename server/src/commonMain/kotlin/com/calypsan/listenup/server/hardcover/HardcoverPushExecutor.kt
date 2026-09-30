@@ -127,10 +127,10 @@ class HardcoverPushExecutor(
 
         /**
          * The read this listen-through writes to: the one already recorded for it; else an unfinished
-         * read on the shelf (continued); else a new one dated [startedAt] — shelving the book at the
-         * matched edition as Reading first when it isn't on the shelf. Recorded on the link and in the
-         * pushed-read ledger. A recorded read is always on [shelf]: [deletedOnHardcover] suppressed the
-         * row otherwise.
+         * read on the shelf (continued); else, for a book not yet on the shelf, it is shelved at the
+         * matched edition as Reading and the read Hardcover opens for that is adopted; else a new one
+         * dated [startedAt]. Recorded on the link and in the pushed-read ledger. A recorded read is
+         * always on [shelf]: [deletedOnHardcover] suppressed the row otherwise.
          */
         private suspend fun openRead(startedAt: Long?): HardcoverCall<OpenRead> {
             val recordedShelf = link.hcUserBookId
@@ -150,6 +150,7 @@ class HardcoverPushExecutor(
                         ).valueOr { return it }
             val read =
                 shelf?.openRead
+                    ?: (if (shelf == null) adoptReadHardcoverOpened(startedAt).valueOr { return it } else null)
                     ?: run {
                         val startedOn = startedAt?.let(::dateOf)
                         val readId =
@@ -171,6 +172,24 @@ class HardcoverPushExecutor(
             links.recordOpenRead(row.userId, row.bookId, userBookId, read.id, row.listenThrough)
             links.recordPushedRead(row.userId, read.id, row.bookId)
             return HardcoverCall.Ok(OpenRead(userBookId, read, opened = true))
+        }
+
+        /**
+         * Hardcover opens a read by itself, dated today, when a book is shelved as Currently Reading
+         * (seen live, 2026-09-30). Opening another would leave a stray open read beside ListenUp's, so
+         * the one it opened is adopted and moved to [startedAt] — kept at Hardcover's date when unknown.
+         * `Ok(null)` when Hardcover opened none.
+         */
+        private suspend fun adoptReadHardcoverOpened(startedAt: Long?): HardcoverCall<HardcoverRead?> {
+            val opened =
+                userBooks.userBookFor(token, hcBookId).valueOr { return it }?.openRead ?: return HardcoverCall.Ok(null)
+            val dated =
+                opened.copy(
+                    startedAt = startedAt?.let { dateOf(it).toString() } ?: opened.startedAt,
+                    editionId = link.hcEditionId ?: opened.editionId,
+                )
+            if (dated != opened) userBooks.updateRead(token, dated).valueOr { return it }
+            return HardcoverCall.Ok(dated)
         }
 
         private fun dateOf(epochMs: Long): LocalDate = Instant.fromEpochMilliseconds(epochMs).toLocalDateTime(zone).date

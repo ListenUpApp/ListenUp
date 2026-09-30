@@ -31,6 +31,9 @@ data class FakeReply(
     val headers: Map<String, String> = emptyMap(),
 )
 
+/** The date the fake Hardcover stamps on the read it opens by itself: "today". */
+const val FAKE_TODAY = "2026-09-30"
+
 /** A rate limiter that never waits. */
 class NoWaitRateLimiter : HardcoverRateLimiter() {
     override suspend fun await() = Unit
@@ -44,8 +47,11 @@ class NoWaitRateLimiter : HardcoverRateLimiter() {
  * [requests], in order.
  *
  * [readUpdates] decides what `update_user_book_read` does with a `DatesReadInput` field the request
- * leaves out. Hardcover's own behaviour is unverified (it can't be probed read-only), so push must
- * survive the worse answer: [ReadUpdates.REPLACE] nulls every omitted field.
+ * leaves out. The real Hardcover patches ([ReadUpdates.PATCH], seen live 2026-09-30); push also
+ * survives the worse answer, [ReadUpdates.REPLACE], which nulls every omitted field.
+ *
+ * Like the real Hardcover (seen live, 2026-09-30), `insert_user_book` at Currently Reading opens a
+ * read of its own, dated [FAKE_TODAY] at the shelved edition.
  */
 class FakeHardcoverLibrary(
     private val readUpdates: ReadUpdates = ReadUpdates.PATCH,
@@ -198,6 +204,16 @@ class FakeHardcoverLibrary(
                 val input = variables.obj("object")
                 val shelf =
                     Shelf(nextId++, input.long("book_id"), input.int("status_id"), input.longOrNull("edition_id"))
+                if (shelf.statusId == HardcoverStatus.READING) {
+                    shelf.reads +=
+                        Read(
+                            nextId++,
+                            FAKE_TODAY,
+                            finishedAt = null,
+                            progressSeconds = null,
+                            editionId = shelf.editionId,
+                        )
+                }
                 shelves += shelf
                 mutation("insert_user_book", shelf.id)
             }

@@ -168,8 +168,9 @@ class HardcoverPushEndToEndTest :
                                 .date
                                 .toString()
                     }
-                    // One shelf entry and one read: nothing was duplicated on the way.
-                    hardcover.operations.filter { it.startsWith("insert_") } shouldBe listOf("insert_user_book", "insert_user_book_read")
+                    // One shelf entry, and the read Hardcover opened for it adopted: nothing was duplicated on the way.
+                    hardcover.operations.filter { it.startsWith("insert_") } shouldBe listOf("insert_user_book")
+                    hardcover.shelfFor(427_578L)!!.reads.size shouldBe 1
                     // Every read update carried the read's whole state, so replacing the read kept its
                     // start date, its position and its edition.
                     val readUpdates = hardcover.requests.filter { it.operation == "update_user_book_read" }

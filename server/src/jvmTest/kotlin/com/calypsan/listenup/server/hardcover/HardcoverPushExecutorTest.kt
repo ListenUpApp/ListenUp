@@ -87,6 +87,20 @@ class HardcoverPushExecutorTest :
             }
         }
 
+        test("START shelving a new book adopts the read Hardcover opens for Currently Reading, redated, not a second one") {
+            executorTest {
+                outbox.enqueueStart(USER, BOOK, listenThrough = T0, startedAt = T0, isReread = false)
+                runHead() shouldBe PushOutcome.Done
+
+                val read = shelf()!!.reads.single()
+                read.startedAt shouldBe "2026-05-22"
+                read.finishedAt.shouldBeNull()
+                hardcover.operations.count { it == "insert_user_book_read" } shouldBe 0
+                link().openHcReadId shouldBe read.id
+                links.isPushedRead(USER, read.id) shouldBe true
+            }
+        }
+
         test("START finding a read already open on Hardcover continues it, records it, and sets Reading") {
             executorTest {
                 val seeded = hardcover.seedShelf(HC_BOOK, statusId = 1, "2026-05-20" to null)
@@ -137,12 +151,14 @@ class HardcoverPushExecutorTest :
             }
         }
 
-        test("PROGRESS with nothing open (connected mid-book, before listen-throughs) shelves the book and opens an undated read") {
+        test(
+            "PROGRESS with nothing open (connected mid-book) shelves the book and keeps Hardcover's date on its read",
+        ) {
             executorTest {
                 outbox.enqueueProgress(USER, BOOK, LEGACY_LISTEN_THROUGH, positionSeconds = 60L, notBefore = T0)
                 runHead() shouldBe PushOutcome.Done
                 val read = shelf()!!.reads.single()
-                read.startedAt.shouldBeNull()
+                read.startedAt shouldBe FAKE_TODAY
                 read.progressSeconds shouldBe 60L
                 shelf()!!.statusId shouldBe HardcoverStatus.READING
             }
@@ -171,7 +187,7 @@ class HardcoverPushExecutorTest :
                 outbox.enqueueFinish(USER, BOOK, T0, finishedAt = T0 + DAY)
                 runHead()
 
-                val (progress, finish) = readUpdatesSent()
+                val (progress, finish) = readUpdatesSent().takeLast(2)
                 progress.getValue("started_at").jsonPrimitive.content shouldBe "2026-05-22"
                 progress.getValue("progress_seconds").jsonPrimitive.long shouldBe 5_400L
                 progress.getValue("edition_id").jsonPrimitive.long shouldBe HC_EDITION
