@@ -195,4 +195,41 @@ class RpcSocketLeakE2ETest :
                 }
             }
         }
+
+        test("a server probe that times out after the upgrade leaves no session open") {
+            runBlocking {
+                val silent = SilentServer()
+                try {
+                    val factory = KtorInstanceRpcFactory(requestTimeoutMillis = 800, socketTimeoutMillis = 800)
+
+                    runCatching { factory.getServerInfo("ws://127.0.0.1:${silent.port}") }
+
+                    silent.upgradesReached.get() shouldBe 1
+                    settle(silent.openSessions, expected = 0) shouldBe 0
+                } finally {
+                    silent.stop()
+                }
+            }
+        }
+
+        test("a server probe that times out during the upgrade leaves no session open once the upgrade lands") {
+            runBlocking {
+                val silent = SilentServer(upgradeGate = CompletableDeferred())
+                try {
+                    val factory = KtorInstanceRpcFactory(requestTimeoutMillis = 800, socketTimeoutMillis = 800)
+
+                    runCatching { factory.getServerInfo("ws://127.0.0.1:${silent.port}") }
+                    silent.upgradesReached.get() shouldBe 1
+
+                    silent.upgradeGate.complete(Unit)
+
+                    // Give a leaked upgrade ample time to land and park before reading the count: a
+                    // poll for zero would pass instantly, before the upgrade had even arrived.
+                    delay(UPGRADE_LANDING)
+                    silent.openSessions.get() shouldBe 0
+                } finally {
+                    silent.stop()
+                }
+            }
+        }
     })

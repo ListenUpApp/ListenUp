@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.error.TransportError
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.websocket.WebSockets
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
@@ -44,7 +45,7 @@ internal interface InstanceRpcFactory {
 
 /**
  * Production [InstanceRpcFactory]: opens a fresh kRPC WebSocket to the explicit
- * URL's `/api/rpc/public` mount, fetches once, and lets the client be GC'd. No
+ * URL's `/api/rpc/public` mount, fetches once, and closes the socket behind it. No
  * caching — verification is a one-shot probe against a URL that may not pan out.
  *
  * Wire serialization is the contract-layer [contractJson] — one wire format,
@@ -79,20 +80,26 @@ internal class KtorInstanceRpcFactory(
                     socketTimeoutMillis = this@KtorInstanceRpcFactory.socketTimeoutMillis
                 }
             }
+        val rpcClient =
+            client.rpc("${wsBaseUrl.trimEnd('/')}/api/rpc/public") {
+                rpcConfig { serialization { json(contractJson) } }
+            }
         return try {
             withTimeoutOrNull(requestTimeoutMillis) {
-                client
-                    .rpc("${wsBaseUrl.trimEnd('/')}/api/rpc/public") {
-                        rpcConfig { serialization { json(contractJson) } }
-                    }.withService<InstanceService>()
-                    .getServerInfo()
+                rpcClient.withService<InstanceService>().getServerInfo()
             } ?: AppResult.Failure(
                 TransportError.Timeout(
                     debugInfo = "getServerInfo exceeded ${requestTimeoutMillis}ms (connect or post-upgrade RPC stall)",
                 ),
             )
         } finally {
+            // Closing the HttpClient alone leaves the probe's socket open: Ktor's close() only completes
+            // the client's job, which waits for the WebSocket session under it. Close the RPC client
+            // (a graceful close once its transport is up), then CANCEL the HttpClient — the only thing
+            // that reaches an upgrade the bound above abandoned mid-flight, which lands later and parks.
+            rpcClient.close()
             client.close()
+            client.cancel()
         }
     }
 
