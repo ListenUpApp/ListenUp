@@ -340,13 +340,15 @@ private fun HeroBlobs() {
 
 /**
  * A muted helper card (icon + body) used under fields — e.g. the "your server address looks
- * like…" tip on the connect screen.
+ * like…" tip on the connect screen. An optional [action] sits under the text, for a tip that
+ * comes with the one thing the user can do about it.
  */
 @Composable
 fun AuthHelperCard(
     icon: ImageVector,
     text: String,
     modifier: Modifier = Modifier,
+    action: (@Composable () -> Unit)? = null,
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -360,11 +362,14 @@ fun AuthHelperCard(
                 tint = MaterialTheme.colorScheme.tertiary,
                 modifier = Modifier.size(22.dp),
             )
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                action?.invoke()
+            }
         }
     }
 }
