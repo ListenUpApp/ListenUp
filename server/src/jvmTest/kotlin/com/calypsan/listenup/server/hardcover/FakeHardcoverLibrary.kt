@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.hardcover
 
+import com.calypsan.listenup.api.result.AppResult
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -567,4 +568,28 @@ fun hasuraTimestamp(instant: Instant): String {
     val seconds = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss").withZone(ZoneOffset.UTC).format(instant)
     val fraction = (instant.nano / 1_000).toString().padStart(6, '0').trimEnd('0')
     return if (fraction.isEmpty()) "$seconds+00:00" else "$seconds.$fraction+00:00"
+}
+
+/** A [HardcoverPullRequests] that records what it is asked and pulls nothing. */
+class RecordingPullRequests : HardcoverPullRequests {
+    val syncNowCalls = CopyOnWriteArrayList<String>()
+    val staleChecks = CopyOnWriteArrayList<String>()
+    val matchChanges = CopyOnWriteArrayList<Pair<String, String>>()
+    var syncNowResult: AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun syncNow(userId: String): AppResult<Unit> {
+        syncNowCalls += userId
+        return syncNowResult
+    }
+
+    override suspend fun syncIfStale(userId: String) {
+        staleChecks += userId
+    }
+
+    override suspend fun onMatchChanged(
+        userId: String,
+        bookId: String,
+    ) {
+        matchChanges += userId to bookId
+    }
 }
