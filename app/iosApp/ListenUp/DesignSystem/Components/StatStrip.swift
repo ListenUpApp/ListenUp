@@ -76,7 +76,7 @@ struct StatStrip: View {
     }
 
     /// The stats in order, `columns` to a row; the last row holds the remainder.
-    static func rows(of stats: [Stat], columns: Int) -> [[Stat]] {
+    nonisolated static func rows(of stats: [Stat], columns: Int) -> [[Stat]] {
         let width = max(columns, 1)
         return stride(from: 0, to: stats.count, by: width).map {
             Array(stats[$0 ..< min($0 + width, stats.count)])

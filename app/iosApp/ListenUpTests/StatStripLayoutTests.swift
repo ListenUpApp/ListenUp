@@ -3,6 +3,7 @@ import Testing
 
 /// How `StatStrip` falls back when its stats don't fit on one line (a large text size, a narrow
 /// window): the stats regroup into rows of a fixed width, in order, the last row short.
+@MainActor
 @Suite("Stat strip layout")
 struct StatStripLayoutTests {
     private let stats: [StatStrip.Stat] = ["Listened", "Finished", "Day streak", "Best"]
