@@ -43,7 +43,7 @@ struct PlayerCloseBookReuseTests {
         let progress = harness.progress
         coordinator.play(bookId: "book1")
         await progress.waitForStarted(bookId: "book1")
-        await awaitUntil { coordinator.isPlaying }
+        await awaitObservation { coordinator.isPlaying }
 
         await coordinator.stop()
         #expect(coordinator.isVisible == false)
@@ -51,7 +51,7 @@ struct PlayerCloseBookReuseTests {
         coordinator.play(bookId: "book2")
         // Bounded on either outcome: against a terminal engine the second load fails and the
         // coordinator lands in `.error`, so an unbounded `waitForStarted` would hang, not fail.
-        await awaitUntil { coordinator.isPlaying || coordinator.isErrored }
+        await awaitObservation { coordinator.isPlaying || coordinator.isErrored }
         #expect(coordinator.isPlaying)
         #expect(coordinator.isErrored == false)
     }
@@ -68,13 +68,13 @@ struct PlayerCloseBookReuseTests {
     @Test func skipIntervalObservationSurvivesStop() async {
         let harness = makeHarness()
         let coordinator = harness.coordinator
-        await awaitUntil { coordinator.skipForwardSec == 30 }
+        await awaitObservation { coordinator.skipForwardSec == 30 }
         await coordinator.stop()
 
         harness.skips.emitForward(45)
-        // Bounded poll (the skip-interval suite's own pattern) so a severed subscription fails
-        // the test instead of hanging an observation wait that never fires.
-        await awaitUntil { coordinator.skipForwardSec == 45 }
+        // A severed subscription never mutates the interval, so this ends at the watchdog and
+        // fails by name rather than hanging.
+        await awaitObservation { coordinator.skipForwardSec == 45 }
         #expect(coordinator.skipForwardSec == 45)
     }
 }

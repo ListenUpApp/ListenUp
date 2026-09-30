@@ -37,7 +37,7 @@ struct PausePersistenceTests {
         // `rate: 0` (paused sample) holds the position exactly; a positive rate would start
         // the CADisplayLink and interpolate past 12345, racing the `== 12345` poll into a hang.
         engine.emit(.position(ms: 12345, rate: 0.0))
-        await awaitUntil { coordinator.bookPositionMs == 12345 }
+        await awaitObservation { coordinator.bookPositionMs == 12345 }
 
         coordinator.togglePlayback()
         await engine.waitUntilPaused()
@@ -81,7 +81,7 @@ struct FinishTruthTests {
     @Test func bookEndedReportsTheRealPosition() async throws {
         let (coordinator, engine, progress) = await playingOneMinuteBook()
         engine.emit(.position(ms: 24000, rate: 0.0))
-        await awaitUntil { coordinator.bookPositionMs == 24000 }
+        await awaitObservation { coordinator.bookPositionMs == 24000 }
 
         engine.emit(.ended)
 
@@ -95,7 +95,7 @@ struct FinishTruthTests {
     @Test func pauseCarriesTheBookDuration() async throws {
         let (coordinator, engine, progress) = await playingOneMinuteBook()
         engine.emit(.position(ms: 59800, rate: 0.0))
-        await awaitUntil { coordinator.bookPositionMs == 59800 }
+        await awaitObservation { coordinator.bookPositionMs == 59800 }
 
         coordinator.togglePlayback()
         await engine.waitUntilPaused()
@@ -110,13 +110,13 @@ struct FinishTruthTests {
     @Test func startAfterTheEndCarriesTheBookDuration() async throws {
         let (coordinator, engine, progress) = await playingOneMinuteBook()
         engine.emit(.position(ms: 60000, rate: 0.0))
-        await awaitUntil { coordinator.bookPositionMs == 60000 }
+        await awaitObservation { coordinator.bookPositionMs == 60000 }
         engine.emit(.ended)
         await awaitUntil { !progress.finished.isEmpty }
 
         coordinator.seekTo(positionMs: 0)
         engine.emit(.position(ms: 0, rate: 0.0))
-        await awaitUntil { coordinator.bookPositionMs == 0 }
+        await awaitObservation { coordinator.bookPositionMs == 0 }
         coordinator.togglePlayback()
 
         await awaitUntil { progress.startedDurations.count == 2 }
@@ -160,7 +160,7 @@ struct BufferingPromotionTests {
 
         engine.emit(.position(ms: 250, rate: 1.0))
 
-        await awaitUntil { coordinator.isPlaying }
+        await awaitObservation { coordinator.isPlaying }
         #expect(coordinator.isPlaying, "advancing audio (rate > 0) must promote buffering to playing")
     }
 
@@ -185,7 +185,7 @@ struct BufferingPromotionTests {
         await progress.waitForStarted(bookId: "book1")
 
         engine.emit(.position(ms: 250, rate: 0.0))
-        await awaitUntil { coordinator.bookPositionMs == 250 }
+        await awaitObservation { coordinator.bookPositionMs == 250 }
 
         #expect(!coordinator.isPlaying, "a rate-0 sample is not evidence of playback")
     }
@@ -204,7 +204,7 @@ struct PrepareErrorStateTests {
             engine: FakePlaybackEngine())
 
         coordinator.play(bookId: "book1")
-        await awaitUntil {
+        await awaitObservation {
             if case .error = coordinator.phase { return true }
             return false
         }
@@ -232,7 +232,7 @@ struct PrepareErrorStateTests {
             engine: FakePlaybackEngine())
 
         coordinator.play(bookId: "book1")
-        await awaitUntil {
+        await awaitObservation {
             if case .error = coordinator.phase { return true }
             return false
         }

@@ -3,60 +3,6 @@ import AVFoundation
 @testable import ListenUp
 import Shared
 
-/// Polls `condition` until true or the timeout elapses.
-///
-/// **Prefer the fakes' `AsyncGate` waits** (`progress.waitForStarted(bookId:)`,
-/// `progress.waitForPositionUpdate(…)`, `engine.waitUntilPaused()`, etc.): they await the exact
-/// state transition by causality and have no wall-clock dependence, which is what de-flaked the
-/// engine/progress/sleep assertions under saturated CI. Anchor "playback has started" on the
-/// coordinator's own `waitForStarted` callback (emitted *after* `phase = .playing`), never on the
-/// `engine.play()` command — the latter races the coordinator's post-`play` phase write.
-/// This poll remains only for the few cases that observe the coordinator's own `@Observable`
-/// state set from internal `Task`s the fakes can't signal (e.g. `firstPdfDocId`,
-/// `documentToOpen`) — and for the bounded *negative* check in `stopIgnoresLateEngineEvents`.
-///
-/// The ceiling is deliberately generous: a passing condition returns in milliseconds, so the
-/// timeout is never paid on a green run — it is only ever reached when the awaited work
-/// genuinely never happens. 30 s gives a saturated scheduler ample room without slowing
-/// healthy runs.
-@MainActor
-func awaitUntil(
-    timeout: Duration = .seconds(30),
-    pollInterval: Duration = .milliseconds(20),
-    _ condition: () async -> Bool
-) async {
-    let deadline = ContinuousClock.now + timeout
-    while ContinuousClock.now < deadline {
-        if await condition() { return }
-        try? await Task.sleep(for: pollInterval)
-    }
-}
-
-/// Causally await a coordinator `@Observable` condition — suspends until the tracked state
-/// actually mutates, resuming the instant it does, with no hop ceiling and no wall-clock poll.
-///
-/// This replaced a fixed cooperative-hop poll that lost a real CI race. The buffering→playing
-/// promotion (and, via the `prepare` path, the load-failure `.error` transition) is driven by
-/// work that is NOT purely main-actor: `FlowBridge`'s `for await … in engine.events` drives
-/// `AsyncStream.Iterator.next()` — a `nonisolated async` call that parks on the generic executor
-/// (SE-0338) — and the prepare/cover fakes are likewise `nonisolated async`. On a CPU-starved CI
-/// runner (parallel simulator clones) those off-main resumptions land on the wall clock *after* a
-/// fixed hop budget has drained, so the poll exited with the condition still false and the
-/// assertion failed (no hang, ~normal duration). Observation waits for the real mutation however
-/// long it takes — it can't lose that race — while still surfacing a genuinely-absent mutation via
-/// the test's execution-time allowance rather than a silent early pass.
-///
-/// (Prefer the fakes' `AsyncGate` waits where a fake can signal causally; use this for a
-/// coordinator `@Observable` transition no fake owns, e.g. the engine-event-driven phase promotion.)
-@MainActor
-func awaitObservation(_ condition: @escaping @MainActor () -> Bool) async {
-    while !condition() {
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            withObservationTracking { _ = condition() } onChange: { continuation.resume() }
-        }
-    }
-}
-
 @Suite("ChapterMath")
 struct PlayerCoordinatorTests {
     /// The index runs over the native `ChapterRowModel` projection, never the bridged Kotlin
@@ -406,7 +352,7 @@ struct AudioSessionInterruptionTests {
         await progress.waitForStarted(bookId: "book1")
 
         engine.emit(.statusChanged(.buffering))
-        await awaitUntil { coordinator.isBuffering }
+        await awaitObservation { coordinator.isBuffering }
 
         postInterruptionBegan()
         await engine.waitUntilPaused()
@@ -514,7 +460,7 @@ struct SkipIntervalTests {
         // `== 60000` poll could then never settle and the test would hang. A paused sample holds
         // the position exactly, which is all this skip-math anchor needs.
         engine.emit(.position(ms: 60000, rate: 0.0))
-        await awaitUntil { coordinator.bookPositionMs == 60000 }
+        await awaitObservation { coordinator.bookPositionMs == 60000 }
 
         // 60 s + 30 s default forward = 90 s. A skip is a seek, so it splits the span (onSeek),
         // not a plain position update.
@@ -532,7 +478,7 @@ struct SkipIntervalTests {
     @Test func seededIntervalsApplyToObservableSurface() async {
         let skip = FakeSkipIntervalProviding(initialForward: 45, initialBackward: 15)
         let (coordinator, _, _) = makeCoordinator(skipIntervals: skip)
-        await awaitUntil { coordinator.skipForwardSec == 45 && coordinator.skipBackwardSec == 15 }
+        await awaitObservation { coordinator.skipForwardSec == 45 && coordinator.skipBackwardSec == 15 }
         #expect(coordinator.skipForwardSec == 45)
         #expect(coordinator.skipBackwardSec == 15)
     }
@@ -545,12 +491,12 @@ struct SkipIntervalTests {
     @Test func liveChangePropagatesToObservableSurface() async {
         let skip = FakeSkipIntervalProviding(initialForward: 30, initialBackward: 10)
         let (coordinator, _, _) = makeCoordinator(skipIntervals: skip)
-        await awaitUntil { coordinator.skipForwardSec == 30 && coordinator.skipBackwardSec == 10 }
+        await awaitObservation { coordinator.skipForwardSec == 30 && coordinator.skipBackwardSec == 10 }
 
         // User changes the intervals after construction (mid-session, no rebuild).
         skip.emitForward(45)
         skip.emitBackward(20)
-        await awaitUntil { coordinator.skipForwardSec == 45 && coordinator.skipBackwardSec == 20 }
+        await awaitObservation { coordinator.skipForwardSec == 45 && coordinator.skipBackwardSec == 20 }
         #expect(coordinator.skipForwardSec == 45)
         #expect(coordinator.skipBackwardSec == 20)
     }
@@ -563,16 +509,16 @@ struct SkipIntervalTests {
         let (coordinator, engine, progress) = makeCoordinator(skipIntervals: skip)
         coordinator.play(bookId: "book1")
         await progress.waitForStarted(bookId: "book1")
-        await awaitUntil { coordinator.skipForwardSec == 30 }
+        await awaitObservation { coordinator.skipForwardSec == 30 }
 
         skip.emitForward(45)
-        await awaitUntil { coordinator.skipForwardSec == 45 }
+        await awaitObservation { coordinator.skipForwardSec == 45 }
 
         // Anchor position at 60 s, then the next skip uses 45 s → 105 s.
         // `rate: 0` (paused) holds the position exactly; a positive rate would start the
         // `CADisplayLink` and interpolate past 60000, leaving the `== 60000` poll to hang.
         engine.emit(.position(ms: 60000, rate: 0.0))
-        await awaitUntil { coordinator.bookPositionMs == 60000 }
+        await awaitObservation { coordinator.bookPositionMs == 60000 }
         coordinator.skipForward()
         await progress.waitForSeek(bookId: "book1", afterMs: 105_000)
         #expect(progress.seeks.contains { $0.0 == "book1" && $0.2 == 105_000 })
@@ -675,7 +621,7 @@ struct DocumentProviderTests {
         docProvider.pdfDocId = "doc-42"
         let coordinator = makeCoordinator(documentProvider: docProvider)
         coordinator.play(bookId: "book1")
-        await awaitUntil { coordinator.firstPdfDocId == "doc-42" }
+        await awaitObservation { coordinator.firstPdfDocId == "doc-42" }
         #expect(coordinator.firstPdfDocId == "doc-42")
     }
 
@@ -695,10 +641,10 @@ struct DocumentProviderTests {
         docProvider.localPath = "/books/mybook.pdf"
         let coordinator = makeCoordinator(documentProvider: docProvider)
         coordinator.play(bookId: "book1")
-        await awaitUntil { coordinator.firstPdfDocId == "doc-99" }
+        await awaitObservation { coordinator.firstPdfDocId == "doc-99" }
 
         coordinator.openCurrentBookPdf()
-        await awaitUntil { coordinator.documentToOpen != nil }
+        await awaitObservation { coordinator.documentToOpen != nil }
 
         #expect(coordinator.documentToOpen?.url == URL(fileURLWithPath: "/books/mybook.pdf"))
     }
@@ -736,7 +682,7 @@ struct PlaybackLifecycleTests {
         // The coordinator starts in `.buffering` and is promoted to `.playing` by the engine's
         // first "playing" status event (RC-3); await that promotion rather than asserting it
         // the instant `onPlaybackStarted` lands.
-        await awaitUntil { coordinator.isPlaying }
+        await awaitObservation { coordinator.isPlaying }
         #expect(coordinator.isPlaying)
         #expect(coordinator.isVisible)
 
