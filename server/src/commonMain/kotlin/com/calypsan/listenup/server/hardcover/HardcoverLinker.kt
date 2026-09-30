@@ -151,6 +151,30 @@ class HardcoverLinker(
     }
 
     /**
+     * Marks [userId]'s connection broken for [reason] and publishes it — unless there is no connection
+     * any more (a disconnect got there first). Under [withUserLock], so it never interleaves a
+     * disconnect. Answers whether it broke anything. Push and pull both break a connection this way.
+     */
+    suspend fun breakIfConnected(
+        userId: String,
+        reason: HardcoverBrokenReason,
+    ): Boolean {
+        val username =
+            withUserLock(userId) {
+                val name =
+                    when (val stored = store.connectionFor(userId)) {
+                        is StoredConnection.Healthy -> stored.hardcoverUsername
+                        is StoredConnection.Broken -> stored.hardcoverUsername
+                        null -> null
+                    }
+                if (name != null) store.markBroken(userId, reason)
+                name
+            } ?: return false
+        onBroken(userId, reason, username)
+        return true
+    }
+
+    /**
      * Polls until the sign-in settles, and returns the state it settled into. The first poll waits a
      * full interval, as RFC 8628 asks. A transient failure keeps polling; the code's own deadline
      * bounds the loop.

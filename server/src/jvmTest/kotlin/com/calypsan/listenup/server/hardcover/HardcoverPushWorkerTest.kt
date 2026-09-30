@@ -63,6 +63,7 @@ private class WorkerRig(
     val links = HardcoverBookLinkStore(sql, clock)
     val outbox = HardcoverOutbox(sql, clock)
     var identity: BookIdentity? = HAIL_MARY_IDENTITY
+    val gate = HardcoverUserGate()
     val worker =
         HardcoverPushWorker(
             outbox = outbox,
@@ -73,6 +74,7 @@ private class WorkerRig(
             connections = connections,
             linker = linker,
             identities = HardcoverBookIdentities { identity },
+            gate = gate,
             clock = clock,
         )
 
@@ -182,6 +184,17 @@ class HardcoverPushWorkerTest :
                 queueStart()
                 hardcover.failNext(FakeReply(HttpStatusCode.ServiceUnavailable))
                 worker.step(USER) shouldBe LaneStep.Sleep(T0 + 30.seconds.inWholeMilliseconds)
+            }
+        }
+
+        test("a pause the pull set holds the push lane too, without asking Hardcover") {
+            workerTest {
+                connect()
+                linkBook()
+                queueStart()
+                gate.pause(USER, untilMs = T0 + 60_000L)
+                worker.step(USER) shouldBe LaneStep.Sleep(T0 + 60_000L)
+                hardcover.operations.shouldBeEmpty()
             }
         }
 

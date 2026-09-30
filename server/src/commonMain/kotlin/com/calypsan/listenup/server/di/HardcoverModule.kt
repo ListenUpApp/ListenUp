@@ -26,6 +26,7 @@ import com.calypsan.listenup.server.hardcover.HardcoverRatingSource
 import com.calypsan.listenup.server.hardcover.HardcoverTokenCipher
 import com.calypsan.listenup.server.hardcover.HardcoverTokenProvider
 import com.calypsan.listenup.server.hardcover.HardcoverUserBooks
+import com.calypsan.listenup.server.hardcover.HardcoverUserGate
 import com.calypsan.listenup.server.ratings.toIdentity
 import com.calypsan.listenup.server.services.BookRepository
 import io.ktor.client.HttpClient
@@ -86,6 +87,7 @@ fun hardcoverModule(
         }
         single { HardcoverTokenProvider(oauth = get(), store = get(), linker = get(), clock = get()) }
         single { HardcoverRateLimiter() }
+        single { HardcoverUserGate() }
         single { HardcoverRatingConnection(store = get(), tokens = get()) }
         single {
             HardcoverRatingSource(
@@ -114,6 +116,7 @@ fun hardcoverModule(
                 connections = get(),
                 linker = get(),
                 identities = get(),
+                gate = get(),
                 clock = get(),
             )
         }

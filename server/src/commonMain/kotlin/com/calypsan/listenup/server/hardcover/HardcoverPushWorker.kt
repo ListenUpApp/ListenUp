@@ -55,7 +55,8 @@ internal sealed interface LaneStep {
  *   `Broken(REVOKED)`;
  * - 403 `insufficient_scope`: `Broken(MISSING_SCOPE)`.
  * A lane that runs out of work retires; a nudge ([HardcoverPushRecorder], a manual link, a reconnect,
- * boot) starts it again. Lanes run in the scope passed to [start], cancelled at shutdown.
+ * boot) starts it again. Lanes run in the scope passed to [start], cancelled at shutdown. Each step
+ * holds the user's [HardcoverUserGate], which the pull lane shares.
  */
 class HardcoverPushWorker(
     private val outbox: HardcoverOutbox,
@@ -66,11 +67,11 @@ class HardcoverPushWorker(
     private val connections: HardcoverConnectionStore,
     private val linker: HardcoverLinker,
     private val identities: HardcoverBookIdentities,
+    private val gate: HardcoverUserGate,
     private val clock: Clock = Clock.System,
 ) : HardcoverPushNudge {
     private val lock = SynchronizedObject()
     private val lanes = HashMap<String, Channel<Unit>>()
-    private val pausedUntil = HashMap<String, Long>()
     private val refreshedForRow = HashMap<String, Long>()
     private var scope: CoroutineScope? = null
 
@@ -101,10 +102,12 @@ class HardcoverPushWorker(
         }
     }
 
-    /** One step of [userId]'s lane: run (or match, or wait for) the next row. */
-    internal suspend fun step(userId: String): LaneStep {
+    /** One step of [userId]'s lane: run (or match, or wait for) the next row, as the user's only Hardcover conversation. */
+    internal suspend fun step(userId: String): LaneStep = gate.withUser(userId) { stepHoldingGate(userId) }
+
+    private suspend fun stepHoldingGate(userId: String): LaneStep {
         val now = now()
-        synchronized(lock) { pausedUntil[userId] }?.takeIf { it > now }?.let { return LaneStep.Sleep(it) }
+        gate.pausedUntil(userId)?.takeIf { it > now }?.let { return LaneStep.Sleep(it) }
         val row = outbox.head(userId) ?: return outbox.nextWakeAt(userId)?.let { LaneStep.Sleep(it) } ?: LaneStep.Stop
         val token =
             when (val lookup = tokens.accessToken(userId)) {
@@ -228,7 +231,7 @@ class HardcoverPushWorker(
                     failure.retryAfterMs
                         ?: exponentialBackoff(attempts, THROTTLE_BACKOFF_BASE, BACKOFF_CAP).inWholeMilliseconds
                 outbox.reschedule(row.id, attempts, now + wait, "throttled by Hardcover")
-                synchronized(lock) { pausedUntil[row.userId] = now + wait }
+                gate.pause(row.userId, now + wait)
                 LaneStep.Sleep(now + wait)
             }
 
@@ -282,19 +285,9 @@ class HardcoverPushWorker(
         reason: HardcoverBrokenReason,
     ): LaneStep {
         forgetRefresh(userId)
-        val username =
-            linker.withUserLock(userId) {
-                val name =
-                    when (val stored = connections.connectionFor(userId)) {
-                        is StoredConnection.Healthy -> stored.hardcoverUsername
-                        is StoredConnection.Broken -> stored.hardcoverUsername
-                        null -> null
-                    }
-                if (name != null) connections.markBroken(userId, reason)
-                name
-            } ?: return LaneStep.Stop
-        linker.onBroken(userId, reason, username)
-        log.warn { "hardcover push: connection for user=$userId broke ($reason); pushes wait for a reconnect" }
+        if (linker.breakIfConnected(userId, reason)) {
+            log.warn { "hardcover push: connection for user=$userId broke ($reason); pushes wait for a reconnect" }
+        }
         return LaneStep.Stop
     }
 
