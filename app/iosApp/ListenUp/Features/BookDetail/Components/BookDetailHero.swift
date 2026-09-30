@@ -43,24 +43,24 @@ struct BookDetailHero: View {
 
             if let series {
                 seriesPill(series)
-                    .padding(.top, 18)
+                    .padding(.top, Spacing.l)
             }
 
             Text(title)
                 .font(.title2.bold())
                 .multilineTextAlignment(.center)
-                .padding(.top, 12)
+                .padding(.top, Spacing.s)
 
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                    .padding(.top, 4)
+                    .padding(.top, Spacing.xxs)
             }
 
             authorsLine
-                .padding(.top, 6)
+                .padding(.top, Spacing.xs)
 
             narratorsLine
                 .padding(.top, 2)
@@ -69,7 +69,7 @@ struct BookDetailHero: View {
                 Text(foot)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-                    .padding(.top, 8)
+                    .padding(.top, Spacing.xs)
             }
         }
         .frame(maxWidth: .infinity)
@@ -95,7 +95,7 @@ struct BookDetailHero: View {
                 coverHash: header?.coverHash
             )
                 .frame(width: coverSize, height: coverSize)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
                 .shadow(color: .black.opacity(0.18), radius: 16, x: 0, y: 8)
         }
         .accessibilityHidden(true)
@@ -111,8 +111,8 @@ struct BookDetailHero: View {
                 Text(series)
                     .font(.caption.weight(.semibold))
             }
-            .padding(.horizontal, 13)
-            .padding(.vertical, 6)
+            .padding(.horizontal, Spacing.s)
+            .padding(.vertical, Spacing.xs)
             .foregroundStyle(Color.listenUpOrange)
             .background(Color.listenUpOrange.opacity(0.12), in: Capsule())
         }

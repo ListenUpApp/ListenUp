@@ -22,9 +22,9 @@ struct SelectionCollectionRow: Identifiable, Equatable {
 /// forwards the user's actions. Successful bulk adds dismiss the matching picker and clear the
 /// selection inside the VM (which flips `selectionMode` back to `None`).
 ///
-/// Failures are emitted to the shared `ErrorBus` and surfaced by `GlobalErrorObserver` on the
-/// app-wide message host; successes come back on `events` and become `confirmation`, which the
-/// screen chrome posts. Both halves of a bulk add are therefore visible to the user.
+/// Failures are emitted to the shared `ErrorBus` and surfaced by `GlobalErrorObserver` as the
+/// app-wide error alert; successes come back on `events` and become `confirmation`, which the
+/// screen chrome confirms (haptic + VoiceOver announcement). Both halves of a bulk add are therefore visible to the user.
 @Observable
 @MainActor
 final class BookSelectionObserver {
@@ -144,6 +144,26 @@ final class BookSelectionObserver {
     func toggle(_ bookId: String) { viewModel.toggleSelection(bookId: bookId) }
     func exit() { viewModel.exitSelectionMode() }
     func isSelected(_ bookId: String) -> Bool { selectedBookIds.contains(bookId) }
+
+    /// True while the shelf picker is open for one book from its context menu, rather than for a
+    /// selection the person built.
+    private(set) var isShelvingOneBook = false
+
+    /// A context menu's Add to Shelf: selects just this book and opens the shelf picker — the same
+    /// picker, the same add. Closing the picker ends the one-book selection (`shelfPickerClosed`),
+    /// so the person is never left in a selection mode they did not ask for.
+    func addOneBookToShelf(_ bookId: String) {
+        isShelvingOneBook = true
+        enter(bookId)
+        showShelfPicker = true
+    }
+
+    /// The shelf picker closed — after adding or not.
+    func shelfPickerClosed() {
+        guard isShelvingOneBook else { return }
+        isShelvingOneBook = false
+        exit()
+    }
 
     // MARK: - Bulk add actions
 

@@ -26,6 +26,13 @@ extension PlayerCoordinator {
         return max(0, bookPositionMs - chapterRows[chapterIndex].startMs)
     }
 
+    /// `chapterPositionMs` on the coarse (~1×/s) clock — for surfaces that show whole seconds or a
+    /// progress hairline (the mini player), so they don't re-render on every display frame.
+    var displayChapterPositionMs: Int64 {
+        guard chapterRows.indices.contains(chapterIndex) else { return 0 }
+        return max(0, displayBookPositionMs - chapterRows[chapterIndex].startMs)
+    }
+
     var chapterDurationMs: Int64 {
         guard chapterRows.indices.contains(chapterIndex) else { return 0 }
         return chapterRows[chapterIndex].durationMs

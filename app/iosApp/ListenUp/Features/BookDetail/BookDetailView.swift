@@ -5,15 +5,14 @@ import Shared
 ///
 /// A centered hero (with a soft `CoverGlow` halo behind the cover) leads, followed by
 /// a resume bar, two secondary action pills, and the description / chapters /
-/// details sections. iPhone stacks everything; iPad splits into a fixed left rail
-/// (hero + resume + pills) beside a flexible right column (description, chapters,
-/// details). All state comes from `BookDetailObserver`; the overflow menu offers
+/// details sections. A narrow width stacks everything; a wide one splits into a left rail
+/// (hero + resume + pills), sized from the width, beside a flexible right column (description,
+/// chapters, details) — see `DetailColumns`. All state comes from `BookDetailObserver`; the overflow menu offers
 /// Mark as Not Started.
 struct BookDetailView: View {
     let bookId: String
 
     @Environment(\.dependencies) private var deps
-    @Environment(\.horizontalSizeClass) private var hSize
     @State var observer: BookDetailObserver?
     @State private var readersObserver: BookReadersObserver?
     @State private var ratingsObserver: BookRatingsObserver?
@@ -61,9 +60,9 @@ struct BookDetailView: View {
         .sheet(isPresented: $showEdit) {
             BookEditView(bookId: bookId)
         }
-        // ⛔ fullScreenCover, not a sheet. The editor holds the only copy of the reader's unsaved
-        // work until they save, and a sheet's drag-to-dismiss would drop it without asking.
-        .fullScreenCover(isPresented: $showChapterEditor) {
+        // A sheet like every other editor (HIG, Sheets); the editor holds its swipe-down while it
+        // has unsaved work, so the draft is never dropped without asking.
+        .sheet(isPresented: $showChapterEditor) {
             ChapterEditorView(bookId: bookId)
         }
         .sheet(isPresented: $showMetadataMatch) {
@@ -143,19 +142,20 @@ struct BookDetailView: View {
 
     @ViewBuilder
     private func content(_ observer: BookDetailObserver) -> some View {
-        ScrollView {
-            Group {
-                if hSize == .regular {
-                    regularContent(observer)
-                } else {
-                    compactContent(observer)
+        DetailColumnsReader { columns in
+            ScrollView {
+                Group {
+                    switch columns {
+                    case .split(let railWidth): regularContent(observer, railWidth: railWidth)
+                    case .stacked: compactContent(observer)
+                    }
                 }
+                .padding(.bottom, Spacing.xxl)
+                // One modifier for every book action, above the layout branch. `resumeBar` and
+                // `actionPills` are siblings in whichever branch renders, so a modifier on each
+                // would put two in the hierarchy at once and fire `.success` twice per tap.
+                .haptic(.commit, trigger: bookActionCount)
             }
-            .padding(.bottom, 32)
-            // One modifier for every book action, above the layout branch. `resumeBar` and
-            // `actionPills` are siblings in whichever branch renders, so a modifier on each
-            // would put two in the hierarchy at once and fire `.success` twice per tap.
-            .haptic(.commit, trigger: bookActionCount)
         }
     }
 
@@ -216,13 +216,13 @@ struct BookDetailView: View {
             }
             .padding(.horizontal)
         }
-        .padding(.top, 8)
+        .padding(.top, Spacing.xs)
     }
 
-    /// iPad / regular width: fixed left rail beside a flexible right column.
+    /// Wide: a rail sized from the width beside a flexible right column.
     @ViewBuilder
-    private func regularContent(_ observer: BookDetailObserver) -> some View {
-        HStack(alignment: .top, spacing: 44) {
+    private func regularContent(_ observer: BookDetailObserver, railWidth: CGFloat) -> some View {
+        HStack(alignment: .top, spacing: DetailColumns.gutter) {
             VStack(spacing: 20) {
                 BookDetailHero(
                     header: observer.header,
@@ -243,7 +243,7 @@ struct BookDetailView: View {
                 resumeBar(observer)
                 actionPills(observer)
             }
-            .frame(width: 320)
+            .frame(width: railWidth)
 
             VStack(alignment: .leading, spacing: 28) {
                 BookDescriptionSection(
@@ -277,8 +277,8 @@ struct BookDetailView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 40)
-        .padding(.top, 28)
+        .padding(.horizontal, DetailColumns.margin)
+        .padding(.top, Spacing.xxl)
     }
 
     private func resumeBar(_ observer: BookDetailObserver) -> some View {
@@ -423,11 +423,10 @@ struct BookDetailView: View {
         } description: {
             Text(message)
         } actions: {
-            PrimaryButton(
-                title: String(localized: "common.retry"),
-                icon: "arrow.clockwise",
-                action: { observer?.loadBook(bookId: bookId) }
-            )
+            Button(action: { observer?.loadBook(bookId: bookId) }) {
+                ActionLabel(title: String(localized: "common.retry"), systemImage: "arrow.clockwise")
+            }
+            .prominentAction()
             .frame(maxWidth: 240)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

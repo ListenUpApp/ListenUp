@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Role badge for a contributor: a pen-icon tinted "Author" chip, a mic-icon neutral
-/// "Narrator" chip, or a generic chip for any other role.
+/// Role badge for a contributor: a pen-icon "Author" chip, a mic-icon "Narrator" chip, or a
+/// generic chip for any other role — all neutral.
 struct RoleChip: View {
     enum Kind: Equatable {
         case author
@@ -24,8 +24,6 @@ struct RoleChip: View {
             }
         }
 
-        /// Author reads as the primary credit (coral); others are neutral.
-        var isTinted: Bool { self == .author }
     }
 
     let kind: Kind
@@ -37,10 +35,12 @@ struct RoleChip: View {
         }
         .fixedSize(horizontal: true, vertical: false)
         .font(.caption.weight(.semibold))
-        .foregroundStyle(kind.isTinted ? Color.luTint : Color.luLabel2)
-        .padding(.horizontal, 11)
-        .padding(.vertical, 5)
-        .background(Capsule().fill(kind.isTinted ? Color.luTint.opacity(0.12) : Color.luFill))
+        // A label, not an action, so every role is neutral; the icon tells them apart
+        // (HIG, Color: "reserve it for elements that truly benefit from emphasis").
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, Spacing.s)
+        .padding(.vertical, Spacing.xxs)
+        .background(Capsule().fill(Color.luFill))
     }
 }
 

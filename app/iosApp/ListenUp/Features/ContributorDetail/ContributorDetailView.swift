@@ -11,7 +11,6 @@ struct ContributorDetailView: View {
 
     @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.horizontalSizeClass) private var hSize
     @State private var observer: ContributorDetailObserver?
     @State private var showEdit = false
     @State private var showFindOnAudible = false
@@ -25,8 +24,6 @@ struct ContributorDetailView: View {
     /// deleted contributor in the back stack for the reader to return to, and popping to the
     /// library would lose their place. `.task(id:)` reloads when this changes.
     private var activeContributorId: String { mergedIntoContributorId ?? contributorId }
-
-    private var isRegular: Bool { hSize == .regular }
 
     var body: some View {
         Group {
@@ -113,10 +110,11 @@ struct ContributorDetailView: View {
 
     @ViewBuilder
     private func content(observer: ContributorDetailObserver) -> some View {
-        if isRegular {
-            iPadLayout(observer: observer)
-        } else {
-            iPhoneLayout(observer: observer)
+        DetailColumnsReader { columns in
+            switch columns {
+            case .split(let railWidth): iPadLayout(observer: observer, railWidth: railWidth)
+            case .stacked: iPhoneLayout(observer: observer)
+            }
         }
     }
 
@@ -131,13 +129,14 @@ struct ContributorDetailView: View {
                 roleSections(observer: observer)
                 seriesSection(observer: observer)
             }
-            .padding(.bottom, 32)
+            .padding(.bottom, Spacing.xxl)
         }
     }
 
-    // MARK: - iPad (two-column)
+    // MARK: - Wide (two-column)
 
-    private func iPadLayout(observer: ContributorDetailObserver) -> some View {
+    /// The rail scrolls on its own beside the role sections, and is sized from the width.
+    private func iPadLayout(observer: ContributorDetailObserver, railWidth: CGFloat) -> some View {
         HStack(alignment: .top, spacing: 0) {
             ScrollView {
                 VStack(spacing: 24) {
@@ -145,10 +144,10 @@ struct ContributorDetailView: View {
                     statSection(observer: observer)
                     aboutSection(observer: observer)
                 }
-                .padding(.bottom, 32)
+                .padding(.bottom, Spacing.xxl)
                 .padding(.horizontal)
             }
-            .frame(width: 320)
+            .frame(width: railWidth)
 
             Divider()
 
@@ -157,7 +156,7 @@ struct ContributorDetailView: View {
                     roleSections(observer: observer)
                     seriesSection(observer: observer)
                 }
-                .padding(.bottom, 32)
+                .padding(.bottom, Spacing.xxl)
             }
         }
     }
@@ -183,7 +182,7 @@ struct ContributorDetailView: View {
                         RoleChip(kind: kind)
                     }
                 }
-                .padding(.top, 4)
+                .padding(.top, Spacing.xxs)
             }
 
             Text(observer.name)
@@ -193,14 +192,14 @@ struct ContributorDetailView: View {
             if !observer.aliases.isEmpty {
                 Text("aka \(observer.aliases.joined(separator: ", "))")
                     .font(.callout)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
 
             if let lifeDates = lifeDatesText(birth: observer.birthDate, death: observer.deathDate) {
                 Text(lifeDates)
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel3)
+                    .foregroundStyle(.tertiary)
             }
 
             if let website = observer.website?.trimmingCharacters(in: .whitespaces),
@@ -216,7 +215,7 @@ struct ContributorDetailView: View {
             }
         }
         .padding(.horizontal)
-        .padding(.top, 16)
+        .padding(.top, Spacing.m)
     }
 
     // MARK: - Life dates
@@ -264,7 +263,7 @@ struct ContributorDetailView: View {
             .init(value: "\(observer.bookCount)", label: String(localized: "contributor.stat_books")),
             .init(value: observer.totalDuration, label: String(localized: "contributor.stat_hours"))
         ])
-        .padding(.vertical, 20)
+        .padding(.vertical, Spacing.l)
     }
 
     // MARK: - About
@@ -301,6 +300,9 @@ struct ContributorDetailView: View {
                                 )
                             }
                             .buttonStyle(.plain)
+                            .bookContextMenu(bookId: book.id, selection: nil) {
+                                WrittenCard(book: book, progress: observer.bookProgress[book.id])
+                            }
                         }
                     }
                     .padding(.horizontal)
@@ -317,6 +319,7 @@ struct ContributorDetailView: View {
         HStack(alignment: .firstTextBaseline) {
             Text(section.displayName)
                 .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
                 .foregroundStyle(.primary)
             Spacer()
             if section.showViewAll {

@@ -20,6 +20,7 @@ struct RegisterView: View {
     @State private var password = ""
     @State private var confirmPassword = ""
     @State private var passwordMismatch = false
+    @FocusState private var focusedField: RegisterFocusField?
 
     // MARK: - Initialization
 
@@ -40,7 +41,7 @@ struct RegisterView: View {
     // MARK: - Body
 
     var body: some View {
-        AuthScaffold(nav: AuthNav(label: String(localized: "common.back")) { navigateBack() }) {
+        AuthScaffold {
             header
             if let error = viewModel.error {
                 ErrorBanner(message: error)
@@ -59,18 +60,17 @@ struct RegisterView: View {
     @ViewBuilder
     private var header: some View {
         if showsAdminBadge {
-            AuthLargeHeader(
+            AuthIntro(
                 title: String(localized: "auth.create_account"),
                 subtitle: String(localized: "auth.admin_account_subtitle")
             ) {
                 Label(String(localized: "auth.server_administrator"), systemImage: "checkmark.shield")
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Color.listenUpOrange)
-                    .padding(.horizontal, 12).padding(.vertical, 6)
-                    .background(Capsule().fill(Color.listenUpOrange.opacity(0.15)))
+                    .foregroundStyle(.secondary)                    .padding(.horizontal, Spacing.s).padding(.vertical, Spacing.xs)
+                    .background(Capsule().fill(Color.luFill))
             }
         } else {
-            AuthLargeHeader(title: String(localized: "auth.create_account"))
+            AuthIntro(title: String(localized: "auth.create_account"))
         }
     }
 
@@ -78,10 +78,16 @@ struct RegisterView: View {
         AuthFieldGroup {
             AppTextField(placeholder: String(localized: "auth.first_name"),
                          text: $firstName,
-                         entry: .givenName, icon: "person", isLast: false)
+                         entry: .givenName, icon: "person", isLast: false,
+                         submitLabel: RegisterFocusField.firstName.submitLabel(last: .join),
+                         onSubmit: { advance(from: .firstName) })
+                .focused($focusedField, equals: .firstName)
             AppTextField(placeholder: String(localized: "auth.last_name"),
                          text: $lastName,
-                         entry: .familyName, icon: "person")
+                         entry: .familyName, icon: "person",
+                         submitLabel: RegisterFocusField.lastName.submitLabel(last: .join),
+                         onSubmit: { advance(from: .lastName) })
+                .focused($focusedField, equals: .lastName)
         }
     }
 
@@ -91,7 +97,10 @@ struct RegisterView: View {
             // AutoFill pairs with the `.newPassword` fields below, so a tapped credential suggestion
             // actually fills; the `.emailAddress` keyboard still gives the right key layout.
             AppTextField(placeholder: String(localized: "common.email"),
-                         text: $email, entry: .accountEmail, icon: "envelope")
+                         text: $email, entry: .accountEmail, icon: "envelope",
+                         submitLabel: RegisterFocusField.email.submitLabel(last: .join),
+                         onSubmit: { advance(from: .email) })
+                .focused($focusedField, equals: .email)
         }
     }
 
@@ -99,11 +108,17 @@ struct RegisterView: View {
         AuthFieldGroup {
             AppTextField(placeholder: String(localized: "auth.password_label"),
                          text: $password,
-                         entry: .newPassword, kind: .secure, isLast: false)
+                         entry: .newPassword, kind: .secure, isLast: false,
+                         submitLabel: RegisterFocusField.password.submitLabel(last: .join),
+                         onSubmit: { advance(from: .password) })
+                .focused($focusedField, equals: .password)
             AppTextField(placeholder: String(localized: "auth.confirm_password"),
                          text: $confirmPassword,
                          entry: .newPassword, kind: .secure,
-                         error: passwordMismatch ? String(localized: "auth.passwords_dont_match") : nil)
+                         error: passwordMismatch ? String(localized: "auth.passwords_dont_match") : nil,
+                         submitLabel: RegisterFocusField.confirmPassword.submitLabel(last: .join),
+                         onSubmit: { advance(from: .confirmPassword) })
+                .focused($focusedField, equals: .confirmPassword)
         }
         .onChange(of: confirmPassword) { _, new in
             passwordMismatch = !new.isEmpty && new != password
@@ -114,16 +129,28 @@ struct RegisterView: View {
     }
 
     private var registerButton: some View {
-        AuthPrimaryButton(
-            title: String(localized: "auth.create_account"),
-            isLoading: viewModel.isLoading
-        ) {
-            if validateForm() {
-                viewModel.register(email: email, password: password,
-                                   firstName: firstName, lastName: lastName)
-            }
+        Button {
+            register()
+        } label: {
+            ActionLabel(title: String(localized: "auth.create_account"), isBusy: viewModel.isLoading)
         }
-        .disabled(!isFormValid)
+        .prominentAction()
+        .disabled(viewModel.isLoading || !isFormValid)
+    }
+
+    /// Return walks the fields; Return in Confirm Password creates the account when the form is
+    /// complete, exactly as the button would.
+    private func advance(from field: RegisterFocusField) {
+        FormFocus.advance(from: field, focus: $focusedField) {
+            if isFormValid, !viewModel.isLoading { register() }
+        }
+    }
+
+    private func register() {
+        if validateForm() {
+            viewModel.register(email: email, password: password,
+                               firstName: firstName, lastName: lastName)
+        }
     }
 
     private var loginLink: some View {

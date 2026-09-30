@@ -43,7 +43,7 @@ struct MetadataSelectView: View {
 
     @ViewBuilder
     private func readyContent(_ ready: MetadataPreview) -> some View {
-        ScrollView {
+        List {
             MetadataSelectBody(
                 preview: ready,
                 region: observer.region,
@@ -52,11 +52,10 @@ struct MetadataSelectView: View {
                 showChangeRow: true,
                 onChange: { /* back nav handled by NavigationStack */ }
             )
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
-            .readableWidth(720)
         }
-        .safeAreaInset(edge: .bottom) {
+        .listStyle(.insetGrouped)
+        .readableListWidth(720)
+        .safeAreaBar(edge: .bottom) {
             MetadataApplyTray(
                 isApplying: ready.isApplying,
                 isEnabled: ready.selectedCount > 0,
@@ -68,8 +67,9 @@ struct MetadataSelectView: View {
     }
 }
 
-/// The scrollable body of the select step (hero + grouped field lists + chapters CTA), factored
-/// out so both the iPhone push screen and the iPad master–detail right column render it identically.
+/// The body of the select step (hero + grouped field sections + chapters CTA) as `List` sections,
+/// factored out so both the iPhone push screen and the iPad master–detail right column render it
+/// identically. Host it inside a `List`.
 struct MetadataSelectBody: View {
     let preview: MetadataPreview
     let region: MetadataRegionOption
@@ -84,20 +84,23 @@ struct MetadataSelectBody: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            MetadataMatchedEditionCard(
-                title: preview.title,
-                regionName: region.displayName,
-                coverURL: preview.coverURL,
-                showChange: showChangeRow,
-                onChange: onChange
-            )
-
-            HStack {
-                MetadataGroupHeader(text: fieldsSelectedText)
-                Spacer()
+        Group {
+            Section {
+                // The matched edition is a content card (cover, source, title), not a list row.
+                MetadataMatchedEditionCard(
+                    title: preview.title,
+                    regionName: region.displayName,
+                    coverURL: preview.coverURL,
+                    showChange: showChangeRow,
+                    onChange: onChange
+                )
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            } footer: {
+                Text(fieldsSelectedText)
+                    .textCase(.uppercase)
+                    .padding(.top, Spacing.xs)
             }
-            .padding(.horizontal, 4)
 
             section(String(localized: "metadata.section_identity")) {
                 coverRow
@@ -144,11 +147,12 @@ struct MetadataSelectBody: View {
                         .font(.body)
                         .foregroundStyle(.primary)
                     Spacer(minLength: 8)
-                    CircularCheckToggle(isOn: preview.coverEnabled, action: { observer.toggleField(.cover) })
+                    CircularCheckMark(isOn: preview.coverEnabled)
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityAddTraits(preview.coverEnabled ? .isSelected : [])
 
             if !preview.coverOptions.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -169,9 +173,9 @@ struct MetadataSelectBody: View {
             VStack(spacing: 6) {
                 MetadataRemoteCover(url: option.url)
                     .frame(width: 72, height: 72)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
                             .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 2.5)
                     }
                 Text(option.label)
@@ -279,7 +283,7 @@ struct MetadataSelectBody: View {
                     }
                 }
             }
-            .padding(.top, 4)
+            .padding(.top, Spacing.xxs)
         }
     }
 
@@ -300,7 +304,7 @@ struct MetadataSelectBody: View {
                     }
                 }
             }
-            .padding(.top, 4)
+            .padding(.top, Spacing.xxs)
         }
     }
 
@@ -321,7 +325,7 @@ struct MetadataSelectBody: View {
                     }
                 }
             }
-            .padding(.top, 4)
+            .padding(.top, Spacing.xxs)
         }
     }
 
@@ -334,16 +338,14 @@ struct MetadataSelectBody: View {
                         Text(chapterCountText)
                             .font(.body.weight(.medium)).foregroundStyle(.primary)
                         Text(String(localized: "metadata.chapters_review_apply"))
-                            .font(.footnote).foregroundStyle(Color.luLabel2)
+                            .font(.footnote).foregroundStyle(Color.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Color.luLabel3)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(PressScaleButtonStyle())
+            .foregroundStyle(Color.primary)
         }
     }
 
@@ -352,11 +354,9 @@ struct MetadataSelectBody: View {
             HStack(spacing: 13) {
                 IconTile(systemImage: "list.number", isActive: false)
                 Text(String(format: String(localized: "metadata.chapters_count_mismatch"), audible, local))
-                    .font(.footnote).foregroundStyle(Color.luLabel2)
+                    .font(.footnote).foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
         }
     }
 
@@ -389,15 +389,8 @@ struct MetadataSelectBody: View {
 
     // MARK: - Section scaffold
 
-    @ViewBuilder
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        let built = content()
-        VStack(alignment: .leading, spacing: 8) {
-            MetadataGroupHeader(text: title).padding(.leading, 4)
-            FieldGroup([0], id: \.self) { _ in
-                VStack(spacing: 0) { built }
-            }
-        }
+        Section(title) { content() }
     }
 }
 
@@ -414,7 +407,7 @@ struct MetadataMatchedEditionCard: View {
         HStack(spacing: 14) {
             MetadataRemoteCover(url: coverURL)
                 .frame(width: 58, height: 58)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
 
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 5) {
@@ -422,18 +415,18 @@ struct MetadataMatchedEditionCard: View {
                     Text(String(format: String(localized: "metadata.audible_source"), regionName))
                         .font(.caption2.weight(.bold))
                 }
-                .foregroundStyle(Color.luTint)
-                .padding(.horizontal, 8).padding(.vertical, 3)
-                .background(Capsule().fill(Color.luTint.opacity(0.14)))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, Spacing.xs).padding(.vertical, 3)
+                .background(Capsule().fill(Color.luFill))
 
                 Text(title).font(.callout.weight(.semibold)).foregroundStyle(.primary).lineLimit(2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(14)
+        .padding(Spacing.m)
         .background(Color.luSurface2)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.luSeparator, lineWidth: 0.5))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Radius.l, style: .continuous).stroke(Color.luSeparator, lineWidth: 0.5))
     }
 }
 
@@ -449,7 +442,7 @@ struct MetadataSourceChip: View {
             Text(String(format: String(localized: "metadata.field_source"), source))
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 6).padding(.vertical, 2)
+                .padding(.horizontal, Spacing.xs).padding(.vertical, 2)
                 .background(Capsule().fill(Color.luFill))
         }
     }
@@ -467,8 +460,8 @@ struct MetadataGenreChip: View {
                 Image(systemName: isOn ? "checkmark" : "plus").font(.caption2.weight(.bold))
                 Text(label).font(.caption.weight(.semibold))
             }
-            .foregroundStyle(isOn ? Color.luTint : Color.luLabel2)
-            .padding(.horizontal, 11).padding(.vertical, 6)
+            .foregroundStyle(isOn ? Color.luTint : Color.secondary)
+            .padding(.horizontal, Spacing.s).padding(.vertical, Spacing.xs)
             .background(Capsule().fill(isOn ? Color.luTint.opacity(0.13) : Color.luFill))
         }
         .buttonStyle(PressScaleButtonStyle(scale: .chip))
@@ -505,18 +498,14 @@ struct MetadataApplyTray: View {
                     Text(applyError).font(.caption).foregroundStyle(.red)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                PrimaryButton(
-                    title: title,
-                    icon: "checkmark",
-                    isLoading: isApplying,
-                    action: action
-                )
-                .disabled(!isEnabled)
-                .opacity(isEnabled ? 1 : 0.5)
+                Button(action: action) {
+                    ActionLabel(title: title, systemImage: "checkmark", isBusy: isApplying)
+                }
+                .prominentAction()
+                .disabled(isApplying || !isEnabled)
             }
-            .padding(16)
+            .padding(Spacing.m)
             .readableWidth(720)
         }
-        .background(.bar)
     }
 }

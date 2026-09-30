@@ -37,34 +37,38 @@ struct MetadataChaptersView: View {
 
     @ViewBuilder
     private func content(_ available: AvailableChapters) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                Text(String(localized: "metadata.review_chapters_subtitle"))
-                    .font(.subheadline).foregroundStyle(Color.luLabel2)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                HStack {
-                    MetadataGroupHeader(text: selectionText(available))
-                    Spacer()
-                    Button(
-                        available.allSelected
-                            ? String(localized: "metadata.clear_all")
-                            : String(localized: "metadata.select_all")
-                    ) {
-                        toggleAll(available)
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.luTint)
-                }
-
-                FieldGroup(available.rows, separatorInset: 14) { row in
+        // A grouped `List`: each chapter is a row that toggles on tap, with the selection count and
+        // Select All in the section header (HIG, Lists and tables).
+        List {
+            Section {
+                ForEach(available.rows) { row in
                     chapterRow(row)
                 }
+            } header: {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(String(localized: "metadata.review_chapters_subtitle"))
+                        .font(.subheadline).foregroundStyle(.secondary)
+                        .textCase(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack {
+                        Text(selectionText(available))
+                        Spacer()
+                        Button(
+                            available.allSelected
+                                ? String(localized: "metadata.clear_all")
+                                : String(localized: "metadata.select_all")
+                        ) {
+                            toggleAll(available)
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.luTint)
+                        .textCase(nil)
+                    }
+                }
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
-            .readableWidth(720)
         }
+        .listStyle(.insetGrouped)
+        .readableListWidth(720)
         .safeAreaInset(edge: .bottom) {
             MetadataApplyTray(
                 title: String(localized: "metadata.apply_chapter_names"),
@@ -92,13 +96,14 @@ struct MetadataChaptersView: View {
                         .font(.callout.weight(.medium)).foregroundStyle(.primary).lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                CircularCheckToggle(isOn: row.isSelected) { observer.toggleChapter(row.ordinal) }
+                // The row is the button; a toggle button nested inside it was a second control on
+                // the same spot that VoiceOver could not reach separately.
+                CircularCheckMark(isOn: row.isSelected)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
             .contentShape(Rectangle())
         }
-        .buttonStyle(PressScaleButtonStyle())
+        .foregroundStyle(Color.primary)
+        .accessibilityAddTraits(row.isSelected ? .isSelected : [])
     }
 
     private func selectionText(_ available: AvailableChapters) -> String {

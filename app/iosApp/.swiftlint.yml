@@ -82,3 +82,144 @@ opt_in_rules:
   - joined_default_parameter
   - literal_expression_end_indentation
   - operator_usage_whitespace
+
+# ── Guards: HIG conformance the compiler can't see ──
+custom_rules:
+  # `.swipeActions` only fires on a row inside a `List` (or a `Form`, which is one). Attached to a
+  # row in a `ScrollView`/`VStack` it compiles, renders nothing, and silently strands the action —
+  # which is how signing out a single device and deleting an import became impossible
+  # (2026-09-29 iOS audit, P0). HIG, Lists and tables.
+  #
+  # The heuristic is file-level and deliberately cheap: a file that uses `.swipeActions` must also
+  # contain a `List` or `Form` (`List {`, `List(`, `Form {`). SwiftLint custom rules can't see across
+  # files, so a row view that lives in its own file and is hosted by a `List` elsewhere declares
+  # that host with a `// swipe-actions-host: <File>.swift` comment. The regex anchors at the start
+  # of the file, so the violation is reported on line 1 rather than at the modifier.
+  swipe_actions_outside_list:
+    name: "Swipe actions outside a List"
+    regex: '(?s)\A(?!.*(?:\b(?:List|Form)\s*[({]|swipe-actions-host:)).*?\.swipeActions\b'
+    message: >-
+      .swipeActions only works on rows inside a List or Form. Host the rows in a List, or — for a
+      row view hosted by a List in another file — add `// swipe-actions-host: <File>.swift`.
+    severity: error
+
+  # Raw colour literals live in `ListenUp/DesignSystem/` only. A `Color(hex:)` or `Color(red:…)` in a
+  # screen is a static sRGB value with no dark, no Increase Contrast and no contrast check — which is
+  # how a 3.55:1 coral, 2.33:1 import avatars and six copies of one hex palette reached the app
+  # (2026-09-29 iOS audit, theming). HIG, Color: "If you define a custom color, make sure to supply
+  # light and dark variants, and an increased contrast option for each variant". Screens name a
+  # token (`Color.luTint`, `.luWarning`, `AvatarPalette`, `Color+Palette`) or a system colour; a new
+  # colour is added to DesignSystem, as a Color Set or a solved token, with its contrast tested.
+  # Paths are regexes: `/ListenUp/` covers the app target only (not ListenUpTests or the widgets).
+  raw_color_literal_outside_design_system:
+    name: "Raw colour literal outside DesignSystem"
+    regex: '\b(?:UI)?Color\(\s*(?:\.sRGB\s*,\s*)?(?:hex|red)\s*:'
+    included: '/ListenUp/'
+    excluded: '/ListenUp/DesignSystem/'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: >-
+      Colour literals belong in ListenUp/DesignSystem/. Use a design-system token (luTint, luWarning,
+      AvatarPalette, Color+Palette) or a system colour, or add a tested token there.
+    severity: error
+
+  # Library's sections were a swipe pager (`.tabViewStyle(.page)`) under a hand-drawn chip row: the
+  # sections hid behind a gesture, the chips drew their own selection, and VoiceOver heard neither
+  # as a set of choices (2026-09-29 iOS audit, conformance). A set of closely related views is a
+  # segmented `Picker`; separate sections of the app are tabs. HIG, Segmented controls: "consider a
+  # segmented control to switch between closely related subviews … for switching between completely
+  # separate sections of an app, use a tab bar instead." Nothing in the app pages today; a genuine
+  # page-by-page content viewer would be the exception to argue for here.
+  page_tab_view_style:
+    name: "Paged TabView"
+    regex: '\.tabViewStyle\(\s*\.page\b'
+    excluded_match_kinds:
+      - comment
+      - doccomment
+      - string
+    message: >-
+      Switch closely related views with a segmented Picker, and separate sections with tabs — not a
+      swipe pager (HIG, Segmented controls).
+    severity: error
+
+  # A bottom tray painted with `.background(.bar)` inside `safeAreaInset` draws a flat strip where the
+  # system now draws a scroll-edge effect for its bars (2026-09-29 iOS audit, theming: 11 sites). A
+  # bar over a scroll view is `.safeAreaBar(edge:)`, which gets that effect for free. HIG, Toolbars.
+  painted_bar_background:
+    name: "Painted bar background"
+    regex: '\.background\(\s*\.bar\s*\)'
+    excluded_match_kinds:
+      - comment
+      - doccomment
+      - string
+    message: >-
+      Put the tray in `.safeAreaBar(edge:)` instead of painting `.background(.bar)` behind it — the
+      system draws the bar's scroll-edge effect (HIG, Toolbars).
+    severity: error
+
+  # On iOS 26.5 a top `.safeAreaBar` under a large navigation title draws its scroll-edge effect over
+  # the title: "Library" rendered blurred and washed out whenever a scroll view sat beneath the
+  # section picker's bar (Pass 7 Simulator matrix). Content under a large title scrolls with the
+  # list instead, like `LibrarySectionPicker`. The regex anchors at the start of a file that sets a
+  # navigation title and matches any top `safeAreaBar` in it.
+  top_bar_under_navigation_title:
+    name: "Top bar under a navigation title"
+    regex: '(?s)\A(?=.*\.navigationTitle\().*?\.safeAreaBar\(\s*edge:\s*\.top\b'
+    message: >-
+      A top `safeAreaBar` blurs the large title above it on iOS 26.5. Make the content the first
+      row of the scroll view, as `LibrarySectionPicker` does (HIG, Toolbars).
+    severity: error
+
+  # A literal `.system(size:)` never follows Dynamic Type. 65 of them reached the app, ~7 on text a
+  # reader reads — a 10.5pt "THIS DEVICE" badge, a licence body, hero percentages (2026-09-29 iOS
+  # audit, accessibility). HIG, Typography: "Make sure your app's layout adapts to all font sizes."
+  # Content text takes a text style (`.largeTitle`…`.caption2`), or `.scaledFont(size:…relativeTo:)`
+  # for a size between the styles. A literal size stays only on a decorative glyph in a fixed-size
+  # container and says so on the same line with `// decorative fixed size`; the one sanctioned
+  # scaled site (`ScaledSystemFont`, and a view's own `@ScaledMetric`) carries
+  # `// scaled via @ScaledMetric`. iosApp/CLAUDE.md rule 12.
+  fixed_font_size:
+    name: "Fixed font size"
+    regex: '\.system\(\s*size:(?!.*(?:decorative fixed size|scaled via @ScaledMetric))'
+    excluded_match_kinds:
+      - comment
+      - doccomment
+      - string
+    message: >-
+      Content text follows Dynamic Type: use a text style or `.scaledFont(size:relativeTo:)`. A
+      decorative glyph in a fixed-size container keeps its size with `// decorative fixed size`.
+    severity: error
+
+  # Seventeen literal corner radii and a padding for nearly every integer from 4 to 36 had reached
+  # the app (2026-09-29 iOS audit, theming). `DesignSystem/LayoutTokens.swift` holds the scales;
+  # these keep the literals from creeping back. A radius or padding off the scale is either
+  # geometry (a circle's `size / 2`, an inset past an icon column — computed, or ≥ 40) or an optical
+  # nudge (1–3pt), and neither matches.
+  literal_corner_radius:
+    name: "Literal corner radius"
+    regex: 'cornerRadius(?::\s*|\()(?:[2-9]|[1-3][0-9])(?![0-9.])'
+    excluded_match_kinds:
+      - comment
+      - doccomment
+      - string
+    message: >-
+      Use a `Radius` token (`DesignSystem/LayoutTokens.swift`), or `.concentric()` for a shape
+      nested inside a `.containerShape`.
+    severity: error
+
+  literal_padding:
+    name: "Literal padding"
+    regex: '\.padding\((?:\.[a-zA-Z]+,\s*)?(?:[4-9]|[1-3][0-9])\)'
+    excluded_match_kinds:
+      - comment
+      - doccomment
+      - string
+    message: >-
+      Use a `Spacing` token (`DesignSystem/LayoutTokens.swift`). Optical nudges (1–3pt), breathing
+      room of 40pt and more, and geometry-derived insets stay literal.
+    severity: error

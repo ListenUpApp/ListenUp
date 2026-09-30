@@ -102,11 +102,7 @@ struct AdminCategoriesView: View {
         List {
             Section {
                 ForEach(ready.rows) { row in
-                    GenreRowView(row: row)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            if row.hasChildren { observer.toggleExpanded(id: row.id) }
-                        }
+                    genreRow(row, observer: observer)
                         .contextMenu { rowMenu(row: row) }
                 }
             } header: {
@@ -118,7 +114,7 @@ struct AdminCategoriesView: View {
                     )
                 )
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .textCase(nil)
             }
         }
@@ -188,10 +184,10 @@ struct AdminCategoriesView: View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.largeTitle)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             Text(message)
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
         .padding()
@@ -200,17 +196,17 @@ struct AdminCategoriesView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "tag")
-                .font(.system(size: 44)) // decorative fixed size
-                .foregroundStyle(Color.luLabel2)
+                .scaledFont(size: 44, relativeTo: .largeTitle)
+                .foregroundStyle(.secondary)
             Text(String(localized: "genre.no_genres_yet"))
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             Button(String(localized: "admin.add_genre")) {
                 nameSheet = .create(parentId: nil, parentName: nil)
             }
             .buttonStyle(.borderedProminent)
-            .tint(Color.luTint)
-            .padding(.top, 4)
+            .onBrandFillLabel()
+            .padding(.top, Spacing.xxs)
         }
         .padding()
     }
@@ -249,6 +245,24 @@ struct AdminCategoriesView: View {
         GenrePickModel(id: row.id, name: row.name, path: row.path, bookCount: row.bookCount)
     }
 
+    /// A parent row is a real `Button` whose value is its expansion state, so VoiceOver can find
+    /// and operate it; a leaf does nothing on tap, so it isn't a control. HIG, Disclosure controls.
+    @ViewBuilder
+    private func genreRow(_ row: GenreRowModel, observer: AdminCategoriesObserver) -> some View {
+        if let expansionState = row.expansionState {
+            Button {
+                observer.toggleExpanded(id: row.id)
+            } label: {
+                GenreRowView(row: row)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(expansionState)
+        } else {
+            GenreRowView(row: row)
+        }
+    }
+
     private func moveCandidates(for source: GenrePickModel) -> [GenrePickModel] {
         guard case .ready(let ready) = observer?.phase else { return [] }
         return GenreTree.moveCandidates(all: ready.picks, source: source)
@@ -271,13 +285,13 @@ private struct GenreRowView: View {
         HStack(spacing: 12) {
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .rotationEffect(.degrees(row.isExpanded ? 90 : 0))
                 .opacity(row.hasChildren ? 1 : 0)
                 .accessibilityHidden(true)
             Image(systemName: "tag")
                 .font(.body)
-                .foregroundStyle(row.depth == 0 ? Color.luTint : Color.luLabel2)
+                .foregroundStyle(row.depth == 0 ? Color.luTint : Color.secondary)
             Text(row.name)
                 .font(row.depth == 0 ? .body : .subheadline)
                 .lineLimit(1)
@@ -285,17 +299,12 @@ private struct GenreRowView: View {
             if row.bookCount > 0 {
                 Text("\(row.bookCount)")
                     .font(.caption)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             }
         }
-        .padding(.leading, CGFloat(row.depth) * 20)
-        .padding(.vertical, 4)
+        .padding(.leading, CGFloat(row.depth) * Spacing.l)
+        .padding(.vertical, Spacing.xxs)
         .accessibilityElement(children: .combine)
-        .accessibilityHint(
-            row.hasChildren
-                ? Text(String(localized: row.isExpanded ? "common.collapse" : "common.expand"))
-                : Text("")
-        )
     }
 }
 

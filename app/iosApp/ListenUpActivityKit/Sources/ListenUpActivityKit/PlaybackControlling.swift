@@ -1,4 +1,4 @@
-/// The playback-control seam between the Live Activity intents (in this package)
+/// The playback-control seam between the playback App Intents (in this package)
 /// and the app's player. The package defines the protocol; the app provides the
 /// implementation and registers it with `AppDependencyManager`.
 @MainActor

@@ -11,7 +11,7 @@ struct MetadataSearchField: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .font(.body.weight(.medium))
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
 
             TextField(String(localized: "common.search"), text: $text)
                 .font(.callout.monospaced())
@@ -26,20 +26,22 @@ struct MetadataSearchField: View {
                     .font(.body.weight(.semibold))
                     .foregroundStyle(Color.luOnTint)
                     .frame(width: 38, height: 38)
-                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.luTint))
+                    .background(Color.luTint, in: .concentric())
             }
             .buttonStyle(PressScaleButtonStyle())
             .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
             .accessibilityLabel(String(localized: "common.search"))
         }
-        .padding(.leading, 16)
-        .padding(.trailing, 6)
+        .padding(.leading, Spacing.m)
+        .padding(.trailing, Spacing.xs)
         .frame(height: 50)
+        // The submit button's corners follow the field's curve at its inset.
+        .containerShape(RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.l, style: .continuous)
                 .fill(Color.luFill)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    RoundedRectangle(cornerRadius: Radius.l, style: .continuous)
                         .stroke(Color.luSeparator, lineWidth: 0.5)
                 )
         )

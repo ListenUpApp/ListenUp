@@ -21,14 +21,15 @@ struct SeriesGridCard: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(series.name).font(.headline).foregroundStyle(.primary).lineLimit(1)
-                    Text(meta).font(.footnote).foregroundStyle(Color.luLabel2).lineLimit(1)
+                    Text(meta).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
                 }
                 SeriesProgressBadge(state: progress)
             }
-            .padding(22)
+            .padding(Spacing.xl)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.luSurface2))
-            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.luSeparator, lineWidth: 0.5))
+            .background(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous).fill(Color.luSurface2))
+            .overlay(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous).stroke(Color.luSeparator, lineWidth: 0.5))
+            .coverHoverEffect(cornerRadius: Radius.xl)
         }
         .buttonStyle(.pressScaleCard)
         .accessibilityElement(children: .combine)

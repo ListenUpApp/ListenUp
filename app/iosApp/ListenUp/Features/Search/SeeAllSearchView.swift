@@ -107,7 +107,7 @@ private struct SeeAllBookGrid: View {
                         .buttonStyle(.plain)
                 }
             }
-            .padding(16)
+            .padding(Spacing.m)
         }
     }
 }
@@ -121,7 +121,8 @@ private struct SeeAllBookCard: View {
             BookCoverImage(bookId: row.id, coverPath: row.coverPath, coverHash: row.coverHash)
                 .aspectRatio(1, contentMode: .fit)
                 .frame(maxWidth: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.m))
+                .coverHoverEffect(cornerRadius: Radius.m)
             Text(row.name)
                 .font(.subheadline)
                 .foregroundStyle(.primary)

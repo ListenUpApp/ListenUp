@@ -11,9 +11,9 @@ import SwiftUI
 /// Two things it is careful about. The playhead is offered only when the book being edited is the
 /// one actually loaded in the player: a position borrowed from a different book would write a
 /// number from somewhere else entirely. And a dirty draft is never dropped silently — this screen
-/// holds the only copy of the reader's work until they save, which is also why it is a
-/// `fullScreenCover` at the call site rather than a sheet: a sheet's drag-to-dismiss would leave
-/// the draft on the floor without asking.
+/// holds the only copy of the reader's work until they save, so while it is dirty the sheet's
+/// swipe-down is held and Cancel asks first (`EditSheetDismissal`; HIG, Sheets: "if people have
+/// unsaved changes … use an action sheet to let them confirm").
 struct ChapterEditorView: View {
     let bookId: String
 
@@ -44,6 +44,7 @@ struct ChapterEditorView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbar }
         }
+        .interactiveDismissDisabled(dismissal.blocksInteractiveDismiss)
         .task(id: bookId) {
             guard observer == nil else { return }
             player = deps.playerCoordinator
@@ -138,8 +139,8 @@ struct ChapterEditorView: View {
                     bookDurationMs: observer.bookDurationMs,
                     chapterCount: observer.chapters.count
                 )
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
+                .padding(.horizontal, Spacing.m)
+                .padding(.top, Spacing.xs)
             }
             chapterList(observer)
         }
@@ -156,7 +157,7 @@ struct ChapterEditorView: View {
         .listStyle(.insetGrouped)
         .haptic(.press, trigger: snaps)
         .searchable(text: $query, prompt: Text(String(localized: "chapter_editor.jump_to_title")))
-        .safeAreaInset(edge: .bottom) { addAtPlayheadBar(observer) }
+        .safeAreaBar(edge: .bottom) { addAtPlayheadBar(observer) }
     }
 
     private var changedElsewhereNotice: some View {
@@ -256,9 +257,10 @@ struct ChapterEditorView: View {
                     observer.addAt(at, title: String(localized: "chapter_editor.new_chapter_title"))
                 }
                 .buttonStyle(.borderedProminent)
+                .onBrandFillLabel()
             }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, Spacing.xs)
     }
 
     /// ⛔ Absent, not disabled, when there is no playhead for THIS book — see the type's note.
@@ -272,8 +274,8 @@ struct ChapterEditorView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
+            .onBrandFillLabel()
             .padding()
-            .background(.bar)
         }
     }
 
@@ -281,9 +283,12 @@ struct ChapterEditorView: View {
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
-        ToolbarItem(placement: .topBarLeading) {
+        ToolbarItem(placement: .cancellationAction) {
             Button(String(localized: "common.cancel")) {
-                if observer?.isDirty == true { pendingDiscard = true } else { dismiss() }
+                switch dismissal.onCancel {
+                case .dismiss: dismiss()
+                case .confirmDiscard: pendingDiscard = true
+                }
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
@@ -302,20 +307,21 @@ struct ChapterEditorView: View {
             }
             .disabled(observer?.canUndo != true)
         }
-        ToolbarItem(placement: .topBarTrailing) {
+        ToolbarItem(placement: .confirmationAction) {
             // Invariant: while saving the action is REPLACED by a spinner, not merely disabled —
             // the same load-bearing guard against double-submit `EditSheetScaffold` documents.
             if observer?.isSaving == true {
                 ProgressView()
             } else {
                 Button(String(localized: "chapter_editor.done")) { observer?.save() }
-                    .fontWeight(.semibold)
                     .disabled(observer?.isDirty != true)
             }
         }
     }
 
     // MARK: - Helpers
+
+    private var dismissal: EditSheetDismissal { EditSheetDismissal(hasChanges: observer?.isDirty == true) }
 
     /// The playhead, but only when the book being edited is the one loaded in the player.
     private var playheadMs: Int64? {

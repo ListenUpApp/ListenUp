@@ -27,7 +27,8 @@ struct RecentlyAddedCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 BookCoverImage(bookId: book.id, coverPath: book.coverPath, coverHash: book.coverHash)
                     .frame(width: width, height: width)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.l))
+                    .coverHoverEffect(cornerRadius: Radius.l)
                     .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 3)
                     .bookSelectionCircle(bookId: book.id, selection: selection)
 

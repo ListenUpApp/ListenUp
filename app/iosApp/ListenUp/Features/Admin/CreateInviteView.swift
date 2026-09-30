@@ -4,8 +4,8 @@ import Shared
 
 /// Create Invite — a presented sheet wired to `CreateInviteViewModel` via `CreateInviteObserver`.
 ///
-/// The form gathers WHO'S JOINING (name + email, surfacing validation / email-in-use inline on
-/// the right field), an ACCESS LEVEL choice (Member / Admin via ``SelectableOptionCard``), and an
+/// A grouped `Form` gathers WHO'S JOINING (name + email, surfacing validation / email-in-use inline on
+/// the right field), an ACCESS LEVEL choice (Member / Admin via ``SelectableOptionRow``), and an
 /// INVITE EXPIRES IN segmented control (1 / 7 / 30 days). Create submits; on success the form is
 /// replaced by an ``InvitePreviewCard`` carrying the shareable link, with Done and Create-Another
 /// actions.
@@ -25,25 +25,25 @@ struct CreateInviteView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                Group {
-                    if let observer {
-                        if let invite = observer.phase.createdInvite {
+            Group {
+                if let observer {
+                    if let invite = observer.phase.createdInvite {
+                        ScrollView {
                             successContent(observer: observer, invite: invite)
-                        } else {
-                            formContent(observer: observer)
+                                .padding(.horizontal, Spacing.l)
+                                .padding(.vertical, Spacing.m)
+                                .readableWidth(560)
                         }
+                    } else {
+                        formContent(observer: observer)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .readableWidth(560)
             }
             .background(Color.luSurface)
             .navigationTitle(String(localized: "admin.create_invite"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.cancel")) { dismiss() }
                 }
             }
@@ -55,32 +55,14 @@ struct CreateInviteView: View {
 
     // MARK: - Form
 
+    /// A system grouped `Form`: each question is a section with a real header, the access level is
+    /// a checkmarked single-choice section, and the fields get the list's insets and keyboard
+    /// avoidance. HIG, Lists and tables.
     @ViewBuilder
     private func formContent(observer: CreateInviteObserver) -> some View {
         let validationField = observer.phase.validationField
-        VStack(alignment: .leading, spacing: 24) {
-            whosJoining(validationField: validationField)
-            accessLevel()
-            expiry()
-            if let banner = observer.phase.bannerMessage {
-                ErrorBanner(message: banner)
-            }
-            PrimaryButton(
-                title: String(localized: "admin.create_invite"),
-                icon: "link",
-                isLoading: observer.phase.isSubmitting
-            ) {
-                submit(observer: observer)
-            }
-            .disabled(observer.phase.isSubmitting)
-        }
-    }
-
-    @ViewBuilder
-    private func whosJoining(validationField: InviteField?) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            AdminSectionHeader(String(localized: "admin.whos_joining"))
-            VStack(spacing: 0) {
+        Form {
+            Section(String(localized: "admin.whos_joining")) {
                 AppTextField(
                     placeholder: String(localized: "common.email"),
                     text: $email,
@@ -90,24 +72,15 @@ struct CreateInviteView: View {
                     error: validationField == .email ? String(localized: "admin.valid_email_is_required") : nil
                 )
             }
-            .fieldCard()
-        }
-    }
-
-    @ViewBuilder
-    private func accessLevel() -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            AdminSectionHeader(String(localized: "admin.access_level"))
-            VStack(spacing: 0) {
-                SelectableOptionCard(
+            Section(String(localized: "admin.access_level")) {
+                SelectableOptionRow(
                     systemImage: "headphones",
                     title: String(localized: "common.member"),
                     subtitle: String(localized: "admin.can_access_the_library"),
                     isSelected: role == .member,
                     onSelect: { role = .member }
                 )
-                Rectangle().fill(Color.luSeparator).frame(height: 0.5).padding(.leading, 61)
-                SelectableOptionCard(
+                SelectableOptionRow(
                     systemImage: "shield.fill",
                     title: String(localized: "common.admin"),
                     subtitle: String(localized: "admin.can_manage_users_and_invites"),
@@ -115,22 +88,37 @@ struct CreateInviteView: View {
                     onSelect: { role = .admin }
                 )
             }
-            .fieldCard()
-        }
-    }
-
-    @ViewBuilder
-    private func expiry() -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            AdminSectionHeader(String(localized: "admin.invite_expires_in"))
-            Picker("", selection: $expiresInDays) {
-                Text(String(localized: "admin.1_day")).tag(1)
-                Text(String(format: String(localized: "common.n_days"), "7")).tag(7)
-                Text(String(format: String(localized: "common.n_days"), "30")).tag(30)
+            Section(String(localized: "admin.invite_expires_in")) {
+                Picker(String(localized: "admin.invite_expires_in"), selection: $expiresInDays) {
+                    Text(String(localized: "admin.1_day")).tag(1)
+                    Text(String(format: String(localized: "common.n_days"), "7")).tag(7)
+                    Text(String(format: String(localized: "common.n_days"), "30")).tag(30)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+            Section {
+                if let banner = observer.phase.bannerMessage {
+                    ErrorBanner(message: banner)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                }
+                Button {
+                    submit(observer: observer)
+                } label: {
+                    ActionLabel(
+                        title: String(localized: "admin.create_invite"),
+                        systemImage: "link",
+                        isBusy: observer.phase.isSubmitting
+                    )
+                }
+                .prominentAction()
+                .disabled(observer.phase.isSubmitting)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
         }
+        .readableListWidth(560)
     }
 
     // MARK: - Success
@@ -144,7 +132,10 @@ struct CreateInviteView: View {
                 url: invite.url,
                 onCopy: { UIPasteboard.general.string = invite.url }
             )
-            PrimaryButton(title: String(localized: "common.done")) { dismiss() }
+            Button { dismiss() } label: {
+                ActionLabel(title: String(localized: "common.done"))
+            }
+            .prominentAction()
             Button {
                 resetForm()
                 observer.reset()

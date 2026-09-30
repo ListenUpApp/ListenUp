@@ -86,12 +86,16 @@ struct FacetBooksView: View {
                             BookCoverCard(book: book, progress: nil)
                         }
                         .buttonStyle(.plain)
+                        .draggableBookCover(book)
+                        .bookContextMenu(bookId: book.id, selection: nil) {
+                            BookCoverCard(book: book, progress: nil)
+                        }
                     }
                 }
             }
             .readableWidth()
             .padding(.horizontal)
-            .padding(.top, 4)
+            .padding(.top, Spacing.xxs)
             .padding(.bottom, 100)
         }
     }
@@ -108,7 +112,7 @@ struct FacetBooksView: View {
                         .font(.caption.weight(.bold))
                         .tracking(0.6)
                         .textCase(.uppercase)
-                        .foregroundStyle(kind == .mood ? Color.listenUpOrange : Color.luLabel2)
+                        .foregroundStyle(kind == .mood ? Color.listenUpOrange : Color.secondary)
                     Text(observer.facetName)
                         .font(.title.weight(.bold))
                         .foregroundStyle(.primary)

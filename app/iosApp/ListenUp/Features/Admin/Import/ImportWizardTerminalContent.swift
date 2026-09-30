@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Review
 
-/// The Review-users step: a count summary header, a stacked list of ``ImportUserReviewRow``s, an
+/// The Review-users step: a count summary header, a grouped list of ``ImportUserReviewRow``s, an
 /// optional unresolved warning, and the "Apply Import" action. The admin assigns or skips each
 /// ABS user; unresolved users are skipped server-side, so Apply is always enabled (honest: the
 /// warning tells them what will be skipped rather than blocking them).
@@ -22,36 +22,45 @@ struct ImportReviewContent: View {
     let onSkipBook: (String) -> Void
     let onApply: () -> Void
 
+    /// A grouped `List`: each ABS user and each book to review is its own section (a compound row),
+    /// with the counts in real section headers. HIG, Lists and tables.
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    countHeader
-                    ForEach(review.users) { user in
-                        ImportUserReviewRow(
-                            user: user,
-                            onAcceptSuggestion: {
-                                if let suggested = user.suggestedUserId { onAccept(user, suggested) }
-                            },
-                            onAssign: { onAssign(user) },
-                            onSkip: { onSkip(user) },
-                            onChange: { onAssign(user) }
-                        )
-                        .popover(item: assignPopoverBinding(for: user)) { _ in
-                            assignPicker(for: user)
-                        }
+        List {
+            ForEach(Array(review.users.enumerated()), id: \.element.id) { index, user in
+                Section {
+                    ImportUserReviewRow(
+                        user: user,
+                        onAcceptSuggestion: {
+                            if let suggested = user.suggestedUserId { onAccept(user, suggested) }
+                        },
+                        onAssign: { onAssign(user) },
+                        onSkip: { onSkip(user) },
+                        onChange: { onAssign(user) }
+                    )
+                    .listRowInsets(EdgeInsets())
+                    .popover(item: assignPopoverBinding(for: user)) { _ in
+                        assignPicker(for: user)
                     }
-
-                    booksSection
-
-                    if review.unresolvedCount > 0 {
-                        warning
-                    }
+                } header: {
+                    if index == 0 { countHeader }
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .readableWidth(640)
             }
+
+            booksSections
+
+            if review.unresolvedCount > 0 {
+                Section {
+                    warning
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .listSectionSpacing(.compact)
+        .readableListWidth()
+        // The tray is a bar over the scroll view, whose edge effect the system draws (HIG, Toolbars).
+        .safeAreaBar(edge: .bottom) {
             actionTray
         }
     }
@@ -59,40 +68,30 @@ struct ImportReviewContent: View {
     // MARK: - Books section
 
     @ViewBuilder
-    private var booksSection: some View {
-        booksHeader
-            .padding(.top, 6)
-
-        if review.autoMatchedCount > 0 {
-            summaryLine(
-                String(
-                    format: String(localized: "import.books_matched"),
-                    String(review.autoMatchedCount)
-                )
-            )
-        }
-        if review.importableSessionCount > 0 {
-            summaryLine(
-                String(
-                    format: String(localized: "import.sessions_importable"),
-                    String(review.importableSessionCount)
-                )
-            )
-        }
-
+    private var booksSections: some View {
         if review.books.isEmpty {
-            summaryLine(String(localized: "import.no_books_to_review"))
+            Section {
+                Text(String(localized: "import.no_books_to_review"))
+                    .foregroundStyle(.secondary)
+            } header: {
+                booksHeader
+            }
         } else {
-            ForEach(review.books) { book in
-                ImportBookReviewRow(
-                    book: book,
-                    search: activeSearch(for: book),
-                    onOpenSearch: { onOpenBookSearch(book.absItemId) },
-                    onCloseSearch: onCloseBookSearch,
-                    onQueryChange: onBookSearchQueryChange,
-                    onSelectBook: { bookId in onSelectBook(book.absItemId, bookId) },
-                    onSkip: { onSkipBook(book.absItemId) }
-                )
+            ForEach(Array(review.books.enumerated()), id: \.element.id) { index, book in
+                Section {
+                    ImportBookReviewRow(
+                        book: book,
+                        search: activeSearch(for: book),
+                        onOpenSearch: { onOpenBookSearch(book.absItemId) },
+                        onCloseSearch: onCloseBookSearch,
+                        onQueryChange: onBookSearchQueryChange,
+                        onSelectBook: { bookId in onSelectBook(book.absItemId, bookId) },
+                        onSkip: { onSkipBook(book.absItemId) }
+                    )
+                    .listRowInsets(EdgeInsets())
+                } header: {
+                    if index == 0 { booksHeader }
+                }
             }
         }
     }
@@ -104,32 +103,47 @@ struct ImportReviewContent: View {
     }
 
     private var booksHeader: some View {
-        HStack(spacing: 12) {
-            Text(String(localized: "import.review_books_section").uppercased())
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Color.luLabel2)
-                .tracking(0.4)
-            Spacer(minLength: 8)
-            if review.unresolvedBookCount > 0 {
-                Label(
-                    String(format: String(localized: "import.n_to_review"), review.unresolvedBookCount),
-                    systemImage: "circle.fill"
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 12) {
+                Text(String(localized: "import.review_books_section"))
+                Spacer(minLength: 8)
+                if review.unresolvedBookCount > 0 {
+                    Label(
+                        String(format: String(localized: "import.n_to_review"), review.unresolvedBookCount),
+                        systemImage: "circle.fill"
+                    )
+                    .labelStyle(.titleAndIcon)
+                    .imageScale(.small)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.luWarning)
+                    .textCase(nil)
+                }
+            }
+            if review.autoMatchedCount > 0 {
+                summaryLine(
+                    String(
+                        format: String(localized: "import.books_matched"),
+                        String(review.autoMatchedCount)
+                    )
                 )
-                .labelStyle(.titleAndIcon)
-                .imageScale(.small)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.orange)
+            }
+            if review.importableSessionCount > 0 {
+                summaryLine(
+                    String(
+                        format: String(localized: "import.sessions_importable"),
+                        String(review.importableSessionCount)
+                    )
+                )
             }
         }
-        .padding(.horizontal, 6)
     }
 
     private func summaryLine(_ text: String) -> some View {
         Text(text)
             .font(.footnote)
-            .foregroundStyle(Color.luLabel2)
+            .foregroundStyle(.secondary)
+            .textCase(nil)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 6)
     }
 
     /// A binding that is non-nil only for the row whose picker is open, so the `.popover(item:)`
@@ -161,10 +175,7 @@ struct ImportReviewContent: View {
 
     private var countHeader: some View {
         HStack(spacing: 12) {
-            Text(String(localized: "import.users_in_backup").uppercased())
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Color.luLabel2)
-                .tracking(0.4)
+            Text(String(localized: "import.users_in_backup"))
             Spacer(minLength: 8)
             if review.unresolvedCount > 0 {
                 Label(
@@ -174,7 +185,8 @@ struct ImportReviewContent: View {
                 .labelStyle(.titleAndIcon)
                 .imageScale(.small)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color.luWarning)
+                .textCase(nil)
             }
             if review.matchedCount > 0 {
                 Label(
@@ -183,9 +195,9 @@ struct ImportReviewContent: View {
                 )
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.green)
+                .textCase(nil)
             }
         }
-        .padding(.horizontal, 6)
     }
 
     private var warning: some View {
@@ -198,92 +210,88 @@ struct ImportReviewContent: View {
             systemImage: "exclamationmark.triangle"
         )
         .font(.footnote)
-        .foregroundStyle(.orange)
+        .foregroundStyle(Color.luWarning)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+        .padding(Spacing.s)
+        .background(Color.luWarning.opacity(0.1), in: RoundedRectangle(cornerRadius: Radius.m))
     }
 
     private var actionTray: some View {
-        PrimaryButton(title: String(localized: "import.apply_import"), icon: "arrow.right", action: onApply)
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 16)
-            .background(.bar)
+        Button(action: onApply) {
+            ActionLabel(title: String(localized: "import.apply_import"), systemImage: "arrow.right")
+        }
+        .prominentAction()
+        .padding(.horizontal, Spacing.l)
+        .padding(.top, Spacing.s)
+        .padding(.bottom, Spacing.m)
     }
 }
 
 // MARK: - Complete
 
-/// The completion screen: a success badge, a headline, and a grouped stat card. "Done" dismisses
+/// The completion screen: a success badge, a headline, and a grouped section of figures. "Done" dismisses
 /// the wizard (the parent refreshes the hub and the listening history is already syncing).
 struct ImportCompleteContent: View {
     let done: ImportDoneModel
     let onDone: () -> Void
 
+    /// A grouped `List`: the success hero heads it on the plain background, and the figures are a
+    /// section of system rows beneath. HIG, Lists and tables.
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
+        List {
+            Section {
                 VStack(spacing: 0) {
                     SuccessBadge(size: 116)
-                        .padding(.top, 16)
+                        .padding(.top, Spacing.m)
                     Text(String(localized: "import.done_title"))
                         .font(.title.weight(.bold))
                         .foregroundStyle(.primary)
-                        .padding(.top, 22)
+                        .padding(.top, Spacing.xl)
                     Text(String(localized: "import.done_subtitle"))
                         .font(.subheadline)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
-                        .padding(.top, 8)
-                    statsCard
-                        .padding(.top, 24)
+                        .padding(.top, Spacing.xs)
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 24)
                 .frame(maxWidth: .infinity)
-                .readableWidth(520)
+                .listRowBackground(Color.clear)
             }
-            PrimaryButton(title: String(localized: "common.done"), icon: "checkmark", action: onDone)
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 16)
-                .background(.bar)
+            Section {
+                StatLineRow(
+                    systemImage: "doc",
+                    label: String(localized: "import.records_imported_stat"),
+                    value: "\(done.importedCount)"
+                )
+                StatLineRow(
+                    systemImage: "waveform",
+                    label: String(localized: "import.sessions_imported_stat"),
+                    value: "\(done.sessionsImported)"
+                )
+                StatLineRow(
+                    systemImage: "person.2",
+                    label: String(localized: "import.users_merged_stat"),
+                    value: "\(done.usersUpdated)"
+                )
+                StatLineRow(
+                    systemImage: "xmark",
+                    label: String(localized: "import.books_skipped_stat"),
+                    value: "\(done.booksNotInLibrary)",
+                    isMuted: true
+                )
+            }
         }
-    }
-
-    private var statsCard: some View {
-        VStack(spacing: 0) {
-            StatLineRow(
-                systemImage: "doc",
-                label: String(localized: "import.records_imported_stat"),
-                value: "\(done.importedCount)"
-            )
-            separator
-            StatLineRow(
-                systemImage: "waveform",
-                label: String(localized: "import.sessions_imported_stat"),
-                value: "\(done.sessionsImported)"
-            )
-            separator
-            StatLineRow(
-                systemImage: "person.2",
-                label: String(localized: "import.users_merged_stat"),
-                value: "\(done.usersUpdated)"
-            )
-            separator
-            StatLineRow(
-                systemImage: "xmark",
-                label: String(localized: "import.books_skipped_stat"),
-                value: "\(done.booksNotInLibrary)",
-                isMuted: true
-            )
+        .listStyle(.insetGrouped)
+        .readableListWidth(520)
+        // The tray is a bar over the scroll view, whose edge effect the system draws (HIG, Toolbars).
+        .safeAreaBar(edge: .bottom) {
+            Button(action: onDone) {
+                ActionLabel(title: String(localized: "common.done"), systemImage: "checkmark")
+            }
+            .prominentAction()
+            .padding(.horizontal, Spacing.l)
+            .padding(.top, Spacing.s)
+            .padding(.bottom, Spacing.m)
         }
-        .fieldCard()
-    }
-
-    private var separator: some View {
-        Rectangle().fill(Color.luSeparator).frame(height: 0.5).padding(.leading, 57)
     }
 }
 
@@ -306,13 +314,16 @@ struct ImportErrorContent: View {
             }
             Spacer()
             VStack(spacing: 10) {
-                PrimaryButton(title: String(localized: "common.try_again"), icon: "arrow.clockwise", action: onRetry)
+                Button(action: onRetry) {
+                    ActionLabel(title: String(localized: "common.try_again"), systemImage: "arrow.clockwise")
+                }
+                .prominentAction()
                 Button(String(localized: "common.cancel"), action: onCancel)
                     .font(.body.weight(.medium))
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 16)
+            .padding(.horizontal, Spacing.l)
+            .padding(.bottom, Spacing.m)
             .readableWidth(520)
         }
     }

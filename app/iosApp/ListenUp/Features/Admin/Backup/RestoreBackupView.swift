@@ -65,13 +65,27 @@ struct RestoreBackupView: View {
 
     // MARK: - Idle
 
+    /// A grouped `Form`: the warning heads the list, the backup id is a labelled, selectable row, and
+    /// the destructive action sits beneath. HIG, Lists and tables.
     private func idleContent(observer: RestoreBackupObserver, error: String?) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+        Form {
+            Section {
                 warningCard
-                backupCard
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
+            Section {
+                LabeledContent(String(localized: "admin.backup")) {
+                    Text(backupId)
+                        .foregroundStyle(.primary)
+                        .textSelection(.enabled)
+                }
+            }
+            Section {
                 if let error {
                     ErrorBanner(message: error)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
                 }
                 Button {
                     observer.requestRestore()
@@ -79,15 +93,15 @@ struct RestoreBackupView: View {
                     Text(String(localized: "admin.restore_this_backup"))
                         .font(.body.weight(.semibold))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
+                        .padding(.vertical, Spacing.xs)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.red)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .readableWidth(640)
         }
+        .readableListWidth()
     }
 
     private var warningCard: some View {
@@ -97,26 +111,11 @@ struct RestoreBackupView: View {
                 .foregroundStyle(.red)
             Text(String(localized: "admin.restore_destructive_body"))
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-
-    private var backupCard: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(String(localized: "admin.backup"))
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Color.luLabel2)
-            Text(backupId)
-                .font(.body)
-                .foregroundStyle(.primary)
-                .textSelection(.enabled)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .fieldCard()
+        .padding(Spacing.m)
+        .background(.red.opacity(0.1), in: RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
     }
 
     // MARK: - Restoring
@@ -127,18 +126,18 @@ struct RestoreBackupView: View {
                 .controlSize(.large)
             Text(observer.statusLabel)
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(32)
+        .padding(Spacing.xxl)
     }
 
     // MARK: - Completed
 
     private func completedContent(model: RestoreCompletedModel) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+        Form {
+            Section {
                 VStack(alignment: .leading, spacing: 10) {
                     Label(String(localized: "admin.restore_complete"), systemImage: "checkmark.circle.fill")
                         .font(.title3.weight(.bold))
@@ -148,32 +147,31 @@ struct RestoreBackupView: View {
                         .foregroundStyle(.primary)
                     Text(String(format: String(localized: "admin.schema_migrated"), model.schemaMigratedFrom, model.schemaMigratedTo))
                         .font(.subheadline)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                     Text(model.includedImages
                         ? String(localized: "admin.restore_images_included")
                         : String(localized: "admin.restore_images_not_included"))
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
-                .fieldCard()
-
+                .padding(.vertical, Spacing.xs)
+            }
+            Section {
                 Button {
                     dismiss()
                 } label: {
                     Text(String(localized: "common.done"))
                         .font(.body.weight(.semibold))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
+                        .padding(.vertical, Spacing.xs)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(.luTint)
+                .onBrandFillLabel()
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .readableWidth(640)
         }
+        .readableListWidth()
     }
 
     // MARK: - Derived state

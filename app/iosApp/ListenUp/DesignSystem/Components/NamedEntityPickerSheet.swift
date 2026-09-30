@@ -37,7 +37,6 @@ struct NamedEntityPickerSheet: View {
     var headerText: String?
     var emptyState: PickerEmptyState = .silent
     var errorText: String?
-    var frosted: Bool = false
     let isBusy: Bool
     var create: InlineCreate?
     let onSelect: (String) -> Void
@@ -71,11 +70,10 @@ struct NamedEntityPickerSheet: View {
                     }
                 }
             }
-            .scrollContentBackground(frosted ? .hidden : .automatic)
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "common.done"), action: onClose)
                 }
                 if isBusy {
@@ -86,7 +84,9 @@ struct NamedEntityPickerSheet: View {
             }
             .presentationDetents([.medium, .large])
         }
-        .presentationBackgroundFrosted(frosted)
+        // No `presentationBackground` override: the system sheet material is the one HIG asks for
+        // (HIG, Materials: "prefer system-provided materials"), and a thick material over it
+        // flattened the iOS 26 sheet's Liquid Glass.
     }
 
     // MARK: - Rows
@@ -176,18 +176,5 @@ struct NamedEntityPickerSheet: View {
         create.onCreate(name)
         newName = ""
         isCreating = false
-    }
-}
-
-private extension View {
-    /// The bulk sheets float on a `.thickMaterial` sheet background; the detail sheets use the
-    /// default. Applied conditionally so the two treatments stay identical to the originals.
-    @ViewBuilder
-    func presentationBackgroundFrosted(_ frosted: Bool) -> some View {
-        if frosted {
-            presentationBackground(.thickMaterial)
-        } else {
-            self
-        }
     }
 }

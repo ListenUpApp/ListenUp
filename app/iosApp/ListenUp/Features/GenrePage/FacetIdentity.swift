@@ -51,12 +51,6 @@ func sfSymbol(for icon: FacetIcon) -> String {
 }
 // swiftlint:enable cyclomatic_complexity
 
-/// Parses a facet's accent-hue hex string (e.g. `"#2E5AA0"`, from the shared palette hash) into a
-/// `Color`. Thin wrapper over `Color(hex:)` so callers read the domain intent at the call site.
-func hueColor(_ hex: String) -> Color {
-    Color(hex: hex)
-}
-
 /// The tinted, rounded icon tile every clean-coral facet destination page (genre, tag, mood)
 /// renders as its identity mark: the facet's accent hue at low-opacity fill + a faint hue border +
 /// the mapped SF Symbol tinted the same hue. Never a full-bleed color-block hero. Shared by
@@ -66,13 +60,16 @@ struct FacetIconTile: View {
     let hue: Color
     var size: CGFloat = 60
 
+    /// Increase Contrast doubles the border's weight — the tile's edge is its only outline.
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+
     var body: some View {
-        RoundedRectangle(cornerRadius: 17, style: .continuous)
+        RoundedRectangle(cornerRadius: Radius.l, style: .continuous)
             .fill(hue.opacity(0.16))
             .frame(width: size, height: size)
             .overlay {
-                RoundedRectangle(cornerRadius: 17, style: .continuous)
-                    .strokeBorder(hue.opacity(0.3), lineWidth: 1)
+                RoundedRectangle(cornerRadius: Radius.l, style: .continuous)
+                    .strokeBorder(hue.opacity(colorSchemeContrast == .increased ? 0.6 : 0.3), lineWidth: 1)
             }
             .overlay {
                 Image(systemName: symbolName)

@@ -13,14 +13,7 @@ struct EditProfileView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var observer: EditProfileObserver?
-
-    /// The two-column layout kicks in past this width — wide enough to hold Tagline and
-    /// Name side by side with comfortable margins, narrow enough that every iPhone and
-    /// narrow Split View stays single-column.
-    private static let wideThreshold: CGFloat = 700
-    private static let readableMaxWidth: CGFloat = 820
-
-    @State private var width: CGFloat = 0
+    @FocusState private var focusedField: EditProfileFocusField?
 
     var body: some View {
         Group {
@@ -40,16 +33,13 @@ struct EditProfileView: View {
     private func sheet(_ observer: EditProfileObserver) -> some View {
         EditSheetScaffold(
             title: String(localized: "profile.edit_profile_title"),
+            hasChanges: observer.isDirty,
             canSave: observer.isDirty,
             isSaving: observer.isSaving,
             onCancel: { dismiss() },
             onSave: { observer.save() }
         ) {
             sections(observer)
-                .frame(maxWidth: Self.readableMaxWidth)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal)
-                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         }
         .alert(
             String(localized: "common.error"),
@@ -64,28 +54,13 @@ struct EditProfileView: View {
 
     // MARK: - Layout
 
-    /// Single column on narrow widths; on a wide width Tagline and Name sit side by side
-    /// while Avatar and Password span full width. Driven off the measured content width,
-    /// not the horizontal size class (so narrow Split View reads as compact).
+    /// One column of grouped `Form` sections, in the scaffold's readable column at every width.
     @ViewBuilder
     private func sections(_ observer: EditProfileObserver) -> some View {
-        let isWide = width >= Self.wideThreshold
-
-        VStack(spacing: 22) {
-            avatarSection(observer)
-
-            if isWide {
-                HStack(alignment: .top, spacing: 16) {
-                    taglineSection(observer)
-                    nameSection(observer)
-                }
-            } else {
-                taglineSection(observer)
-                nameSection(observer)
-            }
-
-            passwordSection(observer)
-        }
+        avatarSection(observer)
+        taglineSection(observer)
+        nameSection(observer)
+        passwordSection(observer)
     }
 
     // MARK: - Sections
@@ -107,6 +82,7 @@ struct EditProfileView: View {
                 avatarPreview(observer)
             }
             .frame(maxWidth: .infinity)
+            .padding(.vertical, Spacing.xs)
         }
     }
 
@@ -140,14 +116,15 @@ struct EditProfileView: View {
                     placeholder: String(localized: "profile.tagline_placeholder"),
                     text: binding(observer.tagline, observer.setTagline),
                     entry: .sentences,
-                    label: String(localized: "profile.tagline")
+                    label: String(localized: "profile.tagline"),
+                    submitLabel: EditProfileFocusField.tagline.submitLabel(last: .done),
+                    onSubmit: { advance(from: .tagline) }
                 )
-                .fieldCard()
+                .focused($focusedField, equals: .tagline)
 
                 Text(taglineCount(observer.tagline))
                     .font(.caption2)
-                    .foregroundStyle(Color.luLabel3)
-                    .padding(.trailing, 6)
+                    .foregroundStyle(.tertiary)
             }
         }
     }
@@ -158,22 +135,26 @@ struct EditProfileView: View {
             title: String(localized: "profile.name"),
             subtitle: String(localized: "profile.name_description")
         ) {
-            VStack(spacing: 0) {
+            Group {
                 AppTextField(
                     placeholder: String(localized: "auth.first_name_placeholder"),
                     text: binding(observer.firstName, observer.setFirstName),
                     entry: .givenName,
                     label: String(localized: "auth.first_name"),
-                    isLast: false
+                    submitLabel: EditProfileFocusField.firstName.submitLabel(last: .done),
+                    onSubmit: { advance(from: .firstName) }
                 )
+                .focused($focusedField, equals: .firstName)
                 AppTextField(
                     placeholder: String(localized: "auth.last_name_placeholder"),
                     text: binding(observer.lastName, observer.setLastName),
                     entry: .familyName,
-                    label: String(localized: "auth.last_name")
+                    label: String(localized: "auth.last_name"),
+                    submitLabel: EditProfileFocusField.lastName.submitLabel(last: .done),
+                    onSubmit: { advance(from: .lastName) }
                 )
+                .focused($focusedField, equals: .lastName)
             }
-            .fieldCard()
         }
     }
 
@@ -183,33 +164,45 @@ struct EditProfileView: View {
             title: String(localized: "profile.change_password"),
             subtitle: String(localized: "profile.password_description")
         ) {
-            VStack(spacing: 0) {
+            Group {
                 AppTextField(
                     placeholder: String(localized: "profile.current_password"),
                     text: binding(observer.currentPassword, observer.setCurrentPassword),
                     entry: .password,
                     label: String(localized: "profile.current_password"),
                     kind: .secure,
-                    isLast: false
+                    submitLabel: EditProfileFocusField.currentPassword.submitLabel(last: .done),
+                    onSubmit: { advance(from: .currentPassword) }
                 )
+                .focused($focusedField, equals: .currentPassword)
                 AppTextField(
                     placeholder: String(localized: "profile.new_password"),
                     text: binding(observer.newPassword, observer.setNewPassword),
                     entry: .newPassword,
                     label: String(localized: "profile.new_password"),
                     kind: .secure,
-                    isLast: false
+                    submitLabel: EditProfileFocusField.newPassword.submitLabel(last: .done),
+                    onSubmit: { advance(from: .newPassword) }
                 )
+                .focused($focusedField, equals: .newPassword)
                 AppTextField(
                     placeholder: String(localized: "auth.confirm_password"),
                     text: binding(observer.confirmPassword, observer.setConfirmPassword),
                     entry: .newPassword,
                     label: String(localized: "auth.confirm_password"),
-                    kind: .secure
+                    kind: .secure,
+                    submitLabel: EditProfileFocusField.confirmPassword.submitLabel(last: .done),
+                    onSubmit: { advance(from: .confirmPassword) }
                 )
+                .focused($focusedField, equals: .confirmPassword)
             }
-            .fieldCard()
         }
+    }
+
+    /// Return moves within the name pair and the password trio; the end of a run puts the
+    /// keyboard away. Saving stays on the Done button.
+    private func advance(from field: EditProfileFocusField) {
+        FormFocus.advance(from: field, focus: $focusedField) { focusedField = nil }
     }
 
     // MARK: - Derived
@@ -249,26 +242,20 @@ struct EditProfileView: View {
 
 // MARK: - Section helper
 
-/// A titled profile-edit section: a `.headline` header, a secondary `.subheadline`
-/// subtitle, then `.fieldCard()`-wrapped content. The iOS realization of the mockup's
-/// titled cards — no Android card chrome, just the native edit-sheet look.
+/// A titled profile-edit `Form` section: the system header names it, the footer explains it.
 private struct ProfileEditSection<Content: View>: View {
     let title: String
     let subtitle: String
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.headline)
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+        Section {
             content()
+        } header: {
+            Text(title)
+        } footer: {
+            Text(subtitle)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -280,6 +267,7 @@ private struct StagedAvatarPreview: View {
     let user: User?
     let size: CGFloat
 
+    @Environment(\.displayScale) private var displayScale
     @State private var decoded: UIImage?
 
     var body: some View {
@@ -295,12 +283,15 @@ private struct StagedAvatarPreview: View {
         // Keyed on byte count (O(1)) rather than the whole multi-MB Data; re-decodes when a new
         // image is picked, and the decode is cancelled if the view goes away.
         .task(id: data.count) {
-            decoded = await Self.decode(data)
+            decoded = await Self.decode(data, maxPixelSize: Int((size * displayScale).rounded(.up)))
         }
     }
 
-    /// `nonisolated async` ⇒ the decode runs on the cooperative pool, never the main actor.
-    private nonisolated static func decode(_ data: Data) async -> UIImage? {
-        UIImage(data: data)
+    /// `@concurrent` ⇒ the decode runs on the cooperative pool, never the main actor, even where a
+    /// plain `nonisolated async` would run on the caller's. Decodes only the pixels the preview
+    /// fills, not the full-resolution photo.
+    @concurrent
+    private nonisolated static func decode(_ data: Data, maxPixelSize: Int) async -> UIImage? {
+        ImageDownsampler.downsampledImage(data: data, maxPixelSize: maxPixelSize)
     }
 }

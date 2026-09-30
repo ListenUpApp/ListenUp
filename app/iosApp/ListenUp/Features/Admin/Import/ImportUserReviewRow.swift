@@ -6,6 +6,9 @@ import SwiftUI
 ///
 /// Bound to an ``ImportUserRowModel``. The picker is presented by the parent (a confirmation
 /// dialog of `listenupUsers`); this row only reports intent via its callbacks.
+///
+/// A compound `List` row: the caller gives it a `Section` of its own with zero row insets, because
+/// its identity and resolution lines carry their own padding and the divider between them.
 struct ImportUserReviewRow: View {
     let user: ImportUserRowModel
     let onAcceptSuggestion: () -> Void
@@ -16,10 +19,9 @@ struct ImportUserReviewRow: View {
     var body: some View {
         VStack(spacing: 0) {
             identityRow
-            Divider().padding(.leading, 14)
+            Divider().padding(.leading, Spacing.m)
             resolutionRow
         }
-        .fieldCard()
     }
 
     // MARK: - Identity
@@ -34,7 +36,7 @@ struct ImportUserReviewRow: View {
                 if let email = user.email, !email.isEmpty {
                     Text(email)
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
@@ -42,8 +44,8 @@ struct ImportUserReviewRow: View {
             Spacer(minLength: 8)
             statusPill
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
     }
 
     @ViewBuilder
@@ -52,10 +54,10 @@ struct ImportUserReviewRow: View {
         case .needsReview:
             Text(String(localized: "import.user_needs_review"))
                 .font(.caption.weight(.bold))
-                .foregroundStyle(.orange)
-                .padding(.horizontal, 11)
-                .padding(.vertical, 5)
-                .background(Color.orange.opacity(0.16), in: Capsule())
+                .foregroundStyle(Color.luWarning)
+                .padding(.horizontal, Spacing.s)
+                .padding(.vertical, Spacing.xxs)
+                .background(Color.luWarning.opacity(0.16), in: Capsule())
         case .assigned, .skipped:
             Label(
                 user.resolution == .skipped
@@ -65,7 +67,7 @@ struct ImportUserReviewRow: View {
             )
             .labelStyle(.titleAndIcon)
             .font(.footnote.weight(.semibold))
-            .foregroundStyle(user.resolution == .skipped ? Color.luLabel2 : .green)
+            .foregroundStyle(user.resolution == .skipped ? Color.secondary : .green)
         }
     }
 
@@ -81,7 +83,7 @@ struct ImportUserReviewRow: View {
         case .needsReview:
             if let suggestion = user.suggestedName {
                 suggestionRow(name: suggestion)
-                Divider().padding(.leading, 14)
+                Divider().padding(.leading, Spacing.m)
             }
             actionRow
         }
@@ -91,18 +93,18 @@ struct ImportUserReviewRow: View {
         HStack(spacing: 11) {
             Image(systemName: "link")
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             Text(String(format: String(localized: "import.user_assigned_to"), name))
                 .font(.footnote)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .lineLimit(1)
             Spacer(minLength: 8)
             Button(String(localized: "import.change"), action: onChange)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Color.luTint)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 13)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
     }
 
     private func suggestionRow(name: String) -> some View {
@@ -112,7 +114,7 @@ struct ImportUserReviewRow: View {
                 .foregroundStyle(Color.luTint)
             Text(String(format: String(localized: "import.suggested_name"), name))
                 .font(.footnote)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 8)
@@ -120,14 +122,14 @@ struct ImportUserReviewRow: View {
                 Label(String(localized: "import.accept"), systemImage: "checkmark")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Color.luOnTint)
-                    .padding(.horizontal, 13)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, Spacing.s)
+                    .padding(.vertical, Spacing.xs)
                     .background(Color.luTint, in: Capsule())
             }
             .buttonStyle(.pressScaleChip)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
     }
 
     private var actionRow: some View {
@@ -143,39 +145,32 @@ struct ImportUserReviewRow: View {
             Button(action: onSkip) {
                 Label(String(localized: "import.user_skip"), systemImage: "xmark")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(Color.secondary)
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.pressScaleChip)
         }
-        .padding(.vertical, 13)
+        .padding(.vertical, Spacing.s)
     }
 }
 
 // MARK: - Avatar
 
-/// A circular initial avatar for an ABS user, tinted green when matched/resolved and coral when
-/// it still needs review.
+/// A circular initial avatar for an ABS user: green when matched/resolved, amber while it still needs
+/// review (the row's "Needs review" pill carries the same state in words). Both fills come from the
+/// shared `AvatarPalette` solve, so the white initial reads at 4.5:1.
 private struct ImportUserAvatar: View {
     let initial: String
     let isMatched: Bool
 
     var body: some View {
         Circle()
-            .fill(
-                LinearGradient(
-                    colors: isMatched
-                        ? [Color(hex: "4FBE7E"), Color(hex: "2E9E5B")]
-                        : [Color(hex: "F0894F"), Color(hex: "D8431F")],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
+            .fill(AvatarPalette.fill(hueDegrees: isMatched ? 145 : 40))
             .frame(width: 40, height: 40)
             .overlay {
                 Text(initial)
                     .font(.headline.weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AvatarPalette.initialsInk)
             }
             .accessibilityHidden(true)
     }
@@ -184,8 +179,8 @@ private struct ImportUserAvatar: View {
 // MARK: - Preview
 
 #Preview("ImportUserReviewRow") {
-    ScrollView {
-        VStack(spacing: 18) {
+    List {
+        Section {
             ImportUserReviewRow(
                 user: ImportUserRowModel(
                     absUserId: "s", username: "simon", email: "simon@example.com",
@@ -193,6 +188,9 @@ private struct ImportUserAvatar: View {
                 ),
                 onAcceptSuggestion: {}, onAssign: {}, onSkip: {}, onChange: {}
             )
+            .listRowInsets(EdgeInsets())
+        }
+        Section {
             ImportUserReviewRow(
                 user: ImportUserRowModel(
                     absUserId: "d", username: "darlene", email: "darlene@example.com",
@@ -200,6 +198,9 @@ private struct ImportUserAvatar: View {
                 ),
                 onAcceptSuggestion: {}, onAssign: {}, onSkip: {}, onChange: {}
             )
+            .listRowInsets(EdgeInsets())
+        }
+        Section {
             ImportUserReviewRow(
                 user: ImportUserRowModel(
                     absUserId: "r", username: "root", email: nil,
@@ -207,8 +208,7 @@ private struct ImportUserAvatar: View {
                 ),
                 onAcceptSuggestion: {}, onAssign: {}, onSkip: {}, onChange: {}
             )
+            .listRowInsets(EdgeInsets())
         }
-        .padding()
     }
-    .background(Color.luSurface)
 }

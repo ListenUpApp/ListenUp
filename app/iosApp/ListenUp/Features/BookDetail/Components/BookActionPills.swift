@@ -3,8 +3,9 @@ import SwiftUI
 /// The two secondary actions beneath the resume bar on the redesigned Book Detail
 /// screen: "Add to Shelf" and "Mark as Finished".
 ///
-/// Two subtle outlined pills — a hairline `separator`-toned border with a
-/// coral-colored leading SF Symbol. The finish pill presents a native
+/// Two system `.bordered` buttons — the secondary style beside the resume bar's prominent one
+/// (HIG, Buttons: "use a more prominent button style for that option and a less prominent style for
+/// the remaining ones"). The finish button presents a native
 /// `.confirmationDialog` before committing, disables itself while a mark is in
 /// flight, and collapses to a quiet, filled "Finished" state once the book is
 /// complete.
@@ -22,21 +23,32 @@ struct BookActionPills: View {
 
     private let pillHeight: CGFloat = 44
 
+    /// Side by side while both labels fit on one line; stacked once they would wrap (a narrow
+    /// iPhone, a large text size), so the two buttons never end up at different heights with a
+    /// two-line label beside a one-line one (HIG, Typography: "Make sure your app's layout adapts to
+    /// all font sizes.").
     var body: some View {
-        HStack(spacing: 12) {
-            addToShelfPill
-            finishPill
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                addToShelfPill
+                finishPill
+            }
+            VStack(spacing: 12) {
+                addToShelfPill
+                finishPill
+            }
         }
     }
 
     // MARK: - Add to Shelf
 
     private var addToShelfPill: some View {
-        IconLabelButton(
-            icon: "bookmark",
-            title: String(localized: "book.detail_add_to_shelf"),
-            action: onAddToShelf
-        )
+        Button(action: onAddToShelf) {
+            Label(String(localized: "book.detail_add_to_shelf"), systemImage: "bookmark")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.large)
     }
 
     // MARK: - Mark as Finished
@@ -51,11 +63,15 @@ struct BookActionPills: View {
     }
 
     private var markFinishedButton: some View {
-        IconLabelButton(icon: "checkmark", title: String(localized: "book.detail_mark_as_finished")) {
+        Button {
             showFinishConfirmation = true
+        } label: {
+            Label(String(localized: "book.detail_mark_as_finished"), systemImage: "checkmark")
+                .frame(maxWidth: .infinity)
         }
+        .buttonStyle(.bordered)
+        .controlSize(.large)
         .disabled(isMarkingComplete)
-        .opacity(isMarkingComplete ? 0.5 : 1)
         .confirmationDialog(
             String(localized: "book.detail_mark_as_finished_prompt"),
             isPresented: $showFinishConfirmation,
@@ -97,7 +113,7 @@ struct BookActionPills: View {
         .frame(maxWidth: .infinity)
         .frame(height: pillHeight)
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
                 .strokeBorder(Color(.separator), lineWidth: 1.5)
         }
     }

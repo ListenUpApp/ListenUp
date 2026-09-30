@@ -15,10 +15,12 @@ struct MetadataFlowHeader: View {
                     Image(systemName: "sparkles").font(.caption.weight(.semibold))
                     Text(badge).font(.caption.weight(.semibold))
                 }
-                .foregroundStyle(Color.luTint)
-                .padding(.horizontal, 11)
-                .padding(.vertical, 5)
-                .background(Capsule().fill(Color.luTint.opacity(0.13)))
+                // An eyebrow, not an action: neutral, so the coral stays for what can be tapped
+                // (HIG, Branding: "Apply your app's accent color judiciously").
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, Spacing.s)
+                .padding(.vertical, Spacing.xxs)
+                .background(Capsule().fill(Color.luFill))
             }
             Text(title)
                 .font(.largeTitle.weight(.bold))
@@ -26,7 +28,7 @@ struct MetadataFlowHeader: View {
             if let subtitle {
                 Text(subtitle)
                     .font(.subheadline)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -40,7 +42,7 @@ struct MetadataGroupHeader: View {
     var body: some View {
         Text(text.uppercased())
             .font(.footnote)
-            .foregroundStyle(Color.luLabel2)
+            .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

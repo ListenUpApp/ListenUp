@@ -86,12 +86,12 @@ private struct IndeterminateArc: View {
     VStack(spacing: 36) {
         CircularProgressDial(progress: 0.46) {
             VStack(spacing: 2) {
-                Text("46%").font(.system(size: 34, weight: .bold).monospacedDigit())
-                Text("3.6 of 7.8 MB").font(.footnote).foregroundStyle(Color.luLabel2)
+                Text("46%").font(.largeTitle.bold().monospacedDigit())
+                Text("3.6 of 7.8 MB").font(.footnote).foregroundStyle(.secondary)
             }
         }
         CircularProgressDial(progress: nil) {
-            Text("…").font(.largeTitle).foregroundStyle(Color.luLabel2)
+            Text("…").font(.largeTitle).foregroundStyle(.secondary)
         }
     }
     .padding()

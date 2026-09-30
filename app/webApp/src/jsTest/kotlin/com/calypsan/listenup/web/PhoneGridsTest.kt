@@ -138,6 +138,7 @@ private fun library(): LibraryUiState.Loaded {
         narratorsSortState = TITLE_ASCENDING,
         ignoreTitleArticles = false,
         hideSingleBookSeries = false,
+        contentRevision = 1L,
         books = books,
         series = emptyList(),
         authors = emptyList(),

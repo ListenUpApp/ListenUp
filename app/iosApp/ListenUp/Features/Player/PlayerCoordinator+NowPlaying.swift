@@ -18,6 +18,7 @@ extension NowPlayingInfo {
         chapters: [Chapter],
         bookDurationMs: Int64,
         rate: Double,
+        defaultRate: Double = 1.0,
         artworkPath: String?
     ) -> NowPlayingInfo {
         let window = ChapterMath.window(
@@ -33,7 +34,8 @@ extension NowPlayingInfo {
             rate: rate,
             artworkPath: artworkPath,
             chapterNumber: window.index >= 0 ? window.index + 1 : nil,
-            chapterCount: window.index >= 0 ? window.chapterCount : nil
+            chapterCount: window.index >= 0 ? window.chapterCount : nil,
+            defaultRate: defaultRate
         )
     }
 }
@@ -59,6 +61,7 @@ extension PlayerCoordinator {
             // buffer would tick the lock-screen clock forward from the resume point and then snap
             // it back when real playback starts. Rate 0 while buffering keeps elapsed honest.
             rate: isPlaying ? Double(playbackSpeed) : 0,
+            defaultRate: Double(playbackSpeed),
             artworkPath: coverPath
         ))
     }

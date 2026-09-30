@@ -23,9 +23,11 @@ struct BookChaptersSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        // Lazy: "All N" on a long audiobook is hundreds of rows, and an eager stack built every one
+        // of them on the tap (2026-09-29 iOS audit, performance).
+        LazyVStack(alignment: .leading, spacing: 0) {
             header
-                .padding(.bottom, 8)
+                .padding(.bottom, Spacing.xs)
 
             ForEach(Array(visibleChapters.enumerated()), id: \.element.id) { index, chapter in
                 if index > 0 {
@@ -87,8 +89,12 @@ struct BookChaptersSection: View {
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 11)
+        .padding(.vertical, Spacing.s)
         .accessibilityElement(children: .combine)
+        // The current chapter is marked by coral and a glyph; VoiceOver gets it as state (HIG,
+        // Accessibility — don't rely on colour alone).
+        .accessibilityAddTraits(chapter.isCurrent ? .isSelected : [])
+        .accessibilityValue(chapter.isCurrent ? String(localized: "player.now_playing") : "")
     }
 }
 

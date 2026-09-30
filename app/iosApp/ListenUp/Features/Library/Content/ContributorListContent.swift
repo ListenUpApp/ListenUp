@@ -1,29 +1,38 @@
 import SwiftUI
 import Shared
 
-/// A single-role contributor Library tab (Authors or Narrators): a sorted, letter-grouped
-/// list of people, with a responsive single/multi-column layout and an alphabet scrubber on
-/// name sort. The role is supplied by the caller so the same view backs both tabs.
+/// A single-role contributor Library tab (Authors or Narrators): the observer's cached letter
+/// sections, with a width-driven layout and an alphabet scrubber on name sort. The role is supplied
+/// by the caller so the same view backs both tabs.
+///
+/// - Narrower than two columns: a system inset-grouped `List`, a section per letter. Each person is
+///   a lazily built row with the system highlight and disclosure indicator (HIG, Lists and tables).
+/// - Wider: a `LazyVGrid` whose column count flows from the width, the letters as pinned section
+///   headers, each person a card — a collection of people rather than a stretched list (HIG,
+///   Collections; iosApp rule 12).
+///
+/// Both are lazy per row: the old hand-drawn grouped cards built every person in a letter (or, on a
+/// non-name sort, every person) at once (2026-09-29 iOS audit, performance).
 struct ContributorListContent: View {
-    let contributors: [ContributorRow]
+    let sections: [ContributorLetterGrouping.Group]
     let sortState: SortState?
     let roleKind: RoleChip.Kind
-    let onCategorySelected: (SortCategory) -> Void
-    let onDirectionToggle: () -> Void
+    /// The section switcher, shown as the first row in every state; `nil` in the iPad sidebar.
+    var picker: LibrarySectionPicker?
 
     @State private var isScrolling = false
     @State private var scrollTarget: String?
-    /// Available list width, read non-intrusively (see [listBody]) to drive the responsive
-    /// column count. Read via `onGeometryChange` rather than a greedy `GeometryReader`.
+    /// Available list width, read non-intrusively to drive the responsive column count. Read via
+    /// `onGeometryChange` rather than a greedy `GeometryReader`.
     @State private var listWidth: CGFloat = 0
-
-    private let sortCategories: [SortCategory] = [.name, .bookCount]
 
     private var isNameSort: Bool { sortState?.category == .name }
     private var isAuthors: Bool { roleKind == .author }
+    /// Scrubber letters are the rendered sections' own letters, so the two can never drift.
+    private var scrubberLetters: [String] { isNameSort ? sections.map(\.letter) : [] }
 
     var body: some View {
-        if contributors.isEmpty {
+        if sections.isEmpty {
             emptyState
         } else {
             listBody
@@ -32,44 +41,14 @@ struct ContributorListContent: View {
 
     private var listBody: some View {
         let columns = ContributorColumns.columnCount(availableWidth: listWidth)
-        return Group {
-            if columns <= 1 {
-                singleColumnList
-            } else {
-                multiColumnList(columns: columns)
-            }
-        }
-        .onGeometryChange(for: CGFloat.self, of: { $0.size.width }, action: { listWidth = $0 })
-    }
-
-    private var singleColumnList: some View {
-        let groups = isNameSort
-            ? ContributorLetterGrouping.group(contributors, key: { $0.name })
-            : [ContributorLetterGrouping.Group(letter: "", items: contributors)]
-        // Scrubber letters come from the same `groups` the headers render, so the two
-        // can never drift, and the list is only grouped once per render.
-        let scrubberLetters = isNameSort ? groups.map(\.letter) : []
-
         return ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
-                    sortRow.padding(.horizontal)
-
-                    ForEach(groups, id: \.letter) { group in
-                        if isNameSort {
-                            LetterHeader(letter: group.letter)
-                                .id("letter-\(group.letter)")
-                                .padding(.horizontal)
-                        }
-                        FieldGroup(group.items, id: \.id, separatorInset: 78) { person in
-                            PersonRow(contributor: person, kind: roleKind)
-                        }
-                        .padding(.horizontal)
-                    }
+            Group {
+                if columns <= 1 {
+                    list
+                } else {
+                    grid(columns: columns)
                 }
-                .padding(.bottom, 100)
             }
-            .scrollContentBackground(.hidden)
             .onScrollPhaseChange { _, newPhase in
                 withAnimation(.easeOut(duration: 0.2)) { isScrolling = newPhase != .idle }
             }
@@ -88,89 +67,78 @@ struct ContributorListContent: View {
                 if !scrubberLetters.isEmpty {
                     SectionIndexBar(
                         letters: scrubberLetters,
-                        onLetterSelected: { scrollTarget = "letter-\($0)" },
+                        onLetterSelected: { scrollTarget = Self.scrollTarget(forLetter: $0, in: sections) },
                         isVisible: isScrolling
                     )
-                    .padding(.trailing, 8)
+                    .padding(.trailing, Spacing.xs)
                     .padding(.vertical, 60)
                 }
             }
-            .background(Color.luSurface)
         }
+        .onGeometryChange(for: CGFloat.self, of: { $0.size.width }, action: { listWidth = $0 })
     }
 
-    private func multiColumnList(columns: Int) -> some View {
-        let groups = isNameSort
-            ? ContributorLetterGrouping.group(contributors, key: { $0.name })
-            : [ContributorLetterGrouping.Group(letter: "", items: contributors)]
-        let columnGroups: [[ContributorLetterGrouping.Group]] = isNameSort
-            ? ContributorColumns.balancedColumns(groups, weight: { $0.items.count }, columns: columns)
-            : ContributorColumns.balancedColumns(contributors, weight: { _ in 1 }, columns: columns)
-                .map { [ContributorLetterGrouping.Group(letter: "", items: $0)] }
+    /// Where a scrubber letter jumps: the first person under it. Rows, not section headers, are what
+    /// a `List`'s `scrollTo` reliably resolves.
+    nonisolated static func scrollTarget(forLetter letter: String, in sections: [ContributorLetterGrouping.Group]) -> String? {
+        sections.first { $0.letter == letter }?.items.first?.id
+    }
 
-        return ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                sortRow.padding(.horizontal, 36)
-                HStack(alignment: .top, spacing: 24) {
-                    ForEach(Array(columnGroups.enumerated()), id: \.offset) { _, columnGroup in
-                        column(columnGroup)
+    private var list: some View {
+        List {
+            // The switcher as the list's first row: clear, edge to edge within the inset column.
+            if let picker {
+                Section {
+                    picker
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                }
+            }
+            ForEach(sections, id: \.letter) { group in
+                Section {
+                    ForEach(group.items) { person in
+                        PersonRow(contributor: person, kind: roleKind)
+                    }
+                } header: {
+                    if isNameSort { Text(group.letter) }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+    }
+
+    private func grid(columns: Int) -> some View {
+        ScrollView {
+            picker?.headerRow(horizontalMargin: Spacing.xxl)
+            LazyVGrid(
+                columns: Array(repeating: GridItem(.flexible(), spacing: 16, alignment: .top), count: columns),
+                alignment: .leading,
+                spacing: 12,
+                pinnedViews: isNameSort ? [.sectionHeaders] : []
+            ) {
+                ForEach(sections, id: \.letter) { group in
+                    Section {
+                        ForEach(group.items) { person in
+                            PersonRow(contributor: person, kind: roleKind, style: .card)
+                                .id(person.id)
+                        }
+                    } header: {
+                        if isNameSort {
+                            LetterHeader(letter: group.letter)
+                                .background(Color.luSurface)
+                        }
                     }
                 }
-                .padding(.horizontal, 36)
             }
-            .padding(.bottom, 100)
+            .padding(.horizontal, Spacing.xxl)
+            .padding(.bottom, Spacing.xl)
         }
         .scrollContentBackground(.hidden)
         .background(Color.luSurface)
     }
 
-    private func column(_ groups: [ContributorLetterGrouping.Group]) -> some View {
-        LazyVStack(alignment: .leading, spacing: 12) {
-            ForEach(groups, id: \.letter) { group in
-                if isNameSort {
-                    LetterHeader(letter: group.letter)
-                }
-                FieldGroup(group.items, id: \.id, separatorInset: 78) { person in
-                    PersonRow(contributor: person, kind: roleKind)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .top)
-    }
-
-    private var sortRow: some View {
-        let count = String(
-            format: String(localized: isAuthors ? "library.author_count" : "library.narrator_count"),
-            contributors.count
-        )
-        return SortRow(count: count, sortLabel: sortState?.category.label ?? "") {
-            ForEach(sortCategories, id: \.rawValue) { cat in
-                Button {
-                    onCategorySelected(cat)
-                } label: {
-                    HStack {
-                        Text(cat.label)
-                        if cat == sortState?.category { Image(systemName: "checkmark") }
-                    }
-                }
-            }
-            Divider()
-            Button {
-                onDirectionToggle()
-            } label: {
-                Label(
-                    sortState?.direction == .ascending
-                        ? String(localized: "library.sort_ascending")
-                        : String(localized: "library.sort_descending"),
-                    systemImage: sortState?.direction == .ascending ? "arrow.up" : "arrow.down"
-                )
-            }
-        }
-        .haptic(.selectionTick, trigger: sortState)
-    }
-
     private var emptyState: some View {
-        ScrollView {
+        LibrarySectionState(picker: picker) {
             ContentUnavailableView(
                 String(localized: "library.contributors_empty"),
                 systemImage: isAuthors ? "person.fill" : "waveform.circle.fill",
@@ -179,10 +147,7 @@ struct ContributorListContent: View {
                     String(localized: isAuthors ? "library.authors" : "library.narrators")
                 ))
             )
-            .frame(maxWidth: .infinity, minHeight: 360)
-            .padding(.bottom, 100)
         }
-        .scrollContentBackground(.hidden)
         .background(Color.luSurface)
     }
 }

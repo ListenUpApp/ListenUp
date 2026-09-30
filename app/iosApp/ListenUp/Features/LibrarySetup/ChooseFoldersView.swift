@@ -33,12 +33,15 @@ struct ChooseFoldersView: View {
             directorySection
         } footer: {
             selectionSummary
-            AuthPrimaryButton(
-                title: String(localized: "library_setup.start_scanning"),
-                isLoading: viewModel.isCreatingLibrary
-            ) {
+            Button {
                 viewModel.completeSetup()
+            } label: {
+                ActionLabel(
+                    title: String(localized: "library_setup.start_scanning"),
+                    isBusy: viewModel.isCreatingLibrary
+                )
             }
+            .prominentAction()
             .disabled(!hasSelection || viewModel.isCreatingLibrary)
         }
         .onAppear { viewModel.checkStatus() }
@@ -56,14 +59,10 @@ struct ChooseFoldersView: View {
     // MARK: - Header
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(String(localized: "library_setup.choose_folders_title"))
-                .font(.largeTitle.weight(.bold))
-                .foregroundStyle(.primary)
-            Text(String(localized: "library_setup.choose_folders_subtitle"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
+        AuthIntro(
+            title: String(localized: "library_setup.choose_folders_title"),
+            subtitle: String(localized: "library_setup.choose_folders_subtitle")
+        )
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -94,7 +93,7 @@ struct ChooseFoldersView: View {
                 .accessibilityHint(String(localized: "library_setup.up_hint"))
             }
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, Spacing.m)
         .frame(minHeight: 44)
         .background(
             RoundedRectangle(cornerRadius: AuthMetrics.fieldGroupCornerRadius, style: .continuous)
@@ -142,7 +141,7 @@ struct ChooseFoldersView: View {
             Spacer()
         }
         .frame(minHeight: 56)
-        .padding(.horizontal, 14)
+        .padding(.horizontal, Spacing.m)
     }
 
     /// Control to include the CURRENT folder as a library root — it toggles the
@@ -163,10 +162,11 @@ struct ChooseFoldersView: View {
                 Spacer()
             }
             .frame(minHeight: 56)
-            .padding(.horizontal, 14)
+            .padding(.horizontal, Spacing.m)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isCurrentSelected ? .isSelected : [])
     }
 
     // MARK: - Footer summary
@@ -255,12 +255,12 @@ private struct FolderRow: View {
                 .accessibilityHidden(true)
         }
         .frame(minHeight: 60)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 6)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.xs)
         .overlay(alignment: .bottom) {
             if !isLast {
                 Rectangle()
-                    .fill(Color.primary.opacity(0.10))
+                    .fill(Color.luSeparator)
                     .frame(height: 0.5)
                     .padding(.leading, 67)
             }
@@ -269,12 +269,12 @@ private struct FolderRow: View {
 
     /// A coloured folder tile, mirroring `ServerRow`'s leading icon idiom.
     private var glyph: some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
+        RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
             .fill(item.isSelected ? Color.listenUpOrange : Color(.systemFill))
             .frame(width: 40, height: 40)
             .overlay {
                 Image(systemName: item.isSelected ? "folder.fill" : "folder")
-                    .foregroundStyle(item.isSelected ? .white : .secondary)
+                    .foregroundStyle(item.isSelected ? Color.luOnTint : .secondary)
             }
     }
 

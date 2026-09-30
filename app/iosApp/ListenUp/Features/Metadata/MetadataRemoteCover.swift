@@ -15,8 +15,8 @@ struct MetadataRemoteCover: View {
                 ZStack {
                     Color.luFill
                     Image(systemName: "book.closed.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(Color.luLabel3)
+                        .font(.system(size: 20)) // decorative fixed size
+                        .foregroundStyle(.tertiary)
                 }
             }
         }
@@ -26,7 +26,7 @@ struct MetadataRemoteCover: View {
 #Preview("MetadataRemoteCover") {
     MetadataRemoteCover(url: nil)
         .frame(width: 80, height: 80)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.m))
         .padding()
         .background(Color.luSurface)
 }

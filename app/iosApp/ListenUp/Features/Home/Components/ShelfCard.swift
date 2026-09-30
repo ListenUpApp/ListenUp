@@ -28,11 +28,11 @@ struct ShelfCard: View {
                     .lineLimit(1)
             }
         }
-        .padding(16)
+        .padding(Spacing.m)
         .frame(width: cardWidth, alignment: .leading)
-        .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: 20))
+        .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.xl))
         .overlay {
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: Radius.xl)
                 .strokeBorder(Color.luSeparator, lineWidth: 0.5)
         }
         .accessibilityElement(children: .combine)
@@ -52,7 +52,7 @@ struct ShelfCard: View {
                 ForEach(Array(covers.enumerated()), id: \.offset) { index, path in
                     BookCoverImage(coverPath: path)
                         .frame(width: coverSize, height: coverSize)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.s))
                         .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 2)
                         .offset(x: CGFloat(index) * 22)
                         .zIndex(Double(covers.count - index))
@@ -64,13 +64,13 @@ struct ShelfCard: View {
     }
 
     private func placeholderTile(offset: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: 8)
+        RoundedRectangle(cornerRadius: Radius.s)
             .fill(Color.gray.opacity(0.2))
             .frame(width: coverSize, height: coverSize)
             .overlay {
                 // Dynamic Type exclusion: fixed-box glyph inside a 64×64 cover placeholder tile
                 Image(systemName: "books.vertical.fill")
-                    .font(.system(size: 22))
+                    .font(.system(size: 22)) // decorative fixed size
                     .foregroundStyle(.secondary)
             }
             .offset(x: offset)
@@ -98,23 +98,35 @@ struct ShelfCard: View {
 /// The caller hides the whole section when there are no shelves.
 struct MyShelvesRow: View {
     let shelves: [ShelfItem]
+    /// The screen's side margin (`HomeLayout.margin`): the header aligns to it, the rail scrolls under it.
+    var margin: CGFloat = 20
+
+    @State private var isCreatingShelf = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(String(localized: "home.my_shelves"))
                     .font(.title3.weight(.semibold))
+                    .accessibilityAddTraits(.isHeader)
                     .foregroundStyle(.primary)
                 Spacer()
-                NavigationLink(value: ShelfFormDestination(shelfId: nil)) {
+                // A new shelf is a small self-contained task, so it is a sheet over Home rather
+                // than a page pushed onto it (HIG, Sheets) — and the sheet brings its own bar.
+                Button {
+                    isCreatingShelf = true
+                } label: {
                     Image(systemName: "plus")
                         .font(.body.weight(.semibold))
                         .foregroundStyle(Color.luTint)
+                        // The glyph draws ~20pt; the finger gets 44 (the accessibility audit
+                        // flagged the bare glyph's hit area as too small).
+                        .minimumTapTarget(visualSize: 20)
                         .accessibilityLabel(String(localized: "shelf.create_shelf_title"))
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, margin)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
@@ -125,8 +137,11 @@ struct MyShelvesRow: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, margin)
             }
+        }
+        .sheet(isPresented: $isCreatingShelf) {
+            CreateEditShelfView(shelfId: nil)
         }
     }
 }

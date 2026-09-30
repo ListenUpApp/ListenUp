@@ -30,4 +30,16 @@ struct CarPlayNowPlayingTests {
     @Test func aChapterlessBookProducesNoRows() {
         #expect(CarPlayChapterRows.chapters(titles: [], currentIndex: 0).isEmpty)
     }
+
+    // ── chapter buttons ───────────────────────────────────────────────────────
+
+    /// The car's custom chapter buttons are glyph-only; VoiceOver in the car reads these labels,
+    /// where it used to read nothing.
+    @Test func theChapterButtonsAreNamedAndStepOneChapter() {
+        #expect(CarPlayChapterButton.all == [.previous, .next])
+        #expect(CarPlayChapterButton.previous.accessibilityLabel == String(localized: "player.previous_chapter"))
+        #expect(CarPlayChapterButton.next.accessibilityLabel == String(localized: "player.next_chapter"))
+        #expect(CarPlayChapterButton.previous.chapterOffset == -1)
+        #expect(CarPlayChapterButton.next.chapterOffset == 1)
+    }
 }

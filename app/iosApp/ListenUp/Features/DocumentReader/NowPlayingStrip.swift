@@ -21,7 +21,7 @@ struct NowPlayingStrip: View {
         HStack(spacing: 11) {
             BookCoverImage(bookId: player.currentBookId, coverPath: player.coverPath, coverHash: player.coverHash)
                 .frame(width: 40, height: 40)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .clipShape(.concentric(minimum: Radius.s))
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 1) {
@@ -37,13 +37,16 @@ struct NowPlayingStrip: View {
                 // `isPlaybackActive` (playing OR buffering) so the glyph reads "pause" during the
                 // startup buffer, matching what a tap does.
                 Image(systemName: player.isPlaybackActive ? "pause.fill" : "play.fill")
-                    .font(.title3).foregroundStyle(.white)
+                    .font(.title3).foregroundStyle(Color.luOnTint)
                     .frame(width: 38, height: 38)
-                    .background(Color.listenUpOrange, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                    .background(Color.listenUpOrange, in: .concentric(minimum: Radius.s))
+                    .minimumTapTarget(visualSize: 38)
             }
             .accessibilityLabel(String(localized: player.isPlaybackActive ? "player.pause" : "player.play"))
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.horizontal, Spacing.s).padding(.vertical, Spacing.xs)
+        // The cover and the play button sit concentric with the strip's corners.
+        .containerShape(RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
     }
 }

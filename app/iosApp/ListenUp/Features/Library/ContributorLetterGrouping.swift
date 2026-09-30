@@ -43,3 +43,36 @@ enum ContributorLetterGrouping {
         return String(first).uppercased()
     }
 }
+
+// MARK: - Sections for the contributor list
+
+extension ContributorLetterGrouping {
+    /// The sections the Authors / Narrators list renders: one per letter on a name sort, and one
+    /// unlettered section holding everyone, in the VM's order, on any other sort.
+    static func sections(_ rows: [ContributorRow], isNameSort: Bool) -> [Group] {
+        guard !rows.isEmpty else { return [] }
+        return isNameSort ? group(rows, key: { $0.name }) : [Group(letter: "", items: rows)]
+    }
+}
+
+/// Keeps one contributor list's sections, regrouping only when the rows or the sort actually
+/// change. The shared ViewModel re-emits the whole Library state on every position save and sync
+/// tick; grouping in the view's body redid an O(n) pass over every contributor on each of those
+/// (2026-09-29 iOS audit, performance).
+struct ContributorSectionCache {
+    private(set) var rows: [ContributorRow] = []
+    private(set) var isNameSort = false
+    private(set) var sections: [ContributorLetterGrouping.Group] = []
+
+    /// Regroups if `rows` or `isNameSort` differ from what's cached; returns whether it did.
+    @discardableResult
+    mutating func update(rows newRows: [ContributorRow], isNameSort newIsNameSort: Bool) -> Bool {
+        guard newRows != rows || newIsNameSort != isNameSort || (sections.isEmpty && !newRows.isEmpty) else {
+            return false
+        }
+        rows = newRows
+        isNameSort = newIsNameSort
+        sections = ContributorLetterGrouping.sections(newRows, isNameSort: newIsNameSort)
+        return true
+    }
+}

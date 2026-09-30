@@ -17,10 +17,10 @@ struct GenreSubtreeSection: View {
                     .font(.caption.weight(.bold))
                     .tracking(0.6)
                     .textCase(.uppercase)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                 Text(String(localized: "genre_destination.tap_to_narrow"))
                     .font(.caption2)
-                    .foregroundStyle(Color.luLabel2.opacity(0.7))
+                    .foregroundStyle(Color.secondary.opacity(0.7))
             }
 
             FlowLayout(spacing: 8) {
@@ -36,7 +36,7 @@ struct GenreSubtreeSection: View {
 
     private var toggleRow: some View {
         HStack(spacing: 14) {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
                 .fill(observer.includeSubGenres ? Color.listenUpOrange.opacity(0.18) : Color.luFill)
                 .frame(width: 40, height: 40)
                 .overlay {
@@ -52,7 +52,7 @@ struct GenreSubtreeSection: View {
                     .foregroundStyle(.primary)
                 Text(scopeSubtitle)
                     .font(.caption)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
 
@@ -67,9 +67,9 @@ struct GenreSubtreeSection: View {
             )
             .labelsHidden()
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(Color.luFill.opacity(0.5), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
+        .background(Color.luFill.opacity(0.5), in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(localized: "genre_destination.include_sub_genres"))
         .accessibilityValue(Text(scopeSubtitle))
@@ -88,14 +88,14 @@ struct GenreSubtreeSection: View {
             if sub.bookCount > 0 {
                 Text("\(sub.bookCount)")
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(Color.luLabel2)
-                    .padding(.horizontal, 6)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, Spacing.xs)
                     .padding(.vertical, 2)
                     .background(Color.luFill, in: Capsule())
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
+        .padding(.horizontal, Spacing.s)
+        .padding(.vertical, Spacing.xs)
         .background {
             Capsule().strokeBorder(Color.luSeparator, lineWidth: 1.2)
         }

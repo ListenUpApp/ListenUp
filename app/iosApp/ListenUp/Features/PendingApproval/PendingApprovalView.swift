@@ -57,7 +57,7 @@ struct PendingApprovalView: View {
 
     private var waitingContent: some View {
         VStack(alignment: .leading, spacing: 20) {
-            AuthLargeHeader(
+            AuthIntro(
                 title: String(localized: "setup.awaiting_approval_title"),
                 subtitle: String(localized: "auth.pending_approval_message")
             ) {
@@ -77,24 +77,24 @@ struct PendingApprovalView: View {
     }
 
     private var approvedContent: some View {
-        AuthLargeHeader(
+        AuthIntro(
             title: String(localized: "setup.approved_title"),
             subtitle: String(localized: "auth.sign_in_to_access_your")
         ) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 44))
+                .scaledFont(size: 44, relativeTo: .largeTitle)
                 .foregroundStyle(Color.listenUpOrange)
                 .accessibilityHidden(true)
         }
     }
 
     private func deniedContent(message: String) -> some View {
-        AuthLargeHeader(
+        AuthIntro(
             title: String(localized: "auth.waiting_for_approval"),
             subtitle: message
         ) {
             Image(systemName: "xmark.circle.fill")
-                .font(.system(size: 44))
+                .scaledFont(size: 44, relativeTo: .largeTitle)
                 .foregroundStyle(.red)
                 .accessibilityHidden(true)
         }
@@ -107,9 +107,12 @@ struct PendingApprovalView: View {
         switch wrapper.phase {
         case .waiting:
             VStack(spacing: 12) {
-                AuthPrimaryButton(title: String(localized: "auth.check_status")) {
+                Button {
                     wrapper.checkStatus()
+                } label: {
+                    ActionLabel(title: String(localized: "auth.check_status"))
                 }
+                .prominentAction()
                 Button(String(localized: "setup.cancel_registration")) {
                     wrapper.cancel()
                 }
@@ -117,13 +120,19 @@ struct PendingApprovalView: View {
                 .foregroundStyle(.red)
             }
         case .approved:
-            AuthPrimaryButton(title: String(localized: "auth.sign_in")) {
+            Button {
                 wrapper.acknowledge()
+            } label: {
+                ActionLabel(title: String(localized: "auth.sign_in"))
             }
+            .prominentAction()
         case .denied:
-            AuthPrimaryButton(title: String(localized: "setup.back_to_sign_in")) {
+            Button {
                 wrapper.cancel()
+            } label: {
+                ActionLabel(title: String(localized: "setup.back_to_sign_in"))
             }
+            .prominentAction()
         }
     }
 }
@@ -131,6 +140,7 @@ struct PendingApprovalView: View {
 // MARK: - Pending spinner (indeterminate clock)
 
 private struct PendingSpinner: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var spin = false
 
     var body: some View {
@@ -142,11 +152,14 @@ private struct PendingSpinner: View {
                 .stroke(Color.listenUpOrange, style: StrokeStyle(lineWidth: 5, lineCap: .round))
                 .rotationEffect(.degrees(spin ? 360 : 0))
             Image(systemName: "clock")
-                .font(.system(size: 24, weight: .regular))
+                .font(.system(size: 24, weight: .regular)) // decorative fixed size
                 .foregroundStyle(Color.listenUpOrange)
         }
         .frame(width: 64, height: 64)
         .onAppear {
+            // Reduce Motion: the arc holds still — the clock glyph and the copy already say
+            // "waiting" (HIG, Motion; Accessibility).
+            guard !reduceMotion else { return }
             withAnimation(.linear(duration: 1.1).repeatForever(autoreverses: false)) { spin = true }
         }
         .accessibilityHidden(true)
@@ -165,8 +178,8 @@ private struct PendingReviewChip: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Color.listenUpOrange)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
+        .padding(.horizontal, Spacing.s)
+        .padding(.vertical, Spacing.xs)
         .background(Capsule().fill(Color.listenUpOrange.opacity(0.13)))
     }
 }
@@ -222,7 +235,7 @@ private struct RegStepRow: View {
 
     private var iconColor: Color {
         switch state {
-        case .done: return .white
+        case .done: return Color.luOnTint
         case .active: return Color.listenUpOrange
         case .todo: return .secondary
         }
@@ -233,7 +246,7 @@ private struct RegStepRow: View {
             ZStack {
                 Circle().fill(circleColor)
                 Image(systemName: state == .done ? "checkmark" : icon)
-                    .font(.system(size: 15, weight: state == .done ? .bold : .regular))
+                    .font(.system(size: 15, weight: state == .done ? .bold : .regular)) // decorative fixed size
                     .foregroundStyle(iconColor)
             }
             .frame(width: 32, height: 32)
@@ -247,7 +260,7 @@ private struct RegStepRow: View {
                         Text(String(localized: "auth.reg_step_in_progress").uppercased())
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(Color.listenUpOrange)
-                            .padding(.horizontal, 7)
+                            .padding(.horizontal, Spacing.xs)
                             .padding(.vertical, 2)
                             .background(Capsule().fill(Color.listenUpOrange.opacity(0.15)))
                     }
@@ -259,8 +272,8 @@ private struct RegStepRow: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
     }
 }
 
@@ -270,7 +283,7 @@ private struct AutoCheckRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "arrow.clockwise")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(.secondary)
             Text(String(localized: "auth.checking_automatically"))
                 .font(.footnote)

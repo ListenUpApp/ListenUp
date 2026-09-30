@@ -8,7 +8,8 @@ import UniformTypeIdentifiers
 /// upload it, then flow straight into the destructive restore-confirmation for the staged archive.
 ///
 /// Bound to `AdminBackupsObserver` (list + create + delete) and `RestoreFromFileObserver` (the
-/// pick + upload step). Responsive: a single `.readableWidth()` column (rule 12). Download-to-device
+/// pick + upload step). A system inset-grouped `List`, which keeps readable margins on iPad by itself
+/// (rule 12). Download-to-device
 /// is intentionally omitted — its `RawSink` sink isn't Swift-exported (see plan 106).
 struct AdminBackupsView: View {
     @Environment(\.dependencies) private var deps
@@ -80,13 +81,7 @@ struct AdminBackupsView: View {
                 Text(String(format: String(localized: "admin.confirm_delete_backup"), pendingDelete.id))
             }
         }
-        .alert(item: errorAlertBinding) { alert in
-            Alert(
-                title: Text(String(localized: "common.something_went_wrong")),
-                message: Text(alert.message),
-                dismissButton: .default(Text(String(localized: "common.ok"))) { observer?.clearError() }
-            )
-        }
+        .messageAlert(errorAlertBinding) { observer?.clearError() }
         .alert(
             String(localized: "admin.restore_from_file_upload_failed"),
             isPresented: uploadErrorPresented,
@@ -131,24 +126,29 @@ struct AdminBackupsView: View {
         }
     }
 
+    /// A real inset-grouped `List`, so the rows' trailing swipe actually fires (it only works inside
+    /// a `List`); the context menu stays as the discoverable path (HIG, Lists and tables).
     @ViewBuilder
     private func readyBody(observer: AdminBackupsObserver, ready: BackupsReadyModel) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+        List {
+            Section {
                 restoreFromFileRow
-                if ready.backups.isEmpty {
+            }
+            if ready.backups.isEmpty {
+                Section {
                     emptyState
-                } else {
-                    AdminSectionHeader(String(localized: "admin.backups"))
-                    FieldGroup(ready.backups, separatorInset: 57) { backup in
+                        .listRowBackground(Color.clear)
+                }
+            } else {
+                Section(String(localized: "admin.backups")) {
+                    ForEach(ready.backups) { backup in
                         BackupRow(backup: backup, onDelete: { pendingDelete = backup })
                     }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .readableWidth(640)
         }
+        .listStyle(.insetGrouped)
+        .readableListWidth()
         .refreshable { observer.reload() }
         .overlay {
             if case .uploading(let filename) = restoreFromFile?.phase {
@@ -162,12 +162,10 @@ struct AdminBackupsView: View {
     private var restoreFromFileRow: some View {
         NavigationActionRow(
             systemImage: "arrow.down.doc.fill",
-            tint: .luTint,
             title: String(localized: "admin.restore_from_file"),
             subtitle: String(localized: "admin.restore_from_file_description"),
             action: { showingFileImporter = true }
         )
-        .fieldCard()
     }
 
     private func uploadingOverlay(filename: String) -> some View {
@@ -178,10 +176,10 @@ struct AdminBackupsView: View {
                     .controlSize(.large)
                 Text(String(format: String(localized: "admin.restore_from_file_uploading"), filename))
                     .font(.subheadline)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
-            .padding(32)
+            .padding(Spacing.xxl)
         }
     }
 
@@ -202,7 +200,7 @@ struct AdminBackupsView: View {
                 .foregroundStyle(.primary)
             Text(String(localized: "admin.create_backup_to_protect"))
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 300)
         }
@@ -314,7 +312,8 @@ struct AdminBackupsView: View {
 // MARK: - Backup row
 
 /// One backup in the list: an archive tile, the id, the created timestamp, and the formatted size.
-/// The whole row pushes the restore-confirmation flow; a trailing swipe / context menu deletes.
+/// The whole row pushes the restore-confirmation flow (the list draws the disclosure chevron); a
+/// trailing swipe / context menu deletes.
 private struct BackupRow: View {
     let backup: BackupRowModel
     let onDelete: () -> Void
@@ -322,7 +321,7 @@ private struct BackupRow: View {
     var body: some View {
         NavigationLink(value: RestoreBackupDestination(backupId: backup.id)) {
             HStack(spacing: 13) {
-                IconTile(systemImage: "archivebox.fill", tint: .luTint, size: 38)
+                IconTile(systemImage: "archivebox.fill", size: 38)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(backup.id)
                         .font(.body.weight(.medium))
@@ -331,24 +330,18 @@ private struct BackupRow: View {
                         .truncationMode(.middle)
                     Text(backup.createdAt.formatted(date: .abbreviated, time: .shortened))
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                     Text(String(format: String(localized: "admin.backup_size"), backup.sizeFormatted))
                         .font(.caption)
-                        .foregroundStyle(Color.luLabel3)
+                        .foregroundStyle(.tertiary)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Color.luLabel3)
-                    .accessibilityHidden(true)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
+            .padding(.vertical, 3)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
         .swipeActions(edge: .trailing) {
             Button(role: .destructive, action: onDelete) {
                 Label(String(localized: "common.delete"), systemImage: "trash")

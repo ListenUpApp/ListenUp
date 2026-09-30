@@ -6,8 +6,7 @@ import Shared
 /// Features:
 /// - Adaptive grid: 2 columns on iPhone, 3-4 on iPad
 /// - Section headers (A, B, C...) with alphabet scrubber
-/// - Floating sort button
-/// - Pull-to-refresh
+/// - Pull-to-refresh (sorting lives in the Library toolbar's Sort menu)
 /// - Loading, empty, and error states
 struct BooksContent: View {
     let books: [BookRow]
@@ -16,16 +15,15 @@ struct BooksContent: View {
     let isLoading: Bool
     let isEmpty: Bool
     let errorMessage: String?
-    let onCategorySelected: (SortCategory) -> Void
-    let onDirectionToggle: () -> Void
-    /// Title-sort article handling — the shared toggle state + its flip action. When sorting by
-    /// Title, "The Hobbit" groups under H (ignoring the article); the section letters honor it too.
+    /// Title-sort article handling. When sorting by Title, "The Hobbit" groups under H (ignoring the
+    /// article); the section letters honor it too.
     let ignoreTitleArticles: Bool
-    let onToggleIgnoreArticles: () -> Void
     let onRefresh: () -> Void
     /// Drives multi-select on the grid. When `isSelecting`, taps toggle selection instead of
     /// navigating; a long-press is the secondary entry into selection mode.
     let selection: BookSelectionObserver
+    /// The section switcher, shown as the first row in every state; `nil` in the iPad sidebar.
+    var picker: LibrarySectionPicker?
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -54,10 +52,6 @@ struct BooksContent: View {
         sections.map { LetterSection(letter: $0.letter, books: $0.books) }
     }
 
-    /// Available sort categories for books
-    private let sortCategories: [SortCategory] =
-        [.title, .author, .duration, .year, .added, .rating, .listenerRating, .series]
-
     var body: some View {
         Group {
             if isLoading {
@@ -85,25 +79,20 @@ struct BooksContent: View {
         // carries its `.id` anchor so the scrubber's `scrollTo` still lands on the letter.
         return ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: layout.gridSpacing) {
-                    sortHeader
-
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: layout.gridSpacing) {
-                        ForEach(letterSections) { section in
-                            Section {
-                                ForEach(section.books) { book in
-                                    bookCell(book)
-                                        .transition(bookTransition)
-                                }
-                            } header: {
-                                sectionHeader(section.letter)
+                picker?.headerRow(horizontalMargin: layout.sideMargin)
+                LazyVGrid(columns: columns, alignment: .leading, spacing: layout.gridSpacing) {
+                    ForEach(letterSections) { section in
+                        Section {
+                            ForEach(section.books) { book in
+                                bookCell(book)
+                                    .transition(bookTransition)
                             }
+                        } header: {
+                            sectionHeader(section.letter)
                         }
                     }
                 }
                 .padding(.horizontal, layout.sideMargin)
-                // Extra padding at bottom so content scrolls above tab bar
-                .padding(.bottom, 100)
             }
             .scrollContentBackground(.hidden)
             .refreshable {
@@ -133,7 +122,7 @@ struct BooksContent: View {
                         },
                         isVisible: isScrolling
                     )
-                    .padding(.trailing, 8)
+                    .padding(.trailing, Spacing.xs)
                     .padding(.vertical, 60)
                 }
             }
@@ -152,26 +141,6 @@ struct BooksContent: View {
         }
     }
 
-    /// The sort control above the grid: an inline row at regular width, a floating pill when compact.
-    /// (It used to be a top-leading overlay, which the `.page` TabView style hid behind the tab chips;
-    /// as scrolling content it insets below the chips like everything else.)
-    @ViewBuilder
-    private var sortHeader: some View {
-        if layout.usesInlineSort, sortState != nil {
-            sortRow
-        } else if let sortState {
-            FloatingSortButton(
-                sortState: sortState,
-                categories: sortCategories,
-                onCategorySelected: onCategorySelected,
-                onDirectionToggle: onDirectionToggle,
-                ignoreTitleArticles: ignoreTitleArticles,
-                onToggleIgnoreArticles: onToggleIgnoreArticles
-            )
-            .padding(.top, 4)
-        }
-    }
-
     /// Full-width letter header for a grid `Section`, carrying the `section-<letter>` anchor the
     /// alphabet scrubber's `scrollTo` targets.
     private func sectionHeader(_ letter: Character) -> some View {
@@ -179,7 +148,7 @@ struct BooksContent: View {
             .font(.title2.bold())
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 8)
+            .padding(.top, Spacing.xs)
             .id("section-\(letter)")
     }
 
@@ -204,59 +173,16 @@ struct BooksContent: View {
             Button { selection.toggle(book.id) } label: { card }
                 .buttonStyle(.plain)
         } else {
-            // A plain value-based NavigationLink: a tap opens the book. Selection is entered via a
-            // native long-press → context menu → "Select", which iOS arbitrates against the link's
-            // own tap so the two never double-fire. (The old `.simultaneousGesture(LongPressGesture)`
-            // let a long-press *and* the link's tap-on-release both fire, so releasing navigated.)
+            // A plain value-based NavigationLink: a tap opens the book. A long-press opens the book's
+            // context menu (Play, Add to Shelf, Share, Select), which iOS arbitrates against the
+            // link's own tap so the two never double-fire.
             NavigationLink(value: BookDestination(id: book.id)) {
                 card.heroSource(bookCoverHeroID(book.id))
             }
                 .buttonStyle(.plain)
-                .contextMenu {
-                    Button(String(localized: "common.select"), systemImage: "checkmark.circle") {
-                        selection.enter(book.id)
-                    }
-                }
+                .draggableBookCover(book)
+                .bookContextMenu(bookId: book.id, selection: selection) { card }
         }
-    }
-
-    // MARK: - Sort Row
-
-    private var sortRow: some View {
-        let count = String(format: String(localized: "library.title_count"), books.count)
-        let sortLabel = sortState?.category.label ?? ""
-        return SortRow(count: count, sortLabel: sortLabel) {
-            ForEach(sortCategories, id: \.rawValue) { cat in
-                Button {
-                    onCategorySelected(cat)
-                } label: {
-                    HStack {
-                        Text(cat.label)
-                        if cat == sortState?.category {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-            }
-            Divider()
-            Button {
-                onDirectionToggle()
-            } label: {
-                Label(
-                    sortState?.direction == .ascending
-                        ? String(localized: "library.sort_ascending")
-                        : String(localized: "library.sort_descending"),
-                    systemImage: sortState?.direction == .ascending ? "arrow.up" : "arrow.down"
-                )
-            }
-            if sortState?.category == .title {
-                Divider()
-                Toggle(isOn: Binding(get: { ignoreTitleArticles }, set: { _ in onToggleIgnoreArticles() })) {
-                    Text(String(localized: "library.ignore_articles"))
-                }
-            }
-        }
-        .haptic(.selectionTick, trigger: sortState)
     }
 
     /// Only show alphabet index when sorted by title
@@ -268,6 +194,7 @@ struct BooksContent: View {
 
     private var loadingGrid: some View {
         ScrollView {
+            picker?.headerRow(horizontalMargin: layout.sideMargin)
             LazyVGrid(columns: columns, spacing: 20) {
                 ForEach(0 ..< 8, id: \.self) { _ in
                     BookCoverShimmer()
@@ -281,23 +208,34 @@ struct BooksContent: View {
     // MARK: - Empty State
 
     private var emptyState: some View {
-        ContentUnavailableView(
-            String(localized: "library.empty_title"),
-            systemImage: "books.vertical",
-            description: Text(String(localized: "library.empty_description"))
-        )
+        LibrarySectionState(picker: picker) {
+            ContentUnavailableView(
+                String(localized: "library.empty_title"),
+                systemImage: "books.vertical",
+                description: Text(String(localized: "library.empty_description"))
+            )
+        }
     }
 
     // MARK: - Error State
 
     private func errorState(message: String) -> some View {
+        LibrarySectionState(picker: picker) {
+            errorContent(message: message)
+        }
+    }
+
+    private func errorContent(message: String) -> some View {
         ContentUnavailableView {
             Label(String(localized: "library.sync_failed"), systemImage: "exclamationmark.triangle")
         } description: {
             Text(message)
         } actions: {
-            PrimaryButton(title: String(localized: "common.try_again"), icon: "arrow.clockwise", action: onRefresh)
-                .frame(maxWidth: 240)
+            Button(action: onRefresh) {
+                ActionLabel(title: String(localized: "common.try_again"), systemImage: "arrow.clockwise")
+            }
+            .prominentAction()
+            .frame(maxWidth: 240)
         }
     }
 }

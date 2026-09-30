@@ -51,8 +51,8 @@ struct ChapterTimelineView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
+        .padding(Spacing.m)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: Radius.xl))
     }
 
     // MARK: - Minimap
@@ -67,9 +67,9 @@ struct ChapterTimelineView: View {
                             .fill(Color.secondary.opacity(0.12 + 0.88 * weight))
                     }
                 }
-                RoundedRectangle(cornerRadius: 6)
+                RoundedRectangle(cornerRadius: Radius.s)
                     .strokeBorder(Color.listenUpOrange, lineWidth: 2)
-                    .background(Color.listenUpOrange.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
+                    .background(Color.listenUpOrange.opacity(0.15), in: RoundedRectangle(cornerRadius: Radius.s))
                     .frame(width: max(6, (model.viewportEnd - model.viewportStart) * width))
                     .offset(x: model.viewportStart * width)
                     .allowsHitTesting(false)
@@ -93,7 +93,7 @@ struct ChapterTimelineView: View {
         GeometryReader { geo in
             let width = geo.size.width
             ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 14).fill(Color(.tertiarySystemGroupedBackground))
+                RoundedRectangle(cornerRadius: Radius.l).fill(Color(.tertiarySystemGroupedBackground))
                 ForEach(Array(model.fileFractions.enumerated()), id: \.offset) { _, fraction in
                     Rectangle()
                         .fill(Color.secondary.opacity(0.4))
@@ -118,15 +118,17 @@ struct ChapterTimelineView: View {
                 if let readout = model.readout {
                     Text(readout)
                         .font(.caption.weight(.bold).monospacedDigit())
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 8)
+                        .foregroundStyle(Color.luOnTint)
+                        .padding(.horizontal, Spacing.xs)
                         .padding(.vertical, 3)
-                        .background(Color.listenUpOrange, in: RoundedRectangle(cornerRadius: 8))
+                        .background(Color.listenUpOrange, in: .concentric())
                         .frame(maxWidth: .infinity, alignment: .trailing)
-                        .padding(8)
+                        .padding(Spacing.xs)
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .clipShape(RoundedRectangle(cornerRadius: Radius.l))
+            // The readout pill in the corner follows the lane's curve.
+            .containerShape(RoundedRectangle(cornerRadius: Radius.l))
             .contentShape(Rectangle())
             .onAppear {
                 model.measure(width: width)
@@ -200,7 +202,7 @@ struct ChapterTimelineView: View {
 
     private func zoomButton(symbol: String, label: String, factor: Float) -> some View {
         Button { model.zoom(by: factor) } label: {
-            Image(systemName: symbol).frame(width: 30, height: 30)
+            Image(systemName: symbol).frame(width: TapTarget.minimum, height: TapTarget.minimum)
         }
         .buttonStyle(.borderless)
         .accessibilityLabel(label)

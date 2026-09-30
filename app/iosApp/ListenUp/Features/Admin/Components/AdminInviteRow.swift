@@ -18,7 +18,7 @@ struct AdminInviteRow: View {
 
     var body: some View {
         HStack(spacing: 13) {
-            IconTile(systemImage: "envelope.fill", tint: .luTint, size: 40)
+            IconTile(systemImage: "envelope.fill", size: 40)
             VStack(alignment: .leading, spacing: 1) {
                 Text(invite.name)
                     .font(.body)
@@ -26,15 +26,13 @@ struct AdminInviteRow: View {
                     .lineLimit(1)
                 Text(expiryText ?? invite.email)
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
             AdminRoleBadge(label: invite.roleLabel, isElevated: invite.roleLabel.lowercased() == "admin")
             actions
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 9)
     }
 
     @ViewBuilder
@@ -42,21 +40,21 @@ struct AdminInviteRow: View {
         Button(action: onCopy) {
             Image(systemName: "link")
                 .font(.body)
-                .foregroundStyle(Color.luLabel2)
-                .frame(width: 28, height: 28)
+                .foregroundStyle(Color.secondary)
+                .frame(width: TapTarget.minimum, height: TapTarget.minimum)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(String(localized: "admin.copy_link"))
 
         if isRevoking {
-            ProgressView().frame(width: 28)
+            ProgressView().frame(width: TapTarget.minimum)
         } else {
             Button(role: .destructive, action: onRevoke) {
                 Image(systemName: "trash")
                     .font(.body)
                     .foregroundStyle(.red)
-                    .frame(width: 28, height: 28)
+                    .frame(width: TapTarget.minimum, height: TapTarget.minimum)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -66,15 +64,13 @@ struct AdminInviteRow: View {
 }
 
 #Preview("AdminInviteRow") {
-    AdminInviteRow(
-        invite: AdminInviteRowModel(
-            id: "i1", name: "Sarah Chen", email: "sarah@example.com",
-            roleLabel: "Member", url: "listen.example.net/join/a8f2c1", expiresAt: Date().addingTimeInterval(86_400 * 7)
-        ),
-        isRevoking: false, onCopy: {}, onRevoke: {}
-    )
-    .fieldCard()
-    .padding()
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(Color.luSurface)
+    Form {
+        AdminInviteRow(
+            invite: AdminInviteRowModel(
+                id: "i1", name: "Sarah Chen", email: "sarah@example.com",
+                roleLabel: "Member", url: "listen.example.net/join/a8f2c1", expiresAt: Date().addingTimeInterval(86_400 * 7)
+            ),
+            isRevoking: false, onCopy: {}, onRevoke: {}
+        )
+    }
 }

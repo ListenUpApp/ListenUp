@@ -3,11 +3,13 @@ import Shared
 
 /// Admin inbox — freshly-scanned books awaiting triage before release into the library.
 ///
-/// Layout is width-responsive (iosApp rule 12): compact width = single column list;
-/// regular width (iPad, wide Split View) = adaptive multi-column grid.
+/// Layout is width-responsive (iosApp rule 12): compact width = a system inset-grouped `List`
+/// (scan issues, then the held books — each a lazily built row); regular width (iPad, wide Split
+/// View) = an adaptive multi-column grid of book cards.
 /// Selection mode: tap a row to toggle; select-all / release actions appear in the header.
 /// Release confirmation is a native alert. Transient errors surface as an alert.
-/// Released-count confirmation surfaces as an overlay toast.
+/// A release confirms itself: the books leave the inbox, with a success haptic and the count
+/// spoken to VoiceOver.
 ///
 /// SSE updates flow through the shared VM into the observer — no extra wiring here.
 struct AdminInboxView: View {
@@ -16,6 +18,8 @@ struct AdminInboxView: View {
 
     @State private var observer: AdminInboxObserver?
     @State private var showingReleaseConfirm = false
+    /// Bumped once per landed release, to fire the success haptic.
+    @State private var releases = 0
     /// The inbox book currently being edited in the BookEdit sheet (metadata + admin collections),
     /// so an admin can review and assign collections before releasing. `nil` when no sheet is open.
     @State private var editingBook: InboxEditTarget?
@@ -84,14 +88,15 @@ struct AdminInboxView: View {
                         Text(releaseConfirmMessage(count: ready.selectedCount))
                     }
                 )
-                .overlay(alignment: .bottom) {
-                    if let count = ready.lastReleasedCount {
-                        ReleasedToast(count: count, onDismiss: { observer.clearReleaseResult() })
-                            .padding(.bottom, 24)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
+                // The released books leaving the list is the visible confirmation; the haptic and the
+                // announcement carry it to people not looking at the list (HIG, Feedback).
+                .haptic(.commit, trigger: releases)
+                .onChange(of: ready.lastReleasedCount) { _, count in
+                    guard let count else { return }
+                    releases += 1
+                    VoiceOverAnnouncement.post(releaseConfirmMessage(count: count))
+                    observer.clearReleaseResult()
                 }
-                .animation(.easeInOut(duration: 0.3), value: ready.lastReleasedCount)
         case .error(let message):
             errorBody(message: message, observer: observer)
         }
@@ -107,17 +112,20 @@ struct AdminInboxView: View {
         if ready.isEmpty {
             AdminInboxEmptyState()
         } else {
-            ScrollView {
+            Group {
                 if isRegularWidth {
-                    padLayout(observer: observer, ready: ready)
+                    ScrollView {
+                        padLayout(observer: observer, ready: ready)
+                    }
                 } else {
-                    phoneLayout(observer: observer, ready: ready)
+                    phoneList(observer: observer, ready: ready)
                 }
             }
             .refreshable { observer.reload() }
-            .overlay(alignment: .bottom) {
-                if ready.hasSelection {
-                    releaseBar(observer: observer, ready: ready)
+            // The tray is a bar over the scroll view, whose edge effect the system draws (HIG, Toolbars).
+            .safeAreaBar(edge: .bottom) {
+                if ready.hasSelection && !isRegularWidth {
+                    releaseBar(ready: ready)
                 }
             }
         }
@@ -125,32 +133,33 @@ struct AdminInboxView: View {
 
     // MARK: - Phone layout (compact width)
 
-    @ViewBuilder
-    private func phoneLayout(observer: AdminInboxObserver, ready: AdminInboxReadyModel) -> some View {
-        VStack(spacing: 0) {
-            ScanIssueSection(issues: ready.scanIssues) { observer.dismissScanIssue(issueId: $0) }
-                .padding(.horizontal, 20)
+    /// A system `List`: each held book is its own lazily built row (the hand-drawn group built them
+    /// all at once — 2026-09-29 iOS audit, performance), with the list's separators and a tinted row
+    /// background for the selected ones.
+    private func phoneList(observer: AdminInboxObserver, ready: AdminInboxReadyModel) -> some View {
+        List {
+            ScanIssueListSection(issues: ready.scanIssues) { observer.dismissScanIssue(issueId: $0) }
             if ready.hasBooks {
-                subtitleRow(ready: ready)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 8)
-                FieldGroup(ready.books, separatorInset: ready.hasSelection ? 99 : 73) { book in
-                    InboxBookRow(
-                        book: book,
-                        isSelected: ready.selectedBookIds.contains(book.id),
-                        isSelecting: ready.hasSelection,
-                        onTap: { observer.toggleBookSelection(bookId: book.id) },
-                        onEdit: { editingBook = InboxEditTarget(id: book.id) },
-                        onFindMetadata: { metadataBook = InboxMetadataTarget(book: book) }
-                    )
+                Section {
+                    ForEach(ready.books) { book in
+                        let isSelected = ready.selectedBookIds.contains(book.id)
+                        InboxBookRow(
+                            book: book,
+                            isSelected: isSelected,
+                            isSelecting: ready.hasSelection,
+                            onTap: { observer.toggleBookSelection(bookId: book.id) },
+                            onEdit: { editingBook = InboxEditTarget(id: book.id) },
+                            onFindMetadata: { metadataBook = InboxMetadataTarget(book: book) }
+                        )
+                        .listRowBackground(InboxBookRow.background(isSelected: isSelected))
+                    }
+                } header: {
+                    subtitleRow(ready: ready)
+                        .textCase(nil)
                 }
-                .padding(.horizontal, 20)
-            }
-            if ready.hasSelection {
-                Color.clear.frame(height: 100)
             }
         }
-        .padding(.vertical, 8)
+        .listStyle(.insetGrouped)
     }
 
     // MARK: - iPad layout (regular width)
@@ -159,31 +168,35 @@ struct AdminInboxView: View {
     private func padLayout(observer: AdminInboxObserver, ready: AdminInboxReadyModel) -> some View {
         VStack(spacing: 0) {
             padHeader(observer: observer, ready: ready)
-                .padding(.horizontal, 36)
-                .padding(.bottom, 16)
+                .padding(.horizontal, Spacing.xxl)
+                .padding(.bottom, Spacing.m)
             ScanIssueSection(issues: ready.scanIssues) { observer.dismissScanIssue(issueId: $0) }
-                .padding(.horizontal, 36)
+                .padding(.horizontal, Spacing.xxl)
             LazyVGrid(
                 columns: [GridItem(.adaptive(minimum: 320), spacing: 16)],
                 spacing: 16
             ) {
                 ForEach(ready.books) { book in
-                    FieldGroup([book], separatorInset: 0) { b in
-                        InboxBookRow(
-                            book: b,
-                            isSelected: ready.selectedBookIds.contains(b.id),
-                            isSelecting: ready.hasSelection,
-                            onTap: { observer.toggleBookSelection(bookId: b.id) },
-                            onEdit: { editingBook = InboxEditTarget(id: b.id) },
-                            onFindMetadata: { metadataBook = InboxMetadataTarget(book: b) }
-                        )
-                    }
+                    let isSelected = ready.selectedBookIds.contains(book.id)
+                    // A cell in a collection draws its own surface: a grid has no rows to do it.
+                    InboxBookRow(
+                        book: book,
+                        isSelected: isSelected,
+                        isSelecting: ready.hasSelection,
+                        onTap: { observer.toggleBookSelection(bookId: book.id) },
+                        onEdit: { editingBook = InboxEditTarget(id: book.id) },
+                        onFindMetadata: { metadataBook = InboxMetadataTarget(book: book) }
+                    )
+                    .padding(.horizontal, Spacing.m)
+                    .padding(.vertical, Spacing.s)
+                    .background(InboxBookRow.background(isSelected: isSelected))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
                 }
             }
-            .padding(.horizontal, 36)
-            .padding(.bottom, 32)
+            .padding(.horizontal, Spacing.xxl)
+            .padding(.bottom, Spacing.xxl)
         }
-        .padding(.top, 8)
+        .padding(.top, Spacing.xs)
     }
 
     // MARK: - Subviews
@@ -202,7 +215,7 @@ struct AdminInboxView: View {
         }()
         Text(text)
             .font(.subheadline)
-            .foregroundStyle(Color.luLabel2)
+            .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -215,7 +228,7 @@ struct AdminInboxView: View {
                     .kerning(0.5)
                     .foregroundStyle(Color.luTint)
                 Text(String(localized: "common.inbox"))
-                    .font(.system(size: 40, weight: .bold))
+                    .font(.largeTitle.bold())
                 if ready.hasBooks {
                     subtitleRow(ready: ready)
                         .font(.subheadline)
@@ -240,8 +253,8 @@ struct AdminInboxView: View {
                      ? String(localized: "admin.inbox_deselect_all")
                      : String(localized: "admin.inbox_select_all"))
                     .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 11)
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.vertical, Spacing.s)
                     .background(Color.luFill, in: Capsule())
                     .overlay(Capsule().stroke(Color.luSeparator, lineWidth: 0.5))
             }
@@ -257,10 +270,9 @@ struct AdminInboxView: View {
                             .font(.subheadline.weight(.semibold))
                     }
                     .foregroundStyle(Color.luOnTint)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 11)
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.vertical, Spacing.s)
                     .background(Color.luTint, in: Capsule())
-                    .shadow(color: Color.luTint.opacity(0.4), radius: 6, y: 3)
                 }
                 .buttonStyle(.plain)
             }
@@ -269,38 +281,21 @@ struct AdminInboxView: View {
 
     // MARK: - Release action bar (compact / phone)
 
-    @ViewBuilder
-    private func releaseBar(observer: AdminInboxObserver, ready: AdminInboxReadyModel) -> some View {
-        VStack(spacing: 0) {
-            LinearGradient(
-                colors: [Color.luSurface.opacity(0), Color.luSurface],
-                startPoint: .top,
-                endPoint: .bottom
+    private func releaseBar(ready: AdminInboxReadyModel) -> some View {
+        Button {
+            showingReleaseConfirm = true
+        } label: {
+            ActionLabel(
+                title: String(format: String(localized: "admin.inbox_release_count"), ready.selectedCount),
+                systemImage: "checkmark",
+                isBusy: ready.isReleasing
             )
-            .frame(height: 24)
-            HStack(spacing: 12) {
-                Button {
-                    showingReleaseConfirm = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark")
-                            .font(.body.weight(.semibold))
-                        Text(String(format: String(localized: "admin.inbox_release_count"), ready.selectedCount))
-                            .font(.body.weight(.semibold))
-                    }
-                    .foregroundStyle(Color.luOnTint)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(Color.luTint, in: RoundedRectangle(cornerRadius: 13))
-                    .shadow(color: Color.luTint.opacity(0.4), radius: 8, y: 4)
-                }
-                .buttonStyle(.plain)
-                .disabled(ready.isReleasing)
-            }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 8)
-            .background(Color.luSurface)
         }
+        .prominentAction()
+        .disabled(ready.isReleasing)
+        .padding(.horizontal, Spacing.l)
+        .padding(.top, Spacing.s)
+        .padding(.bottom, Spacing.xs)
     }
 
     // MARK: - Error body
@@ -310,11 +305,11 @@ struct AdminInboxView: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48, weight: .light))
-                .foregroundStyle(Color.luLabel3)
+                .scaledFont(size: 48, weight: .light, relativeTo: .largeTitle)
+                .foregroundStyle(.tertiary)
             Text(message)
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
             Button(String(localized: "common.retry")) {
@@ -409,16 +404,16 @@ private struct InboxBookRow: View {
                         accessibilityLabel: nil
                     )
                     .frame(width: 52, height: 52)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
                     VStack(alignment: .leading, spacing: 2) {
                         Text(book.title)
-                            .font(.system(size: 15.5, weight: .semibold))
+                            .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.primary)
                             .lineLimit(1)
                         if let author = book.author {
                             Text(author)
                                 .font(.footnote)
-                                .foregroundStyle(Color.luLabel2)
+                                .foregroundStyle(Color.secondary)
                         }
                         Text(book.formattedDuration)
                             .font(.caption)
@@ -434,11 +429,13 @@ private struct InboxBookRow: View {
 
             actionsMenu
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .background(isSelected ? Color.luTint.opacity(0.08) : Color.clear)
         .animation(.easeInOut(duration: 0.15), value: isSelected)
         .contextMenu { rowActions }
+    }
+
+    /// The row's surface: the grouped surface, washed with the accent while selected.
+    static func background(isSelected: Bool) -> some View {
+        Color.luSurface2.overlay(isSelected ? Color.luTint.opacity(0.08) : Color.clear)
     }
 
     /// Visible per-row actions: review/edit (metadata fields + collections) or match against Audible —
@@ -473,7 +470,7 @@ private struct InboxBookRow: View {
                     .fill(Color.luTint)
                     .frame(width: 26, height: 26)
                 Image(systemName: "checkmark")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 12, weight: .bold)) // decorative fixed size
                     .foregroundStyle(Color.luOnTint)
             } else {
                 Circle()
@@ -482,39 +479,6 @@ private struct InboxBookRow: View {
             }
         }
         .animation(.easeInOut(duration: 0.15), value: isSelected)
-    }
-}
-
-// MARK: - Released toast
-
-private struct ReleasedToast: View {
-    let count: Int
-    let onDismiss: () -> Void
-
-    private var label: String {
-        count == 1
-            ? String(localized: "admin.inbox_released_count")
-            : String(format: String(localized: "admin.inbox_released_count_plural"), count)
-    }
-
-    var body: some View {
-        HStack(spacing: 11) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-            Text(label)
-                .font(.subheadline.weight(.medium))
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 18)
-        .padding(.vertical, 15)
-        .background(.black.opacity(0.88), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: .black.opacity(0.3), radius: 12, y: 4)
-        .padding(.horizontal, 16)
-        .onTapGesture { onDismiss() }
-        .task {
-            try? await Task.sleep(for: .seconds(2.5))
-            onDismiss()
-        }
     }
 }
 

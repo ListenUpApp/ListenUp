@@ -81,4 +81,61 @@ struct DeepLinkRouterTests {
         await awaitObservation { router.outcome == expected }
         #expect(router.outcome == expected)
     }
+
+    // MARK: - One window
+
+    /// With several iPad windows open, a book link opens in the front window only — every shell
+    /// observes the router, and before the claim each of them pushed the book.
+    @Test func aBookLinkOpensInExactlyOneWindow() {
+        let router = DeepLinkRouter(deepLinkManager: DeepLinkManager())
+        let front = UUID()
+        let back = UUID()
+        router.sceneBecameActive(back)
+        router.sceneBecameActive(front)
+        router.deliver(.openBook(id: "b1"))
+
+        #expect(router.claimShellOutcome(for: back) == nil)
+        #expect(router.claimShellOutcome(for: front) == .openBook(id: "b1"))
+        #expect(router.claimShellOutcome(for: front) == nil)
+        #expect(router.claimShellOutcome(for: back) == nil)
+        #expect(router.outcome == .none)
+    }
+
+    /// A link that cannot open (another server, or none) is explained once, in one window.
+    @Test func anUnopenableBookLinkIsExplainedInOneWindow() {
+        let router = DeepLinkRouter(deepLinkManager: DeepLinkManager())
+        let front = UUID()
+        router.sceneBecameActive(front)
+        router.deliver(.wrongServer)
+
+        #expect(router.claimShellOutcome(for: UUID()) == nil)
+        #expect(router.claimShellOutcome(for: front) == .wrongServer)
+        #expect(router.claimShellOutcome(for: front) == nil)
+    }
+
+    /// Before any window has reported (a cold launch from the link), the first shell takes it.
+    @Test func aColdLaunchLinkGoesToTheFirstShell() {
+        let router = DeepLinkRouter(deepLinkManager: DeepLinkManager())
+        router.deliver(.openBook(id: "b1"))
+        #expect(router.claimShellOutcome(for: UUID()) == .openBook(id: "b1"))
+    }
+
+    /// A closed front window stops holding links hostage.
+    @Test func aClosedFrontWindowReleasesTheLink() {
+        let router = DeepLinkRouter(deepLinkManager: DeepLinkManager())
+        let closed = UUID()
+        router.sceneBecameActive(closed)
+        router.sceneWentAway(closed)
+        router.deliver(.notConnected)
+        #expect(router.claimShellOutcome(for: UUID()) == .notConnected)
+    }
+
+    /// An invite is the root's to present (it is shown before sign-in); no tab shell claims it.
+    @Test func noShellClaimsAnInvite() {
+        let router = DeepLinkRouter(deepLinkManager: DeepLinkManager())
+        let invite = DeepLinkRouter.Outcome.claimInvite(serverURL: "https://a.example", code: "C", remoteURL: nil)
+        router.deliver(invite)
+        #expect(router.claimShellOutcome(for: UUID()) == nil)
+        #expect(router.outcome == invite)
+    }
 }

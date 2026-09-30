@@ -20,12 +20,13 @@ struct ContributorEditView: View {
             if let observer {
                 EditSheetScaffold(
                     title: String(localized: "contributor.edit_title"),
+                    hasChanges: observer.hasChanges,
                     canSave: observer.hasChanges,
                     isSaving: observer.isSaving,
                     onCancel: { observer.onCancel(); dismiss() },
                     onSave: { observer.onSave() }
                 ) {
-                    VStack(spacing: 20) {
+                    Section {
                         ImageEditHeader(
                             shape: .circle,
                             size: 120,
@@ -44,53 +45,53 @@ struct ContributorEditView: View {
                                 fontSize: 40
                             )
                         }
-                        .padding(.top, 8)
-
-                        Group {
-                            AppTextField(
-                                placeholder: "",
-                                text: Binding(get: { observer.name }, set: { observer.onNameChanged($0) }),
-                                entry: .words,
-                                label: String(localized: "contributor.edit_name")
-                            )
-                            .fieldCard()
-                            AppTextField(
-                                placeholder: String(localized: "contributor.edit_bio_placeholder"),
-                                text: Binding(get: { observer.bio }, set: { observer.onBioChanged($0) }),
-                                entry: .sentences,
-                                label: String(localized: "contributor.edit_bio"),
-                                axis: .vertical
-                            )
-                            .fieldCard()
-                            AppTextField(
-                                placeholder: "",
-                                text: Binding(get: { observer.website }, set: { observer.onWebsiteChanged($0) }),
-                                entry: .url,
-                                label: String(localized: "contributor.edit_website")
-                            )
-                            .fieldCard()
-                            EditDateField(
-                                label: String(localized: "contributor.edit_born"),
-                                isoDate: Binding(get: { observer.birthDate }, set: { observer.onBirthDateChanged($0) })
-                            )
-                            EditDateField(
-                                label: String(localized: "contributor.edit_died"),
-                                isoDate: Binding(get: { observer.deathDate }, set: { observer.onDeathDateChanged($0) })
-                            )
-                            AliasesEditSection(
-                                aliases: observer.aliases,
-                                onUnmerge: { observer.onUnmergeAlias($0) },
-                                onMergeTapped: {
-                                    // The VM computes merge candidates only while it believes
-                                    // the picker is open — tell it before presenting the sheet.
-                                    observer.onMergeDialogOpened()
-                                    showMergeSheet = true
-                                }
-                            )
-                            .fieldCard()
-                        }
-                        .padding(.horizontal)
+                        .frame(maxWidth: .infinity)
+                        .listRowBackground(Color.clear)
                     }
+
+                    Section {
+                        AppTextField(
+                            placeholder: "",
+                            text: Binding(get: { observer.name }, set: { observer.onNameChanged($0) }),
+                            entry: .words,
+                            label: String(localized: "contributor.edit_name")
+                        )
+                        AppTextField(
+                            placeholder: String(localized: "contributor.edit_bio_placeholder"),
+                            text: Binding(get: { observer.bio }, set: { observer.onBioChanged($0) }),
+                            entry: .sentences,
+                            label: String(localized: "contributor.edit_bio"),
+                            axis: .vertical
+                        )
+                        AppTextField(
+                            placeholder: "",
+                            text: Binding(get: { observer.website }, set: { observer.onWebsiteChanged($0) }),
+                            entry: .url,
+                            label: String(localized: "contributor.edit_website")
+                        )
+                    }
+
+                    Section {
+                        EditDateField(
+                            label: String(localized: "contributor.edit_born"),
+                            isoDate: Binding(get: { observer.birthDate }, set: { observer.onBirthDateChanged($0) })
+                        )
+                        EditDateField(
+                            label: String(localized: "contributor.edit_died"),
+                            isoDate: Binding(get: { observer.deathDate }, set: { observer.onDeathDateChanged($0) })
+                        )
+                    }
+
+                    AliasesEditSection(
+                        aliases: observer.aliases,
+                        onUnmerge: { observer.onUnmergeAlias($0) },
+                        onMergeTapped: {
+                            // The VM computes merge candidates only while it believes
+                            // the picker is open — tell it before presenting the sheet.
+                            observer.onMergeDialogOpened()
+                            showMergeSheet = true
+                        }
+                    )
                 }
                 .alert(
                     String(localized: "common.error"),
@@ -161,20 +162,34 @@ private struct AliasesEditSection: View {
     @State private var pendingUnmerge: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(String(localized: "contributor.also_known_as"))
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
-
-            if aliases.isEmpty {
-                Text(String(localized: "contributor.no_aliases_hint"))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            } else {
-                FlowLayout(spacing: 8) {
-                    ForEach(aliases, id: \.self) { alias in
-                        AliasChip(alias: alias, onRemove: { pendingUnmerge = alias })
+        Section(String(localized: "contributor.also_known_as")) {
+            Group {
+                if aliases.isEmpty {
+                    Text(String(localized: "contributor.no_aliases_hint"))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    FlowLayout(spacing: 8) {
+                        ForEach(aliases, id: \.self) { alias in
+                            AliasChip(alias: alias, onRemove: { pendingUnmerge = alias })
+                        }
                     }
+                    .padding(.vertical, Spacing.xxs)
+                }
+            }
+            .confirmationDialog(
+                pendingUnmerge.map { String(format: String(localized: "contributor.unmerge_aliasname"), $0) } ?? "",
+                isPresented: Binding(get: { pendingUnmerge != nil }, set: { if !$0 { pendingUnmerge = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button(String(localized: "contributor.unmerge_confirm"), role: .destructive) {
+                    if let alias = pendingUnmerge { onUnmerge(alias) }
+                    pendingUnmerge = nil
+                }
+                Button(String(localized: "common.cancel"), role: .cancel) { pendingUnmerge = nil }
+            } message: {
+                if let alias = pendingUnmerge {
+                    Text(String(format: String(localized: "contributor.unmerge_body"), alias))
                 }
             }
 
@@ -182,23 +197,6 @@ private struct AliasesEditSection: View {
                 onMergeTapped()
             } label: {
                 Label(String(localized: "contributor.merge_button"), systemImage: "arrow.triangle.merge")
-            }
-            .buttonStyle(.bordered)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .confirmationDialog(
-            pendingUnmerge.map { String(format: String(localized: "contributor.unmerge_aliasname"), $0) } ?? "",
-            isPresented: Binding(get: { pendingUnmerge != nil }, set: { if !$0 { pendingUnmerge = nil } }),
-            titleVisibility: .visible
-        ) {
-            Button(String(localized: "contributor.unmerge_confirm"), role: .destructive) {
-                if let alias = pendingUnmerge { onUnmerge(alias) }
-                pendingUnmerge = nil
-            }
-            Button(String(localized: "common.cancel"), role: .cancel) { pendingUnmerge = nil }
-        } message: {
-            if let alias = pendingUnmerge {
-                Text(String(format: String(localized: "contributor.unmerge_body"), alias))
             }
         }
     }
@@ -214,13 +212,13 @@ private struct AliasChip: View {
             Text(alias).font(.callout).foregroundStyle(.primary)
             Button(action: onRemove) {
                 Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(Color.secondary)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(String(format: String(localized: "contributor.remove_aliasname"), alias))
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
+        .padding(.horizontal, Spacing.s)
+        .padding(.vertical, Spacing.xs)
         .background(Color.luFill, in: Capsule())
     }
 }

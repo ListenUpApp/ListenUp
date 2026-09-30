@@ -14,11 +14,11 @@ struct HomeStatsCard: View {
         VStack(alignment: .leading, spacing: 16) {
             content
         }
-        .padding(16)
+        .padding(Spacing.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: 20))
+        .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.xl))
         .overlay {
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: Radius.xl)
                 .strokeBorder(Color.luSeparator, lineWidth: 0.5)
         }
     }
@@ -89,7 +89,6 @@ struct HomeStatsCard: View {
             Spacer()
             ProgressView()
                 .controlSize(.regular)
-                .tint(Color.listenUpOrange)
             Spacer()
         }
         .frame(height: 160)

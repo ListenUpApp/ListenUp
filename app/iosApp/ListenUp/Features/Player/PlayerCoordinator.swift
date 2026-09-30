@@ -85,8 +85,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// measurement persistence live in `PlayerCoordinator+Gain.swift`; only the stored state
     /// stays here, because Swift extensions cannot declare stored properties.
     var gain = GainState()
-    /// Bridged Kotlin chapters — read only by `ChapterMath` (via `refreshChapterIndex()` and the lock-screen
-    /// window in `remoteSeek`) and by `updateNowPlaying()` in `PlayerCoordinator+NowPlaying.swift`. Never
+    /// Bridged Kotlin chapters — read only by `ChapterMath`'s lock-screen window (in `remoteSeek`) and by
+    /// `updateNowPlaying()` in `PlayerCoordinator+NowPlaying.swift`. Never
     /// feed it to a `ForEach`/`List` (rule 8): Swift's file-scoped `private` can't enforce that across the
     /// extension file, so the done-criterion grep (no view reads `.chapters`) plus review is the guard.
     private(set) var chapters: [Chapter] = []
@@ -420,12 +420,12 @@ final class PlayerCoordinator: RemoteCommandHandler {
         lastSyncedChapterIndex = -1
     }
 
-    /// Recompute the memoized chapter index from `chapters` and the tracker's coarse position. Called
-    /// wherever `positionTracker` or `chapters` is written. The tracker's display-link tick can still
+    /// Recompute the memoized chapter index from `chapterRows` and the tracker's coarse position. Called
+    /// wherever `positionTracker` or the chapters are written. The tracker's display-link tick can still
     /// move `displayPositionMs` between engine samples, so the index may trail a boundary by at most
     /// one engine tick (~250 ms) — under the 1 s granularity the coarse position already accepts.
     private func refreshChapterIndex() {
-        chapterIndex = ChapterMath.index(forPositionMs: displayPositionMs, in: chapters) ?? 0
+        chapterIndex = ChapterMath.index(forPositionMs: displayPositionMs, in: chapterRows) ?? 0
     }
 
     /// Toggle between play and pause. In `.error`, retries the errored book so the user is
@@ -567,6 +567,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     func remotePause() { if isPlaybackActive { togglePlayback() } }
     func remoteSkipForward() { skipForward() }
     func remoteSkipBackward() { skipBackward() }
+    func remoteSetRate(_ rate: Float) { setSpeed(rate) }
     /// The lock-screen scrubber spans the CURRENT CHAPTER (see `updateNowPlaying`), so the position
     /// it reports is window-relative. Translate it back to a book position here — the single
     /// translation point — and everything downstream keeps speaking book coordinates.

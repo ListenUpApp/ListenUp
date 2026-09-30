@@ -48,14 +48,14 @@ struct ServerManualEntryView: View {
                     Text(String(localized: "connect.server_url_hint"))
                         .font(.footnote).foregroundStyle(.secondary)
 
-                    AuthPrimaryButton(
-                        title: String(localized: "connect.connect"),
-                        isLoading: viewModel.isLoading
-                    ) { viewModel.onConnectClicked() }
-                        .disabled(!viewModel.isConnectEnabled)
-                        .padding(.top, 4)
+                    Button { viewModel.onConnectClicked() } label: {
+                        ActionLabel(title: String(localized: "connect.connect"), isBusy: viewModel.isLoading)
+                    }
+                    .prominentAction()
+                    .disabled(viewModel.isLoading || !viewModel.isConnectEnabled)
+                    .padding(.top, Spacing.xxs)
                 }
-                .padding(20)
+                .padding(Spacing.l)
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle(String(localized: "connect.add_server"))

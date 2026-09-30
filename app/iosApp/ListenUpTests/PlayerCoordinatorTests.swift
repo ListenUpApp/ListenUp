@@ -59,11 +59,11 @@ func awaitObservation(_ condition: @escaping @MainActor () -> Bool) async {
 
 @Suite("ChapterMath")
 struct PlayerCoordinatorTests {
-    private func chapter(_ id: String, start: Int64, duration: Int64) -> Chapter {
-        // partTitle/bookTitle are the chapter-grouping headers; nil means this chapter opens
-        // no section. Kotlin default arguments do not survive Swift Export, so Swift spells
-        // them out even though commonMain defaults both to null.
-        Chapter(id: id, title: id, duration: duration, startTime: start, partTitle: nil, bookTitle: nil)
+    /// The index runs over the native `ChapterRowModel` projection, never the bridged Kotlin
+    /// `[Chapter]`: it is recomputed on every engine position tick (~4×/s), and each bridged
+    /// property read crosses the Swift Export boundary.
+    private func chapter(_ id: String, start: Int64, duration: Int64) -> ChapterRowModel {
+        ChapterRowModel(id: id, title: id, startMs: start, durationMs: duration)
     }
 
     @Test func indexIsNilForEmpty() {

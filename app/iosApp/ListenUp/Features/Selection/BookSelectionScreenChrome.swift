@@ -102,14 +102,15 @@ struct BookSelectionToolbar: ToolbarContent {
 /// silently missing from the screen most likely to be used for it.
 struct BookSelectionSheets: ViewModifier {
     let selection: BookSelectionObserver
-    @Environment(AppMessageCenter.self) private var messages
+    /// Bumped once per landed bulk action, to fire the success haptic.
+    @State private var confirmations = 0
 
     func body(content: Content) -> some View {
         content
             .sheet(isPresented: Binding(
                 get: { selection.showShelfPicker },
                 set: { selection.showShelfPicker = $0 }
-            )) {
+            ), onDismiss: { selection.shelfPickerClosed() }) {
                 BulkShelfPickerSheet(
                     observer: selection,
                     count: selection.selectedBookIds.count
@@ -133,13 +134,22 @@ struct BookSelectionSheets: ViewModifier {
                 BulkEditView(bookIds: selection.orderedSelectedBookIds) { changedCount in
                     selection.showBulkEdit = false
                     selection.exit()
-                    messages.post(.info(BulkEditFormatting.applied(changedCount: changedCount)))
+                    confirm(BulkEditFormatting.applied(changedCount: changedCount))
                 }
             }
             .onChange(of: selection.confirmation) { _, message in
                 guard let message else { return }
-                messages.post(.info(message))
+                confirm(message)
             }
+            .haptic(.commit, trigger: confirmations)
+    }
+
+    /// A landed bulk action already shows itself — the sheet closes and the selection ends — so the
+    /// confirmation is a success haptic plus the sentence spoken to VoiceOver, not a toast. HIG,
+    /// Feedback.
+    private func confirm(_ message: String) {
+        confirmations += 1
+        VoiceOverAnnouncement.post(message)
     }
 }
 

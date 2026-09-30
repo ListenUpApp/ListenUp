@@ -16,7 +16,6 @@ struct BulkShelfPickerSheet: View {
             title: String(localized: "book.detail_add_to_shelf"),
             rows: observer.myShelves.map { PickerRow(id: $0.id, name: $0.name) },
             headerText: String(format: String(localized: "selection.add_n_to_shelf"), count),
-            frosted: true,
             isBusy: observer.isAddingToShelf,
             create: InlineCreate(
                 label: String(localized: "book.detail_new_shelf"),

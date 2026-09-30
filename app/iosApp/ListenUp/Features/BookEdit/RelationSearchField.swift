@@ -46,8 +46,11 @@ struct RelationSearchField: View {
         return !results.contains { $0.name.caseInsensitiveCompare(trimmedQuery) == .orderedSame }
     }
 
+    /// Several `Form` rows, not one: the search field, then each result and the create row as rows of
+    /// their own — so each gets the list's highlight, separator and hit area. Host it inside a
+    /// `Section`.
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        Group {
             AppTextField(
                 placeholder: placeholder,
                 text: Binding(get: { query }, set: { onQueryChange($0) }),
@@ -56,51 +59,31 @@ struct RelationSearchField: View {
                 submitLabel: .done,
                 onSubmit: submit
             )
-            .fieldCard()
             .focused($isFocused)
             .overlay(alignment: .trailing) {
                 if isLoading {
                     ProgressView()
                         .controlSize(.small)
-                        .padding(.trailing, 14)
                 }
             }
 
-            if !results.isEmpty || showsCreateRow {
-                resultsList
-            } else if !trimmedQuery.isEmpty, !isLoading {
-                // Below the floor, the local index hasn't run at all — "No matches." would lie
-                // about the state of the world. Prompt the user to keep typing instead.
-                if trimmedQuery.count < minSearchQueryLength {
-                    Text(
-                        String(format: String(localized: "search.keep_typing_description"), minSearchQueryLength)
-                    )
-                    .font(.subheadline)
-                    .foregroundStyle(Color.luLabel3)
-                    .padding(.horizontal, 4)
-                } else {
-                    Text(String(localized: "book.edit_no_matches"))
-                        .font(.subheadline)
-                        .foregroundStyle(Color.luLabel3)
-                        .padding(.horizontal, 4)
-                }
-            }
-        }
-    }
-
-    private var resultsList: some View {
-        VStack(spacing: 0) {
             ForEach(results) { result in
                 resultRow(result)
-                if result.id != results.last?.id || showsCreateRow {
-                    Divider().padding(.leading, 14)
-                }
             }
             if showsCreateRow {
                 createRow
+            } else if results.isEmpty, !trimmedQuery.isEmpty, !isLoading {
+                // Below the floor, the local index hasn't run at all — "No matches." would lie
+                // about the state of the world. Prompt the user to keep typing instead.
+                Text(
+                    trimmedQuery.count < minSearchQueryLength
+                        ? String(format: String(localized: "search.keep_typing_description"), minSearchQueryLength)
+                        : String(localized: "book.edit_no_matches")
+                )
+                .font(.subheadline)
+                .foregroundStyle(.tertiary)
             }
         }
-        .fieldCard()
     }
 
     private func resultRow(_ result: RelationSearchResult) -> some View {
@@ -124,10 +107,8 @@ struct RelationSearchField: View {
                     .foregroundStyle(Color.luTint)
             }
             .contentShape(Rectangle())
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
         }
-        .buttonStyle(.plain)
+        .foregroundStyle(Color.primary)
         .accessibilityLabel(String(format: String(localized: "common.add_name"), result.name))
     }
 
@@ -144,10 +125,7 @@ struct RelationSearchField: View {
                 Spacer(minLength: 0)
             }
             .contentShape(Rectangle())
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
         }
-        .buttonStyle(.plain)
         .accessibilityLabel(String(format: String(localized: "common.add_name"), trimmedQuery))
     }
 

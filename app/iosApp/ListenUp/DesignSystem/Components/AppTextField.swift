@@ -3,9 +3,10 @@ import SwiftUI
 /// The one canonical, surface-less text-field primitive for ListenUp. Every screen —
 /// auth, edit forms, search — composes its fields from this. It owns the chrome a field
 /// row needs (leading SF Symbol, secure eye-toggle, search clear button, inline error
-/// caption, hairline separator, keyboard config) but renders **no background of its own**:
-/// the caller wraps it in `AuthFieldGroup`, `FieldGroup`, or `.fieldCard()` to supply the
-/// inset surface, so the same primitive reads correctly in every container.
+/// caption, keyboard config) but renders **no background of its own**. By default it is a
+/// `List`/`Form` row: the list supplies the insets, the separator and the grouped surface. Inside
+/// `AuthFieldGroup` (the auth screens' own inset group) it draws its padding and hairline
+/// separator itself — `AppTextFieldChrome.drawn`, which that group sets.
 ///
 /// Three flavours via `Kind`:
 /// - `.secure` — password entry with an eye/eye-slash reveal toggle (defaults to a `lock` icon).
@@ -30,6 +31,7 @@ struct AppTextField: View {
     var kind: Kind = .text
     var error: String?
     var axis: Axis = .horizontal
+    /// Only `AuthFieldGroup`'s drawn chrome reads this: in a list the list draws the separators.
     var isLast: Bool = true
     /// A plain field that can be emptied with one tap — for a form where a typed value arms an
     /// instruction and emptying it disarms. The button carries the field's name for VoiceOver.
@@ -38,6 +40,7 @@ struct AppTextField: View {
     var onSubmit: () -> Void = {}
 
     @State private var isSecure = true
+    @Environment(\.appTextFieldChrome) private var chrome
     @Environment(\.displayScale) private var displayScale
     private var hairline: CGFloat { 1 / max(displayScale, 1) }
 
@@ -81,6 +84,24 @@ struct AppTextField: View {
     // MARK: - Body
 
     var body: some View {
+        switch chrome {
+        case .listRow: listRowBody
+        case .drawn: drawnBody
+        }
+    }
+
+    /// A list row: the list owns insets and separators.
+    private var listRowBody: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let label { labelView(label) }
+            rowView
+            if let error { errorCaption(error) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Inside `AuthFieldGroup`: the field draws its own padding and hairline separator.
+    private var drawnBody: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let label {
                 VStack(alignment: .leading, spacing: 4) {
@@ -88,16 +109,20 @@ struct AppTextField: View {
                     rowView
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+                .padding(.horizontal, Spacing.m)
+                .padding(.vertical, Spacing.s)
             } else {
                 rowView
                     .frame(minHeight: 52)
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, Spacing.m)
             }
 
             if !isLast { separator }
-            if let error { errorCaption(error) }
+            if let error {
+                errorCaption(error)
+                    .padding(.horizontal, Spacing.m)
+                    .padding(.bottom, Spacing.xs)
+            }
         }
     }
 
@@ -106,7 +131,7 @@ struct AppTextField: View {
     private func labelView(_ label: String) -> some View {
         Text(label)
             .font(.caption)
-            .foregroundStyle(Color.luLabel2)
+            .foregroundStyle(Color.secondary)
     }
 
     private var rowView: some View {
@@ -114,7 +139,7 @@ struct AppTextField: View {
             if let leading = Self.leadingIcon(explicit: icon, kind: kind) {
                 Image(systemName: leading)
                     .font(.body)
-                    .foregroundStyle(error != nil ? .red : Color.luLabel2)
+                    .foregroundStyle(error != nil ? .red : Color.secondary)
                     .frame(width: 22)
             }
             control
@@ -160,8 +185,7 @@ struct AppTextField: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(isSecure ? "Show password" : "Hide password")
-            .accessibilityHint("Double tap to \(isSecure ? "reveal" : "hide") password")
+            .accessibilityLabel(String(localized: isSecure ? "common.show_password" : "common.hide_password"))
         case .search, .text:
             if Self.showsClearButton(kind: kind, text: text, clearable: clearable) {
                 Button { text = "" } label: {
@@ -178,7 +202,7 @@ struct AppTextField: View {
         Rectangle()
             .fill(Color.luSeparator)
             .frame(height: hairline)
-            .padding(.leading, Self.leadingIcon(explicit: icon, kind: kind) == nil ? 14 : 46)
+            .padding(.leading, Self.leadingIcon(explicit: icon, kind: kind) == nil ? Spacing.m : 46)
     }
 
     private func errorCaption(_ message: String) -> some View {
@@ -188,12 +212,21 @@ struct AppTextField: View {
         }
         .font(.caption)
         .foregroundStyle(.red)
-        .padding(.horizontal, 14)
-        .padding(.bottom, 8)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Error: \(message)")
+        .accessibilityLabel(String(format: String(localized: "common.error_a11y"), message))
         .accessibilityAddTraits(.isStaticText)
     }
+}
+
+/// Who draws a field's insets and separator: the hosting `List`/`Form` (the default), or the field
+/// itself inside `AuthFieldGroup`.
+enum AppTextFieldChrome {
+    case listRow
+    case drawn
+}
+
+extension EnvironmentValues {
+    @Entry var appTextFieldChrome: AppTextFieldChrome = .listRow
 }
 
 #Preview("AppTextField") {
@@ -203,16 +236,15 @@ struct AppTextField: View {
     @Previewable @State var desc = ""
     @Previewable @State var query = "dune"
 
-    return ScrollView {
-        VStack(spacing: 16) {
+    return Form {
+        Section {
             AuthFieldGroup {
                 AppTextField(placeholder: "Email", text: $email, entry: .email, icon: "envelope", isLast: false)
                 AppTextField(placeholder: "Password", text: $password, entry: .password, kind: .secure)
             }
-
+        }
+        Section {
             AppTextField(placeholder: "Name", text: $name, entry: .words, label: "Name")
-                .fieldCard()
-
             AppTextField(
                 placeholder: "Add a description",
                 text: $desc,
@@ -220,11 +252,7 @@ struct AppTextField: View {
                 label: "Description",
                 axis: .vertical
             )
-            .fieldCard()
-
             AppTextField(placeholder: "Search", text: $query, entry: .search, kind: .search)
-                .fieldCard()
-
             AppTextField(
                 placeholder: "Email",
                 text: $email,
@@ -232,9 +260,6 @@ struct AppTextField: View {
                 icon: "envelope",
                 error: "That doesn't look right."
             )
-                .fieldCard()
         }
-        .padding()
     }
-    .background(Color.luSurface)
 }

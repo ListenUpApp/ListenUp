@@ -42,6 +42,7 @@ struct BulkEditView: View {
             // Silent until the selection is read: a title counting books nobody has loaded yet
             // would be the sheet's first untrue statement.
             title: observer.isLoading ? "" : BulkEditFormatting.title(bookCount: observer.bookCount),
+            hasChanges: observer.changedBookCount > 0,
             canSave: observer.canApply,
             isSaving: observer.isApplying,
             saveLabel: BulkEditFormatting.applyLabel(changedBookCount: observer.changedBookCount),
@@ -49,8 +50,6 @@ struct BulkEditView: View {
             onSave: { observer.apply() }
         ) {
             content(observer)
-                .readableWidth(600)
-                .frame(maxWidth: .infinity)
         }
         .alert(
             String(localized: "common.error"),
@@ -69,84 +68,51 @@ struct BulkEditView: View {
 
     // MARK: - Body
 
+    /// Grouped `Form` sections: the hero on the plain background, then Publishing, Credits and
+    /// Classification — each group's title and promise heading its first section — and the preview.
     @ViewBuilder
     private func content(_ observer: BulkEditObserver) -> some View {
         if observer.isLoading {
-            LoadingStateView()
-                .frame(minHeight: 220)
+            Section {
+                LoadingStateView()
+                    .frame(minHeight: 220)
+                    .listRowBackground(Color.clear)
+            }
         } else {
-            VStack(spacing: 22) {
+            Section {
                 BulkEditHero(
                     covers: observer.selectionCovers,
                     bookCount: observer.bookCount,
                     selectedCount: observer.requestedCount
                 )
+                .listRowBackground(Color.clear)
                 if let notice = BulkEditFormatting.notLoadedNotice(
                     bookCount: observer.bookCount,
                     requestedCount: observer.requestedCount
                 ) {
-                    notLoadedNotice(notice)
+                    // The books that were chosen but could not be read. Stated before the form,
+                    // because a bulk edit that quietly touches fewer books than were picked offers
+                    // no way to notice.
+                    Text(notice)
+                        .font(.subheadline)
+                        .foregroundStyle(Color.primary)
                 }
-                card(
+            }
+
+            Section {
+                fields(observer)
+            } header: {
+                BulkEditGroupHeader(
                     title: String(localized: "bulk_edit.card_publishing"),
                     note: String(localized: "bulk_edit.card_publishing_note")
-                ) {
-                    fields(observer)
-                }
-
-                card(
-                    title: String(localized: "bulk_edit.card_credits"),
-                    note: String(localized: "bulk_edit.card_credits_note")
-                ) {
-                    BulkEditCredits(observer: observer)
-                }
-
-                card(
-                    title: String(localized: "bulk_edit.card_classification"),
-                    note: String(localized: "bulk_edit.card_classification_note")
-                ) {
-                    BulkEditClassification(observer: observer)
-                }
-
-                previewPanel(observer)
+                )
             }
-            .padding(.horizontal)
-        }
-    }
 
-    /// The books that were chosen but could not be read. Stated before the form, because a bulk edit
-    /// that quietly touches fewer books than were picked offers no way to notice.
-    private func notLoadedNotice(_ text: String) -> some View {
-        Text(text)
-            .font(.subheadline)
-            .foregroundStyle(Color.primary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
-            .fieldCard()
-    }
+            BulkEditCredits(observer: observer)
+            BulkEditClassification(observer: observer)
 
-    /// One titled group of relation fields, in the same card the rest of the form uses.
-    ///
-    /// The note under each heading is the promise the whole screen rests on: these fields *add* to
-    /// what each book already carries, and a field nobody touches writes to nothing.
-    @ViewBuilder
-    private func card(
-        title: String,
-        note: String?,
-        @ViewBuilder content: () -> some View
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(title).font(.headline)
-            if let note {
-                Text(note)
-                    .font(.caption)
-                    .foregroundStyle(Color.luLabel2)
-            }
-            content()
+            previewSection(observer)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .fieldCard()
     }
 
     /// The three text fields.
@@ -158,7 +124,7 @@ struct BulkEditView: View {
     /// nobody touched.
     @ViewBuilder
     private func fields(_ observer: BulkEditObserver) -> some View {
-        VStack(spacing: 14) {
+        Group {
             publishingField(
                 placeholder: observer.publisherPlaceholder,
                 text: Binding(get: { observer.publisher }, set: { observer.setPublisher($0) }),
@@ -192,9 +158,8 @@ struct BulkEditView: View {
         label: String,
         consequence: FieldConsequence?
     ) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 6) {
             AppTextField(placeholder: placeholder, text: text, entry: entry, label: label, clearable: true)
-                .fieldCard()
             BulkEditConsequenceLine(consequence: consequence)
         }
     }
@@ -206,8 +171,8 @@ struct BulkEditView: View {
     /// count again in a form nobody has to count. An untouched form says so in words — an empty
     /// panel would read as a broken preview.
     @ViewBuilder
-    private func previewPanel(_ observer: BulkEditObserver) -> some View {
-        card(title: String(localized: "bulk_edit.card_preview"), note: nil) {
+    private func previewSection(_ observer: BulkEditObserver) -> some View {
+        Section(String(localized: "bulk_edit.card_preview")) {
             if observer.preview.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(String(localized: "bulk_edit.nothing_to_do"))
@@ -215,15 +180,39 @@ struct BulkEditView: View {
                         .foregroundStyle(Color.primary)
                     Text(String(localized: "bulk_edit.nothing_to_do_hint"))
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                VStack(spacing: 14) {
-                    ForEach(observer.preview) { line in
-                        BulkEditPreviewRow(line: line)
-                    }
+                ForEach(observer.preview) { line in
+                    BulkEditPreviewRow(line: line)
                 }
+            }
+        }
+    }
+}
+
+/// The heading over one group of the bulk form: the group's name, and under it the promise the
+/// whole screen rests on — these fields *add* to what each book already carries, and a field nobody
+/// touches writes to nothing. An optional `field` names the section's own field beneath.
+struct BulkEditGroupHeader: View {
+    let title: String
+    let note: String
+    var field: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(.primary)
+                .textCase(nil)
+            Text(note)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .textCase(nil)
+            if let field {
+                Text(field)
+                    .padding(.top, Spacing.xs)
             }
         }
     }
@@ -235,18 +224,18 @@ private struct BulkEditPreviewRow: View {
     let line: BulkEditPreviewLine
 
     var body: some View {
-        let accent = line.changesNothing ? Color.luLabel2 : Color.luTint
+        let accent = line.changesNothing ? Color.secondary : Color.luTint
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: line.symbol)
                 .font(.body)
                 .foregroundStyle(accent)
                 .frame(width: 28, height: 28)
-                .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: Radius.s, style: .continuous))
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Text(line.label)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(line.changesNothing ? Color.luLabel2 : Color.primary)
+                        .foregroundStyle(line.changesNothing ? Color.secondary : Color.primary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Text(line.detail)
                         .font(.footnote.weight(.bold))
@@ -259,7 +248,7 @@ private struct BulkEditPreviewRow: View {
                 if let note = line.note {
                     Text(note)
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
             }
         }
@@ -280,9 +269,7 @@ struct BulkEditConsequenceLine: View {
                 Text(consequence.text)
                     .font(.caption.weight(consequence.writes ? .bold : .medium))
             }
-            .foregroundStyle(consequence.writes ? Color.luTint : Color.luLabel2)
-            .padding(.horizontal, 4)
-            .padding(.top, 6)
+            .foregroundStyle(consequence.writes ? Color.luTint : Color.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
         }
@@ -303,16 +290,16 @@ private struct BulkEditHero: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(BulkEditFormatting.heroEyebrow(selectedCount: selectedCount))
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                 HStack(spacing: 12) {
                     CoverStack(covers: covers, size: 64, peek: 16, maxCovers: shown)
                     if let more = BulkEditFormatting.heroMore(bookCount: bookCount, shown: min(covers.count, shown)) {
                         Text(more)
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Color.luLabel2)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, Spacing.s)
+                            .padding(.vertical, Spacing.xxs)
                             .background(Color.luFill, in: Capsule())
                     }
                     Spacer(minLength: 0)

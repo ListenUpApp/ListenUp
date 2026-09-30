@@ -88,7 +88,7 @@ struct ContributorBooksView: View {
             }
             .readableWidth()
             .padding(.horizontal)
-            .padding(.top, 4)
+            .padding(.top, Spacing.xxs)
             .padding(.bottom, 100)
         }
     }
@@ -101,7 +101,7 @@ struct ContributorBooksView: View {
                 .font(.caption.weight(.bold))
                 .tracking(0.6)
                 .textCase(.uppercase)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             Text(observer.contributorName)
                 .font(.title.weight(.bold))
                 .foregroundStyle(.primary)
@@ -134,6 +134,10 @@ struct ContributorBooksView: View {
                         BookCoverCard(book: book, progress: progress[book.id])
                     }
                     .buttonStyle(.plain)
+                    .draggableBookCover(book)
+                    .bookContextMenu(bookId: book.id, selection: nil) {
+                        BookCoverCard(book: book, progress: progress[book.id])
+                    }
                 }
             }
         }

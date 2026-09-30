@@ -1,6 +1,8 @@
 import SwiftUI
 
-/// Inline "server unreachable" banner for content screens — a Liquid-Glass card with a
+/// Inline "server unreachable" banner for content screens — a filled card in the content layer (HIG,
+/// Materials: Liquid Glass is for the controls and navigation that float above content, not the
+/// content itself) with a
 /// cloud-slash icon, a short explanation, and a Retry action. Shown when the server is genuinely
 /// unreachable (evidence-based signal) and the content isn't available offline, so the user is
 /// never left guessing why an action is disabled (never stranded). Clears itself the moment any
@@ -35,8 +37,8 @@ struct ServerUnreachableBanner: View {
             .buttonStyle(.plain)
             .accessibilityLabel(String(localized: "book.detail_retry"))
         }
-        .padding(14)
+        .padding(Spacing.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassControl(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Color.luFill, in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
     }
 }

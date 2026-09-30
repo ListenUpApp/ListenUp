@@ -15,6 +15,7 @@ struct RecentlyAddedSection: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(String(localized: "discover.recently_added"))
                 .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
                 .padding(.horizontal, horizontalInset)
 
             content
@@ -27,7 +28,7 @@ struct RecentlyAddedSection: View {
         case .loading:
             ProgressView()
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 24)
+                .padding(.vertical, Spacing.xl)
         case .ready(let books):
             if books.isEmpty {
                 message(String(localized: "discover.no_recently_added_books"))
@@ -51,6 +52,6 @@ struct RecentlyAddedSection: View {
             .font(.subheadline)
             .foregroundStyle(.secondary)
             .padding(.horizontal, horizontalInset)
-            .padding(.vertical, 12)
+            .padding(.vertical, Spacing.s)
     }
 }

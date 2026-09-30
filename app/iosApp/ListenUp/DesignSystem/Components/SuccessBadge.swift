@@ -14,9 +14,8 @@ struct SuccessBadge: View {
             Circle()
                 .fill(Color.luTint)
                 .frame(width: size * 0.74, height: size * 0.74)
-                .shadow(color: Color.luTint.opacity(0.4), radius: 14, x: 0, y: 10)
             Image(systemName: "checkmark")
-                .font(.system(size: size * 0.32, weight: .bold))
+                .font(.system(size: size * 0.32, weight: .bold)) // decorative fixed size
                 .foregroundStyle(Color.luOnTint)
         }
         .accessibilityHidden(true)

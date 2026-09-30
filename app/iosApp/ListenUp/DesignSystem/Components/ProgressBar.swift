@@ -53,7 +53,7 @@ struct ProgressBar: View {
 
     private var cornerRadius: CGFloat {
         switch style {
-        case .standard: 4
+        case .standard: Radius.xs
         case .overlay: 0
         }
     }
@@ -98,7 +98,7 @@ private extension Float {
 
 #Preview("Overlay Style") {
     ZStack {
-        RoundedRectangle(cornerRadius: 8)
+        RoundedRectangle(cornerRadius: Radius.s)
             .fill(Color.blue)
             .frame(width: 100, height: 100)
 

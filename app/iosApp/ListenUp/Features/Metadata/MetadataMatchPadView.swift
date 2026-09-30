@@ -1,66 +1,56 @@
 import SwiftUI
 import Shared
 
-/// iPad / regular-width layout: a focused full-screen modal with a fixed left search rail beside a
-/// flexible right column showing the matched edition and its field checklists. The work gets the
-/// whole width (no app sidebar). The right column reuses `MetadataSelectBody` verbatim, so the
-/// iPhone push screen and this master–detail stay in lockstep.
+/// iPad / regular-width layout: a `NavigationSplitView` with the Audible search in the sidebar and
+/// the matched edition with its field checklists in the detail column. The detail column's own stack
+/// takes the later steps (chapter review, the updated summary). The detail reuses `MetadataSelectBody`
+/// verbatim, so the iPhone push screen and this split stay in lockstep.
 ///
-/// Width-responsive: the left rail is a fixed, comfortable column; the right column flows and its
-/// field lists are full-width. In a narrow Split View (where an iPad reports `.compact`) the root
-/// falls back to the iPhone push flow, so this only renders when there's genuine width to use.
-struct MetadataMatchPadView: View {
+/// System chrome throughout (HIG, Split views; Sheets): Cancel in the cancellation placement, Apply
+/// in the confirmation placement, the title in the navigation bar — where the hand-built modal bar
+/// hid the system's and drew its own. The column widths are the split view's own, so a narrow
+/// window collapses it to one column rather than crushing a fixed rail.
+struct MetadataMatchPadView<Destination: View>: View {
     let observer: MetadataMatchObserver
+    @Binding var path: [MetadataStep]
     let onCancel: () -> Void
     let onReviewChapters: () -> Void
+    @ViewBuilder let destination: (MetadataStep) -> Destination
 
     @State private var queryDraft: String = ""
     @State private var selectedAsin: String?
 
     var body: some View {
-        VStack(spacing: 0) {
-            modalBar
-            Divider()
-            HStack(spacing: 0) {
-                searchRail
-                    .frame(width: 360)
-                Divider()
+        NavigationSplitView {
+            searchRail
+                .navigationTitle(String(localized: "metadata.find_on_audible"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(String(localized: "common.cancel"), action: onCancel)
+                    }
+                }
+                .navigationSplitViewColumnWidth(min: 280, ideal: 340, max: 420)
+        } detail: {
+            NavigationStack(path: $path) {
                 detailColumn
-                    .frame(maxWidth: .infinity)
+                    .navigationTitle(String(localized: "metadata.match_metadata"))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button {
+                                observer.applyMatch()
+                            } label: {
+                                Label(String(localized: "metadata.apply_metadata"), systemImage: "checkmark")
+                            }
+                            .disabled(!applyEnabled)
+                        }
+                    }
+                    .navigationDestination(for: MetadataStep.self, destination: destination)
             }
         }
-        .background(Color.luSurface)
-        .navigationTitle("")
-        .toolbar(.hidden, for: .navigationBar)
+        .navigationSplitViewStyle(.balanced)
         .onAppear { if queryDraft.isEmpty { queryDraft = observer.query } }
-    }
-
-    // MARK: - Top bar
-
-    private var modalBar: some View {
-        HStack(spacing: 16) {
-            Button(String(localized: "common.cancel"), action: onCancel)
-                .foregroundStyle(Color.luTint)
-            Spacer()
-            HStack(spacing: 8) {
-                Image(systemName: "sparkles").font(.subheadline)
-                Text(String(localized: "metadata.match_metadata")).font(.headline)
-            }
-            .foregroundStyle(.primary)
-            Spacer()
-            Button(action: { observer.applyMatch() }) {
-                Label(String(localized: "metadata.apply_metadata"), systemImage: "checkmark")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.luOnTint)
-                    .padding(.horizontal, 18).frame(height: 40)
-                    .background(Capsule().fill(applyEnabled ? Color.luTint : Color.luTint.opacity(0.4)))
-            }
-            .buttonStyle(PressScaleButtonStyle())
-            .disabled(!applyEnabled)
-        }
-        .padding(.horizontal, 24)
-        .frame(height: 64)
-        .background(Color.luSurface2)
     }
 
     private var applyEnabled: Bool {
@@ -70,30 +60,34 @@ struct MetadataMatchPadView: View {
 
     // MARK: - Left rail
 
+    /// The sidebar is a `List`: query and region on the plain background, then the matches as rows
+    /// that highlight on tap (HIG, Split views; Lists and tables).
     private var searchRail: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 9) {
-                    MetadataGroupHeader(text: String(localized: "metadata.find_on_audible")).padding(.leading, 4)
-                    MetadataSearchField(text: $queryDraft) { submit() }
-                }
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 9) {
+                        MetadataGroupHeader(text: String(localized: "metadata.find_on_audible")).padding(.leading, Spacing.xxs)
+                        MetadataSearchField(text: $queryDraft) { submit() }
+                    }
 
-                VStack(alignment: .leading, spacing: 9) {
-                    MetadataGroupHeader(text: String(localized: "metadata.audible_region")).padding(.leading, 4)
-                    FlowLayout(spacing: 8) {
-                        ForEach(MetadataRegionOption.all) { region in
-                            MetadataGenreChip(label: region.displayName, isOn: region == observer.region) {
-                                observer.changeRegion(region)
+                    VStack(alignment: .leading, spacing: 9) {
+                        MetadataGroupHeader(text: String(localized: "metadata.audible_region")).padding(.leading, Spacing.xxs)
+                        FlowLayout(spacing: 8) {
+                            ForEach(MetadataRegionOption.all) { region in
+                                MetadataGenreChip(label: region.displayName, isOn: region == observer.region) {
+                                    observer.changeRegion(region)
+                                }
                             }
                         }
                     }
                 }
-
-                railResults
+                .listRowBackground(Color.clear)
             }
-            .padding(20)
+
+            railResults
         }
-        .background(Color.luSurface2)
+        .listStyle(.insetGrouped)
     }
 
     @ViewBuilder
@@ -101,11 +95,8 @@ struct MetadataMatchPadView: View {
         if case .search(let search) = observer.phase {
             switch search {
             case .loaded(let results) where !results.isEmpty:
-                VStack(alignment: .leading, spacing: 8) {
-                    MetadataGroupHeader(
-                        text: String(format: String(localized: "metadata.matches_count"), results.count)
-                    ).padding(.leading, 4)
-                    FieldGroup(results, separatorInset: 77) { item in
+                Section(String(format: String(localized: "metadata.matches_count"), results.count)) {
+                    ForEach(results) { item in
                         MetadataSearchResultRow(item: item, isActive: selectedAsin == item.id) {
                             selectedAsin = item.id
                             observer.selectMatch(item.id)
@@ -113,7 +104,10 @@ struct MetadataMatchPadView: View {
                     }
                 }
             case .inFlight:
-                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 24)
+                Section {
+                    ProgressView().frame(maxWidth: .infinity).padding(.vertical, Spacing.xl)
+                        .listRowBackground(Color.clear)
+                }
             default:
                 EmptyView()
             }
@@ -126,7 +120,7 @@ struct MetadataMatchPadView: View {
     private var detailColumn: some View {
         switch observer.phase {
         case .preview(.ready(let preview)):
-            ScrollView {
+            List {
                 MetadataSelectBody(
                     preview: preview,
                     region: observer.region,
@@ -134,8 +128,9 @@ struct MetadataMatchPadView: View {
                     onReviewChapters: onReviewChapters,
                     showChangeRow: false
                 )
-                .padding(24)
             }
+            .listStyle(.insetGrouped)
+            .readableListWidth(720)
         case .preview(.loading):
             LoadingStateView(label: String(localized: "metadata.loading_match"))
         default:

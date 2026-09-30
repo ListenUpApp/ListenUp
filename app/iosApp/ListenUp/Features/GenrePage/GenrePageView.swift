@@ -83,12 +83,16 @@ struct GenrePageView: View {
                             BookCoverCard(book: book, progress: nil)
                         }
                         .buttonStyle(.plain)
+                        .draggableBookCover(book)
+                        .bookContextMenu(bookId: book.id, selection: nil) {
+                            BookCoverCard(book: book, progress: nil)
+                        }
                     }
                 }
             }
             .readableWidth()
             .padding(.horizontal)
-            .padding(.top, 4)
+            .padding(.top, Spacing.xxs)
             .padding(.bottom, 100)
         }
     }
@@ -111,7 +115,7 @@ struct GenrePageView: View {
                     if let blurb = observer.blurb {
                         Text(blurb)
                             .font(.subheadline)
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(.secondary)
                             .lineLimit(3)
                     }
                 }

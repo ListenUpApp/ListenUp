@@ -14,7 +14,7 @@ struct SearchBookRow: View {
             HStack(spacing: 12) {
                 BookCoverImage(bookId: row.id, coverPath: row.coverPath, coverHash: row.coverHash)
                     .frame(width: 52, height: 52)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.s))
                 SearchRowText(title: row.name, subtitle: row.subtitle)
             }
         }
@@ -47,7 +47,7 @@ struct SearchSeriesRow: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: Radius.s)
                     .fill(Color.luTint.opacity(0.15))
                     .frame(width: 52, height: 52)
                     .overlay {
@@ -96,8 +96,8 @@ struct SearchTagsFlow: View {
                     Text(tag.name)
                         .font(.subheadline)
                         .foregroundStyle(Color.luTint)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, Spacing.s)
+                        .padding(.vertical, Spacing.xs)
                         .background(Color.luTint.opacity(0.12), in: Capsule())
                 }
                 .buttonStyle(.plain)

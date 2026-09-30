@@ -25,20 +25,17 @@ struct SelectableBookCard<Label: View>: View {
             Button { selection.toggle(bookId) } label: { label() }
                 .buttonStyle(.pressScaleCard)
         } else if let selection {
-            // Plain value-based NavigationLink (a tap opens the book); selection is entered via a
-            // native long-press → context menu → "Select". iOS arbitrates the long-press (menu)
-            // against the link's tap, so — unlike the old `.simultaneousGesture` — a long-press
-            // release never also navigates. Mirrors the library grid's `bookCell` (BooksContent).
+            // Plain value-based NavigationLink (a tap opens the book); a long-press opens the book's
+            // context menu, whose last item enters selection. iOS arbitrates the long-press (menu)
+            // against the link's tap, so a long-press release never also navigates. Mirrors the
+            // library grid's `bookCell` (BooksContent).
             NavigationLink(value: BookDestination(id: bookId)) { label() }
                 .buttonStyle(.pressScaleCard)
-                .contextMenu {
-                    Button(String(localized: "common.select"), systemImage: "checkmark.circle") {
-                        selection.enter(bookId)
-                    }
-                }
+                .bookContextMenu(bookId: bookId, selection: selection) { label() }
         } else {
             NavigationLink(value: BookDestination(id: bookId)) { label() }
                 .buttonStyle(.pressScaleCard)
+                .bookContextMenu(bookId: bookId, selection: nil) { label() }
         }
     }
 }
@@ -51,10 +48,13 @@ extension View {
             if let selection, selection.isSelecting {
                 let isSelected = selection.isSelected(bookId)
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 22))
+                    .font(.system(size: 22)) // decorative fixed size
                     .symbolRenderingMode(.palette)
-                    .foregroundStyle(.white, isSelected ? Color.listenUpOrange : Color.black.opacity(0.35))
-                    .padding(6)
+                    .foregroundStyle(
+                        isSelected ? Color.luOnTint : .white,
+                        isSelected ? Color.listenUpOrange : Color.black.opacity(0.35)
+                    )
+                    .padding(Spacing.xs)
                     .accessibilityLabel(Text(isSelected
                         ? String(localized: "common.selected")
                         : String(localized: "common.not_selected")))

@@ -4,8 +4,7 @@ import Shared
 /// Library Settings — the admin surface for managing the single library's scan folders and
 /// triggering a rescan. Reached from Administration › Management.
 ///
-/// Mirrors `AdminView`'s structure: grouped `.fieldCard()` sections under `AdminSectionHeader`
-/// overlines, built on the native design system. The shared `LibrarySettingsViewModel` is
+/// Mirrors `AdminView`'s structure: a system grouped `Form` in a readable column. The shared `LibrarySettingsViewModel` is
 /// bridged through `LibrarySettingsObserver`, which flattens its state into native value types.
 struct LibrarySettingsView: View {
     @Environment(\.dependencies) private var deps
@@ -52,18 +51,11 @@ struct LibrarySettingsView: View {
     // MARK: - Ready
 
     private func ready(_ model: LibrarySettingsReadyModel, observer: LibrarySettingsObserver) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                scanPathsSection(model, observer: observer)
-                rescanSection(model, observer: observer)
-            }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 20)
-            // Reading-width cap so the form stays comfortable on iPad / wide Split View
-            // instead of stretching a phone layout across the full width.
-            .frame(maxWidth: 640, alignment: .leading)
-            .frame(maxWidth: .infinity)
+        Form {
+            scanPathsSection(model, observer: observer)
+            rescanSection(model, observer: observer)
         }
+        .readableListWidth()
         .sheet(isPresented: browserBinding(observer)) {
             FolderBrowserSheet(observer: observer)
         }
@@ -94,22 +86,24 @@ struct LibrarySettingsView: View {
     // MARK: - Scan paths
 
     private func scanPathsSection(_ model: LibrarySettingsReadyModel, observer: LibrarySettingsObserver) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            AdminSectionHeader(String(localized: "admin.scan_paths"))
-            VStack(spacing: 0) {
-                ForEach(model.folders) { folder in
-                    folderRow(folder, model: model)
-                    rowSeparator
-                }
-                addFolderRow(model, observer: observer)
+        Section(String(localized: "admin.scan_paths")) {
+            ForEach(model.folders) { folder in
+                folderRow(folder, model: model)
+                    // A shortcut beside the row's visible remove button (HIG, Gestures).
+                    .swipeActions {
+                        if model.canRemoveFolders && !model.isSaving {
+                            Button(String(localized: "common.remove"), role: .destructive) { pendingRemove = folder }
+                        }
+                    }
             }
-            .fieldCard()
+            addFolderRow(model, observer: observer)
         }
     }
 
     private func folderRow(_ folder: LibraryFolderRowModel, model: LibrarySettingsReadyModel) -> some View {
         HStack(spacing: 13) {
-            IconTile(systemImage: "folder.fill", tint: .luTint)
+            IconTile(systemImage: "folder.fill")
+                .accessibilityHidden(true)
             Text(folder.displayPath)
                 .font(.callout.monospaced())
                 .foregroundStyle(.primary)
@@ -123,13 +117,12 @@ struct LibrarySettingsView: View {
                     Image(systemName: "minus.circle.fill")
                         .font(.title3)
                         .foregroundStyle(.red)
+                        .minimumTapTarget(visualSize: 24)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(localized: "admin.remove_path"))
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
     }
 
     private func addFolderRow(_ model: LibrarySettingsReadyModel, observer: LibrarySettingsObserver) -> some View {
@@ -137,37 +130,33 @@ struct LibrarySettingsView: View {
             observer.showFolderBrowser(true)
         } label: {
             HStack(spacing: 13) {
-                IconTile(systemImage: "plus", tint: .luTint)
+                IconTile(systemImage: "plus")
+                    .accessibilityHidden(true)
                 Text(String(localized: "admin.add_folder"))
                     .font(.body)
                     .foregroundStyle(Color.luTint)
-                Spacer()
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
         .disabled(model.isSaving)
     }
 
     // MARK: - Rescan
 
     private func rescanSection(_ model: LibrarySettingsReadyModel, observer: LibrarySettingsObserver) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            AdminSectionHeader(String(localized: "admin.scanning"))
+        Section(String(localized: "admin.scanning")) {
             Button {
                 observer.rescan()
             } label: {
                 HStack(spacing: 13) {
-                    IconTile(systemImage: "arrow.clockwise", tint: .luTint)
+                    IconTile(systemImage: "arrow.clockwise")
+                        .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(String(localized: "admin.rescan_library"))
                             .font(.body)
                             .foregroundStyle(.primary)
                         Text(String(localized: "admin.scan_all_paths_for_new"))
                             .font(.footnote)
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(Color.secondary)
                             .multilineTextAlignment(.leading)
                     }
                     Spacer(minLength: 12)
@@ -175,23 +164,10 @@ struct LibrarySettingsView: View {
                         ProgressView().controlSize(.small)
                     }
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .foregroundStyle(Color.primary)
             .disabled(model.isScanning)
-            .fieldCard()
         }
-    }
-
-    // MARK: - Shared chrome
-
-    private var rowSeparator: some View {
-        Rectangle()
-            .fill(Color.luSeparator)
-            .frame(height: 0.5)
-            .padding(.leading, 61)
     }
 
     // MARK: - Bindings
@@ -307,8 +283,8 @@ private struct FolderBrowserSheet: View {
                 .foregroundStyle(Color.luTint)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
     }
 
     private func addThisFolderButton(_ model: LibrarySettingsReadyModel) -> some View {
@@ -319,8 +295,8 @@ private struct FolderBrowserSheet: View {
                 .font(.body.weight(.medium))
                 .foregroundStyle(Color.luTint)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .padding(.horizontal, Spacing.m)
+                .padding(.vertical, Spacing.s)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

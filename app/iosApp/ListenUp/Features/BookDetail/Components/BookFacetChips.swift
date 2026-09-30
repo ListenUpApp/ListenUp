@@ -112,8 +112,8 @@ struct BookFacetChips<Destination: Hashable>: View {
             Text(value)
                 .font(.caption)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.horizontal, Spacing.s)
+        .padding(.vertical, Spacing.xs)
         .background {
             if kind.isOutlined {
                 Capsule().strokeBorder(Color.luSeparator, lineWidth: 1.5)
@@ -135,7 +135,7 @@ struct BookFacetChips<Destination: Hashable>: View {
     /// Chip foreground: coral for moods, primary label for outlined tags, secondary for genres.
     private var foreground: Color {
         if kind.usesAccent { return .listenUpOrange }
-        return kind.isOutlined ? .primary : .luLabel2
+        return kind.isOutlined ? .primary : .secondary
     }
 }
 

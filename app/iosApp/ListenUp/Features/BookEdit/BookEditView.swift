@@ -11,20 +11,20 @@ struct BookEditView: View {
     @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
     @State private var observer: BookEditObserver?
+    @FocusState private var focusedField: BookEditFocusField?
 
     var body: some View {
         Group {
             if let observer {
                 EditSheetScaffold(
                     title: String(localized: "book.detail_edit_book"),
+                    hasChanges: observer.hasChanges,
                     canSave: observer.hasChanges,
                     isSaving: observer.isSaving,
                     onCancel: { observer.onCancel(); dismiss() },
                     onSave: { observer.onSave() }
                 ) {
                     form(observer)
-                        .readableWidth(600)
-                        .frame(maxWidth: .infinity)
                 }
                 .alert(
                     String(localized: "common.error"),
@@ -51,7 +51,7 @@ struct BookEditView: View {
 
     @ViewBuilder
     private func form(_ observer: BookEditObserver) -> some View {
-        VStack(spacing: 22) {
+        Section {
             ImageEditHeader(
                 shape: .rounded,
                 size: 120,
@@ -62,129 +62,45 @@ struct BookEditView: View {
             ) {
                 BookCoverImage(coverPath: observer.displayCoverPath, coverHash: observer.coverHash)
             }
-            .padding(.top, 8)
+            .frame(maxWidth: .infinity)
+            .listRowBackground(Color.clear)
+        }
 
+        Section {
             identityFields(observer)
+        }
 
-            ForEach(observer.roleSections) { section in
-                roleSection(section, observer: observer)
-            }
-            addRoleMenu(observer)
+        ForEach(observer.roleSections) { section in
+            roleSection(section, observer: observer)
+        }
+        addRoleMenu(observer)
 
-            seriesSection(observer)
-            genresSection(observer)
-            tagsSection(observer)
-            moodsSection(observer)
-            if observer.isAdmin {
-                collectionsSection(observer)
-            }
+        seriesSection(observer)
+        genresSection(observer)
+        tagsSection(observer)
+        moodsSection(observer)
+        if observer.isAdmin {
+            collectionsSection(observer)
+        }
 
+        Section {
             catalogFields(observer)
-        }
-        .padding(.horizontal)
-    }
-
-    /// Identity fields at the top of the form (positions 1–5 of the people-first order): Title,
-    /// Subtitle, Sort Title, Description. Publishing/identifier metadata lives in [catalogFields] at
-    /// the bottom so the order matches Android's Book Edit screen.
-    @ViewBuilder
-    private func identityFields(_ observer: BookEditObserver) -> some View {
-        VStack(spacing: 14) {
-            AppTextField(
-                placeholder: "",
-                text: Binding(get: { observer.title }, set: { observer.setTitle($0) }),
-                entry: .words,
-                label: String(localized: "book.edit_title_field")
-            )
-            .fieldCard()
-
-            AppTextField(
-                placeholder: String(localized: "book.edit_add_subtitle"),
-                text: Binding(get: { observer.subtitle }, set: { observer.setSubtitle($0) }),
-                entry: .words,
-                label: String(localized: "book.edit_subtitle")
-            )
-            .fieldCard()
-
-            AppTextField(
-                placeholder: String(localized: "book.edit_eg_lord_of_the_rings"),
-                text: Binding(get: { observer.sortTitle }, set: { observer.setSortTitle($0) }),
-                entry: .words,
-                label: String(localized: "book.edit_sort_title")
-            )
-            .fieldCard()
-
-            AppTextField(
-                placeholder: String(localized: "book.edit_description_placeholder"),
-                text: Binding(get: { observer.bookDescription }, set: { observer.setDescription($0) }),
-                entry: .sentences,
-                label: String(localized: "book.edit_description_label"),
-                axis: .vertical
-            )
-            .fieldCard()
-        }
-    }
-
-    /// Catalog metadata at the bottom of the form (positions 12–18): Publisher, Year, Language,
-    /// ISBN, ASIN, Abridged, Date Added. Mirrors Android's Publishing → Identifiers → Library cards.
-    @ViewBuilder
-    private func catalogFields(_ observer: BookEditObserver) -> some View {
-        VStack(spacing: 14) {
-            AppTextField(
-                placeholder: "",
-                text: Binding(get: { observer.publisher }, set: { observer.setPublisher($0) }),
-                entry: .words,
-                label: String(localized: "book.edit_publisher")
-            )
-            .fieldCard()
-
-            AppTextField(
-                placeholder: "",
-                text: Binding(get: { observer.publishYear }, set: { observer.setPublishYear($0) }),
-                entry: .number,
-                label: String(localized: "book.edit_year")
-            )
-            .fieldCard()
-
-            languageField(observer)
-
-            AppTextField(
-                placeholder: "",
-                text: Binding(get: { observer.isbn }, set: { observer.setIsbn($0) }),
-                entry: .identifier,
-                label: String(localized: "book.edit_isbn")
-            )
-            .fieldCard()
-
-            AppTextField(
-                placeholder: "",
-                text: Binding(get: { observer.asin }, set: { observer.setAsin($0) }),
-                entry: .identifier,
-                label: String(localized: "book.edit_asin")
-            )
-            .fieldCard()
-
-            abridgedField(observer)
-            addedAtField(observer)
         }
     }
 
     /// Language picker over the shared ISO 639-1 list, with a "None" option that clears it.
     private func languageField(_ observer: BookEditObserver) -> some View {
-        LabeledFieldRow(label: String(localized: "book.edit_language")) {
-            Picker(
-                String(localized: "book.edit_language"),
-                selection: Binding(get: { observer.language }, set: { observer.setLanguage($0) })
-            ) {
-                Text(String(localized: "book.edit_language_none")).tag("")
-                ForEach(observer.languageOptions) { choice in
-                    Text(choice.name).tag(choice.code)
-                }
+        // A system picker row: the label leads, the chosen value trails and opens a menu.
+        Picker(
+            String(localized: "book.edit_language"),
+            selection: Binding(get: { observer.language }, set: { observer.setLanguage($0) })
+        ) {
+            Text(String(localized: "book.edit_language_none")).tag("")
+            ForEach(observer.languageOptions) { choice in
+                Text(choice.name).tag(choice.code)
             }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .pickerStyle(.menu)
     }
 
     /// Abridged toggle.
@@ -193,9 +109,6 @@ struct BookEditView: View {
             Text(String(localized: "book.edit_abridged"))
                 .font(.body)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .fieldCard()
     }
 
     /// Date-added row: a date picker when set (with a clear button), or a "Set date" button when unset.
@@ -277,18 +190,15 @@ struct BookEditView: View {
     @ViewBuilder
     private func addRoleMenu(_ observer: BookEditObserver) -> some View {
         if !observer.addableRoles.isEmpty {
-            Menu {
-                ForEach(observer.addableRoles) { addable in
-                    Button(addable.title) { observer.addRole(roleApiValue: addable.id) }
+            Section {
+                Menu {
+                    ForEach(observer.addableRoles) { addable in
+                        Button(addable.title) { observer.addRole(roleApiValue: addable.id) }
+                    }
+                } label: {
+                    Label(String(localized: "book.edit_add_role"), systemImage: "plus.circle")
                 }
-            } label: {
-                Label(String(localized: "book.edit_add_role"), systemImage: "plus.circle")
-                    .font(.subheadline.weight(.medium))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.luFill.opacity(0.6)))
             }
-            .buttonStyle(.plain)
         }
     }
 
@@ -457,6 +367,116 @@ struct BookEditView: View {
 
 }
 
+// MARK: - Text fields
+
+/// The single-line text fields and their Return chain, kept out of the struct body so the form
+/// reads as its sections.
+extension BookEditView {
+    /// Identity fields at the top of the form (positions 1–5 of the people-first order): Title,
+    /// Subtitle, Sort Title, Description. Publishing/identifier metadata lives in [catalogFields] at
+    /// the bottom so the order matches Android's Book Edit screen.
+    @ViewBuilder
+    private func identityFields(_ observer: BookEditObserver) -> some View {
+        Group {
+            AppTextField(
+                placeholder: "",
+                text: Binding(get: { observer.title }, set: { observer.setTitle($0) }),
+                entry: .words,
+                label: String(localized: "book.edit_title_field"),
+                submitLabel: BookEditFocusField.title.submitLabel(last: .done),
+                onSubmit: { advance(from: .title) }
+            )
+            .focused($focusedField, equals: .title)
+
+            AppTextField(
+                placeholder: String(localized: "book.edit_add_subtitle"),
+                text: Binding(get: { observer.subtitle }, set: { observer.setSubtitle($0) }),
+                entry: .words,
+                label: String(localized: "book.edit_subtitle"),
+                submitLabel: BookEditFocusField.subtitle.submitLabel(last: .done),
+                onSubmit: { advance(from: .subtitle) }
+            )
+            .focused($focusedField, equals: .subtitle)
+
+            AppTextField(
+                placeholder: String(localized: "book.edit_eg_lord_of_the_rings"),
+                text: Binding(get: { observer.sortTitle }, set: { observer.setSortTitle($0) }),
+                entry: .words,
+                label: String(localized: "book.edit_sort_title"),
+                submitLabel: BookEditFocusField.sortTitle.submitLabel(last: .done),
+                onSubmit: { advance(from: .sortTitle) }
+            )
+            .focused($focusedField, equals: .sortTitle)
+
+            AppTextField(
+                placeholder: String(localized: "book.edit_description_placeholder"),
+                text: Binding(get: { observer.bookDescription }, set: { observer.setDescription($0) }),
+                entry: .sentences,
+                label: String(localized: "book.edit_description_label"),
+                axis: .vertical
+            )
+        }
+    }
+
+    /// Return moves along a run of single-line fields; at the end of a run it puts the keyboard
+    /// away. Saving stays on the Done button — a Return that saved a whole book would be a surprise.
+    private func advance(from field: BookEditFocusField) {
+        FormFocus.advance(from: field, focus: $focusedField) { focusedField = nil }
+    }
+
+    /// Catalog metadata at the bottom of the form (positions 12–18): Publisher, Year, Language,
+    /// ISBN, ASIN, Abridged, Date Added. Mirrors Android's Publishing → Identifiers → Library cards.
+    @ViewBuilder
+    private func catalogFields(_ observer: BookEditObserver) -> some View {
+        Group {
+            AppTextField(
+                placeholder: "",
+                text: Binding(get: { observer.publisher }, set: { observer.setPublisher($0) }),
+                entry: .words,
+                label: String(localized: "book.edit_publisher"),
+                submitLabel: BookEditFocusField.publisher.submitLabel(last: .done),
+                onSubmit: { advance(from: .publisher) }
+            )
+            .focused($focusedField, equals: .publisher)
+
+            AppTextField(
+                placeholder: "",
+                text: Binding(get: { observer.publishYear }, set: { observer.setPublishYear($0) }),
+                entry: .number,
+                label: String(localized: "book.edit_year"),
+                submitLabel: BookEditFocusField.year.submitLabel(last: .done),
+                onSubmit: { advance(from: .year) }
+            )
+            .focused($focusedField, equals: .year)
+
+            languageField(observer)
+
+            AppTextField(
+                placeholder: "",
+                text: Binding(get: { observer.isbn }, set: { observer.setIsbn($0) }),
+                entry: .identifier,
+                label: String(localized: "book.edit_isbn"),
+                submitLabel: BookEditFocusField.isbn.submitLabel(last: .done),
+                onSubmit: { advance(from: .isbn) }
+            )
+            .focused($focusedField, equals: .isbn)
+
+            AppTextField(
+                placeholder: "",
+                text: Binding(get: { observer.asin }, set: { observer.setAsin($0) }),
+                entry: .identifier,
+                label: String(localized: "book.edit_asin"),
+                submitLabel: BookEditFocusField.asin.submitLabel(last: .done),
+                onSubmit: { advance(from: .asin) }
+            )
+            .focused($focusedField, equals: .asin)
+
+            abridgedField(observer)
+            addedAtField(observer)
+        }
+    }
+}
+
 // MARK: - Pure formatting (unit-tested)
 
 /// Pure label formatting for the book-edit relational chips, factored out of the
@@ -509,7 +529,7 @@ private struct EmptyRelationHint: View {
     var body: some View {
         Text(text)
             .font(.subheadline)
-            .foregroundStyle(Color.luLabel3)
+            .foregroundStyle(.tertiary)
     }
 }
 
@@ -526,7 +546,7 @@ private struct RemovableChip: View {
             if let roleKind {
                 Image(systemName: roleKind.icon)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             }
             Text(label)
                 .font(.subheadline)
@@ -534,17 +554,18 @@ private struct RemovableChip: View {
                 .lineLimit(1)
             Button(action: onRemove) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(Color.luLabel2)
+                    .font(.system(size: 10, weight: .bold)) // decorative fixed size
+                    .foregroundStyle(Color.secondary)
                     .frame(width: 20, height: 20)
                     .background(Circle().fill(Color.luFill))
+                    .minimumTapTarget(visualSize: 20)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(removeLabel)
         }
-        .padding(.leading, 12)
-        .padding(.trailing, 5)
-        .padding(.vertical, 5)
+        .padding(.leading, Spacing.s)
+        .padding(.trailing, Spacing.xxs)
+        .padding(.vertical, Spacing.xxs)
         .background(Capsule().fill(Color.luFill.opacity(0.6)))
     }
 }

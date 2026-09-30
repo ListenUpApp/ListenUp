@@ -21,6 +21,9 @@ final class DeepLinkRouter {
 
     private(set) var outcome: Outcome = .none
 
+    /// The window most recently brought to the front, which takes the next book link.
+    private(set) var frontSceneID: UUID?
+
     private let deepLinkManager: DeepLinkManager
     private let bridge = FlowBridge()
 
@@ -53,13 +56,43 @@ final class DeepLinkRouter {
         deepLinkManager.consumeTarget()
     }
 
+    /// Sets the resolved outcome. The Kotlin resolution calls it; tests use it to stand in for a
+    /// resolution that needs a connected server.
+    func deliver(_ outcome: Outcome) {
+        self.outcome = outcome
+    }
+
+    // MARK: - One window per link
+
+    /// A window's tab shell became active: it is now the one a link should open in.
+    func sceneBecameActive(_ sceneID: UUID) { frontSceneID = sceneID }
+
+    /// A window's tab shell went away; if it was the front one, the next claimant may take links.
+    func sceneWentAway(_ sceneID: UUID) {
+        if frontSceneID == sceneID { frontSceneID = nil }
+    }
+
+    /// Hands a book link's outcome to `sceneID` — and consumes it — when that window is the one to
+    /// show it. Every other window gets nil, so one link never opens the book in two windows (every
+    /// shell observes this router). Invites are never claimed here: the root presents them.
+    func claimShellOutcome(for sceneID: UUID) -> Outcome? {
+        switch outcome {
+        case .openBook, .wrongServer, .notConnected: break
+        case .none, .claimInvite: return nil
+        }
+        guard FrontWindow.receives(sceneID, frontSceneID: frontSceneID) else { return nil }
+        let claimed = outcome
+        consume()
+        return claimed
+    }
+
     private func resolve(_ target: ShareTarget?) {
         guard let target else { outcome = .none; return }
         switch target.sealedType() {
         case .invite(let inviteType):
             let invite = inviteType.value
             Log.info("DeepLink: resolved invite → presenting claim sheet")
-            outcome = .claimInvite(serverURL: invite.serverUrl, code: invite.code, remoteURL: invite.remoteUrl)
+            deliver(.claimInvite(serverURL: invite.serverUrl, code: invite.code, remoteURL: invite.remoteUrl))
         case .book(let bookType):
             let book = bookType.value
             Task { @MainActor [weak self] in await self?.resolveBook(book) }
@@ -71,11 +104,11 @@ final class DeepLinkRouter {
         switch ShareTargetResolver.shared.resolve(target: book, connectedInstanceId: connectedId).sealedType() {
         case .openBook(let openType):
             let open = openType.value
-            outcome = .openBook(id: open.bookId.value)
+            deliver(.openBook(id: open.bookId.value))
         case .wrongServer:
-            outcome = .wrongServer
+            deliver(.wrongServer)
         case .notConnected:
-            outcome = .notConnected
+            deliver(.notConnected)
         case .openInviteClaim, .noAccess:
             consume()
         }

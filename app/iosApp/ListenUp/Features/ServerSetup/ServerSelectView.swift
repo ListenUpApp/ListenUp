@@ -39,9 +39,12 @@ struct ServerSelectView: View {
             groupHeader
             serverList
         } footer: {
-            AuthPrimaryButton(title: String(localized: "connect.continue")) {
+            Button {
                 if let first = viewModel.servers.first { viewModel.selectServer(first) }
+            } label: {
+                ActionLabel(title: String(localized: "connect.continue"))
             }
+            .prominentAction()
             .disabled(viewModel.servers.isEmpty || viewModel.isConnecting)
         }
         .onAppear {
@@ -57,9 +60,9 @@ struct ServerSelectView: View {
             Text(String(localized: "connect.on_your_network").uppercased())
                 .font(.footnote).foregroundStyle(.secondary)
             Text("\(viewModel.servers.count)")
-                .font(.caption.weight(.bold)).foregroundStyle(Color.listenUpOrange)
-                .padding(.horizontal, 7).padding(.vertical, 2)
-                .background(Capsule().fill(Color.listenUpOrange.opacity(0.16)))
+                .font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                .padding(.horizontal, Spacing.xs).padding(.vertical, 2)
+                .background(Capsule().fill(Color.luFill))
             Spacer()
             RescanPill(isBusy: viewModel.isDiscovering) { viewModel.refresh() }
         }
@@ -94,12 +97,12 @@ private struct ServerRow: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 13) {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
                     .fill(isSelected ? Color.listenUpOrange : Color(.systemFill))
                     .frame(width: 40, height: 40)
                     .overlay {
                         Image(systemName: "server.rack")
-                            .foregroundStyle(isSelected ? .white : .secondary)
+                            .foregroundStyle(isSelected ? Color.luOnTint : .secondary)
                     }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(server.name).font(.headline).foregroundStyle(.primary)
@@ -120,13 +123,14 @@ private struct ServerRow: View {
                 trailing
             }
             .frame(minHeight: 68)
-            .padding(.horizontal, 14)
+            .padding(.horizontal, Spacing.m)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(isConnecting)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.primary.opacity(0.10)).frame(height: 0.5).padding(.leading, 67)
+            Rectangle().fill(Color.luSeparator).frame(height: 0.5).padding(.leading, 67)
         }
     }
 
@@ -147,7 +151,7 @@ private struct AddServerRow: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 13) {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
                     .fill(Color.listenUpOrange.opacity(0.14)).frame(width: 40, height: 40)
                     .overlay { Image(systemName: "plus").foregroundStyle(Color.listenUpOrange) }
                 Text(String(localized: "connect.add_server_manually"))
@@ -155,7 +159,7 @@ private struct AddServerRow: View {
                 Spacer()
                 Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
             }
-            .frame(minHeight: 56).padding(.horizontal, 14).contentShape(Rectangle())
+            .frame(minHeight: 56).padding(.horizontal, Spacing.m).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -175,9 +179,9 @@ private struct DiscoveryRow: View {
             }
             Spacer()
         }
-        .frame(minHeight: 56).padding(.horizontal, 14)
+        .frame(minHeight: 56).padding(.horizontal, Spacing.m)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.primary.opacity(0.10)).frame(height: 0.5).padding(.leading, 14)
+            Rectangle().fill(Color.luSeparator).frame(height: 0.5).padding(.leading, Spacing.m)
         }
     }
 }

@@ -112,7 +112,7 @@ struct AdminCollectionsView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(16)
+            .padding(Spacing.m)
         }
         .overlay {
             if ready.collections.isEmpty {
@@ -138,10 +138,10 @@ struct AdminCollectionsView: View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.largeTitle)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             Text(message)
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
         .padding()
@@ -151,20 +151,20 @@ struct AdminCollectionsView: View {
     private func emptyState(observer: AdminCollectionsObserver) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "folder")
-                .font(.system(size: 44))
-                .foregroundStyle(Color.luLabel2)
+                .scaledFont(size: 44, relativeTo: .largeTitle)
+                .foregroundStyle(.secondary)
             Text(String(localized: "common.collections"))
                 .font(.headline)
             Text(String(localized: "admin.create_a_collection_to_organize"))
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button(String(localized: "admin.collection_new_collection")) {
                 showingCreateSheet = true
             }
             .buttonStyle(.borderedProminent)
-            .tint(Color.luTint)
-            .padding(.top, 4)
+            .onBrandFillLabel()
+            .padding(.top, Spacing.xxs)
         }
         .padding()
     }
@@ -173,7 +173,7 @@ struct AdminCollectionsView: View {
 
     private var createSheet: some View {
         NavigationStack {
-            VStack(spacing: 16) {
+            Form {
                 AppTextField(
                     placeholder: String(localized: "admin.collection_name"),
                     text: $createName,
@@ -181,11 +181,7 @@ struct AdminCollectionsView: View {
                     label: String(localized: "admin.collection_name"),
                     icon: "folder.badge.plus"
                 )
-                .fieldCard()
-                Spacer()
             }
-            .padding()
-            .background(Color.luSurface)
             .navigationTitle(String(localized: "admin.collection_new_collection"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -232,7 +228,7 @@ private struct CollectionTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .topTrailing) {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
                     .fill(Color.luFill)
                     .aspectRatio(1, contentMode: .fit)
                 if isDeleting {
@@ -240,15 +236,15 @@ private struct CollectionTile: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     Image(systemName: "folder.fill")
-                        .font(.system(size: 36))
+                        .font(.system(size: 36)) // decorative fixed size
                         .foregroundStyle(Color.luTint)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 if collection.isSystem {
                     Image(systemName: "lock.fill")
                         .font(.caption)
-                        .foregroundStyle(Color.luLabel2)
-                        .padding(8)
+                        .foregroundStyle(.secondary)
+                        .padding(Spacing.xs)
                         .accessibilityLabel(Text(String(localized: "admin.system_collection_locked")))
                 }
             }
@@ -262,10 +258,10 @@ private struct CollectionTile: View {
                 HStack(spacing: 4) {
                     Image(systemName: "person.2")
                         .font(.caption)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                     Text("\(collection.bookCount)")
                         .font(.caption)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
             }
         }
@@ -279,18 +275,18 @@ private struct NewCollectionTile: View {
     var body: some View {
         VStack(spacing: 8) {
             ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
                     .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6, 3]))
-                    .foregroundStyle(Color.luLabel3)
+                    .foregroundStyle(.tertiary)
                     .aspectRatio(1, contentMode: .fit)
                 Image(systemName: "plus")
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundStyle(Color.luLabel2)
+                    .font(.system(size: 28, weight: .medium)) // decorative fixed size
+                    .foregroundStyle(.secondary)
             }
 
             Text(String(localized: "admin.collection_new_collection"))
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .lineLimit(2)
         }
         .contentShape(Rectangle())

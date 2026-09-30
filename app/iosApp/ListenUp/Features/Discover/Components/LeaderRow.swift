@@ -26,10 +26,10 @@ struct LeaderRow: View {
                 Text(row.value)
                     .font(.system(.subheadline, design: .default).monospacedDigit())
                     .fontWeight(row.isCurrentUser ? .bold : .medium)
-                    .foregroundStyle(row.isCurrentUser ? Color.luTint : Color.luLabel2)
+                    .foregroundStyle(row.isCurrentUser ? Color.luTint : Color.secondary)
             }
-            .padding(.vertical, 10)
-            .padding(.horizontal, row.isCurrentUser ? 10 : 0)
+            .padding(.vertical, Spacing.s)
+            .padding(.horizontal, row.isCurrentUser ? Spacing.s : 0)
             .background(rowBackground)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(row.rank). \(name), \(row.value)")
@@ -43,7 +43,7 @@ struct LeaderRow: View {
 
     @ViewBuilder private var rowBackground: some View {
         if row.isCurrentUser {
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: Radius.m)
                 .fill(Color.luTint.opacity(0.07))
         }
     }
@@ -51,9 +51,9 @@ struct LeaderRow: View {
     /// Medal colors for the podium; neutral tertiary for the rest.
     private var rankColor: Color {
         switch row.rank {
-        case 1: Color(red: 0.851, green: 0.604, blue: 0.071) // gold
-        case 2: Color(red: 0.557, green: 0.584, blue: 0.639) // silver
-        case 3: Color(red: 0.753, green: 0.478, blue: 0.220) // bronze
+        case 1: Color.luPodiumGold
+        case 2: Color.luPodiumSilver
+        case 3: Color.luPodiumBronze
         default: Color.luLabel3
         }
     }

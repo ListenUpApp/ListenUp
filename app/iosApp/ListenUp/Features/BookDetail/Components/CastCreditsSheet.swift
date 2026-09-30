@@ -12,11 +12,6 @@ struct CastCreditsSheet: View {
     /// navigate there rather than inside this sheet so a tapped cast member opens their full page.
     @Environment(\.navigateToContributor) private var navigateToContributor
 
-    private static let avatarHues: [Color] = [
-        Color(hex: "#7A5AF8"), Color(hex: "#1F8A5B"), Color(hex: "#E0613A"),
-        Color(hex: "#2A6FDB"), Color(hex: "#C2389B"), Color(hex: "#0E8C8C"),
-    ]
-
     private var members: (authors: [CastMember], narrators: [CastMember], all: [CastMember]) {
         func map(_ c: BookContributor) -> CastMember {
             CastMember(id: c.id, name: c.name, roles: Array(c.roles))
@@ -36,17 +31,16 @@ struct CastCreditsSheet: View {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 16)],
                           alignment: .leading, spacing: 4) {
-                    ForEach(Array(groups.enumerated()), id: \.element.id) { groupIndex, group in
+                    ForEach(groups, id: \.id) { group in
                         Section {
-                            ForEach(Array(group.members.enumerated()), id: \.element.id) { i, member in
-                                // offset hue per group so adjacent groups don't repeat colors.
+                            ForEach(group.members, id: \.id) { member in
                                 // Push the contributor onto the main tab stack (full page), then
                                 // dismiss this sheet — not an in-sheet push.
                                 Button {
                                     navigateToContributor(member.id)
                                     onClose()
                                 } label: {
-                                    row(member, hueIndex: groupIndex * 7 + i)
+                                    row(member)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -56,16 +50,16 @@ struct CastCreditsSheet: View {
                                 .foregroundStyle(.secondary)
                                 .textCase(.uppercase)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.top, 14)
+                                .padding(.top, Spacing.m)
                         }
                     }
                 }
-                .padding(20)
+                .padding(Spacing.l)
             }
             .navigationTitle(String(localized: "book.detail_credits"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "common.done")) { onClose() }
                 }
             }
@@ -74,8 +68,8 @@ struct CastCreditsSheet: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 4)
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.bottom, Spacing.xxs)
             }
         }
     }
@@ -96,26 +90,27 @@ struct CastCreditsSheet: View {
         }
     }
 
-    private func row(_ member: CastMember, hueIndex: Int) -> some View {
+    private func row(_ member: CastMember) -> some View {
         HStack(spacing: 12) {
-            avatar(member, hueIndex: hueIndex)
+            avatar(member)
             Text(member.name)
                 .font(.subheadline)
                 .lineLimit(1)
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 7)
+        .padding(.vertical, Spacing.xs)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }
 
-    private func avatar(_ member: CastMember, hueIndex: Int) -> some View {
-        let hue = Self.avatarHues[abs(hueIndex) % Self.avatarHues.count]
-        return Text(initials(member.name))
+    /// The shared `AvatarPalette` fill, keyed by the contributor id so a person wears the same
+    /// colour here as on their own page.
+    private func avatar(_ member: CastMember) -> some View {
+        Text(initials(member.name))
             .font(.subheadline.weight(.bold))
-            .foregroundStyle(hue)
+            .foregroundStyle(AvatarPalette.initialsInk)
             .frame(width: 40, height: 40)
-            .background(hue.opacity(0.17), in: Circle())
+            .background(AvatarPalette.fill(forKey: member.id), in: Circle())
             .accessibilityHidden(true)
     }
 

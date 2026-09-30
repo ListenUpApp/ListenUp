@@ -36,7 +36,7 @@ struct ActivityRow: View {
 
             detail
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, Spacing.xs)
     }
 
     /// The phrase + timestamp → the book's detail when the activity carries a book; otherwise plain.

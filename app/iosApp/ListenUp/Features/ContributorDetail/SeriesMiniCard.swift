@@ -16,16 +16,16 @@ struct SeriesMiniCard: View {
                         .lineLimit(2)
                     Text(bookCountLabel)
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 4)
                 Image(systemName: "chevron.right")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.luLabel3)
+                    .foregroundStyle(.tertiary)
             }
-            .padding(12)
-            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.luSurface2))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.luSeparator, lineWidth: 0.5))
+            .padding(Spacing.s)
+            .background(RoundedRectangle(cornerRadius: Radius.l, style: .continuous).fill(Color.luSurface2))
+            .overlay(RoundedRectangle(cornerRadius: Radius.l, style: .continuous).stroke(Color.luSeparator, lineWidth: 0.5))
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)

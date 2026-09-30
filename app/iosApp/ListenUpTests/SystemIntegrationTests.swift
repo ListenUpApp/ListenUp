@@ -26,6 +26,20 @@ struct SystemIntegrationSessionTests {
         #expect(pushed?[MPMediaItemPropertyTitle] as? String == "The Way of Kings")
     }
 
+    /// The lock screen and CarPlay's rate button both read the rates the command advertises, so
+    /// they must be the app's own catalogue — and the command must be live, not merely declared.
+    @Test func attachAdvertisesTheCatalogueOnTheRateCommand() {
+        let session = MPNowPlayingSession(players: [AVPlayer()])
+        let system = SystemIntegration(session: session)
+        let handler = RecordingRemoteHandler()
+
+        system.attach(handler: handler)
+
+        let command = session.remoteCommandCenter.changePlaybackRateCommand
+        #expect(command.isEnabled)
+        #expect(command.supportedPlaybackRates.map(\.floatValue) == PlaybackRates.catalogue)
+    }
+
     @Test func clearEmptiesTheSessionsInfoCenter() {
         let session = MPNowPlayingSession(players: [AVPlayer()])
         let system = SystemIntegration(session: session)
@@ -35,6 +49,19 @@ struct SystemIntegrationSessionTests {
 
         #expect(session.nowPlayingInfoCenter.nowPlayingInfo == nil)
     }
+}
+
+/// Records the remote commands a `SystemIntegration` forwards.
+@MainActor
+final class RecordingRemoteHandler: RemoteCommandHandler {
+    private(set) var requestedRates: [Float] = []
+    func remoteTogglePlayPause() {}
+    func remotePlay() {}
+    func remotePause() {}
+    func remoteSkipForward() {}
+    func remoteSkipBackward() {}
+    func remoteSeek(toWindowPositionMs positionMs: Int64) {}
+    func remoteSetRate(_ rate: Float) { requestedRates.append(rate) }
 }
 
 @Suite("SystemIntegration.dictionary")
@@ -65,6 +92,15 @@ struct SystemIntegrationTests {
     @Test func carriesRateForClockExtrapolation() {
         let dict = SystemIntegration.dictionary(from: info)
         #expect(dict[MPNowPlayingInfoPropertyPlaybackRate] as? Double == 1.5)
+    }
+
+    /// While paused the live rate is 0, so the chosen speed rides in the default-rate key — it is
+    /// what the lock screen and CarPlay's rate button show as the current speed.
+    @Test func carriesTheChosenSpeedAsTheDefaultRate() {
+        var paused = info
+        paused.defaultRate = 1.75
+        let dict = SystemIntegration.dictionary(from: paused)
+        #expect(dict[MPNowPlayingInfoPropertyDefaultPlaybackRate] as? Double == 1.75)
     }
 
     /// The system renders "3 of 92" from these; a CarPlay now-playing template reads the same

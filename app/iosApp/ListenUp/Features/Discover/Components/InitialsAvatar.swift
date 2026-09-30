@@ -10,7 +10,7 @@ struct InitialsAvatar: View {
     let initials: String
     var size: CGFloat = 38
     var isCurrentUser = false
-    /// Optional explicit fill (the activity feed passes the user's stored avatar color).
+    /// Optional explicit fill — an `AvatarPalette` colour, which the white initials are solved against.
     var tint: Color?
 
     var body: some View {
@@ -19,7 +19,8 @@ struct InitialsAvatar: View {
             .frame(width: size, height: size)
             .overlay {
                 Text(initials)
-                    .font(.system(size: size * 0.36, weight: .semibold))
+                    // Initials are sized to the fixed avatar circle, not to the text setting.
+                    .font(.system(size: size * 0.36, weight: .semibold)) // decorative fixed size
                     .foregroundStyle(foreground)
             }
     }
@@ -35,7 +36,7 @@ struct InitialsAvatar: View {
         if isCurrentUser {
             return Color.luTint
         }
-        return tint == nil ? Color.luLabel2 : .white
+        return tint == nil ? Color.secondary : AvatarPalette.initialsInk
     }
 }
 
@@ -43,7 +44,7 @@ struct InitialsAvatar: View {
     HStack(spacing: 16) {
         InitialsAvatar(initials: "ML")
         InitialsAvatar(initials: "SH", isCurrentUser: true)
-        InitialsAvatar(initials: "PN", tint: .blue)
+        InitialsAvatar(initials: "PN", tint: AvatarPalette.fill(forKey: "PN"))
     }
     .padding()
 }

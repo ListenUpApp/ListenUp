@@ -7,27 +7,23 @@ import Shared
 /// - iPhone: vertical list of standalone `SeriesRowCard` components (each its own rounded surface)
 /// - iPad / wide: width-responsive `LazyVGrid` of `SeriesGridCard` components (columns flow from
 ///   the available width via `GridItem(.adaptive(minimum:))`, not a fixed 3-up)
-/// - Inline `SortRow` (Name, Book Count, Added)
 /// - Alphabet scrubber when sorted by name
 /// - Empty state when no series
 struct SeriesContent: View {
     let seriesList: [SeriesRow]
     let seriesProgress: [String: SeriesProgressState]
     let sortState: SortState?
-    let onCategorySelected: (SortCategory) -> Void
-    let onDirectionToggle: () -> Void
-    /// Name-sort article handling — shared toggle state + flip action (Series sorts by Name). Groups
-    /// "The Expanse" under E, matching the shared sort order.
-    let ignoreTitleArticles: Bool
-    let onToggleIgnoreArticles: () -> Void
+    /// The scrubber's letters (name sort only, article-aware so "The Expanse" files under E), built
+    /// once per content change by `LibraryObserver` rather than on every render of this body
+    /// (2026-09-29 iOS audit, performance).
+    let letterIndex: [(letter: String, firstId: String)]
+    /// The section switcher, shown as the first row in every state; `nil` in the iPad sidebar.
+    var picker: LibrarySectionPicker?
 
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     @State private var isScrolling = false
     @State private var scrollTarget: String?
-
-    /// Available sort categories for series
-    private let sortCategories: [SortCategory] = [.name, .bookCount, .added]
 
     /// Generous side margins at regular width (matching `SeriesPad`); phone margins at compact.
     private var horizontalMargin: CGFloat { sizeClass == .regular ? 36 : 16 }
@@ -43,23 +39,19 @@ struct SeriesContent: View {
     // MARK: - Series List
 
     private var seriesListView: some View {
-        let letters = buildAlphabetIndex()
+        let letters = letterIndex
 
         return ScrollViewReader { proxy in
             ScrollView {
-                VStack(spacing: 0) {
-                    sortRow
-                        .padding(.horizontal, horizontalMargin)
-                        .padding(.top, 4)
-                        .padding(.bottom, 12)
-
+                picker?.headerRow(horizontalMargin: horizontalMargin)
+                Group {
                     if sizeClass == .compact {
                         iPhoneList
                     } else {
                         iPadGrid
                     }
                 }
-                .padding(.bottom, 100)
+                .padding(.top, Spacing.xxs)
             }
             .scrollContentBackground(.hidden)
             .onScrollPhaseChange { _, newPhase in
@@ -76,9 +68,9 @@ struct SeriesContent: View {
                 guard !Task.isCancelled else { return }   // a newer target replaced us — don't stomp it
                 scrollTarget = nil
             }
-            // Alphabet scrubber (only for name sort, compact width — the wide iPad grid omits it)
+            // Alphabet scrubber (name sort only), at every width — see `BooksLayout.showsScrubber`.
             .overlay(alignment: .trailing) {
-                if sizeClass == .compact, shouldShowAlphabetIndex, !letters.isEmpty {
+                if shouldShowAlphabetIndex, !letters.isEmpty {
                     SectionIndexBar(
                         letters: letters.map { $0.letter },
                         onLetterSelected: { letter in
@@ -88,50 +80,11 @@ struct SeriesContent: View {
                         },
                         isVisible: isScrolling
                     )
-                    .padding(.trailing, 8)
+                    .padding(.trailing, Spacing.xs)
                     .padding(.vertical, 60)
                 }
             }
         }
-    }
-
-    // MARK: - Sort Row
-
-    private var sortRow: some View {
-        let count = String(format: String(localized: "library.series_count"), seriesList.count)
-        let sortLabel = sortState?.category.label ?? ""
-        return SortRow(count: count, sortLabel: sortLabel) {
-            ForEach(sortCategories, id: \.rawValue) { cat in
-                Button {
-                    onCategorySelected(cat)
-                } label: {
-                    HStack {
-                        Text(cat.label)
-                        if cat == sortState?.category {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-            }
-            Divider()
-            Button {
-                onDirectionToggle()
-            } label: {
-                Label(
-                    sortState?.direction == .ascending
-                        ? String(localized: "library.sort_ascending")
-                        : String(localized: "library.sort_descending"),
-                    systemImage: sortState?.direction == .ascending ? "arrow.up" : "arrow.down"
-                )
-            }
-            if sortState?.category == .name {
-                Divider()
-                Toggle(isOn: Binding(get: { ignoreTitleArticles }, set: { _ in onToggleIgnoreArticles() })) {
-                    Text(String(localized: "library.ignore_articles"))
-                }
-            }
-        }
-        .haptic(.selectionTick, trigger: sortState)
     }
 
     // MARK: - iPhone List
@@ -143,7 +96,7 @@ struct SeriesContent: View {
                     .id("series-\(row.id)")
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, Spacing.m)
     }
 
     // MARK: - iPad Grid
@@ -171,20 +124,15 @@ struct SeriesContent: View {
         sortState?.category == .name
     }
 
-    /// Alphabet index (letter → first series id), only when sorted by name. Pure logic lives in
-    /// `seriesAlphabetIndex` over the native `SeriesRow`, so the scrubber never re-bridges.
-    private func buildAlphabetIndex() -> [(letter: String, firstId: String)] {
-        guard sortState?.category == .name else { return [] }
-        return seriesAlphabetIndex(from: seriesList, ignoreArticles: ignoreTitleArticles)
-    }
-
     // MARK: - Empty State
 
     private var emptyState: some View {
-        ContentUnavailableView(
-            String(format: String(localized: "common.no_items_yet"), "series"),
-            systemImage: "books.vertical",
-            description: Text(String(format: String(localized: "library.empty_tab_description"), "Series"))
-        )
+        LibrarySectionState(picker: picker) {
+            ContentUnavailableView(
+                String(format: String(localized: "common.no_items_yet"), "series"),
+                systemImage: "books.vertical",
+                description: Text(String(format: String(localized: "library.empty_tab_description"), "Series"))
+            )
+        }
     }
 }

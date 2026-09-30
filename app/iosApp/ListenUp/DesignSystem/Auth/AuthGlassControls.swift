@@ -9,34 +9,6 @@ extension View {
     }
 }
 
-/// Floating top-left navigation pill (e.g. "Servers", "Back") — a glass control that
-/// sits over the aurora. Tappable; tinted with the brand coral.
-struct GlassNavPill: View {
-    var systemImage: String = "chevron.left"
-    var label: String
-    var action: () -> Void
-
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 5) {
-                Image(systemName: systemImage)
-                    .font(.subheadline.weight(.semibold))
-                Text(label)
-                    .font(.subheadline)
-            }
-            .foregroundStyle(Color.listenUpOrange)
-            .padding(.leading, 11)
-            .padding(.trailing, 15)
-            .frame(height: 38)
-            .authGlassControl(in: .capsule, reduceTransparency: reduceTransparency)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
-    }
-}
-
 /// Small glass capsule for the Select-Server "Rescan" action.
 struct RescanPill: View {
     var isBusy: Bool
@@ -56,9 +28,12 @@ struct RescanPill: View {
                     .font(.subheadline)
             }
             .foregroundStyle(Color.listenUpOrange)
-            .padding(.horizontal, 13)
-            .frame(height: 32)
+            .padding(.horizontal, Spacing.s)
+            // A floor, not a fixed height, so the label grows with Dynamic Type instead of clipping.
+            .frame(minHeight: 32)
             .authGlassControl(in: .capsule, reduceTransparency: reduceTransparency)
+            // The 32pt pill keeps a 44pt hit area (the accessibility audit flagged it as too small).
+            .minimumTapTarget(visualSize: 32)
         }
         .buttonStyle(.plain)
         .disabled(isBusy)

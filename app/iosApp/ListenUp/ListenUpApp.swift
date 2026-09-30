@@ -20,8 +20,12 @@ struct ListenUpApp: App {
         // only thing that matters is that it starts as soon as Koin exists. A failure leaves the
         // defaults in place — exactly the behaviour before this call — and must never block launch.
         Task { try? await KoinHelper.shared.initializeLocalPreferences() }
+        // Before any image view: covers build their requests synchronously from the mirrored server
+        // URL, and the pipeline's loader authenticates them (see `ListenUpImagePipeline`).
+        ListenUpImagePipeline.install()
+        ImageServerBase.shared.startObserving(KoinHelper.shared.getServerConfig())
         Log.info("ListenUp iOS app initialized")
-        // Make the app's player available to the Live Activity intents.
+        // Make the app's player available to the playback App Intents (Siri, Shortcuts, Control Center).
         AppDependencyManager.shared.add(dependency: PlaybackController() as any PlaybackControlling)
         // Make the "resume my book" read available to ResumePlaybackIntent (Siri / Control Center).
         AppDependencyManager.shared.add(dependency: LastPlayedBookProvider() as any LastPlayedBookProviding)
@@ -29,9 +33,16 @@ struct ListenUpApp: App {
 
     var body: some Scene {
         WindowGroup {
+            // The catalog's `AccentColor` is the adaptive brand coral (NSAccentColorName), which
+            // colours prominent buttons, progress and alerts in every window. The `.tint` is still
+            // needed: a SwiftUI `Toggle` fills with system green unless tinted, and the accent alone
+            // does not reach it (verified in a real window on iOS 26).
             RootView()
                 .tint(Color.listenUpOrange)
         }
+        // The iPad menu bar: Playback, and the tabs in View. Each command acts on the focused
+        // window's shell (see `ListenUpCommands`).
+        .commands { ListenUpCommands() }
         // Native background app-refresh. SwiftUI registers the handler for us (the Kotlin
         // BackgroundSyncScheduler is Android-only; iOS wires this natively — see BackgroundSync).
         // The closure runs detached from the view hierarchy, so it resolves Dependencies.shared
@@ -56,9 +67,9 @@ private struct RootView: View {
     /// Resolved lazily on first authentication (see `.authenticated`) — never at launch, so the
     /// shared ConnectionHealthViewModel graph doesn't touch the keychain before the session exists.
     @State private var connectionHealth: ConnectionHealthObserver?
-    /// The app-wide transient message surface. Created eagerly — a plain value holder with no
-    /// dependencies, and any screen may post to it.
-    @State private var messages = AppMessageCenter()
+    /// The app-wide error alert queue. Created eagerly — a plain value holder with no
+    /// dependencies; `GlobalErrorObserver` fills it once a session exists.
+    @State private var errorAlerts = ErrorAlertCenter()
     /// Resolved lazily on first authentication, mirroring `connectionHealth`: the shared graph must
     /// not be touched before a session exists.
     @State private var globalErrors: GlobalErrorObserver?
@@ -66,10 +77,6 @@ private struct RootView: View {
     @State private var readiness = LibraryReadinessObserver()
     @State private var hapticsSettings = HapticsSettings()
     @State private var deepLinkRouter = DeepLinkRouter()
-    /// Owned here (not by MainTabView) so a cold-launch shade tap's outcome survives until the
-    /// tab shell mounts; `PushCoordinator` reaches it through its `tapRouter` reference.
-    @State private var pushTapRouter = PushTapRouter()
-    @State private var syncSession: SyncSessionController?
     @State private var showReauthSheet = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dependencies) private var dependencies
@@ -79,8 +86,9 @@ private struct RootView: View {
             .environment(currentUser)
             .environment(hapticsSettings)
             .environment(deepLinkRouter)
-            .environment(pushTapRouter)
-            .environment(messages)
+            // One router per process, owned by the one push coordinator: every window's shell
+            // observes it and claims taps from it, so a tap lands in exactly one window.
+            .environment(PushCoordinator.shared.tapRouter)
             // Universal links: `.onOpenURL` is the reliable SwiftUI App-lifecycle delivery path
             // (cold launch *and* while running). `.onContinueUserActivity(NSUserActivityTypeBrowsingWeb)`
             // does not fire for universal links under the SwiftUI lifecycle — kept only as a
@@ -108,17 +116,14 @@ private struct RootView: View {
                 // auth gate (shared) owns resuming the firehose + forced reconcile.
                 if newState == .authenticated { showReauthSheet = false }
                 // Post-auth is the one moment a notification prompt makes sense (Android parity:
-                // AppShell's once-per-session request). No-op on every later transition. The tap
-                // router is wired BEFORE activate() so `didReceive` (delegate set inside
-                // activate) can never fire against a nil router; re-assigning is idempotent.
+                // AppShell's once-per-session request). No-op on every later transition.
                 if newState == .authenticated {
-                    PushCoordinator.shared.tapRouter = pushTapRouter
                     PushCoordinator.shared.activate()
                     // The error surface belongs to the authenticated shell, so it is built here
                     // rather than at launch — resolving the bus pre-auth would touch the shared
                     // graph before a session exists.
                     if globalErrors == nil {
-                        globalErrors = GlobalErrorObserver(center: messages)
+                        globalErrors = GlobalErrorObserver(center: errorAlerts)
                     }
                 }
                 activateSyncIfAuthenticated()
@@ -170,32 +175,12 @@ private struct RootView: View {
         )
     }
 
-    /// Connect realtime sync + resume downloads when authenticated. Lazily builds the controller
-    /// from the shared `SyncRepository`/`DownloadService` on first use.
+    /// Connect realtime sync + resume downloads when authenticated, through the process's one
+    /// sync session — every window asks the same controller, so a second iPad window adds no
+    /// second session.
     private func activateSyncIfAuthenticated() {
         guard auth.state == .authenticated else { return }
-        let controller = syncSession ?? SyncSessionController(
-            connectRealtime: {
-                do {
-                    try await dependencies.syncRepository.connectRealtime()
-                } catch is CancellationError {
-                } catch {
-                    // Realtime sync is best-effort: pull-to-refresh is the manual fallback
-                    // (Never Stranded), but the failure must not vanish — log it.
-                    Log.error("Realtime sync connect failed", error: error)
-                }
-            },
-            resumeDownloads: {
-                do {
-                    try await dependencies.downloadService.resumeIncompleteDownloads()
-                } catch is CancellationError {
-                } catch {
-                    Log.error("Resume incomplete downloads failed", error: error)
-                }
-            }
-        )
-        syncSession = controller
-        controller.activate()
+        SyncSessionController.shared.activate()
     }
 
     @ViewBuilder
@@ -205,12 +190,15 @@ private struct RootView: View {
             LaunchScreen()
         case .needsServerUrl:
             ServerFlowCoordinator()
+        // Auth screens sit in a navigation stack so their titles are the system's large titles.
         case .needsSetup:
-            SetupView()
+            NavigationStack { SetupView() }
         case .needsLogin:
             AuthFlowCoordinator(openRegistration: auth.openRegistration)
         case .pendingApproval:
-            PendingApprovalView(userId: auth.pendingApprovalUserId, email: auth.pendingApprovalEmail)
+            NavigationStack {
+                PendingApprovalView(userId: auth.pendingApprovalUserId, email: auth.pendingApprovalEmail)
+            }
         case .sessionLapsed:
             // Shell stays mounted (M2/M3): library, downloads, playback all work. The banner’s
             // Sign-in presents the login flow as a dismissable sheet — never a forced wall.
@@ -261,11 +249,11 @@ private struct RootView: View {
         }
     }
 
-    /// Both the `.authenticated` and `.sessionLapsed` branches render this, so the message host is
+    /// Both the `.authenticated` and `.sessionLapsed` branches render this, so the error alert is
     /// attached here rather than at either call site — neither can be the one that forgets.
     private var authenticatedContent: some View {
         authenticatedPhase
-            .appMessageHost(messages)
+            .errorAlertHost(errorAlerts)
     }
 
     @ViewBuilder
@@ -287,15 +275,28 @@ private struct RootView: View {
     }
 }
 
-/// Shown during app initialisation.
+/// Shown while the app initialises: the launch screen's plain system background, continued, with a
+/// spinner once the wait is long enough to notice.
+///
+/// HIG, Launching: "Downplay the launch experience … A launch screen isn't part of an onboarding
+/// experience or a splash screen"; "if your app displays a solid color before transitioning to the
+/// first screen, create a launch screen that displays only that solid color". The branded gradient
+/// and logo it replaces flashed between the system's blank launch screen and the first real screen.
 private struct LaunchScreen: View {
+    @State private var showsProgress = false
+
     var body: some View {
         ZStack {
-            Color.brandGradient.ignoresSafeArea()
-            Image("listenup_logo_white")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 120, height: 120)
+            Color(.systemBackground).ignoresSafeArea()
+            if showsProgress {
+                ProgressView()
+            }
+        }
+        // A spinner that appears and vanishes within a blink reads as a flicker; show it only once
+        // the start-up is slow enough for someone to wonder.
+        .task {
+            try? await Task.sleep(for: .milliseconds(400))
+            showsProgress = true
         }
     }
 }

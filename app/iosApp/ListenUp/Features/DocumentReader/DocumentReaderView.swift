@@ -54,10 +54,10 @@ struct DocumentReaderView: View {
             if let pdfDocument { search = PdfSearchController(document: pdfDocument) }
             didAttemptLoad = true
         }
-        .safeAreaInset(edge: .top) {
+        .safeAreaBar(edge: .top) {
             if chromeVisible { topBar }
         }
-        .safeAreaInset(edge: .bottom) {
+        .safeAreaBar(edge: .bottom) {
             if chromeVisible, pdfDocument != nil, pageCount > 0 { bottomDock }
         }
         .overlay(alignment: .top) {
@@ -130,11 +130,6 @@ struct DocumentReaderView: View {
                     }
                     .accessibilityLabel(String(localized: "book.detail_document_reader_toggle_grid"))
                 }
-                Menu {
-                    // placeholder — actions added in 3b
-                } label: {
-                    Image(systemName: "ellipsis")
-                }
             }
         }
         .overlay {
@@ -144,9 +139,8 @@ struct DocumentReaderView: View {
             }
             .padding(.horizontal, 80)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(.bar)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
     }
 
     // MARK: - Bottom dock
@@ -156,9 +150,8 @@ struct DocumentReaderView: View {
             NowPlayingStrip()
             scrubberRow
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(.bar)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
     }
 
     private var scrubberRow: some View {
@@ -169,11 +162,25 @@ struct DocumentReaderView: View {
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 32, alignment: .leading)
+                .accessibilityHidden(true)
 
             Slider(value: $scrubFraction, in: 0...1) { editing in
                 if !editing {
                     goToPage = scrubberPage(fraction: scrubFraction, pageCount: pageCount) - 1
                 }
+            }
+            // A page, not a fraction: "Page 3 of 40", and each VoiceOver swipe turns one page
+            // straight away rather than nudging a thumb that only commits on release.
+            .accessibilityLabel(String(localized: "book.reader_scrubber_a11y"))
+            .accessibilityValue(String(
+                format: String(localized: "book.detail_document_viewer_page_of"), display.page, display.total
+            ))
+            .accessibilityAdjustableAction { direction in
+                goToPage = adjustedPageIndex(
+                    from: currentPageIndex,
+                    pageCount: pageCount,
+                    forward: direction == .increment
+                )
             }
 
             Text(String(format: String(localized: "book.reader_scrubber_page_count"), pageCount))
@@ -181,6 +188,7 @@ struct DocumentReaderView: View {
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 32, alignment: .trailing)
+                .accessibilityHidden(true)
         }
     }
 
@@ -193,10 +201,10 @@ struct DocumentReaderView: View {
             .font(.caption.weight(.medium))
             .monospacedDigit()
             .foregroundStyle(.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.horizontal, Spacing.s)
+            .padding(.vertical, Spacing.xs)
             .background(.black.opacity(0.55), in: Capsule())
-            .padding(.top, 8)
+            .padding(.top, Spacing.xs)
     }
 
     // MARK: - Error state

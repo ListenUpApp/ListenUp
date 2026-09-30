@@ -26,10 +26,11 @@ struct SectionIndexBar: View {
                 // Large letter popup when dragging
                 if isDragging, let letter = selectedLetter {
                     Text(letter)
-                        .font(.system(size: 44, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
+                        // The popup letter fills its fixed 56pt square.
+                        .font(.system(size: 44, weight: .bold, design: .rounded)) // decorative fixed size
+                        .foregroundStyle(Color.luOnTint)
                         .frame(width: 56, height: 56)
-                        .background(Color.listenUpOrange, in: RoundedRectangle(cornerRadius: 10))
+                        .background(Color.listenUpOrange, in: RoundedRectangle(cornerRadius: Radius.m))
                         .transition(.scale.combined(with: .opacity))
                         .accessibilityLabel(String(format: String(localized: "library.index_jump"), letter))
                 }
@@ -38,16 +39,17 @@ struct SectionIndexBar: View {
                 VStack(spacing: 0) {
                     ForEach(letters, id: \.self) { letter in
                         Text(letter)
-                            .font(.system(size: 10, weight: .semibold))
+                            // Each letter fits a row height divided from the bar's own height.
+                            .font(.system(size: 10, weight: .semibold)) // decorative fixed size
                             .foregroundStyle(letter == selectedLetter ? Color.listenUpOrange : .primary)
                             .frame(height: letterHeight)
                             .frame(maxWidth: .infinity)
                     }
                 }
-                .padding(.horizontal, 4)
-                .padding(.vertical, 8)
+                .padding(.horizontal, Spacing.xxs)
+                .padding(.vertical, Spacing.xs)
                 .frame(width: 20)
-                .glassControl(in: RoundedRectangle(cornerRadius: 10))
+                .glassControl(in: RoundedRectangle(cornerRadius: Radius.m))
                 .frame(width: 44, alignment: .trailing)
                 .contentShape(Rectangle())
                 .gesture(
@@ -78,7 +80,7 @@ struct SectionIndexBar: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
-            .padding(.trailing, 4)
+            .padding(.trailing, Spacing.xxs)
         }
         .opacity(isVisible || isDragging ? 1 : 0)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isVisible)
@@ -136,7 +138,7 @@ struct SectionIndexBar: View {
                     isVisible: isVisible
                 )
                 .frame(height: 400)
-                .padding(.trailing, 8)
+                .padding(.trailing, Spacing.xs)
 
                 VStack {
                     Toggle("Visible", isOn: $isVisible)

@@ -46,7 +46,7 @@ struct ForgotPasswordView: View {
         switch observer.phase {
         case .enterEmail:
             VStack(alignment: .leading, spacing: 20) {
-                AuthLargeHeader(
+                AuthIntro(
                     title: String(localized: "auth.forgot_password_title"),
                     subtitle: String(localized: "auth.forgot_password_explainer")
                 )
@@ -66,7 +66,7 @@ struct ForgotPasswordView: View {
             }
         case .submitting:
             VStack(spacing: 20) {
-                AuthLargeHeader(title: String(localized: "auth.forgot_password_title"))
+                AuthIntro(title: String(localized: "auth.forgot_password_title"))
                 ProgressView()
                     .controlSize(.large)
                     .frame(maxWidth: .infinity)
@@ -80,13 +80,13 @@ struct ForgotPasswordView: View {
         case .complete:
             terminalContent(subtitle: String(localized: "auth.forgot_password_complete"), success: true)
         case .error(let message):
-            AuthLargeHeader(
+            AuthIntro(
                 title: String(localized: "common.something_went_wrong"),
                 subtitle: message
             ) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 44))
-                    .foregroundStyle(.orange)
+                    .scaledFont(size: 44, relativeTo: .largeTitle)
+                    .foregroundStyle(Color.luWarning)
                     .accessibilityHidden(true)
             }
         }
@@ -95,7 +95,7 @@ struct ForgotPasswordView: View {
     private func enterCodeContent(attemptsRemaining: Int?, error: String?) -> some View {
         let displayedError = codeErrorDismissed ? nil : error
         return VStack(alignment: .leading, spacing: 20) {
-            AuthLargeHeader(
+            AuthIntro(
                 title: String(localized: "auth.forgot_password_title"),
                 subtitle: String(localized: "auth.forgot_password_enter_code")
             )
@@ -123,7 +123,7 @@ struct ForgotPasswordView: View {
     }
 
     private func terminalContent(subtitle: String, success: Bool) -> some View {
-        AuthLargeHeader(
+        AuthIntro(
             title: String(localized: "auth.forgot_password_title"),
             subtitle: subtitle
         ) {
@@ -136,7 +136,7 @@ struct ForgotPasswordView: View {
     /// stranger whether an account exists.
     private func awaitingContent(ticketId: String) -> some View {
         VStack(alignment: .leading, spacing: 18) {
-            AuthLargeHeader(
+            AuthIntro(
                 title: String(localized: "auth.forgot_password_title"),
                 subtitle: String(localized: "auth.forgot_password_awaiting")
             ) {
@@ -148,8 +148,8 @@ struct ForgotPasswordView: View {
                 .font(.caption)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 13)
-                .padding(.vertical, 6)
+                .padding(.horizontal, Spacing.s)
+                .padding(.vertical, Spacing.xs)
                 .background(.background.secondary, in: .capsule)
                 .frame(maxWidth: .infinity)
 
@@ -172,7 +172,7 @@ struct ForgotPasswordView: View {
     private var autoCheckRow: some View {
         HStack(spacing: 8) {
             Image(systemName: "arrow.clockwise")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(.secondary)
             Text(String(localized: "auth.checking_automatically"))
                 .font(.footnote)
@@ -187,37 +187,55 @@ struct ForgotPasswordView: View {
     private var phaseFooter: some View {
         switch observer.phase {
         case .enterEmail:
-            AuthPrimaryButton(title: String(localized: "auth.forgot_password_send_request")) {
+            Button {
                 observer.requestReset(email: email.trimmingCharacters(in: .whitespaces))
+            } label: {
+                ActionLabel(title: String(localized: "auth.forgot_password_send_request"))
             }
+            .prominentAction()
             .disabled(email.trimmingCharacters(in: .whitespaces).isEmpty)
         case .submitting:
             EmptyView()
         case .awaitingApproval:
-            AuthPrimaryButton(title: String(localized: "auth.check_status")) {
+            Button {
                 observer.checkStatus()
+            } label: {
+                ActionLabel(title: String(localized: "auth.check_status"))
             }
+            .prominentAction()
         case .enterCode:
-            AuthPrimaryButton(title: String(localized: "common.continue")) {
+            Button {
                 observer.completeReset(code: code, newPassword: newPassword)
+            } label: {
+                ActionLabel(title: String(localized: "common.continue"))
             }
+            .prominentAction()
             .disabled(code.isEmpty || newPassword.isEmpty)
         case .denied:
             VStack(spacing: 12) {
-                AuthPrimaryButton(title: String(localized: "auth.forgot_password_retry")) {
+                Button {
                     observer.retryRequest()
+                } label: {
+                    ActionLabel(title: String(localized: "auth.forgot_password_retry"))
                 }
+                .prominentAction()
                 Button(String(localized: "setup.back_to_sign_in")) { navigateBack() }
                     .font(.subheadline)
             }
         case .complete:
-            AuthPrimaryButton(title: String(localized: "setup.back_to_sign_in")) {
+            Button {
                 navigateBack()
+            } label: {
+                ActionLabel(title: String(localized: "setup.back_to_sign_in"))
             }
+            .prominentAction()
         case .error:
-            AuthPrimaryButton(title: String(localized: "common.try_again")) {
+            Button {
                 navigateBack()
+            } label: {
+                ActionLabel(title: String(localized: "common.try_again"))
             }
+            .prominentAction()
         }
     }
 

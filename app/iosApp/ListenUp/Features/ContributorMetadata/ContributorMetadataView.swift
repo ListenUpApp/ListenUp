@@ -38,7 +38,7 @@ struct ContributorMetadataView: View {
             .navigationBarTitleDisplayMode(.inline)
             .background(Color.luSurface)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.cancel")) { dismiss() }
                 }
             }
@@ -64,61 +64,75 @@ private struct ContributorMetadataSearchView: View {
 
     @State private var queryDraft: String = ""
 
+    /// A grouped `List`: the query and region on the plain background, then the people as rows that
+    /// highlight on tap (HIG, Lists and tables).
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                if !observer.contributorName.isEmpty {
-                    Text(String(format: String(localized: "metadata.searching_for"), observer.contributorName))
-                        .font(.callout)
-                        .foregroundStyle(Color.luLabel2)
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 18) {
+                    if !observer.contributorName.isEmpty {
+                        Text(String(format: String(localized: "metadata.searching_for"), observer.contributorName))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    MetadataSearchField(text: $queryDraft) { submit() }
+
+                    VStack(alignment: .leading, spacing: 9) {
+                        Text(String(localized: "contributor.audible_region"))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        RegionPicker(
+                            options: MetadataRegionOption.all,
+                            selection: observer.region,
+                            label: \.displayName
+                        ) { observer.changeRegion($0) }
+                    }
                 }
-
-                MetadataSearchField(text: $queryDraft) { submit() }
-
-                VStack(alignment: .leading, spacing: 9) {
-                    Text(String(localized: "contributor.audible_region"))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.luLabel2)
-                    RegionPicker(
-                        options: MetadataRegionOption.all,
-                        selection: observer.region,
-                        label: \.displayName
-                    ) { observer.changeRegion($0) }
-                }
-
-                resultsSection
+                .listRowBackground(Color.clear)
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 16)
-            .readableWidth(680)
+
+            resultsSection
         }
-        .background(Color.luSurface)
+        .listStyle(.insetGrouped)
+        .readableListWidth(680)
         .onAppear { if queryDraft.isEmpty { queryDraft = observer.query } }
     }
 
     @ViewBuilder
     private var resultsSection: some View {
         if observer.isSearching {
-            ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
+            Section {
+                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
+                    .listRowBackground(Color.clear)
+            }
         } else if let error = observer.searchError {
-            ContentUnavailableView {
-                Label(String(localized: "common.error"), systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(error)
+            Section {
+                ContentUnavailableView {
+                    Label(String(localized: "common.error"), systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(error)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, Spacing.xl)
+                .listRowBackground(Color.clear)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 24)
         } else if observer.results.isEmpty {
-            ContentUnavailableView {
-                Label(String(localized: "contributor.find_on_audible"), systemImage: "magnifyingglass")
-            } description: {
-                Text(String(localized: "contributor.author_or_narrator_name"))
+            Section {
+                ContentUnavailableView {
+                    Label(String(localized: "contributor.find_on_audible"), systemImage: "magnifyingglass")
+                } description: {
+                    Text(String(localized: "contributor.author_or_narrator_name"))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, Spacing.xl)
+                .listRowBackground(Color.clear)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 24)
         } else {
-            FieldGroup(observer.results, separatorInset: 72) { hit in
-                ContributorHitRowView(hit: hit) { onSelect(hit.asin) }
+            Section {
+                ForEach(observer.results) { hit in
+                    ContributorHitRowView(hit: hit) { onSelect(hit.asin) }
+                }
             }
         }
     }
@@ -141,7 +155,7 @@ private struct ContributorHitRowView: View {
                 ZStack {
                     Circle().fill(Color.luFill)
                     Image(systemName: "person.fill")
-                        .font(.system(size: 22))
+                        .font(.system(size: 22)) // decorative fixed size
                         .foregroundStyle(Color.luLabel3)
                 }
                 .frame(width: 48, height: 48)
@@ -156,11 +170,9 @@ private struct ContributorHitRowView: View {
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Color.luLabel3)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
             .contentShape(Rectangle())
         }
-        .buttonStyle(PressScaleButtonStyle())
+        .foregroundStyle(Color.primary)
     }
 }
 
@@ -234,11 +246,11 @@ private struct ContributorMetadataPreviewView: View {
 
                 metadataDates(profile: profile)
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 16)
+            .padding(.horizontal, Spacing.l)
+            .padding(.vertical, Spacing.m)
             .readableWidth(680)
         }
-        .safeAreaInset(edge: .bottom) { applyTray }
+        .safeAreaBar(edge: .bottom) { applyTray }
     }
 
     /// Side-by-side current vs. incoming photo. Informational — no toggle; the server keeps the
@@ -260,7 +272,7 @@ private struct ContributorMetadataPreviewView: View {
                             fontSize: 22
                         )
                     )
-                    Image(systemName: "arrow.right").foregroundStyle(Color.luLabel3)
+                    Image(systemName: "arrow.right").foregroundStyle(.tertiary)
                     labelledImage(
                         title: String(localized: "contributor.audible"),
                         content: MetadataRemoteCover(url: profile.imageURL)
@@ -269,9 +281,9 @@ private struct ContributorMetadataPreviewView: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(14)
+        .padding(Spacing.m)
         .background(Color.luSurface2)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
     }
 
     private func labelledImage(title: String, content: some View) -> some View {
@@ -279,7 +291,7 @@ private struct ContributorMetadataPreviewView: View {
             content
                 .frame(width: 72, height: 72)
                 .clipShape(Circle())
-            Text(title).font(.caption2).foregroundStyle(Color.luLabel3)
+            Text(title).font(.caption2).foregroundStyle(.tertiary)
         }
     }
 
@@ -290,16 +302,16 @@ private struct ContributorMetadataPreviewView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(String(localized: "contributor.dates"))
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                 if let birth = profile.birthDate, !birth.isEmpty {
                     Text(String(format: String(localized: "contributor.born_year"), String(birth.prefix(4))))
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel3)
+                        .foregroundStyle(.tertiary)
                 }
                 if let death = profile.deathDate, !death.isEmpty {
                     Text("\(String(localized: "contributor.death_date")): \(String(death.prefix(4)))")
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel3)
+                        .foregroundStyle(.tertiary)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -315,20 +327,22 @@ private struct ContributorMetadataPreviewView: View {
                     .font(.footnote)
                     .foregroundStyle(.red)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, Spacing.m)
             }
-            PrimaryButton(
-                title: String(localized: "common.save_changes"),
-                icon: "checkmark",
-                isLoading: observer.isApplying,
-                action: onApply
-            )
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
+            Button(action: onApply) {
+                ActionLabel(
+                    title: String(localized: "common.save_changes"),
+                    systemImage: "checkmark",
+                    isBusy: observer.isApplying
+                )
+            }
+            .prominentAction()
+            .disabled(observer.isApplying)
+            .padding(.horizontal, Spacing.m)
+            .padding(.bottom, Spacing.m)
             .disabled(!observer.canApply)
             .opacity(observer.canApply ? 1 : 0.5)
         }
-        .background(.bar)
     }
 }
 
@@ -353,15 +367,15 @@ private struct ContributorComparisonRow: View {
                 if isUnchanged {
                     Text(String(localized: "contributor.no_change"))
                         .font(.caption2)
-                        .foregroundStyle(Color.luLabel3)
+                        .foregroundStyle(.tertiary)
                 }
             }
             valueLine(title: String(localized: "contributor.current"), value: currentValue, accent: false)
             valueLine(title: String(localized: "contributor.audible"), value: newValue, accent: true)
         }
-        .padding(14)
+        .padding(Spacing.m)
         .background(Color.luSurface2)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
     }
 
     private func valueLine(title: String, value: String?, accent: Bool) -> some View {

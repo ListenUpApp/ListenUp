@@ -1811,6 +1811,16 @@
         }
       }
     },
+    "admin.remove_access": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove access"
+          }
+        }
+      }
+    },
     "admin.remove_book": {
       "localizations": {
         "en": {
@@ -4031,6 +4041,26 @@
         }
       }
     },
+    "book.detail_download_failed_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download failed"
+          }
+        }
+      }
+    },
+    "book.detail_download_partial_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partly downloaded"
+          }
+        }
+      }
+    },
     "book.detail_downloaded": {
       "localizations": {
         "en": {
@@ -5447,6 +5477,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "You have unsaved changes. Are you sure you want to discard them?"
+          }
+        }
+      }
+    },
+    "book.reader_scrubber_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Page"
           }
         }
       }
@@ -7491,6 +7531,16 @@
         }
       }
     },
+    "common.error_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error: %1$@"
+          }
+        }
+      }
+    },
     "common.expand": {
       "localizations": {
         "en": {
@@ -7811,6 +7861,16 @@
         }
       }
     },
+    "common.play": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play"
+          }
+        }
+      }
+    },
     "common.playback": {
       "localizations": {
         "en": {
@@ -7837,6 +7897,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Profile"
+          }
+        }
+      }
+    },
+    "common.progress_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Progress"
           }
         }
       }
@@ -9771,6 +9841,36 @@
         }
       }
     },
+    "edit.discard_changes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard Changes"
+          }
+        }
+      }
+    },
+    "edit.discard_changes_prompt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard Changes?"
+          }
+        }
+      }
+    },
+    "edit.keep_editing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep Editing"
+          }
+        }
+      }
+    },
     "edit.not_set": {
       "localizations": {
         "en": {
@@ -10587,6 +10687,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d day streak"
+          }
+        }
+      }
+    },
+    "home.greeting_with_name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@"
           }
         }
       }
@@ -12151,12 +12261,42 @@
         }
       }
     },
+    "library.sort": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sort"
+          }
+        }
+      }
+    },
     "library.sort_ascending": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Ascending"
+          }
+        }
+      }
+    },
+    "library.sort_by": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sort By"
+          }
+        }
+      }
+    },
+    "library.sort_by_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sort by %1$@"
           }
         }
       }
@@ -12177,6 +12317,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sort options"
+          }
+        }
+      }
+    },
+    "library.sort_order": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Order"
           }
         }
       }
@@ -14101,6 +14251,16 @@
         }
       }
     },
+    "player.chapter_number": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapter %1$d"
+          }
+        }
+      }
+    },
     "player.chapter_of": {
       "localizations": {
         "en": {
@@ -14351,6 +14511,16 @@
         }
       }
     },
+    "player.opens_player_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens the player."
+          }
+        }
+      }
+    },
     "player.pause": {
       "localizations": {
         "en": {
@@ -14431,6 +14601,26 @@
         }
       }
     },
+    "player.scrubber_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapter position"
+          }
+        }
+      }
+    },
+    "player.scrubber_value_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ of %2$@"
+          }
+        }
+      }
+    },
     "player.skip_backward": {
       "localizations": {
         "en": {
@@ -14457,6 +14647,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sleep"
+          }
+        }
+      }
+    },
+    "player.sleep_off": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off"
           }
         }
       }
@@ -15687,6 +15887,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Series name"
+          }
+        }
+      }
+    },
+    "series.sort_ascending_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sort ascending"
+          }
+        }
+      }
+    },
+    "series.sort_descending_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sort descending"
           }
         }
       }

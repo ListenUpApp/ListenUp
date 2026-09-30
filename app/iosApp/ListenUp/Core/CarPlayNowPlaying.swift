@@ -22,10 +22,32 @@ enum CarPlayChapterRows {
         titles.enumerated().map { index, title in
             CarPlayChapterRow(
                 index: index,
-                title: title ?? "Chapter \(index + 1)",
+                title: title ?? String(format: String(localized: "player.chapter_number"), index + 1),
                 isCurrent: index == currentIndex
             )
         }
     }
 }
 
+/// One of the car's custom now-playing buttons: its glyph, the name VoiceOver speaks for it, and
+/// how many chapters it moves. The template's image buttons have no title, so the label rides on
+/// the image (HIG, CarPlay; VoiceOver — every control needs a label).
+struct CarPlayChapterButton: Equatable {
+    let symbolName: String
+    let accessibilityLabel: String
+    let chapterOffset: Int
+
+    static let previous = CarPlayChapterButton(
+        symbolName: "backward.end",
+        accessibilityLabel: String(localized: "player.previous_chapter"),
+        chapterOffset: -1
+    )
+    static let next = CarPlayChapterButton(
+        symbolName: "forward.end",
+        accessibilityLabel: String(localized: "player.next_chapter"),
+        chapterOffset: 1
+    )
+
+    /// In the order the template shows them.
+    static let all: [CarPlayChapterButton] = [.previous, .next]
+}

@@ -1,5 +1,50 @@
 import SwiftUI
 
+/// What the download control says and does in one state — pure, so it is testable without a view.
+///
+/// Every state has a spoken label that names the action a tap performs, and a value that says where
+/// the download stands (HIG, VoiceOver; Accessibility — state never by colour or glyph alone).
+struct DownloadControl: Equatable {
+    /// What a single tap does. A finished download has no one-tap action: removing it is
+    /// destructive, so it lives in a menu behind a confirmation (HIG, Menus; Alerts).
+    enum TapAction: Equatable {
+        case download
+        case cancel
+        case openMenu
+    }
+
+    let state: DownloadUIState
+    let progress: Float
+
+    var tapAction: TapAction {
+        switch state {
+        case .notDownloaded, .partial, .failed: .download
+        case .queued, .downloading, .waitingForWifi: .cancel
+        case .completed: .openMenu
+        }
+    }
+
+    var accessibilityLabel: String {
+        switch state {
+        case .notDownloaded: String(localized: "book.detail_download")
+        case .queued, .downloading, .waitingForWifi: String(localized: "book.detail_cancel_download")
+        case .completed: String(localized: "book.detail_downloaded")
+        case .partial, .failed: String(localized: "book.detail_retry_download")
+        }
+    }
+
+    var accessibilityValue: String? {
+        switch state {
+        case .notDownloaded, .completed: nil
+        case .queued: String(localized: "book.detail_queued")
+        case .waitingForWifi: String(localized: "book.detail_waiting_for_wifi")
+        case .downloading: Double(min(max(progress, 0), 1)).formatted(.percent.precision(.fractionLength(0)))
+        case .failed: String(localized: "book.detail_download_failed_a11y")
+        case .partial: String(localized: "book.detail_download_partial_a11y")
+        }
+    }
+}
+
 /// Download button with visual state for book detail.
 ///
 /// States:
@@ -7,11 +52,12 @@ import SwiftUI
 /// - Queued: Spinner
 /// - Waiting for Wi-Fi: Wi-Fi-off icon — the download is parked because "Download on Wi-Fi Only"
 ///   is on and the network is metered. A spinner here would claim progress that is not happening.
-/// - Downloading: Circular progress with percentage
-/// - Completed: Checkmark, tap to delete
+/// - Downloading: Circular progress; tap cancels
+/// - Completed: Checkmark; tap opens a menu whose Delete Download confirms first
 /// - Failed/Partial: Retry icon
 ///
-/// Liquid Glass: Uses the system `glassEffect` chrome material via `.glassControl(in:)`.
+/// A standard `.bordered` circle, not Liquid Glass: this sits in the content layer, and glass is
+/// for the controls and navigation that float above content (HIG, Materials).
 struct DownloadButton: View {
     let state: DownloadUIState
     let progress: Float
@@ -19,207 +65,100 @@ struct DownloadButton: View {
     let onCancel: () -> Void
     let onDelete: () -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var confirmingDelete = false
 
-    /// Tracks whether we've shown the checkmark long enough to transition to trash
-    @State private var showTrash = false
-    /// Tracks previous state to detect completion transition
-    @State private var previousState: String = ""
+    private var control: DownloadControl { DownloadControl(state: state, progress: progress) }
 
     var body: some View {
-        Button(action: action) {
-            iconView
-                .frame(width: 44, height: 44)
-                .glassControl(in: .circle)
-        }
-        .buttonStyle(.plain)
-        .onChange(of: state) { oldValue, newValue in
-            if newValue == .completed && oldValue != .completed {
-                showTrash = false
-                withAnimation(reduceMotion ? nil : .easeInOut.delay(2.0)) {
-                    showTrash = true
+        Group {
+            switch control.tapAction {
+            case .download:
+                Button(action: onDownload) { iconView }
+            case .cancel:
+                Button(action: onCancel) { iconView }
+            case .openMenu:
+                Menu {
+                    Button(role: .destructive) {
+                        confirmingDelete = true
+                    } label: {
+                        Label(String(localized: "book.delete_download"), systemImage: "trash")
+                    }
+                } label: {
+                    iconView
                 }
-            } else if newValue != .completed {
-                showTrash = false
+                .menuStyle(.button)
             }
         }
-        .onAppear {
-            // If already completed on appear, show trash immediately
-            if state == .completed {
-                showTrash = true
-            }
-        }
-    }
-
-    private var action: () -> Void {
-        switch state {
-        case .queued, .downloading, .waitingForWifi:
-            return onCancel
-        case .completed:
-            return onDelete
-        case .notDownloaded, .partial, .failed:
-            return onDownload
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.circle)
+        .accessibilityLabel(control.accessibilityLabel)
+        .accessibilityValue(control.accessibilityValue ?? "")
+        .confirmationDialog(
+            String(localized: "book.delete_download"),
+            isPresented: $confirmingDelete,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "book.delete_download"), role: .destructive, action: onDelete)
+            Button(String(localized: "common.cancel"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "book.detail_you_can_redownload_anytime_by"))
         }
     }
 
     @ViewBuilder
     private var iconView: some View {
-        switch state {
-        case .notDownloaded:
-            Image(systemName: "arrow.down.circle")
-                .font(.title3)
-                .foregroundStyle(Color.listenUpOrange)
+        Group {
+            switch state {
+            case .notDownloaded:
+                Image(systemName: "arrow.down.circle")
+                    .foregroundStyle(Color.listenUpOrange)
 
-        case .queued:
-            ProgressView()
-                .scaleEffect(0.8)
+            case .queued:
+                ProgressView()
+                    .scaleEffect(0.8)
 
-        case .waitingForWifi:
-            Image(systemName: "wifi.slash")
-                .font(.title3)
-                .foregroundStyle(.secondary)
-                .accessibilityLabel(String(localized: "book.detail_waiting_for_wifi"))
-
-        case .downloading:
-            ZStack {
-                Circle()
-                    .stroke(Color.listenUpOrange.opacity(0.3), lineWidth: 3)
-                    .frame(width: 28, height: 28)
-                Circle()
-                    .trim(from: 0, to: CGFloat(progress))
-                    .stroke(Color.listenUpOrange, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                    .frame(width: 28, height: 28)
-                    .rotationEffect(.degrees(-90))
-                Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
+            case .waitingForWifi:
+                Image(systemName: "wifi.slash")
                     .foregroundStyle(.secondary)
-            }
 
-        case .completed:
-            Group {
-                if showTrash {
-                    Image(systemName: "trash")
-                        .font(.title3)
+            case .downloading:
+                ZStack {
+                    Circle()
+                        .stroke(Color.listenUpOrange.opacity(0.3), lineWidth: 3)
+                        .frame(width: 28, height: 28)
+                    Circle()
+                        .trim(from: 0, to: CGFloat(progress))
+                        .stroke(Color.listenUpOrange, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                        .frame(width: 28, height: 28)
+                        .rotationEffect(.degrees(-90))
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .bold)) // decorative fixed size
                         .foregroundStyle(.secondary)
-                        .transition(.scale.combined(with: .opacity))
-                } else {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title3)
-                        .foregroundStyle(.green)
-                        .transition(.scale.combined(with: .opacity))
                 }
+
+            case .completed:
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+
+            case .partial, .failed:
+                Image(systemName: "arrow.clockwise.circle")
+                    .foregroundStyle(.red)
             }
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: showTrash)
-
-        case .partial, .failed:
-            Image(systemName: "arrow.clockwise.circle")
-                .font(.title3)
-                .foregroundStyle(.red)
-
         }
-    }
-}
-
-/// Expanded download button with label for wider layouts.
-struct DownloadButtonExpanded: View {
-    let state: DownloadUIState
-    let progress: Float
-    let onDownload: () -> Void
-    let onCancel: () -> Void
-    let onDelete: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                iconView
-                labelText
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .glassControl(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var action: () -> Void {
-        switch state {
-        case .queued, .downloading, .waitingForWifi: return onCancel
-        case .completed: return onDelete
-        case .notDownloaded, .partial, .failed: return onDownload
-        }
-    }
-
-    @ViewBuilder
-    private var iconView: some View {
-        switch state {
-        case .notDownloaded:
-            Image(systemName: "arrow.down.circle")
-                .foregroundStyle(Color.listenUpOrange)
-        case .queued:
-            ProgressView()
-                .scaleEffect(0.7)
-        case .waitingForWifi:
-            Image(systemName: "wifi.slash")
-                .foregroundStyle(.secondary)
-        case .downloading:
-            ZStack {
-                Circle()
-                    .trim(from: 0, to: CGFloat(progress))
-                    .stroke(Color.listenUpOrange, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                    .frame(width: 18, height: 18)
-                    .rotationEffect(.degrees(-90))
-            }
-        case .completed:
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-        case .partial, .failed:
-            Image(systemName: "arrow.clockwise.circle")
-                .foregroundStyle(.red)
-        }
-    }
-
-    @ViewBuilder
-    private var labelText: some View {
-        switch state {
-        case .notDownloaded:
-            Text(String(localized: "book.detail_download"))
-                .foregroundStyle(.primary)
-        case .queued:
-            Text(String(localized: "book.detail_queued"))
-                .foregroundStyle(.secondary)
-        case .waitingForWifi:
-            Text(String(localized: "book.detail_waiting_for_wifi"))
-                .foregroundStyle(.secondary)
-        case .downloading:
-            Text("\(Int(progress * 100))%")
-                .foregroundStyle(.secondary)
-                .monospacedDigit()
-        case .completed:
-            Text(String(localized: "book.detail_downloaded"))
-                .foregroundStyle(.primary)
-        case .partial, .failed:
-            Text(String(localized: "common.retry"))
-                .foregroundStyle(.red)
-        }
+        .font(.title3)
+        // The bordered circle adds its own padding around this, landing the whole control at or
+        // above the 44pt minimum target (HIG, Accessibility).
+        .frame(width: 34, height: 34)
     }
 }
 
 #Preview("Download States") {
-    VStack(spacing: 20) {
-        HStack(spacing: 16) {
-            DownloadButton(state: .notDownloaded, progress: 0, onDownload: {}, onCancel: {}, onDelete: {})
-            DownloadButton(state: .queued, progress: 0, onDownload: {}, onCancel: {}, onDelete: {})
-            DownloadButton(state: .downloading, progress: 0.65, onDownload: {}, onCancel: {}, onDelete: {})
-            DownloadButton(state: .completed, progress: 1, onDownload: {}, onCancel: {}, onDelete: {})
-            DownloadButton(state: .failed, progress: 0.3, onDownload: {}, onCancel: {}, onDelete: {})
-        }
-
-        DownloadButtonExpanded(state: .notDownloaded, progress: 0, onDownload: {}, onCancel: {}, onDelete: {})
-            .padding(.horizontal)
-        DownloadButtonExpanded(state: .downloading, progress: 0.65, onDownload: {}, onCancel: {}, onDelete: {})
-            .padding(.horizontal)
-        DownloadButtonExpanded(state: .completed, progress: 1, onDownload: {}, onCancel: {}, onDelete: {})
-            .padding(.horizontal)
+    HStack(spacing: 16) {
+        DownloadButton(state: .notDownloaded, progress: 0, onDownload: {}, onCancel: {}, onDelete: {})
+        DownloadButton(state: .queued, progress: 0, onDownload: {}, onCancel: {}, onDelete: {})
+        DownloadButton(state: .downloading, progress: 0.65, onDownload: {}, onCancel: {}, onDelete: {})
+        DownloadButton(state: .completed, progress: 1, onDownload: {}, onCancel: {}, onDelete: {})
+        DownloadButton(state: .failed, progress: 0.3, onDownload: {}, onCancel: {}, onDelete: {})
     }
     .padding()
 }

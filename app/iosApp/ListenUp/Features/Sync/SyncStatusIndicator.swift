@@ -47,8 +47,8 @@ struct SyncStatusIndicator: View {
                     if let count = presentation.badgeCount {
                         Text("\(count)")
                             .font(.system(size: 10, weight: .bold)) // decorative fixed size
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 4)
+                            .foregroundStyle(Color.luOnTint)
+                            .padding(.horizontal, Spacing.xxs)
                             .padding(.vertical, 1)
                             .background(Color.listenUpOrange, in: Capsule())
                             .offset(x: 8, y: -8)
@@ -92,7 +92,7 @@ private struct SyncDetailsSheet: View {
                             }
                         }
                         .font(.subheadline.weight(.medium))
-                        .padding(.top, 4)
+                        .padding(.top, Spacing.xxs)
                     }
                 }
             }
@@ -118,7 +118,7 @@ private struct SyncDetailsSheet: View {
                 if let subtitle = statusSubtitle {
                     Text(subtitle)
                         .font(.caption)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
             }
         }

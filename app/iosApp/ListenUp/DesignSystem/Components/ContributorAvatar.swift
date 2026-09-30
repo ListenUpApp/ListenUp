@@ -78,8 +78,9 @@ struct ContributorAvatar: View {
                     .clipShape(Circle())
             } else {
                 Text(initials)
-                    .font(.system(size: initialsFontSize, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
+                    // Initials are sized to the fixed avatar circle, not to the text setting.
+                    .font(.system(size: initialsFontSize, weight: .semibold, design: .rounded)) // decorative fixed size
+                    .foregroundStyle(AvatarPalette.initialsInk)
             }
 
             // Streamed contributor photo, layered over the initials placeholder. Nuke
@@ -99,12 +100,18 @@ struct ContributorAvatar: View {
         }
     }
 
-    /// `nonisolated async` ⇒ the disk read + image decode run on the cooperative pool, never
-    /// the main actor. Returns `nil` for a missing path or unreadable file.
+    /// `@concurrent` ⇒ the disk read + image decode run on the cooperative pool, never the main
+    /// actor, whatever the target's default for `nonisolated async` becomes (with approachable
+    /// concurrency a plain `nonisolated async` runs on the caller's actor). Decodes a thumbnail, not
+    /// the full-resolution photo. Returns `nil` for a missing path or unreadable file.
+    @concurrent
     private nonisolated static func loadImage(path: String?) async -> UIImage? {
         guard let path else { return nil }
-        return UIImage(contentsOfFile: path)
+        return ImageDownsampler.downsampledImage(atPath: path, maxPixelSize: maxAvatarPixels)
     }
+
+    /// The largest avatar drawn (the contributor hero, about 120pt) at 3x, rounded up.
+    private nonisolated static let maxAvatarPixels = 400
 
     // MARK: - Private
 
@@ -120,10 +127,10 @@ struct ContributorAvatar: View {
         return "?"
     }
 
+    /// The contributor's `AvatarPalette` slot — stable across launches (the old `hashValue` hue
+    /// changed every launch) and solved so the white initials read at 4.5:1.
     private var avatarColor: Color {
-        let hash = id.hashValue
-        let hue = Double(abs(hash) % 360) / 360.0
-        return Color(hue: hue, saturation: 0.5, brightness: 0.7)
+        AvatarPalette.fill(forKey: id)
     }
 }
 

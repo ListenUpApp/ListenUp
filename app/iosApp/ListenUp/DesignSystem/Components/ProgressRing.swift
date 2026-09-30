@@ -21,7 +21,7 @@ struct ProgressRing: View {
                 .rotationEffect(.degrees(-90))
             if showGlyph {
                 Image(systemName: "play.fill")
-                    .font(.system(size: size * 0.32))
+                    .font(.system(size: size * 0.32)) // decorative fixed size
                     .foregroundStyle(Color.luTint)
             }
         }
@@ -29,7 +29,7 @@ struct ProgressRing: View {
         // Implicit animations honor Reduce Motion automatically; the arc eases on change.
         .animation(.easeOut(duration: 0.3), value: clamped)
         .accessibilityElement()
-        .accessibilityLabel(Text("Progress"))
+        .accessibilityLabel(String(localized: "common.progress_a11y"))
         .accessibilityValue(Text(clamped, format: .percent.precision(.fractionLength(0))))
     }
 }

@@ -24,6 +24,7 @@ struct ClaimInviteView: View {
     @State private var lastName = ""
     @State private var password = ""
     @State private var didStart = false
+    @FocusState private var focusedField: ClaimInviteFocusField?
 
     // MARK: - Initialization
 
@@ -46,19 +47,15 @@ struct ClaimInviteView: View {
     // MARK: - Body
 
     var body: some View {
-        Group {
-            switch wrapper.phase {
-            case .codeEntry:
-                codeEntryScreen
-            case .confirmServer(let host, let signedInElsewhere):
-                confirmServerScreen(host: host, signedInElsewhere: signedInElsewhere)
-            case .lookingUp, .submitting, .claimed:
-                loadingScreen
-            case .preview:
-                previewScreen
-            case .error(let message):
-                errorScreen(message: message)
-            }
+        // A sheet's own stack, so each phase's `AuthIntro` titles the bar and Cancel has a place
+        // (HIG, Sheets: "the Cancel button belongs on the leading edge of the top toolbar").
+        NavigationStack {
+            phaseScreen
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(String(localized: "common.cancel"), action: onDismiss)
+                    }
+                }
         }
         .onAppear {
             if let seed = deepLinkSeed, !didStart {
@@ -76,11 +73,27 @@ struct ClaimInviteView: View {
         }
     }
 
+    @ViewBuilder
+    private var phaseScreen: some View {
+        switch wrapper.phase {
+        case .codeEntry:
+            codeEntryScreen
+        case .confirmServer(let host, let signedInElsewhere):
+            confirmServerScreen(host: host, signedInElsewhere: signedInElsewhere)
+        case .lookingUp, .submitting, .claimed:
+            loadingScreen
+        case .preview:
+            previewScreen
+        case .error(let message):
+            errorScreen(message: message)
+        }
+    }
+
     // MARK: - Screens
 
     private var codeEntryScreen: some View {
         AuthScaffold {
-            AuthLargeHeader(
+            AuthIntro(
                 title: String(localized: "invite.title"),
                 subtitle: String(localized: "invite.subtitle")
             )
@@ -89,17 +102,19 @@ struct ClaimInviteView: View {
                     placeholder: String(localized: "invite.code_placeholder"),
                     text: $code,
                     entry: .identifier,
-                    icon: "ticket"
+                    icon: "ticket",
+                    submitLabel: .continue,
+                    onSubmit: { if canLookUp { wrapper.lookUp(code: code) } }
                 )
             }
         } footer: {
-            AuthPrimaryButton(
-                title: String(localized: "common.continue"),
-                isLoading: false
-            ) {
+            Button {
                 wrapper.lookUp(code: code)
+            } label: {
+                ActionLabel(title: String(localized: "common.continue"))
             }
-            .disabled(code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .prominentAction()
+            .disabled(!canLookUp)
         }
     }
 
@@ -108,7 +123,7 @@ struct ClaimInviteView: View {
     /// visibility is the whole point of the step. Declining falls back to manual code entry.
     private func confirmServerScreen(host: String, signedInElsewhere: Bool) -> some View {
         AuthScaffold {
-            AuthLargeHeader(
+            AuthIntro(
                 title: String(localized: "invite.confirm_server_title"),
                 subtitle: String(format: String(localized: "invite.confirm_server_body"), host)
             )
@@ -117,19 +132,19 @@ struct ClaimInviteView: View {
                     .font(.headline)
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, Spacing.m)
+                    .padding(.vertical, Spacing.s)
             }
             if signedInElsewhere {
                 ErrorBanner(message: String(localized: "invite.confirm_server_signed_out_warning"))
             }
         } footer: {
-            AuthPrimaryButton(
-                title: String(localized: "invite.confirm_server_continue"),
-                isLoading: false
-            ) {
+            Button {
                 wrapper.confirmServer()
+            } label: {
+                ActionLabel(title: String(localized: "invite.confirm_server_continue"))
             }
+            .prominentAction()
             Button(String(localized: "invite.confirm_server_cancel")) { wrapper.cancelServer() }
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Color.listenUpOrange)
@@ -159,53 +174,76 @@ struct ClaimInviteView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, Spacing.m)
+                    .padding(.vertical, Spacing.s)
                 }
-                AuthLargeHeader(title: String(localized: "invite.set_password_title"))
+                AuthIntro(title: String(localized: "invite.set_password_title"))
                 AuthFieldGroup {
                     AppTextField(
                         placeholder: String(localized: "auth.first_name"),
                         text: $firstName,
                         entry: .givenName,
                         icon: "person",
-                        isLast: false
+                        isLast: false,
+                        submitLabel: ClaimInviteFocusField.firstName.submitLabel(last: .join),
+                        onSubmit: { advance(from: .firstName) }
                     )
+                    .focused($focusedField, equals: .firstName)
                     AppTextField(
                         placeholder: String(localized: "auth.last_name"),
                         text: $lastName,
                         entry: .familyName,
                         icon: "person",
-                        isLast: false
+                        isLast: false,
+                        submitLabel: ClaimInviteFocusField.lastName.submitLabel(last: .join),
+                        onSubmit: { advance(from: .lastName) }
                     )
+                    .focused($focusedField, equals: .lastName)
                     AppTextField(
                         placeholder: String(localized: "auth.password_label"),
                         text: $password,
                         entry: .newPassword,
-                        kind: .secure
+                        kind: .secure,
+                        submitLabel: ClaimInviteFocusField.password.submitLabel(last: .join),
+                        onSubmit: { advance(from: .password) }
                     )
+                    .focused($focusedField, equals: .password)
                 }
             } footer: {
-                AuthPrimaryButton(
-                    title: String(localized: "invite.get_started"),
-                    isLoading: false
-                ) {
-                    wrapper.claim(password: password, firstName: firstName, lastName: lastName)
+                Button {
+                    claim()
+                } label: {
+                    ActionLabel(title: String(localized: "invite.get_started"))
                 }
-                .disabled(firstName.isEmpty || lastName.isEmpty || password.isEmpty)
+                .prominentAction()
+                .disabled(!canClaim)
             }
         }
+    }
+
+    private var canLookUp: Bool { !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    private var canClaim: Bool { !firstName.isEmpty && !lastName.isEmpty && !password.isEmpty }
+
+    /// Return walks the name fields to the password; Return there joins, as the button would.
+    private func advance(from field: ClaimInviteFocusField) {
+        FormFocus.advance(from: field, focus: $focusedField) {
+            if canClaim { claim() }
+        }
+    }
+
+    private func claim() {
+        wrapper.claim(password: password, firstName: firstName, lastName: lastName)
     }
 
     private func errorScreen(message: String) -> some View {
         AuthScaffold {
             ErrorBanner(message: message)
         } footer: {
-            AuthPrimaryButton(
-                title: String(localized: "common.back"),
-                isLoading: false,
-                action: onDismiss
-            )
+            Button(action: onDismiss) {
+                ActionLabel(title: String(localized: "common.back"))
+            }
+            .prominentAction()
         }
     }
 }

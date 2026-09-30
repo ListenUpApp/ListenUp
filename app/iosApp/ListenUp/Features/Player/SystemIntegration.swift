@@ -29,6 +29,9 @@ struct NowPlayingInfo: Equatable, Sendable {
     let chapterNumber: Int?
     /// Total chapter count, or `nil` for a chapterless book.
     let chapterCount: Int?
+    /// The listener's chosen speed — what `rate` becomes when playing. Published separately because
+    /// `rate` is 0 while paused, and the lock screen and CarPlay's rate button show this one.
+    var defaultRate: Double = 1.0
 }
 
 /// Remote-command intents `SystemIntegration` forwards to its handler. The
@@ -45,6 +48,9 @@ protocol RemoteCommandHandler: AnyObject {
     /// reports once the info center is chapter-scoped. The handler owns translating it back to a
     /// book position; see `PlayerCoordinator.remoteSeek(toWindowPositionMs:)`.
     func remoteSeek(toWindowPositionMs positionMs: Int64)
+    /// Change the playback speed — `changePlaybackRateCommand`, which both the lock screen and the
+    /// CarPlay now-playing rate button drive. `rate` is already clamped to `PlaybackRates`.
+    func remoteSetRate(_ rate: Float)
 }
 
 /// Bridges player state to `MPNowPlayingInfoCenter` and routes
@@ -113,7 +119,8 @@ final class SystemIntegration {
             MPMediaItemPropertyArtist: info.artist,
             MPMediaItemPropertyPlaybackDuration: Double(info.windowDurationMs) / 1000.0,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: Double(info.windowElapsedMs) / 1000.0,
-            MPNowPlayingInfoPropertyPlaybackRate: info.rate
+            MPNowPlayingInfoPropertyPlaybackRate: info.rate,
+            MPNowPlayingInfoPropertyDefaultPlaybackRate: info.defaultRate
         ]
         // Omitted rather than zeroed for a chapterless book: 0-of-0 renders as a real position.
         if let number = info.chapterNumber, let count = info.chapterCount {
@@ -168,6 +175,20 @@ final class SystemIntegration {
                 return .commandFailed
             }
             self?.handler?.remoteSeek(toWindowPositionMs: Int64(event.positionTime * 1000))
+            return .success
+        }
+        // Speed from outside the app: the lock screen and CarPlay's `CPNowPlayingPlaybackRateButton`
+        // both drive this command, and CarPlay reads `supportedPlaybackRates` to draw its button
+        // (rule 13 — car and lock screen share this one registration). Advertising the in-app
+        // catalogue keeps all three surfaces offering the same speeds.
+        center.changePlaybackRateCommand.supportedPlaybackRates = PlaybackRates.catalogue.map { NSNumber(value: $0) }
+        center.changePlaybackRateCommand.isEnabled = true
+        center.changePlaybackRateCommand.addTarget { [weak self] event in
+            guard let event = event as? MPChangePlaybackRateCommandEvent,
+                  let rate = PlaybackRates.accepted(event.playbackRate) else {
+                return .commandFailed
+            }
+            self?.handler?.remoteSetRate(rate)
             return .success
         }
     }

@@ -66,10 +66,11 @@ struct DriftPanel: View {
                 Spacer()
                 Button(String(localized: "chapter_editor.drift_apply"), action: onApply)
                     .buttonStyle(.borderedProminent)
+                    .onBrandFillLabel()
                     .disabled(!drift.canApply)
             }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, Spacing.xs)
     }
 
     private func anchor(_ label: String, value: String?) -> some View {

@@ -44,6 +44,10 @@ final class PositionTracker: NSObject {
     private var rate: Double = 0
     private var displayLink: CADisplayLink?
 
+    /// The display link only nudges a scrubber thumb along (a few points a minute on a long chapter),
+    /// so 30 Hz is visually identical to ProMotion's 120 Hz at a quarter of the wake-ups.
+    nonisolated static let preferredFrameRateRange = CAFrameRateRange(minimum: 10, maximum: 30, preferred: 30)
+
     /// Feed a real position sample from the audio engine.
     func update(positionMs: Int64, rate: Double) {
         self.sampleMs = positionMs
@@ -67,6 +71,7 @@ final class PositionTracker: NSObject {
     private func startDisplayLink() {
         guard displayLink == nil else { return }
         let link = CADisplayLink(target: self, selector: #selector(tick))
+        link.preferredFrameRateRange = Self.preferredFrameRateRange
         link.add(to: .main, forMode: .common)
         displayLink = link
     }

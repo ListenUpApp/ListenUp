@@ -42,16 +42,16 @@ struct BookCoverCard: View {
             // all resolved by BookCoverImage.
             BookCoverImage(book: book)
                 .aspectRatio(1, contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.s))
                 .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
                 .overlay(alignment: .topTrailing) {
                     if book.hasDocuments {
                         Image(systemName: "book.closed.fill")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold)) // decorative fixed size
                             .foregroundStyle(Color.listenUpOrange)
-                            .padding(6)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            .padding(6)
+                            .padding(Spacing.xs)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: Radius.s, style: .continuous))
+                            .padding(Spacing.xs)
                             .accessibilityLabel(String(localized: "library.has_documents_badge"))
                     }
                 }
@@ -60,10 +60,13 @@ struct BookCoverCard: View {
                 .overlay(alignment: .topLeading) {
                     if isSelecting {
                         Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 22))
+                            .font(.system(size: 22)) // decorative fixed size
                             .symbolRenderingMode(.palette)
-                            .foregroundStyle(.white, isSelected ? Color.listenUpOrange : Color.black.opacity(0.35))
-                            .padding(6)
+                            .foregroundStyle(
+                                isSelected ? Color.luOnTint : .white,
+                                isSelected ? Color.listenUpOrange : Color.black.opacity(0.35)
+                            )
+                            .padding(Spacing.xs)
                             .accessibilityLabel(Text(isSelected
                                 ? String(localized: "common.selected")
                                 : String(localized: "common.not_selected")))
@@ -75,11 +78,11 @@ struct BookCoverCard: View {
                         Text(timeLeftLabel(progress: progress))
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.white)
-                            .padding(.horizontal, 6)
+                            .padding(.horizontal, Spacing.xs)
                             .padding(.vertical, 3)
                             .background(.black.opacity(0.55), in: Capsule())
-                            .padding(.horizontal, 6)
-                            .padding(.bottom, 8)
+                            .padding(.horizontal, Spacing.xs)
+                            .padding(.bottom, Spacing.xs)
                     }
                 }
 
@@ -88,6 +91,8 @@ struct BookCoverCard: View {
                 progressOverlay(progress: progress)
             }
         }
+        // On the whole cover stack, so its badges and progress bar lift with the artwork.
+        .coverHoverEffect()
     }
 
     private func progressOverlay(progress: Float) -> some View {
@@ -107,7 +112,7 @@ struct BookCoverCard: View {
                 }
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.s))
     }
 
     /// "{Xh Ym} left" — remaining time derived from the book's total duration and listen progress.
@@ -135,6 +140,19 @@ struct BookCoverCard: View {
     }
 }
 
+// MARK: - Drag
+
+extension View {
+    /// Makes a grid cover draggable as `BookDragItem`, lifted as its own artwork.
+    func draggableBookCover(_ book: BookRow) -> some View {
+        bookCoverDraggable(title: book.title, author: book.authorNames) {
+            BookCoverImage(book: book)
+                .frame(width: 120, height: 120)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.s))
+        }
+    }
+}
+
 // MARK: - Preview
 
 #Preview("With Progress") {
@@ -154,7 +172,7 @@ private struct BookCoverCardPreview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .bottom) {
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: Radius.s)
                     .fill(Color.gray.opacity(0.3))
                     .aspectRatio(2 / 3, contentMode: .fit)
                     .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
@@ -169,7 +187,7 @@ private struct BookCoverCardPreview: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.s))
             }
 
             VStack(alignment: .leading, spacing: 2) {

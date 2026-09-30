@@ -43,15 +43,15 @@ struct LicenseDetailView: View {
                             .font(.title3.weight(.semibold))
                             .foregroundStyle(.primary)
                         Text("v\(lib.version)")
-                            .font(.system(size: 13, design: .monospaced))
-                            .foregroundStyle(Color.luLabel2)
+                            .font(.footnote.monospaced())
+                            .foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 8)
                     LicenseChip(spdxId: lib.spdxId)
                 }
-                .padding(16)
+                .padding(Spacing.m)
                 .background(Color.luSurface2)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
 
                 // Project link — omitted when the URL is malformed (never force-unwrap).
                 if let url = Self.projectURL(lib.url) {
@@ -63,24 +63,24 @@ struct LicenseDetailView: View {
                         }
                         .font(.callout.weight(.medium))
                         .foregroundStyle(Color.luTint)
-                        .padding(14)
+                        .padding(Spacing.m)
                         .background(Color.luSurface2)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
                     }
                 }
 
                 // License text
                 Text(LicenseData.licenseText(for: lib.spdxId))
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(Color.luLabel2)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
+                    .padding(Spacing.m)
                     .background(Color.luSurface2)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
+            .padding(.horizontal, Spacing.l)
+            .padding(.vertical, Spacing.m)
             .readableWidth(720)
         }
         .background(Color.luSurface)

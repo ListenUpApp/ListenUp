@@ -181,6 +181,7 @@
     <string name="admin_release_without_collections">Release without collections</string>
     <string name="admin_remote_url">Remote URL</string>
     <string name="admin_remote_url_placeholder">https://audiobooks.example.com</string>
+    <string name="admin_remove_access">Remove access</string>
     <string name="admin_remove_book">Remove book</string>
     <string name="admin_remove_member">Remove member</string>
     <string name="admin_remove_path">Remove path</string>
@@ -404,6 +405,8 @@ One beautiful library.</string>
     <string name="book_detail_download">Download</string>
     <string name="book_detail_download_book">Download book</string>
     <string name="book_detail_download_failed">Couldn't start the download. Please try again.</string>
+    <string name="book_detail_download_failed_a11y">Download failed</string>
+    <string name="book_detail_download_partial_a11y">Partly downloaded</string>
     <string name="book_detail_downloaded">Downloaded</string>
     <string name="book_detail_edit_book">Edit book</string>
     <string name="book_detail_error_title">Couldn’t load this book</string>
@@ -546,6 +549,7 @@ One beautiful library.</string>
     <string name="book_edit_unsaved_changes">Unsaved changes</string>
     <string name="book_edit_year">Year</string>
     <string name="book_edit_you_have_unsaved_changes_are">You have unsaved changes. Are you sure you want to discard them?</string>
+    <string name="book_reader_scrubber_a11y">Page</string>
     <string name="book_reader_scrubber_page_count">%1$d</string>
     <string name="book_reader_scrubber_page_label">p. %1$d</string>
     <string name="book_role_adapter">Adapter</string>
@@ -750,6 +754,7 @@ One beautiful library.</string>
     <string name="common_email_address">Email address</string>
     <string name="common_entity_information">%1$s information</string>
     <string name="common_error">Error</string>
+    <string name="common_error_a11y">Error: %1$s</string>
     <string name="common_expand">Expand</string>
     <string name="common_expanded">Expanded</string>
     <string name="common_genres">Genres</string>
@@ -782,9 +787,11 @@ One beautiful library.</string>
     <string name="common_open">Open</string>
     <string name="common_percent">%1$d%</string>
     <string name="common_permissions">Permissions</string>
+    <string name="common_play">Play</string>
     <string name="common_playback">Playback</string>
     <string name="common_private">Private</string>
     <string name="common_profile">Profile</string>
+    <string name="common_progress_a11y">Progress</string>
     <string name="common_read_less">Read less</string>
     <string name="common_read_more">Read more</string>
     <string name="common_refresh">Refresh</string>
@@ -978,6 +985,9 @@ One beautiful library.</string>
     <string name="discover_x_is_listening_to_y">%1$s is listening to %2$s</string>
     <string name="edit_change_image">Change image</string>
     <string name="edit_clear_date">Clear</string>
+    <string name="edit_discard_changes">Discard Changes</string>
+    <string name="edit_discard_changes_prompt">Discard Changes?</string>
+    <string name="edit_keep_editing">Keep Editing</string>
     <string name="edit_not_set">Not set</string>
     <string name="edit_remove_image">Remove image</string>
     <string name="edit_set_date">Set date</string>
@@ -1060,6 +1070,7 @@ One beautiful library.</string>
     <string name="home_couldnt_load">We couldn't load your Listen Now.</string>
     <string name="home_couldnt_load_stats">Couldn't load your stats.</string>
     <string name="home_day_streak">%1$d day streak</string>
+    <string name="home_greeting_with_name">%1$s, %2$s</string>
     <string name="home_hours_minutes">%1$dh %2$dm</string>
     <string name="home_listened">listened</string>
     <string name="home_my_shelves">My shelves</string>
@@ -1216,9 +1227,13 @@ One beautiful library.</string>
     <string name="library_series_count">%d series</string>
     <string name="library_shelf">Shelf</string>
     <string name="library_shelf_name">Shelf name</string>
+    <string name="library_sort">Sort</string>
     <string name="library_sort_ascending">Ascending</string>
+    <string name="library_sort_by">Sort By</string>
+    <string name="library_sort_by_a11y">Sort by %1$s</string>
     <string name="library_sort_descending">Descending</string>
     <string name="library_sort_options">Sort options</string>
+    <string name="library_sort_order">Order</string>
     <string name="library_summary">• %1$s</string>
     <string name="library_sync_failed">Sync failed</string>
     <string name="library_title_count">%d titles</string>
@@ -1411,6 +1426,7 @@ One beautiful library.</string>
     <string name="player_cast_session_lost">Casting stopped — playing on this device instead.</string>
     <string name="player_cast_start_failed">Couldn't start casting.</string>
     <string name="player_cast_unsupported_format">This book's format can't be cast.</string>
+    <string name="player_chapter_number">Chapter %1$d</string>
     <string name="player_chapter_of">Chapter %1$s of %2$s</string>
     <string name="player_chapter_remaining">%1$s • %2$s left</string>
     <string name="player_chapters">Chapters</string>
@@ -1436,6 +1452,7 @@ One beautiful library.</string>
     <string name="player_now_playing_overline">NOW PLAYING</string>
     <string name="player_now_playing_wide">Now playing</string>
     <string name="player_open_pdf">Open PDF</string>
+    <string name="player_opens_player_hint">Opens the player.</string>
     <string name="player_pause">Pause</string>
     <string name="player_play">Play</string>
     <string name="player_play_chapter">Play chapter</string>
@@ -1444,9 +1461,12 @@ One beautiful library.</string>
     <string name="player_previous_chapter">Previous chapter</string>
     <string name="player_refusal_title">Couldn't start playback</string>
     <string name="player_reset_to_default">Reset to default (%1$s)</string>
+    <string name="player_scrubber_a11y">Chapter position</string>
+    <string name="player_scrubber_value_a11y">%1$s of %2$s</string>
     <string name="player_skip_backward">Skip backward %1$s seconds</string>
     <string name="player_skip_forward">Skip forward %1$s seconds</string>
     <string name="player_sleep">Sleep</string>
+    <string name="player_sleep_off">Off</string>
     <string name="player_sleep_timer">Sleep timer</string>
     <string name="player_speed">Speed</string>
     <string name="player_speed_value">%1$sx</string>
@@ -1570,6 +1590,8 @@ One beautiful library.</string>
     <string name="series_progress_duration">%1$d% · %2$s</string>
     <string name="series_series_cover">Series cover</string>
     <string name="series_series_name">Series name</string>
+    <string name="series_sort_ascending_a11y">Sort ascending</string>
+    <string name="series_sort_descending_a11y">Sort descending</string>
     <string name="series_start_book">Start Book %1$s</string>
     <string name="series_start_listening">Start listening</string>
     <string name="series_stat_books">Books</string>

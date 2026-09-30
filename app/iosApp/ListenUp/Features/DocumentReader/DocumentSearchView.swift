@@ -21,8 +21,8 @@ struct DocumentSearchView: View {
                     )
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, Spacing.m)
+                    .padding(.vertical, Spacing.xs)
                 }
                 List(controller.hits) { hit in
                     Button {
@@ -49,7 +49,7 @@ struct DocumentSearchView: View {
             .navigationTitle(String(localized: "book.detail_document_search"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.cancel")) { onClose() }
                 }
             }

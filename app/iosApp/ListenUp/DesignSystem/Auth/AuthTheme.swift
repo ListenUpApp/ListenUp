@@ -4,8 +4,8 @@ import SwiftUI
 enum AuthMetrics {
     static let cardCornerRadius: CGFloat = 28
     static let cardMaxWidth: CGFloat = 420
-    static let fieldGroupCornerRadius: CGFloat = 12
-    static let contentHorizontalPadding: CGFloat = 20
+    static let fieldGroupCornerRadius: CGFloat = Radius.m
+    static let contentHorizontalPadding: CGFloat = Spacing.l
 }
 
 extension Color {

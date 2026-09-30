@@ -10,9 +10,9 @@ import Shared
 /// cancel their flows when the user pushes a detail and pops back (`@State` keeps the same dead
 /// instances). This mirrors `LibraryView`/`SeriesDetailView`: observation is live whenever visible.
 ///
-/// Layout adapts to width: at compact (iPhone) the screen is a single scrolling column; at regular
-/// (iPad) the content is constrained to a comfortable reading width and the continue-listening rail
-/// cards grow so the extra space reads as a real layout, not a stretched phone.
+/// Layout follows the measured width (`HomeLayout`): the rails bleed the full width at every size,
+/// the continue-listening cards grow with the window, and a wide window sets the week's stats beside
+/// the shelves.
 struct HomeView: View {
     @Environment(CurrentUserObserver.self) private var userObserver
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -23,12 +23,14 @@ struct HomeView: View {
     /// One observer shared across Home's book carousels → screen-wide selection (de-dup by id is
     /// automatic via the shared `Set` in the VM).
     @State private var selection: BookSelectionObserver?
+    /// The scroll view's width; nil until the first layout pass measures it.
+    @State private var measuredWidth: CGFloat?
 
     private var user: User? { userObserver.user }
-    private var isRegularWidth: Bool { horizontalSizeClass == .regular }
 
-    /// At regular width, cap the content so it reads as a column rather than spanning the iPad.
-    private var contentMaxWidth: CGFloat? { isRegularWidth ? 700 : nil }
+    private var layout: HomeLayout {
+        HomeLayout.forWidth(measuredWidth ?? (horizontalSizeClass == .regular ? 1024 : 390))
+    }
 
     var body: some View {
         Group {
@@ -39,7 +41,12 @@ struct HomeView: View {
             }
         }
         .background(Color(.systemBackground))
-        .navigationBarTitleDisplayMode(.inline)
+        // The tab's name as the system large title, with the greeting beneath it (HIG, Toolbars:
+        // a title "helps people understand where they are"). Selecting collapses it so the toolbar's
+        // "N selected" count has the bar, as Library does.
+        .navigationTitle(String(localized: "common.home"))
+        .navigationSubtitle(greetingSubtitle)
+        .navigationBarTitleDisplayMode(selection?.isSelecting == true ? .inline : .large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 NotificationBell()
@@ -61,6 +68,12 @@ struct HomeView: View {
         }
     }
 
+    /// "Good evening, Simon" once Home has loaded; nothing while it loads.
+    private var greetingSubtitle: String {
+        guard case .ready(let ready) = home?.phase else { return "" }
+        return HomeTitle.subtitle(greeting: ready.timeGreeting, userName: ready.userName)
+    }
+
     // MARK: - Content
 
     private func content(home: HomeViewModelWrapper, stats: HomeStatsObserver) -> some View {
@@ -68,12 +81,15 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 28) {
                 phaseContent(home: home, stats: stats)
             }
-            .padding(.vertical, 8)
-            .frame(maxWidth: contentMaxWidth)
-            .frame(maxWidth: .infinity)
+            .padding(.vertical, Spacing.xs)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { measuredWidth = $0 }
         .refreshable { home.refresh() }
-        .overlay(alignment: .bottom) { snackbarOverlay(home: home) }
+        .onChange(of: home.inlineError) { _, message in
+            // An inline banner appearing is not narrated, so say it (HIG, Feedback).
+            if let message { VoiceOverAnnouncement.post(message) }
+        }
     }
 
     // MARK: - Phase
@@ -101,16 +117,30 @@ struct HomeView: View {
         home: HomeViewModelWrapper,
         stats: HomeStatsObserver
     ) -> some View {
-        HomeHeader(greeting: ready.timeGreeting, userName: ready.userName)
-            .padding(.horizontal, 20)
+        let layout = layout
+        // Inline, where the content that failed would be, following the `ErrorBanner` precedent.
+        if let message = home.inlineError {
+            ErrorBanner(message: message)
+                .padding(.horizontal, layout.margin)
+        }
 
-        continueSection(ready.continueItems)
+        continueSection(ready.continueItems, layout: layout)
 
-        HomeStatsCard(statsPhase: stats.statsPhase)
-            .padding(.horizontal, 20)
+        if case .statsBesideShelves(let statsWidth) = layout.arrangement, !ready.shelves.isEmpty {
+            HStack(alignment: .top, spacing: 24) {
+                MyShelvesRow(shelves: ready.shelves, margin: layout.margin)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                HomeStatsCard(statsPhase: stats.statsPhase)
+                    .frame(width: statsWidth)
+            }
+            .padding(.trailing, layout.margin)
+        } else {
+            HomeStatsCard(statsPhase: stats.statsPhase)
+                .padding(.horizontal, layout.margin)
 
-        if !ready.shelves.isEmpty {
-            MyShelvesRow(shelves: ready.shelves)
+            if !ready.shelves.isEmpty {
+                MyShelvesRow(shelves: ready.shelves, margin: layout.margin)
+            }
         }
     }
 
@@ -120,11 +150,10 @@ struct HomeView: View {
         } description: {
             Text(message)
         } actions: {
-            PrimaryButton(
-                title: String(localized: "common.try_again"),
-                icon: "arrow.clockwise",
-                action: { home.refresh() }
-            )
+            Button(action: { home.refresh() }) {
+                ActionLabel(title: String(localized: "common.try_again"), systemImage: "arrow.clockwise")
+            }
+            .prominentAction()
             .frame(maxWidth: 240)
         }
         .frame(maxWidth: .infinity, minHeight: 320)
@@ -132,14 +161,12 @@ struct HomeView: View {
 
     // MARK: - Continue section
 
-    /// Horizontal inset so the rail's title aligns with the screen's content margin while the
-    /// cards bleed to the edge.
-    private var horizontalInset: CGFloat { 20 }
-    /// Card width is width-driven so the rail reads larger on iPad.
-    private var continueCardWidth: CGFloat { isRegularWidth ? 168 : 140 }
-
+    /// The rail's title aligns with the screen's margin while the cards bleed to the edge; the card
+    /// size comes from the width (`HomeLayout.continueCardWidth`).
     @ViewBuilder
-    private func continueSection(_ items: [ContinueItem]) -> some View {
+    private func continueSection(_ items: [ContinueItem], layout: HomeLayout) -> some View {
+        let horizontalInset = layout.margin
+        let continueCardWidth = layout.continueCardWidth
         if items.isEmpty {
             EmptyContinueListening()
                 .frame(maxWidth: .infinity)
@@ -148,6 +175,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(String(localized: "home.continue_listening"))
                     .font(.title3.weight(.semibold))
+                    .accessibilityAddTraits(.isHeader)
                     .foregroundStyle(.primary)
                     .padding(.horizontal, horizontalInset)
 
@@ -162,37 +190,13 @@ struct HomeView: View {
             }
         }
     }
-
-    // MARK: - Snackbar
-
-    /// A transient native banner for the VM's snackbar channel — auto-dismisses after a few seconds.
-    /// Deliberately not an alert: a snackbar should be unobtrusive and self-clearing.
-    @ViewBuilder
-    private func snackbarOverlay(home: HomeViewModelWrapper) -> some View {
-        if let message = home.snackbar {
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .glassControl(in: RoundedRectangle(cornerRadius: 14))
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .task(id: message) {
-                    try? await Task.sleep(for: .seconds(3))
-                    home.clearSnackbar()
-                }
-        }
-    }
 }
 
 // MARK: - Preview
 
 // Note: `HomeView` @State-constructs its observers from `Dependencies`, which requires the app's
 // Koin graph to be initialized. The preview compiles and lays out chrome; live data needs the
-// running app. Preview the sub-components (`HomeHeader`, `ShelfCard`, `HomeStatsCard`) for rich
+// running app. Preview the sub-components (`ShelfCard`, `HomeStatsCard`) for rich
 // data-driven previews.
 #Preview {
     NavigationStack {

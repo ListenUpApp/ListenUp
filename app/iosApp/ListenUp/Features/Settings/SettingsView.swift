@@ -41,7 +41,10 @@ struct SettingsView: View {
         }
         .navigationTitle(String(localized: "common.settings"))
         .navigationBarTitleDisplayMode(.large)
-        .readableWidth(720)
+        // A grouped `Form` does not cap its own width on iOS 26, so a wide iPad pane stretched every
+        // row; the readable column widens the scroll margins instead of framing the Form, which
+        // clipped its background into a floating column. Matches Admin's 720.
+        .readableListWidth(720)
         .onAppear {
             if observer == nil {
                 observer = SettingsObserver(
@@ -78,12 +81,12 @@ struct SettingsView: View {
                     if let email = currentUser.user?.email {
                         Text(email)
                             .font(.footnote)
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 Spacer(minLength: 0)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, Spacing.xxs)
         }
     }
 
@@ -97,7 +100,7 @@ struct SettingsView: View {
                     title: String(localized: "common.administration"),
                     subtitle: String(localized: "admin.server_settings"),
                     systemImage: "shield.lefthalf.filled",
-                    tint: .luTint
+                    tint: .gray
                 )
             }
         }
@@ -134,7 +137,7 @@ struct SettingsView: View {
                 SettingsLabel(
                     title: String(localized: "settings.default_speed"),
                     systemImage: "slider.horizontal.3",
-                    tint: .luTint
+                    tint: .pink
                 )
             }
             .haptic(.selectionTick, trigger: observer.defaultPlaybackSpeed)
@@ -147,7 +150,7 @@ struct SettingsView: View {
                 SettingsLabel(
                     title: String(localized: "settings.default_boost"),
                     systemImage: "speaker.wave.2.fill",
-                    tint: .luTint
+                    tint: .pink
                 )
             }
             .haptic(.selectionTick, trigger: observer.defaultVolumeBoostDb)
@@ -160,7 +163,7 @@ struct SettingsView: View {
                 SettingsLabel(
                     title: String(localized: "settings.skip_forward"),
                     systemImage: "goforward.30",
-                    tint: .luTint
+                    tint: .pink
                 )
             }
             .haptic(.selectionTick, trigger: observer.defaultSkipForwardSec)
@@ -173,7 +176,7 @@ struct SettingsView: View {
                 SettingsLabel(
                     title: String(localized: "settings.skip_backward"),
                     systemImage: "gobackward.10",
-                    tint: .luTint
+                    tint: .pink
                 )
             }
             .haptic(.selectionTick, trigger: observer.defaultSkipBackwardSec)
@@ -182,7 +185,7 @@ struct SettingsView: View {
                 SettingsLabel(
                     title: String(localized: "settings.autorewind_on_resume"),
                     systemImage: "clock.arrow.circlepath",
-                    tint: .luTint
+                    tint: .pink
                 )
             }
             .haptic(observer.autoRewindEnabled ? .toggleOn : .toggleOff, trigger: observer.autoRewindEnabled)
@@ -292,13 +295,13 @@ struct SettingsView: View {
                     LabeledContent {
                         if let value = hardcoverRow.trailingText {
                             Text(value)
-                                .foregroundStyle(Color.luLabel2)
+                                .foregroundStyle(.secondary)
                         }
                     } label: {
                         SettingsLabel(
                             title: String(localized: "hardcover.row_title"),
                             systemImage: "books.vertical.fill",
-                            tint: .luTint
+                            tint: .brown
                         )
                     }
                 }
@@ -307,7 +310,7 @@ struct SettingsView: View {
             LabeledContent {
                 Text(observer.serverUrl ?? "—")
                     .font(.callout.monospaced())
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             } label: {
                 SettingsLabel(title: String(localized: "common.server"), systemImage: "globe", tint: .teal)
             }
@@ -330,7 +333,7 @@ struct SettingsView: View {
         Section(String(localized: "common.about")) {
             LabeledContent {
                 Text(observer.appVersion)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             } label: {
                 SettingsLabel(
                     title: String(localized: "settings.app_version"),
@@ -341,7 +344,7 @@ struct SettingsView: View {
 
             LabeledContent {
                 Text(observer.serverVersion ?? "—")
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             } label: {
                 SettingsLabel(
                     title: String(localized: "settings.server_version"),
@@ -417,6 +420,11 @@ struct SettingsView: View {
 
 /// A settings row label: a tinted rounded SF-icon tile leading a title (and optional
 /// subtitle), matching the mockup's `IconTile` + `SRow` vocabulary in native form.
+///
+/// Tiles take a per-category *system* colour, as the Settings app does, never the brand coral: the
+/// coral is for actions, and a white glyph on the dark coral would sit at 2.85:1 (HIG, Color: "use
+/// system colors, which already define variants for all these contexts"; HIG, Branding: "Apply your
+/// app's accent color judiciously").
 private struct SettingsLabel: View {
     let title: String
     var subtitle: String?
@@ -430,17 +438,22 @@ private struct SettingsLabel: View {
                 if let subtitle {
                     Text(subtitle)
                         .font(.caption)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
             }
         } icon: {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.s, style: .continuous)
                 .fill(tint)
                 .frame(width: 29, height: 29)
                 .overlay {
+                    // Scaled to fit a fixed box, so a wide symbol ("textformat.abc") shrinks
+                    // into the tile instead of overflowing it.
                     Image(systemName: systemImage)
-                        .font(.system(size: 15, weight: .semibold))
+                        .resizable()
+                        .scaledToFit()
+                        .fontWeight(.semibold)
                         .foregroundStyle(.white)
+                        .frame(width: 20, height: 16)
                 }
                 .accessibilityHidden(true)
         }

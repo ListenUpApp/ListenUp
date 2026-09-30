@@ -1,65 +1,41 @@
+import Foundation
 import Testing
 @testable import ListenUp
 
-@Suite("PlayerSheets formatting & snapping")
+@Suite("Player sheet and menu formatting")
 struct PlayerSheetsTests {
-    private let speeds: [Float] = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
-
-    // MARK: - Speed snapping
-
-    @Test func snapsToExactCatalogueValue() {
-        #expect(SpeedPickerSheet.snap(1.0, to: speeds) == 1.0)
-    }
-
-    @Test func snapsUpToNearestSpeed() {
-        #expect(SpeedPickerSheet.snap(1.2, to: speeds) == 1.25)
-    }
-
-    @Test func snapsDownToNearestSpeed() {
-        #expect(SpeedPickerSheet.snap(1.1, to: speeds) == 1.0)
-    }
-
-    @Test func snapsValuesBelowFloorToMinimum() {
-        #expect(SpeedPickerSheet.snap(0.3, to: speeds) == 0.5)
-    }
-
-    @Test func snapsValuesAboveCeilingToMaximum() {
-        #expect(SpeedPickerSheet.snap(4.0, to: speeds) == 3.0)
-    }
-
-    @Test func bridgesWideGapToNearestNeighbour() {
-        // 2.0 and 2.5 are 0.5 apart; 2.2 is closer to 2.0, 2.3 to 2.5.
-        #expect(SpeedPickerSheet.snap(2.2, to: speeds) == 2.0)
-        #expect(SpeedPickerSheet.snap(2.3, to: speeds) == 2.5)
-    }
-
-    // MARK: - Speed formatting
-
-    @Test func formatsWholeSpeedsWithoutDecimals() {
-        #expect(SpeedPickerSheet.formatSpeed(1.0) == "1×")
-        #expect(SpeedPickerSheet.formatSpeed(2.0) == "2×")
-        #expect(SpeedPickerSheet.formatSpeed(3.0) == "3×")
-    }
-
-    @Test func formatsFractionalSpeedsTrimmingTrailingZeros() {
-        #expect(SpeedPickerSheet.formatSpeed(0.5) == "0.5×")
-        #expect(SpeedPickerSheet.formatSpeed(1.25) == "1.25×")
-        #expect(SpeedPickerSheet.formatSpeed(1.75) == "1.75×")
-    }
-
     // MARK: - Sleep duration formatting
 
+    // The labels come from Foundation's duration formatter, so every locale gets its own words and
+    // its own plural rules — the hard-coded "15 min" / "1 hour" were English everywhere.
+    private static let english = Locale(identifier: "en_US")
+
     @Test func formatsSubHourDurationsInMinutes() {
-        #expect(SleepTimerSheet.formatDuration(15) == "15 min")
-        #expect(SleepTimerSheet.formatDuration(45) == "45 min")
+        #expect(SleepTimerOption.formatDuration(15, locale: Self.english) == "15 minutes")
+        #expect(SleepTimerOption.formatDuration(45, locale: Self.english) == "45 minutes")
     }
 
-    @Test func formatsOneHour() {
-        #expect(SleepTimerSheet.formatDuration(60) == "1 hour")
+    @Test func formatsOneHourInTheSingular() {
+        #expect(SleepTimerOption.formatDuration(60, locale: Self.english) == "1 hour")
     }
 
-    @Test func formatsMultipleHours() {
-        #expect(SleepTimerSheet.formatDuration(120) == "2 hours")
+    @Test func formatsMultipleHoursInThePlural() {
+        #expect(SleepTimerOption.formatDuration(120, locale: Self.english) == "2 hours")
+    }
+
+    @Test(arguments: [
+        ("de_DE", 15, "15 Minuten"), ("de_DE", 60, "1 Stunde"), ("de_DE", 120, "2 Stunden"),
+        ("fr_FR", 60, "1 heure"), ("fr_FR", 120, "2 heures"),
+        ("pl_PL", 120, "2 godziny"), ("pl_PL", 300, "5 godzin")
+    ])
+    func formatsInTheReadersLanguageWithItsPluralRules(locale: String, minutes: Int, expected: String) {
+        let label = SleepTimerOption.formatDuration(minutes, locale: Locale(identifier: locale))
+        #expect(Self.plainSpaces(label) == expected)
+    }
+
+    /// French sets a no-break space between number and unit; which space is typography, not wording.
+    private static func plainSpaces(_ text: String) -> String {
+        text.replacingOccurrences(of: "\u{00A0}", with: " ").replacingOccurrences(of: "\u{202F}", with: " ")
     }
 
     // MARK: - Boost formatting

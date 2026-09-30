@@ -21,4 +21,14 @@ struct ImageDownsamplerTests {
     @Test func returnsNilForMissingFile() {
         #expect(ImageDownsampler.downsampledImage(atPath: "/no/such/file.png", maxPixelSize: 64) == nil)
     }
+
+    @Test func downsamplesInMemoryDataToWithinMaxPixelSize() throws {
+        let data = try Data(contentsOf: URL(fileURLWithPath: coverPath))
+        let image = try #require(ImageDownsampler.downsampledImage(data: data, maxPixelSize: 48))
+        #expect(max(image.size.width, image.size.height) <= 48)
+    }
+
+    @Test func returnsNilForUndecodableData() {
+        #expect(ImageDownsampler.downsampledImage(data: Data([0x00, 0x01, 0x02]), maxPixelSize: 64) == nil)
+    }
 }

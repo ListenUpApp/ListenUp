@@ -226,6 +226,7 @@ private fun loadedWith(
         narratorsSortState = ALPHA_TITLE,
         ignoreTitleArticles = false,
         hideSingleBookSeries = false,
+        contentRevision = 1L,
         books = books,
         series = emptyList(),
         authors = emptyList(),

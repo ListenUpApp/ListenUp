@@ -1,4 +1,5 @@
 import SwiftUI
+// swipe-actions-host: AdminInboxView.swift
 
 /// Folders the scanner walked but could not turn into a book.
 ///
@@ -25,7 +26,7 @@ struct ScanIssueSection: View {
                         .font(.title3.weight(.bold))
                     Text(String(localized: "admin.inbox_needs_attention_subtitle"))
                         .font(.subheadline)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -33,12 +34,58 @@ struct ScanIssueSection: View {
                     ScanIssueCard(issue: issue) { onDismiss(issue.id) }
                 }
             }
-            .padding(.bottom, 16)
+            .padding(.bottom, Spacing.m)
         }
     }
 }
 
+/// The phone form of `ScanIssueSection`: a `List` section whose header says what these are, one row
+/// per issue, with Dismiss both in the row and as a swipe (HIG, Gestures: a swipe supplements a
+/// visible control, never replaces it).
+struct ScanIssueListSection: View {
+    let issues: [ScanIssueRowModel]
+    let onDismiss: (String) -> Void
+
+    var body: some View {
+        if !issues.isEmpty {
+            Section {
+                ForEach(issues) { issue in
+                    ScanIssueContent(issue: issue) { onDismiss(issue.id) }
+                        .padding(.vertical, Spacing.xxs)
+                        .swipeActions {
+                            Button(String(localized: "admin.inbox_issue_dismiss")) { onDismiss(issue.id) }
+                        }
+                }
+            } header: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "admin.inbox_needs_attention"))
+                    Text(String(localized: "admin.inbox_needs_attention_subtitle"))
+                        .font(.footnote)
+                        .textCase(nil)
+                }
+            }
+        }
+    }
+}
+
+/// A scan issue as a card, for the wide grid where there are no list rows to draw the surface.
 private struct ScanIssueCard: View {
+    let issue: ScanIssueRowModel
+    let onDismiss: () -> Void
+
+    var body: some View {
+        ScanIssueContent(issue: issue, onDismiss: onDismiss)
+            .padding(Spacing.m)
+            .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Radius.l, style: .continuous)
+                    .stroke(Color.luSeparator, lineWidth: 0.5)
+            )
+    }
+}
+
+/// One scan issue's words and its Dismiss action, shared by the list row and the grid card.
+private struct ScanIssueContent: View {
     let issue: ScanIssueRowModel
     let onDismiss: () -> Void
 
@@ -47,7 +94,7 @@ private struct ScanIssueCard: View {
             HStack(spacing: 10) {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.luWarning)
                 Text(issue.headline)
                     .font(.headline)
             }
@@ -58,13 +105,13 @@ private struct ScanIssueCard: View {
                 .foregroundStyle(.primary)
             Text(issue.fix)
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             // What the scanner literally reported. Last and quiet: useful when the fix above is
             // not enough, noise when it is.
             if let detail = issue.detail, !detail.isEmpty {
                 Text(detail)
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel3)
+                    .foregroundStyle(.tertiary)
             }
             Button(String(localized: "admin.inbox_issue_dismiss"), action: onDismiss)
                 .font(.subheadline.weight(.semibold))
@@ -73,11 +120,5 @@ private struct ScanIssueCard: View {
                 .padding(.top, 2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.luSeparator, lineWidth: 0.5)
-        )
     }
 }

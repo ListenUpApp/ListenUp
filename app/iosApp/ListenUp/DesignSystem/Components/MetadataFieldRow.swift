@@ -1,13 +1,15 @@
 import SwiftUI
 
-/// A selectable inset-list row that pairs a leading `IconTile`, a caption + value (or a custom
+/// A selectable `List` row that pairs a leading `IconTile`, a caption + value (or a custom
 /// value view), an optional trailing thumbnail, and a trailing `CircularCheckToggle`. The whole
 /// row dims when deselected. This is the metadata-match field idiom, but it is generic: any
 /// "label / value / opt-in" row can compose it.
 ///
 /// Two value forms: pass a `value` string for the common single-line case, or supply a `value`
 /// view builder for rich content (clamped description, genre chips). Tapping the row or the
-/// toggle both fire `onToggle`.
+/// toggle both fire `onToggle`. It keeps a custom press style rather than the list's automatic
+/// button style: a row whose value holds its own buttons (genre chips) must not become one
+/// row-wide button that swallows theirs.
 struct MetadataFieldRow<Value: View, Thumb: View>: View {
     let systemImage: String
     let label: String
@@ -24,17 +26,15 @@ struct MetadataFieldRow<Value: View, Thumb: View>: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(label)
                         .font(.caption)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(Color.secondary)
                     value()
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 thumb()
 
-                CircularCheckToggle(isOn: isOn, action: onToggle)
+                CircularCheckMark(isOn: isOn)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
             .opacity(isOn ? 1 : 0.5)
             .contentShape(Rectangle())
         }
@@ -91,39 +91,32 @@ extension MetadataFieldRow where Thumb == EmptyView {
         @State private var coverOn = true
         @State private var narratorOn = false
         var body: some View {
-            FieldGroup([0], id: \.self) { _ in
-                VStack(spacing: 0) {
-                    MetadataFieldRow(
-                        systemImage: "photo",
-                        label: "Cover",
-                        isOn: coverOn,
-                        onToggle: { coverOn.toggle() }
-                    ) {
-                        Text("New artwork from Audible").font(.callout)
-                    } thumb: {
-                        RoundedRectangle(cornerRadius: 6).fill(Color.luFill).frame(width: 36, height: 36)
-                    }
-                    Divider()
-                    MetadataFieldRow(
-                        systemImage: "textformat",
-                        label: "Title",
-                        value: "The Primal Hunter 9: A LitRPG Adventure",
-                        isOn: true,
-                        onToggle: {}
-                    )
-                    Divider()
-                    MetadataFieldRow(
-                        systemImage: "mic",
-                        label: "Narrators",
-                        value: "Travis Baldree",
-                        isOn: narratorOn,
-                        onToggle: { narratorOn.toggle() }
-                    )
+            Form {
+                MetadataFieldRow(
+                    systemImage: "photo",
+                    label: "Cover",
+                    isOn: coverOn,
+                    onToggle: { coverOn.toggle() }
+                ) {
+                    Text("New artwork from Audible").font(.callout)
+                } thumb: {
+                    RoundedRectangle(cornerRadius: Radius.s).fill(Color.luFill).frame(width: 36, height: 36)
                 }
+                MetadataFieldRow(
+                    systemImage: "textformat",
+                    label: "Title",
+                    value: "The Primal Hunter 9: A LitRPG Adventure",
+                    isOn: true,
+                    onToggle: {}
+                )
+                MetadataFieldRow(
+                    systemImage: "mic",
+                    label: "Narrators",
+                    value: "Travis Baldree",
+                    isOn: narratorOn,
+                    onToggle: { narratorOn.toggle() }
+                )
             }
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .background(Color.luSurface)
         }
     }
     return Demo()

@@ -168,8 +168,12 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
     // MARK: - Now playing customization
 
-    /// Configure the shared now-playing template for this car session: chapter prev/next
-    /// buttons, and the Up Next button as a "Chapters" list.
+    /// Configure the shared now-playing template for this car session: a playback-rate button,
+    /// chapter prev/next buttons, and the Up Next button as a "Chapters" list.
+    ///
+    /// The rate button is the system's `CPNowPlayingPlaybackRateButton`: its tap steps through
+    /// `PlaybackRates`, and CarPlay draws its current value from the `changePlaybackRateCommand`
+    /// that `SystemIntegration` registers for the lock screen too (rule 13).
     ///
     /// Custom buttons on purpose, not `nextTrackCommand`/`previousTrackCommand`: the remote
     /// command center is global, so enabling track commands would also flip the phone's lock
@@ -180,24 +184,25 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     private func configureNowPlaying() {
         let nowPlaying = CPNowPlayingTemplate.shared
 
-        let previousChapter = CPNowPlayingImageButton(
-            image: buttonImage("backward.end")
-        ) { _ in
-            Task { @MainActor in
-                let c = Dependencies.shared.playerCoordinator
-                c.selectChapter(index: c.chapterIndex - 1)
-            }
-        }
-        let nextChapter = CPNowPlayingImageButton(
-            image: buttonImage("forward.end")
-        ) { _ in
-            Task { @MainActor in
-                let c = Dependencies.shared.playerCoordinator
-                c.selectChapter(index: c.chapterIndex + 1)
+        let chapterButtons = CarPlayChapterButton.all.map { spec in
+            let image = buttonImage(spec.symbolName, accessibilityLabel: spec.accessibilityLabel)
+            return CPNowPlayingImageButton(image: image) { _ in
+                Task { @MainActor in
+                    let coordinator = Dependencies.shared.playerCoordinator
+                    coordinator.selectChapter(index: coordinator.chapterIndex + spec.chapterOffset)
+                }
             }
         }
 
-        nowPlaying.updateNowPlayingButtons([previousChapter, nextChapter])
+        let rateButton = CPNowPlayingPlaybackRateButton { _ in
+            Task { @MainActor in
+                let coordinator = Dependencies.shared.playerCoordinator
+                coordinator.setSpeed(PlaybackRates.next(after: coordinator.playbackSpeed))
+            }
+        }
+
+        let buttons: [CPNowPlayingButton] = [rateButton] + chapterButtons
+        nowPlaying.updateNowPlayingButtons(buttons)
         nowPlaying.isUpNextButtonEnabled = true
         nowPlaying.upNextTitle = String(localized: "player.chapters")
         nowPlaying.add(self)
@@ -214,8 +219,10 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
     /// A template-rendering button glyph; falls back to a filled circle so a bad symbol name can
     /// never produce an invisible, untappable button.
-    private func buttonImage(_ symbolName: String) -> UIImage {
-        UIImage(systemName: symbolName) ?? UIImage(systemName: "circle.fill")!
+    private func buttonImage(_ symbolName: String, accessibilityLabel: String) -> UIImage {
+        let image = UIImage(systemName: symbolName) ?? UIImage(systemName: "circle.fill")!
+        image.accessibilityLabel = accessibilityLabel
+        return image
     }
 
     /// Push the "Chapters" list for the current book — the Up Next button's destination.

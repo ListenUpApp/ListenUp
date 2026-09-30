@@ -1,5 +1,7 @@
 {
   "common": {
+    "error_a11y": "Error: %1$s",
+    "progress_a11y": "Progress",
     "about": "About",
     "continue": "Continue",
     "accessibility_loading": "Loading",
@@ -122,7 +124,8 @@
     "collapsed": "Collapsed",
     "step_done": "Done",
     "step_in_progress": "In progress",
-    "step_not_started": "Not started"
+    "step_not_started": "Not started",
+    "play": "Play"
   },
   "error": {
     "hardcover_not_configured": "Hardcover isn't set up on this server.",
@@ -233,6 +236,7 @@
     "server_url_hint": "Your server address looks like https://yourname.listenup.app — find it in your server dashboard."
   },
   "library": {
+    "sort_by_a11y": "Sort by %1$s",
     "add_audiobooks_to_your_server": "Add audiobooks to your server to get started",
     "authors": "Authors",
     "bookcount": "%1$s",
@@ -268,9 +272,15 @@
     "author_count": "%d authors",
     "narrator_count": "%d narrators",
     "contributors_empty": "No contributors yet",
-    "has_documents_badge": "Has supplementary material"
+    "has_documents_badge": "Has supplementary material",
+    "sort": "Sort",
+    "sort_by": "Sort By",
+    "sort_order": "Order"
   },
   "book": {
+    "reader_scrubber_a11y": "Page",
+    "detail_download_partial_a11y": "Partly downloaded",
+    "detail_download_failed_a11y": "Download failed",
     "detail_about_this_book": "About this book",
     "detail_add_to_collection": "Add to collection",
     "detail_add_to_shelf": "Add to shelf",
@@ -477,6 +487,8 @@
     "detail_rating_refresh": "Refresh ratings"
   },
   "series": {
+    "sort_descending_a11y": "Sort descending",
+    "sort_ascending_a11y": "Sort ascending",
     "book_sequence": "Book %1$s",
     "books_in_series": "Books in series",
     "label": "SERIES",
@@ -773,7 +785,8 @@
     "start_listening_to_see_your": "Start listening to see your stats here",
     "this_week": "This week",
     "today": "Today",
-    "top_genres": "Top genres"
+    "top_genres": "Top genres",
+    "greeting_with_name": "%1$s, %2$s"
   },
   "profile": {
     "avatar": "Avatar",
@@ -936,6 +949,7 @@
     "title": "Devices"
   },
   "admin": {
+    "remove_access": "Remove access",
     "1_day": "1 day",
     "add_folder": "Add folder",
     "add_books": "Add books",
@@ -1325,6 +1339,11 @@
     "audiobookshelf_imports": "Audiobookshelf imports"
   },
   "player": {
+    "opens_player_hint": "Opens the player.",
+    "scrubber_a11y": "Chapter position",
+    "scrubber_value_a11y": "%1$s of %2$s",
+    "sleep_off": "Off",
+    "chapter_number": "Chapter %1$d",
     "now_playing": "Now playing",
     "now_playing_overline": "NOW PLAYING",
     "now_playing_wide": "Now playing",
@@ -1490,7 +1509,10 @@
     "uploading_image": "Uploading image",
     "not_set": "Not set",
     "set_date": "Set date",
-    "clear_date": "Clear"
+    "clear_date": "Clear",
+    "discard_changes_prompt": "Discard Changes?",
+    "discard_changes": "Discard Changes",
+    "keep_editing": "Keep Editing"
   },
   "setup": {
     "error_already_configured": "This server is already set up. Sign in instead.",

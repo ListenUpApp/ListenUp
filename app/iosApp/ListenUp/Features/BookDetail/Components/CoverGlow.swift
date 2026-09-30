@@ -73,7 +73,7 @@ struct CoverGlow: View {
             )
             BookCoverImage(coverPath: nil)
                 .frame(width: 196, height: 196)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
                 .shadow(color: .black.opacity(0.18), radius: 16, x: 0, y: 8)
         }
     }

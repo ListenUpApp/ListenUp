@@ -17,7 +17,7 @@ struct CurrentlyListeningCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 BookCoverImage(bookId: row.bookId, coverPath: row.coverPath, coverHash: row.coverHash)
                     .frame(width: width, height: width)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.l))
                     .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 3)
                     .bookSelectionCircle(bookId: row.bookId, selection: selection)
 

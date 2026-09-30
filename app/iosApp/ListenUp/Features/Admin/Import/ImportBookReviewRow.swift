@@ -7,6 +7,9 @@ import SwiftUI
 /// Bound to an ``ImportBookRowModel``. The search panel is driven by the shared VM: the text field
 /// reflects the VM's query and reports edits back; results and the spinner come from the flattened
 /// snapshot. This row only reports intent via its callbacks.
+///
+/// A compound `List` row: the caller gives it a `Section` of its own with zero row insets, because
+/// its identity and resolution lines carry their own padding and the divider between them.
 struct ImportBookReviewRow: View {
     let book: ImportBookRowModel
     /// The open search panel when it belongs to THIS item, else nil.
@@ -20,10 +23,9 @@ struct ImportBookReviewRow: View {
     var body: some View {
         VStack(spacing: 0) {
             identityRow
-            Divider().padding(.leading, 14)
+            Divider().padding(.leading, Spacing.m)
             resolutionRow
         }
-        .fieldCard()
     }
 
     // MARK: - Identity
@@ -38,7 +40,7 @@ struct ImportBookReviewRow: View {
                 if !book.identifiers.isEmpty {
                     Text(book.identifiers)
                         .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
@@ -46,8 +48,8 @@ struct ImportBookReviewRow: View {
             Spacer(minLength: 8)
             statusPill
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
     }
 
     @ViewBuilder
@@ -56,10 +58,10 @@ struct ImportBookReviewRow: View {
         case .needsReview:
             Text(String(localized: "import.user_needs_review"))
                 .font(.caption.weight(.bold))
-                .foregroundStyle(.orange)
-                .padding(.horizontal, 11)
-                .padding(.vertical, 5)
-                .background(Color.orange.opacity(0.16), in: Capsule())
+                .foregroundStyle(Color.luWarning)
+                .padding(.horizontal, Spacing.s)
+                .padding(.vertical, Spacing.xxs)
+                .background(Color.luWarning.opacity(0.16), in: Capsule())
         case .assigned, .skipped:
             Label(
                 book.resolution == .skipped
@@ -69,7 +71,7 @@ struct ImportBookReviewRow: View {
             )
             .labelStyle(.titleAndIcon)
             .font(.footnote.weight(.semibold))
-            .foregroundStyle(book.resolution == .skipped ? Color.luLabel2 : .green)
+            .foregroundStyle(book.resolution == .skipped ? Color.secondary : .green)
         }
     }
 
@@ -97,12 +99,12 @@ struct ImportBookReviewRow: View {
             Button(action: onSkip) {
                 Label(String(localized: "import.book_skip"), systemImage: "xmark")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(Color.secondary)
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.pressScaleChip)
         }
-        .padding(.vertical, 13)
+        .padding(.vertical, Spacing.s)
     }
 
     // MARK: - Search panel
@@ -112,7 +114,7 @@ struct ImportBookReviewRow: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .font(.subheadline)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                 TextField(
                     String(localized: "import.book_search_hint"),
                     text: Binding(get: { search.query }, set: onQueryChange)
@@ -125,7 +127,7 @@ struct ImportBookReviewRow: View {
                 }
                 Button(action: onCloseSearch) {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(Color.secondary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(localized: "import.book_search_cancel"))
@@ -134,7 +136,7 @@ struct ImportBookReviewRow: View {
             if !search.query.isEmpty, !search.isSearching, search.results.isEmpty {
                 Text(String(localized: "import.book_search_no_results"))
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
             }
 
             ForEach(search.results) { hit in
@@ -149,7 +151,7 @@ struct ImportBookReviewRow: View {
                         if !hit.author.isEmpty {
                             Text(hit.author)
                                 .font(.footnote)
-                                .foregroundStyle(Color.luLabel2)
+                                .foregroundStyle(Color.secondary)
                                 .lineLimit(1)
                         }
                     }
@@ -162,16 +164,16 @@ struct ImportBookReviewRow: View {
                 }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
     }
 }
 
 // MARK: - Preview
 
 #Preview("ImportBookReviewRow") {
-    ScrollView {
-        VStack(spacing: 18) {
+    List {
+        Section {
             ImportBookReviewRow(
                 book: ImportBookRowModel(
                     absItemId: "1", title: "The Way of Kings", asin: "B0041JKFJW", isbn: nil,
@@ -181,6 +183,9 @@ struct ImportBookReviewRow: View {
                 onOpenSearch: {}, onCloseSearch: {}, onQueryChange: { _ in },
                 onSelectBook: { _ in }, onSkip: {}
             )
+            .listRowInsets(EdgeInsets())
+        }
+        Section {
             ImportBookReviewRow(
                 book: ImportBookRowModel(
                     absItemId: "2", title: "Mistborn", asin: nil, isbn: "9780765311788",
@@ -190,6 +195,9 @@ struct ImportBookReviewRow: View {
                 onOpenSearch: {}, onCloseSearch: {}, onQueryChange: { _ in },
                 onSelectBook: { _ in }, onSkip: {}
             )
+            .listRowInsets(EdgeInsets())
+        }
+        Section {
             ImportBookReviewRow(
                 book: ImportBookRowModel(
                     absItemId: "3", title: "Words of Radiance", asin: nil, isbn: nil,
@@ -202,8 +210,7 @@ struct ImportBookReviewRow: View {
                 onOpenSearch: {}, onCloseSearch: {}, onQueryChange: { _ in },
                 onSelectBook: { _ in }, onSkip: {}
             )
+            .listRowInsets(EdgeInsets())
         }
-        .padding()
     }
-    .background(Color.luSurface)
 }

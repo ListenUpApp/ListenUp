@@ -1,7 +1,7 @@
 #if os(iOS)
 import AppIntents
 
-/// Toggles play/pause from the Live Activity. `LiveActivityIntent.perform()`
+/// Toggles play/pause from Siri or Shortcuts. `LiveActivityIntent.perform()`
 /// runs in the app's process, where `playback` resolves to the app's player.
 public struct TogglePlaybackIntent: LiveActivityIntent {
     public static let title: LocalizedStringResource = "Play or Pause"

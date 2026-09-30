@@ -45,9 +45,19 @@ struct ResumeBar: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                resumeButton
-                downloadControl
+            // Side by side while the button's label fits on one line; at a large text size the
+            // button takes the full width and the download control moves to its own line, rather
+            // than squeezing "Resume" into a hyphenated "Re-sume" (HIG, Typography: "Make sure your
+            // app's layout adapts to all font sizes.").
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    resumeButton
+                    downloadControl
+                }
+                VStack(alignment: .trailing, spacing: 12) {
+                    resumeButton
+                    downloadControl
+                }
             }
 
             if isComplete {
@@ -65,13 +75,15 @@ struct ResumeBar: View {
     // MARK: - Resume button
 
     private var resumeButton: some View {
-        PrimaryButton(
-            title: resumeTitle,
-            icon: canPlay ? "play.fill" : "cloud.slash.fill",
-            isLoading: isPlayPending,
-            action: onResume
-        )
-        .disabled(!canPlay)
+        Button(action: onResume) {
+            ActionLabel(
+                title: resumeTitle,
+                systemImage: canPlay ? "play.fill" : "cloud.slash.fill",
+                isBusy: isPlayPending
+            )
+        }
+        .prominentAction()
+        .disabled(isPlayPending || !canPlay)
         .accessibilityLabel(resumeAccessibilityLabel)
     }
 

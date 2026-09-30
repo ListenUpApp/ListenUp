@@ -2,10 +2,11 @@ import Foundation
 import SwiftUI
 @preconcurrency import Shared
 
-/// Turns every `AppError` on the shared bus into a message on screen.
+/// Turns every `AppError` on the shared bus into a system alert (via `ErrorAlertCenter`).
 ///
-/// The iOS counterpart of Compose's `GlobalErrorSnackbar`, mounted in the same place in the
-/// hierarchy: on the authenticated shell, not the app root. The pre-auth screens — server connect,
+/// The iOS counterpart of Compose's `GlobalErrorSnackbar` — the same role, the platform's own
+/// surface (iosApp rule 10) — mounted in the same place in the hierarchy: on the authenticated
+/// shell, not the app root. The pre-auth screens — server connect,
 /// login, register, claim invite — already render their failures inline with `ErrorBanner`, so a
 /// root-level consumer would say everything twice before the user is even signed in.
 ///
@@ -25,13 +26,13 @@ import SwiftUI
 final class GlobalErrorObserver {
     private let bridge = FlowBridge()
 
-    init(center: AppMessageCenter, errorBus: ErrorBus = Dependencies.shared.errorBus) {
+    init(center: ErrorAlertCenter, errorBus: ErrorBus = Dependencies.shared.errorBus) {
         bridge.bind(errorBus.errors) { [weak center] error in
             // Logged as well as shown: the on-screen sentence is for the reader, the log line is for
             // whoever has to find out why. `debugInfo` carries the per-instance technical detail that
             // `message` deliberately does not.
             Log.error("AppError [\(error.code)] \(error.message)", detail: error.debugInfo)
-            center?.post(.error(error.message))
+            center?.post(error.message)
         }
     }
 

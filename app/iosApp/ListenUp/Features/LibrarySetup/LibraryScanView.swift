@@ -31,7 +31,7 @@ struct LibraryScanView: View {
                 content
                     .frame(maxWidth: isWide ? 460 : 360)
                     .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, Spacing.xl)
                     .padding(.vertical, 48)
             }
             .scrollBounceBehavior(.basedOnSize)
@@ -49,25 +49,25 @@ struct LibraryScanView: View {
             Text(String(localized: "library_setup.building_title"))
                 .font(isWide ? .largeTitle.bold() : .title.bold())
                 .multilineTextAlignment(.center)
-                .padding(.top, 22)
+                .padding(.top, Spacing.xl)
 
             Text(subtitle)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .padding(.top, 6)
+                .padding(.top, Spacing.xs)
 
             statsCard
-                .padding(.top, 26)
+                .padding(.top, Spacing.xl)
 
             if let file = progress?.currentFile, !file.isEmpty {
                 currentFileLine(file)
-                    .padding(.top, 18)
+                    .padding(.top, Spacing.l)
             }
 
             if stalled {
                 stalledEscape
-                    .padding(.top, 28)
+                    .padding(.top, Spacing.xxl)
             }
         }
     }
@@ -90,6 +90,7 @@ struct LibraryScanView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
+            .onBrandFillLabel()
             .controlSize(.large)
 
             Text(String(localized: "library_scan.stalled_settings_hint"))
@@ -117,7 +118,9 @@ struct LibraryScanView: View {
                     .animation(.easeOut(duration: 0.3), value: fraction)
                 VStack(spacing: 2) {
                     Text("\(Int((fraction * 100).rounded()))%")
-                        .font(.system(size: isWide ? 38 : 34, weight: .bold, design: .rounded))
+                        .scaledFont(size: isWide ? 38 : 34, weight: .bold, design: .rounded, relativeTo: .largeTitle)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                         .monospacedDigit()
                         .foregroundStyle(.primary)
                         .contentTransition(.numericText())
@@ -153,7 +156,7 @@ struct LibraryScanView: View {
             statRow(icon: "clock", label: String(localized: "library_scan.hours"), value: progress?.hours ?? 0)
         }
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.l, style: .continuous)
                 .fill(Color(.secondarySystemGroupedBackground))
         )
     }
@@ -164,7 +167,7 @@ struct LibraryScanView: View {
 
     private func statRow(icon: String, label: String, value: Int) -> some View {
         HStack(spacing: 13) {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.s, style: .continuous)
                 .fill(Color.listenUpOrange.opacity(0.14))
                 .frame(width: 30, height: 30)
                 .overlay {
@@ -184,7 +187,7 @@ struct LibraryScanView: View {
                 .animation(.default, value: value)
         }
         .frame(minHeight: 54)
-        .padding(.horizontal, 14)
+        .padding(.horizontal, Spacing.m)
         .accessibilityElement(children: .combine)
     }
 
@@ -202,7 +205,7 @@ struct LibraryScanView: View {
                 .truncationMode(.head)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, Spacing.xxs)
         .accessibilityHidden(true)
     }
 

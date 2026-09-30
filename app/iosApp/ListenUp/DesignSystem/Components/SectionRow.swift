@@ -11,6 +11,7 @@ struct SectionRow: View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
                 .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
                 .foregroundStyle(.primary)
             Spacer()
             if let actionTitle, let onAction {

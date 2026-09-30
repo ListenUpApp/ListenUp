@@ -46,7 +46,7 @@ struct PushTapRouterTests {
         router.handleTap(payloadJson: #"{"type":"registration_approval","userId":"u1"}"#)
 
         #expect(router.pending == .adminApprovals)
-        router.consume()
+        #expect(router.claimPending(for: UUID()) == .adminApprovals)
         #expect(router.pending == nil)
     }
 
@@ -58,5 +58,43 @@ struct PushTapRouterTests {
         router.handleTap(payloadJson: nil)
 
         #expect(router.pending == nil)
+    }
+
+    // MARK: - Several windows
+
+    @Test func theFrontWindowTakesTheTap() {
+        let front = UUID()
+        #expect(PushTapRouter.routesTap(to: front, frontSceneID: front))
+        #expect(!PushTapRouter.routesTap(to: UUID(), frontSceneID: front))
+        #expect(PushTapRouter.routesTap(to: UUID(), frontSceneID: nil))
+    }
+
+    /// Two windows see the same held tap; only the front one gets it, and only once.
+    @MainActor
+    @Test func aTapLandsInExactlyOneWindow() {
+        let router = PushTapRouter()
+        let back = UUID()
+        let front = UUID()
+        router.sceneBecameActive(back)
+        router.sceneBecameActive(front)
+        router.handleTap(payloadJson: #"{"type":"registration_approval","userId":"u1"}"#)
+
+        #expect(router.claimPending(for: back) == nil)
+        #expect(router.claimPending(for: front) == .adminApprovals)
+        #expect(router.claimPending(for: front) == nil)
+        #expect(router.claimPending(for: back) == nil)
+    }
+
+    /// A closed front window stops holding taps hostage: the next shell to claim takes it.
+    @MainActor
+    @Test func aClosedFrontWindowReleasesTheTap() {
+        let router = PushTapRouter()
+        let closed = UUID()
+        let other = UUID()
+        router.sceneBecameActive(closed)
+        router.sceneWentAway(closed)
+        router.handleTap(payloadJson: #"{"type":"registration_approval","userId":"u1"}"#)
+
+        #expect(router.claimPending(for: other) == .adminApprovals)
     }
 }

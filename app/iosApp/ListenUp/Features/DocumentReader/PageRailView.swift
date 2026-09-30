@@ -19,7 +19,7 @@ struct PageRailView: View {
                     )
                 }
             }
-            .padding(.vertical, 12)
+            .padding(.vertical, Spacing.s)
         }
         .frame(width: 108)
         .background(Color(.secondarySystemBackground))

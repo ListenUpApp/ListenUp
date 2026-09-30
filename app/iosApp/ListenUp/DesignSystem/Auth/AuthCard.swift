@@ -10,7 +10,7 @@ struct AuthCard<Content: View>: View {
 
     var body: some View {
         content
-            .padding(26)
+            .padding(Spacing.xl)
             .frame(maxWidth: maxWidth)
             .background(
                 RoundedRectangle(cornerRadius: AuthMetrics.cardCornerRadius, style: .continuous)
@@ -18,8 +18,7 @@ struct AuthCard<Content: View>: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: AuthMetrics.cardCornerRadius, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
+                    .strokeBorder(Color.luSeparator, lineWidth: 0.5)
             )
-            .shadow(color: .black.opacity(0.18), radius: 30, y: 18)
     }
 }

@@ -9,40 +9,43 @@ import Shared
 struct BulkEditCredits: View {
     let observer: BulkEditObserver
 
+    /// Two `Form` sections, Series then Contributors; the group's heading leads the first.
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 10) {
-                fieldLabel(String(localized: "bulk_edit.series"))
-                RelationSearchField(
-                    placeholder: String(localized: "bulk_edit.search_series"),
-                    query: observer.seriesQuery,
-                    results: observer.seriesResults,
-                    isLoading: false,
-                    allowsCreate: true,
-                    onQueryChange: { observer.setSeriesQuery($0) },
-                    onSelect: { observer.pickSeries($0) },
-                    onCreate: { observer.createSeries(named: $0) }
-                )
-                RelationChipRow(chips: observer.seriesChips) { _ in observer.removeSeries() }
-                BulkEditConsequenceLine(consequence: observer.consequences[.series])
-            }
+        Section {
+            RelationSearchField(
+                placeholder: String(localized: "bulk_edit.search_series"),
+                query: observer.seriesQuery,
+                results: observer.seriesResults,
+                isLoading: false,
+                allowsCreate: true,
+                onQueryChange: { observer.setSeriesQuery($0) },
+                onSelect: { observer.pickSeries($0) },
+                onCreate: { observer.createSeries(named: $0) }
+            )
+            RelationChipRow(chips: observer.seriesChips) { _ in observer.removeSeries() }
+            BulkEditConsequenceLine(consequence: observer.consequences[.series])
+        } header: {
+            BulkEditGroupHeader(
+                title: String(localized: "bulk_edit.card_credits"),
+                note: String(localized: "bulk_edit.card_credits_note"),
+                field: String(localized: "bulk_edit.series")
+            )
+        }
 
-            VStack(alignment: .leading, spacing: 10) {
-                fieldLabel(String(localized: "bulk_edit.contributors"))
-                BulkRolePicker(observer: observer)
-                RelationSearchField(
-                    placeholder: String(localized: "bulk_edit.search_contributors"),
-                    query: observer.contributorQuery,
-                    results: observer.contributorResults,
-                    isLoading: false,
-                    allowsCreate: true,
-                    onQueryChange: { observer.setContributorQuery($0) },
-                    onSelect: { observer.pickContributor($0) },
-                    onCreate: { observer.createContributor(named: $0) }
-                )
-                RelationChipRow(chips: observer.contributorChips) { observer.removeContributor($0) }
-                BulkEditConsequenceLine(consequence: observer.consequences[.contributors])
-            }
+        Section(String(localized: "bulk_edit.contributors")) {
+            BulkRolePicker(observer: observer)
+            RelationSearchField(
+                placeholder: String(localized: "bulk_edit.search_contributors"),
+                query: observer.contributorQuery,
+                results: observer.contributorResults,
+                isLoading: false,
+                allowsCreate: true,
+                onQueryChange: { observer.setContributorQuery($0) },
+                onSelect: { observer.pickContributor($0) },
+                onCreate: { observer.createContributor(named: $0) }
+            )
+            RelationChipRow(chips: observer.contributorChips) { observer.removeContributor($0) }
+            BulkEditConsequenceLine(consequence: observer.consequences[.contributors])
         }
     }
 }
@@ -56,8 +59,9 @@ struct BulkEditCredits: View {
 struct BulkEditClassification: View {
     let observer: BulkEditObserver
 
+    /// Three `Form` sections; the group's heading leads the first.
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        Group {
             section(
                 LocalRelationField(
                     label: String(localized: "bulk_edit.genres"),
@@ -69,7 +73,8 @@ struct BulkEditClassification: View {
                     chips: observer.genreChips,
                     onSelect: { observer.pickGenre($0) },
                     onRemove: { observer.removeGenre($0) }
-                )
+                ),
+                groupHeader: true
             )
             section(
                 LocalRelationField(
@@ -101,9 +106,8 @@ struct BulkEditClassification: View {
     }
 
     @ViewBuilder
-    private func section(_ field: LocalRelationField) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            fieldLabel(field.label)
+    private func section(_ field: LocalRelationField, groupHeader: Bool = false) -> some View {
+        Section {
             RelationSearchField(
                 placeholder: field.placeholder,
                 query: field.query,
@@ -119,6 +123,16 @@ struct BulkEditClassification: View {
             )
             RelationChipRow(chips: field.chips, onRemove: field.onRemove)
             BulkEditConsequenceLine(consequence: field.consequence)
+        } header: {
+            if groupHeader {
+                BulkEditGroupHeader(
+                    title: String(localized: "bulk_edit.card_classification"),
+                    note: String(localized: "bulk_edit.card_classification_note"),
+                    field: field.label
+                )
+            } else {
+                Text(field.label)
+            }
         }
     }
 }
@@ -137,13 +151,6 @@ private struct LocalRelationField {
     let onRemove: (EditableRelation) -> Void
 }
 
-/// The heading above one relation field, so all five read as siblings.
-private func fieldLabel(_ text: String) -> some View {
-    Text(text)
-        .font(.subheadline.weight(.semibold))
-        .frame(maxWidth: .infinity, alignment: .leading)
-}
-
 /// The role the next credit is filed under.
 ///
 /// A `Menu` rather than a segmented control: ten roles do not fit across a phone, and nine of them
@@ -153,10 +160,7 @@ private struct BulkRolePicker: View {
     let observer: BulkEditObserver
 
     var body: some View {
-        HStack(spacing: 8) {
-            Text(String(localized: "bulk_edit.role"))
-                .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+        LabeledContent(String(localized: "bulk_edit.role")) {
             Menu {
                 ForEach(BookEditObserver.allRoleApiValues, id: \.self) { apiValue in
                     Button(BookEditObserver.roleTitle(roleApiValue: apiValue)) {
@@ -168,9 +172,7 @@ private struct BulkRolePicker: View {
                     Text(BookEditObserver.roleTitle(roleApiValue: observer.pendingRoleApiValue))
                     Image(systemName: "chevron.up.chevron.down").font(.caption2)
                 }
-                .font(.subheadline)
             }
-            Spacer(minLength: 0)
         }
     }
 }
@@ -186,7 +188,7 @@ private struct RelationChipRow: View {
             // rather than one nobody has used.
             Text(String(localized: "bulk_edit.relation_untouched"))
                 .font(.caption)
-                .foregroundStyle(Color.luLabel3)
+                .foregroundStyle(.tertiary)
         } else {
             FlowLayout(spacing: 8) {
                 ForEach(chips) { chip in
@@ -195,8 +197,8 @@ private struct RelationChipRow: View {
                             Text(chip.label).font(.subheadline)
                             Image(systemName: "xmark").font(.caption2.weight(.semibold))
                         }
-                        .padding(.horizontal, 11)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, Spacing.s)
+                        .padding(.vertical, Spacing.xs)
                         .background(Color.luTint.opacity(0.12), in: Capsule())
                         .foregroundStyle(Color.luTint)
                     }

@@ -10,6 +10,9 @@ struct NowPlayingUpNextPanel: View {
     let observer: PlayerCoordinator
     let tint: Color
 
+    /// The pane's fixed width; the player column takes the rest.
+    static let width: CGFloat = 360
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(String(localized: "player.chapters"))
@@ -19,8 +22,8 @@ struct NowPlayingUpNextPanel: View {
             Text(summary)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-                .padding(.top, 4)
-                .padding(.bottom, 10)
+                .padding(.top, Spacing.xxs)
+                .padding(.bottom, Spacing.s)
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 4) {
@@ -34,16 +37,16 @@ struct NowPlayingUpNextPanel: View {
                             tint: tint,
                             onTap: { observer.selectChapter(index: index) }
                         )
-                        .padding(.vertical, 6)
+                        .padding(.vertical, Spacing.xs)
                     }
                 }
             }
             .scrollIndicators(.hidden)
         }
         .frame(maxHeight: .infinity, alignment: .top)
-        .padding(.horizontal, 28)
-        .padding(.vertical, 36)
-        .frame(width: 360)
+        .padding(.horizontal, Spacing.xxl)
+        .padding(.vertical, Spacing.xxl)
+        .frame(width: Self.width)
         .background(Color(.systemBackground).opacity(0.78))
         .overlay(alignment: .leading) {
             Divider().ignoresSafeArea()

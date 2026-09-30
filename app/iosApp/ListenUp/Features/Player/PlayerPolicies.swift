@@ -51,10 +51,14 @@ enum LoadGeneration {
 enum ChapterMath {
     /// The index of the chapter containing `positionMs`, or `nil` for an empty
     /// list. A position past the last chapter clamps to the last index.
-    static func index(forPositionMs positionMs: Int64, in chapters: [Chapter]) -> Int? {
+    ///
+    /// Runs over the native `ChapterRowModel` rows, not the bridged Kotlin `[Chapter]`: the
+    /// coordinator recomputes it on every engine position tick, and a bridged read crosses the
+    /// Swift Export boundary per property (rule 8).
+    static func index(forPositionMs positionMs: Int64, in chapters: [ChapterRowModel]) -> Int? {
         guard !chapters.isEmpty else { return nil }
         for (index, chapter) in chapters.enumerated()
-        where positionMs < chapter.startTime + chapter.duration {
+        where positionMs < chapter.startMs + chapter.durationMs {
             return index
         }
         return chapters.count - 1

@@ -47,13 +47,7 @@ struct HardcoverSettingsView: View {
         } message: {
             Text(String(localized: "hardcover.disconnect_confirm_body"))
         }
-        .alert(item: alertBinding) { alert in
-            Alert(
-                title: Text(String(localized: "common.something_went_wrong")),
-                message: Text(alert.message),
-                dismissButton: .default(Text(String(localized: "common.ok")))
-            )
-        }
+        .messageAlert(alertBinding)
     }
 
     private var alertBinding: Binding<MessageAlert?> {
@@ -134,7 +128,7 @@ private struct HardcoverNotConnectedPhase: View {
                 )
             }
         }
-        .readableWidth(720)
+        .readableListWidth(720)
         .safeAreaInset(edge: .bottom) {
             HardcoverActions {
                 HardcoverPrimaryButton(
@@ -165,7 +159,7 @@ private struct HardcoverLinkingPhase: View {
                         .accessibilityAddTraits(.isHeader)
                     Text(instructions)
                         .font(.body)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                 }
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
@@ -181,14 +175,14 @@ private struct HardcoverLinkingPhase: View {
                             .font(.headline)
                         Text(String(localized: "hardcover.waiting_detail"))
                             .font(.footnote)
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .padding(.vertical, 2)
                 .accessibilityElement(children: .combine)
             }
         }
-        .readableWidth(720)
+        .readableListWidth(720)
         .safeAreaInset(edge: .bottom) {
             HardcoverActions {
                 HardcoverPrimaryButton(
@@ -217,7 +211,7 @@ private struct HardcoverLinkingPhase: View {
         VStack(spacing: 12) {
             Text(String(localized: "hardcover.your_code"))
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             Text(model.userCode)
                 .font(.system(.largeTitle, design: .monospaced).weight(.semibold))
                 .tracking(4)
@@ -237,11 +231,10 @@ private struct HardcoverLinkingPhase: View {
             }
             .buttonStyle(.bordered)
             .buttonBorderShape(.capsule)
-            .tint(.luTint)
             .haptic(.commit, trigger: copied)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
+        .padding(.vertical, Spacing.s)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(String(localized: "hardcover.your_code"))
     }
@@ -274,17 +267,17 @@ private struct HardcoverConnectedPhase: View {
                             .foregroundStyle(.green)
                         Text(String(format: String(localized: "hardcover.connected_since"), sinceText))
                             .font(.footnote)
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(.secondary)
                     }
                     .accessibilityElement(children: .combine)
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, Spacing.xxs)
             }
             Section(String(localized: "hardcover.what_is_shared")) {
                 HardcoverStatementRow(
                     systemImage: "checkmark",
                     text: String(localized: "hardcover.shared_finished_row"),
-                    tint: Color.luLabel2
+                    tint: Color.secondary
                 )
             }
             Section {
@@ -302,7 +295,7 @@ private struct HardcoverConnectedPhase: View {
                 .disabled(model.isDisconnecting)
             }
         }
-        .readableWidth(720)
+        .readableListWidth(720)
     }
 
     private var sinceText: String {
@@ -329,13 +322,13 @@ private struct HardcoverBrokenPhase: View {
                     if let username = model.username {
                         Text(wasConnectedAs(username))
                             .font(.footnote)
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                     }
                 }
             }
         }
-        .readableWidth(720)
+        .readableListWidth(720)
         .safeAreaInset(edge: .bottom) {
             HardcoverActions {
                 HardcoverPrimaryButton(
@@ -379,11 +372,11 @@ private struct HardcoverHero: View {
                 .accessibilityAddTraits(.isHeader)
             Text(detail)
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
         }
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
+        .padding(.vertical, Spacing.s)
     }
 }
 
@@ -411,9 +404,9 @@ private struct HardcoverActions<Content: View>: View {
         VStack(spacing: 10) {
             content
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 8)
-        .padding(.bottom, 12)
+        .padding(.horizontal, Spacing.l)
+        .padding(.top, Spacing.xs)
+        .padding(.bottom, Spacing.s)
         .readableWidth()
     }
 }
@@ -443,7 +436,7 @@ private struct HardcoverPrimaryButton: View {
         .buttonStyle(.glassProminent)
         .buttonBorderShape(.capsule)
         .controlSize(.large)
-        .tint(.luTint)
+        .onBrandFillLabel()
         .disabled(isBusy)
         .accessibilityLabel(title)
     }
@@ -464,7 +457,7 @@ private struct HardcoverSecondaryButton: View {
         .buttonStyle(.glass)
         .buttonBorderShape(.capsule)
         .controlSize(.large)
-        .tint(role == .destructive ? .red : .luTint)
+        .tint(role == .destructive ? Color.red : nil)
     }
 }
 

@@ -8,41 +8,33 @@ private struct ContributorPickerRequest: Identifiable {
     let choices: [ContributorNavRef]
 }
 
-/// Full-screen audiobook player on a soft cover-tint wash.
+/// The full-screen audiobook player, presented by `MainTabView` as a `fullScreenCover` that zooms
+/// out of the mini player's cover.
 ///
-/// Layout:
-/// - A linear tint wash over `systemBackground` (light/dark adaptive, fades by mid-screen)
-/// - Header: system-fill chevron-down · "Chapter N of M" · ellipsis menu
-/// - Centered cover art
-/// - Leading-aligned title block (title / chapter / narrator)
-/// - Tint-accented chapter scrubber + thin overall-book progress bar
-/// - Transport (prev-ch · back-10 · play/pause · fwd-30 · next-ch)
-/// - Secondary row: Speed · Sleep · Chapters · AirPlay
+/// Surface: opaque `systemBackground` under a soft cover-tint wash — the player is content, and
+/// HIG, Materials: "Don't use Liquid Glass in the content layer". Glass is kept for the floating
+/// header controls. The system presentation supplies what the old overlay hand-rolled: VoiceOver
+/// modality, the swipe-down dismiss, and the zoom back into the mini player.
+///
+/// Layout (`PlayerLayoutMode`, from the space actually available):
+/// - stacked: header · cover · titles · scrubber · transport · volume · secondary row
+/// - compact height: the cover beside that column (a phone in landscape)
+/// - regular: the column beside the always-visible "Up Next" chapter pane (iPad)
+/// The cover takes the height the controls leave; when even the smallest cover would not fit
+/// (small phones, AX text sizes) the column scrolls instead of clipping.
 ///
 /// The accent is a legibility-clamped tint derived from the cover (coral until it
 /// resolves; coral on any failure — never stranded).
 struct FullScreenPlayerView: View {
     let observer: PlayerCoordinator
-    var namespace: Namespace.ID
-    var onCollapse: () -> Void
-    /// Collapse the player and navigate to the current book's detail screen.
+    /// Dismiss the player and navigate to the current book's detail screen.
     var onViewDetails: () -> Void = {}
-    /// Collapse the player and navigate to the given series.
+    /// Dismiss the player and navigate to the given series.
     var onViewSeries: (String) -> Void = { _ in }
-    /// Collapse the player and navigate to the given contributor (author or narrator).
+    /// Dismiss the player and navigate to the given contributor (author or narrator).
     var onViewContributor: (String) -> Void = { _ in }
 
-    /// Live drag translation as the user swipes the header down (downward only).
-    /// Attached to the header strip alone so the body's chapter `Slider` and any
-    /// scrolling stay fully interactive — the dismiss drag never covers them.
-    var onDragChanged: (CGFloat) -> Void = { _ in }
-    /// Drag release: the overlay decides commit-to-dismiss vs. spring-back from
-    /// the final translation and predicted-end fling.
-    var onDragEnded: (_ translation: CGFloat, _ predictedEndTranslation: CGFloat) -> Void = { _, _ in }
-
-    @State private var showSpeedPicker: Bool = false
     @State private var showChapterList: Bool = false
-    @State private var showSleepTimer: Bool = false
     @State private var showBoostPicker: Bool = false
     /// Non-nil while the multi-contributor picker is shown; carries the choices + the title.
     @State private var contributorPicker: ContributorPickerRequest?
@@ -52,23 +44,28 @@ struct FullScreenPlayerView: View {
     /// view reads it directly). `nil` means "not known yet", which is NOT the same as 0 dB: the
     /// sheet hides the row rather than offering to reset a book to a default it hasn't read.
     @State private var defaultBoostDb: Float?
-    /// Counts deliberate transport taps so the haptic fires on the tap, never on a state change
-    /// arriving from elsewhere (a remote command, the lock screen). Mirrors `MiniPlayerBar`.
-    @State private var transportTapCount = 0
-    @State private var playPauseTapCount = 0
-    /// The state the tap *moves to*, captured at tap time. Reading `isPlaybackActive` in the
-    /// modifier would race the Kotlin StateFlow's trip through FlowBridge, so the verb could
-    /// describe the state we just left. Mirrors Compose's `haptics.toggle(on = !isPlaying)`.
-    @State private var playPauseWillBeActive = false
+    /// The controls column's natural height, measured; the cover sizes itself to what is left.
+    @State private var controlsHeight: CGFloat = 0
 
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.horizontalSizeClass) private var hSize
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.dependencies) private var deps
 
+    private var margin: CGFloat { PlayerLayoutMode.horizontalMargin }
+    /// The header row: 44pt controls.
+    private static let headerHeight: CGFloat = 44
+
     var body: some View {
-        layout
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(frostedBackground)
+        GeometryReader { proxy in
+            let mode = PlayerLayoutMode.resolve(
+                size: proxy.size,
+                isAccessibilitySize: dynamicTypeSize.isAccessibilitySize
+            )
+            layout(mode, in: proxy.size)
+        }
+        // Only the background runs edge to edge; the controls keep clear of the home indicator.
+        .background(tintedBackground)
         // Never stranded: if a load fails while the full player is open, show an inline
         // error + Retry over the (now empty) transport rather than a dead screen.
         .overlay { if observer.isErrored { errorOverlay } }
@@ -80,18 +77,8 @@ struct FullScreenPlayerView: View {
         .task(id: showBoostPicker) {
             defaultBoostDb = try? await deps.playbackPreferences.getDefaultVolumeBoostDb()
         }
-        .statusBarHidden(false)
-        .sheet(isPresented: $showSpeedPicker) {
-            SpeedPickerSheet(
-                currentSpeed: observer.playbackSpeed,
-                onSpeedSelected: { speed in
-                    observer.setSpeed(speed)
-                    showSpeedPicker = false
-                }
-            )
-            .presentationDetents([.medium])
-            .presentationDragIndicator(.visible)
-        }
+        // VoiceOver's two-finger scrub closes the player like the chevron does.
+        .accessibilityAction(.escape) { dismiss() }
         .sheet(isPresented: $showBoostPicker) {
             BoostPickerSheet(
                 currentBoostDb: observer.volumeBoostDb,
@@ -104,14 +91,6 @@ struct FullScreenPlayerView: View {
                     if let defaultBoostDb { observer.resetBoost(defaultDb: defaultBoostDb) }
                     showBoostPicker = false
                 }
-            )
-            .presentationDetents([.medium])
-            .presentationDragIndicator(.visible)
-        }
-        .sheet(isPresented: $showSleepTimer) {
-            SleepTimerSheet(
-                observer: observer,
-                onDismiss: { showSleepTimer = false }
             )
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
@@ -132,26 +111,18 @@ struct FullScreenPlayerView: View {
         }
     }
 
-    // MARK: - Frosted background
+    // MARK: - Background
 
-    /// Slight extra opacity layered *under* the player glass so the surface reads a touch
-    /// less see-through while still frosting what's behind it. Tune in `0...1` — higher is
-    /// more opaque/solid, lower is more transparent.
-    private static let glassOpacityBoost: CGFloat = 0.14
-
-    /// One clean Liquid-Glass surface for the whole player — the *same* glass the mini
-    /// player uses (`.glassControl`), so expanding the bar reads as the same panel
-    /// growing to fill the screen. A faint `systemBackground` scrim sits *behind* the
-    /// glass (so the material frosts it too) to nudge it slightly less transparent. The
-    /// glass frosts the actual app content behind it (the tab content it expanded over),
-    /// and `glassControl` carries its own Reduce-Transparency fallback (an opaque
-    /// `secondarySystemBackground`), so we don't hand-roll one.
-    private var frostedBackground: some View {
+    /// Opaque and cover-tinted: `systemBackground` (light/dark adaptive) under a wash of the cover
+    /// accent that fades out by mid-screen.
+    private var tintedBackground: some View {
         ZStack {
-            Color(.systemBackground).opacity(Self.glassOpacityBoost)
-            Rectangle()
-                .fill(.clear)
-                .glassControl(in: Rectangle())
+            Color(.systemBackground)
+            LinearGradient(
+                colors: [tint.opacity(0.30), tint.opacity(0)],
+                startPoint: .top,
+                endPoint: .center
+            )
         }
         .ignoresSafeArea()
     }
@@ -165,6 +136,7 @@ struct FullScreenPlayerView: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.largeTitle)
                     .foregroundStyle(tint)
+                    .accessibilityHidden(true)
                 Text(observer.errorMessage ?? String(localized: "common.something_went_wrong"))
                     .font(.headline)
                     .multilineTextAlignment(.center)
@@ -172,8 +144,8 @@ struct FullScreenPlayerView: View {
                 Button { observer.togglePlayback() } label: {
                     Text("book.detail_retry")
                         .font(.body.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 28)
+                        .foregroundStyle(Color.luOnTint)
+                        .padding(.horizontal, Spacing.xxl)
                         .frame(minHeight: 44)
                         .background(Capsule().fill(tint))
                 }
@@ -186,117 +158,136 @@ struct FullScreenPlayerView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(32)
+            .padding(Spacing.xxl)
         }
     }
 
     // MARK: - Layout
 
-    /// Size-class-driven layout. Compact (iPhone) keeps the single stacked column
-    /// with the chapter *sheet*; regular (iPad / landscape) splits into the player
-    /// column plus an always-visible inline "Up Next" chapters pane.
     @ViewBuilder
-    private var layout: some View {
-        if hSize == .regular {
-            regularLayout
-        } else {
-            compactLayout
-        }
-    }
-
-    /// iPhone: the single stacked player column. The Chapters control opens the
-    /// modal `ChapterListSheet` (there's no room for an inline pane).
-    private var compactLayout: some View {
-        playerColumn(showChaptersControl: true)
-    }
-
-    /// iPad: a centered player column beside the inline "Up Next" chapters pane.
-    /// The pane replaces the chapter sheet, so the column's Chapters control is
-    /// hidden here.
-    private var regularLayout: some View {
-        HStack(spacing: 0) {
-            playerColumn(showChaptersControl: false)
-                .frame(maxWidth: 620)
+    private func layout(_ mode: PlayerLayoutMode, in size: CGSize) -> some View {
+        let belowHeader = CGSize(width: size.width, height: max(0, size.height - Self.headerHeight))
+        switch mode {
+        case .stacked:
+            VStack(spacing: 0) {
+                header
+                stackedColumn(width: size.width, height: belowHeader.height, showsChapters: true)
+            }
+        case .regular:
+            // The inline "Up Next" pane replaces the chapter sheet, so the column hides its
+            // Chapters control.
+            let columnWidth = min(620, size.width - NowPlayingUpNextPanel.width)
+            HStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    header
+                    stackedColumn(width: columnWidth, height: belowHeader.height, showsChapters: false)
+                }
+                .frame(maxWidth: columnWidth)
                 .frame(maxWidth: .infinity)
 
-            NowPlayingUpNextPanel(observer: observer, tint: tint)
+                NowPlayingUpNextPanel(observer: observer, tint: tint)
+            }
+        case .compactHeight:
+            VStack(spacing: 0) {
+                header
+                HStack(alignment: .center, spacing: 28) {
+                    cover(side: PlayerLayoutMode.compactHeightCoverSide(in: belowHeader))
+                    // The volume view stays out of the short layout: the hardware buttons and
+                    // Control Center still set volume, and the transport needs the height.
+                    let fits = controlsHeight <= belowHeader.height - PlayerLayoutMode.verticalMargin
+                    if fits {
+                        controlsColumn(showsChapters: true, showsVolume: false)
+                    } else {
+                        ScrollView {
+                            controlsColumn(showsChapters: true, showsVolume: false)
+                        }
+                        .scrollBounceBehavior(.basedOnSize)
+                    }
+                }
+                .padding(.horizontal, margin)
+                .padding(.bottom, PlayerLayoutMode.verticalMargin)
+            }
         }
     }
 
-    /// The shared player stack — header, cover, title, scrubber, transport, and
-    /// secondary controls. Used by both layouts so the matched-geometry cover and
-    /// the dismiss gesture live in exactly one place. `showChaptersControl` hides
-    /// the Chapters button on iPad, where the inline pane is the primary surface.
-    private func playerColumn(showChaptersControl: Bool) -> some View {
-        VStack(spacing: 0) {
-            header
-
-            Spacer(minLength: 12)
-
-            // Cover art — centered
-            BookCoverImage(
-                bookId: observer.currentBookId,
-                coverPath: observer.coverPath,
-                coverHash: observer.coverHash
-            )
-            .frame(width: 286, height: 286)
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .shadow(color: .black.opacity(0.25), radius: 16, x: 0, y: 8)
-            .matchedGeometryEffect(id: PlayerMorph.coverID, in: namespace)
-
-            Spacer()
-                .frame(height: 32)
-
-            titleBlock
-
-            Spacer().frame(height: 22)
-
-            // Chapter-scoped progress — isolated so its per-frame position reads
-            // don't re-evaluate the rest of the player.
-            ChapterScrubberSection(observer: observer, tint: tint)
-                .padding(.horizontal, 26)
-
-            Spacer(minLength: 20)
-
-            transport
-                .padding(.horizontal, 30)
-
-            Spacer(minLength: 20)
-
-            secondaryControls(showChaptersControl: showChaptersControl)
-                .padding(.horizontal, 26)
-
-            Spacer().frame(height: 24)
-        }
-        // Idiomatic swipe-down-to-dismiss anywhere on the player (header included) — the
-        // single dismiss recognizer, so a slow drag is driven by exactly one gesture (no
-        // duplicate header drag double-firing `onDragChanged`). `simultaneousGesture` keeps
-        // the inner controls (transport buttons, the chapter `Slider`'s horizontal drag)
-        // fully interactive; the downward-only `onChanged` plus the threshold/fling commit
-        // mean a horizontal scrub never trips it.
-        .contentShape(Rectangle())
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 18)
-                .onChanged { value in
-                    if value.translation.height > 0 { onDragChanged(value.translation.height) }
-                }
-                .onEnded { value in
-                    onDragEnded(value.translation.height, value.predictedEndTranslation.height)
-                }
+    /// Cover above the controls — phones in portrait, narrow windows, and the iPad column. The
+    /// cover takes the height the controls leave over; when even the smallest cover cannot fit
+    /// (small phones, accessibility text sizes), the column scrolls instead of clipping.
+    ///
+    /// One structure for both cases, so the measured controls keep a single identity. Two branches
+    /// (a fitted stack, else a scroll view) left the fitted branch's controls starting from the
+    /// height the scroll branch measured while the zoom presentation began at a tiny size — about
+    /// 530pt instead of 330 on an iPhone 17e — and the cover stayed stuck at ~155pt with empty
+    /// bands around it (Pass 7 Simulator matrix).
+    @ViewBuilder
+    private func stackedColumn(width: CGFloat, height: CGFloat, showsChapters: Bool) -> some View {
+        let fittedSide = PlayerLayoutMode.stackedCoverSide(
+            columnWidth: width,
+            availableHeight: height,
+            controlsHeight: controlsHeight
         )
+        ScrollView {
+            VStack(spacing: 0) {
+                Spacer(minLength: fittedSide == nil ? Spacing.s : 12)
+                cover(side: fittedSide ?? PlayerLayoutMode.scrollingCoverSide(columnWidth: width))
+                Spacer(minLength: 20)
+                controlsColumn(showsChapters: showsChapters, showsVolume: true)
+                    .padding(.horizontal, margin)
+            }
+            .frame(minHeight: height)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+    }
+
+    /// Titles, scrubber, transport, volume, and the secondary row at their natural height, which
+    /// is measured so the cover can take exactly what is left.
+    private func controlsColumn(showsChapters: Bool, showsVolume: Bool) -> some View {
+        VStack(spacing: 0) {
+            titleBlock
+            Spacer().frame(height: 18)
+            // Chapter-scoped progress — its own view so its per-frame position reads don't
+            // re-evaluate the rest of the player.
+            ChapterScrubberSection(observer: observer, tint: tint)
+            Spacer().frame(height: 14)
+            PlayerTransportControls(observer: observer)
+            if showsVolume {
+                Spacer().frame(height: 8)
+                SystemVolumeSlider()
+            }
+            Spacer().frame(height: 12)
+            PlayerSecondaryControls(
+                observer: observer,
+                tint: tint,
+                showsChaptersControl: showsChapters,
+                onShowChapters: { showChapterList = true },
+                onShowBoost: { showBoostPicker = true }
+            )
+            Spacer().frame(height: 8)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { controlsHeight = $0 }
+    }
+
+    private func cover(side: CGFloat) -> some View {
+        BookCoverImage(
+            bookId: observer.currentBookId,
+            coverPath: observer.coverPath,
+            coverHash: observer.coverHash
+        )
+        .frame(width: side, height: side)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
+        .shadow(color: .black.opacity(0.25), radius: 16, x: 0, y: 8)
+        .accessibilityHidden(true)
     }
 
     // MARK: - Header
 
     private var header: some View {
         HStack {
-            Button(action: onCollapse) {
-                Image(systemName: "chevron.down")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .frame(width: 36, height: 36)
-                    .background(Color(.tertiarySystemFill), in: Circle())
+            Button { dismiss() } label: {
+                headerGlyph("chevron.down")
             }
+            .buttonStyle(.plain)
             .accessibilityLabel(String(localized: "player.collapse"))
 
             Spacer()
@@ -309,62 +300,79 @@ struct FullScreenPlayerView: View {
                 ))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
             }
 
             Spacer()
 
-            Menu {
-                Button(action: onViewDetails) {
-                    Label(String(localized: "player.go_to_book"), systemImage: "book")
-                }
-                if observer.firstPdfDocId != nil {
-                    Button(action: { observer.openCurrentBookPdf() }) {
-                        Label(String(localized: "player.open_pdf"), systemImage: "doc.richtext")
-                    }
-                }
-                if let seriesId = observer.seriesId {
-                    Button(action: { onViewSeries(seriesId) }) {
-                        Label(String(localized: "player.go_to_series"), systemImage: "books.vertical")
-                    }
-                }
-                contributorButton(
-                    observer.authors,
-                    single: "player.go_to_author",
-                    multiple: "player.go_to_author_multiple",
-                    systemImage: "person"
-                )
-                contributorButton(
-                    observer.narrators,
-                    single: "player.go_to_narrator",
-                    multiple: "player.go_to_narrator_multiple",
-                    systemImage: "mic"
-                )
-                Divider()
-                Button(role: .destructive, action: { Task { await observer.stop() } }) {
-                    Label(String(localized: "player.close_book"), systemImage: "xmark")
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .frame(width: 36, height: 36)
-                    .background(Color(.tertiarySystemFill), in: Circle())
+            moreMenu
+        }
+        .frame(minHeight: Self.headerHeight)
+        .padding(.horizontal, Spacing.m)
+    }
+
+    /// A 36pt glass disc — a floating control, where Liquid Glass belongs — in a 44pt hit area.
+    /// Like a navigation bar's buttons, the glyph keeps its size at large text settings and offers
+    /// the large content viewer instead (HIG, Accessibility).
+    private func headerGlyph(_ systemImage: String) -> some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 17, weight: .semibold)) // decorative fixed size
+            .foregroundStyle(.primary)
+            .frame(width: 36, height: 36)
+            .glassControl(in: Circle())
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
+            .accessibilityShowsLargeContentViewer()
+    }
+
+    private var moreMenu: some View {
+        Menu {
+            Button(action: onViewDetails) {
+                Label(String(localized: "player.go_to_book"), systemImage: "book")
             }
-            .accessibilityLabel(String(localized: "player.more_options"))
-            .confirmationDialog(
-                contributorPicker?.title ?? "",
-                isPresented: Binding(get: { contributorPicker != nil }, set: { if !$0 { contributorPicker = nil } }),
-                titleVisibility: .visible
-            ) {
-                ForEach(contributorPicker?.choices ?? []) { choice in
-                    Button(choice.name) {
-                        contributorPicker = nil
-                        onViewContributor(choice.id)
-                    }
+            if observer.firstPdfDocId != nil {
+                Button(action: { observer.openCurrentBookPdf() }) {
+                    Label(String(localized: "player.open_pdf"), systemImage: "doc.richtext")
+                }
+            }
+            if let seriesId = observer.seriesId {
+                Button(action: { onViewSeries(seriesId) }) {
+                    Label(String(localized: "player.go_to_series"), systemImage: "books.vertical")
+                }
+            }
+            contributorButton(
+                observer.authors,
+                single: "player.go_to_author",
+                multiple: "player.go_to_author_multiple",
+                systemImage: "person"
+            )
+            contributorButton(
+                observer.narrators,
+                single: "player.go_to_narrator",
+                multiple: "player.go_to_narrator_multiple",
+                systemImage: "mic"
+            )
+            Divider()
+            Button(role: .destructive, action: { Task { await observer.stop() } }) {
+                Label(String(localized: "player.close_book"), systemImage: "xmark")
+            }
+        } label: {
+            headerGlyph("ellipsis")
+        }
+        .accessibilityLabel(String(localized: "player.more_options"))
+        .confirmationDialog(
+            contributorPicker?.title ?? "",
+            isPresented: Binding(get: { contributorPicker != nil }, set: { if !$0 { contributorPicker = nil } }),
+            titleVisibility: .visible
+        ) {
+            ForEach(contributorPicker?.choices ?? []) { choice in
+                Button(choice.name) {
+                    contributorPicker = nil
+                    onViewContributor(choice.id)
                 }
             }
         }
-        .padding(.horizontal, 18)
     }
 
     /// A "Go to Author/Narrator" menu button: hidden when there are none, a direct navigation for
@@ -391,206 +399,34 @@ struct FullScreenPlayerView: View {
 
     // MARK: - Title block
 
+    /// Titles wrap rather than truncate as text grows — HIG, Typography: "aim to display as much
+    /// useful text at the largest accessibility font size as you do at the largest standard size".
     private var titleBlock: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        let isLarge = dynamicTypeSize.isAccessibilitySize
+        return VStack(alignment: .leading, spacing: 3) {
             Text(observer.bookTitle)
                 .font(.title2.bold())
                 .foregroundStyle(.primary)
-                .lineLimit(1)
+                .lineLimit(isLarge ? 3 : 2)
 
             // The chapter's own title; fall back to "Chapter N" only when genuinely untitled.
             // No "Ch. N · " prefix — the title is often itself "Chapter N", producing confusing
             // duplicates like "Ch. 3 · Chapter 1" when front-matter offsets the numbering.
             Text(observer.chapterTitle.flatMap { $0.isEmpty ? nil : $0 }
-                ?? "Chapter \(observer.chapterIndex + 1)")
+                ?? String(format: String(localized: "player.chapter_number"), observer.chapterIndex + 1))
                 .font(.callout)
                 .foregroundStyle(.secondary)
-                .lineLimit(1)
+                .lineLimit(isLarge ? 3 : 1)
 
             if !observer.narratorName.isEmpty {
                 Text(String(format: String(localized: "book.detail_narrated_by_value"), observer.narratorName))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .lineLimit(isLarge ? 2 : 1)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 26)
-    }
-
-    // MARK: - Transport
-
-    private var transport: some View {
-        HStack(spacing: 0) {
-            // Previous chapter
-            Button {
-                if observer.chapterIndex > 0 {
-                    transportTapCount += 1
-                    observer.selectChapter(index: observer.chapterIndex - 1)
-                }
-            } label: {
-                Image(systemName: "backward.end.fill")
-                    .font(.title3)
-                    .foregroundStyle(observer.chapterIndex > 0 ? .primary : .tertiary)
-                    .frame(width: 44, height: 44)
-            }
-            .disabled(observer.chapterIndex <= 0)
-            .accessibilityLabel(String(localized: "player.previous_chapter"))
-
-            Spacer()
-
-            // Skip back
-            Button {
-                transportTapCount += 1
-                observer.skipBackward()
-            } label: {
-                Image(systemName: PlayerGlyphs.skipBackward(seconds: observer.skipBackwardSec))
-                    .font(.title2)
-                    .foregroundStyle(.primary)
-                    .frame(width: 44, height: 44)
-            }
-            .accessibilityLabel(String(format: String(localized: "player.skip_backward"), "\(observer.skipBackwardSec)"))
-
-            Spacer()
-
-            // Play/Pause
-            Button {
-                playPauseWillBeActive = !observer.isPlaybackActive
-                playPauseTapCount += 1
-                observer.togglePlayback()
-            } label: {
-                ZStack {
-                    Circle()
-                        .fill(Color.listenUpOrange)
-                        .frame(width: 76, height: 76)
-                        .shadow(color: Color.listenUpOrange.opacity(0.45), radius: 12, x: 0, y: 8)
-                    if observer.isBuffering {
-                        // Honest buffering: a spinner while the stream loads, not a pause glyph
-                        // that implies audio is flowing when it isn't yet.
-                        ProgressView()
-                            .progressViewStyle(.circular)
-                            .controlSize(.large)
-                            .tint(.white)
-                    } else {
-                        // `isPlaybackActive` here means "playing" (buffering handled above); it
-                        // reads "pause" while playing because a tap pauses.
-                        Image(systemName: observer.isPlaybackActive ? "pause.fill" : "play.fill")
-                            .font(.title)
-                            .foregroundStyle(.white)
-                    }
-                }
-            }
-            .accessibilityLabel(String(localized: observer.isPlaybackActive ? "player.pause" : "player.play"))
-
-            Spacer()
-
-            // Skip forward
-            Button {
-                transportTapCount += 1
-                observer.skipForward()
-            } label: {
-                Image(systemName: PlayerGlyphs.skipForward(seconds: observer.skipForwardSec))
-                    .font(.title2)
-                    .foregroundStyle(.primary)
-                    .frame(width: 44, height: 44)
-            }
-            .accessibilityLabel(String(format: String(localized: "player.skip_forward"), "\(observer.skipForwardSec)"))
-
-            Spacer()
-
-            // Next chapter
-            Button {
-                if observer.chapterIndex < observer.totalChapters - 1 {
-                    transportTapCount += 1
-                    observer.selectChapter(index: observer.chapterIndex + 1)
-                }
-            } label: {
-                Image(systemName: "forward.end.fill")
-                    .font(.title3)
-                    .foregroundStyle(observer.chapterIndex < observer.totalChapters - 1 ? .primary : .tertiary)
-                    .frame(width: 44, height: 44)
-            }
-            .disabled(observer.chapterIndex >= observer.totalChapters - 1)
-            .accessibilityLabel(String(localized: "player.next_chapter"))
-        }
-        .haptic(.press, trigger: transportTapCount)
-        .haptic(playPauseWillBeActive ? .toggleOn : .toggleOff, trigger: playPauseTapCount)
-    }
-
-    // MARK: - Secondary controls
-
-    private func secondaryControls(showChaptersControl: Bool) -> some View {
-        HStack(alignment: .top, spacing: 6) {
-            // Speed
-            controlItem(label: String(localized: "player.speed")) {
-                Button(action: { showSpeedPicker = true }) {
-                    Text(formatSpeed(observer.playbackSpeed))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 12)
-                        .frame(height: 28)
-                        .background(Color(.tertiarySystemFill), in: Capsule())
-                }
-            }
-
-            // Sleep
-            controlItem(label: String(localized: "player.sleep")) {
-                Button(action: { showSleepTimer = true }) {
-                    Image(systemName: observer.sleepTimerActive ? "moon.zzz.fill" : "moon.zzz")
-                        .font(.title3)
-                        .foregroundStyle(observer.sleepTimerActive ? tint : .primary)
-                        .frame(height: 28)
-                }
-            }
-
-            // Chapters — hidden on iPad, where the inline "Up Next" pane replaces it.
-            if showChaptersControl {
-                controlItem(label: String(localized: "player.chapters")) {
-                    Button(action: { showChapterList = true }) {
-                        Image(systemName: "list.bullet")
-                            .font(.title3)
-                            .foregroundStyle(.primary)
-                            .frame(height: 28)
-                    }
-                }
-            }
-
-            // AirPlay — self-voicing route picker; keep it as its own interactive element.
-            controlItem(label: String(localized: "player.airplay"), combineForVoiceOver: false) {
-                RoutePickerView(tint: Color(.label), activeTint: tint)
-                    .frame(width: 28, height: 28)
-            }
-
-            // Boost
-            controlItem(label: String(localized: "player.boost")) {
-                Button(action: { showBoostPicker = true }) {
-                    Text(BoostPickerSheet.formatBoostPill(observer.volumeBoostDb))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 12)
-                        .frame(height: 28)
-                        .background(Color(.tertiarySystemFill), in: Capsule())
-                }
-            }
-        }
-    }
-
-    /// One secondary-row control with its caption. `combineForVoiceOver` merges the
-    /// control and its visible caption into one VoiceOver element ("Speed, 1×" once,
-    /// not the raw symbol name plus a duplicate). Off for AirPlay's self-voicing picker.
-    private func controlItem(
-        label: String,
-        combineForVoiceOver: Bool = true,
-        @ViewBuilder _ control: () -> some View
-    ) -> some View {
-        VStack(spacing: 5) {
-            control()
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .accessibilityElement(children: combineForVoiceOver ? .combine : .contain)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     // MARK: - Tint
@@ -611,79 +447,4 @@ struct FullScreenPlayerView: View {
             }
         }
     }
-
-    // MARK: - Helpers
-
-    private func formatSpeed(_ speed: Float) -> String {
-        if speed == Float(Int(speed)) {
-            return "\(Int(speed))x"
-        } else {
-            return String(format: "%.2gx", speed)
-        }
-    }
-}
-
-// MARK: - Chapter Scrubber
-
-/// The chapter slider + elapsed/remaining labels. Extracted from
-/// `FullScreenPlayerView` so the per-frame position reads that drive the moving
-/// thumb re-evaluate only this small view — not the whole player and its blurred
-/// cover background, which now re-evaluate at most ~1×/sec.
-private struct ChapterScrubberSection: View {
-    let observer: PlayerCoordinator
-    let tint: Color
-
-    @State private var sliderPosition: Double = 0
-    @State private var isDraggingSlider: Bool = false
-
-    var body: some View {
-        VStack(spacing: 8) {
-            Slider(
-                value: $sliderPosition,
-                in: 0...max(Double(observer.chapterDurationMs), 1),
-                onEditingChanged: { editing in
-                    isDraggingSlider = editing
-                    if !editing {
-                        // Seek relative to chapter start
-                        if let info = observer.currentChapterInfoForSeeking {
-                            let absolutePosition = Int64(info.startMs) + Int64(sliderPosition)
-                            observer.seekTo(positionMs: absolutePosition)
-                        }
-                    }
-                }
-            )
-            .tint(tint)
-
-            HStack {
-                let elapsed = isDraggingSlider ? Int64(sliderPosition) : observer.chapterPositionMs
-                Text(DurationFormatting.clock(ms: elapsed))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-                Spacer()
-                Text("-" + DurationFormatting.clock(ms: observer.chapterDurationMs - elapsed))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-            }
-        }
-        .onChange(of: observer.chapterPositionMs) { _, newValue in
-            if !isDraggingSlider {
-                sliderPosition = Double(newValue)
-            }
-        }
-        .onAppear {
-            sliderPosition = Double(observer.chapterPositionMs)
-        }
-    }
-}
-
-// MARK: - Preview
-
-#Preview {
-    Color.blue
-        .ignoresSafeArea()
-        .sheet(isPresented: .constant(true)) {
-            Text("Full screen player preview requires observer")
-        }
 }

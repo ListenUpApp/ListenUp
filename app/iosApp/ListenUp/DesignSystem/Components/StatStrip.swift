@@ -25,20 +25,22 @@ struct StatStrip: View {
     private var groupAlignment: HorizontalAlignment { centered ? .center : .leading }
     private var hairline: CGFloat { 1 / max(displayScale, 1) }
 
+    /// One row while every stat fits on a line; otherwise two per row, then one per row, so a
+    /// large text size regroups the stats instead of breaking their labels mid-word (HIG,
+    /// Typography: "Make sure your app's layout adapts to all font sizes.").
     var body: some View {
+        ViewThatFits(in: .horizontal) {
+            row
+            grid(columns: 2)
+            grid(columns: 1)
+        }
+        .frame(maxWidth: centered ? .infinity : nil, alignment: centered ? .center : .leading)
+    }
+
+    private var row: some View {
         HStack(spacing: 20) {
             ForEach(Array(stats.enumerated()), id: \.element.id) { index, stat in
-                VStack(alignment: groupAlignment, spacing: 2) {
-                    Text(stat.value)
-                        .font(.title3.weight(.bold))
-                        .monospacedDigit()
-                        .foregroundStyle(.primary)
-                    Text(stat.label)
-                        .font(.footnote)
-                        .foregroundStyle(Color.luLabel2)
-                }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("\(stat.value) \(stat.label)")
+                cell(stat)
                 if index < stats.count - 1 {
                     Rectangle()
                         .fill(Color.luSeparator)
@@ -47,7 +49,38 @@ struct StatStrip: View {
                 }
             }
         }
-        .frame(maxWidth: centered ? .infinity : nil, alignment: centered ? .center : .leading)
+    }
+
+    private func grid(columns: Int) -> some View {
+        Grid(alignment: centered ? .center : .leading, horizontalSpacing: 20, verticalSpacing: 12) {
+            ForEach(Array(Self.rows(of: stats, columns: columns).enumerated()), id: \.offset) { _, rowStats in
+                GridRow {
+                    ForEach(rowStats) { cell($0) }
+                }
+            }
+        }
+    }
+
+    private func cell(_ stat: Stat) -> some View {
+        VStack(alignment: groupAlignment, spacing: 2) {
+            Text(stat.value)
+                .font(.title3.weight(.bold))
+                .monospacedDigit()
+                .foregroundStyle(.primary)
+            Text(stat.label)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(stat.value) \(stat.label)")
+    }
+
+    /// The stats in order, `columns` to a row; the last row holds the remainder.
+    nonisolated static func rows(of stats: [Stat], columns: Int) -> [[Stat]] {
+        let width = max(columns, 1)
+        return stride(from: 0, to: stats.count, by: width).map {
+            Array(stats[$0 ..< min($0 + width, stats.count)])
+        }
     }
 }
 

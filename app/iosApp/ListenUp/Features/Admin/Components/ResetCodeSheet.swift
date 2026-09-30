@@ -19,10 +19,10 @@ struct ResetCodeSheet: View {
     var body: some View {
         VStack(spacing: 24) {
             Image(systemName: "key.horizontal.fill")
-                .font(.system(size: 40))
+                .scaledFont(size: 40, relativeTo: .largeTitle)
                 .foregroundStyle(Color.luTint)
                 .accessibilityHidden(true)
-                .padding(.top, 36)
+                .padding(.top, Spacing.xxl)
 
             Text(String(format: String(localized: "admin.reset_code_title"), recipient))
                 .font(.title3.weight(.semibold))
@@ -31,16 +31,16 @@ struct ResetCodeSheet: View {
             Text(code)
                 .font(.system(.largeTitle, design: .monospaced).weight(.bold))
                 .kerning(2)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 14)
-                .background(RoundedRectangle(cornerRadius: 14).fill(Color.luFill))
+                .padding(.horizontal, Spacing.xl)
+                .padding(.vertical, Spacing.m)
+                .background(RoundedRectangle(cornerRadius: Radius.l).fill(Color.luFill))
                 .textSelection(.enabled)
 
             Text(String(format: String(localized: "admin.reset_code_instruction"), recipient))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 28)
+                .padding(.horizontal, Spacing.xxl)
 
             Spacer(minLength: 0)
 
@@ -57,11 +57,11 @@ struct ResetCodeSheet: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Color.luTint)
+                .onBrandFillLabel()
                 .controlSize(.large)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
+            .padding(.horizontal, Spacing.l)
+            .padding(.bottom, Spacing.l)
         }
         .presentationDetents([.medium])
     }

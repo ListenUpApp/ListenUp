@@ -10,19 +10,19 @@ struct AdminInboxEmptyState: View {
         VStack(spacing: 20) {
             Spacer()
             ZStack {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.xxl, style: .continuous)
                     .fill(Color.luFill)
                     .frame(width: 96, height: 96)
                 Image(systemName: "tray")
-                    .font(.system(size: 46, weight: .light))
-                    .foregroundStyle(Color.luLabel3)
+                    .font(.system(size: 46, weight: .light)) // decorative fixed size
+                    .foregroundStyle(.tertiary)
             }
             VStack(spacing: 6) {
                 Text(String(localized: "admin.inbox_empty"))
                     .font(.title2.weight(.bold))
                 Text(String(localized: "admin.inbox_setting_subtitle"))
                     .font(.subheadline)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 280)
                     .lineSpacing(2)
@@ -30,6 +30,6 @@ struct AdminInboxEmptyState: View {
             Spacer()
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 30)
+        .padding(.horizontal, Spacing.xxl)
     }
 }

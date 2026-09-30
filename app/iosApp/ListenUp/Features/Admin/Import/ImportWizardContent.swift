@@ -17,25 +17,32 @@ struct ImportStat: Identifiable, Equatable {
 struct ImportIntroContent: View {
     let onChooseFile: () -> Void
 
+    /// A grouped `List`: the explainer on the plain background, then the numbered steps as a system
+    /// section whose footer carries the privacy note. HIG, Lists and tables.
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
+        List {
+            Section {
                 VStack(alignment: .leading, spacing: 18) {
                     badge
                     Text(String(localized: "import.choose_backup_subtitle"))
                         .font(.subheadline)
-                        .foregroundStyle(Color.luLabel2)
+                        .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
-
-                    AdminSectionHeader(String(localized: "import.how_it_works"))
-                        .padding(.top, 4)
-                    stepsCard
-                    privacyNote
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .readableWidth(640)
+                .listRowBackground(Color.clear)
             }
+            Section {
+                steps
+            } header: {
+                Text(String(localized: "import.how_it_works"))
+            } footer: {
+                privacyNote
+            }
+        }
+        .listStyle(.insetGrouped)
+        .readableListWidth()
+        // The tray is a bar over the scroll view, whose edge effect the system draws (HIG, Toolbars).
+        .safeAreaBar(edge: .bottom) {
             actionTray
         }
     }
@@ -43,55 +50,50 @@ struct ImportIntroContent: View {
     private var badge: some View {
         Label(String(localized: "import.intro_badge"), systemImage: "arrow.triangle.2.circlepath")
             .font(.footnote.weight(.semibold))
-            .foregroundStyle(Color.luTint)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background(Color.luTint.opacity(0.15), in: Capsule())
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, Spacing.s)
+            .padding(.vertical, Spacing.xs)
+            .background(Color.luFill, in: Capsule())
     }
 
-    private var stepsCard: some View {
-        VStack(spacing: 0) {
-            NumberedStepRow(
-                number: 1, systemImage: "doc",
-                title: String(localized: "import.step_choose_title"),
-                subtitle: String(localized: "import.step_choose_subtitle")
-            )
-            separator
-            NumberedStepRow(
-                number: 2, systemImage: "person",
-                title: String(localized: "import.step_match_title"),
-                subtitle: String(localized: "import.step_match_subtitle")
-            )
-            separator
-            NumberedStepRow(
-                number: 3, systemImage: "waveform",
-                title: String(localized: "import.step_apply_title"),
-                subtitle: String(localized: "import.step_apply_subtitle")
-            )
-        }
-        .fieldCard()
+    @ViewBuilder
+    private var steps: some View {
+        NumberedStepRow(
+            number: 1, systemImage: "doc",
+            title: String(localized: "import.step_choose_title"),
+            subtitle: String(localized: "import.step_choose_subtitle")
+        )
+        NumberedStepRow(
+            number: 2, systemImage: "person",
+            title: String(localized: "import.step_match_title"),
+            subtitle: String(localized: "import.step_match_subtitle")
+        )
+        NumberedStepRow(
+            number: 3, systemImage: "waveform",
+            title: String(localized: "import.step_apply_title"),
+            subtitle: String(localized: "import.step_apply_subtitle")
+        )
     }
 
     private var privacyNote: some View {
         Label(String(localized: "import.data_stays_on_server"), systemImage: "lock")
             .font(.footnote)
-            .foregroundStyle(Color.luLabel2)
+            .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.top, 4)
+            .padding(.top, Spacing.xs)
     }
 
     private var actionTray: some View {
-        PrimaryButton(title: String(localized: "import.choose_backup_file"), icon: "folder", action: onChooseFile)
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 16)
-            .background(.bar)
-    }
-
-    private var separator: some View {
-        Rectangle().fill(Color.luSeparator).frame(height: 0.5).padding(.leading, 57)
+        Button(action: onChooseFile) {
+            ActionLabel(title: String(localized: "import.choose_backup_file"), systemImage: "folder")
+        }
+        .prominentAction()
+        .padding(.horizontal, Spacing.l)
+        .padding(.top, Spacing.s)
+        .padding(.bottom, Spacing.m)
     }
 }
+
 
 // MARK: - Progress (Uploading / Analyzing / Applying)
 
@@ -108,15 +110,19 @@ struct ImportProgressContent: View {
     let stats: [ImportStat]
     var footnote: String?
 
+    /// A grouped `List`: the dial and headline on the plain background, and any running figures as a
+    /// section of system rows beneath. HIG, Lists and tables.
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
+        List {
+            Section {
                 VStack(spacing: 22) {
                     CircularProgressDial(progress: progress) {
                         VStack(spacing: 2) {
                             if let centerPrimary {
                                 Text(centerPrimary)
-                                    .font(.system(size: 34, weight: .bold).monospacedDigit())
+                                    .font(.largeTitle.bold().monospacedDigit())
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.6)
                                     .foregroundStyle(.primary)
                             } else {
                                 ProgressView().controlSize(.large)
@@ -124,11 +130,11 @@ struct ImportProgressContent: View {
                             if let centerSecondary {
                                 Text(centerSecondary)
                                     .font(.footnote.monospacedDigit())
-                                    .foregroundStyle(Color.luLabel2)
+                                    .foregroundStyle(.secondary)
                             }
                         }
                     }
-                    .padding(.top, 12)
+                    .padding(.top, Spacing.s)
 
                     VStack(spacing: 6) {
                         Text(title)
@@ -136,44 +142,38 @@ struct ImportProgressContent: View {
                             .foregroundStyle(.primary)
                         Text(subtitle)
                             .font(.subheadline)
-                            .foregroundStyle(Color.luLabel2)
+                            .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                     }
 
                     if let filename {
                         MonospacedTechLine(text: filename)
-                            .padding(.horizontal, 4)
-                    }
-
-                    if !stats.isEmpty {
-                        statsCard
+                            .padding(.horizontal, Spacing.xxs)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 24)
                 .frame(maxWidth: .infinity)
-                .readableWidth(520)
+                .listRowBackground(Color.clear)
             }
+
+            if !stats.isEmpty {
+                Section {
+                    ForEach(stats) { stat in
+                        StatLineRow(systemImage: stat.systemImage, label: stat.label, value: stat.value, isMuted: stat.isMuted)
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .readableListWidth(520)
+        // The tray is a bar over the scroll view, whose edge effect the system draws (HIG, Toolbars).
+        .safeAreaBar(edge: .bottom) {
             if let footnote {
                 Text(footnote)
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(.bar)
+                    .padding(.vertical, Spacing.s)
             }
         }
-    }
-
-    private var statsCard: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(stats.enumerated()), id: \.element.id) { index, stat in
-                if index > 0 {
-                    Rectangle().fill(Color.luSeparator).frame(height: 0.5).padding(.leading, 57)
-                }
-                StatLineRow(systemImage: stat.systemImage, label: stat.label, value: stat.value, isMuted: stat.isMuted)
-            }
-        }
-        .fieldCard()
     }
 }

@@ -32,8 +32,8 @@ struct StreakBadge: View {
                 .foregroundStyle(.primary)
                 .lineLimit(1)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, Spacing.s)
+        .padding(.vertical, Spacing.xs)
         .background(Color.listenUpOrange.opacity(0.12), in: Capsule())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label)

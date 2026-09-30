@@ -80,8 +80,8 @@ struct ForgotPasswordHowItWorks: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(.background.secondary, in: .rect(cornerRadius: 16))
+        .padding(Spacing.m)
+        .background(.background.secondary, in: .rect(cornerRadius: Radius.l))
     }
 }
 
@@ -152,18 +152,17 @@ struct ForgotPasswordCodeField: View {
         .accessibilityElement()
         .accessibilityLabel(String(localized: "invite.enter_code"))
         .accessibilityValue(code.isEmpty ? "" : code.map(String.init).joined(separator: " "))
-        .accessibilityAddTraits(.isKeyboardKey)
     }
 
     private func box(at index: Int) -> some View {
         let character = characters[index]
         let isNext = isFocused && index == code.count
         let accent: Color = isError ? .red : Color.listenUpOrange
-        return RoundedRectangle(cornerRadius: 12)
+        return RoundedRectangle(cornerRadius: Radius.m)
             .fill(.background.secondary)
             .frame(width: boxWidth, height: boxHeight)
             .overlay {
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: Radius.m)
                     .strokeBorder(character != nil || isNext ? accent : .clear, lineWidth: 2)
             }
             .overlay {
@@ -204,7 +203,7 @@ struct ForgotPasswordAttempts: View {
                 .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
-            .foregroundStyle(isLast ? .red : .orange)
+            .foregroundStyle(isLast ? Color.red : Color.luWarning)
         }
     }
 }
@@ -239,7 +238,7 @@ struct ForgotPasswordTimeline: View {
                     Text(step)
                         .font(.footnote.weight(index == activeStep ? .semibold : .regular))
                         .foregroundStyle(colour(for: index))
-                        .padding(.bottom, 12)
+                        .padding(.bottom, Spacing.s)
                     Spacer(minLength: 0)
                 }
             }
@@ -261,7 +260,7 @@ struct ForgotPasswordTimeline: View {
             if index < activeStep {
                 Image(systemName: "checkmark")
                     .font(.system(size: 11, weight: .bold)) // decorative fixed size
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.luOnTint)
             } else {
                 Circle()
                     .fill(index == activeStep ? Color.listenUpOrange : Color.secondary.opacity(0.5))

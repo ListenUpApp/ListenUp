@@ -9,15 +9,15 @@ import Shared
 /// 3. Full-width Continue CTA
 /// 4. Optional expandable description
 /// 5. "Books in Series" header + order toggle
-/// 6. `FieldGroup` of `SeriesBookRow` entries
+/// 6. The books, as rows of a system inset-grouped `List`
 ///
-/// iPad (`horizontalSizeClass == .regular`) splits hero + meta into a fixed left
-/// column beside a right column with the book list.
+/// On iPhone the whole screen is that one `List` — the hero and meta on the plain background above
+/// the Books section. When the width allows (`DetailColumns`), hero + meta move into a left rail
+/// sized from the width, beside the book `List` on the right.
 struct SeriesDetailView: View {
     let seriesId: String
 
     @Environment(\.dependencies) private var deps
-    @Environment(\.horizontalSizeClass) private var hSize
     @State private var observer: SeriesDetailObserver?
     @State private var reversed: Bool = false
     @State private var showEdit: Bool = false
@@ -92,46 +92,50 @@ struct SeriesDetailView: View {
 
     @ViewBuilder
     private func content(observer: SeriesDetailObserver) -> some View {
-        if hSize == .regular {
-            iPadLayout(observer: observer)
-        } else {
-            iPhoneLayout(observer: observer)
+        DetailColumnsReader { columns in
+            switch columns {
+            case .split(let railWidth): iPadLayout(observer: observer, railWidth: railWidth)
+            case .stacked: iPhoneLayout(observer: observer)
+            }
         }
     }
 
     private func iPhoneLayout(observer: SeriesDetailObserver) -> some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                heroSection(observer: observer)
-                    .padding(.top, 16)
-                statStripSection(observer: observer)
-                    .padding(.vertical, 20)
-                if let description = observer.seriesDescription, !description.isEmpty {
-                    ExpandableText(
-                        title: String(localized: "common.about"),
-                        text: description,
-                        lineLimit: 3
-                    )
-                    .padding(.horizontal)
+        List {
+            Section {
+                VStack(spacing: 0) {
+                    heroSection(observer: observer)
+                        .padding(.top, Spacing.m)
+                    statStripSection(observer: observer)
+                        .padding(.vertical, Spacing.l)
+                    if let description = observer.seriesDescription, !description.isEmpty {
+                        ExpandableText(
+                            title: String(localized: "common.about"),
+                            text: description,
+                            lineLimit: 3
+                        )
+                        .padding(.horizontal)
+                    }
+                    continueButton(observer: observer)
+                        .padding(.horizontal)
+                        .padding(.top, Spacing.l)
                 }
-                continueButton(observer: observer)
-                    .padding(.horizontal)
-                    .padding(.top, 20)
-                booksSection(observer: observer)
-                    .padding(.top, 20)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
             }
-            .padding(.bottom, 32)
+            booksSection(observer: observer)
         }
+        .listStyle(.insetGrouped)
     }
 
-    private func iPadLayout(observer: SeriesDetailObserver) -> some View {
-        ScrollView {
-            HStack(alignment: .top, spacing: 40) {
-                // Left column — hero + stats + CTA
+    private func iPadLayout(observer: SeriesDetailObserver, railWidth: CGFloat) -> some View {
+        HStack(alignment: .top, spacing: DetailColumns.gutter) {
+            // Left column — hero + stats + CTA, scrolling on its own when it outgrows the window
+            ScrollView {
                 VStack(spacing: 0) {
                     heroSection(observer: observer)
                     statStripSection(observer: observer)
-                        .padding(.vertical, 20)
+                        .padding(.vertical, Spacing.l)
                     if let description = observer.seriesDescription, !description.isEmpty {
                         ExpandableText(
                             title: String(localized: "common.about"),
@@ -140,18 +144,19 @@ struct SeriesDetailView: View {
                         )
                     }
                     continueButton(observer: observer)
-                        .padding(.top, 20)
+                        .padding(.top, Spacing.l)
                 }
-                .frame(width: 340, alignment: .top)
-                // Right column — books list
-                VStack(spacing: 0) {
-                    booksSection(observer: observer)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, Spacing.xl)
             }
-            .padding(.horizontal)
-            .padding(.vertical, 24)
+            .frame(width: railWidth)
+            // Right column — the books list
+            List {
+                booksSection(observer: observer)
+            }
+            .listStyle(.insetGrouped)
+            .contentMargins(.horizontal, 0, for: .scrollContent)
         }
+        .padding(.horizontal, DetailColumns.margin)
     }
 
     // MARK: - Hero
@@ -219,56 +224,68 @@ struct SeriesDetailView: View {
     // MARK: - Continue CTA
 
     private func continueButton(observer: SeriesDetailObserver) -> some View {
-        PrimaryButton(title: observer.continueButtonTitle, icon: "play.fill", action: { observer.continueSeries() })
-            .disabled(observer.books.isEmpty)
+        Button(action: { observer.continueSeries() }) {
+            ActionLabel(title: observer.continueButtonTitle, systemImage: "play.fill")
+        }
+        .prominentAction()
+        .disabled(observer.books.isEmpty)
     }
 
     // MARK: - Books section
 
     private func booksSection(observer: SeriesDetailObserver) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let displayedBooks = reversed ? Array(observer.books.reversed()) : observer.books
+        return Section {
+            ForEach(displayedBooks, id: \.id) { book in
+                NavigationLink(value: BookDestination(id: book.id)) {
+                    SeriesBookRow(
+                        book: book,
+                        sequence: book.sequence,
+                        progress: observer.progress(for: book.id),
+                        isFinished: observer.isFinished(book.id),
+                        isPlaying: observer.isPlaying(book.id),
+                        onPlayTapped: { observer.playBook(book.id) }
+                    )
+                }
+                .bookContextMenu(bookId: book.id, selection: nil) {
+                    SeriesBookRow(
+                        book: book,
+                        sequence: book.sequence,
+                        progress: observer.progress(for: book.id),
+                        isFinished: observer.isFinished(book.id),
+                        isPlaying: observer.isPlaying(book.id),
+                        onPlayTapped: {}
+                    )
+                    .padding(.horizontal, Spacing.m)
+                    .padding(.vertical, Spacing.s)
+                }
+            }
+        } header: {
             booksHeader(observer: observer)
-                .padding(.horizontal)
-            let displayedBooks = reversed
-                ? Array(observer.books.reversed())
-                : observer.books
-            booksList(books: displayedBooks, observer: observer)
-                .padding(.horizontal)
+                .textCase(nil)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func booksHeader(observer: SeriesDetailObserver) -> some View {
         HStack {
             Text(String(localized: "series.books_header"))
                 .font(.title2.bold())
+                .foregroundStyle(.primary)
+                .accessibilityAddTraits(.isHeader)
             Text("(\(observer.bookCount))")
                 .font(.title2)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
             Spacer()
             Button(action: { reversed.toggle() }) {
                 Image(systemName: reversed ? "arrow.up" : "arrow.down")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.luTint)
+                    .minimumTapTarget(visualSize: 20)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(reversed ? "Sort ascending" : "Sort descending")
-        }
-    }
-
-    private func booksList(books: [BookRow], observer: SeriesDetailObserver) -> some View {
-        FieldGroup(books, id: \.id, separatorInset: 76) { book in
-            NavigationLink(value: BookDestination(id: book.id)) {
-                SeriesBookRow(
-                    book: book,
-                    sequence: book.sequence,
-                    progress: observer.progress(for: book.id),
-                    isFinished: observer.isFinished(book.id),
-                    isPlaying: observer.isPlaying(book.id),
-                    onPlayTapped: { observer.playBook(book.id) }
-                )
-            }
-            .buttonStyle(.plain)
+            .accessibilityLabel(
+                String(localized: reversed ? "series.sort_ascending_a11y" : "series.sort_descending_a11y")
+            )
         }
     }
 

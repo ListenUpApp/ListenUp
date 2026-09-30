@@ -11,8 +11,8 @@ import Shared
 /// VM also drives is intentionally not surfaced — the iOS flow is the linear wizard (resuming an
 /// in-progress import is a deferred follow-up).
 ///
-/// Responsive: a single `.readableWidth()` column that stays comfortable on iPhone and centres on
-/// iPad / wide split views (rule 12).
+/// The roster is a system inset-grouped `List`, which keeps readable margins on iPad by itself
+/// (rule 12).
 struct ABSImportHubView: View {
     @Environment(\.dependencies) private var deps
 
@@ -40,13 +40,7 @@ struct ABSImportHubView: View {
         .sheet(isPresented: $showingWizard) {
             ImportWizardView { observer?.reload() }
         }
-        .alert(item: errorAlertBinding) { alert in
-            Alert(
-                title: Text(String(localized: "common.something_went_wrong")),
-                message: Text(alert.message),
-                dismissButton: .default(Text(String(localized: "common.ok"))) { observer?.clearError() }
-            )
-        }
+        .messageAlert(errorAlertBinding) { observer?.clearError() }
         .confirmationDialog(
             String(localized: "import.delete_import"),
             isPresented: deleteConfirmationPresented,
@@ -84,24 +78,30 @@ struct ABSImportHubView: View {
         }
     }
 
+    /// The roster is a real inset-grouped `List`: `.swipeActions` only fires inside one, and delete
+    /// used to hang off a swipe that could never trigger. The context menu is the discoverable path;
+    /// the swipe supplements it (HIG, Lists and tables; Gestures).
     @ViewBuilder
     private func readyBody(observer: ABSImportHubObserver, ready: ImportHubReadyModel) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                if ready.imports.isEmpty {
-                    emptyState
-                } else {
-                    AdminSectionHeader(String(localized: "import.hub_section_imports"))
-                    FieldGroup(ready.imports, separatorInset: 57) { summary in
+        if ready.imports.isEmpty {
+            ScrollView {
+                emptyState
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.vertical, Spacing.m)
+                    .readableWidth(640)
+            }
+            .refreshable { observer.reload() }
+        } else {
+            List {
+                Section(String(localized: "import.hub_section_imports")) {
+                    ForEach(ready.imports) { summary in
                         ImportSummaryRow(summary: summary, onDelete: { pendingDelete = summary })
                     }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .readableWidth(640)
+            .listStyle(.insetGrouped)
+            .refreshable { observer.reload() }
         }
-        .refreshable { observer.reload() }
     }
 
     private var emptyState: some View {
@@ -111,7 +111,7 @@ struct ABSImportHubView: View {
                 .frame(width: 86, height: 86)
                 .overlay {
                     Image(systemName: "shippingbox")
-                        .font(.system(size: 38, weight: .regular))
+                        .font(.system(size: 38, weight: .regular)) // decorative fixed size
                         .foregroundStyle(Color.luTint)
                 }
             Text(String(localized: "import.hub_empty_title"))
@@ -119,7 +119,7 @@ struct ABSImportHubView: View {
                 .foregroundStyle(.primary)
             Text(String(localized: "import.hub_empty_subtitle"))
                 .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 300)
         }
@@ -176,16 +176,20 @@ private struct ImportSummaryRow: View {
                     .lineLimit(1)
                 Text(subtitle)
                     .font(.footnote)
-                    .foregroundStyle(Color.luLabel2)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
             stageBadge
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.vertical, 3)
         .contentShape(Rectangle())
         .swipeActions(edge: .trailing) {
+            Button(role: .destructive, action: onDelete) {
+                Label(String(localized: "common.delete"), systemImage: "trash")
+            }
+        }
+        .contextMenu {
             Button(role: .destructive, action: onDelete) {
                 Label(String(localized: "common.delete"), systemImage: "trash")
             }
@@ -200,8 +204,8 @@ private struct ImportSummaryRow: View {
         Text(stageLabel)
             .font(.caption.weight(.semibold))
             .foregroundStyle(stageTint)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
+            .padding(.horizontal, Spacing.s)
+            .padding(.vertical, Spacing.xxs)
             .background(stageTint.opacity(0.15), in: Capsule())
     }
 
@@ -229,7 +233,7 @@ private struct ImportSummaryRow: View {
         switch summary.stage {
         case .imported: .green
         case .ready: .luTint
-        default: .orange
+        default: .luWarning
         }
     }
 }
