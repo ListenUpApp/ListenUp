@@ -73,6 +73,7 @@ class CollectionDetailSession(
     val onShare: (String) -> Unit,
     val onRevokeShare: (String) -> Unit,
     val onClearError: () -> Unit,
+    val onClearSaveSuccess: () -> Unit,
     val close: () -> Unit,
 )
 
@@ -104,6 +105,7 @@ fun graphCollectionDetail(koin: Koin): OpenCollectionDetail =
             onShare = viewModel::shareWithUser,
             onRevokeShare = viewModel::revokeShare,
             onClearError = viewModel::clearError,
+            onClearSaveSuccess = viewModel::clearSaveSuccess,
             close = store::clear,
         )
     }
@@ -124,6 +126,7 @@ fun fixedCollectionDetail(
     onShare: (String) -> Unit = {},
     onRevokeShare: (String) -> Unit = {},
     onClearError: () -> Unit = {},
+    onClearSaveSuccess: () -> Unit = {},
 ): OpenCollectionDetail =
     {
         CollectionDetailSession(
@@ -140,6 +143,7 @@ fun fixedCollectionDetail(
             onShare = onShare,
             onRevokeShare = onRevokeShare,
             onClearError = onClearError,
+            onClearSaveSuccess = onClearSaveSuccess,
             close = {},
         )
     }

@@ -58,6 +58,7 @@ private fun page(
     onClearError: () -> Unit = {},
     onOpenCollection: (String) -> Unit = {},
     onOpenAdmin: () -> Unit = {},
+    onCreateConfirmed: () -> Unit = {},
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
@@ -70,6 +71,7 @@ private fun page(
             onClearError = onClearError,
             onOpenCollection = onOpenCollection,
             onOpenAdmin = onOpenAdmin,
+            onCreateConfirmed = onCreateConfirmed,
         )
     }
     return host
@@ -114,6 +116,16 @@ class CollectionsPageTest :
 
             host.querySelector(".coll-name")?.textContent shouldBe "Bedtime"
             host.querySelector(".coll-books")?.textContent shouldBe "4 books"
+        }
+
+        // Android's list confirms a new collection the same way; the flag was wired into the web
+        // session and then read by nothing.
+        test("a collection that is created is confirmed exactly once") {
+            var confirmations = 0
+            page(readyCollections().copy(createSuccess = true), onCreateConfirmed = { confirmations++ })
+            awaitFrame()
+
+            confirmations shouldBe 1
         }
 
         test("one book is one book") {

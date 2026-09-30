@@ -1827,11 +1827,11 @@ private fun bookHit() =
     )
 
 private fun collectionShapes(): List<@Composable () -> Unit> {
-    fun list(state: AdminCollectionsUiState): @Composable () -> Unit = { CollectionsPage(state, {}, {}, {}, {}, {}) }
+    fun list(state: AdminCollectionsUiState): @Composable () -> Unit = { CollectionsPage(state, {}, {}, {}, {}, {}, {}) }
 
     fun detail(state: AdminCollectionDetailUiState): @Composable () -> Unit =
         {
-            CollectionDetailPage(state, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+            CollectionDetailPage(state, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
         }
 
     return listOf(
