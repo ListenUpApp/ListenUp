@@ -260,7 +260,7 @@ CI is organized into three stages — **Lint / Test / Build** — across a Linux
 > line. If you must capture output, use `set -o pipefail` first (zsh/bash) or check
 > `$pipestatus[1]` / `${PIPESTATUS[0]}` afterwards.
 
-**†iOS** = requires a Mac with Xcode 26. On an iOS-capable machine, run these before pushing. **On a non-iOS dev machine (e.g. Linux), the iOS gates can't run locally — push and rely on remote CI to run them** (the `Test (iOS)` / `Build (iOS)` / Swift-lint jobs gate the PR regardless).
+**†iOS** = requires a Mac with Xcode 27 (CI builds and ships with Xcode 27). On an iOS-capable machine, run these before pushing. **On a non-iOS dev machine (e.g. Linux), the iOS gates can't run locally — push and rely on remote CI to run them** (the `Test (iOS)` / `Build (iOS)` / Swift-lint jobs gate the PR regardless).
 
 > **iOS local gate:** `Build (iOS)` (`xcodebuild build`) does **not** compile `ListenUpTests`. Before pushing iOS changes from a Mac, also run `xcodebuild build-for-testing` (or the full `Test (iOS)` command) so test-target drift can't slip to CI.
 
