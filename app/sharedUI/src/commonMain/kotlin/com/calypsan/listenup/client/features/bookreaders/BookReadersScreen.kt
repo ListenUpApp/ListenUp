@@ -25,6 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.bookdetail.components.ReaderRow
+import com.calypsan.listenup.client.features.bookdetail.components.listKey
 import com.calypsan.listenup.client.features.bookdetail.components.toReaderRows
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
@@ -123,7 +124,7 @@ private fun BookReadersBody(
             ) {
                 items(
                     items = rows,
-                    key = { row -> "${row.userId}:${row.isReading}:${row.finishedWhen}" },
+                    key = { row -> row.listKey },
                 ) { row ->
                     ReaderRow(
                         reader = row,

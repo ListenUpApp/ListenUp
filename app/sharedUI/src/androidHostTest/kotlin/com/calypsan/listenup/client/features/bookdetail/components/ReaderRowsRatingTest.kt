@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.features.bookdetail.components
 
 import com.calypsan.listenup.client.domain.model.ListenerRating
 import com.calypsan.listenup.client.domain.readers.Reader
+import com.calypsan.listenup.client.util.relativeOrMonthYear
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -57,5 +58,46 @@ class ReaderRowsRatingTest :
             rows[0].halfStars shouldBe 10
             rows[0].isRatedOnly shouldBe false
             rows[1].halfStars shouldBe null
+        }
+
+        test("a Hardcover read is its own row, marked as from Hardcover, with its date") {
+            val readers =
+                listOf(
+                    Reader(
+                        userId = "u1",
+                        displayName = "Ada",
+                        isYou = false,
+                        currentProgressPct = null,
+                        finishes = listOf(9_000L),
+                        hardcoverFinishes = listOf(5_000L),
+                    ),
+                )
+
+            val rows = readers.toReaderRows(nowMs = 10_000L)
+
+            rows shouldHaveSize 2
+            rows[0].isOnHardcover shouldBe false
+            rows[1].isOnHardcover shouldBe true
+            rows[1].finishedWhen shouldBe relativeOrMonthYear(5_000L, 10_000L)
+            rows[1].isRatedOnly shouldBe false
+        }
+
+        test("a Hardcover read and a ListenUp finish shown with the same date are different list items") {
+            val readers =
+                listOf(
+                    Reader(
+                        userId = "u1",
+                        displayName = "Ada",
+                        isYou = false,
+                        currentProgressPct = null,
+                        finishes = listOf(5_000L),
+                        hardcoverFinishes = listOf(5_000L),
+                    ),
+                )
+
+            val rows = readers.toReaderRows(nowMs = 10_000L)
+
+            rows.map { it.finishedWhen }.distinct() shouldHaveSize 1
+            rows.map { it.listKey }.distinct() shouldHaveSize 2
         }
     })

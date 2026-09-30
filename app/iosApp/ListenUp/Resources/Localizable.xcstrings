@@ -4641,6 +4641,16 @@
         }
       }
     },
+    "book.detail_readers_a11y_read_on_hardcover": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, read %2$@, logged on Hardcover"
+          }
+        }
+      }
+    },
     "book.detail_readers_a11y_reading": {
       "localizations": {
         "en": {
@@ -4671,6 +4681,16 @@
         }
       }
     },
+    "book.detail_readers_hardcover": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hardcover"
+          }
+        }
+      }
+    },
     "book.detail_readers_listening_now": {
       "localizations": {
         "en": {
@@ -4697,6 +4717,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rated"
+          }
+        }
+      }
+    },
+    "book.detail_readers_read": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read %1$@"
           }
         }
       }

@@ -39,6 +39,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.CountBadge
 import com.calypsan.listenup.client.design.components.RatingStars
+import com.calypsan.listenup.client.design.components.TonalLabel
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
@@ -55,7 +56,9 @@ import listenup.composeapp.generated.resources.book_detail_readers_finished
 import listenup.composeapp.generated.resources.book_detail_progresspercent
 import listenup.composeapp.generated.resources.book_detail_readers_listening_now
 import listenup.composeapp.generated.resources.book_detail_readers_note
+import listenup.composeapp.generated.resources.book_detail_readers_hardcover
 import listenup.composeapp.generated.resources.book_detail_readers_rated
+import listenup.composeapp.generated.resources.book_detail_readers_read
 import listenup.composeapp.generated.resources.common_see_all
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -84,6 +87,8 @@ private const val MAX_COLLAPSED_READERS = 5
  * @property note The note left with [halfStars], if any.
  * @property isRatedOnly `true` for a person who rated the book without reading it here: the row
  *   reads "Rated", with no progress bar and no finished date.
+ * @property isOnHardcover `true` for a read logged on Hardcover (#601 B3): the row reads "Read {date}"
+ *   beside a "Hardcover" label, never "Finished".
  */
 data class ReaderRowUi(
     val userId: String,
@@ -94,7 +99,15 @@ data class ReaderRowUi(
     val halfStars: Int? = null,
     val note: String? = null,
     val isRatedOnly: Boolean = false,
+    val isOnHardcover: Boolean = false,
 )
+
+/**
+ * The row's identity in a lazy list. A ListenUp finish and a Hardcover read shown with the same date
+ * are two rows, so where the read was logged is part of the key — a duplicate key crashes the list.
+ */
+internal val ReaderRowUi.listKey: String
+    get() = "$userId:$isReading:$isOnHardcover:$finishedWhen"
 
 /**
  * Flattens readers into [ReaderRowUi] rows for both the capped Book Detail section and the full
@@ -128,6 +141,19 @@ internal fun List<Reader>.toReaderRows(nowMs: Long): List<ReaderRowUi> =
                     finishedWhen = relativeOrMonthYear(k.finishedAtMs, nowMs),
                     halfStars = line.rating?.halfStars,
                     note = line.rating?.note,
+                )
+            }
+
+            is ReaderLineKind.FinishedOnHardcover -> {
+                ReaderRowUi(
+                    userId = line.userId,
+                    name = name,
+                    isReading = false,
+                    progressPct = null,
+                    finishedWhen = relativeOrMonthYear(k.finishedAtMs, nowMs),
+                    halfStars = line.rating?.halfStars,
+                    note = line.rating?.note,
+                    isOnHardcover = true,
                 )
             }
 
@@ -387,6 +413,19 @@ internal fun ReaderRow(
                             color = MaterialTheme.colorScheme.primary,
                         )
                     }
+                }
+            } else if (reader.finishedWhen != null && reader.isOnHardcover) {
+                Row(
+                    modifier = Modifier.padding(top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = stringResource(Res.string.book_detail_readers_read, reader.finishedWhen),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TonalLabel(label = stringResource(Res.string.book_detail_readers_hardcover))
                 }
             } else if (reader.finishedWhen != null) {
                 Text(
