@@ -13,6 +13,18 @@ package com.calypsan.listenup.client.data.remote
  * them by hand.
  */
 interface RemoteCache {
-    /** Drop the cached connection(s); the next call reconnects fresh. */
+    /**
+     * Drop the cached connection(s) and close them outright — including any still carrying a call or
+     * a stream — so nothing keeps speaking for an identity that has changed. The next call reconnects
+     * fresh.
+     */
     suspend fun invalidate()
+
+    /**
+     * Drop the cached connection(s) so the next call reconnects fresh, but let work already riding
+     * them finish: each closes once nothing is using it. For a sweep on the SAME identity — the
+     * firehose-reconnect sweep, which must not abort the firehose that triggered it. A cache with no
+     * in-flight work to spare retires by invalidating.
+     */
+    suspend fun retire() = invalidate()
 }

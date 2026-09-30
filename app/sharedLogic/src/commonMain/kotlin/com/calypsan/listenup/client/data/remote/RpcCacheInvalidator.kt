@@ -21,7 +21,8 @@ interface RpcCacheInvalidator {
      *
      * The full sweep: use it when the connection's *identity* changed (logout, user switch, or a
      * genuine server-URL/host change), so every transport — request client, RPC proxies, AND the
-     * streaming client — rebuilds against the new identity on its next use.
+     * streaming client — rebuilds against the new identity on its next use. RPC connections are
+     * closed outright, even those still carrying a call or a stream ([RemoteCache.invalidate]).
      */
     suspend fun invalidateAll()
 
@@ -31,7 +32,8 @@ interface RpcCacheInvalidator {
      * The scoped sweep for a firehose *reconnect to the same server*: refresh the stale kotlinx.rpc
      * proxies (and the request client they derive from) so the next RPC call rebinds to the live
      * connection, while sparing the streaming client — closing it would abort the very firehose read whose
-     * reconnect triggered the sweep, spinning a self-teardown loop.
+     * reconnect triggered the sweep, spinning a self-teardown loop. For the same reason the RPC proxy
+     * caches are RETIRED ([RemoteCache.retire]), not closed: the firehose rides one of them.
      */
     suspend fun invalidateRequestCaches()
 }
@@ -52,10 +54,11 @@ internal class DefaultRpcCacheInvalidator(
 
     override suspend fun invalidateRequestCaches() {
         logger.debug { "Invalidating ${caches.size} remote connection cache(s) (sparing streaming client)" }
-        // The ApiClientFactory is the only cache holding a streaming client; every other RemoteCache
-        // (RPC proxy caches) has no streaming concern, so a full invalidate() is correct for them.
+        // Same identity, so nothing is force-closed: the ApiClientFactory keeps its streaming client,
+        // and every other RemoteCache (the RPC channels) RETIRES — the next call reconnects, while work
+        // still riding the old connection, the firehose that triggered this sweep above all, finishes.
         caches.forEach { cache ->
-            if (cache is ApiClientFactory) cache.invalidateRequestClientOnly() else cache.invalidate()
+            if (cache is ApiClientFactory) cache.invalidateRequestClientOnly() else cache.retire()
         }
     }
 }

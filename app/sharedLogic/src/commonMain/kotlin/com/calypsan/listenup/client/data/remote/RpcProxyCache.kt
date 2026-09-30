@@ -64,15 +64,17 @@ private val PRE_DELIVERY_RETRY_BACKOFF = 300.milliseconds
  * nothing is using it: a [call] holds a use for its attempt, a [streaming] subscription for as long as
  * it is collected. So a timeout — our own bound tripping on a possibly-healthy socket — never tears
  * down the sibling calls and streams still riding that socket, and neither does a provable socket
- * death (they fail on their own) nor the firehose-reconnect sweep. The live connection is never closed
- * by its use count. Closing must reach the kotlinx.rpc client AND cancel its [HttpClient]: Ktor's
+ * death (they fail on their own) nor the firehose-reconnect sweep ([retire]). The live connection is
+ * never closed by its use count. Closing must reach the kotlinx.rpc client AND cancel its [HttpClient]: Ktor's
  * `HttpClient.close()` only completes the client's job, which waits for — never cancels — the
  * WebSocket sessions under it.
  *
- * [invalidate] drops the cached proxy — it is principal-bound and must not survive a logout,
- * re-login, or server-URL change ([RpcCacheInvalidator] sweeps every [RemoteCache] for exactly that
- * reason). No new call or stream can reach the dropped connection; it closes once the work already on
- * it ends.
+ * [invalidate] is the one path that closes connections still in use. A connection is principal-bound
+ * and must not survive a logout, re-login, or server-URL change ([RpcCacheInvalidator.invalidateAll]
+ * sweeps every [RemoteCache] for exactly that reason), so it retires the live connection and then
+ * closes it and every retired one outright: calls and streams still on them fail, and their consumers
+ * reconnect under the new identity. Retiring alone would not do — a process-lifetime stream such as
+ * scan progress never lets go of its connection.
  *
  * [connect] is where reification lives: `withService<T>()` needs a reified type
  * parameter, so each factory supplies a lambda like
@@ -114,6 +116,9 @@ internal class RpcProxyCache<T : Any>(
 
     private val mutex = Mutex()
     private var current: TrackedConnection<T>? = null
+
+    /** Retired connections still carrying a call or a stream — what [invalidate] must reach. */
+    private val retiredInUse = mutableSetOf<TrackedConnection<T>>()
 
     /**
      * Monotonic connection generation. Every [retireLocked] increments it, so a call that
@@ -567,12 +572,33 @@ internal class RpcProxyCache<T : Any>(
             mutex.withLock {
                 val tracked = lease.tracked
                 tracked.uses--
-                if (tracked.retired && tracked.uses == 0) tracked.close()
+                if (tracked.retired && tracked.uses == 0) {
+                    retiredInUse -= tracked
+                    tracked.close()
+                }
             }
         }
     }
 
+    /**
+     * The identity sweep (logout, re-login, server-URL change): retire the live connection, then close
+     * it and every retired one outright, in use or not. Work still riding them fails — a call or stream
+     * must not go on speaking for an identity that has changed, and a process-lifetime stream (scan
+     * progress) would otherwise never let go. Its release later finds the connection already closed.
+     */
     override suspend fun invalidate() {
+        mutex.withLock {
+            retireLocked()
+            retiredInUse.forEach { it.close() }
+            retiredInUse.clear()
+        }
+    }
+
+    /**
+     * The same-identity sweep (a firehose reconnect): retire the live connection so the next call
+     * reconnects, and let the work on it finish — it closes once nothing uses it.
+     */
+    override suspend fun retire() {
         mutex.withLock { retireLocked() }
     }
 
@@ -593,7 +619,7 @@ internal class RpcProxyCache<T : Any>(
     private fun retireLocked() {
         current?.let { tracked ->
             tracked.retired = true
-            if (tracked.uses == 0) tracked.close()
+            if (tracked.uses == 0) tracked.close() else retiredInUse += tracked
         }
         current = null
         generation++

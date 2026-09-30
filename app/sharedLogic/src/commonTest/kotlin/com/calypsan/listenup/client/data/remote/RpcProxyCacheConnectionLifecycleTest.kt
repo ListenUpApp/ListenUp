@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -57,16 +58,23 @@ class RpcProxyCacheConnectionLifecycleTest :
             fun events(): Flow<String> = onEvents()
         }
 
-        /** Numbers each connection [connect] opens, in order, and records which of them were closed. */
+        /**
+         * Numbers each connection [connect] opens, in order, and counts how often each was closed. Every
+         * read of [stillOpen] also asserts no connection was closed twice.
+         */
         class Ledger {
             var opened = 0
                 private set
-            val closed = mutableSetOf<Int>()
-            val stillOpen: List<Int> get() = (0 until opened).filterNot { it in closed }
+            val closes = mutableMapOf<Int, Int>()
+            val stillOpen: List<Int>
+                get() {
+                    closes.filterValues { it > 1 }.keys.shouldBeEmpty()
+                    return (0 until opened).filterNot { it in closes }
+                }
 
             fun connection(proxy: FakeProxy): RpcConnection<FakeProxy> {
                 val id = opened++
-                return RpcConnection(proxy) { closed += id }
+                return RpcConnection(proxy) { closes[id] = (closes[id] ?: 0) + 1 }
             }
         }
 
@@ -183,7 +191,7 @@ class RpcProxyCacheConnectionLifecycleTest :
             }
         }
 
-        test("invalidate closes the current connection and every retired one") {
+        test("invalidate closes the current connection and every retired one, in use or not") {
             runTest {
                 val ledger = Ledger()
                 val inFlightCanFinish = CompletableDeferred<Unit>()
@@ -197,19 +205,20 @@ class RpcProxyCacheConnectionLifecycleTest :
 
                 cache.invalidate()
 
-                // Everything idle is closed at once; the one still carrying a call closes as it ends.
-                ledger.stillOpen shouldContainExactly listOf(0)
+                // An identity change leaves nothing open — not even the connection still carrying a call…
+                ledger.stillOpen.shouldBeEmpty()
+                // …and when that call ends, its release does not close it a second time.
                 inFlightCanFinish.complete(Unit)
                 inFlight.await()
                 ledger.stillOpen.shouldBeEmpty()
             }
         }
 
-        test("a full drop under a live stream spares it — the firehose reconnect sweep must not abort the firehose") {
+        test("retire under a live stream spares it — the firehose reconnect sweep must not abort the firehose") {
             runTest {
-                // ConnectionCoordinator's reconnect sweep full-invalidates EVERY channel, including the one
-                // the just-reconnected firehose rides. Closing that connection would kill the stream whose
-                // reconnect triggered the sweep, and loop. It retires instead, and closes when the stream ends.
+                // ConnectionCoordinator's reconnect sweep retires EVERY channel, including the one the
+                // just-reconnected firehose rides. Closing that connection would kill the stream whose
+                // reconnect triggered the sweep, and loop. Retired, it closes when the stream ends.
                 val ledger = Ledger()
                 val events = Channel<String>(Channel.UNLIMITED)
                 val cache = ledgerCache(ledger, FakeProxy(onEvents = { events.receiveAsFlow() }))
@@ -217,7 +226,7 @@ class RpcProxyCacheConnectionLifecycleTest :
                 val stream = launch { cache.streaming { it.events() }.collect { received += it } }
                 runCurrent()
 
-                cache.invalidate()
+                cache.retire()
                 events.send("after-sweep")
                 runCurrent()
 
@@ -226,6 +235,52 @@ class RpcProxyCacheConnectionLifecycleTest :
 
                 events.close()
                 stream.join()
+                ledger.stillOpen.shouldBeEmpty()
+            }
+        }
+
+        test("invalidate under a live stream closes its connection, and the stream surfaces the loss") {
+            runTest {
+                // An identity change must not leave a stream speaking for the previous user. kotlinx.rpc
+                // fails a live request with a bare "Client cancelled" when its client is closed.
+                val ledger = Ledger()
+                val closed = CompletableDeferred<Unit>()
+                val cache =
+                    RpcProxyCache(
+                        apiClientFactory = mockFactory(),
+                        serverConfig = mockServerConfig(),
+                    ) { _, _ ->
+                        val connection =
+                            ledger.connection(
+                                FakeProxy(
+                                    onEvents = {
+                                        flow {
+                                            closed.await()
+                                            throw CancellationException("Client cancelled")
+                                        }
+                                    },
+                                ),
+                            )
+                        RpcConnection(connection.proxy) {
+                            connection.close()
+                            closed.complete(Unit)
+                        }
+                    }
+                val failure = CompletableDeferred<Throwable>()
+                val stream =
+                    launch {
+                        try {
+                            cache.streaming { it.events() }.collect { }
+                        } catch (e: RpcOutcomeUnknownException) {
+                            failure.complete(e)
+                        }
+                    }
+                runCurrent()
+
+                cache.invalidate()
+                stream.join()
+
+                failure.isCompleted shouldBe true
                 ledger.stillOpen.shouldBeEmpty()
             }
         }

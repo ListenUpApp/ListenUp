@@ -193,6 +193,8 @@ internal class RpcChannel<S : Any> internal constructor(
 
     override suspend fun invalidate() = dispatch.invalidate()
 
+    override suspend fun retire() = dispatch.retire()
+
     /** Anchor for test-support extensions (`RpcChannel.forTest`). */
     internal companion object
 }
