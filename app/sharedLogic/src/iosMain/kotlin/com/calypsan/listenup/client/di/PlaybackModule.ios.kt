@@ -65,7 +65,6 @@ internal val iosPlaybackModule: Module =
             CachedAudioTokenProvider(
                 authSession = get(),
                 authRepository = get(),
-                scope = get(qualifier = named(PLAYBACK_SCOPE)),
             )
         }
 

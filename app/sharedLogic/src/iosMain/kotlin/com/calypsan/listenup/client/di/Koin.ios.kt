@@ -272,19 +272,21 @@ object KoinHelper {
     /**
      * Access token for the Nuke image path, served from the shared single-flight cached token
      * authority — the SAME [AudioTokenProvider] the audio stream uses, the other raw-HTTP path that
-     * bypasses the RPC channel's 401-heal. That provider keeps a proactively-refreshed token and
-     * serves the last-known-good value even mid-refresh, so a burst of concurrent cover loads all
-     * read one valid token instead of each racing its own refresh — the earlier per-request refresh
-     * stampede returned no token for a fraction of requests (`token=MISSING`), which then 401'd and
-     * left photos stale (the "iOS photo won't refresh in real time" bug). Primes once if the provider
-     * is still cold (the first image right after launch); never triggers a per-request rotation.
+     * bypasses the RPC channel's 401-heal. A burst of concurrent cover loads all read one token
+     * instead of each racing its own refresh — the earlier per-request refresh stampede returned no
+     * token for a fraction of requests (`token=MISSING`), which then 401'd and left photos stale (the
+     * "iOS photo won't refresh in real time" bug).
+     *
+     * The provider no longer refreshes on a timer, so this is where a cover load asks for a USABLE
+     * token rather than merely the cached one: the fast path returns at once while the token is
+     * fresh; otherwise the first caller adopts the stored token or rotates, and the rest of the
+     * burst coalesces onto it under the provider's lock. A cover load only happens with the app on
+     * screen, so this rotates on demand in the foreground and never from a background wake.
      */
     suspend fun freshAccessToken(): String? {
         val provider = resolve(AudioTokenProvider::class)
-        return provider.getToken() ?: run {
-            provider.prepareForPlayback()
-            provider.getToken()
-        }
+        provider.prepareForPlayback()
+        return provider.getToken()
     }
 
     /** The active server URL as a plain String for Swift (SKIE unboxes the value class). */

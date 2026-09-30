@@ -66,8 +66,8 @@ internal val browserPlaybackModule: Module =
         // Cancelled on close — an improvement over the desktop/iOS precedent, neither of which
         // does this, because a browser tab's Koin graph is stopped and restarted far more often
         // (each spec in this test suite is one cycle) than a process exits. Without this,
-        // stopKoin() would leave CachedAudioTokenProvider's refresh loop running against a server
-        // that no longer exists for the rest of the page's life.
+        // stopKoin() would leave the playback launches (progress, reporter, sleep timer) running
+        // against a server that no longer exists for the rest of the page's life.
         single(qualifier = named(PLAYBACK_SCOPE)) {
             CoroutineScope(SupervisorJob() + IODispatcher + appCoroutineExceptionHandler)
         } onClose { it?.cancel() }
@@ -79,7 +79,6 @@ internal val browserPlaybackModule: Module =
             CachedAudioTokenProvider(
                 authSession = get(),
                 authRepository = get(),
-                scope = get(qualifier = named(PLAYBACK_SCOPE)),
             )
         }
 

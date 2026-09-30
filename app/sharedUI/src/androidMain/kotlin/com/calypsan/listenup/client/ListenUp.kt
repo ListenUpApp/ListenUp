@@ -218,7 +218,6 @@ val playbackModule =
             CachedAudioTokenProvider(
                 authSession = get(),
                 authRepository = get(),
-                scope = get(),
             )
         }
         single { AndroidAudioTokenProvider(core = get()) }
