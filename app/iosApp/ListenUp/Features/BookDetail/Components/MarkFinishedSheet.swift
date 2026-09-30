@@ -1,15 +1,14 @@
 import SwiftUI
+@preconcurrency import Shared
 
-/// Why a pair of finish days can't be saved. Mirrors `FinishDatesProblem` in sharedLogic, whose
-/// `LocalDate`-based rule does not cross the Swift Export boundary usefully.
-enum FinishDatesProblem: Equatable {
-    case finishedBeforeStarted
-    case inTheFuture
-
+/// The words for the shared rule's refusals (`FinishDatesProblem` in sharedLogic, the same enum
+/// Android and web read).
+extension FinishDatesProblem {
     var message: String {
         switch self {
-        case .finishedBeforeStarted: String(localized: "book.detail_finish_dates_before_start")
-        case .inTheFuture: String(localized: "book.detail_finish_dates_in_future")
+        case .FinishedBeforeStarted: String(localized: "book.detail_finish_dates_before_start")
+        case .InTheFuture: String(localized: "book.detail_finish_dates_in_future")
+        @unknown default: String(localized: "book.detail_finish_dates_in_future")
         }
     }
 }

@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Testing
+@preconcurrency import Shared
 @testable import ListenUp
 
 /// "Mark as finished" asks for the days — the same defaults, rule and conversion as Android and web
@@ -36,14 +37,18 @@ struct BookDetailObserverTintTests {
 
     @Test("a book already started opens on the day it was started")
     func opensOnRecordedStartDay() {
-        let days = BookDetailObserver.finishDaysOpened(startedAtMs: Self.startedAt, now: Self.now, calendar: Self.pacific)
+        let days = BookDetailObserver.finishDaysOpened(
+            startedAtMs: Self.startedAt, now: Self.now, calendar: Self.pacific
+        )
         #expect(days.started == Self.day(2026, 9, 2))
         #expect(days.finished == Self.day(2026, 9, 29))
     }
 
     @Test("untouched days send exactly what the one-tap finish always sent")
     func untouchedDaysKeepTheirInstants() {
-        let opened = BookDetailObserver.finishDaysOpened(startedAtMs: Self.startedAt, now: Self.now, calendar: Self.pacific)
+        let opened = BookDetailObserver.finishDaysOpened(
+            startedAtMs: Self.startedAt, now: Self.now, calendar: Self.pacific
+        )
         let ts = BookDetailObserver.markCompleteTimestamps(
             started: opened.started, finished: opened.finished,
             startedAtMs: Self.startedAt, now: Self.now, calendar: Self.pacific
@@ -86,7 +91,7 @@ struct BookDetailObserverTintTests {
             BookDetailObserver.finishDatesProblem(
                 started: Self.day(2026, 9, 10), finished: Self.day(2026, 9, 9),
                 now: Self.now, calendar: Self.pacific
-            ) == .finishedBeforeStarted
+            ) == .FinishedBeforeStarted
         )
     }
 
@@ -96,7 +101,7 @@ struct BookDetailObserverTintTests {
             BookDetailObserver.finishDatesProblem(
                 started: Self.day(2026, 9, 29), finished: Self.day(2026, 9, 30),
                 now: Self.now, calendar: Self.pacific
-            ) == .inTheFuture
+            ) == .InTheFuture
         )
     }
 

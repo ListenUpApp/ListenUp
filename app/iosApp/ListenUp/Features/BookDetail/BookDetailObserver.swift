@@ -348,7 +348,8 @@ final class BookDetailObserver {
         )
     }
 
-    /// Pure: why these days can't be saved, or nil. Mirrors `FinishDates.problem`.
+    /// Pure: why these days can't be saved, or nil — the shared `FinishDatesProblem`, by the rule of
+    /// `FinishDates.problem` (whose `LocalDate`s don't cross Swift Export usefully).
     nonisolated static func finishDatesProblem(
         started: Date,
         finished: Date,
@@ -358,8 +359,8 @@ final class BookDetailObserver {
         let today = calendar.startOfDay(for: date(ms: now))
         let startDay = calendar.startOfDay(for: started)
         let finishDay = calendar.startOfDay(for: finished)
-        if startDay > today || finishDay > today { return .inTheFuture }
-        if finishDay < startDay { return .finishedBeforeStarted }
+        if startDay > today || finishDay > today { return .InTheFuture }
+        if finishDay < startDay { return .FinishedBeforeStarted }
         return nil
     }
 
