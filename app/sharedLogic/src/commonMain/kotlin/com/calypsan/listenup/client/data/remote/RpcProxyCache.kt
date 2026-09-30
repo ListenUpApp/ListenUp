@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.data.remote.RpcFailureClassifier.isWsHandsha
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.rpc.krpc.ktor.client.installKrpc
@@ -62,13 +64,24 @@ private val PRE_DELIVERY_RETRY_BACKOFF = 300.milliseconds
  * (a handshake/WS fault, a dead-client ISE, a from-below post-delivery drop) and for the
  * principal-bound sweep below. Both paths bump the generation, so single-flight is identical.
  *
+ * **Retire, then close when idle.** Each proxy rides its own kotlinx.rpc client — its own WebSocket —
+ * and closing the derived [HttpClient] does NOT close it (Ktor's `close()` only completes the client's
+ * job, which waits for the sessions riding it). So every drop, of either kind, RETIRES the dropped
+ * proxy's [RpcConnection], and a retired connection closes the moment nothing is using it. A [call]
+ * holds a use for its attempt; a [streaming] subscription holds one for as long as it is collected.
+ * A connection nothing is using closes on the spot; one still carrying a call or a stream — C1's
+ * sibling, or the firehose across the reconnect sweep that full-invalidates every channel — closes
+ * when that work ends. The live connection is never closed by its use count.
+ *
  * [invalidate] drops the cached proxy and the derived [HttpClient] — they are
  * principal-bound and must not survive a logout, re-login, or server-URL change
- * ([RpcCacheInvalidator] sweeps every [RemoteCache] for exactly that reason).
+ * ([RpcCacheInvalidator] sweeps every [RemoteCache] for exactly that reason). No new call or
+ * stream can reach the dropped connection; it closes once the work already on it ends.
  *
  * [connect] is where reification lives: `withService<T>()` needs a reified type
  * parameter, so each factory supplies a lambda like
- * `{ client, baseUrl -> client.rpc("$baseUrl/api/rpc/authed").withService<FooService>() }`.
+ * `{ client, baseUrl -> client.rpc("$baseUrl/api/rpc/authed").asConnection { withService<FooService>() } }`,
+ * handing back the RPC client alongside its proxy so this cache can close it.
  *
  * [authRecovery] refreshes the bearer token and rebuilds the request client when the
  * `/api/rpc/authed` handshake is rejected with 401; the unauthenticated public mount
@@ -94,7 +107,7 @@ internal class RpcProxyCache<T : Any>(
      * parameter only so a test can drive the browser's blindness on any platform.
      */
     private val handshakeStatusVisible: Boolean = handshakeStatusIsVisible,
-    private val connect: suspend (rpcClient: HttpClient, wsBaseUrl: String) -> T,
+    private val connect: suspend (rpcClient: HttpClient, wsBaseUrl: String) -> RpcConnection<T>,
 ) : RpcDispatch<T> {
     /**
      * Whether this cache serves the bearer-gated mount. The public mount is constructed with
@@ -105,7 +118,7 @@ internal class RpcProxyCache<T : Any>(
 
     private val mutex = Mutex()
     private var cachedRpcClient: HttpClient? = null
-    private var cachedProxy: T? = null
+    private var current: TrackedConnection<T>? = null
 
     /**
      * Monotonic connection generation. Every [dropLocked] increments it, so a call that
@@ -115,11 +128,27 @@ internal class RpcProxyCache<T : Any>(
      */
     private var generation: Int = 0
 
-    /** A proxy paired with the [generation] it was leased from, so failures invalidate by generation. */
-    private data class Lease<T>(
-        val proxy: T,
+    /**
+     * An [RpcConnection] and how many calls and streams are using it right now. [retired] once its
+     * proxy is dropped; a retired connection closes when [uses] reaches zero. Guarded by [mutex].
+     */
+    private class TrackedConnection<T>(
+        val connection: RpcConnection<T>,
+    ) {
+        var uses = 0
+        var retired = false
+    }
+
+    /**
+     * One use of a [TrackedConnection], paired with the [generation] it was leased from so failures
+     * invalidate by generation. Every lease is [release]d exactly once, in a `finally`.
+     */
+    private class Lease<T>(
+        val tracked: TrackedConnection<T>,
         val generation: Int,
-    )
+    ) {
+        val proxy: T get() = tracked.connection.proxy
+    }
 
     /**
      * Wraps a throwable raised by the DOWNSTREAM collector (a `.first()`/`.take(n)` truncation, a
@@ -148,24 +177,46 @@ internal class RpcProxyCache<T : Any>(
         block: suspend (T) -> R,
     ): R {
         val lease = lease()
-        return try {
-            withTimeout(timeout) { block(lease.proxy) }
-        } catch (e: TimeoutCancellationException) {
-            // Our own bound tripped: the frame was SENT and its outcome is unknown. Heal for the NEXT
-            // call, never retry, and surface as the non-retryable RpcOutcomeUnknownException (symmetric
-            // with surface()'s retry-leg path). Re-raising the raw TCE would fold to a RETRYABLE
-            // TransportError.Timeout, inviting a blind Retry that double-applies a committed mutation.
-            logger.warn { "RPC timed out after $timeout; frame sent, outcome unknown (no retry)" }
-            // Our own bound tripped — that is NO evidence the socket is dead. Drop only the proxy so the
-            // NEXT call re-leases, but keep the shared client alive so sibling in-flight calls/streams on
-            // this channel are not torn down (C1). Closing here reserved for provable socket death.
-            invalidateProxyOnly(lease.generation)
-            // A READ is safe to re-fire: retry once (at-most-once — retryOnce's terminal is surface()).
-            if (idempotent) return retryOnce(timeout, block)
-            throw RpcOutcomeUnknownException(e)
-        } catch (e: Throwable) {
-            recover(e, lease.generation, timeout, idempotent, block)
+        val failure =
+            try {
+                return withTimeout(timeout) { block(lease.proxy) }
+            } catch (e: Throwable) {
+                e
+            } finally {
+                // Released before any healing, so a retry never holds the connection it is leaving.
+                release(lease)
+            }
+        return if (failure is TimeoutCancellationException) {
+            timedOut(failure, lease.generation, timeout, idempotent, block)
+        } else {
+            recover(failure, lease.generation, timeout, idempotent, block)
         }
+    }
+
+    /**
+     * The first attempt's [TimeoutCancellationException] — checked before [recover] so our own bound
+     * is never mistaken for a from-below cancellation.
+     */
+    private suspend fun <R> timedOut(
+        e: TimeoutCancellationException,
+        leasedGeneration: Int,
+        timeout: Duration,
+        idempotent: Boolean,
+        block: suspend (T) -> R,
+    ): R {
+        // Our own bound tripped: the frame was SENT and its outcome is unknown. Heal for the NEXT
+        // call, never retry, and surface as the non-retryable RpcOutcomeUnknownException (symmetric
+        // with surface()'s retry-leg path). Re-raising the raw TCE would fold to a RETRYABLE
+        // TransportError.Timeout, inviting a blind Retry that double-applies a committed mutation.
+        logger.warn { "RPC timed out after $timeout; frame sent, outcome unknown (no retry)" }
+        // Our own bound tripped — that is NO evidence the socket is dead. Drop only the proxy so the
+        // NEXT call re-leases, but keep the shared client alive so sibling in-flight calls/streams on
+        // this channel are not torn down (C1). The dropped connection retires: it closes once those
+        // siblings finish, or at once if there are none.
+        invalidateProxyOnly(leasedGeneration)
+        // A READ is safe to re-fire: retry once (at-most-once — retryOnce's terminal is surface()).
+        if (idempotent) return retryOnce(timeout, block)
+        throw RpcOutcomeUnknownException(e)
     }
 
     /**
@@ -196,37 +247,44 @@ internal class RpcProxyCache<T : Any>(
         flow {
             var emitted = false
             val first = lease()
-            try {
-                pipe(subscribe(first.proxy)) { emitted = true }
-            } catch (e: DownstreamEmitException) {
-                // A downstream truncation/abort on a HEALTHY generation — propagate the consumer's own
-                // throwable unchanged. No invalidate, no OutcomeUnknown rewrap.
-                throw e.cause
-            } catch (e: Throwable) {
-                if (e.isCallerCancellation()) throw e
-                invalidate(first.generation)
-                when {
-                    // A handshake 401 before the first emit heals per the C5 outcome: refresh + resubscribe,
-                    // keep-session-retryable on a transient refresh failure, or lapse on a confirmed-dead token.
-                    !emitted &&
-                        (
-                            isWsHandshake401(e) ||
-                                (isAuthedMount && isWsHandshakeOfUnknownStatus(e, handshakeStatusVisible))
-                        ) -> {
-                        when (authRecovery.refreshAndRebuild()) {
-                            AuthRecoveryOutcome.Refreshed -> resubscribe(subscribe)
-                            AuthRecoveryOutcome.Transient -> throw TransientAuthRefreshException(e)
-                            AuthRecoveryOutcome.SessionInvalid -> throw SessionLapsedException(e)
-                        }
+            val e =
+                try {
+                    pipe(subscribe(first.proxy)) { emitted = true }
+                    null
+                } catch (e: DownstreamEmitException) {
+                    // A downstream truncation/abort on a HEALTHY generation — propagate the consumer's own
+                    // throwable unchanged. No invalidate, no OutcomeUnknown rewrap.
+                    throw e.cause
+                } catch (e: Throwable) {
+                    if (e.isCallerCancellation()) throw e
+                    e
+                } finally {
+                    // Released before any healing, so a resubscribed stream never holds the connection
+                    // it moved off — that one closes as soon as the invalidate below retires it.
+                    release(first)
+                } ?: return@flow
+            invalidate(first.generation)
+            when {
+                // A handshake 401 before the first emit heals per the C5 outcome: refresh + resubscribe,
+                // keep-session-retryable on a transient refresh failure, or lapse on a confirmed-dead token.
+                !emitted &&
+                    (
+                        isWsHandshake401(e) ||
+                            (isAuthedMount && isWsHandshakeOfUnknownStatus(e, handshakeStatusVisible))
+                    ) -> {
+                    when (authRecovery.refreshAndRebuild()) {
+                        AuthRecoveryOutcome.Refreshed -> resubscribe(subscribe)
+                        AuthRecoveryOutcome.Transient -> throw TransientAuthRefreshException(e)
+                        AuthRecoveryOutcome.SessionInvalid -> throw SessionLapsedException(e)
                     }
+                }
 
-                    canResubscribeStream(e, emitted) -> {
-                        resubscribe(subscribe)
-                    }
+                canResubscribeStream(e, emitted) -> {
+                    resubscribe(subscribe)
+                }
 
-                    else -> {
-                        surfaceStreamFailure(e)
-                    }
+                else -> {
+                    surfaceStreamFailure(e)
                 }
             }
         }
@@ -294,6 +352,8 @@ internal class RpcProxyCache<T : Any>(
             if (e.isCallerCancellation()) throw e
             invalidate(second.generation)
             surfaceStreamFailure(e)
+        } finally {
+            release(second)
         }
     }
 
@@ -438,6 +498,8 @@ internal class RpcProxyCache<T : Any>(
             withTimeout(timeout) { block(lease.proxy) }
         } catch (e: Throwable) {
             surface(e, lease.generation)
+        } finally {
+            release(lease)
         }
     }
 
@@ -474,18 +536,35 @@ internal class RpcProxyCache<T : Any>(
         throw e
     }
 
+    /** Lease the live connection — connecting if there is none — and count this use of it. */
     private suspend fun lease(): Lease<T> =
         mutex.withLock {
-            val proxy =
-                cachedProxy ?: run {
+            val tracked =
+                current ?: run {
                     // Resolve the URL BEFORE deriving the client: a missing server URL
                     // must fail fast (rpcBaseUrl's ServerUrlNotConfiguredException guard)
                     // without caching anything.
                     val wsBaseUrl = rpcBaseUrl()
-                    connect(rpcClient(), wsBaseUrl).also { cachedProxy = it }
+                    TrackedConnection(connect(rpcClient(), wsBaseUrl)).also { current = it }
                 }
-            Lease(proxy, generation)
+            tracked.uses++
+            Lease(tracked, generation)
         }
+
+    /**
+     * End one use of a leased connection, closing it if it is retired and this was its last use.
+     * Runs from `finally` blocks, so it takes the mutex [NonCancellable]: a cancelled caller must still
+     * give its use back, or its retired connection would never close.
+     */
+    private suspend fun release(lease: Lease<T>) {
+        withContext(NonCancellable) {
+            mutex.withLock {
+                val tracked = lease.tracked
+                tracked.uses--
+                if (tracked.retired && tracked.uses == 0) tracked.close()
+            }
+        }
+    }
 
     override suspend fun invalidate() {
         mutex.withLock { dropLocked() }
@@ -514,21 +593,52 @@ internal class RpcProxyCache<T : Any>(
         }
     }
 
-    /** Null the proxy, close the derived RPC client, and bump the generation. Caller holds [mutex]. */
+    /**
+     * Retire the live connection, close the derived HTTP client, and bump the generation. Caller holds
+     * [mutex].
+     *
+     * The connection RETIRES rather than closing outright, exactly as in [dropProxyLocked]: this path
+     * also serves [RpcCacheInvalidator]'s firehose-reconnect sweep, which full-invalidates every
+     * channel — including the one carrying the firehose that just reconnected. Closing a connection
+     * still in use would abort that stream and loop reconnect → sweep → abort. Retired, it closes when
+     * its last call or stream ends; an idle one closes at once.
+     */
     private fun dropLocked() {
-        // Close the derived `.config { }` child so a dead socket's client doesn't leak. It is a
-        // child of the shared request client (its engine is shared), so closing it is safe — the
-        // request client survives for the next getClient(). Reserved for provable socket death;
-        // the timeout paths use dropProxyLocked() so a healthy-but-slow socket's siblings survive.
+        // Close the derived `.config { }` child so the next lease derives a fresh one. It is a child of
+        // the shared request client (its engine is shared), so closing it is safe — the request client
+        // survives for the next getClient(). Note this does NOT close the RPC clients' WebSockets:
+        // Ktor's close() only completes the client's job, which waits for the sessions riding it.
         cachedRpcClient?.close()
         cachedRpcClient = null
         dropProxyLocked()
     }
 
-    /** Null the proxy and bump the generation, KEEPING the shared client alive. Caller holds [mutex]. */
+    /**
+     * Retire the live connection and bump the generation, KEEPING the shared client alive. Caller
+     * holds [mutex]. The retired connection closes now if nothing is using it, else on its last
+     * [release].
+     */
     private fun dropProxyLocked() {
-        cachedProxy = null
+        current?.let { tracked ->
+            tracked.retired = true
+            if (tracked.uses == 0) tracked.close()
+        }
+        current = null
         generation++
+    }
+
+    /**
+     * Close the RPC client, and so the WebSocket, behind this connection. Never throws into the caller
+     * whose release or drop triggered it — a close that fails is logged and the socket abandoned.
+     */
+    private fun TrackedConnection<T>.close() {
+        try {
+            connection.close()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "Closing a retired RPC connection failed; abandoning it" }
+        }
     }
 
     private suspend fun rpcClient(): HttpClient =

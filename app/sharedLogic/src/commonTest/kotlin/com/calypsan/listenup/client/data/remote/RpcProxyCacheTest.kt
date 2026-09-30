@@ -60,7 +60,7 @@ class RpcProxyCacheTest :
             val cache =
                 RpcProxyCache(apiClientFactory, serverConfig) { _, wsBaseUrl ->
                     connectCalls += wsBaseUrl
-                    Any()
+                    RpcConnection(Any()) {}
                 }
             return cache to apiClientFactory
         }
@@ -74,7 +74,7 @@ class RpcProxyCacheTest :
                 everySuspend { apiClientFactory.getClient() } returns HttpClient(MockEngine { respondOk() })
                 val cache =
                     RpcProxyCache(apiClientFactory, serverConfig) { _, _ ->
-                        Any().also { produced = it }
+                        RpcConnection(Any().also { produced = it }) {}
                     }
 
                 val proxy = cache.call { it }

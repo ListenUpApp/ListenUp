@@ -107,7 +107,7 @@ internal inline fun <reified S : Any> RpcChannel.Companion.forServer(
 ): RpcChannel<S> =
     RpcChannel(
         RpcProxyCache(apiClientFactory, serverConfig, authRecovery) { client, baseUrl ->
-            client.rpc("$baseUrl${policy.mount}").withService<S>()
+            client.rpc("$baseUrl${policy.mount}").asConnection { withService<S>() }
         },
         policy,
     )

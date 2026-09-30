@@ -81,7 +81,7 @@ class RpcProxyCacheStreamingTest :
                     handshakeStatusVisible = handshakeStatusVisible,
                 ) { _, _ ->
                     connectCount++
-                    FakeStreamProxy(script.removeFirst())
+                    RpcConnection(FakeStreamProxy(script.removeFirst())) {}
                 }
             return cache to { connectCount }
         }

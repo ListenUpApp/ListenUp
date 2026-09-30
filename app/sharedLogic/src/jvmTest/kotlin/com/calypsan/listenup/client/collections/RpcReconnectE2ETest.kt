@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.data.local.db.CollectionShareDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.RpcProxyCache
+import com.calypsan.listenup.client.data.remote.asConnection
 import com.calypsan.listenup.client.data.remote.forServer
 import com.calypsan.listenup.client.data.remote.catchingRpcResult
 import com.calypsan.listenup.client.data.repository.CollectionRepositoryImpl
@@ -248,7 +249,7 @@ class RpcReconnectE2ETest :
 
                 val cache =
                     RpcProxyCache(StubApiClientFactory(stubClient()), TestServerConfig(baseUrl)) { client, url ->
-                        client.rpc("$url/api/rpc/authed").withService<CollectionService>()
+                        client.rpc("$url/api/rpc/authed").asConnection { withService<CollectionService>() }
                     }
 
                 val result: AppResult<CollectionSummary> =

@@ -268,7 +268,7 @@ internal inline fun <reified S : Any> Module.rpcChannel(policy: RpcPolicy = RpcP
                                 },
                             )
                         }
-                    client.rpc(url).withService<S>()
+                    client.rpc(url).asConnection { withService<S>() }
                 },
             policy = policy,
             evidence = get(),
