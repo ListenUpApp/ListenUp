@@ -51,6 +51,7 @@ import com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsViewModel
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsViewModel
+import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsViewModel
 import com.calypsan.listenup.client.presentation.admin.RestoreBackupViewModel
 import com.calypsan.listenup.client.presentation.admin.RestoreFromFileViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
@@ -331,6 +332,8 @@ object KoinHelper {
     fun getABSImportHubViewModel(): ABSImportHubViewModel = resolve(ABSImportHubViewModel::class)
 
     fun getAdminBackupViewModel(): AdminBackupViewModel = resolve(AdminBackupViewModel::class)
+
+    fun getOrganizeSettingsViewModel(): OrganizeSettingsViewModel = resolve(OrganizeSettingsViewModel::class)
 
     fun getRestoreFromFileViewModel(): RestoreFromFileViewModel = resolve(RestoreFromFileViewModel::class)
 

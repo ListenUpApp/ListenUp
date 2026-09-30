@@ -294,6 +294,13 @@ struct AdminView: View {
                     subtitle: String(localized: "admin.library_settings_subtitle")
                 )
             }
+            NavigationLink(value: OrganizeSettingsDestination()) {
+                NavigationActionRow(
+                    systemImage: "folder.badge.gearshape",
+                    title: String(localized: "admin.organize"),
+                    subtitle: String(localized: "admin.organize_subtitle")
+                )
+            }
             NavigationLink(value: AdminBackupsDestination()) {
                 NavigationActionRow(
                     systemImage: "archivebox.fill",
