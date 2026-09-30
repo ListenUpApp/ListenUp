@@ -6,6 +6,8 @@ import com.calypsan.listenup.server.io.isSymlink
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
@@ -29,8 +31,9 @@ import kotlin.random.Random
  *
  * One rule runs through the symlink cases. Unlink and rename act on the link itself, so for ops
  * built on them — writes, moves, file deletes — a link as the **final** segment is judged where it
- * sits. Directory ops (ensure, delete-if-empty, recursive delete) act through the link, so they
- * are judged where it points. A link anywhere *before* the final segment is always followed.
+ * sits, and so is delete-if-empty, which leaves a link alone. Ops that act *through* a link (ensure,
+ * recursive delete) judge it where it points. A link anywhere *before* the final segment is always
+ * followed.
  */
 class LibraryContainmentTest :
     FunSpec({
@@ -158,14 +161,47 @@ class LibraryContainmentTest :
                 f.broker().writeFile(Path(a, "listenup.json"), CLOBBER).shouldBeOutsideLibrary()
             }
 
-            test("a delete-if-empty of a directory link is judged where the link points") {
+            test("a delete-if-empty of a directory link leaves the link alone — a link is not an empty directory") {
+                // DeleteDirIfEmpty prunes directories a delete or move emptied. A link is not one,
+                // whatever it points at: the op neither follows it (refusing, or emptying the target)
+                // nor unlinks it (removing something the user made). It is simply not its business.
                 val f = fixture()
                 val emptyOutside = Path(f.outside, "EmptyBook").also { SystemFileSystem.createDirectories(it) }
-                createSymbolicLink(Path(f.root, "Book"), emptyOutside)
+                val link = Path(f.root, "Book")
+                createSymbolicLink(link, emptyOutside)
 
-                f.broker().perform(WriteOp.DeleteDirIfEmpty(Path(f.root, "Book"))).shouldBeOutsideLibrary()
+                f.broker().perform(WriteOp.DeleteDirIfEmpty(link)).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                SystemFileSystem.exists(emptyOutside) shouldBe true
+                withClue("the user's link survives") { isSymlink(link) shouldBe true }
+                withClue("and so does the directory it points at") { SystemFileSystem.exists(emptyOutside) shouldBe true }
+            }
+
+            test("a relative link climbing out of the root is followed like any other") {
+                val f = fixture()
+                val real = Path(f.outside, "RealBook").also { SystemFileSystem.createDirectories(it) }
+                SystemFileSystem.createDirectories(Path(f.root, "Author"))
+                // <root>/Author/Book -> ../../outside/RealBook, resolved relative to the link's own directory.
+                createSymbolicLink(Path(f.root, "Author", "Book"), Path("../../outside/RealBook"))
+
+                f.broker().writeFile(Path(f.root, "Author", "Book", "listenup.json"), CLOBBER).shouldBeOutsideLibrary()
+
+                SystemFileSystem.exists(Path(real, "listenup.json")) shouldBe false
+            }
+
+            test("`..` after a MISSING segment cannot smuggle a later link past resolution") {
+                // <root>/Missing/../Link/x: Missing does not exist, so the existing prefix is <root>
+                // and everything after it is "tail". Folding that tail as text gives <root>/Link/x and
+                // never resolves Link — which points outside. A tail holding `..` is refused outright.
+                val f = fixture()
+                val real = Path(f.outside, "RealBook").also { SystemFileSystem.createDirectories(it) }
+                createSymbolicLink(Path(f.root, "Link"), real)
+
+                f
+                    .broker()
+                    .writeFile(Path(f.root, "Missing", "..", "Link", "listenup.json"), CLOBBER)
+                    .shouldBeOutsideLibrary()
+
+                SystemFileSystem.exists(Path(real, "listenup.json")) shouldBe false
             }
         }
 
@@ -219,6 +255,51 @@ class LibraryContainmentTest :
                 }
             }
 
+            test("a DANGLING link inside the root is deleted, not reported deleted and left behind") {
+                val f = fixture()
+                val link = Path(f.root, "Book", "cover.jpg")
+                SystemFileSystem.createDirectories(Path(f.root, "Book"))
+                createSymbolicLink(link, Path(f.outside, "long-gone.jpg"))
+
+                f.broker().perform(WriteOp.DeleteFile(link)).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                isSymlink(link) shouldBe false
+            }
+
+            test("a recursive delete removes dangling and looping links inside the book, and finishes") {
+                // A stale cover.jpg link used to survive the walk (kotlinx-io's delete asks exists(),
+                // which follows links), the final rmdir failed ENOTEMPTY, and Delete Book was left
+                // with its audio gone and its folder unremovable, failing on every retry.
+                val f = fixture()
+                val bookDir = Path(f.root, "A Book")
+                plant(Path(bookDir, "01.m4b"), CLOBBER)
+                createSymbolicLink(Path(bookDir, "cover.jpg"), Path(f.outside, "long-gone.jpg"))
+                createSymbolicLink(Path(bookDir, "loop"), Path(bookDir, "loop"))
+
+                f.broker().perform(WriteOp.DeleteDir(bookDir)).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                withClue("the book directory is gone, links and all") {
+                    SystemFileSystem.exists(bookDir) shouldBe false
+                    isSymlink(bookDir) shouldBe false
+                }
+            }
+
+            test("a recursive delete unlinks a directory link inside the book and never walks through it") {
+                val f = fixture()
+                val photos = Path(f.outside, "Photos")
+                val wedding = Path(photos, "wedding.jpg").also { plant(it, USER_DATA) }
+                val bookDir = Path(f.root, "A Book")
+                plant(Path(bookDir, "01.m4b"), CLOBBER)
+                createSymbolicLink(Path(bookDir, "photos"), photos)
+
+                f.broker().perform(WriteOp.DeleteDir(bookDir)).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                SystemFileSystem.exists(bookDir) shouldBe false
+                withClue("the linked-to directory is not part of the book and must survive intact") {
+                    readAll(wedding) shouldBe USER_DATA
+                }
+            }
+
             test("deleting a file THROUGH a linked-out directory is refused") {
                 val f = fixture()
                 createSymbolicLink(Path(f.root, "Book"), f.outside)
@@ -253,6 +334,25 @@ class LibraryContainmentTest :
                 SystemFileSystem.exists(Path(lookalike, "listenup.json")) shouldBe false
             }
 
+            test("a refusal names the offending path, never the server's library roots") {
+                // debugInfo travels back to the client (Delete Book returns it). The roots belong in
+                // the server log, not in the hands of anyone who can press delete.
+                val f = fixture()
+                val second = Path(f.base, "library-two").also { SystemFileSystem.createDirectories(it) }
+                val escaping = Path(f.outside, "listenup.json")
+
+                val failure =
+                    f
+                        .broker(roots = listOf(f.root, second))
+                        .writeFile(escaping, CLOBBER)
+                        .shouldBeInstanceOf<AppResult.Failure>()
+
+                val debugInfo = failure.error.debugInfo.orEmpty()
+                debugInfo shouldContain escaping.toString()
+                debugInfo shouldNotContain f.root.toString()
+                debugInfo shouldNotContain second.toString()
+            }
+
             test("with no library folders configured, nothing is writable") {
                 val f = fixture()
 
@@ -268,6 +368,18 @@ class LibraryContainmentTest :
                 broker.perform(WriteOp.EnsureDir(f.root)).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 val removal = broker.perform(WriteOp.DeleteDirIfEmpty(f.root)).shouldBeInstanceOf<AppResult.Failure>()
+                removal.error.shouldBeInstanceOf<LibraryWriteError.ProtectedPath>()
+                SystemFileSystem.exists(f.root) shouldBe true
+            }
+
+            test("an empty root cannot be removed by a DeleteFile either") {
+                // Deleting an empty directory entry is what unlink-or-rmdir does; for a root that
+                // would unmake the library folder, whichever op asked.
+                val f = fixture()
+
+                val removal =
+                    f.broker().perform(WriteOp.DeleteFile(f.root)).shouldBeInstanceOf<AppResult.Failure>()
+
                 removal.error.shouldBeInstanceOf<LibraryWriteError.ProtectedPath>()
                 SystemFileSystem.exists(f.root) shouldBe true
             }

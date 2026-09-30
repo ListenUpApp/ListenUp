@@ -46,13 +46,18 @@ internal enum class FinalLink {
  *
  * The longest prefix of the **raw** path that exists is resolved through [SystemFileSystem.resolve]
  * (`realpath(3)` natively, the canonical file on the JVM), then the not-yet-existing tail is
- * re-appended and only *that* is folded lexically. The order is the whole point: `..` after a
- * symbolic link climbs from where the link points, so folding the raw path as text first turns
- * `<root>/link/../x` into `<root>/x` while the kernel writes `<link target's parent>/x`. The tail is
- * safe to fold because none of it exists yet, so none of it can be a link.
+ * re-appended. The order is the whole point: `..` after a symbolic link climbs from where the link
+ * points, so folding the raw path as text first turns `<root>/link/../x` into `<root>/x` while the
+ * kernel writes `<link target's parent>/x`.
  *
- * `null` when a missing prefix is nonetheless a symbolic link: a dangling link, or one caught in a
- * loop. Neither can be resolved, and a dangling link is one `mkdir` away from leading outside.
+ * `null` — refused — in three cases, none of which can be resolved soundly:
+ *  - a missing prefix is nonetheless a symbolic link: dangling, or caught in a loop. A dangling
+ *    link is one `mkdir` away from leading outside;
+ *  - the tail holds `..`. A tail segment that does not exist is not a link, but a `..` after it
+ *    steps back into the existing tree without resolving it: `<root>/Missing/../Link/x` would fold
+ *    to `<root>/Link/x` with `Link` never resolved. No caller legitimately needs a `..` beyond a
+ *    directory that is not there;
+ *  - [SystemFileSystem.resolve] fails on a prefix that exists.
  *
  * With [finalLink] = [FinalLink.InPlace] a final segment that is itself a link is not resolved:
  * its parent is, and the link's own name is appended.
@@ -69,6 +74,7 @@ internal fun resolvedForContainment(
     var cursor: Path? = path
     while (cursor != null) {
         if (SystemFileSystem.exists(cursor)) {
+            if (".." in tail) return null
             val resolved = realPathOrNull(cursor) ?: return null
             return Path(resolved, *tail.toTypedArray()).lexicallyNormalized()
         }
