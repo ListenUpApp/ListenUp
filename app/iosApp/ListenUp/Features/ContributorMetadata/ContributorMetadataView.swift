@@ -231,6 +231,7 @@ private struct ContributorMetadataPreviewView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 matchedIdentity(profile: profile)
+                regionSwitch
                 imageComparison(profile: profile)
 
                 ContributorComparisonRow(
@@ -264,6 +265,22 @@ private struct ContributorMetadataPreviewView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
+    }
+
+    /// The region switch, offered from Ready as well as from the honest miss: Audible localises
+    /// contributor profiles, so another region may hold a better one. Switching re-fetches the
+    /// profile, and Apply applies the region on screen. The same picker the search screen uses.
+    private var regionSwitch: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text(String(localized: "contributor.audible_region"))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.luLabel2)
+            RegionPicker(
+                options: MetadataRegionOption.all,
+                selection: observer.region,
+                label: \.displayName
+            ) { observer.changeRegion($0) }
+        }
     }
 
     /// Side-by-side current vs. incoming photo. Informational — no toggle; the server keeps the

@@ -276,14 +276,22 @@ private fun PhotoCompare(
     }
 }
 
-/** The biography, before and after. Same rule: a missing incoming bio keeps the current one. */
+/**
+ * The biography, before and after. Same rule: a missing incoming bio keeps the current one. An
+ * identical, non-blank pair says "No change", as Android and iOS do — two empty ones do not, since
+ * there is nothing to keep.
+ */
 @Composable
 private fun BioCompare(
     current: String?,
     incoming: String?,
 ) {
+    val unchanged = !incoming.isNullOrBlank() && current == incoming
     Div(attrs = { classes("cmx-cmp") }) {
-        Span(attrs = { classes("cmx-cmp-l") }) { Text("Biography") }
+        Div(attrs = { classes("cmx-cmp-h") }) {
+            Span(attrs = { classes("cmx-cmp-l") }) { Text("Biography") }
+            if (unchanged) Span(attrs = { classes("cmx-same") }) { Text("No change") }
+        }
         Div(attrs = { classes("cmx-side-v") }) {
             Span(attrs = { classes(SIDE) }) { Text("Current") }
             P(attrs = { classes("cmx-bio") }) { Text(current?.takeIf { it.isNotBlank() } ?: EMPTY_VALUE) }

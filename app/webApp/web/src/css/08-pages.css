@@ -1057,6 +1057,8 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .cmx-who-n { font-size: 1.15rem; font-weight: 750; color: var(--ink); }
 .luw .cmx-src { padding: 2px 9px; border-radius: var(--r-pill); background: var(--surface-3); font-size: 0.72rem; font-weight: 700; color: var(--ink-2); }
 .luw .cmx-cmp { display: flex; flex-direction: column; gap: var(--sp-8); padding: 14px; border-radius: var(--r-lg); background: var(--surface-2); }
+.luw .cmx-cmp-h { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-8); }
+.luw .cmx-same { font-size: var(--fs-caption); font-weight: 600; color: var(--ink-3); }
 .luw .cmx-cmp-l { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
 .luw .cmx-side { font-size: var(--fs-caption); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
 /* The incoming side is the one that will win, so it carries the accent. */

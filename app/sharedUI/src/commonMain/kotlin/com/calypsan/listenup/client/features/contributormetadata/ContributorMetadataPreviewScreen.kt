@@ -62,8 +62,10 @@ import listenup.composeapp.generated.resources.contributor_current
 import listenup.composeapp.generated.resources.contributor_current_image
 import listenup.composeapp.generated.resources.contributor_failed_to_load_profile
 import listenup.composeapp.generated.resources.contributor_new_image
+import listenup.composeapp.generated.resources.contributor_no_change
 import listenup.composeapp.generated.resources.contributor_no_profile_in_region
 import listenup.composeapp.generated.resources.contributor_preview_changes
+import listenup.composeapp.generated.resources.metadata_audible_region
 import listenup.composeapp.generated.resources.metadata_audible_source_region
 import org.jetbrains.compose.resources.stringResource
 
@@ -78,7 +80,10 @@ import org.jetbrains.compose.resources.stringResource
  * applier writes exactly asin, biography and photo, and never blanks an existing value with a
  * missing incoming one. So the matched name is shown as *identification* — which person was
  * matched, and from which Audible region — rather than as a before-and-after, which would promise
- * a rename that never happens. Only the photo and the biography are compared. The Apply actions
+ * a rename that never happens. Only the photo and the biography are compared, and an identical
+ * biography says "No change". The region can be switched from Ready too — Audible localises
+ * contributor profiles, so another region may hold a better one — and Apply applies the profile of
+ * the region on screen. The Apply actions
  * render ONLY in Ready, so a non-ready state can never sit above a live Apply button.
  *
  * A phone stacks the identification and the comparisons above a bottom action bar. From the
@@ -169,6 +174,7 @@ fun ContributorMetadataPreviewScreen(
                 if (panelBeside) {
                     ReadyWideContent(
                         region = state.region,
+                        onRegionSelected = onRegionSelected,
                         currentDescription = state.context.current?.description,
                         currentImagePath = state.context.current?.imagePath,
                         profile = loadState.profile,
@@ -185,6 +191,7 @@ fun ContributorMetadataPreviewScreen(
                 } else {
                     ReadyContent(
                         region = state.region,
+                        onRegionSelected = onRegionSelected,
                         currentDescription = state.context.current?.description,
                         currentImagePath = state.context.current?.imagePath,
                         profile = loadState.profile,
@@ -197,7 +204,6 @@ fun ContributorMetadataPreviewScreen(
 }
 
 /** The honest-miss state: no profile data in this region, offer the other regions. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MissingProfileContent(
     selectedRegion: MetadataLocale,
@@ -228,23 +234,49 @@ private fun MissingProfileContent(
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(16.dp))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                MetadataLocale.SUPPORTED.forEach { region ->
-                    FilterChip(
-                        selected = region == selectedRegion,
-                        onClick = { onRegionSelected(region) },
-                        label = { Text(region.displayName) },
-                    )
-                }
-            }
+            RegionChips(selectedRegion = selectedRegion, onRegionSelected = onRegionSelected)
             Spacer(Modifier.height(Spacing.xl))
             OutlinedButton(onClick = onChangeMatch) {
                 Text(stringResource(Res.string.contributor_change_match))
             }
         }
+    }
+}
+
+/** One chip per supported Audible region — the region switch, in the Missing state and in Ready. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RegionChips(
+    selectedRegion: MetadataLocale,
+    onRegionSelected: (MetadataLocale) -> Unit,
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        MetadataLocale.SUPPORTED.forEach { region ->
+            FilterChip(
+                selected = region == selectedRegion,
+                onClick = { onRegionSelected(region) },
+                label = { Text(region.displayName) },
+            )
+        }
+    }
+}
+
+/** The Ready preview's region switch: a quiet label over [RegionChips]. */
+@Composable
+private fun ReadyRegionSwitch(
+    selectedRegion: MetadataLocale,
+    onRegionSelected: (MetadataLocale) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(Res.string.metadata_audible_region),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        RegionChips(selectedRegion = selectedRegion, onRegionSelected = onRegionSelected)
     }
 }
 
@@ -309,6 +341,7 @@ private fun PreviewActions(
 @Composable
 private fun ReadyContent(
     region: MetadataLocale,
+    onRegionSelected: (MetadataLocale) -> Unit,
     currentDescription: String?,
     currentImagePath: String?,
     profile: MetadataContributorProfile,
@@ -320,6 +353,7 @@ private fun ReadyContent(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item { MatchedIdentity(name = profile.name, region = region) }
+        item { ReadyRegionSwitch(selectedRegion = region, onRegionSelected = onRegionSelected) }
         item {
             ImageComparisonRow(
                 currentImagePath = currentImagePath,
@@ -341,13 +375,15 @@ private fun ReadyContent(
 private val IdentityPanelWidth = 360.dp
 
 /**
- * The expanded-width Ready view: an identity panel (who was matched, their photo, then [actions]) beside the two
+ * The expanded-width Ready view: an identity panel (who was matched, the region switch, their photo, then
+ * [actions]) beside the two
  * biographies read in full, side by side.
  */
 @Suppress("LongParameterList")
 @Composable
 private fun ReadyWideContent(
     region: MetadataLocale,
+    onRegionSelected: (MetadataLocale) -> Unit,
     currentDescription: String?,
     currentImagePath: String?,
     profile: MetadataContributorProfile,
@@ -368,6 +404,7 @@ private fun ReadyWideContent(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             MatchedIdentity(name = profile.name, region = region)
+            ReadyRegionSwitch(selectedRegion = region, onRegionSelected = onRegionSelected)
             ImageComparisonRow(
                 currentImagePath = currentImagePath,
                 newImageUrl = profile.imageUrl,
@@ -421,10 +458,9 @@ private fun BiographyComparison(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
-            Text(
-                text = stringResource(Res.string.contributor_biography),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurface,
+            ComparisonHeader(
+                label = stringResource(Res.string.contributor_biography),
+                isUnchanged = isUnchanged(currentValue, newValue),
             )
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sectionGap)) {
@@ -547,11 +583,7 @@ private fun TextComparisonRow(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+            ComparisonHeader(label = label, isUnchanged = isUnchanged(currentValue, newValue))
             Spacer(Modifier.height(8.dp))
             ComparisonValue(
                 labelText = stringResource(Res.string.contributor_current),
@@ -565,6 +597,38 @@ private fun TextComparisonRow(
                 value = newValue,
                 maxLines = if (isMultiline) 6 else 2,
                 accent = true,
+            )
+        }
+    }
+}
+
+/**
+ * Whether Apply would leave this value exactly as it is. Two empty values are not "no change" —
+ * there is nothing to keep — so only an identical, non-blank pair counts. Mirrors iOS and web.
+ */
+private fun isUnchanged(
+    currentValue: String?,
+    newValue: String?,
+): Boolean = !newValue.isNullOrBlank() && currentValue == newValue
+
+/** A comparison's label, with a quiet "No change" at the end when both sides are identical. */
+@Composable
+private fun ComparisonHeader(
+    label: String,
+    isUnchanged: Boolean,
+) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        if (isUnchanged) {
+            Text(
+                text = stringResource(Res.string.contributor_no_change),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
