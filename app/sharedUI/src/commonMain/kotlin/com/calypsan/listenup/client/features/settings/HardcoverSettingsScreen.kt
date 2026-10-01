@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
@@ -133,6 +134,7 @@ fun HardcoverSettingsScreen(
             onCancelLinking = viewModel::disconnect,
             onDisconnect = viewModel::disconnect,
             onSyncNow = viewModel::syncNow,
+            onSetShareMode = viewModel::setShareMode,
             onFindMatch = onFindMatch,
             modifier = Modifier.padding(padding),
         )
@@ -156,6 +158,7 @@ internal fun HardcoverSettingsContent(
     onCancelLinking: () -> Unit,
     onDisconnect: () -> Unit,
     onSyncNow: () -> Unit,
+    onSetShareMode: (HardcoverShareMode) -> Unit,
     onFindMatch: (bookId: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -200,6 +203,7 @@ internal fun HardcoverSettingsContent(
                     onCancelLinking = onCancelLinking,
                     onRequestDisconnect = { confirmingDisconnect = true },
                     onSyncNow = onSyncNow,
+                    onSetShareMode = onSetShareMode,
                     onFindMatch = onFindMatch,
                 )
             PhaseLayout(phase = phase, isWide = isWide, modifier = modifier)
