@@ -18,6 +18,12 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
+import com.calypsan.listenup.client.data.local.db.CollectionBookDao
+import dev.mokkery.MockMode
+import dev.mokkery.every
+import dev.mokkery.verify.VerifyMode
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 
 /**
  * Tests for [InboxRepositoryImpl] over the `CollectionService.listInbox` /
@@ -30,10 +36,14 @@ import kotlinx.coroutines.test.runTest
 class InboxRepositoryImplTest :
     FunSpec({
 
-        fun buildRepo(service: CollectionService): InboxRepositoryImpl =
+        fun buildRepo(
+            service: CollectionService,
+            collectionBookDao: CollectionBookDao = mock(MockMode.autoUnit),
+        ): InboxRepositoryImpl =
             InboxRepositoryImpl(
-                RpcChannel.forTest(service),
-                RpcChannel.forTest(mock<ScannerService>()),
+                channel = RpcChannel.forTest(service),
+                scannerChannel = RpcChannel.forTest(mock<ScannerService>()),
+                collectionBookDao = collectionBookDao,
             )
 
         test("listInbox forwards to the service and returns the mapped book ids") {
@@ -68,6 +78,45 @@ class InboxRepositoryImplTest :
                 everySuspend { service.listInbox(any()) } returns AppResult.Failure(ValidationError(message = "forbidden"))
 
                 buildRepo(service).listInbox("lib1").shouldBeInstanceOf<AppResult.Failure>()
+            }
+        }
+
+        test("observeHeldBookIds types the Room ids and keeps the oldest-first order") {
+            runTest {
+                val dao = mock<CollectionBookDao> { every { observeHeldBookIds() } returns flowOf(listOf("b2", "b1")) }
+
+                val held = buildRepo(mock(), dao).observeHeldBookIds().first()
+
+                held.toList() shouldBe listOf(BookId("b2"), BookId("b1"))
+            }
+        }
+
+        test("a committed release takes the books out of the local inbox at once") {
+            runTest {
+                val service = mock<CollectionService>()
+                everySuspend { service.releaseBooks(any(), any()) } returns AppResult.Success(Unit)
+                val dao = mock<CollectionBookDao>(MockMode.autoUnit)
+
+                buildRepo(service, dao)
+                    .releaseBooks("lib1", mapOf("b1" to emptyList(), "b2" to emptyList()))
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                verifySuspend { dao.tombstoneHeldRows(listOf("b1", "b2"), any()) }
+            }
+        }
+
+        test("a refused release leaves the local inbox untouched") {
+            runTest {
+                val service = mock<CollectionService>()
+                everySuspend { service.releaseBooks(any(), any()) } returns
+                    AppResult.Failure(ValidationError(message = "forbidden"))
+                val dao = mock<CollectionBookDao>(MockMode.autoUnit)
+
+                buildRepo(service, dao)
+                    .releaseBooks("lib1", mapOf("b1" to emptyList()))
+                    .shouldBeInstanceOf<AppResult.Failure>()
+
+                verifySuspend(VerifyMode.not) { dao.tombstoneHeldRows(any(), any()) }
             }
         }
     })
