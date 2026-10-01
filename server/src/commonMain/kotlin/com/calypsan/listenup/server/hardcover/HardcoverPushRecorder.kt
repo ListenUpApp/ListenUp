@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.hardcover
 
 import com.calypsan.listenup.api.dto.activity.RealListen
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
@@ -81,6 +82,11 @@ fun interface HardcoverPushNudge {
  *   push, and coalesced with any PROGRESS already queued.
  * - FINISH when a completion appended a read.
  * Nothing is queued for a user with no Hardcover connection row, or for a suppressed listen-through.
+ *
+ * The listener's [HardcoverShareMode] is enforced here, where a push is queued, so nothing private is
+ * ever queued to leak out after a switch: Only when I finish queues no START and no PROGRESS, and FINISH
+ * as ever. A FINISH's row is its listen-through, whose start dates the read Hardcover gets — the executor
+ * shelves the book, adopts the read Hardcover opens, and moves it to that start.
  */
 class HardcoverPushRecorder(
     private val sql: ListenUpDatabase,
@@ -98,6 +104,7 @@ class HardcoverPushRecorder(
     ) {
         if (!connections.hasConnection(userId)) return
         links.clearSuppressionUnlessFor(userId, bookId, startedAt)
+        if (sql.hardcoverShareMode(userId) == HardcoverShareMode.FINISHED_ONLY) return
         if (links.linkFor(userId, bookId)?.suppressedListenThrough == startedAt) return
         outbox.enqueueStart(userId, bookId, listenThrough = startedAt, startedAt = startedAt, isReread = isReread)
         nudge.nudge(userId)
@@ -109,6 +116,7 @@ class HardcoverPushRecorder(
         positionMs: Long,
     ) {
         if (!connections.hasConnection(userId)) return
+        if (sql.hardcoverShareMode(userId) == HardcoverShareMode.FINISHED_ONLY) return
         val listenThrough = listenThroughTakingProgress(userId, bookId) ?: return
         val link = links.linkFor(userId, bookId)
         if (link?.suppressedListenThrough == listenThrough) return
