@@ -1781,12 +1781,52 @@
         }
       }
     },
+    "admin.release": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Release"
+          }
+        }
+      }
+    },
     "admin.release_anyway": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Release anyway"
+          }
+        }
+      }
+    },
+    "admin.release_to_everyone": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Release to everyone?"
+          }
+        }
+      }
+    },
+    "admin.release_to_everyone_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every member will be able to find and play it."
+          }
+        }
+      }
+    },
+    "admin.release_to_everyone_body_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every member will be able to find and play them."
           }
         }
       }
