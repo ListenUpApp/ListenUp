@@ -29,12 +29,14 @@ import com.calypsan.listenup.server.hardcover.HardcoverPushWorker
 import com.calypsan.listenup.server.hardcover.HardcoverRateLimiter
 import com.calypsan.listenup.server.hardcover.HardcoverRatingConnection
 import com.calypsan.listenup.server.hardcover.HardcoverRatingSource
+import com.calypsan.listenup.server.hardcover.HardcoverShelfEntryStore
 import com.calypsan.listenup.server.hardcover.HardcoverShelfResolver
 import com.calypsan.listenup.server.hardcover.HardcoverSyncActivity
 import com.calypsan.listenup.server.hardcover.HardcoverTokenCipher
 import com.calypsan.listenup.server.hardcover.HardcoverTokenProvider
 import com.calypsan.listenup.server.hardcover.HardcoverUserBooks
 import com.calypsan.listenup.server.hardcover.HardcoverUserGate
+import com.calypsan.listenup.server.hardcover.HardcoverWantToRead
 import com.calypsan.listenup.server.ratings.toIdentity
 import com.calypsan.listenup.server.services.BookRepository
 import io.ktor.client.HttpClient
@@ -186,18 +188,30 @@ fun hardcoverModule(
     }
 
 /**
- * The pull (spec B3): its store, the shelf resolver, the puller, and the per-user pull worker — also
- * bound as the [HardcoverPullRequests] that "Sync now", the foreground nudge and manual linking use.
+ * The pull (spec B3): its store, the shelf resolver, Want to Read (#1539), the puller, and the per-user
+ * pull worker — also bound as the [HardcoverPullRequests] that "Sync now", the foreground nudge and manual
+ * linking use.
  */
 private fun Module.hardcoverPull() {
     single { HardcoverPullStore(sql = get(), clock = get()) }
     single { HardcoverShelfResolver(sql = get(), access = get()) }
+    single { HardcoverShelfEntryStore(sql = get(), clock = get()) }
+    single {
+        HardcoverWantToRead(
+            sql = get(),
+            entries = get(),
+            shelves = get(),
+            shelfBooks = get(),
+            access = get(),
+        )
+    }
     single {
         HardcoverPuller(
             userBooks = get(),
             store = get(),
             resolver = get(),
             links = get(),
+            wantToRead = get(),
             rateLimiter = get(),
             sql = get(),
             clock = get(),
