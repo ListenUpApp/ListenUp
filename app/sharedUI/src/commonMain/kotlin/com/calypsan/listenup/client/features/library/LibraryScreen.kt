@@ -71,6 +71,7 @@ import org.koin.compose.viewmodel.koinViewModel
  *   with a callback that ends the selection once an apply has landed
  *   (null = this host has no route to the editor, so the action is not offered)
  * @param onOpenInbox Opens the admin inbox from the Books view's entry
+ *   (null = this host has no route to the inbox, so the entry is not offered)
  * @param modifier Modifier from parent (includes scaffold padding)
  * @param viewModel The LibraryViewModel (injected via Koin)
  * @param multiSelect The per-screen multi-select ViewModel (injected via Koin)
@@ -84,7 +85,7 @@ fun LibraryScreen(
     onNarratorClick: (String) -> Unit,
     appHeader: AppHeaderSlot,
     onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)? = null,
-    onOpenInbox: () -> Unit = {},
+    onOpenInbox: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = koinViewModel(),
     multiSelect: BookMultiSelectViewModel = koinViewModel(),
@@ -180,7 +181,7 @@ private fun LibraryErrorContent(
 @Suppress("LongMethod", "CognitiveComplexMethod", "LongParameterList")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LibraryLoadedContent(
+internal fun LibraryLoadedContent(
     state: LibraryUiState.Loaded,
     multiSelect: BookMultiSelectViewModel,
     onBookClick: (String) -> Unit,
@@ -191,7 +192,7 @@ private fun LibraryLoadedContent(
     onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)?,
     heldCount: Int,
     previewBookIds: List<String>,
-    onOpenInbox: () -> Unit,
+    onOpenInbox: (() -> Unit)?,
     onEvent: (LibraryUiEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -238,9 +239,10 @@ private fun LibraryLoadedContent(
             onBookLongPress = multiSelect::enterSelectionMode,
             onRetry = { onEvent(LibraryUiEvent.RefreshRequested) },
             // Books view only (canvas): In progress, Series, Authors and Narrators do not carry it,
-            // and selecting books turns the grid into a picking surface the entry would clutter.
+            // and selecting books turns the grid into a picking surface the entry would clutter. A host
+            // with no route to the inbox gets no entry: a tile that opens nothing reads as broken.
             header =
-                if (showsInboxEntry && heldCount > 0 && !isInSelectionMode) {
+                if (showsInboxEntry && heldCount > 0 && !isInSelectionMode && onOpenInbox != null) {
                     {
                         LibraryInboxEntry(
                             heldCount = heldCount,

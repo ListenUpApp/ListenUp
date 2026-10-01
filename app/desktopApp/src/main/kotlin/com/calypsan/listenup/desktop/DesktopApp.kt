@@ -341,6 +341,7 @@ private fun DesktopAuthenticatedNavigation() {
                                     pendingSelectionExit.arm(endSelection)
                                     navigateTo(DetailDestination.BulkEdit(bookIds))
                                 },
+                                onOpenInbox = { navigateTo(DetailDestination.AdminInbox) },
                                 modifier = Modifier.padding(padding),
                             )
                         },
