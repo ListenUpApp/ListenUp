@@ -179,8 +179,18 @@ interface AuthServiceAuthed {
     /** Revoke the caller's current session. Idempotent. */
     suspend fun logout(): AppResult<Unit>
 
-    /** Revoke every session for the caller's user. */
+    /**
+     * Revoke every session for the caller's user, the caller's own included. No current client
+     * calls it; it stays so an older client's "sign out everywhere" keeps working against this server.
+     */
     suspend fun logoutAll(): AppResult<Unit>
+
+    /**
+     * Revoke every session for the caller's user EXCEPT the caller's own ("sign out all other
+     * devices"). The session to spare is the one the bearer belongs to, read from the principal —
+     * never passed in, so a client cannot spare the wrong one. Idempotent.
+     */
+    suspend fun revokeOtherSessions(): AppResult<Unit>
 
     /** Return the caller's user. */
     suspend fun currentUser(): AppResult<User>

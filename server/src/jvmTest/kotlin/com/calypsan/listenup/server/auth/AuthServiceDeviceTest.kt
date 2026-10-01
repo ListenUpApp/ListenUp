@@ -153,6 +153,39 @@ class AuthServiceDeviceTest :
                 svc.sessions.isLive(s1.sessionId) shouldBe true
             }
         }
+
+        test("revokeOtherSessions keeps the caller signed in and signs out every other device") {
+            val svc = newSvc()
+            runTest {
+                val userId = svc.seedUser()
+                val here = svc.login(LoginRequest(email = "u@x.co", password = "password1")).shouldSucceed()
+                val phone = svc.login(LoginRequest(email = "u@x.co", password = "password1")).shouldSucceed()
+                val laptop = svc.login(LoginRequest(email = "u@x.co", password = "password1")).shouldSucceed()
+
+                val authedHere = svc.copyWith(callerOf(UserId(userId), here.sessionId))
+                authedHere.revokeOtherSessions().shouldSucceed()
+
+                svc.sessions.isLive(here.sessionId) shouldBe true
+                svc.sessions.isLive(phone.sessionId) shouldBe false
+                svc.sessions.isLive(laptop.sessionId) shouldBe false
+                // seedUser's own registration session is another device too — only this one is left.
+                authedHere.listSessions().shouldSucceed().map { it.id } shouldBe listOf(here.sessionId)
+            }
+        }
+
+        test("revokeOtherSessions leaves another user's sessions alone") {
+            val svc = newSvc()
+            runTest {
+                val userId = svc.seedUser()
+                val mine = svc.login(LoginRequest(email = "u@x.co", password = "password1")).shouldSucceed()
+                svc.seedUser2()
+                val theirs = svc.login(LoginRequest(email = "other@x.co", password = "password1")).shouldSucceed()
+
+                svc.copyWith(callerOf(UserId(userId), mine.sessionId)).revokeOtherSessions().shouldSucceed()
+
+                svc.sessions.isLive(theirs.sessionId) shouldBe true
+            }
+        }
     })
 
 /** Register a SECOND active member `other@x.co` / `password1`; returns its userId. */

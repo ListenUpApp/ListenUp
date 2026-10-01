@@ -94,4 +94,41 @@ class SessionDeviceE2ETest :
                     .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
             }
         }
+
+        test("signing out all other devices over RPC keeps the calling device signed in") {
+            testApplication {
+                useIsolatedTestConfig()
+                application { module() }
+
+                seedRoot()
+
+                val here = loginAs("iPhone 17")
+                val phone = loginAs("Pixel 10")
+                val tablet = loginAs("iPad")
+
+                authedService<AuthServiceAuthed>(here.accessToken.value)
+                    .revokeOtherSessions()
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                // The session spared is the one the bearer belongs to — read from the JWT principal.
+                val remaining =
+                    authedService<AuthServiceAuthed>(here.accessToken.value)
+                        .listSessions()
+                        .shouldBeInstanceOf<AppResult.Success<List<SessionSummary>>>()
+                        .data
+                remaining.map { it.id } shouldBe listOf(here.sessionId)
+                remaining.single().current shouldBe true
+
+                listOf(phone, tablet).forEach { other ->
+                    publicAuthService()
+                        .refreshSession(RefreshRequest(other.refreshToken))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AuthError.InvalidRefreshToken>()
+                }
+                publicAuthService()
+                    .refreshSession(RefreshRequest(here.refreshToken))
+                    .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
+            }
+        }
     })
