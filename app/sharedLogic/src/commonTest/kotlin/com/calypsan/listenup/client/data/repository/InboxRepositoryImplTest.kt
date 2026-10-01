@@ -26,6 +26,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -70,6 +71,24 @@ class InboxRepositoryImplTest :
                 val held = buildRepo(mock(), dao).observeHeldBookIds().first()
 
                 held.toList() shouldBe oldestFirst.map(::BookId)
+            }
+        }
+
+        test("observeHeldBookIds does not re-deliver an unchanged held set, but does deliver a reorder") {
+            runTest {
+                // Room re-runs the query on every collection_books / collections write, held or not;
+                // each identical answer would otherwise re-run every consumer's pipeline.
+                val dao =
+                    mock<CollectionBookDao> {
+                        every { observeHeldBookIds() } returns
+                            flowOf(listOf("b1", "b2"), listOf("b1", "b2"), listOf("b2", "b1"), listOf("b2", "b1"))
+                    }
+
+                val emissions = buildRepo(mock(), dao).observeHeldBookIds().toList()
+
+                // Order is part of the contract (oldest hold first), so a reorder is a change.
+                emissions.map { it.toList() } shouldBe
+                    listOf(listOf(BookId("b1"), BookId("b2")), listOf(BookId("b2"), BookId("b1")))
             }
         }
 

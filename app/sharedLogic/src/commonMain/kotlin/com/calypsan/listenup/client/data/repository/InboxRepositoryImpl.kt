@@ -15,6 +15,7 @@ import com.calypsan.listenup.core.currentEpochMilliseconds
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 private val logger = KotlinLogging.logger {}
@@ -35,8 +36,13 @@ internal class InboxRepositoryImpl(
     private val scannerChannel: RpcChannel<ScannerService>,
     private val collectionBookDao: CollectionBookDao,
 ) : InboxRepository {
+    // Room re-runs the held query on every collection_books / collections write, held or not. The
+    // list (not the set) is compared, so a reorder still counts as a change: order is the contract.
     override fun observeHeldBookIds(): Flow<Set<BookId>> =
-        collectionBookDao.observeHeldBookIds().map { ids -> ids.mapTo(LinkedHashSet<BookId>()) { BookId(it) } }
+        collectionBookDao
+            .observeHeldBookIds()
+            .distinctUntilChanged()
+            .map { ids -> ids.mapTo(LinkedHashSet<BookId>()) { BookId(it) } }
 
     override suspend fun releaseBooks(
         libraryId: String,
