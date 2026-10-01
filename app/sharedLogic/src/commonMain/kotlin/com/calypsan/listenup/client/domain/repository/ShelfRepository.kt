@@ -111,6 +111,9 @@ interface ShelfRepository {
      * where they are, and are not counted, so a caller confirming the write can say what changed
      * rather than what was asked for.
      *
+     * Refuses with [com.calypsan.listenup.api.error.BookError.HeldForReview], adding nothing, when
+     * any requested book is held for review.
+     *
      * @param shelfId The shelf to add to
      * @param bookIds The books to add
      */

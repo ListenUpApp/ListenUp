@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.shelf.DiscoveredShelf
 import com.calypsan.listenup.api.dto.shelf.Shelf as ShelfDto
 import com.calypsan.listenup.api.dto.shelf.ShelfBookView
 import com.calypsan.listenup.api.dto.shelf.ShelfDetail as ShelfDetailDto
+import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.CollectionBookDao
@@ -369,6 +370,20 @@ class ShelfRepositoryImplTest :
                 detail.books.map { it.id.value } shouldBe listOf("b1")
                 detail.bookCount shouldBe 1
                 detail.totalDurationSeconds shouldBe 4_200L
+            }
+        }
+
+        test("addBooksToShelf refuses a book held for review, and adds nothing") {
+            runTest {
+                val shelfBookDao = mock<ShelfBookDao>(MockMode.autofill)
+                val collectionBookDao = mock<CollectionBookDao> { everySuspend { heldBookIds() } returns listOf("held") }
+
+                val result =
+                    repo(shelfBookDao = shelfBookDao, collectionBookDao = collectionBookDao)
+                        .addBooksToShelf(ShelfId("s1"), listOf(BookId("b1"), BookId("held")))
+
+                result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<BookError.HeldForReview>()
+                verifySuspend(VerifyMode.not) { shelfBookDao.upsert(any()) }
             }
         }
 

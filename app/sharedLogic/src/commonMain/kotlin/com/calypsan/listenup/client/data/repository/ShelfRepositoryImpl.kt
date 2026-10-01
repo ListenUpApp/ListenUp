@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.dto.shelf.DiscoveredShelf
@@ -201,11 +202,20 @@ internal class ShelfRepositoryImpl(
      * A book already on the shelf is skipped, not re-appended: re-upserting it would move it to the
      * end of the order and enqueue an op with nothing to say. The returned count is what the shelf
      * actually gained, so a caller can confirm the write honestly rather than echoing the selection.
+     *
+     * Refuses with [BookError.HeldForReview], adding nothing, when any requested book is held for review.
      */
     override suspend fun addBooksToShelf(
         shelfId: ShelfId,
         bookIds: List<BookId>,
     ): AppResult<Int> {
+        // A held book is triage-only (spec §8). Refuse the whole request rather than add part of it,
+        // so the returned count always describes the action that was asked for.
+        val held = collectionBookDao.heldBookIds().toSet()
+        val refused = bookIds.filter { it.value in held }
+        if (refused.isNotEmpty()) {
+            return AppResult.Failure(BookError.HeldForReview(debugInfo = "held=${refused.joinToString { it.value }}"))
+        }
         var added = 0
         bookIds.forEach { bookId ->
             val existing = shelfBookDao.findByShelfAndBook(shelfId.value, bookId.value)
