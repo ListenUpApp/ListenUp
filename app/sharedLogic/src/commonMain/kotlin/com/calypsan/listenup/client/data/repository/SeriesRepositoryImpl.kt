@@ -163,7 +163,7 @@ internal class SeriesRepositoryImpl(
      * library, joined in-memory by book id. This avoids N+1 queries (one
      * contributor query per series) at the cost of a single redundant read of
      * all books — acceptable because the library view already loads all books
-     * elsewhere on the same screen.
+     * elsewhere on the same screen. Series with no visible book are omitted.
      */
     override fun observeAllWithBooks(): Flow<List<SeriesWithBooks>> =
         combine(
@@ -174,27 +174,32 @@ internal class SeriesRepositoryImpl(
             bookDao.observeAllWithContributors().conflate(),
         ) { seriesEntities, allBooksWithContributors ->
             val booksById = allBooksWithContributors.associateBy { it.book.id }
-            seriesEntities.map { entity ->
-                val books =
-                    entity.books.mapNotNull { bookEntity ->
-                        val resolved = booksById[bookEntity.id]?.toListItem(imageStorage)
-                        if (resolved == null) {
-                            logger.debug {
-                                "Skipping orphan book ${bookEntity.id} for series ${entity.series.id}"
+            seriesEntities
+                .map { entity ->
+                    val books =
+                        entity.books.mapNotNull { bookEntity ->
+                            val resolved = booksById[bookEntity.id]?.toListItem(imageStorage)
+                            if (resolved == null) {
+                                logger.debug {
+                                    "Skipping orphan book ${bookEntity.id} for series ${entity.series.id}"
+                                }
                             }
+                            resolved
                         }
-                        resolved
-                    }
-                val sequences =
-                    entity.bookSequences.associate {
-                        it.bookId.value to it.sequence
-                    }
-                SeriesWithBooks(
-                    series = entity.series.toDomain(),
-                    books = books,
-                    bookSequences = sequences,
-                )
-            }
+                    val sequences =
+                        entity.bookSequences.associate {
+                            it.bookId.value to it.sequence
+                        }
+                    SeriesWithBooks(
+                        series = entity.series.toDomain(),
+                        books = books,
+                        bookSequences = sequences,
+                    )
+                }
+                // A series with no book the library shows — its books all held for review, or not
+                // synced yet — would be an empty card. Held books never reach booksById: they are
+                // excluded in SQL by observeAllWithContributors.
+                .filter { it.books.isNotEmpty() }
         }.flowOn(IODispatcher) // per-book toListItem does a blocking cover stat — keep it off the collector (Main).
             // Room invalidates the entire series+books result on any book or series write.
             // distinctUntilChanged drops re-emissions where the mapped List<SeriesWithBooks> is

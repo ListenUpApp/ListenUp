@@ -854,6 +854,33 @@ class SeriesRepositoryImplTest :
             }
         }
 
+        test("observeAllWithBooks drops a series none of whose books the library shows") {
+            runTest {
+                // Both books are held for review, so observeAllWithContributors (which excludes held
+                // books in SQL) returns neither. An empty series card is a card with nothing in it.
+                val heldSeries = createTestSeriesEntity(id = "series-held", name = "All Held")
+                val visibleSeries = createTestSeriesEntity(id = "series-visible", name = "Visible")
+                val heldBook = makeBookEntity("book-held", "Held Book")
+                val visibleBook = makeBookEntity("book-visible", "Visible Book")
+                val seriesDao = createMockDao()
+                val bookDao = mock<BookDao>(MockMode.autoUnit)
+                every { seriesDao.observeAllWithBooks() } returns
+                    flowOf(
+                        listOf(
+                            SeriesWithBooksRelation(series = heldSeries, books = listOf(heldBook), bookSequences = emptyList()),
+                            SeriesWithBooksRelation(series = visibleSeries, books = listOf(visibleBook), bookSequences = emptyList()),
+                        ),
+                    )
+                every { bookDao.observeAllWithContributors() } returns
+                    flowOf(listOf(makeBookWithContributors(visibleBook)))
+                val repository = createRepositoryWithBookDao(seriesDao, bookDao)
+
+                val result = repository.observeAllWithBooks().first()
+
+                result.map { it.series.id.value } shouldBe listOf("series-visible")
+            }
+        }
+
         // ========== observeSeriesWithBooks Tests ==========
 
         test("observeSeriesWithBooks returns null when series relation is null") {
