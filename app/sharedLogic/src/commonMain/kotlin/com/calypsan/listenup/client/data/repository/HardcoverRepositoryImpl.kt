@@ -1,18 +1,26 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.HardcoverService
+import com.calypsan.listenup.api.dto.hardcover.HardcoverBookCandidate
+import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.onSuccess
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.repository.HardcoverRepository
+import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.flow
 
 private val logger = KotlinLogging.logger {}
+
+private const val MATCH_CHANGE_BUFFER = 16
 
 /**
  * RPC implementation of [HardcoverRepository] over [HardcoverService].
@@ -26,6 +34,35 @@ private val logger = KotlinLogging.logger {}
 internal class HardcoverRepositoryImpl(
     private val channel: RpcChannel<HardcoverService>,
 ) : HardcoverRepository {
+    private val matchChangesFlow = MutableSharedFlow<BookId>(extraBufferCapacity = MATCH_CHANGE_BUFFER)
+
+    override val matchChanges: Flow<BookId> = matchChangesFlow.asSharedFlow()
+
+    // Re-asking for a full pull is harmless: a second press only restarts the pull it already asked for.
+    override suspend fun syncNow(): AppResult<Unit> = channel.call(idempotent = true) { it.syncNow() }
+
+    override suspend fun searchCatalog(query: String): AppResult<List<HardcoverBookCandidate>> =
+        channel.call(idempotent = true) { it.searchCatalog(query) }
+
+    // Linking the same book to the same pick twice leaves one link; unlinking twice, one NEEDS_MATCH.
+    override suspend fun linkBook(
+        bookId: BookId,
+        hcBookId: Long,
+        hcEditionId: Long?,
+    ): AppResult<Unit> =
+        channel
+            .call(idempotent = true) { it.linkBook(bookId, hcBookId, hcEditionId) }
+            .onSuccess { matchChangesFlow.tryEmit(bookId) }
+
+    override suspend fun unlinkBook(bookId: BookId): AppResult<Unit> =
+        channel.call(idempotent = true) { it.unlinkBook(bookId) }.onSuccess { matchChangesFlow.tryEmit(bookId) }
+
+    override suspend fun booksNeedingMatch(): AppResult<List<BookId>> =
+        channel.call(idempotent = true) { it.booksNeedingMatch() }
+
+    override suspend fun bookMatch(bookId: BookId): AppResult<HardcoverBookMatch> =
+        channel.call(idempotent = true) { it.bookMatch(bookId) }
+
     override fun observeConnection(): Flow<HardcoverConnection> =
         flow {
             var backoffMs = INITIAL_RESUBSCRIBE_DELAY_MS
