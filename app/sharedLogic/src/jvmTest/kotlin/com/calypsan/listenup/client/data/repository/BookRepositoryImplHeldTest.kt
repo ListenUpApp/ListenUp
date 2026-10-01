@@ -85,11 +85,23 @@ class BookRepositoryImplHeldTest :
             }
         }
 
-        test("book search (the App Intents play path) leaves a held book out") {
+        test("book search (the App Intents play path) leaves held books out before its limit") {
             withHeldBookDb { db ->
-                seedVisibleAndHeld(db)
-                db.searchDao().insertBookFts("visible", "Mistborn", null, null, null, null, null, null)
-                db.searchDao().insertBookFts("held", "Mistwraith", null, null, null, null, null, null)
+                // A full page of held books that each outrank the one visible book: filtered after the
+                // limit, the page would come back empty and the visible book would never be offered.
+                val heldIds = (1..BOOK_SEARCH_LIMIT).map { "held-$it" }
+                heldIds.forEach { id ->
+                    HeldBookFixture.seedBook(db, id, title = "Mist")
+                    HeldBookFixture.hold(db, id)
+                    db.searchDao().insertBookFts(id, "Mist", null, null, null, null, null, null)
+                }
+                HeldBookFixture.seedBook(db, "visible", title = "Mist over the long and winding road")
+                HeldBookFixture.publish(db, "visible")
+                db.searchDao().insertBookFts("visible", "Mist over the long and winding road", null, null, null, null, null, null)
+
+                // The premise: the held books fill the whole page of the unfiltered search.
+                db.searchDao().searchBooks("mist*", limit = BOOK_SEARCH_LIMIT).map { it.book.id.value }.toSet() shouldBe
+                    heldIds.toSet()
 
                 repository(db).search("mist").test {
                     awaitItem().map { it.id.value } shouldBe listOf("visible")
@@ -98,3 +110,6 @@ class BookRepositoryImplHeldTest :
             }
         }
     })
+
+/** [BookRepositoryImpl]'s private book-search cap (`SEARCH_LIMIT`). */
+private const val BOOK_SEARCH_LIMIT = 50
