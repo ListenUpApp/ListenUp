@@ -187,13 +187,16 @@ internal interface ContributorDao {
      * ordered by name with the count of books they're associated with.
      *
      * @param role The role to filter by (e.g., "author", "narrator")
+     *
+     * Held books ([HELD_BOOK_IDS_SQL]) are not counted, so an author whose only books are held for
+     * review drops out of the list.
      */
     @Query(
         """
         SELECT c.*, COUNT(bc.bookId) as bookCount
         FROM contributors c
         INNER JOIN book_contributors bc ON c.id = bc.contributorId
-        INNER JOIN books b ON b.id = bc.bookId AND b.deletedAt IS NULL
+        INNER JOIN books b ON b.id = bc.bookId AND b.deletedAt IS NULL AND b.id NOT IN ($HELD_BOOK_IDS_SQL)
         WHERE bc.role = :role AND c.deletedAt IS NULL
         GROUP BY c.id
         ORDER BY c.name ASC
@@ -215,12 +218,15 @@ internal interface ContributorDao {
      *
      * @param contributorId The contributor's unique ID
      * @return Flow of role to book count pairs
+     *
+     * Held books ([HELD_BOOK_IDS_SQL]) are not counted, so an author whose only books are held for
+     * review drops out of the list.
      */
     @Query(
         """
         SELECT bc.role, COUNT(bc.bookId) as bookCount
         FROM book_contributors bc
-        INNER JOIN books b ON b.id = bc.bookId AND b.deletedAt IS NULL
+        INNER JOIN books b ON b.id = bc.bookId AND b.deletedAt IS NULL AND b.id NOT IN ($HELD_BOOK_IDS_SQL)
         WHERE bc.contributorId = :contributorId
         GROUP BY bc.role
         ORDER BY bc.role ASC
@@ -308,10 +314,17 @@ internal interface ContributorDao {
     /**
      * Get all book IDs for a specific contributor.
      *
+     * Held books are excluded — its one caller is Android Auto's author shelf, a browse surface.
+     *
      * @param contributorId The contributor ID
      * @return List of book IDs
      */
-    @Query("SELECT DISTINCT bookId FROM book_contributors WHERE contributorId = :contributorId")
+    @Query(
+        """
+        SELECT DISTINCT bookId FROM book_contributors
+        WHERE contributorId = :contributorId AND bookId NOT IN ($HELD_BOOK_IDS_SQL)
+    """,
+    )
     suspend fun getBookIdsForContributor(contributorId: String): List<String>
 
     /**
