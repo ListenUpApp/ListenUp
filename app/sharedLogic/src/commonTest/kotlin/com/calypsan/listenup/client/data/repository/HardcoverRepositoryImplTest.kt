@@ -23,7 +23,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import kotlin.time.Clock
 import kotlin.time.Duration
+import kotlin.time.Instant
 
 /**
  * [HardcoverRepositoryImpl] over the real [RpcChannel] fold, driven by an in-memory
@@ -196,6 +198,23 @@ class HardcoverRepositoryImplTest :
             }
         }
 
+        test("a link that lands is remembered with its time until the book is unlinked; a failed one isn't") {
+            runTest {
+                val service = FakeHardcoverService()
+                val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
+                val repository = HardcoverRepositoryImpl(RpcChannel.forTest(service), clock)
+                repository.linkedAt(BookId("b1")) shouldBe null
+                repository.linkBook(BookId("b1"), 427_578L, 9_001L) shouldBe AppResult.Success(Unit)
+                repository.linkedAt(BookId("b1")) shouldBe Instant.fromEpochMilliseconds(1_000L)
+                clock.now = Instant.fromEpochMilliseconds(5_000L)
+                service.linkResult = AppResult.Failure(HardcoverError.Unavailable())
+                repository.linkBook(BookId("b1"), 1L, null)
+                repository.linkedAt(BookId("b1")) shouldBe Instant.fromEpochMilliseconds(1_000L)
+                repository.unlinkBook(BookId("b1")) shouldBe AppResult.Success(Unit)
+                repository.linkedAt(BookId("b1")) shouldBe null
+            }
+        }
+
         test("the reads and Sync now reach the server and are safe blind retries") {
             runTest {
                 val service =
@@ -305,4 +324,11 @@ private class IdempotenceRecordingDispatch<S : Any>(
     override suspend fun invalidate() = Unit
 
     override suspend fun retire() = Unit
+}
+
+/** A [Clock] the test moves by hand. */
+private class MutableClock(
+    var now: Instant,
+) : Clock {
+    override fun now(): Instant = now
 }

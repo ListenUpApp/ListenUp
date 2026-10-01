@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
+import kotlin.time.Instant
 
 /**
  * In-memory [HardcoverRepository]: [connection] is the server's stream (null = no answer yet),
@@ -110,6 +111,11 @@ internal class FakeHardcoverRepository(
         booksNeedingMatchCalls++
         return booksNeedingMatchResult
     }
+
+    /** What [linkedAt] answers, per book: when this device last linked it. */
+    val linkedAtByBook = mutableMapOf<BookId, Instant>()
+
+    override fun linkedAt(bookId: BookId): Instant? = linkedAtByBook[bookId]
 
     override suspend fun bookMatch(bookId: BookId): AppResult<HardcoverBookMatch> {
         bookMatchCalls++

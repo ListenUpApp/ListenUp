@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.flow.Flow
+import kotlin.time.Instant
 
 /**
  * The signed-in user's Hardcover connection, as the server reports it.
@@ -40,6 +41,13 @@ interface HardcoverRepository {
      * once instead of waiting for the next sync. A failed link or unlink announces nothing.
      */
     val matchChanges: Flow<BookId>
+
+    /**
+     * When this client last linked [bookId], in this session — null if it hasn't, or has unlinked it since.
+     * A link made on another device, or before the app started, has no time here: "Matched just now" is
+     * something only the hand that made the match can have just seen.
+     */
+    fun linkedAt(bookId: BookId): Instant?
 
     /** Pulls the whole Hardcover shelf now and sends what is waiting; see [com.calypsan.listenup.api.HardcoverService.syncNow]. */
     suspend fun syncNow(): AppResult<Unit>

@@ -31,6 +31,7 @@ data class HardcoverBookToMatch(
 /**
  * The Hardcover book a ListenUp book is matched to. [title] is null when Hardcover couldn't be asked
  * for it; [chosenByYou] is true for a match the user picked rather than one ListenUp found.
+ * [hcEditionId] is the edition the match names, if any — what an Undo needs to put a replaced match back.
  */
 data class HardcoverMatchedBook(
     val hcBookId: Long,
@@ -38,4 +39,5 @@ data class HardcoverMatchedBook(
     val authors: List<String>,
     val releaseYear: Int?,
     val chosenByYou: Boolean,
+    val hcEditionId: Long? = null,
 )

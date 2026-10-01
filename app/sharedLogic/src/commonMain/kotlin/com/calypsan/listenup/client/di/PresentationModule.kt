@@ -365,6 +365,7 @@ internal val bookPresentationModule =
             com.calypsan.listenup.client.presentation.hardcover.BookHardcoverViewModel(
                 bookId = params.get(),
                 repository = get(),
+                errorBus = get(),
             )
         }
         factory {
@@ -648,6 +649,9 @@ internal val settingsPresentationModule =
                 bookId = params.get(),
                 repository = get(),
                 bookRepository = get(),
+                // App-lifetime scope: Undo is offered after this screen has closed, so it can't ride viewModelScope.
+                appScope = get(qualifier = named(APP_SCOPE)),
+                errorBus = get(),
             )
         }
         // DevicesViewModel for the Devices (active sessions) screen

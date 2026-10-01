@@ -10301,6 +10301,16 @@
         }
       }
     },
+    "hardcover.book_row_just_matched": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matched just now"
+          }
+        }
+      }
+    },
     "hardcover.book_row_matched_unnamed": {
       "localizations": {
         "en": {
@@ -10327,6 +10337,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pick the right book so your listening syncs."
+          }
+        }
+      }
+    },
+    "hardcover.book_row_on_hardcover": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On Hardcover"
           }
         }
       }
@@ -10437,6 +10457,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copied"
+          }
+        }
+      }
+    },
+    "hardcover.comes_back_line": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books you've read elsewhere appear in Readers with a Hardcover label."
+          }
+        }
+      }
+    },
+    "hardcover.comes_back_never_listening": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "They never count as listening."
           }
         }
       }
@@ -10641,6 +10681,16 @@
         }
       }
     },
+    "hardcover.match_by_author": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By %1$@"
+          }
+        }
+      }
+    },
     "hardcover.match_current": {
       "localizations": {
         "en": {
@@ -10661,6 +10711,26 @@
         }
       }
     },
+    "hardcover.match_linked": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matched to %1$@"
+          }
+        }
+      }
+    },
+    "hardcover.match_linked_with_detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matched to %1$@ (%2$@)"
+          }
+        }
+      }
+    },
     "hardcover.match_matching": {
       "localizations": {
         "en": {
@@ -10671,12 +10741,32 @@
         }
       }
     },
-    "hardcover.match_no_results": {
+    "hardcover.match_no_results_detail": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nothing on Hardcover matches that. Try just the title, or the author's last name."
+            "value": "Nothing found for “%1$@”. Fewer words usually help — try one of these."
+          }
+        }
+      }
+    },
+    "hardcover.match_no_results_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No matches on Hardcover"
+          }
+        }
+      }
+    },
+    "hardcover.match_other_results": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other results"
           }
         }
       }
@@ -10751,12 +10841,12 @@
         }
       }
     },
-    "hardcover.match_same_author": {
+    "hardcover.match_results": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Same author"
+            "value": "Results"
           }
         }
       }
@@ -10767,6 +10857,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Search"
+          }
+        }
+      }
+    },
+    "hardcover.match_search_for": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search “%1$@”"
+          }
+        }
+      }
+    },
+    "hardcover.match_search_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search Hardcover"
           }
         }
       }
@@ -10801,12 +10911,52 @@
         }
       }
     },
+    "hardcover.match_unknown_author": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown author"
+          }
+        }
+      }
+    },
+    "hardcover.match_weak_detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use the full title, or add the author."
+          }
+        }
+      }
+    },
+    "hardcover.match_weak_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lots of results — none by %1$@"
+          }
+        }
+      }
+    },
     "hardcover.needs_match_detail": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "ListenUp couldn't tell which Hardcover book these are. Pick each one and it starts syncing."
+          }
+        }
+      }
+    },
+    "hardcover.needs_match_none": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every book you've started is matched"
           }
         }
       }
@@ -11001,16 +11151,6 @@
         }
       }
     },
-    "hardcover.shared_pulled_row": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Books you've read elsewhere, shown in ListenUp"
-          }
-        }
-      }
-    },
     "hardcover.shared_started_row": {
       "localizations": {
         "en": {
@@ -11051,6 +11191,16 @@
         }
       }
     },
+    "hardcover.sync_now_failed_notice": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't reach Hardcover. Nothing was lost."
+          }
+        }
+      }
+    },
     "hardcover.sync_section": {
       "localizations": {
         "en": {
@@ -11077,6 +11227,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Try again"
+          }
+        }
+      }
+    },
+    "hardcover.undo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo"
           }
         }
       }
@@ -11137,6 +11297,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Open %1$@"
+          }
+        }
+      }
+    },
+    "hardcover.what_comes_back": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What comes back"
           }
         }
       }

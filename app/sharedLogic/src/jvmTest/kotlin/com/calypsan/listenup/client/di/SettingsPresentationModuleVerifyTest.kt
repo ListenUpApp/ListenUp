@@ -19,6 +19,7 @@ import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
+import kotlinx.coroutines.CoroutineScope
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.test.verify.verify
 
@@ -39,6 +40,7 @@ import org.koin.test.verify.verify
  *  - [HardcoverRepository] — owned by `hardcoverClientModule` (the Settings row's state).
  *  - [BookRepository] — owned by `bookModule` (names the Hardcover books that need a match).
  *  - [ErrorBus] — owned by `appCoreModule`.
+ *  - [CoroutineScope] — the `appScope`, owned by `appCoreModule` (Find on Hardcover's Undo outlives the screen).
  *  - [AuthRepository] — owned by `authModule` (the Devices screen's active-session list).
  *  - [PendingOperationRepository] — owned by `clientSyncModule`.
  *  - [SyncRepository] — owned by `clientSyncModule`.
@@ -67,6 +69,7 @@ class SettingsPresentationModuleVerifyTest :
                         HardcoverRepository::class,
                         BookRepository::class,
                         ErrorBus::class,
+                        CoroutineScope::class,
                         AuthRepository::class,
                         PendingOperationRepository::class,
                         SyncRepository::class,
