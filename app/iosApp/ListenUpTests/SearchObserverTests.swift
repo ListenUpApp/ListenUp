@@ -187,6 +187,12 @@ struct SearchObserverTests {
         #expect(SearchRow(bookHit(isHeld: false)).isHeld == false)
     }
 
+    /// Held marks a book. A contributor (or series, or tag) hit carrying the flag is not a held row:
+    /// only books wait in the inbox.
+    @Test func aContributorHitIsNeverHeld() {
+        #expect(SearchRow(bookHit(isHeld: true, type: .contributor)).isHeld == false)
+    }
+
     @Test func handBuiltRowsDefaultToNotHeld() {
         #expect(row("b1", .book).isHeld == false)
     }
@@ -199,10 +205,10 @@ struct SearchObserverTests {
 
     /// A book `SearchHit` built across Swift Export, which has no default arguments: every
     /// parameter is passed.
-    private func bookHit(isHeld: Bool) -> SearchHit {
+    private func bookHit(isHeld: Bool, type: SearchHitType = .book) -> SearchHit {
         SearchHit(
             id: "b1",
-            type: .book,
+            type: type,
             name: "The Ministry of Time",
             subtitle: nil,
             author: "Kaliane Bradley",

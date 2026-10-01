@@ -33,6 +33,8 @@ struct LibraryInboxEntryModel: Equatable {
 /// inbox onto the Library's own stack, so Back returns here.
 struct LibraryInboxEntry: View {
     let model: LibraryInboxEntryModel
+    /// The tile grows with Dynamic Type, as the glyph inside it does.
+    @ScaledMetric(relativeTo: .body) private var tileSize: CGFloat = 36
 
     var body: some View {
         NavigationLink(value: AdminInboxDestination()) {
@@ -41,7 +43,7 @@ struct LibraryInboxEntry: View {
                     .font(.body.weight(.semibold))
                     // White on the light amber, black on the dark one: legible on both.
                     .foregroundStyle(Color(.systemBackground))
-                    .frame(width: 36, height: 36)
+                    .frame(width: tileSize, height: tileSize)
                     .background(Color.luWarning, in: RoundedRectangle(cornerRadius: Radius.s, style: .continuous))
                 VStack(alignment: .leading, spacing: 1) {
                     Text(model.title)
@@ -67,9 +69,8 @@ struct LibraryInboxEntry: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityElement(children: .ignore)
+        // A NavigationLink is already one element with the button trait; this only names it.
         .accessibilityLabel(model.accessibilityLabel)
-        .accessibilityAddTraits(.isButton)
     }
 }
 
