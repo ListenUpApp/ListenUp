@@ -72,7 +72,8 @@ sealed interface HardcoverSettingsUiState {
      * Connected as [username] since [since] (epoch ms). [isDisconnecting] while Disconnect is in flight.
      * [lastSyncedAt] (epoch ms) is the last time anything reached Hardcover or came back, null before the
      * first. [sync] is what the sync line says. [booksToMatch] are the books ListenUp couldn't match,
-     * newest first — empty hides the section.
+     * newest first. [isMatchListKnown] is false until the server has answered (and after a failed read):
+     * only a known empty list may say "Every book you've started is matched".
      */
     data class Connected(
         val username: String,
@@ -81,6 +82,7 @@ sealed interface HardcoverSettingsUiState {
         val lastSyncedAt: Long? = null,
         val sync: HardcoverSyncStatus = HardcoverSyncStatus.Idle,
         val booksToMatch: List<HardcoverBookToMatch> = emptyList(),
+        val isMatchListKnown: Boolean = false,
     ) : HardcoverSettingsUiState
 
     /**
@@ -139,10 +141,10 @@ class HardcoverSettingsViewModel(
     /**
      * The books that need a match, named from the library on this device and kept in the server's
      * order. Re-read whenever the connection syncs (its last-sync time moves) and whenever this client
-     * links or unlinks a book. Empty until the first answer, so the screen never waits on it; a failed
-     * read shows no list rather than a stale one.
+     * links or unlinks a book. Null — not known — until the first answer, so the screen never waits on
+     * it; a failed read is not known either, rather than a stale list.
      */
-    private val booksToMatch: Flow<List<HardcoverBookToMatch>> =
+    private val booksToMatch: Flow<List<HardcoverBookToMatch>?> =
         combine(
             connection
                 .map { (it as? HardcoverConnection.Connected)?.let { connected -> connected.lastSyncedAt ?: 0L } }
@@ -151,19 +153,20 @@ class HardcoverSettingsViewModel(
         ) { syncMark, _ -> syncMark }
             .flatMapLatest { syncMark ->
                 if (syncMark == null) {
-                    flowOf(emptyList())
+                    flowOf<List<HardcoverBookToMatch>?>(null)
                 } else {
-                    flow {
-                        emit(
-                            repository
-                                .booksNeedingMatch()
-                                .getOrNull()
-                                .orEmpty()
-                                .map { it.value },
-                        )
-                    }.flatMapLatest { ids -> booksNamed(ids) }
+                    flow { emit(repository.booksNeedingMatch().getOrNull()?.map { it.value }) }
+                        .flatMapLatest { ids ->
+                            if (ids ==
+                                null
+                            ) {
+                                flowOf<List<HardcoverBookToMatch>?>(null)
+                            } else {
+                                booksNamed(ids)
+                            }
+                        }
                 }
-            }.onStart { emit(emptyList()) }
+            }.onStart { emit(null) }
 
     /** The screen's state: [HardcoverSettingsUiState.Loading] until the server first answers. */
     val uiState: StateFlow<HardcoverSettingsUiState> =
@@ -288,7 +291,7 @@ private fun HardcoverConnection.toUiState(
     isStarting: Boolean,
     isDisconnecting: Boolean,
     isRequestingSync: Boolean,
-    booksToMatch: List<HardcoverBookToMatch>,
+    booksToMatch: List<HardcoverBookToMatch>?,
 ): HardcoverSettingsUiState =
     when (this) {
         HardcoverConnection.NotOffered -> {
@@ -315,7 +318,8 @@ private fun HardcoverConnection.toUiState(
                 isDisconnecting = isDisconnecting,
                 lastSyncedAt = lastSyncedAt,
                 sync = syncStatusOf(isRequestingSync || isSyncing, syncProblem),
-                booksToMatch = booksToMatch,
+                booksToMatch = booksToMatch.orEmpty(),
+                isMatchListKnown = booksToMatch != null,
             )
         }
 

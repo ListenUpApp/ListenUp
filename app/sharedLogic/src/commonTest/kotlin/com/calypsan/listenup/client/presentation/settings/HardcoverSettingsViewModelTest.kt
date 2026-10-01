@@ -225,17 +225,22 @@ class HardcoverSettingsViewModelTest :
                 val vm = HardcoverSettingsViewModel(repo, books())
 
                 vm.uiState.test {
-                    awaitSettled() shouldBe HardcoverSettingsUiState.Connected("reader", SINCE, isDisconnecting = false)
+                    awaitSettled()
+                    advanceUntilIdle()
+                    expectMostRecentItem() shouldBe
+                        HardcoverSettingsUiState.Connected("reader", SINCE, isDisconnecting = false, isMatchListKnown = true)
 
                     vm.disconnect()
-                    awaitItem() shouldBe HardcoverSettingsUiState.Connected("reader", SINCE, isDisconnecting = true)
+                    awaitItem() shouldBe
+                        HardcoverSettingsUiState.Connected("reader", SINCE, isDisconnecting = true, isMatchListKnown = true)
 
                     vm.disconnect()
                     advanceUntilIdle()
                     repo.disconnectCalls shouldBe 1
 
                     gate.complete(Unit)
-                    awaitItem() shouldBe HardcoverSettingsUiState.Connected("reader", SINCE, isDisconnecting = false)
+                    awaitItem() shouldBe
+                        HardcoverSettingsUiState.Connected("reader", SINCE, isDisconnecting = false, isMatchListKnown = true)
 
                     // The server's stream, not the VM, moves the screen on.
                     repo.connection.value = HardcoverConnection.NotConnected()
@@ -452,6 +457,27 @@ class HardcoverSettingsViewModelTest :
                 vm.uiState.test {
                     advanceUntilIdle()
                     repo.booksNeedingMatchCalls shouldBe 0
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("the list is known only once read: before then, and after a failed read, it is not") {
+            runTest {
+                val repo = FakeHardcoverRepository(HardcoverConnection.Connected("reader", SINCE))
+                repo.booksNeedingMatchResult = AppResult.Failure(HardcoverError.Unavailable())
+                val vm = HardcoverSettingsViewModel(repo, books())
+                vm.uiState.test {
+                    (awaitSettled() as HardcoverSettingsUiState.Connected).isMatchListKnown shouldBe false
+                    advanceUntilIdle()
+                    repo.booksNeedingMatchCalls shouldBe 1
+                    expectNoEvents()
+                    repo.booksNeedingMatchResult = AppResult.Success(emptyList())
+                    repo.matchChangesFlow.tryEmit(BookId("b1"))
+                    advanceUntilIdle()
+                    val known = expectMostRecentItem() as HardcoverSettingsUiState.Connected
+                    known.isMatchListKnown shouldBe true
+                    known.booksToMatch shouldBe emptyList()
                     cancelAndIgnoreRemainingEvents()
                 }
             }
