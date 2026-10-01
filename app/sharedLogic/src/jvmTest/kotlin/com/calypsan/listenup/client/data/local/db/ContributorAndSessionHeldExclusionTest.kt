@@ -44,7 +44,9 @@ class ContributorAndSessionHeldExclusionTest :
         test("observeByRoleWithCount — the Authors tab drops a held-only author and counts honestly") {
             withHeldBookDb { db ->
                 seedAuthors(db)
-                db.contributorDao().observeByRoleWithCount("author")
+                db
+                    .contributorDao()
+                    .observeByRoleWithCount("author")
                     .map { rows -> rows.associate { it.contributor.id.value to it.bookCount } }
                     .test {
                         awaitItem() shouldBe mapOf("ann" to 1)
@@ -58,7 +60,9 @@ class ContributorAndSessionHeldExclusionTest :
         test("observeRolesWithCountForContributor — contributor detail counts") {
             withHeldBookDb { db ->
                 seedAuthors(db)
-                db.contributorDao().observeRolesWithCountForContributor("ann")
+                db
+                    .contributorDao()
+                    .observeRolesWithCountForContributor("ann")
                     .map { rows -> rows.associate { it.role to it.bookCount } }
                     .test {
                         awaitItem() shouldBe mapOf("author" to 1)

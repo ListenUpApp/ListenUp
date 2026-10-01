@@ -112,9 +112,10 @@ class InboxRepositoryImplTest :
             runTest {
                 val service = mock<CollectionService>()
                 everySuspend { service.releaseBooks(any(), any()) } returns AppResult.Success(Unit)
-                val dao = mock<CollectionBookDao> {
-                    everySuspend { tombstoneHeldRows(any(), any()) } throws IllegalStateException("disk full")
-                }
+                val dao =
+                    mock<CollectionBookDao> {
+                        everySuspend { tombstoneHeldRows(any(), any()) } throws IllegalStateException("disk full")
+                    }
 
                 buildRepo(service, dao)
                     .releaseBooks("lib1", mapOf("b1" to emptyList()))
