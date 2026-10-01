@@ -391,7 +391,7 @@ private fun badgeLabel(
     kind: NavBadgeKind,
 ): String =
     when (kind) {
-        NavBadgeKind.Unread ->
+        NavBadgeKind.Unread -> {
             if (count == 1) {
                 "1 unread"
             } else if (count > BADGE_MAX) {
@@ -399,8 +399,9 @@ private fun badgeLabel(
             } else {
                 "$count unread"
             }
+        }
 
-        NavBadgeKind.Held ->
+        NavBadgeKind.Held -> {
             if (count == 1) {
                 "1 book waiting for review"
             } else if (count > BADGE_MAX) {
@@ -408,6 +409,7 @@ private fun badgeLabel(
             } else {
                 "$count books waiting for review"
             }
+        }
     }
 
 private const val BADGE_MAX = 99

@@ -335,7 +335,14 @@ class SearchPageTest :
         }
 
         test("a held book's row says Held, in words a screen reader hears whole") {
-            val host = mounts.mount { SearchRow(hit = bookHit("b1", "The Ministry of Time").copy(isHeld = true), isOpenable = true, onOpen = {}) }
+            val host =
+                mounts.mount {
+                    SearchRow(
+                        hit = bookHit("b1", "The Ministry of Time").copy(isHeld = true),
+                        isOpenable = true,
+                        onOpen = {},
+                    )
+                }
 
             val pill = host.querySelector(".search-row .held-pill") as HTMLElement
             pill.getAttribute("role") shouldBe "img"
@@ -351,7 +358,10 @@ class SearchPageTest :
 
         test("a held row opens like any other, into its triage page") {
             var opened = 0
-            val host = mounts.mount { SearchRow(hit = bookHit("b1", "The Ministry of Time").copy(isHeld = true), isOpenable = true, onOpen = { opened++ }) }
+            val host =
+                mounts.mount {
+                    SearchRow(hit = bookHit("b1", "The Ministry of Time").copy(isHeld = true), isOpenable = true, onOpen = { opened++ })
+                }
 
             (host.querySelector(".search-row") as HTMLElement).click()
 

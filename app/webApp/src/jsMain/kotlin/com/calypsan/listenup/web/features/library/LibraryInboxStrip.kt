@@ -37,9 +37,10 @@ internal fun LibraryInboxStrip(
 ) {
     val count = inbox.heldCount
     if (count <= 0) return
+    val label = if (count == 1) "Inbox, 1 book waiting for review" else "Inbox, $count books waiting for review"
     A(href = INBOX_HREF, attrs = {
         classes("lib-inbox")
-        attr("aria-label", if (count == 1) "Inbox, 1 book waiting for review" else "Inbox, $count books waiting for review")
+        attr("aria-label", label)
         onClick { event ->
             if (event.isPlainPrimaryClick()) {
                 event.preventDefault()
