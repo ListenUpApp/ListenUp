@@ -506,6 +506,14 @@ class HardcoverPageTest :
 
             chosen shouldBe emptyList()
         }
+
+        test("what comes back also brings the Want to Read list onto the To Read shelf") {
+            val shares = mount(CONNECTED).panel("What ListenUp shares")
+            val comesBack = shares.querySelectorAll("ul").asList().last() as HTMLElement
+
+            comesBack.querySelectorAll("li").length shouldBe 2
+            comesBack.textContent.orEmpty() shouldContain "Your Want to Read list, on your To Read shelf"
+        }
     })
 
 /** The panel whose heading reads [title]. */
