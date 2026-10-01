@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.hardcover
 
+import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.testing.SqlTestDatabases

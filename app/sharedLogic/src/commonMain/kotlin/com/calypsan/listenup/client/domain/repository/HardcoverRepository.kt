@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverBookCandidate
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
+import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.flow.Flow
@@ -60,6 +61,17 @@ interface HardcoverRepository {
         bookId: BookId,
         hcBookId: Long,
         hcEditionId: Long?,
+    ): AppResult<Unit>
+
+    /**
+     * Puts back the match a [linkBook] replaced, as it was made (by [method]) — the Undo after "Change match";
+     * see [com.calypsan.listenup.api.HardcoverService.restoreMatch].
+     */
+    suspend fun restoreMatch(
+        bookId: BookId,
+        hcBookId: Long,
+        hcEditionId: Long?,
+        method: HardcoverMatchMethod,
     ): AppResult<Unit>
 
     /** Removes [bookId]'s match, parking its pushes; see [com.calypsan.listenup.api.HardcoverService.unlinkBook]. */

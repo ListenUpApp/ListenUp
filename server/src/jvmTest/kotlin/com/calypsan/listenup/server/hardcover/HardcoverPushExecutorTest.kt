@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.hardcover
 
+import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.testing.MutableClock
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -96,6 +97,25 @@ class HardcoverPushExecutorTest :
                 read.startedAt shouldBe "2026-05-22"
                 read.finishedAt.shouldBeNull()
                 hardcover.operations.count { it == "insert_user_book_read" } shouldBe 0
+                link().openHcReadId shouldBe read.id
+                links.isPushedRead(USER, read.id) shouldBe true
+            }
+        }
+
+        test("a retry after the answer to shelving the book was lost redates the read Hardcover opened, as the first try would") {
+            executorTest {
+                hardcover.loseNextReplyTo("insert_user_book")
+                outbox.enqueueStart(USER, BOOK, listenThrough = T0, startedAt = T0, isReread = false)
+                runHead().shouldBeInstanceOf<PushOutcome.Failed>()
+                shelf()!!.reads.single().startedAt shouldBe FAKE_TODAY
+
+                runHead() shouldBe PushOutcome.Done
+
+                val read = shelf()!!.reads.single()
+                read.startedAt shouldBe "2026-05-22"
+                read.editionId shouldBe HC_EDITION
+                hardcover.operations.count { it == "insert_user_book" } shouldBe 1
+                link().hcUserBookId shouldBe shelf()!!.id
                 link().openHcReadId shouldBe read.id
                 links.isPushedRead(USER, read.id) shouldBe true
             }

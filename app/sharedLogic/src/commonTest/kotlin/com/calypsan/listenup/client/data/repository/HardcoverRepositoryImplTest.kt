@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
+import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
@@ -215,6 +216,23 @@ class HardcoverRepositoryImplTest :
             }
         }
 
+        test("restoring a match reaches the server with its method, announces the book, and is no fresh link") {
+            runTest {
+                val service = FakeHardcoverService()
+                val dispatch = IdempotenceRecordingDispatch<HardcoverService>(service)
+                val repository = HardcoverRepositoryImpl(RpcChannel(dispatch, RpcPolicy.Authed))
+                repository.linkBook(BookId("b1"), 1L, null)
+                repository.matchChanges.test {
+                    repository.restoreMatch(BookId("b1"), 427_578L, 9_001L, HardcoverMatchMethod.ASIN) shouldBe
+                        AppResult.Success(Unit)
+                    awaitItem() shouldBe BookId("b1")
+                }
+                service.restored shouldBe listOf(BookId("b1") to HardcoverMatchMethod.ASIN)
+                dispatch.lastIdempotent shouldBe true
+                repository.linkedAt(BookId("b1")) shouldBe null
+            }
+        }
+
         test("the reads and Sync now reach the server and are safe blind retries") {
             runTest {
                 val service =
@@ -282,6 +300,18 @@ private class FakeHardcoverService(
     ): AppResult<Unit> {
         linked += Triple(bookId, hcBookId, hcEditionId)
         return linkResult
+    }
+
+    val restored = mutableListOf<Pair<BookId, HardcoverMatchMethod>>()
+
+    override suspend fun restoreMatch(
+        bookId: BookId,
+        hcBookId: Long,
+        hcEditionId: Long?,
+        method: HardcoverMatchMethod,
+    ): AppResult<Unit> {
+        restored += bookId to method
+        return AppResult.Success(Unit)
     }
 
     override suspend fun unlinkBook(bookId: BookId): AppResult<Unit> = unlinkResult

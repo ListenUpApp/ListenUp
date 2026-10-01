@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookCandidate
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookSync
+import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.error.ValidationError
@@ -55,18 +56,13 @@ class HardcoverBookLinking(
                     HardcoverError.Unavailable(debugInfo = "search: token refresh unavailable"),
                 )
             }
-        rateLimiter.await()
-        val hits = graphQl.searchBooks(token, trimmed).valueOr { return it.toFailure("searchBooks") }
+        val session = SearchSession(userId, token)
+        val hits = session.call { graphQl.searchBooks(it, trimmed) }.valueOr { return it.toFailure("searchBooks") }
         if (hits.isEmpty()) return AppResult.Success(emptyList())
-        rateLimiter.await()
         val books =
-            graphQl
-                .booksByIds(
-                    token,
-                    hits.map {
-                        it.bookId
-                    },
-                ).valueOr { return it.toFailure("booksByIds") }
+            session
+                .call { graphQl.booksByIds(it, hits.map { hit -> hit.bookId }) }
+                .valueOr { return it.toFailure("booksByIds") }
                 .associateBy { it.id }
         catalog.remember(books.values)
         return AppResult.Success(
@@ -84,13 +80,17 @@ class HardcoverBookLinking(
         )
     }
 
-    /** Links [bookId] to [hcBookId] (as [hcEditionId]) for [userId], and sends the pushes that were waiting. */
+    /**
+     * Links [bookId] to [hcBookId] (as [hcEditionId]) for [userId], recorded as made by [method] — the
+     * user's pick, or the original method of a match an Undo restores — and sends the pushes that were waiting.
+     */
     suspend fun link(
         userId: String,
         role: UserRole,
         bookId: String,
         hcBookId: Long,
         hcEditionId: Long?,
+        method: HardcoverMatchMethod = HardcoverMatchMethod.MANUAL,
     ): AppResult<Unit> {
         if (hcBookId <= 0 || (hcEditionId != null && hcEditionId <= 0)) {
             return AppResult.Failure(ValidationError(message = "That isn't a Hardcover book.", field = "hcBookId"))
@@ -104,7 +104,7 @@ class HardcoverBookLinking(
             return AppResult.Failure(BookError.NotFound(debugInfo = "bookId=$bookId"))
         }
         if (!connections.hasConnection(userId)) return AppResult.Failure(HardcoverError.NotConnected())
-        links.linkManually(userId, bookId, hcBookId, hcEditionId)
+        links.linkManually(userId, bookId, hcBookId, hcEditionId, method)
         outbox.unpark(userId, bookId)
         nudge.nudge(userId)
         pulls.onMatchChanged(userId, bookId)
@@ -168,8 +168,37 @@ class HardcoverBookLinking(
                 releaseYear = book?.releaseYear,
                 chosenByYou = link.method == HardcoverMatchMethod.MANUAL,
                 sync = bookSyncOf(link, outbox.pendingCountFor(userId, bookId)),
+                method = link.method,
             ),
         )
+    }
+
+    /**
+     * One search's access token. Hardcover may reject a token before it expires (reset or revoked on
+     * its side), so a 401 refreshes it once and asks again — the path push and pull take
+     * ([HardcoverTokenProvider.refreshAfterRejection]). Only a rejection after that refresh reads as a
+     * broken connection; a refresh that can't reach Hardcover reads as Hardcover being unavailable.
+     */
+    private inner class SearchSession(
+        private val userId: String,
+        private var token: String,
+    ) {
+        private var refreshed = false
+
+        suspend fun <T> call(request: suspend (accessToken: String) -> HardcoverCall<T>): HardcoverCall<T> {
+            rateLimiter.await()
+            val answer = request(token)
+            if (answer != HardcoverCall.Unauthorized || refreshed) return answer
+            refreshed = true
+            token =
+                when (val lookup = tokens.refreshAfterRejection(userId, token)) {
+                    is TokenLookup.Valid -> lookup.accessToken
+                    TokenLookup.Unavailable -> return HardcoverCall.Failed("token refresh unavailable")
+                    TokenLookup.NotConnected, is TokenLookup.Broken -> return answer
+                }
+            rateLimiter.await()
+            return request(token)
+        }
     }
 
     private fun HardcoverCall<Nothing>.toFailure(what: String): AppResult.Failure =

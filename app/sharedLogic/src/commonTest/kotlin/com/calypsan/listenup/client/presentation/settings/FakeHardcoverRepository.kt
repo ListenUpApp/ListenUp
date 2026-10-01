@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverBookCandidate
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
+import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.HardcoverRepository
 import com.calypsan.listenup.core.BookId
@@ -102,6 +103,19 @@ internal class FakeHardcoverRepository(
         return linkResult.also { if (it is AppResult.Success) matchChangesFlow.tryEmit(bookId) }
     }
 
+    var restoreResult: AppResult<Unit> = AppResult.Success(Unit)
+    val restores = mutableListOf<RestoredMatch>()
+
+    override suspend fun restoreMatch(
+        bookId: BookId,
+        hcBookId: Long,
+        hcEditionId: Long?,
+        method: HardcoverMatchMethod,
+    ): AppResult<Unit> {
+        restores += RestoredMatch(bookId, hcBookId, hcEditionId, method)
+        return restoreResult.also { if (it is AppResult.Success) matchChangesFlow.tryEmit(bookId) }
+    }
+
     override suspend fun unlinkBook(bookId: BookId): AppResult<Unit> {
         unlinks += bookId
         return unlinkResult.also { if (it is AppResult.Success) matchChangesFlow.tryEmit(bookId) }
@@ -132,3 +146,11 @@ internal class FakeHardcoverRepository(
             )
     }
 }
+
+/** One [FakeHardcoverRepository.restoreMatch] call, as it was made. */
+internal data class RestoredMatch(
+    val bookId: BookId,
+    val hcBookId: Long,
+    val hcEditionId: Long?,
+    val method: HardcoverMatchMethod,
+)

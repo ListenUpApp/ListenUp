@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverBookCandidate
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
+import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.core.BookId
@@ -56,6 +57,19 @@ interface HardcoverService {
         bookId: BookId,
         hcBookId: Long,
         hcEditionId: Long?,
+    ): AppResult<Unit>
+
+    /**
+     * Puts back a match that a [linkBook] replaced — the Undo after "Change match": [bookId] is linked to
+     * Hardcover book [hcBookId] as edition [hcEditionId], recorded as made by [method], exactly as it was
+     * before. Unlike [linkBook], an ASIN, ISBN or search match stays one rather than becoming the user's pick.
+     * Errors as [linkBook].
+     */
+    suspend fun restoreMatch(
+        bookId: BookId,
+        hcBookId: Long,
+        hcEditionId: Long?,
+        method: HardcoverMatchMethod,
     ): AppResult<Unit>
 
     /**

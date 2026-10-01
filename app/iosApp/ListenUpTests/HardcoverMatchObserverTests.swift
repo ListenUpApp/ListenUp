@@ -99,7 +99,7 @@ struct HardcoverMatchObserverTests {
     @Test func aCurrentMatchShowsWithItsByline() {
         let current = HardcoverMatchedBook(
             hcBookId: 427_578, title: "Project Hail Mary", authors: ["Andy Weir"], releaseYear: 2021,
-            chosenByYou: false, hcEditionId: nil
+            chosenByYou: false, hcEditionId: nil, method: nil
         )
         #expect(model(ready(HardcoverSearchStateSearching.shared, current: current))?.current
             == HardcoverCurrentMatch(title: "Project Hail Mary", byline: "Andy Weir · 2021"))
@@ -107,7 +107,7 @@ struct HardcoverMatchObserverTests {
 
     @Test func anUnnamedMatchStillReadsAsMatched() {
         let current = HardcoverMatchedBook(
-            hcBookId: 1, title: nil, authors: [], releaseYear: nil, chosenByYou: true, hcEditionId: nil
+            hcBookId: 1, title: nil, authors: [], releaseYear: nil, chosenByYou: true, hcEditionId: nil, method: nil
         )
         #expect(HardcoverMatchObserver.currentMatch(from: current)
             == HardcoverCurrentMatch(title: String(localized: "hardcover.book_row_matched_unnamed"), byline: nil))

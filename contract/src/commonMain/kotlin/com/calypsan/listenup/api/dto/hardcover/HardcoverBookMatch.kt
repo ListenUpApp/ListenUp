@@ -35,7 +35,9 @@ sealed interface HardcoverBookMatch {
     /**
      * Linked to Hardcover book [hcBookId], as edition [hcEditionId] when one is named. [title], [authors]
      * and [releaseYear] describe it as Hardcover's catalog does; [title] is null when Hardcover couldn't
-     * be asked. [chosenByYou] is true for a match the user picked. [sync] is where it stands.
+     * be asked. [chosenByYou] is true for a match the user picked. [sync] is where it stands. [method] is
+     * how the match was made — what [com.calypsan.listenup.api.HardcoverService.restoreMatch] needs to put
+     * it back exactly; null from a server that doesn't say.
      */
     @Serializable
     @SerialName("HardcoverBookMatch.Linked")
@@ -47,5 +49,6 @@ sealed interface HardcoverBookMatch {
         @SerialName("releaseYear") val releaseYear: Int? = null,
         @SerialName("chosenByYou") val chosenByYou: Boolean = false,
         @SerialName("sync") val sync: HardcoverBookSync = HardcoverBookSync.NOTHING_SENT_YET,
+        @SerialName("method") val method: HardcoverMatchMethod? = null,
     ) : HardcoverBookMatch
 }

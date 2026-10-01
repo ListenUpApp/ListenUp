@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverBookCandidate
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
+import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.onSuccess
 import com.calypsan.listenup.api.streaming.RpcEvent
@@ -64,6 +65,20 @@ internal class HardcoverRepositoryImpl(
             .call(idempotent = true) { it.linkBook(bookId, hcBookId, hcEditionId) }
             .onSuccess {
                 linkTimes.update { it + (bookId to clock.now()) }
+                matchChangesFlow.tryEmit(bookId)
+            }
+
+    // Putting the same match back twice leaves it as it was. Not a fresh match, so "just now" is forgotten.
+    override suspend fun restoreMatch(
+        bookId: BookId,
+        hcBookId: Long,
+        hcEditionId: Long?,
+        method: HardcoverMatchMethod,
+    ): AppResult<Unit> =
+        channel
+            .call(idempotent = true) { it.restoreMatch(bookId, hcBookId, hcEditionId, method) }
+            .onSuccess {
+                linkTimes.update { it - bookId }
                 matchChangesFlow.tryEmit(bookId)
             }
 

@@ -1,23 +1,9 @@
 package com.calypsan.listenup.server.hardcover
 
+import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.server.metadata.spi.BookMatch
 import com.calypsan.listenup.server.metadata.spi.MatchScorer
-
-/** How a ListenUp book was matched on Hardcover (`hardcover_book_links.match_method`). */
-enum class HardcoverMatchMethod {
-    /** Its Audible ASIN is an edition's ASIN: the exact audiobook edition. */
-    ASIN,
-
-    /** Its ISBN is an edition's ISBN-13 or ISBN-10. */
-    ISBN,
-
-    /** Exactly one Hardcover book agrees on title and on at least one author. */
-    SEARCH,
-
-    /** The user chose the book. */
-    MANUAL,
-}
 
 /** Where a ListenUp book was found on Hardcover. [hcEditionId] is null when Hardcover names no edition to shelve. */
 data class HardcoverMatch(

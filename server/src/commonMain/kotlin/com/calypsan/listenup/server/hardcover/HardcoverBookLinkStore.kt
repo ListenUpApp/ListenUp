@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.hardcover
 
+import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.server.db.sqldelight.Hardcover_book_links
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -26,7 +27,10 @@ data class HardcoverBookLink(
     val openReadListenThrough: Long?,
     val suppressedListenThrough: Long?,
     val lastProgressPushedAt: Long?,
-)
+) {
+    /** ListenUp asked Hardcover to shelve the book for [listenThrough] and never learned what came of it. */
+    fun isShelvingFor(listenThrough: Long): Boolean = openReadListenThrough == listenThrough && openHcReadId == null
+}
 
 /**
  * `hardcover_book_links` and `hardcover_pushed_reads`: how each of a user's books is matched on
@@ -66,14 +70,16 @@ class HardcoverBookLinkStore(
     }
 
     /**
-     * Links [bookId] to Hardcover book [hcBookId] as the user chose, as edition [hcEditionId]. Keeps the
-     * Hardcover shelf and read ids only when the book didn't change.
+     * Links [bookId] to Hardcover book [hcBookId] as the user chose, as edition [hcEditionId], recorded as
+     * made by [method] — [HardcoverMatchMethod.MANUAL] for their pick, the original method when an Undo puts
+     * a replaced match back. Keeps the Hardcover shelf and read ids only when the book didn't change.
      */
     suspend fun linkManually(
         userId: String,
         bookId: String,
         hcBookId: Long,
         hcEditionId: Long?,
+        method: HardcoverMatchMethod = HardcoverMatchMethod.MANUAL,
     ) {
         val at = now()
         suspendTransaction(sql) {
@@ -81,6 +87,7 @@ class HardcoverBookLinkStore(
             queries.linkManually(
                 hc_book_id = hcBookId,
                 hc_edition_id = hcEditionId,
+                match_method = method.name,
                 updated_at = at,
                 user_id = userId,
                 book_id = bookId,
@@ -94,6 +101,26 @@ class HardcoverBookLinkStore(
         bookId: String,
     ) {
         suspendTransaction(sql) { queries.unlink(updated_at = now(), user_id = userId, book_id = bookId) }
+    }
+
+    /**
+     * ListenUp is about to shelve the book on Hardcover for [listenThrough]. Should the answer be lost, the
+     * retry sees this mark ([HardcoverBookLink.isShelvingFor]) and treats the shelf entry it then finds as
+     * the one it created.
+     */
+    suspend fun markShelving(
+        userId: String,
+        bookId: String,
+        listenThrough: Long,
+    ) {
+        suspendTransaction(sql) {
+            queries.markShelving(
+                open_read_listen_through_started_at = listenThrough,
+                updated_at = now(),
+                user_id = userId,
+                book_id = bookId,
+            )
+        }
     }
 
     /** ListenUp now writes to shelf entry [userBookId] and read [readId], for [listenThrough]. */

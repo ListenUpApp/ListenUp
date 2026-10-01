@@ -10,7 +10,7 @@ import Shared
 struct BookHardcoverObserverTests {
     private let match = HardcoverMatchedBook(
         hcBookId: 427_578, title: "Project Hail Mary", authors: ["Andy Weir"], releaseYear: 2021,
-        chosenByYou: true, hcEditionId: nil
+        chosenByYou: true, hcEditionId: nil, method: nil
     )
 
     @Test func hiddenAndNeedsMatchMapDirectly() {

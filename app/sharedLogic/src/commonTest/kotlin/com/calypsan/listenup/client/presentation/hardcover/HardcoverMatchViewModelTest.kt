@@ -3,11 +3,13 @@ package com.calypsan.listenup.client.presentation.hardcover
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookCandidate
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
+import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.presentation.settings.FakeHardcoverRepository
+import com.calypsan.listenup.client.presentation.settings.RestoredMatch
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
@@ -244,6 +246,31 @@ class HardcoverMatchViewModelTest :
                 }
                 repo.links shouldBe listOf(Triple(BookId(BOOK), 427_578L, 9_001L), Triple(BookId(BOOK), 7L, 70L))
                 repo.unlinks shouldBe emptyList()
+            }
+        }
+
+        test("undoing a change from an ASIN match puts it back as ASIN, at its edition, not as the user's pick") {
+            runTest {
+                val asinMatch = PREVIOUS.copy(method = HardcoverMatchMethod.ASIN)
+                val repo =
+                    FakeHardcoverRepository().apply {
+                        searchResult = AppResult.Success(listOf(REAL))
+                        bookMatchResult = AppResult.Success(asinMatch)
+                    }
+                val vm = matchViewModel(repo)
+                vm.uiState.test {
+                    advanceUntilIdle()
+                    vm.link(427_578L)
+                    advanceUntilIdle()
+                    vm.undoLink()
+                    advanceUntilIdle()
+                    val current = expectMostRecentItem().shouldBeInstanceOf<HardcoverMatchUiState.Ready>().currentMatch!!
+                    current.method shouldBe HardcoverMatchMethod.ASIN
+                    current.chosenByYou shouldBe false
+                    cancelAndIgnoreRemainingEvents()
+                }
+                repo.restores shouldBe listOf(RestoredMatch(BookId(BOOK), 7L, 70L, HardcoverMatchMethod.ASIN))
+                repo.links shouldBe listOf(Triple(BookId(BOOK), 427_578L, 9_001L))
             }
         }
 

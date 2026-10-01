@@ -121,6 +121,7 @@ class FakeHardcoverLibrary(
     private val shelves = mutableListOf<Shelf>()
     private val editions = mutableListOf<Edition>()
     private val scripted = ArrayDeque<FakeReply>()
+    private val lostReplies = mutableListOf<String>()
     private var nextId = 5_000L
     private var tick = 0L
 
@@ -144,6 +145,12 @@ class FakeHardcoverLibrary(
     fun addEdition(edition: Edition) = synchronized(lock) { editions += edition }
 
     fun failNext(reply: FakeReply) = synchronized(lock) { scripted.addLast(reply) }
+
+    /**
+     * The next [operation] takes effect on Hardcover, but its answer never reaches ListenUp: the caller
+     * sees a gateway timeout, exactly as when the reply is lost on the way back.
+     */
+    fun loseNextReplyTo(operation: String) = synchronized(lock) { lostReplies += operation }
 
     fun shelfFor(hcBookId: Long): Shelf? = synchronized(lock) { shelves.firstOrNull { it.bookId == hcBookId } }
 
@@ -234,7 +241,9 @@ class FakeHardcoverLibrary(
             val operation = operationOf(query)
             operations += operation
             requests += Request(operation, variables)
-            scripted.removeFirstOrNull() ?: answer(operation, variables)
+            scripted.removeFirstOrNull() ?: answer(operation, variables).let { reply ->
+                if (lostReplies.remove(operation)) FakeReply(HttpStatusCode.GatewayTimeout) else reply
+            }
         }
 
     private fun operationOf(query: String): String =

@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookCandidate
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookSync
+import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.HardcoverError
@@ -27,11 +28,16 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Instant
 
 private const val USER = "u1"
@@ -48,7 +54,22 @@ private class LinkingRig(
     val links = HardcoverBookLinkStore(sql, clock)
     val outbox = HardcoverOutbox(sql, clock)
     val nudged = CopyOnWriteArrayList<String>()
-    private val oauth = HardcoverOAuthClient(HttpClient(), "id", "https://hc.test")
+    val refreshes = AtomicInteger()
+    private val oauth =
+        HardcoverOAuthClient(
+            HttpClient(
+                MockEngine {
+                    refreshes.incrementAndGet()
+                    respond(
+                        """{"access_token":"hc_at_2","refresh_token":"hc_rt_2","expires_in":604800,"scope":"$HARDCOVER_SCOPES"}""",
+                        HttpStatusCode.OK,
+                        headersOf(HttpHeaders.ContentType, "application/json"),
+                    )
+                },
+            ),
+            "id",
+            "https://hc.test",
+        )
     private val linker = HardcoverLinker(oauth, hardcover.client(), connections, CoroutineScope(Dispatchers.Unconfined), clock)
     val pulls = RecordingPullRequests()
     val catalog = HardcoverCatalogCache(hardcover.client(), NoWaitRateLimiter())
@@ -145,7 +166,7 @@ class HardcoverBookLinkingTest :
             }
         }
 
-        test("a throttled search is Unavailable; a rejected token is ConnectionBroken") {
+        test("a throttled search is Unavailable") {
             linkingTest {
                 connect()
                 hardcover.failNext(FakeReply(HttpStatusCode.TooManyRequests))
@@ -154,12 +175,35 @@ class HardcoverBookLinkingTest :
                     .shouldBeInstanceOf<AppResult.Failure>()
                     .error
                     .shouldBeInstanceOf<HardcoverError.Unavailable>()
-                hardcover.failNext(FakeReply(HttpStatusCode.Unauthorized))
+            }
+        }
+
+        test("a search whose token Hardcover rejects refreshes it once and finds the book") {
+            linkingTest {
+                connect()
+                hardcover.failNext(FakeReply(HttpStatusCode.Unauthorized, """{"error":"invalid_token"}"""))
+                serviceAs(UserRole.ROOT)
+                    .searchCatalog("hail mary")
+                    .shouldBeInstanceOf<AppResult.Success<List<HardcoverBookCandidate>>>()
+                    .data
+                    .single()
+                    .hcBookId shouldBe 427_578L
+                refreshes.get() shouldBe 1
+                hardcover.operations shouldBe listOf("search", "search", "books_by_ids")
+            }
+        }
+
+        test("a token Hardcover rejects again after the refresh is ConnectionBroken") {
+            linkingTest {
+                connect()
+                hardcover.failNext(FakeReply(HttpStatusCode.Unauthorized, """{"error":"invalid_token"}"""))
+                hardcover.failNext(FakeReply(HttpStatusCode.Unauthorized, """{"error":"invalid_token"}"""))
                 serviceAs(UserRole.ROOT)
                     .searchCatalog("hail mary")
                     .shouldBeInstanceOf<AppResult.Failure>()
                     .error
                     .shouldBeInstanceOf<HardcoverError.ConnectionBroken>()
+                refreshes.get() shouldBe 1
             }
         }
 
@@ -173,6 +217,44 @@ class HardcoverBookLinkingTest :
                 serviceAs(UserRole.ROOT).linkBook(BookId(BOOK), 427_578L, 9_001L) shouldBe AppResult.Success(Unit)
 
                 links.linkFor(USER, BOOK)!!.method shouldBe HardcoverMatchMethod.MANUAL
+                outbox.head(USER)!!.bookId shouldBe BOOK
+                nudged shouldBe listOf(USER)
+            }
+        }
+
+        test("undoing a changed match puts an ASIN match back as ASIN, at its edition, not as the user's pick") {
+            linkingTest {
+                connect()
+                links.recordAutomaticMatch(USER, BOOK, HardcoverMatch(427_578L, 9_001L, HardcoverMatchMethod.ASIN))
+                serviceAs(UserRole.ROOT).linkBook(BookId(BOOK), 555L, 556L) shouldBe AppResult.Success(Unit)
+
+                serviceAs(UserRole.ROOT).restoreMatch(BookId(BOOK), 427_578L, 9_001L, HardcoverMatchMethod.ASIN) shouldBe
+                    AppResult.Success(Unit)
+
+                val link = links.linkFor(USER, BOOK)!!
+                link.method shouldBe HardcoverMatchMethod.ASIN
+                link.hcBookId shouldBe 427_578L
+                link.hcEditionId shouldBe 9_001L
+                val match =
+                    serviceAs(UserRole.ROOT)
+                        .bookMatch(BookId(BOOK))
+                        .shouldBeInstanceOf<AppResult.Success<HardcoverBookMatch>>()
+                        .data
+                        .shouldBeInstanceOf<HardcoverBookMatch.Linked>()
+                match.method shouldBe HardcoverMatchMethod.ASIN
+                match.chosenByYou shouldBe false
+                pulls.matchChanges shouldBe listOf(USER to BOOK, USER to BOOK)
+            }
+        }
+
+        test("restoring a match unparks the book's waiting pushes, as linking does") {
+            linkingTest {
+                connect()
+                outbox.enqueueStart(USER, BOOK, T0, T0, false)
+                links.recordAutomaticMatch(USER, BOOK, null)
+                serviceAs(UserRole.ROOT).restoreMatch(BookId(BOOK), 427_578L, null, HardcoverMatchMethod.ISBN) shouldBe
+                    AppResult.Success(Unit)
+                links.linkFor(USER, BOOK)!!.method shouldBe HardcoverMatchMethod.ISBN
                 outbox.head(USER)!!.bookId shouldBe BOOK
                 nudged shouldBe listOf(USER)
             }
@@ -236,6 +318,11 @@ class HardcoverBookLinkingTest :
                     .unlinkBook(
                         BookId(BOOK),
                     ).shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                service
+                    .restoreMatch(BookId(BOOK), 1L, null, HardcoverMatchMethod.ASIN)
+                    .shouldBeInstanceOf<AppResult.Failure>()
                     .error
                     .shouldBeInstanceOf<AuthError.PermissionDenied>()
                 service
@@ -323,6 +410,7 @@ class HardcoverBookLinkingTest :
                         releaseYear = 2021,
                         chosenByYou = true,
                         sync = HardcoverBookSync.NOTHING_SENT_YET,
+                        method = HardcoverMatchMethod.MANUAL,
                     )
                 serviceAs(UserRole.ROOT).bookMatch(BookId(BOOK)) shouldBe AppResult.Success(expected)
                 serviceAs(UserRole.ROOT).bookMatch(BookId(BOOK)) shouldBe AppResult.Success(expected)
