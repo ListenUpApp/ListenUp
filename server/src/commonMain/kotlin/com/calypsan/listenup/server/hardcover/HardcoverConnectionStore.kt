@@ -95,7 +95,10 @@ class HardcoverConnectionStore(
     /** What [userId]'s client should show, straight from the row. */
     suspend fun connectionState(userId: String): HardcoverConnection =
         when (val stored = connectionFor(userId)) {
-            null -> HardcoverConnection.NotConnected()
+            null -> {
+                HardcoverConnection.NotConnected()
+            }
+
             is StoredConnection.Healthy -> {
                 HardcoverConnection.Connected(
                     hardcoverUsername = stored.hardcoverUsername,
@@ -109,7 +112,10 @@ class HardcoverConnectionStore(
                         },
                 )
             }
-            is StoredConnection.Broken -> HardcoverConnection.Broken(stored.reason, stored.hardcoverUsername)
+
+            is StoredConnection.Broken -> {
+                HardcoverConnection.Broken(stored.reason, stored.hardcoverUsername)
+            }
         }
 
     /**
@@ -260,8 +266,14 @@ class HardcoverConnectionStore(
             if (access != null && refresh != null) StoredCredentials(access, access_expires_at, refresh) else null
         val reason = broken_reason?.let(::brokenReasonNamed)
         return when {
-            reason != null -> StoredConnection.Broken(reason, hc_username, credentials)
-            credentials == null -> StoredConnection.Broken(HardcoverBrokenReason.CANNOT_DECRYPT, hc_username, null)
+            reason != null -> {
+                StoredConnection.Broken(reason, hc_username, credentials)
+            }
+
+            credentials == null -> {
+                StoredConnection.Broken(HardcoverBrokenReason.CANNOT_DECRYPT, hc_username, null)
+            }
+
             else -> {
                 StoredConnection.Healthy(
                     hardcoverUsername = hc_username,

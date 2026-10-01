@@ -69,7 +69,11 @@ class BookHardcoverViewModel(
                 } else {
                     flow { emit(repository.bookMatch(BookId(bookId)).getOrNull().toUiState()) }
                 }
-            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), BookHardcoverUiState.Hidden)
+            }.stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                BookHardcoverUiState.Hidden,
+            )
 }
 
 private fun HardcoverBookMatch?.toUiState(): BookHardcoverUiState =

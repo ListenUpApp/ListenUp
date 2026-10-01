@@ -154,7 +154,11 @@ class HardcoverBookLinking(
         if (!link.isLinked || hcBookId == null) return AppResult.Success(HardcoverBookMatch.NeedsMatch)
         val book =
             catalog.cached(hcBookId)
-                ?: (tokens.accessToken(userId) as? TokenLookup.Valid)?.let { catalog.describe(it.accessToken, hcBookId) }
+                ?: (
+                    tokens.accessToken(
+                        userId,
+                    ) as? TokenLookup.Valid
+                )?.let { catalog.describe(it.accessToken, hcBookId) }
         return AppResult.Success(
             HardcoverBookMatch.Linked(
                 hcBookId = hcBookId,

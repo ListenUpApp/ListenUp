@@ -273,7 +273,14 @@ class HardcoverLinker(
             connection.copy(
                 isSyncing = activity.isSyncing(userId),
                 syncProblem =
-                    if (activity.syncNowFailed(userId)) HardcoverSyncProblem.SYNC_NOW_FAILED else connection.syncProblem,
+                    if (activity.syncNowFailed(
+                            userId,
+                        )
+                    ) {
+                        HardcoverSyncProblem.SYNC_NOW_FAILED
+                    } else {
+                        connection.syncProblem
+                    },
             )
         }
 

@@ -133,7 +133,11 @@ class HardcoverMatchViewModel(
                     )
                 }
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), HardcoverMatchUiState.Loading)
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+            HardcoverMatchUiState.Loading,
+        )
 
     init {
         // A one-shot load, not a collection: the book and its current match are read once on open.
@@ -155,7 +159,8 @@ class HardcoverMatchViewModel(
 
     /** Links the book to search result [hcBookId], replacing any current match. Ignored while another action is in flight. */
     fun link(hcBookId: Long) {
-        val row = (search.value as? HardcoverSearchState.Results)?.rows?.firstOrNull { it.hcBookId == hcBookId } ?: return
+        val row =
+            (search.value as? HardcoverSearchState.Results)?.rows?.firstOrNull { it.hcBookId == hcBookId } ?: return
         if (!pending.compareAndSet(PendingAction.None, PendingAction.Linking(hcBookId))) return
         viewModelScope.launch {
             try {

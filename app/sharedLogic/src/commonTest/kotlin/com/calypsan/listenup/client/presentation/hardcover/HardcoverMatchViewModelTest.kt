@@ -52,7 +52,10 @@ class HardcoverMatchViewModelTest :
                     val ready = expectMostRecentItem().shouldBeInstanceOf<HardcoverMatchUiState.Ready>()
                     ready.query shouldBe "Project Hail Mary"
                     ready.bookAuthors shouldBe "Andy Weir"
-                    ready.search.shouldBeInstanceOf<HardcoverSearchState.Results>().rows.map { it.hcBookId } shouldBe
+                    ready.search
+                        .shouldBeInstanceOf<HardcoverSearchState.Results>()
+                        .rows
+                        .map { it.hcBookId } shouldBe
                         listOf(427_578L, 1L)
                 }
                 repo.searches shouldBe listOf("Project Hail Mary")

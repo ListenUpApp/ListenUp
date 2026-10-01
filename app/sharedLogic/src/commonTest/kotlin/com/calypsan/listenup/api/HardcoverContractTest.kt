@@ -126,10 +126,11 @@ class HardcoverContractTest :
                 HardcoverBookCandidate(427_578L, 9_001L, "Project Hail Mary", listOf("Andy Weir"), 2021, ratingsCount = 8_107)
             val json = contractJson.encodeToString(HardcoverBookCandidate.serializer(), candidate)
             contractJson.decodeFromString(HardcoverBookCandidate.serializer(), json) shouldBe candidate
-            contractJson.decodeFromString(
-                HardcoverBookCandidate.serializer(),
-                """{"hcBookId":1,"title":"Untitled"}""",
-            ).ratingsCount shouldBe null
+            contractJson
+                .decodeFromString(
+                    HardcoverBookCandidate.serializer(),
+                    """{"hcBookId":1,"title":"Untitled"}""",
+                ).ratingsCount shouldBe null
         }
 
         listOf<HardcoverBookMatch>(

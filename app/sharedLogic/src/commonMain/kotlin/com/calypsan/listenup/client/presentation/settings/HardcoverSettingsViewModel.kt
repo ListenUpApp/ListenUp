@@ -40,7 +40,6 @@ private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
 /** How long Sync now's own "Syncing" waits for the server's to take over before letting go. */
 private const val SYNC_HANDOFF_MS = 2_000L
 
-
 /** What the Hardcover settings screen shows. */
 sealed interface HardcoverSettingsUiState {
     /** Waiting for the server's first answer. */
@@ -154,8 +153,15 @@ class HardcoverSettingsViewModel(
                 if (syncMark == null) {
                     flowOf(emptyList())
                 } else {
-                    flow { emit(repository.booksNeedingMatch().getOrNull().orEmpty().map { it.value }) }
-                        .flatMapLatest { ids -> booksNamed(ids) }
+                    flow {
+                        emit(
+                            repository
+                                .booksNeedingMatch()
+                                .getOrNull()
+                                .orEmpty()
+                                .map { it.value },
+                        )
+                    }.flatMapLatest { ids -> booksNamed(ids) }
                 }
             }.onStart { emit(emptyList()) }
 
@@ -205,7 +211,6 @@ class HardcoverSettingsViewModel(
             }
         }
     }
-
 
     /**
      * Starts a device sign-in (Connect, or Reconnect from Broken) and opens the pre-filled approval
@@ -259,7 +264,6 @@ class HardcoverSettingsViewModel(
         }
     }
 
-
     private fun booksNamed(ids: List<String>): Flow<List<HardcoverBookToMatch>> =
         if (ids.isEmpty()) {
             flowOf(emptyList())
@@ -310,11 +314,7 @@ private fun HardcoverConnection.toUiState(
                 since = since,
                 isDisconnecting = isDisconnecting,
                 lastSyncedAt = lastSyncedAt,
-                sync =
-                    when {
-                        isRequestingSync || isSyncing -> HardcoverSyncStatus.Syncing
-                        else -> syncProblem?.let(HardcoverSyncStatus::Problem) ?: HardcoverSyncStatus.Idle
-                    },
+                sync = syncStatusOf(isRequestingSync || isSyncing, syncProblem),
                 booksToMatch = booksToMatch,
             )
         }
@@ -322,4 +322,15 @@ private fun HardcoverConnection.toUiState(
         is HardcoverConnection.Broken -> {
             HardcoverSettingsUiState.Broken(reason = reason, username = hardcoverUsername, isStarting = isStarting)
         }
+    }
+
+/** The sync line: Syncing while a sync runs, else the problem if there is one, else Idle. */
+private fun syncStatusOf(
+    isSyncing: Boolean,
+    problem: HardcoverSyncProblem?,
+): HardcoverSyncStatus =
+    when {
+        isSyncing -> HardcoverSyncStatus.Syncing
+        problem != null -> HardcoverSyncStatus.Problem(problem)
+        else -> HardcoverSyncStatus.Idle
     }

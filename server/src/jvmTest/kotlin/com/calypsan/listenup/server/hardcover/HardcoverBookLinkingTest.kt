@@ -238,8 +238,16 @@ class HardcoverBookLinkingTest :
                     ).shouldBeInstanceOf<AppResult.Failure>()
                     .error
                     .shouldBeInstanceOf<AuthError.PermissionDenied>()
-                service.booksNeedingMatch().shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<AuthError.PermissionDenied>()
-                service.bookMatch(BookId(BOOK)).shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<AuthError.PermissionDenied>()
+                service
+                    .booksNeedingMatch()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                service
+                    .bookMatch(BookId(BOOK))
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.PermissionDenied>()
             }
         }
 

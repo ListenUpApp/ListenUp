@@ -38,16 +38,14 @@ private class LivenessRig(
         dbs.sql.seedTestUser(USER)
     }
 
-    suspend fun connect() =
-        store.save(USER, HardcoverMe(42, "reader"), HardcoverTokens("hc_at_1", "hc_rt_1", 604_800, HARDCOVER_SCOPES))
+    suspend fun connect() = store.save(USER, HardcoverMe(42, "reader"), HardcoverTokens("hc_at_1", "hc_rt_1", 604_800, HARDCOVER_SCOPES))
 
     /** Waits (in real time, since republishing hops to the database's dispatcher) for the stream to say [what]. */
     suspend fun awaitState(what: (HardcoverConnection) -> Boolean): HardcoverConnection =
         withContext(Dispatchers.Default) { withTimeout(5.seconds) { linker.observe(USER).first(what) } }
 }
 
-private fun livenessTest(block: suspend LivenessRig.() -> Unit) =
-    withSqlDatabase { runTest { LivenessRig(this@withSqlDatabase).block() } }
+private fun livenessTest(block: suspend LivenessRig.() -> Unit) = withSqlDatabase { runTest { LivenessRig(this@withSqlDatabase).block() } }
 
 /** Spec B5's "last sync" and its errors reach a watching client without it resubscribing. */
 class HardcoverConnectionLivenessTest :
