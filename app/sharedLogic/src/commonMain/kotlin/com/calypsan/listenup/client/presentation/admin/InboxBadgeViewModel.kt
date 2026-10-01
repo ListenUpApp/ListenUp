@@ -40,7 +40,15 @@ class InboxBadgeViewModel(
      */
     val previewBookIds: StateFlow<List<String>> =
         combine(userRepository.observeIsAdmin(), inboxRepository.observeHeldBookIds()) { isAdmin, held ->
-            if (isAdmin) held.toList().takeLast(PREVIEW_SIZE).reversed().map { it.value } else emptyList()
+            if (isAdmin) {
+                held
+                    .toList()
+                    .takeLast(PREVIEW_SIZE)
+                    .reversed()
+                    .map { it.value }
+            } else {
+                emptyList()
+            }
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),

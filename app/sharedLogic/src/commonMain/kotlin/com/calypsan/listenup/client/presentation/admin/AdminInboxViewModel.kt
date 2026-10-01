@@ -137,8 +137,9 @@ class AdminInboxViewModel internal constructor(
      * starts observing, on [loadScanIssues], and whenever a scan adds a book. A failed load is reported
      * and keeps the last answer: the held-books half is independently useful, and losing it — or the
      * issues already shown — because one call failed would be a worse answer than showing what we have.
+     * It is a StateFlow, not a plain Flow, for exactly that: a failed reload's null is filtered out, so
+     * the StateFlow keeps replaying the last answer.
      */
-    // A StateFlow, not a plain Flow: it keeps the last answer through a failed reload (filterNotNull drops the null).
     private val scanIssues: StateFlow<List<ScanIssue>?> =
         merge(
             scanIssueLoadAttempts.map { },
