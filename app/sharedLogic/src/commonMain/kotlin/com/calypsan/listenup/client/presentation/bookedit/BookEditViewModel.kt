@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
+import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.book.LoadBookForEditUseCase
@@ -25,10 +26,13 @@ import com.calypsan.listenup.client.presentation.bookedit.delegates.SeriesEditDe
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -57,6 +61,7 @@ class BookEditViewModel(
     collectionRepository: CollectionRepository,
     private val bookEditRepository: BookEditRepository,
     userRepository: UserRepository,
+    private val inboxRepository: InboxRepository,
     private val imageStagingRepository: ImageStagingRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
@@ -69,6 +74,9 @@ class BookEditViewModel(
 
     // Original state for change detection (set when book is loaded)
     private var originalState: BookEditData? = null
+
+    // The held-for-review observation for the loaded book; replaced when another book loads.
+    private var heldObservation: Job? = null
 
     // Delegates for focused editing operations
     private val contributorDelegate =
@@ -133,6 +141,15 @@ class BookEditViewModel(
         // Start observing the book's collection memberships + the available list.
         // Reactive, so it runs alongside the one-shot use-case load below.
         collectionDelegate.loadCollections(bookId)
+        heldObservation?.cancel()
+        heldObservation =
+            viewModelScope.launch {
+                inboxRepository
+                    .observeHeldBookIds()
+                    .map { held -> BookId(bookId) in held }
+                    .distinctUntilChanged()
+                    .collect { held -> state.update { it.copy(isHeld = held) } }
+            }
         viewModelScope.launch {
             state.update { it.copy(isLoading = true, bookId = bookId) }
 

@@ -386,6 +386,7 @@ internal val bookPresentationModule =
                 collectionRepository = get(),
                 bookEditRepository = get(),
                 userRepository = get(),
+                inboxRepository = get(),
                 imageStagingRepository = get(),
                 errorBus = get(),
             )

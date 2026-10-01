@@ -21,6 +21,8 @@ import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.book.LoadBookForEditUseCase
 import com.calypsan.listenup.client.domain.usecase.book.UpdateBookUseCase
+import com.calypsan.listenup.client.test.fake.FakeInboxRepository
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
@@ -73,6 +75,7 @@ class BookEditViewModelTest :
             val bookEditRepository: BookEditRepository = mock()
             val userRepository: UserRepository = mock()
             val imageStagingRepository: ImageStagingRepository = mock()
+            val inbox = FakeInboxRepository()
             val errorBus: ErrorBus = ErrorBus()
 
             fun build(): BookEditViewModel =
@@ -85,6 +88,7 @@ class BookEditViewModelTest :
                     bookEditRepository = bookEditRepository,
                     userRepository = userRepository,
                     imageStagingRepository = imageStagingRepository,
+                    inboxRepository = inbox,
                     errorBus = errorBus,
                 )
         }
@@ -231,6 +235,51 @@ class BookEditViewModelTest :
                 val state = viewModel.state.value
                 state.isLoading shouldBe false
                 state.error shouldBe "Book not found"
+            }
+        }
+
+        test("a held book's edit form knows it is held") {
+            runTest {
+                val fixture = createFixture()
+                fixture.inbox.hold("book-1")
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(createBookEditData())
+                val viewModel = fixture.build()
+
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                viewModel.state.value.isHeld shouldBe true
+            }
+        }
+
+        test("an ordinary book's edit form is not held") {
+            runTest {
+                val fixture = createFixture()
+                fixture.inbox.hold("another-book")
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(createBookEditData())
+                val viewModel = fixture.build()
+
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                viewModel.state.value.isHeld shouldBe false
+            }
+        }
+
+        test("saving collections releases the book, and the form follows") {
+            runTest {
+                val fixture = createFixture()
+                fixture.inbox.hold("book-1")
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(createBookEditData())
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                // What applyCollections + the server's curation release do to Room.
+                fixture.inbox.held.value = emptySet<BookId>()
+                advanceUntilIdle()
+
+                viewModel.state.value.isHeld shouldBe false
             }
         }
 

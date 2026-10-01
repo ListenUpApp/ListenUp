@@ -145,6 +145,13 @@ data class BookEditUiState(
     val collectionSearchResults: List<EditableCollection> = emptyList(), // Filtered locally
     // Whether the current user is an admin (gates the Collections field)
     val isAdmin: Boolean = false,
+    /**
+     * Held for review in the admin inbox. Edit is one of the two things a held book allows (spec §8),
+     * and choosing collections here releases it — the server treats curation as release — so the
+     * Collections field says so in one line while this is true. Follows Room live, so it turns false
+     * the moment a save with collections lands. Always false on a member's device.
+     */
+    val isHeld: Boolean = false,
     // Track if changes have been made
     val hasChanges: Boolean = false,
     // Pending cover upload (stored until Save Changes)
