@@ -15,6 +15,7 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.answering.calls
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -63,7 +64,11 @@ class StorageViewModelTest :
             val downloadRepository: StorageViewModelFakeDownloadRepository,
             val downloadService: DownloadService,
             val storageSpaceProvider: StorageSpaceProvider,
-        )
+            val inbox: FakeInboxRepository,
+        ) {
+            /** How many times the downloads tree has been walked. */
+            var walks = 0
+        }
 
         fun TestScope.buildVm(
             downloads: List<DownloadedBookSummary> = emptyList(),
@@ -77,9 +82,13 @@ class StorageViewModelTest :
                     downloadRepository = StorageViewModelFakeDownloadRepository(downloads),
                     downloadService = mock(),
                     storageSpaceProvider = mock(),
+                    inbox = FakeInboxRepository().apply { hold(*heldIds.toTypedArray()) },
                 )
             // StorageSpaceProvider is an interface — safely mockable
-            every { fixture.storageSpaceProvider.calculateStorageUsed() } returns totalUsed
+            every { fixture.storageSpaceProvider.calculateStorageUsed() } calls {
+                fixture.walks++
+                totalUsed
+            }
             every { fixture.storageSpaceProvider.getAvailableSpace() } returns available
             val vm =
                 StorageViewModel(
@@ -88,7 +97,7 @@ class StorageViewModelTest :
                     storageSpaceProvider = fixture.storageSpaceProvider,
                     errorBus = ErrorBus(),
                     playbackStateProvider = FakePlaybackStateProvider(playingBookId),
-                    inboxRepository = FakeInboxRepository().apply { hold(*heldIds.toTypedArray()) },
+                    inboxRepository = fixture.inbox,
                     backgroundDispatcher = UnconfinedTestDispatcher(testScheduler),
                 )
             return vm to fixture
@@ -105,6 +114,27 @@ class StorageViewModelTest :
                     val books = awaitItem().downloadedBooks
                     books.first { it.bookId == "b1" }.isHeld shouldBe true
                     books.first { it.bookId == "b2" }.isHeld shouldBe false
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a hold or release re-marks the downloads without walking the downloads tree again") {
+            runTest {
+                val first = DownloadedBookSummary("b1", "First", "A", 10L, 1)
+                val second = DownloadedBookSummary("b2", "Second", "A", 20L, 1)
+                val (vm, fixture) = buildVm(downloads = listOf(first, second))
+
+                vm.state.test {
+                    awaitItem().isLoading shouldBe true
+                    awaitItem().downloadedBooks.none { it.isHeld } shouldBe true
+                    fixture.walks shouldBe 1
+
+                    // Every collection write re-emits the held set; the walk is the expensive part.
+                    fixture.inbox.hold("b1")
+                    awaitItem().downloadedBooks.first { it.bookId == "b1" }.isHeld shouldBe true
+
+                    fixture.walks shouldBe 1
                     cancelAndIgnoreRemainingEvents()
                 }
             }
