@@ -34,6 +34,12 @@ interface HardcoverRepository {
     /** Chooses when ListenUp updates Hardcover; see [com.calypsan.listenup.api.HardcoverService.setShareMode]. */
     suspend fun setShareMode(mode: HardcoverShareMode): AppResult<Unit>
 
+    /** Sends the books finished before connecting; see [com.calypsan.listenup.api.HardcoverService.sendHistory]. */
+    suspend fun sendHistory(): AppResult<Unit>
+
+    /** "Not now", or dismissing the finished send; see [com.calypsan.listenup.api.HardcoverService.dismissHistory]. */
+    suspend fun dismissHistory(): AppResult<Unit>
+
     /**
      * A client came to the foreground: the server pulls this user's Hardcover shelf if its last pull is
      * stale. Cheap, and safe to call on every foreground; see

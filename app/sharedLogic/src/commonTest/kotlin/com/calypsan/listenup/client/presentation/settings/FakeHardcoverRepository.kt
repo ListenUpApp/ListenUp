@@ -67,6 +67,28 @@ internal class FakeHardcoverRepository(
         return setShareModeResult
     }
 
+    var sendHistoryResult: AppResult<Unit> = AppResult.Success(Unit)
+    var sendHistoryGate: CompletableDeferred<Unit>? = null
+    var sendHistoryCalls = 0
+        private set
+
+    override suspend fun sendHistory(): AppResult<Unit> {
+        sendHistoryCalls++
+        sendHistoryGate?.await()
+        return sendHistoryResult
+    }
+
+    var dismissHistoryResult: AppResult<Unit> = AppResult.Success(Unit)
+    var dismissHistoryGate: CompletableDeferred<Unit>? = null
+    var dismissHistoryCalls = 0
+        private set
+
+    override suspend fun dismissHistory(): AppResult<Unit> {
+        dismissHistoryCalls++
+        dismissHistoryGate?.await()
+        return dismissHistoryResult
+    }
+
     val matchChangesFlow = MutableSharedFlow<BookId>(extraBufferCapacity = 16)
     override val matchChanges: Flow<BookId> = matchChangesFlow
 
