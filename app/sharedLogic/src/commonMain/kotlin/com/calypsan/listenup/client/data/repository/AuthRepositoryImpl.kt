@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
+import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
 import com.calypsan.listenup.api.dto.auth.SessionId
@@ -15,6 +16,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession as ClientAuthSession
+import com.calypsan.listenup.core.SecureStorageUnavailableException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -52,7 +54,7 @@ private val logger = KotlinLogging.logger {}
  * [scope] is where [refreshAccessToken]'s actual refresh runs — deliberately NOT the calling
  * coroutine. See that method's KDoc for why: a caller bounding its own wait with
  * `withTimeoutOrNull` (every current caller does — [com.calypsan.listenup.client.data.remote.RpcAuthRecoveryImpl],
- * [com.calypsan.listenup.client.playback.CachedAudioTokenProvider]'s forced and proactive refreshes
+ * [com.calypsan.listenup.client.playback.CachedAudioTokenProvider]'s forced and on-demand refreshes
  * — and any future one) must be able to give up without aborting a rotation another caller, or the
  * next call, is counting on. The invariant belongs here, at the single-flight itself, not
  * re-implemented per call site — every caller inherits cancellation-safety for free and needs only
@@ -103,7 +105,7 @@ internal class AuthRepositoryImpl(
     /**
      * Single-flight token refresh. The refresh token rotates on every use, so two
      * concurrent refreshes (e.g. the bearer plugin's on-401 path racing the
-     * playback token provider's proactive loop) would each present the same token —
+     * playback token provider's play-start refresh) would each present the same token —
      * the server's replay detection reads the second as a stolen token and revokes
      * the whole session family, force-logging-out the user mid-listen. Coalescing
      * concurrent callers onto one in-flight refresh keeps exactly one rotation.
@@ -135,7 +137,7 @@ internal class AuthRepositoryImpl(
                     ?.takeIf { it.epoch == epoch && it.at.elapsedNow() < RECENT_REFRESH_WINDOW }
                     // Only while the session held is still the one that refresh produced: a token
                     // stored since came from somewhere else, and only the server can answer for it.
-                    ?.takeIf { authSession.getRefreshToken() == it.result.data.refreshToken }
+                    ?.takeIf { storedRefreshTokenOrNull() == it.result.data.refreshToken }
                     ?.let { return it.result }
                 inFlightRefresh ?: pending.also { inFlightRefresh = it }
             }
@@ -194,7 +196,15 @@ internal class AuthRepositoryImpl(
      */
     private suspend fun performRefresh(): AppResult<AuthSession> {
         val epoch = authSession.currentAuthEpoch()
-        val token = authSession.getRefreshToken()
+        val token =
+            try {
+                authSession.getRefreshToken()
+            } catch (e: SecureStorageUnavailableException) {
+                // Stored but unreadable this instant. Not SessionExpired: that lapses the session, and
+                // the token is still on disk for the next attempt to read.
+                logger.warn(e) { "Refresh token unreadable right now; the session is kept" }
+                return AppResult.Failure(AuthError.CredentialsUnavailable(debugInfo = e.message))
+            }
         if (token == null) return AppResult.Failure(AuthError.SessionExpired())
         var result: AppResult<AuthSession> =
             authPublicChannel.call {
@@ -218,6 +228,17 @@ internal class AuthRepositoryImpl(
         }
         return result
     }
+
+    /**
+     * The stored refresh token for the recent-refresh comparison, or null when it can't be read right
+     * now — which never matches, so the caller falls through to a real refresh that reports it typed.
+     */
+    private suspend fun storedRefreshTokenOrNull(): RefreshToken? =
+        try {
+            authSession.getRefreshToken()
+        } catch (_: SecureStorageUnavailableException) {
+            null
+        }
 
     override suspend fun listSessions(): AppResult<List<SessionSummary>> =
         authedChannel.call(idempotent = true) {

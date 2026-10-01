@@ -19,6 +19,7 @@ import com.calypsan.listenup.client.data.remote.RpcPolicy
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.domain.repository.AuthSession as ClientAuthSession
 import com.calypsan.listenup.client.test.SimulatedFailure
+import com.calypsan.listenup.core.SecureStorageUnavailableException
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.throws
@@ -488,6 +489,88 @@ class AuthRepositoryImplTest :
                 clock += RECENT_REFRESH_WINDOW + kotlin.time.Duration.parse("1s")
                 repo.refreshAccessToken().shouldBeInstanceOf<AppResult.Success<*>>()
                 refreshCalls shouldBe 2
+            }
+        }
+
+        // 2026-09-30: a Keystore blip on the refresh-token read used to come back as "no token", which
+        // performRefresh reported as SessionExpired — and that lapsed the session for good, because
+        // nothing re-reads a credential after clearSessionCredentials has deleted it. An unreadable
+        // token is not a missing one: it is a retryable failure that never reaches the server.
+        test("a refresh token that can't be read right now fails as retryable CredentialsUnavailable, not SessionExpired") {
+            runTest {
+                var unreadable = true
+                val (repo, _, presented) =
+                    refreshRig(backgroundScope, listOf(AppResult.Success(rotated("rt-1"))))
+                        .also { (_, session, _) ->
+                            everySuspend { session.getRefreshToken() } calls {
+                                if (unreadable) throw SecureStorageUnavailableException("refresh_token")
+                                RefreshToken("rt-0")
+                            }
+                        }
+
+                val failed = repo.refreshAccessToken()
+
+                val error = failed.shouldBeInstanceOf<AppResult.Failure>().error
+                error.shouldBeInstanceOf<AuthError.CredentialsUnavailable>()
+                error.isRetryable shouldBe true
+                presented shouldBe emptyList()
+
+                // The blip passes; the very next refresh reads the token and rotates normally.
+                unreadable = false
+                repo.refreshAccessToken().shouldBeInstanceOf<AppResult.Success<ContractAuthSession>>()
+                presented shouldBe listOf(RefreshToken("rt-0"))
+            }
+        }
+
+        test("a refresh token that is genuinely absent still fails as SessionExpired") {
+            runTest {
+                val authSession = mock<ClientAuthSession>()
+                everySuspend { authSession.currentAuthEpoch() } returns 0L
+                everySuspend { authSession.getRefreshToken() } returns null
+                val repo =
+                    AuthRepositoryImpl(
+                        authPublicChannel = RpcChannel.forTest(mock<AuthServicePublic>(), RpcPolicy.Public),
+                        authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
+                        authSession = authSession,
+                        scope = backgroundScope,
+                        clientVersion = "test",
+                    )
+
+                repo
+                    .refreshAccessToken()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.SessionExpired>()
+            }
+        }
+
+        // The reuse check re-reads the stored token on the CALLER's coroutine, outside the leader's
+        // catch. An unreadable token there must not escape refreshAccessToken as a raw throw.
+        test("an unreadable refresh token during the recent-refresh check is a typed failure, not a throw") {
+            runTest {
+                val clock = kotlin.time.TestTimeSource()
+                var unreadable = false
+                val (repo, _, _) =
+                    refreshRig(backgroundScope, listOf(AppResult.Success(rotated("rt-1"))), timeSource = clock)
+                        .also { (_, session, _) ->
+                            var saved = RefreshToken("rt-0")
+                            everySuspend { session.getRefreshToken() } calls {
+                                if (unreadable) throw SecureStorageUnavailableException("refresh_token")
+                                saved
+                            }
+                            everySuspend { session.saveAuthTokens(any(), any(), any(), any(), any()) } calls {
+                                saved = it.arg(1)
+                            }
+                        }
+
+                repo.refreshAccessToken().shouldBeInstanceOf<AppResult.Success<ContractAuthSession>>()
+                unreadable = true
+
+                repo
+                    .refreshAccessToken()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.CredentialsUnavailable>()
             }
         }
 

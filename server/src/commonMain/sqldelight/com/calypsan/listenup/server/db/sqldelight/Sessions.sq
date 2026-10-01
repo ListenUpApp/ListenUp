@@ -7,6 +7,7 @@
 --                                 revoked_at + all five indexes)
 --   V28__session_device_info.sql (device_type, platform, platform_version, client_name,
 --                                 client_version, device_name, device_model)
+--   V78__session_rotation_confirmation.sql (rotated_at, rotation_confirmed_at)
 --
 -- SECURITY-RELEVANT properties preserved verbatim:
 --   * refresh_token_hash stores the HMAC-SHA-256(token, pepper) digest — never the raw token.
@@ -38,7 +39,9 @@ CREATE TABLE sessions (
     client_name        TEXT,
     client_version     TEXT,
     device_name        TEXT,
-    device_model       TEXT
+    device_model       TEXT,
+    rotated_at            INTEGER,
+    rotation_confirmed_at INTEGER
 );
 
 CREATE UNIQUE INDEX idx_sessions_token_hash    ON sessions(refresh_token_hash);
@@ -79,14 +82,23 @@ selectByPreviousHash:
 SELECT * FROM sessions WHERE previous_hash = :previous_hash LIMIT 1;
 
 -- Rotate a live session in place: advance previous_hash, install the new hash, bump last_used_at
--- and expires_at. Keyed on the session id resolved by selectLiveByTokenHash.
+-- and expires_at. Keyed on the session id resolved by selectLiveByTokenHash. Every rotation stamps
+-- rotated_at and clears rotation_confirmed_at: the new pair's reply has not been seen used yet.
 rotate:
 UPDATE sessions
 SET previous_hash = :previous_hash, refresh_token_hash = :refresh_token_hash,
     last_used_at = :last_used_at, expires_at = :expires_at,
+    rotated_at = :rotated_at, rotation_confirmed_at = NULL,
     -- The version the device runs NOW; a client that does not say keeps what was recorded.
     client_version = COALESCE(:client_version, client_version)
 WHERE id = :id;
+
+-- Record that the current rotation's reply reached the client. One-time and race-safe: only an
+-- unconfirmed row whose rotation is still the one the caller saw (:rotated_at) is written, so a
+-- burst of requests writes once and a rotation racing in between is never confirmed by accident.
+confirmRotation:
+UPDATE sessions SET rotation_confirmed_at = :confirmed_at
+WHERE id = :id AND rotation_confirmed_at IS NULL AND rotated_at = :rotated_at;
 
 -- Revoke every still-live row in a rotation family (replay defense). Only un-revoked rows are
 -- touched so the revoked_at timestamp records the first revocation.

@@ -10,6 +10,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Sessions
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.logging.loggerFor
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlin.time.Duration
@@ -60,7 +61,8 @@ class SessionService(
      * and would normally read it as a stolen-token replay and revoke the whole family — a dropped
      * packet or a killed process forcing a logout. Within this window of the last NORMAL rotation we
      * instead treat the retry as benign: rotate again on the same family and hand back a usable token.
-     * Reuse after the window still hard-revokes — the grace branch preserves the replayed row's
+     * Reuse after the window hard-revokes once the latest rotation is confirmed (see [rotate] for the
+     * lost-reply rule that covers an unconfirmed one) — the grace branch preserves the replayed row's
      * `last_used_at` and `expires_at`, so the window drains from the last normal rotation and a
      * replay chain can neither hold itself open indefinitely nor renew the refresh TTL.
      *
@@ -127,9 +129,39 @@ class SessionService(
     }
 
     /**
-     * Returns null if the token is unrecognized or matches `previous_hash`
-     * (replay → family revoked as a side effect). [clientVersion], when the client reports it,
-     * replaces the version recorded at sign-in, so the session says what the device runs now.
+     * Returns null if the token is unrecognized, or matches `previous_hash` as a confirmed replay
+     * (family revoked as a side effect). [clientVersion], when the client reports it, replaces the
+     * version recorded at sign-in, so the session says what the device runs now.
+     *
+     * A `previous_hash` match is read three ways:
+     *  - within [reuseGracePeriod] of the last normal rotation — a lost-response retry: rotate again;
+     *  - after it, while the latest rotation is UNCONFIRMED (no access token minted at or after it has
+     *    ever been used — see [isLive]) — a lost reply: the client never received the new pair, so
+     *    rotate again;
+     *  - after it, once the latest rotation is CONFIRMED — the rightful holder demonstrably moved on,
+     *    so the old token is being reused: revoke the whole family.
+     *
+     * The lost-reply rule exists because a client frozen or killed by the OS mid-refresh presents
+     * its old token on the next launch, commonly hours later, and a family revoke there signed the
+     * user out on every device for a dropped packet.
+     *
+     * **Security trade-off.** A thief holding the pre-rotation refresh token who replays it before
+     * the rightful client has used any access token from the newer rotation takes over the session;
+     * the rightful client's next refresh then fails as unknown, which is the visible signal. The
+     * exposure is no longer a fixed 30 minutes: it lasts until the new access token first reaches
+     * [isLive] — the first RPC socket connect or bearer HTTP request that carries it. An RPC call on
+     * a socket opened before the rotation does NOT carry it (the socket's principal was bound at its
+     * upgrade), so a client must present the new token deliberately; the shared client does so right
+     * after every rotation it makes. In the lost-reply case itself the window is unbounded, because
+     * there the client never gets that access token and the window stays open until the old token is
+     * replayed. Once the rotation is confirmed, a late replay revokes as before.
+     *
+     * **Relies on the client's save order.** If a client ever persisted the new access token but died
+     * before persisting the new refresh token, it would hold the OLD refresh token beside an access
+     * token that confirms the new rotation — and its next refresh would meet a confirmed rotation and
+     * revoke the family. A pre-existing class of torn write that confirmation makes reachable. The
+     * shared client closes it by writing the refresh token first (`AuthSessionStore.saveAuthTokens`,
+     * C9) to durable storage; any other client must do the same, or write both atomically.
      */
     suspend fun rotate(
         token: RefreshToken,
@@ -155,6 +187,7 @@ class SessionService(
                     refresh_token_hash = newHash,
                     last_used_at = now,
                     expires_at = newExpires,
+                    rotated_at = now,
                     client_version = clientVersion,
                     id = live.id,
                 )
@@ -203,6 +236,34 @@ class SessionService(
                     refresh_token_hash = newHash,
                     last_used_at = replay.last_used_at,
                     expires_at = replay.expires_at,
+                    rotated_at = now,
+                    client_version = clientVersion,
+                    id = replay.id,
+                )
+                return@suspendTransaction RotatedSession(
+                    sessionId = SessionId(replay.id),
+                    userId = UserId(replay.user_id),
+                    refreshToken = RefreshToken(newRaw),
+                    expiresAt = replay.expires_at,
+                )
+            }
+
+            if (replay.rotation_confirmed_at == null && replay.revoked_at == null && replay.expires_at > now) {
+                // No access token from the latest rotation has ever been used, so there is no
+                // evidence its reply reached anyone: a client killed or frozen mid-refresh is
+                // presenting the token it still holds. Rotate again instead of revoking. The
+                // unused token from the lost reply is replaced, so it dies here; last_used_at and
+                // expires_at stay anchored exactly as in the grace branch.
+                logger.info {
+                    "Lost-reply re-rotation: session=${replay.id}, " +
+                        "${(now - replay.last_used_at).milliseconds.inWholeMinutes} min since last rotation, never confirmed"
+                }
+                db.sessionsQueries.rotate(
+                    previous_hash = incomingHash,
+                    refresh_token_hash = newHash,
+                    last_used_at = replay.last_used_at,
+                    expires_at = replay.expires_at,
+                    rotated_at = now,
                     client_version = clientVersion,
                     id = replay.id,
                 )
@@ -216,7 +277,8 @@ class SessionService(
 
             // Identifiers only — never token material or hashes.
             logger.warn {
-                "Replay of a rotated refresh token outside the grace window. Revoking session family: " +
+                "Replay of a rotated refresh token outside the grace window, after its successor was confirmed. " +
+                    "Revoking session family: " +
                     "session=${replay.id}, family=${replay.family_id}, user=${replay.user_id}, " +
                     "${(now - replay.last_used_at).milliseconds.inWholeMinutes} min since last rotation"
             }
@@ -285,15 +347,77 @@ class SessionService(
         }
     }
 
-    suspend fun isLive(sessionId: SessionId): Boolean =
-        suspendTransaction(db) {
-            val s =
+    /**
+     * Whether the session is live (not revoked, not expired) — checked on every authenticated
+     * request. When [issuedAtEpochSeconds], the presented access token's `iat`, is at or after the
+     * session's latest rotation, that rotation's reply demonstrably reached the client, and this
+     * records it ([Sessions.rotation_confirmed_at]) for [rotate]'s lost-reply rule.
+     *
+     * Hot path: the common case is one read. The confirmation write is a SEPARATE, short transaction
+     * after the read, and best-effort: a write that fails (SQLITE_BUSY under WAL contention past the
+     * busy timeout) is logged and the request still authenticates — confirmation is bookkeeping for
+     * a later replay decision, never a reason to reject a live session. A missed confirmation only
+     * leaves a late replay of the previous token re-rotating instead of revoking; the next request
+     * carrying the new token tries again.
+     *
+     * The write is a conditional UPDATE that only an unconfirmed row whose `rotated_at` still equals
+     * the one read here can match. So a burst of concurrent first requests writes at most once, and
+     * a rotation that lands between the read and the write is never confirmed by the old rotation's
+     * token.
+     *
+     * Two known edges, both from comparing a whole-second `iat` with a millisecond `rotated_at`:
+     *  - An access token minted in the same second as, but before, a later rotation falsely confirms
+     *    it. That needs two rotations within one second — the client's recent-refresh reuse window and
+     *    single-flight make it unlikely — and it errs toward revoking.
+     *  - A wall-clock step backwards of more than a second between stamping `rotated_at` and minting
+     *    the rotation's access token makes that rotation impossible to confirm. That errs toward
+     *    re-rotation on a later replay.
+     *
+     * The future fix for both is a rotation-generation (`rot`) claim in the access JWT, compared for
+     * equality with a generation column instead of by time.
+     */
+    suspend fun isLive(
+        sessionId: SessionId,
+        issuedAtEpochSeconds: Long? = null,
+    ): Boolean {
+        val s: Sessions =
+            suspendTransaction<Sessions?>(db) {
                 db.sessionsQueries
                     .selectById(id = sessionId.value)
                     .executeAsOneOrNull()
-                    ?: return@suspendTransaction false
-            s.revoked_at == null && s.expires_at > clock.now().toEpochMilliseconds()
+            } ?: return false
+        val now = clock.now().toEpochMilliseconds()
+        val live = s.revoked_at == null && s.expires_at > now
+        val rotatedAt = s.rotated_at
+        if (live && s.rotation_confirmed_at == null && rotatedAt != null &&
+            mintedSince(issuedAtEpochSeconds, rotatedAt)
+        ) {
+            confirmRotationBestEffort(s.id, rotatedAt, now)
         }
+        return live
+    }
+
+    private suspend fun confirmRotationBestEffort(
+        id: String,
+        rotatedAt: Long,
+        now: Long,
+    ) {
+        try {
+            suspendTransaction(db) {
+                db.sessionsQueries.confirmRotation(confirmed_at = now, id = id, rotated_at = rotatedAt)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "Could not record rotation confirmation for session=$id; the request still authenticates" }
+        }
+    }
+
+    /** Whether an access token issued at [issuedAtEpochSeconds] was minted at or after [rotatedAtMillis]. */
+    private fun mintedSince(
+        issuedAtEpochSeconds: Long?,
+        rotatedAtMillis: Long,
+    ): Boolean = issuedAtEpochSeconds != null && issuedAtEpochSeconds >= rotatedAtMillis / MILLIS_PER_SECOND
 
     suspend fun listActiveFor(userId: UserId): List<Sessions> =
         suspendTransaction(db) {
@@ -329,6 +453,7 @@ class SessionService(
 
     companion object {
         private val DEFAULT_REFRESH_TTL: Duration = 30.days
+        private const val MILLIS_PER_SECOND = 1_000L
 
         /**
          * The one source of truth for the lost-response reuse-grace window (C4) — `authModule`

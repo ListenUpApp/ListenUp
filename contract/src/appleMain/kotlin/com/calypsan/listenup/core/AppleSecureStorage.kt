@@ -202,7 +202,10 @@ class AppleSecureStorage : SecureStorage {
                         return@withContext null
                     }
 
-                    throw SecurityException("Failed to read from keychain: $status")
+                    // Stored but unreadable right now (a locked Keychain before first unlock, a
+                    // transient Security-framework fault): typed, so a credential read never
+                    // mistakes it for "absent" — see SecureStorage.readCredential.
+                    throw SecureStorageUnavailableException(key, SecurityException("Keychain read failed: $status"))
                 }
             }
         }

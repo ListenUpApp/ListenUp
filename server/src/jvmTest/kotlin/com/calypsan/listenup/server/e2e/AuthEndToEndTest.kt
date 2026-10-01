@@ -4,11 +4,14 @@ import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeEmpty
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.runBlocking
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * End-to-end auth tests — real `Application.module()` over CIO + real
@@ -196,6 +199,44 @@ class AuthEndToEndTest :
             }
         }
 
+        // The overnight sign-out: the server rotated, the reply never reached the app (killed or
+        // frozen mid-refresh), and the app presented its old token on the next launch — past the
+        // grace window (0 in this fixture). No access token from that rotation was ever used, so it
+        // is a lost reply: the session survives and the app gets a working pair.
+        test("a refresh whose reply was lost is recovered by the old token, even after the grace window") {
+            runBlocking {
+                val fix = autoClose(fixture())
+                bootstrap(fix)
+                val heldToken = requireNotNull(fix.authSession.getRefreshToken())
+                val heldAccess = requireNotNull(fix.authSession.getAccessToken())
+                val sessionId = fix.authSession.getSessionId() ?: ""
+                val userId = fix.authSession.getUserId() ?: ""
+
+                fix.authRepository.refreshAccessToken().shouldBeInstanceOf<AppResult.Success<*>>()
+                // The reply is "lost": the app still holds what it had before the rotation.
+                fix.authSession.saveAuthTokens(heldAccess, heldToken, sessionId, userId)
+
+                fix.authRepository.refreshAccessToken().shouldBeInstanceOf<AppResult.Success<*>>()
+                fix.authRepository.listSessions().shouldBeInstanceOf<AppResult.Success<*>>()
+            }
+        }
+
+        // I1: a playback-start rotation must reach the server promptly. The client's authed socket
+        // was opened with the old token and would carry on with it; without an explicit present,
+        // an Android Auto start followed by a process death left the rotation unconfirmed.
+        test("a rotation made for playback is confirmed on the server without waiting for a reconnect") {
+            runBlocking {
+                val fix = autoClose(fixture())
+                bootstrap(fix)
+                // Open the authed socket on the pre-rotation token.
+                fix.authRepository.listSessions().shouldBeInstanceOf<AppResult.Success<*>>()
+
+                fix.audioTokenProvider().refreshToken()
+
+                eventually(10.seconds) { fix.rotationConfirmedAt().shouldNotBeNull() }
+            }
+        }
+
         test("replaying a revoked refresh token returns InvalidRefreshToken") {
             runBlocking {
                 val fix = autoClose(fixture())
@@ -214,9 +255,13 @@ class AuthEndToEndTest :
                 val originalRefresh = secondFix.authSession.getRefreshToken()
                 requireNotNull(originalRefresh)
 
-                // Rotate once.
+                // Rotate once, and use the new access token — the reply demonstrably arrived, so the
+                // old token surfacing again is reuse, not a lost reply (SessionService.rotate).
                 secondFix.authRepository
                     .refreshAccessToken()
+                    .shouldBeInstanceOf<AppResult.Success<*>>()
+                secondFix.authRepository
+                    .listSessions()
                     .shouldBeInstanceOf<AppResult.Success<*>>()
 
                 // Now overwrite the stored refresh token with the original (replay).

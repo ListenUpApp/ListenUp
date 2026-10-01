@@ -281,4 +281,24 @@ sealed interface AuthError : AppError {
         override val code: String = "AUTH_ROOT_RESET_UNAVAILABLE"
         override val isRetryable: Boolean = false
     }
+
+    /**
+     * The stored refresh token exists but this device could not read it right now — a transient
+     * secure-storage fault (an Android Keystore key pruned under memory pressure, a locked iOS
+     * Keychain). Client-local; the server never sends it.
+     *
+     * Deliberately NOT session-invalidating: the credential is still on disk and the next read
+     * usually succeeds, so lapsing the session here would turn a momentary blip into a permanent
+     * sign-out. The refresh never reached the server, so re-firing it is always safe.
+     */
+    @Serializable
+    @SerialName("AuthError.CredentialsUnavailable")
+    data class CredentialsUnavailable(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : AuthError {
+        override val message: String = "Couldn't read your saved sign-in just now. Trying again shortly."
+        override val code: String = "AUTH_CREDENTIALS_UNAVAILABLE"
+        override val isRetryable: Boolean = true
+    }
 }

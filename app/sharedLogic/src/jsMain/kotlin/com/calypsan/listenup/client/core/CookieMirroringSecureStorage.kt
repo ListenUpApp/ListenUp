@@ -42,6 +42,8 @@ class CookieMirroringSecureStorage(
 
     override suspend fun read(key: String): String? = delegate.read(key)
 
+    override suspend fun readCredential(key: String): String? = delegate.readCredential(key)
+
     override suspend fun delete(key: String) {
         delegate.delete(key)
         if (key == KEY_ACCESS_TOKEN) clearCookie()

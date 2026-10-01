@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.InviteServicePublic
+import com.calypsan.listenup.client.data.remote.RotatedTokenPresenter
 import com.calypsan.listenup.client.data.remote.RpcPolicy
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.AuthRepositoryImpl
@@ -112,6 +113,15 @@ internal val clientAuthModule: Module
                     // (or the next call) is counting on. See AuthRepositoryImpl's KDoc.
                     scope = get(qualifier = named(APP_SCOPE)),
                     clientVersion = get(qualifier = named("clientVersion")),
+                )
+            }
+
+            // Presents each playback-driven rotation to the server at once (its lost-reply rule needs
+            // the new access token to arrive). Bound here, beside the authed channel it reconnects.
+            single {
+                RotatedTokenPresenter(
+                    authedChannel = rpcChannel<AuthServiceAuthed>(),
+                    scope = get(qualifier = named(APP_SCOPE)),
                 )
             }
 

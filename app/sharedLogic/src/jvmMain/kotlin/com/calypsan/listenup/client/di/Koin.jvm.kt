@@ -174,3 +174,13 @@ internal actual val platformDeviceModule: Module =
         }
         single { get<com.calypsan.listenup.client.device.DeviceContextProvider>().detect() }
     }
+
+/**
+ * The production shared audio-token authority, built from [koin] exactly as every platform's
+ * playback module builds it — for the `:server` end-to-end fixture, which cannot reach the internal
+ * recipe. Needs `clientAuthModule` (for the rotation presenter) in [koin].
+ */
+fun audioTokenProviderForTests(
+    koin: org.koin.core.Koin,
+): com.calypsan.listenup.client.playback.CachedAudioTokenProvider =
+    koin.scopeRegistry.rootScope.sharedAudioTokenProvider()

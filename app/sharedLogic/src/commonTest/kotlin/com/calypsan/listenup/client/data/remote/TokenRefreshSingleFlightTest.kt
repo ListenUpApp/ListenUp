@@ -10,7 +10,10 @@ import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.UserStatus
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.repository.AuthRepositoryImpl
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -26,6 +29,7 @@ import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.respondError
 import io.ktor.client.request.get
@@ -84,7 +88,11 @@ private class FakeAuthSession : AuthSession {
         refresh = null
     }
 
-    override suspend fun clearSessionCredentials() = Unit
+    var lapsed = false
+
+    override suspend fun clearSessionCredentials() {
+        lapsed = true
+    }
 
     override suspend fun getSessionId(): String? = throw NotImplementedError()
 
@@ -222,4 +230,69 @@ class TokenRefreshSingleFlightTest :
                 client.close()
             }
         }
+
+        // The blob route into a permanent lapse: a cover request 401s, the bearer plugin's heal
+        // fails for a transient reason (the network dropped mid-refresh), and the plugin hands the
+        // ORIGINAL 401 back. ErrorMapper reads a 401 as SessionExpired, the screen emits it to the
+        // ErrorBus, and AuthFailureObserver lapses the session — over a network blip. The RPC path
+        // already surfaced this case as a retryable transport failure; the blob path now does too.
+        test("a blob request whose 401 heal fails transiently surfaces a retryable failure and keeps the session") {
+            runTest(timeout = 30.seconds) {
+                val authSession = FakeAuthSession()
+                val client = blobClient(authSession) { AppResult.Failure(TransportError.NetworkUnavailable()) }
+
+                val result = suspendRunCatching { client.get("/api/v1/books/b1/cover") }
+
+                val error = result.shouldBeInstanceOf<AppResult.Failure>().error
+                error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+                error.isRetryable shouldBe true
+                authSession.lapsed shouldBe false
+                client.close()
+            }
+        }
+
+        test("a blob request whose refresh token is unreadable right now keeps the session too") {
+            runTest(timeout = 30.seconds) {
+                val authSession = FakeAuthSession()
+                val client = blobClient(authSession) { AppResult.Failure(AuthError.CredentialsUnavailable()) }
+
+                val result = suspendRunCatching { client.get("/api/v1/books/b1/cover") }
+
+                result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+                authSession.lapsed shouldBe false
+                client.close()
+            }
+        }
+
+        test("a blob request whose refresh token is server-confirmed dead still lapses the session") {
+            runTest(timeout = 30.seconds) {
+                val authSession = FakeAuthSession()
+                val client =
+                    blobClient(authSession) { AppResult.Failure(AuthError.InvalidRefreshToken(familyRevoked = true)) }
+
+                val result = suspendRunCatching { client.get("/api/v1/books/b1/cover") }
+
+                result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<AuthError.SessionExpired>()
+                authSession.lapsed shouldBe true
+                client.close()
+            }
+        }
     })
+
+/** The real request client over an engine whose every answer is 401, refreshing through [refresh]. */
+private suspend fun blobClient(
+    authSession: AuthSession,
+    refresh: suspend () -> AppResult<ContractAuthSession>,
+): io.ktor.client.HttpClient {
+    val engine = testMockEngine { handle("/api/v1/books/b1/cover") { respondError(HttpStatusCode.Unauthorized) } }
+    val serverConfig = mock<ServerConfig>()
+    everySuspend { serverConfig.getActiveUrl() } returns ServerUrl("http://unit.test")
+    everySuspend { serverConfig.switchToFallbackUrl() } returns null
+    return KtorApiClientFactory(
+        serverConfig = serverConfig,
+        authSession = authSession,
+        refreshAccessToken = refresh,
+        clientIdentity = FakeClientIdentity(),
+        engine = engine,
+    ).getClient()
+}

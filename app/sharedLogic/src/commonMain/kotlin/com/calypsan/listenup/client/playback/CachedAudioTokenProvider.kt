@@ -8,10 +8,6 @@ import com.calypsan.listenup.client.data.remote.DEFAULT_RPC_TIMEOUT
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
@@ -29,48 +25,56 @@ import kotlin.time.ExperimentalTime
 
 private val logger = KotlinLogging.logger {}
 
-/** Refresh proactively when the cached token has less than this remaining. */
-private val PROACTIVE_REFRESH_HORIZON = 10.minutes
-
-/** Skip the refresh on `prepareForPlayback` if the cached token still has more than this. */
+/** A token with more than this left is usable as-is — by the cache fast path and by a stored-token adopt. */
 private val PREPARE_PLAYBACK_FAST_PATH = 2.minutes
 
-/** Cadence of the background expiry-check loop. */
-private val PROACTIVE_CHECK_CADENCE = 5.minutes
-
 /**
- * Shared core for platform audio-token providers. Caches the current
- * [AccessToken] and the server-issued expiry timestamp, refreshes through
- * [AuthRepository.refreshAccessToken] when the cache is stale, and falls
- * back to whatever is sitting in [AuthSession] when the network refresh
- * fails — Media3/AVFoundation can still play cached/local content with
- * a stale-but-stored token while the user reconnects.
+ * Shared core for platform audio-token providers. Caches the current [AccessToken] and its expiry,
+ * and makes it usable **only when a consumer asks** ([prepareForPlayback]): first by adopting a
+ * still-fresh token already in [AuthSession] (another refresh authority may have rotated it), and
+ * only then by rotating through [AuthRepository.refreshAccessToken]. When the network refresh fails
+ * it falls back to whatever is stored, so Media3/AVFoundation can still play cached/local content
+ * while the user reconnects.
  *
- * Cross-platform by design: iOS/macOS bind this directly; Android wraps it
- * with the OkHttp interceptor glue and exposes the same `AudioTokenProvider`
- * interface via delegation.
+ * **It never refreshes on its own.** It used to rotate the session on every construction (the
+ * stored token is always near expiry after a closure) and every 5 minutes after that, foreground or
+ * not. The provider is built on every process start — SyncWorker, FCM and Android Auto wakes
+ * included — so rotations landed exactly where Android freezes or kills the process. A reply lost
+ * there left the old refresh token on disk; the next refresh presented it after the server's
+ * 30-minute reuse grace and the server revoked the whole session family: the "Sign in to sync"
+ * banner after a night with the app closed. Nothing on the audio path needs that rotation — streams
+ * and downloads authenticate by URL signature (a 12-hour one) — so on-demand is the whole contract:
+ * a play start (from the app, Android Auto, or a media button), an iOS cover load, a download, or a
+ * 401 ([refreshToken]). An idle process performs no rotations at all.
  *
- * Threading: the cached fields are `@Volatile` so [getToken] never blocks an
- * OkHttp dispatcher / URLSession thread. The refresh path serialises through a
- * [Mutex]. Serialising is not the same as coalescing, and the difference is
- * load-bearing: [prepareForPlayback] re-checks the cache *after* taking the lock
- * and adopts whatever an in-flight refresh produced, while [refreshToken] always
- * rotates. Without that re-check every waiter ran its own full round-trip, which
- * on a half-open socket is the 15s RPC bound each — the resume-latency bug.
+ * Cross-platform by design: iOS and web bind this directly; Android wraps it with the OkHttp
+ * interceptor glue and exposes the same `AudioTokenProvider` interface via delegation.
  *
- * Concurrency note: this is a *separate* refresh authority from the Ktor
- * bearer plugin. Both write to [AuthSession.saveAuthTokens]. When two
- * refreshes interleave, last-write-wins on the stored tokens — both will
- * observe the most recent rotation on their next read. A unified refresh
- * authority is not yet implemented.
+ * Threading: the cached fields are `@Volatile` so [getToken] never blocks an OkHttp dispatcher /
+ * URLSession thread. The refresh path serialises through a [Mutex]. Serialising is not the same as
+ * coalescing, and the difference is load-bearing: [prepareForPlayback] re-checks the cache *after*
+ * taking the lock and adopts whatever an in-flight refresh produced, while [refreshToken] always
+ * rotates. Without that re-check every waiter ran its own full round-trip, which on a half-open
+ * socket is the 15s RPC bound each — the resume-latency bug.
+ *
+ * Concurrency note: this is a *separate* refresh authority from the Ktor bearer plugin and the RPC
+ * 401-heal. All of them rotate through the single-flight [AuthRepository.refreshAccessToken], which
+ * persists to [AuthSession]; [prepareForPlayback] reads that store before rotating, so a rotation
+ * one of them just made is adopted rather than repeated.
  *
  * The [clock] defaults to [Clock.System]; tests inject a virtual clock.
  */
 class CachedAudioTokenProvider(
     private val authSession: AuthSession,
     private val authRepository: AuthRepository,
-    private val scope: CoroutineScope,
     private val clock: Clock = Clock.System,
+    /**
+     * Told after every rotation this provider performs. The server only learns the rotation's reply
+     * arrived when the new access token reaches it, and a play-start refresh otherwise leaves it
+     * unpresented for as long as the existing RPC socket lives; see
+     * [com.calypsan.listenup.client.di.sharedAudioTokenProvider] for the production hook.
+     */
+    private val onSessionRotated: () -> Unit = {},
 ) : AudioTokenProvider {
     @Volatile
     private var cachedToken: AccessToken? = null
@@ -79,24 +83,6 @@ class CachedAudioTokenProvider(
     private var tokenExpiresAt: Long = 0L
 
     private val refreshMutex = Mutex()
-
-    init {
-        // Do NOT rotate on every construction (C11): a stored access token that is still comfortably
-        // fresh is served as-is, so a construction-time refresh can't needlessly burn a refresh-token
-        // rotation nor race the Ktor bearer plugin's own refresh. Only refresh when the stored token
-        // is missing, undecodable, or already inside the proactive horizon.
-        scope.launch { if (!primeFromFreshStoredToken()) refreshToken() }
-        scope.launch {
-            while (isActive) {
-                delay(PROACTIVE_CHECK_CADENCE)
-                val remaining = tokenExpiresAt - now()
-                if (remaining < PROACTIVE_REFRESH_HORIZON.inWholeMilliseconds) {
-                    logger.debug { "Proactive token refresh: expires in ${remaining / 1000}s" }
-                    refreshToken()
-                }
-            }
-        }
-    }
 
     override fun getToken(): String? = cachedToken?.value
 
@@ -111,7 +97,7 @@ class CachedAudioTokenProvider(
                     // half-open socket each one costs the entire 15s RPC bound, which is how a
                     // resume after a long idle spent 24s here before playing a book that was
                     // already downloaded.
-                    if (hasUsableToken()) return@withLock
+                    if (hasUsableToken() || adoptUsableStoredToken()) return@withLock
                     performRefresh()
                 }
             }
@@ -141,8 +127,8 @@ class CachedAudioTokenProvider(
     /**
      * Force a token rotation, serialising on [refreshMutex]. Callers that merely need a *usable*
      * token should use [prepareForPlayback], which coalesces onto an in-flight refresh instead;
-     * this entry point is for callers that know the cached token is bad (a 401) or due (the
-     * proactive loop), where re-checking the cache would defeat the point.
+     * this entry point is for callers that know the cached token is bad (a 401), where re-checking
+     * the cache would defeat the point.
      *
      * The mutex **serialises — it does not dedupe.** Two forced rotations queue, and each performs
      * its own upstream refresh; single-flight dedup of the rotation RPC itself lives one layer down,
@@ -183,6 +169,7 @@ class CachedAudioTokenProvider(
                 cachedToken = session.accessToken
                 tokenExpiresAt = session.accessTokenExpiresAt
                 logger.info { "Token refreshed successfully" }
+                onSessionRotated()
             }
 
             is AppResult.Failure -> {
@@ -198,17 +185,18 @@ class CachedAudioTokenProvider(
     }
 
     /**
-     * Fallback path when refresh fails: surface whatever is in [AuthSession]
-     * so cached/local content still plays. Server-side expiry is unknown
-     * here — assume the stored access token is at most 50 minutes from
-     * being useful, matching the legacy heuristic. The next playback
-     * attempt will trigger another refresh attempt.
+     * Fallback path when refresh fails or runs past its budget: surface whatever is in [AuthSession]
+     * so cached/local content still plays, cached until the stored token's own `exp` — so an already
+     * expired one is never mistaken for usable, and the next request adopts the rotation that may be
+     * landing behind it instead of serving a dead token for [STORED_TOKEN_GRACE]. Only a token whose
+     * expiry can't be decoded gets that synthetic grace (the legacy heuristic), which is what keeps
+     * an offline, undecodable token from retrying the network on every request.
      */
     private suspend fun fallbackToStored() {
         val stored = authSession.getAccessToken()
         if (stored != null) {
             cachedToken = stored
-            tokenExpiresAt = now() + STORED_TOKEN_GRACE.inWholeMilliseconds
+            tokenExpiresAt = jwtExpiryMillis(stored.value) ?: (now() + STORED_TOKEN_GRACE.inWholeMilliseconds)
             logger.debug { "Token loaded from storage (fallback)" }
         } else {
             cachedToken = null
@@ -220,15 +208,15 @@ class CachedAudioTokenProvider(
     private fun now(): Long = clock.now().toEpochMilliseconds()
 
     /**
-     * Loads a stored access token into the cache WITHOUT a network refresh when it is a decodable
-     * JWT still comfortably outside [PROACTIVE_REFRESH_HORIZON]. @return true when it did (so the
-     * caller skips the construction-time refresh); false when there is no usable-and-fresh token and
-     * a real refresh is warranted.
+     * Adopts the access token already in [AuthSession] when it is a decodable JWT still usable by
+     * [hasUsableToken]'s margin — no network, no rotation. The token may be one this provider cached
+     * long ago, or one another refresh authority (the bearer plugin, the RPC 401-heal) has rotated
+     * since. @return true when it adopted one; false when a real refresh is warranted.
      */
-    private suspend fun primeFromFreshStoredToken(): Boolean {
+    private suspend fun adoptUsableStoredToken(): Boolean {
         val stored = authSession.getAccessToken() ?: return false
         val expiry = jwtExpiryMillis(stored.value) ?: return false
-        if (expiry - now() <= PROACTIVE_REFRESH_HORIZON.inWholeMilliseconds) return false
+        if (expiry - now() <= PREPARE_PLAYBACK_FAST_PATH.inWholeMilliseconds) return false
         cachedToken = stored
         tokenExpiresAt = expiry
         return true

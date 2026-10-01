@@ -19,11 +19,9 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.runBlocking
 import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
@@ -34,9 +32,8 @@ import okhttp3.Response
  *
  * OkHttp types are pure JVM — no Android runtime is required, so this is a plain Kotest
  * FunSpec without Robolectric. [CachedAudioTokenProvider] is constructed from stub auth
- * dependencies whose refresh behaviour is fully controlled. [CoroutineScope] with
- * [Dispatchers.Unconfined] keeps the init-launched refresh synchronous so token state
- * is stable before each test body runs.
+ * dependencies whose refresh behaviour is fully controlled. Each test primes the cache with
+ * one playback-start `prepareForPlayback` so the token the 401 rejected is known.
  *
  * Coverage:
  * - Happy path: refresh produces a new token → non-null request with updated Authorization.
@@ -46,14 +43,13 @@ class AudioTokenAuthenticatorTest :
     FunSpec({
 
         test("returns rebuilt request with new bearer token when refresh yields a new token") {
-            // FailThenRotateRepository: init's refresh fails → fallbackToStored → getToken()="stored".
+            // FailThenRotateRepository: the priming refresh fails → fallbackToStored → getToken()="stored".
             // authenticate's refresh succeeds with "rotated" → previousToken≠newToken → request rebuilt.
             val provider =
                 CachedAudioTokenProvider(
                     StubAudioAuthSession(),
                     FailThenRotateRepository(),
-                    CoroutineScope(Dispatchers.Unconfined + Job()),
-                )
+                ).also { runBlocking { it.prepareForPlayback() } }
             val request = Request.Builder().url("https://example.com/audio/seg1.ts").build()
             val response =
                 Response
@@ -72,15 +68,14 @@ class AudioTokenAuthenticatorTest :
         }
 
         test("returns null when token refresh produces the same token as before") {
-            // AlwaysSameTokenRepository: every refresh returns "stored". After init the cached
+            // AlwaysSameTokenRepository: every refresh returns "stored". After priming the cached
             // token is "stored"; authenticate triggers another refresh that also returns "stored"
             // → newToken == previousToken → give-up path returns null.
             val provider =
                 CachedAudioTokenProvider(
                     StubAudioAuthSession(),
                     AlwaysSameTokenRepository(),
-                    CoroutineScope(Dispatchers.Unconfined + Job()),
-                )
+                ).also { runBlocking { it.prepareForPlayback() } }
             val request = Request.Builder().url("https://example.com/audio/seg1.ts").build()
             val response =
                 Response

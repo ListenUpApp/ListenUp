@@ -17,10 +17,12 @@ import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.ktor.http.URLProtocol
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 
@@ -54,9 +56,9 @@ private fun fakeContractSession(
  * Coverage matrix:
  *  - Success → BearerTokens returned for the retry (persistence is the single-flight refresh's job, C1).
  *  - Failure(InvalidRefreshToken) and Failure(SessionExpired) → auth state cleared.
- *  - Failure(NetworkUnavailable) and other transient errors → auth state preserved.
+ *  - Any other Failure, or a transport blowup → auth state preserved, and the failure raised as
+ *    [TransientAuthRefreshException] so the caller's 401 can't be read as a dead session.
  *  - CancellationException → re-thrown per coroutines convention.
- *  - Transport blowup → preserved + null returned.
  */
 class RefreshAuthTokensTest :
     FunSpec({
@@ -106,30 +108,59 @@ class RefreshAuthTokensTest :
             }
         }
 
-        test("Failure(InternalError) preserves auth state") {
+        test("Failure(InternalError) preserves auth state and raises a transient refresh failure") {
             runTest {
                 val authSession = mock<AuthSession>()
                 // saveAuthTokens / clearAuthTokens not stubbed — Mokkery throws if called
 
-                val tokens =
-                    refreshAuthTokens(authSession) {
-                        AppResult.Failure(InternalError())
-                    }
-
-                tokens.shouldBeNull()
+                shouldThrow<TransientAuthRefreshException> {
+                    refreshAuthTokens(authSession) { AppResult.Failure(InternalError()) }
+                }
             }
         }
 
-        test("Failure(ValidationError) preserves auth state") {
+        test("Failure(ValidationError) preserves auth state and raises a transient refresh failure") {
             runTest {
                 val authSession = mock<AuthSession>()
 
-                val tokens =
-                    refreshAuthTokens(authSession) {
-                        AppResult.Failure(ValidationError("bad request"))
-                    }
+                shouldThrow<TransientAuthRefreshException> {
+                    refreshAuthTokens(authSession) { AppResult.Failure(ValidationError("bad request")) }
+                }
+            }
+        }
 
-                tokens.shouldBeNull()
+        test("Failure(CredentialsUnavailable) — a Keystore blip — preserves auth state") {
+            runTest {
+                val authSession = mock<AuthSession>()
+
+                shouldThrow<TransientAuthRefreshException> {
+                    refreshAuthTokens(authSession) { AppResult.Failure(AuthError.CredentialsUnavailable()) }
+                }
+            }
+        }
+
+        // M3: the WebSocket branch. An RPC upgrade's 401 must come back as a 401 (null here) so
+        // RpcAuthRecovery can classify it; only blob requests raise the transient failure.
+        test("a transient refresh failure on an RPC socket upgrade hands the 401 back for RPC recovery") {
+            runTest {
+                val authSession = mock<AuthSession>()
+                val failing: RefreshAccessToken = { AppResult.Failure(InternalError()) }
+
+                bearerRefreshFor(URLProtocol.WS, authSession, failing).shouldBeNull()
+                bearerRefreshFor(URLProtocol.WSS, authSession, failing).shouldBeNull()
+                shouldThrow<TransientAuthRefreshException> { bearerRefreshFor(URLProtocol.HTTP, authSession, failing) }
+                shouldThrow<TransientAuthRefreshException> { bearerRefreshFor(URLProtocol.HTTPS, authSession, failing) }
+            }
+        }
+
+        test("a dead refresh token lapses the session on a socket upgrade too") {
+            runTest {
+                val authSession = mock<AuthSession>()
+                everySuspend { authSession.clearSessionCredentials() } returns Unit
+
+                bearerRefreshFor(URLProtocol.WS, authSession) { AppResult.Failure(AuthError.SessionExpired()) }.shouldBeNull()
+
+                verifySuspend { authSession.clearSessionCredentials() }
             }
         }
 
@@ -147,14 +178,13 @@ class RefreshAuthTokensTest :
             }
         }
 
-        test("Generic transport exception preserves auth state and returns null") {
+        test("Generic transport exception preserves auth state and raises a transient refresh failure") {
             runTest {
                 val authSession = mock<AuthSession>()
 
-                val tokens =
+                shouldThrow<TransientAuthRefreshException> {
                     refreshAuthTokens(authSession) { error("boom") }
-
-                tokens.shouldBeNull()
+                }
             }
         }
     })

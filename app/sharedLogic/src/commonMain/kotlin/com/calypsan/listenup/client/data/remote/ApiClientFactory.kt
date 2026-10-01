@@ -7,6 +7,7 @@ import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.version.ClientIdentity
+import com.calypsan.listenup.core.SecureStorageUnavailableException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.HttpClientConfig
@@ -305,7 +306,14 @@ internal class KtorApiClientFactory(
                     // Load initial tokens from storage
                     loadTokens {
                         val access = authSession.getAccessToken()?.value
-                        val refresh = authSession.getRefreshToken()?.value
+                        // Unreadable right now reads as "no tokens yet": the request goes out bare, its
+                        // 401 routes into refreshTokens below, and that reports the fault typed.
+                        val refresh =
+                            try {
+                                authSession.getRefreshToken()?.value
+                            } catch (_: SecureStorageUnavailableException) {
+                                null
+                            }
 
                         if (access != null && refresh != null) {
                             BearerTokens(
@@ -319,7 +327,7 @@ internal class KtorApiClientFactory(
 
                     // Refresh tokens when receiving 401 Unauthorized
                     refreshTokens {
-                        refreshAuthTokens(authSession, refreshAccessToken)
+                        bearerRefreshFor(response.call.request.url.protocol, authSession, refreshAccessToken)
                     }
 
                     // Send bearer for every request EXCEPT auth endpoints (login, refresh,
@@ -448,6 +456,23 @@ internal class KtorApiClientFactory(
 }
 
 /**
+ * The bearer plugin's refresh, per transport. An RPC socket's upgrade 401 is healed by
+ * [RpcAuthRecovery], which needs to SEE that 401 to classify it — so a transient failure there
+ * hands the 401 back (null). A blob request has no such heal: its 401 would read as SessionExpired
+ * and lapse the session, so the transient failure is raised instead ([refreshAuthTokens]).
+ */
+internal suspend fun bearerRefreshFor(
+    protocol: URLProtocol,
+    authSession: AuthSession,
+    refreshAccessToken: RefreshAccessToken,
+): BearerTokens? =
+    try {
+        refreshAuthTokens(authSession, refreshAccessToken)
+    } catch (e: TransientAuthRefreshException) {
+        if (protocol == URLProtocol.WS || protocol == URLProtocol.WSS) null else throw e
+    }
+
+/**
  * Bridges the bearer plugin's `refreshTokens { }` block to
  * `AuthRepository.refreshAccessToken()`.
  *
@@ -457,9 +482,11 @@ internal class KtorApiClientFactory(
  *  - `Failure(SessionExpired | InvalidRefreshToken)` → the refresh token is dead; soft-clear the
  *    session credentials so state lands in `AuthState.SessionLapsed` (shell stays mounted,
  *    banner offers sign-in) instead of the login wall.
- *  - Any other `Failure` (transport, server unreachable, validation, internal) →
- *    preserve the auth state; returning null lets the original 401 propagate so the
- *    caller can decide how to surface the failure.
+ *  - Any other `Failure` (transport, server unreachable, a credential unreadable right now,
+ *    validation, internal), or a throw → preserve the auth state and raise
+ *    [TransientAuthRefreshException]. Returning null here used to hand the caller its original
+ *    401, which `ErrorMapper` reads as `SessionExpired` — the ErrorBus then lapsed a session whose
+ *    only fault was a network blip mid-refresh. Raised, it maps to a retryable `TransportError`.
  *
  * `CancellationException` is re-raised per coroutines convention.
  */
@@ -490,6 +517,7 @@ internal suspend fun refreshAuthTokens(
 
                     else -> {
                         logger.warn { "Token refresh failed (${result.error}), preserving auth state" }
+                        throw TransientAuthRefreshException(message = "Token refresh failed: ${result.error.code}")
                     }
                 }
                 null
@@ -497,7 +525,9 @@ internal suspend fun refreshAuthTokens(
         }
     } catch (e: CancellationException) {
         throw e
+    } catch (e: TransientAuthRefreshException) {
+        throw e
     } catch (e: Exception) {
         logger.warn(e) { "Token refresh failed at the transport boundary, preserving auth state" }
-        null
+        throw TransientAuthRefreshException(cause = e)
     }

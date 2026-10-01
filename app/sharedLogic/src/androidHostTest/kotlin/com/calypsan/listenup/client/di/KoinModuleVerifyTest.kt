@@ -115,6 +115,11 @@ class KoinModuleVerifyTest :
                         PlaybackPrepareRepository::class,
                         RpcChannel::class,
                         SyncDomainHandler::class,
+                        // The shared audio-token core, now bound here (sharedAudioTokenProvider).
+                        com.calypsan.listenup.client.domain.repository.AuthSession::class,
+                        com.calypsan.listenup.client.domain.repository.AuthRepository::class,
+                        kotlin.time.Clock::class,
+                        Function0::class,
                     ),
             )
         }

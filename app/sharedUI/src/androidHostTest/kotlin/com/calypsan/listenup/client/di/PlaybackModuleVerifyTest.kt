@@ -51,6 +51,8 @@ class PlaybackModuleVerifyTest :
                         PlaybackPreferences::class,
                         DeviceContext::class,
                         PlaybackManager::class,
+                        // The shared audio-token core is bound in androidPlaybackModule (sharedLogic).
+                        com.calypsan.listenup.client.playback.CachedAudioTokenProvider::class,
                         PlaybackPrepareRepository::class,
                         ContributorRepository::class,
                         SeriesRepository::class,

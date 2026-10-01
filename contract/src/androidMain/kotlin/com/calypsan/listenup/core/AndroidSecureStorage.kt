@@ -156,14 +156,25 @@ class AndroidSecureStorage(
         prefs.edit().putString(key, encrypted).commitDurably("save '$key'")
     }
 
+    /**
+     * Folds a transient Keystore fault into `null` — the right answer for a preference or a URL,
+     * whose callers can only shrug. Credentials go through [readCredential], which does not fold.
+     */
     override suspend fun read(key: String): String? =
+        try {
+            readCredential(key)
+        } catch (e: SecureStorageUnavailableException) {
+            logger.warn(e) { "Keystore read for '$key' failed transiently; treated as unavailable" }
+            null
+        }
+
+    override suspend fun readCredential(key: String): String? =
         withContext(Dispatchers.IO) {
             val encrypted = prefs.getString(key, null) ?: return@withContext null
             try {
                 // Retry transient Keystore faults (key pruned/unavailable under memory pressure) so a
-                // momentary blip can't masquerade as "no value" — which would wipe server_url / tokens
-                // and strand the user. Genuine corruption (auth-tag/decode failure) is not transient and
-                // falls straight through to null.
+                // momentary blip usually never surfaces at all. Genuine corruption (auth-tag/decode
+                // failure) is not transient and falls straight through to null.
                 retryOnTransient(
                     maxAttempts = KEYSTORE_READ_ATTEMPTS,
                     isTransient = ::isTransientKeystoreFailure,
@@ -175,10 +186,13 @@ class AndroidSecureStorage(
                 throw e
             } catch (e: Exception) {
                 if (isTransientKeystoreFailure(e)) {
-                    logger.warn(e) { "Keystore read for '$key' failed transiently; treated as unavailable" }
-                } else {
-                    logger.warn(e) { "Decryption failed for key '$key' — data may be corrupted" }
+                    // The bytes are on disk; only the Keystore is unavailable this instant. Saying
+                    // "absent" here is what turned a blip into a permanent sign-out: the refresh
+                    // token read as missing, the refresh reported SessionExpired, and the session
+                    // lapsed with nothing to ever re-read it.
+                    throw SecureStorageUnavailableException(key, e)
                 }
+                logger.warn(e) { "Decryption failed for key '$key' — data may be corrupted" }
                 null
             }
         }

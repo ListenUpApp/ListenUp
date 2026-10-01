@@ -3,9 +3,11 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.RefreshToken
+import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.SecureStorage
+import com.calypsan.listenup.core.SecureStorageUnavailableException
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
@@ -20,6 +22,7 @@ import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -67,6 +70,72 @@ private class RecordingStorage : SecureStorage {
     override suspend fun clear() {
         data.clear()
     }
+}
+
+/**
+ * Storage holding a refresh token it cannot decrypt right now — the Android Keystore blip. Plain
+ * [read] folds the fault into null, as the Android actual does; [readCredential] reports it.
+ */
+private class UnreadableRefreshTokenStorage : SecureStorage {
+    override suspend fun save(
+        key: String,
+        value: String,
+    ) = Unit
+
+    override suspend fun read(key: String): String? = null
+
+    override suspend fun readCredential(key: String): String? =
+        if (key == "refresh_token") throw SecureStorageUnavailableException(key) else null
+
+    override suspend fun delete(key: String) = Unit
+
+    override suspend fun clear() = Unit
+}
+
+/**
+ * A signed-in store whose Keystore can't decrypt some keys for their first few credential reads —
+ * the cold-start blip. Plain [read] folds the fault into null, as the Android actual does.
+ * [unreadableReads] maps a key to how many of its credential reads fail before one succeeds.
+ */
+private class BlippingStorage(
+    private val unreadableReads: MutableMap<String, Int>,
+    /** Android folds a fault into null on plain [read]; Apple's Keychain read throws instead. */
+    private val readFolds: Boolean = true,
+) : SecureStorage {
+    val data =
+        mutableMapOf(
+            "access_token" to "access123",
+            "refresh_token" to "refresh456",
+            "user_id" to "user001",
+            "session_id" to "session789",
+        )
+    val deleted = mutableListOf<String>()
+
+    override suspend fun save(
+        key: String,
+        value: String,
+    ) {
+        data[key] = value
+    }
+
+    override suspend fun read(key: String): String? =
+        if (readFolds) runCatching { readCredential(key) }.getOrNull() else readCredential(key)
+
+    override suspend fun readCredential(key: String): String? {
+        val remaining = unreadableReads[key] ?: 0
+        if (remaining > 0) {
+            unreadableReads[key] = remaining - 1
+            throw SecureStorageUnavailableException(key)
+        }
+        return data[key]
+    }
+
+    override suspend fun delete(key: String) {
+        deleted += key
+        data.remove(key)
+    }
+
+    override suspend fun clear() = data.clear()
 }
 
 private fun createMockServerConfig(): ServerConfig = mock<ServerConfig>()
@@ -231,10 +300,26 @@ class AuthSessionStoreTest :
             }
         }
 
+        test("getRefreshToken reports a token it cannot read right now as unavailable, never as absent") {
+            runTest {
+                val store = createStore(storage = UnreadableRefreshTokenStorage())
+
+                shouldThrow<SecureStorageUnavailableException> { store.getRefreshToken() }
+            }
+        }
+
+        test("getRefreshToken returns null when no refresh token is stored") {
+            runTest {
+                val store = createStore(storage = RecordingStorage())
+
+                store.getRefreshToken() shouldBe null
+            }
+        }
+
         test("getRefreshToken returns stored token") {
             runTest {
                 val storage = createMockStorage()
-                everySuspend { storage.read("refresh_token") } returns "refresh456"
+                everySuspend { storage.readCredential("refresh_token") } returns "refresh456"
                 val store = createStore(storage = storage)
 
                 store.getRefreshToken() shouldBe RefreshToken("refresh456")
@@ -349,9 +434,9 @@ class AuthSessionStoreTest :
                 val storage = createMockStorage()
                 val serverConfig = createMockServerConfig()
                 everySuspend { serverConfig.getServerUrl() } returns ServerUrl("https://api.example.com")
-                everySuspend { storage.read("access_token") } returns "access123"
-                everySuspend { storage.read("user_id") } returns "user001"
-                everySuspend { storage.read("session_id") } returns "session789"
+                everySuspend { storage.readCredential("access_token") } returns "access123"
+                everySuspend { storage.readCredential("user_id") } returns "user001"
+                everySuspend { storage.readCredential("session_id") } returns "session789"
                 val store = createStore(storage = storage, serverConfig = serverConfig)
 
                 store.initializeAuthState()
@@ -367,9 +452,9 @@ class AuthSessionStoreTest :
                 val storage = createMockStorage()
                 val serverConfig = createMockServerConfig()
                 everySuspend { serverConfig.getServerUrl() } returns ServerUrl("https://api.example.com")
-                everySuspend { storage.read("access_token") } returns null
-                everySuspend { storage.read("user_id") } returns null
-                everySuspend { storage.read("session_id") } returns null
+                everySuspend { storage.readCredential("access_token") } returns null
+                everySuspend { storage.readCredential("user_id") } returns null
+                everySuspend { storage.readCredential("session_id") } returns null
                 everySuspend { storage.read("pending_user_id") } returns null
                 everySuspend { storage.read("open_registration") } returns null
                 everySuspend { storage.save(any(), any()) } returns Unit
@@ -568,9 +653,9 @@ class AuthSessionStoreTest :
                 val storage = createMockStorage()
                 val serverConfig = createMockServerConfig()
                 everySuspend { serverConfig.getServerUrl() } returns ServerUrl("https://api.example.com")
-                everySuspend { storage.read("access_token") } returns "access123"
-                everySuspend { storage.read("user_id") } returns null
-                everySuspend { storage.read("session_id") } returns "session789"
+                everySuspend { storage.readCredential("access_token") } returns "access123"
+                everySuspend { storage.readCredential("user_id") } returns null
+                everySuspend { storage.readCredential("session_id") } returns "session789"
                 everySuspend { storage.read("pending_user_id") } returns null
                 everySuspend { storage.read("open_registration") } returns null
                 everySuspend { storage.delete(any()) } returns Unit
@@ -587,9 +672,9 @@ class AuthSessionStoreTest :
                 val storage = createMockStorage()
                 val serverConfig = createMockServerConfig()
                 everySuspend { serverConfig.getServerUrl() } returns ServerUrl("https://api.example.com")
-                everySuspend { storage.read("access_token") } returns "access123"
-                everySuspend { storage.read("user_id") } returns "user001"
-                everySuspend { storage.read("session_id") } returns null
+                everySuspend { storage.readCredential("access_token") } returns "access123"
+                everySuspend { storage.readCredential("user_id") } returns "user001"
+                everySuspend { storage.readCredential("session_id") } returns null
                 everySuspend { storage.read("pending_user_id") } returns null
                 everySuspend { storage.read("open_registration") } returns null
                 everySuspend { storage.delete(any()) } returns Unit
@@ -606,9 +691,9 @@ class AuthSessionStoreTest :
                 val storage = createMockStorage()
                 val serverConfig = createMockServerConfig()
                 everySuspend { serverConfig.getServerUrl() } returns ServerUrl("https://api.example.com")
-                everySuspend { storage.read("access_token") } returns "access123"
-                everySuspend { storage.read("user_id") } returns null
-                everySuspend { storage.read("session_id") } returns null
+                everySuspend { storage.readCredential("access_token") } returns "access123"
+                everySuspend { storage.readCredential("user_id") } returns null
+                everySuspend { storage.readCredential("session_id") } returns null
                 everySuspend { storage.read("pending_user_id") } returns null
                 everySuspend { storage.read("open_registration") } returns null
                 everySuspend { storage.delete(any()) } returns Unit
@@ -663,11 +748,108 @@ class AuthSessionStoreTest :
         // Offline for every branch a signed-in device can land in. The fresh-install row is the one
         // exception: with no session at all, "setup or sign-in?" is asked of the server.
 
+        // 2026-09-30: cold start read credentials through the folding read(), so a Keystore blip on
+        // user_id — with a readable access token — looked like "token without userId", the corruption
+        // branch, and clearAuthTokens() wiped the whole session. A blip on the access token instead
+        // looked like a lapsed session. An unreadable credential is not an absent one.
+        test("a Keystore blip on user_id at cold start neither wipes nor lapses the session") {
+            runTest {
+                val storage = BlippingStorage(mutableMapOf("user_id" to 1))
+                val store = createStore(storage = storage, serverConfig = configuredServer())
+
+                store.initializeAuthState()
+
+                store.authState.value shouldBe AuthState.Authenticated(UserId("user001"), SessionId("session789"))
+                storage.deleted shouldBe emptyList()
+            }
+        }
+
+        test("a Keystore blip on session_id at cold start neither wipes nor lapses the session") {
+            runTest {
+                val storage = BlippingStorage(mutableMapOf("session_id" to 2))
+                val store = createStore(storage = storage, serverConfig = configuredServer())
+
+                store.initializeAuthState()
+
+                store.authState.value shouldBe AuthState.Authenticated(UserId("user001"), SessionId("session789"))
+                storage.deleted shouldBe emptyList()
+            }
+        }
+
+        test("an access token that stays unreadable at cold start is still a held session, not a lapsed one") {
+            runTest {
+                val storage = BlippingStorage(mutableMapOf("access_token" to Int.MAX_VALUE))
+                val store = createStore(storage = storage, serverConfig = configuredServer())
+
+                store.initializeAuthState()
+
+                store.authState.value shouldBe AuthState.Authenticated(UserId("user001"), SessionId("session789"))
+                storage.deleted shouldBe emptyList()
+            }
+        }
+
+        // An unreadable identity is not a corrupt one. Wiping here destroyed a session whose every
+        // byte was still on disk; this launch shows sign-in instead, and the next launch — Keystore
+        // back — finds the session intact.
+        test("a user_id that stays unreadable past every retry signs this launch out without deleting anything") {
+            runTest {
+                val storage = BlippingStorage(mutableMapOf("user_id" to Int.MAX_VALUE))
+                val store = createStore(storage = storage, serverConfig = configuredServer())
+
+                store.initializeAuthState()
+
+                store.authState.value.shouldBeInstanceOf<AuthState.NeedsLogin>()
+                storage.deleted shouldBe emptyList()
+            }
+        }
+
+        test("a Keystore outage across every credential at cold start deletes nothing") {
+            runTest {
+                val storage =
+                    BlippingStorage(
+                        mutableMapOf("access_token" to Int.MAX_VALUE, "user_id" to Int.MAX_VALUE, "session_id" to Int.MAX_VALUE),
+                    )
+                val store = createStore(storage = storage, serverConfig = configuredServer())
+
+                store.initializeAuthState()
+
+                store.authState.value.shouldBeInstanceOf<AuthState.NeedsLogin>()
+                storage.deleted shouldBe emptyList()
+                storage.data.keys shouldBe setOf("access_token", "refresh_token", "user_id", "session_id")
+            }
+        }
+
+        test("a locked Keychain whose every read throws never throws out of cold start and deletes nothing") {
+            runTest {
+                val everything = Int.MAX_VALUE
+                val storage =
+                    BlippingStorage(
+                        mutableMapOf(
+                            "access_token" to everything,
+                            "refresh_token" to everything,
+                            "user_id" to everything,
+                            "session_id" to everything,
+                            "open_registration" to everything,
+                            "pending_user_id" to everything,
+                            "pending_email" to everything,
+                        ),
+                        readFolds = false,
+                    )
+                val store = createStore(storage = storage, serverConfig = configuredServer())
+
+                store.initializeAuthState()
+
+                store.authState.value.shouldBeInstanceOf<AuthState.NeedsLogin>()
+                storage.deleted shouldBe emptyList()
+            }
+        }
+
         test("deriveAuthState: persisted userId WITHOUT an access token derives SessionLapsed") {
             runTest {
                 val storage = createMockStorage()
                 everySuspend { storage.read(any()) } returns null
-                everySuspend { storage.read("user_id") } returns "user-1"
+                everySuspend { storage.readCredential(any()) } returns null
+                everySuspend { storage.readCredential("user_id") } returns "user-1"
                 val serverConfig = createMockServerConfig()
                 everySuspend { serverConfig.getServerUrl() } returns ServerUrl("http://test:8080")
                 val store = createStore(storage = storage, serverConfig = serverConfig)
@@ -682,6 +864,7 @@ class AuthSessionStoreTest :
             runTest {
                 val storage = createMockStorage()
                 everySuspend { storage.read(any()) } returns null
+                everySuspend { storage.readCredential(any()) } returns null
                 everySuspend { storage.save(any(), any()) } returns Unit
                 val serverConfig = createMockServerConfig()
                 everySuspend { serverConfig.getServerUrl() } returns ServerUrl("http://test:8080")
@@ -705,7 +888,8 @@ class AuthSessionStoreTest :
             runTest {
                 val storage = createMockStorage()
                 everySuspend { storage.read(any()) } returns null
-                everySuspend { storage.read("access_token") } returns "orphan-token"
+                everySuspend { storage.readCredential(any()) } returns null
+                everySuspend { storage.readCredential("access_token") } returns "orphan-token"
                 everySuspend { storage.delete(any()) } returns Unit
                 val serverConfig = createMockServerConfig()
                 everySuspend { serverConfig.getServerUrl() } returns ServerUrl("http://test:8080")

@@ -17,10 +17,6 @@ import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
@@ -28,8 +24,8 @@ import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Verifies the Android wrapper preserves the [CachedAudioTokenProvider] fast-path:
- * when init's refresh succeeds and the rotated token is good for >2 minutes,
- * `prepareForPlayback` returns without triggering another refresh.
+ * once a playback start has refreshed and the rotated token is good for >2 minutes,
+ * the next `prepareForPlayback` returns without triggering another refresh.
  */
 class AndroidAudioTokenProviderTest :
     FunSpec({
@@ -39,25 +35,18 @@ class AndroidAudioTokenProviderTest :
             val session = FakeAuthSession()
             val repo = FakeAuthRepository(refreshCalls)
 
-            val scope = CoroutineScope(Job())
-            try {
-                val core = CachedAudioTokenProvider(session, repo, scope)
-                val provider = AndroidAudioTokenProvider(core)
+            val provider = AndroidAudioTokenProvider(CachedAudioTokenProvider(session, repo))
 
-                // Let init's refreshToken() complete
-                runBlocking { delay(200) }
+            // Construction never refreshes; the first playback start does.
+            refreshCalls.get() shouldBe 0
+            runBlocking { provider.prepareForPlayback() }
+            refreshCalls.get() shouldBe 1
 
-                val callsAfterInit = refreshCalls.get()
-                (callsAfterInit >= 1) shouldBe true
+            // prepareForPlayback should NOT call refresh again — the rotated
+            // session was issued with an expiry hours in the future.
+            runBlocking { provider.prepareForPlayback() }
 
-                // prepareForPlayback should NOT call refresh again — the rotated
-                // session was issued with an expiry hours in the future.
-                runBlocking { provider.prepareForPlayback() }
-
-                refreshCalls.get() shouldBe callsAfterInit
-            } finally {
-                scope.cancel()
-            }
+            refreshCalls.get() shouldBe 1
         }
     })
 

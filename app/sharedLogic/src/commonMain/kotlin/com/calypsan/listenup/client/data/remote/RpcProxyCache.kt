@@ -284,7 +284,7 @@ internal class RpcProxyCache<T : Any>(
                     ) -> {
                     when (authRecovery.refreshAndRebuild()) {
                         AuthRecoveryOutcome.Refreshed -> resubscribe(subscribe)
-                        AuthRecoveryOutcome.Transient -> throw TransientAuthRefreshException(e)
+                        AuthRecoveryOutcome.Transient -> throw TransientAuthRefreshException(cause = e)
                         AuthRecoveryOutcome.SessionInvalid -> throw SessionLapsedException(e)
                     }
                 }
@@ -481,7 +481,7 @@ internal class RpcProxyCache<T : Any>(
             // to SessionExpired → logout). A network blip must never log the user out.
             AuthRecoveryOutcome.Transient -> {
                 logger.warn { "Refresh transiently failed during 401-heal; keeping session (retryable)" }
-                throw TransientAuthRefreshException(e)
+                throw TransientAuthRefreshException(cause = e)
             }
 
             // Server-confirmed invalid refresh token — lapse the session. Typed rather than a

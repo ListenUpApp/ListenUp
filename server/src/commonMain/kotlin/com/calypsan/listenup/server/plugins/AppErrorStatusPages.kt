@@ -244,6 +244,7 @@ private fun AuthError.toHttpStatus(): HttpStatusCode =
         is AuthError.ResetCodeIncorrect -> HttpStatusCode.BadRequest
         is AuthError.ResetAttemptsExhausted -> HttpStatusCode.TooManyRequests
         is AuthError.RootResetUnavailable -> HttpStatusCode.Forbidden
+        is AuthError.CredentialsUnavailable -> HttpStatusCode.ServiceUnavailable
     }
 
 private fun ScanError.toHttpStatus(): HttpStatusCode =

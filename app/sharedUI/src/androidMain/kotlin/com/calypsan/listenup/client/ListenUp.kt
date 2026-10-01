@@ -44,7 +44,6 @@ import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.shortcuts.ListenUpShortcutManager
 import com.calypsan.listenup.client.playback.AndroidAudioTokenProvider
-import com.calypsan.listenup.client.playback.CachedAudioTokenProvider
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.AudioTokenRecovery
 import com.calypsan.listenup.client.playback.AndroidPlaybackController
@@ -210,17 +209,9 @@ val playbackModule =
             CoroutineScope(SupervisorJob() + Dispatchers.IO)
         }
 
-        // Audio token provider — shared core wrapped by the Android-specific
-        // OkHttp-interceptor adapter. Both must be singletons so the
-        // PlaybackService and the AudioTokenProvider consumers share the same
-        // cached token.
-        single {
-            CachedAudioTokenProvider(
-                authSession = get(),
-                authRepository = get(),
-                scope = get(),
-            )
-        }
+        // Audio token provider — the shared core (bound in androidPlaybackModule) wrapped by the
+        // Android-specific OkHttp-interceptor adapter. Both are singletons so the PlaybackService
+        // and the AudioTokenProvider consumers share the same cached token.
         single { AndroidAudioTokenProvider(core = get()) }
         single<AudioTokenProvider> { get<AndroidAudioTokenProvider>() }
         single<AudioTokenRecovery> { get<AndroidAudioTokenProvider>() }
