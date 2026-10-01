@@ -375,11 +375,19 @@ class PlaybackPreparerTest :
                         autoRewindEnabled = false,
                     )
 
-                preparer.prepare(bookId).getOrNull().shouldNotBeNull().resumePositionMs shouldBe 0L
+                preparer
+                    .prepare(bookId)
+                    .getOrNull()
+                    .shouldNotBeNull()
+                    .resumePositionMs shouldBe 0L
                 tracker.onPlaybackPaused(bookId, positionMs = pos430, speed = 1.0f, durationMs = 2 * pos600)
                 advanceUntilIdle()
 
-                preparer.prepare(bookId).getOrNull().shouldNotBeNull().resumePositionMs shouldBe pos430
+                preparer
+                    .prepare(bookId)
+                    .getOrNull()
+                    .shouldNotBeNull()
+                    .resumePositionMs shouldBe pos430
             }
         }
 
@@ -409,7 +417,11 @@ class PlaybackPreparerTest :
                 tracker.onPlaybackPaused(bookId, positionMs = 70_102L, speed = 1.0f, durationMs = durationMs)
                 advanceUntilIdle()
 
-                preparer.prepare(bookId).getOrNull().shouldNotBeNull().resumePositionMs shouldBe 70_102L
+                preparer
+                    .prepare(bookId)
+                    .getOrNull()
+                    .shouldNotBeNull()
+                    .resumePositionMs shouldBe 70_102L
             }
         }
 
