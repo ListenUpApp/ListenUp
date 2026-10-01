@@ -26,6 +26,7 @@ class HardcoverBookLinking(
     private val access: BookAccessPolicy,
     private val rateLimiter: HardcoverRateLimiter,
     private val pulls: HardcoverPullRequests,
+    private val catalog: HardcoverCatalogCache,
 ) {
     /** Catalog candidates for [query], best first, through [userId]'s connection. */
     suspend fun searchCatalog(
@@ -65,6 +66,7 @@ class HardcoverBookLinking(
                     },
                 ).valueOr { return it.toFailure("booksByIds") }
                 .associateBy { it.id }
+        catalog.remember(books.values)
         return AppResult.Success(
             hits.map { hit ->
                 val book = books[hit.bookId]
@@ -74,6 +76,7 @@ class HardcoverBookLinking(
                     title = book?.title ?: hit.title,
                     authors = book?.authors?.takeIf { it.isNotEmpty() } ?: hit.authors,
                     releaseYear = book?.releaseYear ?: hit.releaseYear,
+                    ratingsCount = book?.count,
                 )
             },
         )

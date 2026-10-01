@@ -49,6 +49,7 @@ private class LinkingRig(
     private val oauth = HardcoverOAuthClient(HttpClient(), "id", "https://hc.test")
     private val linker = HardcoverLinker(oauth, hardcover.client(), connections, CoroutineScope(Dispatchers.Unconfined), clock)
     val pulls = RecordingPullRequests()
+    val catalog = HardcoverCatalogCache(hardcover.client(), NoWaitRateLimiter())
     val linking =
         HardcoverBookLinking(
             graphQl = hardcover.client(),
@@ -60,6 +61,7 @@ private class LinkingRig(
             access = BookAccessPolicy(dbs.sql, dbs.driver),
             rateLimiter = NoWaitRateLimiter(),
             pulls = pulls,
+            catalog = catalog,
         )
     val service = HardcoverServiceImpl(linker, clientIdConfigured = true, linking = linking, pulls = pulls)
 
@@ -75,6 +77,8 @@ private class LinkingRig(
                 listOf("Andy Weir"),
                 readingFormatId = 2,
                 defaultAudioEditionId = 9_001L,
+                ratingsCount = 8_107,
+                releaseYear = 2021,
             ),
         )
     }
@@ -96,7 +100,16 @@ class HardcoverBookLinkingTest :
                 connect()
                 serviceAs(UserRole.ROOT).searchCatalog("hail mary") shouldBe
                     AppResult.Success(
-                        listOf(HardcoverBookCandidate(427_578L, 9_001L, "Project Hail Mary", listOf("Andy Weir"), releaseYear = null)),
+                        listOf(
+                            HardcoverBookCandidate(
+                                427_578L,
+                                9_001L,
+                                "Project Hail Mary",
+                                listOf("Andy Weir"),
+                                releaseYear = 2021,
+                                ratingsCount = 8_107,
+                            ),
+                        ),
                     )
                 hardcover.operations shouldBe listOf("search", "books_by_ids")
             }
@@ -232,6 +245,14 @@ class HardcoverBookLinkingTest :
                 serviceAs(UserRole.ROOT).linkBook(BookId(BOOK), 427_578L, 9_001L) shouldBe AppResult.Success(Unit)
                 serviceAs(UserRole.ROOT).unlinkBook(BookId(BOOK)) shouldBe AppResult.Success(Unit)
                 pulls.matchChanges shouldBe listOf(USER to BOOK, USER to BOOK)
+            }
+        }
+
+        test("a search remembers what it found, so naming the pick costs nothing more") {
+            linkingTest {
+                connect()
+                serviceAs(UserRole.ROOT).searchCatalog("hail mary")
+                catalog.cached(427_578L)?.title shouldBe "Project Hail Mary"
             }
         }
     })

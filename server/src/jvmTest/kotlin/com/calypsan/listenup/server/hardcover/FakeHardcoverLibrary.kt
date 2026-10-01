@@ -113,6 +113,8 @@ class FakeHardcoverLibrary(
         val isbn13: String? = null,
         val readingFormatId: Int = 1,
         val defaultAudioEditionId: Long? = null,
+        val ratingsCount: Int = 0,
+        val releaseYear: Int? = null,
     )
 
     private val lock = Any()
@@ -503,7 +505,8 @@ class FakeHardcoverLibrary(
             put("id", edition.bookId)
             put("title", edition.title)
             put("rating", null as Double?)
-            put("ratings_count", 0)
+            put("ratings_count", edition.ratingsCount)
+            put("release_year", edition.releaseYear)
             put("default_audio_edition_id", edition.defaultAudioEditionId)
             putJsonArray("contributions") {
                 edition.authors.forEach { name -> addJsonObject { putJsonObject("author") { put("name", name) } } }

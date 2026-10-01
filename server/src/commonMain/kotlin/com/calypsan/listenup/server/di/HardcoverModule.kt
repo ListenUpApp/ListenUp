@@ -9,6 +9,7 @@ import com.calypsan.listenup.server.hardcover.HardcoverBookIdentities
 import com.calypsan.listenup.server.hardcover.HardcoverBookLinkStore
 import com.calypsan.listenup.server.hardcover.HardcoverBookLinking
 import com.calypsan.listenup.server.hardcover.HardcoverBookMatcher
+import com.calypsan.listenup.server.hardcover.HardcoverCatalogCache
 import com.calypsan.listenup.server.hardcover.HardcoverConnectionStore
 import com.calypsan.listenup.server.hardcover.HardcoverGraphQlClient
 import com.calypsan.listenup.server.hardcover.HardcoverLinker
@@ -150,6 +151,7 @@ fun hardcoverModule(
             )
         }
         hardcoverPull()
+        single { HardcoverCatalogCache(graphQl = get(), rateLimiter = get()) }
         single {
             HardcoverBookLinking(
                 graphQl = get(),
@@ -161,6 +163,7 @@ fun hardcoverModule(
                 access = get(),
                 rateLimiter = get(),
                 pulls = get(),
+                catalog = get(),
             )
         }
         single {
