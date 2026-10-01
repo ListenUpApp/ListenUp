@@ -9,6 +9,7 @@
 --   V27__invites.sql                 (invited_by)
 --   V29__user_profile_fields.sql     (tagline, avatar_type DEFAULT 'auto')
 --   V37__users_timezone.sql          (timezone DEFAULT 'UTC')
+--   V80__hardcover_want_to_read.sql  (starter_shelf_id, hardcover_shelf_id — where Hardcover's Want to Read lands)
 --
 -- SECURITY-RELEVANT CONSTRAINTS preserved verbatim:
 --   * email_normalized UNIQUE — the single structural guarantee that one email maps to one
@@ -42,7 +43,9 @@ CREATE TABLE users (
     tagline          TEXT,
     avatar_type      TEXT    NOT NULL DEFAULT 'auto',
     timezone         TEXT    NOT NULL DEFAULT 'UTC',
-    avatar_updated_at INTEGER NOT NULL DEFAULT 0
+    avatar_updated_at INTEGER NOT NULL DEFAULT 0,
+    starter_shelf_id TEXT,
+    hardcover_shelf_id TEXT
 );
 
 -- Single-row lookup by normalized email — the login / registration uniqueness probe. Indexed

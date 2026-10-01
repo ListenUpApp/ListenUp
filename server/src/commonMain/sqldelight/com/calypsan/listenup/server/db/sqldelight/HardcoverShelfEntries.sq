@@ -1,0 +1,17 @@
+-- hardcover_shelf_entries: the books Hardcover's Want to Read put on a ListenUp shelf (#1539), and the
+-- ones the user then took off by hand. See V80__hardcover_want_to_read.sql for every column's meaning.
+-- FKs (→ users, → books, → shelves, ON DELETE CASCADE) live in the migration DDL.
+CREATE TABLE hardcover_shelf_entries (
+    user_id         TEXT    NOT NULL,
+    book_id         TEXT    NOT NULL,
+    shelf_id        TEXT    NOT NULL,
+    hc_user_book_id INTEGER NOT NULL,
+    state           TEXT    NOT NULL CHECK (state IN ('ON_SHELF', 'USER_REMOVED')),
+    seen_at         INTEGER NOT NULL,
+    updated_at      INTEGER NOT NULL,
+    PRIMARY KEY (user_id, book_id)
+);
+
+CREATE INDEX idx_hardcover_shelf_entries_hc ON hardcover_shelf_entries(user_id, hc_user_book_id);
+CREATE INDEX idx_hardcover_shelf_entries_book ON hardcover_shelf_entries(book_id);
+CREATE INDEX idx_hardcover_shelf_entries_shelf ON hardcover_shelf_entries(shelf_id);

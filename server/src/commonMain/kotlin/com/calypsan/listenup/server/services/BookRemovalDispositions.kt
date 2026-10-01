@@ -98,4 +98,8 @@ internal val bookIdTableDispositions: Map<String, RemovalDisposition> =
         // removed and re-added under a new id must still recognise its own pushes when B3 pulls, or
         // ListenUp's reads would come back as "read on Hardcover".
         "hardcover_pushed_reads" to RemovalDisposition.USER_DATA,
+        // What Hardcover's Want to Read put on a shelf (FK ON DELETE CASCADE): server-internal provenance.
+        // Inert under a tombstoned parent — the access gate keeps a removed book off the shelf and the full
+        // pull's sweep takes its record away — and a hard delete removes it via the FK.
+        "hardcover_shelf_entries" to RemovalDisposition.HARD_CHILD,
     )
