@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
@@ -40,6 +41,9 @@ private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
 /** How long Sync now's own "Syncing" waits for the server's to take over before letting go. */
 private const val SYNC_HANDOFF_MS = 2_000L
 
+/** How long a saved share mode holds on screen waiting for the server's stream to carry it back. */
+private const val SHARE_MODE_HANDOFF_MS = 2_000L
+
 /** What the Hardcover settings screen shows. */
 sealed interface HardcoverSettingsUiState {
     /** Waiting for the server's first answer. */
@@ -73,7 +77,8 @@ sealed interface HardcoverSettingsUiState {
      * [lastSyncedAt] (epoch ms) is the last time anything reached Hardcover or came back, null before the
      * first. [sync] is what the sync line says. [booksToMatch] are the books ListenUp couldn't match,
      * newest first. [isMatchListKnown] is false until the server has answered (and after a failed read):
-     * only a known empty list may say "Every book you've started is matched".
+     * only a known empty list may say "Every book you've started is matched". [shareMode] is when
+     * ListenUp updates Hardcover: the server's, or the one just chosen while [isSavingShareMode].
      */
     data class Connected(
         val username: String,
@@ -83,6 +88,8 @@ sealed interface HardcoverSettingsUiState {
         val sync: HardcoverSyncStatus = HardcoverSyncStatus.Idle,
         val booksToMatch: List<HardcoverBookToMatch> = emptyList(),
         val isMatchListKnown: Boolean = false,
+        val shareMode: HardcoverShareMode = HardcoverShareMode.AS_I_LISTEN,
+        val isSavingShareMode: Boolean = false,
     ) : HardcoverSettingsUiState
 
     /**
@@ -111,7 +118,8 @@ sealed interface HardcoverSettingsEvent {
 
 /**
  * Backs Settings → Account → Hardcover: connect with Hardcover's device sign-in, watch it
- * complete, see who you're connected as, disconnect, and reconnect a broken connection.
+ * complete, see who you're connected as, choose when ListenUp updates Hardcover, disconnect, and
+ * reconnect a broken connection.
  *
  * The server owns the connection — it holds the tokens and does the waiting while the user
  * approves — so [uiState] is a projection of [HardcoverRepository.observeConnection] plus the in-flight
@@ -127,6 +135,9 @@ class HardcoverSettingsViewModel(
     private val starting = MutableStateFlow(false)
     private val disconnecting = MutableStateFlow(false)
     private val requestingSync = MutableStateFlow(false)
+
+    /** The share mode just chosen, shown until the server holds it; null when nothing is saving. */
+    private val pendingShareMode = MutableStateFlow<HardcoverShareMode?>(null)
     private val eventChannel = Channel<HardcoverSettingsEvent>(Channel.BUFFERED)
 
     /** One-shot effects — open the approval page, or show an error. Each is delivered once. */
@@ -170,14 +181,15 @@ class HardcoverSettingsViewModel(
 
     /** The screen's state: [HardcoverSettingsUiState.Loading] until the server first answers. */
     val uiState: StateFlow<HardcoverSettingsUiState> =
-        combine(connection, starting, disconnecting, requestingSync, booksToMatch) {
+        combine(
             connection,
-            isStarting,
-            isDisconnecting,
-            isRequestingSync,
-            books,
-            ->
-            connection.toUiState(isStarting, isDisconnecting, isRequestingSync, books)
+            starting,
+            combine(disconnecting, requestingSync, pendingShareMode, ::InFlight),
+            booksToMatch,
+        ) { connection, isStarting, inFlight, books ->
+            connection
+                .toUiState(isStarting, inFlight.isDisconnecting, inFlight.isRequestingSync, books)
+                .withShareModeSaving(inFlight.pendingShareMode)
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
@@ -267,6 +279,36 @@ class HardcoverSettingsViewModel(
         }
     }
 
+    /**
+     * Chooses when ListenUp updates Hardcover. The choice shows at once, with
+     * [HardcoverSettingsUiState.Connected.isSavingShareMode] while it saves, and holds until the server's
+     * stream carries it back (or [SHARE_MODE_HANDOFF_MS] passes). If the server refuses, the screen goes back
+     * to the mode the server holds and shows the error, so it never claims a mode the server doesn't have.
+     * Ignored outside Connected, for the mode already shown, and while a choice is saving.
+     */
+    fun setShareMode(mode: HardcoverShareMode) {
+        val connected = uiState.value as? HardcoverSettingsUiState.Connected ?: return
+        if (connected.shareMode == mode) return
+        if (!pendingShareMode.compareAndSet(expect = null, update = mode)) return
+        viewModelScope.launch {
+            try {
+                when (val result = repository.setShareMode(mode)) {
+                    is AppResult.Success -> {
+                        withTimeoutOrNull(SHARE_MODE_HANDOFF_MS) {
+                            connection.first { it !is HardcoverConnection.Connected || it.shareMode == mode }
+                        }
+                    }
+
+                    is AppResult.Failure -> {
+                        eventChannel.send(HardcoverSettingsEvent.ShowError(result.error))
+                    }
+                }
+            } finally {
+                pendingShareMode.value = null
+            }
+        }
+    }
+
     private fun booksNamed(ids: List<String>): Flow<List<HardcoverBookToMatch>> =
         if (ids.isEmpty()) {
             flowOf(emptyList())
@@ -320,6 +362,7 @@ private fun HardcoverConnection.toUiState(
                 sync = syncStatusOf(isRequestingSync || isSyncing, syncProblem),
                 booksToMatch = booksToMatch.orEmpty(),
                 isMatchListKnown = booksToMatch != null,
+                shareMode = shareMode,
             )
         }
 
@@ -337,4 +380,22 @@ private fun syncStatusOf(
         isSyncing -> HardcoverSyncStatus.Syncing
         problem != null -> HardcoverSyncStatus.Problem(problem)
         else -> HardcoverSyncStatus.Idle
+    }
+
+/**
+ * The actions in flight, folded into one input so [HardcoverSettingsViewModel.uiState] stays a single
+ * combine: a second stage downstream of the connection would surface intermediate states it conflates.
+ */
+private data class InFlight(
+    val isDisconnecting: Boolean,
+    val isRequestingSync: Boolean,
+    val pendingShareMode: HardcoverShareMode?,
+)
+
+/** [this] showing [pending] as the share mode, saving — when it is Connected and a choice is in flight. */
+private fun HardcoverSettingsUiState.withShareModeSaving(pending: HardcoverShareMode?): HardcoverSettingsUiState =
+    if (this is HardcoverSettingsUiState.Connected && pending != null) {
+        copy(shareMode = pending, isSavingShareMode = true)
+    } else {
+        this
     }
