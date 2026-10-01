@@ -1,6 +1,7 @@
 -- hardcover_outbox: pushes waiting for Hardcover, drained in id order on one lane per user. PROGRESS
 -- rows coalesce: at most one per (user, book), holding the newest position. A row whose book link is
--- NEEDS_MATCH is parked (skipped) until the user links the book.
+-- NEEDS_MATCH is parked (skipped) until the user links the book. A HISTORY row (#1540) sends one read
+-- finished before connecting; history_read_id names that book_reads row (NULL for every live row).
 -- FKs (→ users, → books ON DELETE CASCADE) live in the migration DDL.
 CREATE TABLE hardcover_outbox (
     id                        INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -12,10 +13,13 @@ CREATE TABLE hardcover_outbox (
     created_at                INTEGER NOT NULL,
     attempts                  INTEGER NOT NULL DEFAULT 0,
     next_attempt_at           INTEGER NOT NULL,
-    last_error                TEXT
+    last_error                TEXT,
+    history_read_id           TEXT
 );
 
 CREATE INDEX idx_hardcover_outbox_user_book ON hardcover_outbox(user_id, book_id, op);
+
+CREATE INDEX idx_hardcover_outbox_history_read ON hardcover_outbox(user_id, history_read_id);
 
 insertOp:
 INSERT INTO hardcover_outbox (user_id, book_id, listen_through_started_at, op, payload, created_at, attempts, next_attempt_at, last_error)

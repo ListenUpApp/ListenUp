@@ -1,10 +1,11 @@
--- hardcover_pushed_reads: every Hardcover read ListenUp opened or continued, kept so the pull (B3)
--- can skip its own pushes. No FK to books on purpose (see V76); FK → users lives in the migration.
+-- hardcover_pushed_reads: every Hardcover read ListenUp opened or continued (origin LIVE) or wrote as
+-- history (origin HISTORY, #1540), kept so the pull (B3) can skip its own pushes. No FK to books on purpose (see V76); FK → users lives in the migration.
 CREATE TABLE hardcover_pushed_reads (
     user_id     TEXT    NOT NULL,
     hc_read_id  INTEGER NOT NULL,
     book_id     TEXT    NOT NULL,
     recorded_at INTEGER NOT NULL,
+    origin      TEXT    NOT NULL DEFAULT 'LIVE',
     PRIMARY KEY (user_id, hc_read_id)
 );
 

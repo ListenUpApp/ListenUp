@@ -1,0 +1,21 @@
+-- hardcover_history: one row per user — the offer to send the books they finished in ListenUp before
+-- connecting Hardcover (#1540), and how far it has got. See V81__hardcover_history.sql for each column.
+-- hardcover_history_reads: the ledger of history reads handled, SENT or ALREADY_THERE.
+-- Both survive a disconnect. FKs (→ users, → book_reads ON DELETE CASCADE) live in the migration DDL.
+CREATE TABLE hardcover_history (
+    user_id     TEXT    NOT NULL PRIMARY KEY,
+    hc_user_id  INTEGER NOT NULL,
+    state       TEXT    NOT NULL,
+    total_books INTEGER NOT NULL,
+    updated_at  INTEGER NOT NULL
+);
+
+CREATE TABLE hardcover_history_reads (
+    user_id     TEXT    NOT NULL,
+    read_id     TEXT    NOT NULL,
+    outcome     TEXT    NOT NULL,
+    recorded_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, read_id)
+);
+
+CREATE INDEX idx_hardcover_history_reads_read ON hardcover_history_reads(read_id);
