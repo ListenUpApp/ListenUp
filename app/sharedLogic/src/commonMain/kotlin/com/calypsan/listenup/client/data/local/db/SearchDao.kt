@@ -246,35 +246,6 @@ internal interface SearchDao {
     // ==================== HELPER QUERIES FOR DENORMALIZATION ====================
 
     /**
-     * Get primary author name for a book.
-     *
-     * Returns the first author found. Books may have multiple authors,
-     * but we only index the first one for search simplicity.
-     */
-    @Query(
-        """
-        SELECT c.name FROM contributors c
-        INNER JOIN book_contributors bc ON bc.contributorId = c.id
-        WHERE bc.bookId = :bookId AND LOWER(bc.role) = 'author'
-        LIMIT 1
-    """,
-    )
-    suspend fun getPrimaryAuthorName(bookId: String): String?
-
-    /**
-     * Get primary narrator name for a book.
-     */
-    @Query(
-        """
-        SELECT c.name FROM contributors c
-        INNER JOIN book_contributors bc ON bc.contributorId = c.id
-        WHERE bc.bookId = :bookId AND LOWER(bc.role) = 'narrator'
-        LIMIT 1
-    """,
-    )
-    suspend fun getPrimaryNarratorName(bookId: String): String?
-
-    /**
      * Get series names for a book (comma-separated, alphabetically sorted).
      *
      * Returns names of all series the book belongs to, joined with comma.
@@ -322,10 +293,8 @@ internal interface SearchDao {
      *
      * Using [MIN] over contributor names rather than an arbitrary `LIMIT 1`
      * produces a deterministic result when a book has multiple authors — the
-     * same author is always chosen across rebuild runs. The per-book
-     * [getPrimaryAuthorName] uses `LIMIT 1` without ordering, which has the
-     * same single-author semantics but is non-deterministic for multi-author
-     * books; this batch variant is strictly more consistent.
+     * same author is always chosen across rebuild runs, and by the targeted
+     * [getPrimaryAuthorNamesFor] too.
      *
      * @return List of `(bookId, authorName)` pairs — one row per book that has an author.
      *   Books with no author contributor are absent from the result.
