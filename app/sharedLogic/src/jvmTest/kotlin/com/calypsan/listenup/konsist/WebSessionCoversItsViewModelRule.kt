@@ -252,6 +252,11 @@ private val EXCUSED =
         // panel — in-flight sync is chrome the reader has nothing to decide about — and wires only
         // the dead-letter half of this ViewModel (see DeadLetterStore).
         "SyncIndicatorViewModel.toggleExpanded",
+        // Snackbar acknowledgement. Android and iOS show a failed permission save as a snackbar and
+        // call this once it is dismissed; web shows `Ready.error` as an inline alert, which has no
+        // dismissal. The ViewModel clears `error` whenever a later save succeeds (2026-09-30, after
+        // per-receiver matching showed nothing on web ever cleared the alert), so web needs no call.
+        "UserDetailViewModel.clearError",
         // ── FALSE POSITIVE (capability present under another name) ────────────────────────────
         // Reached through the session's `close = store::clear`: clearing the ViewModelStore runs
         // `onCleared`, which calls `close()`. `close` exists for iOS, which has no store to clear.
@@ -290,14 +295,6 @@ private val EXCUSED =
         // web's own KDoc already explains the omission — this rule strips comments, so a documented
         // decision is indistinguishable from an oversight until a human looks. Then move it up to a
         // labelled section or close it and delete the line.
-        //
-        // Surfaced 2026-09-30 when matching went per receiver (CreateInviteViewModel.clearError in the
-        // same file had been standing in for it). Android and iOS show a failed permission save as a
-        // snackbar and then call this; web renders `Ready.error` as an inline alert instead, and
-        // nothing on web clears it — a successful toggle after a failed one leaves the old alert up,
-        // because the success path only copies `isSaving` and `user`. Looks like a real gap; triage
-        // whether the fix is web wiring this or the ViewModel clearing `error` on success.
-        "UserDetailViewModel.clearError",
     )
 
 /**

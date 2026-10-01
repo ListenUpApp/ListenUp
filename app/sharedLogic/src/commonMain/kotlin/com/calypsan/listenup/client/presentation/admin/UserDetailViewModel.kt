@@ -129,7 +129,9 @@ class UserDetailViewModel(
                 is AppResult.Success -> {
                     val updatedUser = result.data
                     logger.info { "Updated $name for user $userId to $newValue" }
-                    updateReady { reconcile(it, updatedUser).copy(isSaving = false, user = updatedUser) }
+                    // A save that lands makes any earlier failure's error stale; web shows it inline and
+                    // has no snackbar acknowledgement to clear it.
+                    updateReady { reconcile(it, updatedUser).copy(isSaving = false, user = updatedUser, error = null) }
                 }
 
                 is AppResult.Failure -> {
