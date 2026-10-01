@@ -362,6 +362,7 @@ HardcoverSettingsEvent_SealedType
 HardcoverSettingsUiState
 HardcoverSettingsUiState_SealedType
 HardcoverSettingsViewModel
+HardcoverShareMode
 HardcoverSyncProblem
 HardcoverSyncStatus
 HardcoverSyncStatus_SealedType
