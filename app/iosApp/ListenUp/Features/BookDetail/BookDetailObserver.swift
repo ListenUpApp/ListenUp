@@ -119,6 +119,14 @@ final class BookDetailObserver {
     /// point-of-need banner that explains why Play/Download are disabled.
     private(set) var showServerWarning: Bool = false
 
+    // MARK: - Held for review (admin inbox)
+
+    /// Held for review: the page is triage-only (`BookDetailLayout.triage`). Never true for a member.
+    private(set) var isHeld: Bool = false
+    /// A release is in flight — Release shows its spinner.
+    private(set) var isReleasingFromInbox: Bool = false
+    var layout: BookDetailLayout { .forBook(isHeld: isHeld) }
+
     // MARK: - Documents
 
     private(set) var documents: [DocumentRow] = []
@@ -311,6 +319,13 @@ final class BookDetailObserver {
     /// Clears a previous refusal so a fresh confirmation starts clean.
     func clearDeleteError() { viewModel.clearDeleteError() }
 
+    // MARK: - Release (admin)
+
+    /// Releases this held book to everyone. The view confirms first. On success the INBOX row leaves
+    /// Room at once and `isHeld` turns false, so the page becomes the ordinary one; a refusal reaches
+    /// the user through `ErrorAlertCenter`'s alert, as Delete Book's does.
+    func releaseFromInbox() { viewModel.releaseFromInbox() }
+
     // MARK: - Progress
 
     func discardProgress() { viewModel.discardProgress() }
@@ -426,6 +441,8 @@ final class BookDetailObserver {
             canPlay = r.canPlay
             canDownload = r.canDownload
             showServerWarning = r.showServerWarning
+            isHeld = r.isHeld
+            isReleasingFromInbox = r.isReleasingFromInbox
             if isWaitingForWifi != r.isWaitingForWifi {
                 isWaitingForWifi = r.isWaitingForWifi
                 latestDownloadStatus.map { applyDownloadStatus($0) }

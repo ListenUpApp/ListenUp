@@ -203,9 +203,12 @@ struct BookDetailView: View {
             )
 
             VStack(spacing: 20) {
-                serverBanner(observer)
-                resumeBar(observer)
-                actionPills(observer)
+                heldSection(observer)
+                if observer.layout.showsPlayback {
+                    serverBanner(observer)
+                    resumeBar(observer)
+                    actionPills(observer)
+                }
 
                 Divider()
 
@@ -220,11 +223,13 @@ struct BookDetailView: View {
 
                 BookChaptersSection(chapters: observer.chapters)
 
-                ratingSection
+                if observer.layout.showsSocial {
+                    ratingSection
 
-                readersSection
+                    readersSection
 
-                hardcoverSection
+                    hardcoverSection
+                }
 
                 Divider()
 
@@ -265,9 +270,12 @@ struct BookDetailView: View {
                     onOpenCast: { showCast = true }
                 )
 
-                serverBanner(observer)
-                resumeBar(observer)
-                actionPills(observer)
+                heldSection(observer)
+                if observer.layout.showsPlayback {
+                    serverBanner(observer)
+                    resumeBar(observer)
+                    actionPills(observer)
+                }
             }
             .frame(width: railWidth)
 
@@ -283,11 +291,13 @@ struct BookDetailView: View {
 
                 BookChaptersSection(chapters: observer.chapters)
 
-                ratingSection
+                if observer.layout.showsSocial {
+                    ratingSection
 
-                readersSection
+                    readersSection
 
-                hardcoverSection
+                    hardcoverSection
+                }
 
                 Divider()
 
@@ -427,6 +437,7 @@ struct BookDetailView: View {
     @State var showEdit = false
     @State var showChapterEditor = false
     @State var showMetadataMatch = false
+    @State var showReleaseConfirmation = false
     @State private var showCast = false
 
     // MARK: - Shelf picker presentation

@@ -9,8 +9,22 @@ import SwiftUI
 @MainActor
 extension BookDetailView {
 
+    /// The toolbar for the book on screen: the full menu, or — for a held book — Edit alone, in the
+    /// top bar of the view it edits (HIG, Toolbars). Delete, shelf, collection, share and the
+    /// progress resets are not triage (spec §8).
     @ToolbarContentBuilder
     var overflowMenu: some ToolbarContent {
+        if observer?.layout.showsOverflowMenu == false {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(String(localized: "common.edit")) { showEdit = true }
+            }
+        } else {
+            fullOverflowMenu
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var fullOverflowMenu: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
                 Button {
