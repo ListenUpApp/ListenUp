@@ -241,23 +241,31 @@ internal fun HardcoverBookMatch.Linked.toMatchedBook() =
         chosenByYou = chosenByYou,
     )
 
+/** What the screen is matching: the library's answer about the book, once it has one. */
 private sealed interface MatchSubject {
+    /** The book hasn't been read from the library yet. */
     data object Loading : MatchSubject
 
+    /** The book is no longer in the library on this device. */
     data object Missing : MatchSubject
 
+    /** The book, as the library has it, and its match today ([currentMatch], or null). */
     data class Found(
         val book: BookListItem,
         val currentMatch: HardcoverMatchedBook?,
     ) : MatchSubject
 }
 
+/** The one action in flight, so a second tap waits for the first. */
 private sealed interface PendingAction {
+    /** Nothing in flight. */
     data object None : PendingAction
 
+    /** Linking the book to Hardcover book [hcBookId]. */
     data class Linking(
         val hcBookId: Long,
     ) : PendingAction
 
+    /** Removing the book's match. */
     data object Removing : PendingAction
 }
