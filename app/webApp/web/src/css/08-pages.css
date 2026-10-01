@@ -1232,3 +1232,8 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   .luw .bd-held-actions { width: 100%; }
   .luw .bd-held-actions > * { flex: 1; }
 }
+
+/* Book Edit: the line above Collections for a held book. Amber glyph, ink-2 words. */
+.luw .bke-held-note { display: flex; align-items: center; gap: 8px; margin: 0 0 var(--sp-8);
+  font-size: var(--fs-small); color: var(--ink-2); }
+.luw .bke-held-note svg { color: var(--warn); flex: none; }
