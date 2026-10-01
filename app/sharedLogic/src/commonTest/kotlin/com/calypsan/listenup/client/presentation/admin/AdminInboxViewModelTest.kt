@@ -321,6 +321,48 @@ class AdminInboxViewModelTest :
             }
         }
 
+        test("a release with no library to release into says so, and sends nothing") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                every { f.libraryRepo.observeAll() } returns flowOf(emptyList())
+                f.inbox.hold("b1")
+                val vm = observed(f.build())
+                advanceUntilIdle()
+
+                vm.toggleBookSelection("b1")
+                vm.releaseSelected()
+                advanceUntilIdle()
+
+                val ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                ready.error shouldBe "No library available"
+                ready.isReleasing shouldBe false
+                f.inbox.releases shouldBe emptyList()
+            }
+        }
+
+        test("a book released elsewhere and held again comes back unselected") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.inbox.hold("b1", "b2")
+                val vm = observed(f.build())
+                advanceUntilIdle()
+                vm.toggleBookSelection("b1")
+                advanceUntilIdle()
+
+                // Released elsewhere, then a rescan holds it again — both through sync, i.e. Room.
+                f.inbox.held.value = setOf(BookId("b2"))
+                advanceUntilIdle()
+                f.inbox.hold("b1")
+                advanceUntilIdle()
+
+                val ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                ready.bookIds shouldBe listOf("b2", "b1")
+                withClue("a selection made for a hold that has ended must not carry over to the new one") {
+                    ready.selectedBookIds shouldBe emptySet()
+                }
+            }
+        }
+
         test("nothing is read until someone observes the inbox") {
             runTest(dispatcher) {
                 val f = Fixture()
@@ -351,6 +393,9 @@ class AdminInboxViewModelTest :
             runTest(dispatcher) {
                 val f = Fixture()
                 f.inbox.heldSource = flow { throw IllegalStateException("disk I/O error") }
+                // Issues that load fine must not paper over the failed held read with a half-populated Ready.
+                f.inbox.scanIssues =
+                    AppResult.Success(listOf(ScanIssue("i1", "Author/A", ScanIssueReason.FILE_UNREADABLE, null, 1L, 1L)))
                 val vm = observed(f.build())
                 advanceUntilIdle()
 

@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -119,6 +120,9 @@ class AdminInboxViewModel internal constructor(
         heldReadAttempts
             .flatMapLatest {
                 heldBooks()
+                    // A book that stops being held drops out of the stored selection, so if it is held
+                    // again later it comes back unselected rather than pre-armed for release.
+                    .onEach { held -> overlay.update { it.copy(selected = it.selected.intersect(held.ids.toSet())) } }
                     .map<HeldBooks, HeldLoad> { HeldLoad.Loaded(it) }
                     // Only a Retry from Error shows Loading; a re-subscription to a Ready inbox must not flash it.
                     .onStart { if (state.value is AdminInboxUiState.Error) emit(HeldLoad.Loading) }
@@ -134,6 +138,7 @@ class AdminInboxViewModel internal constructor(
      * and keeps the last answer: the held-books half is independently useful, and losing it — or the
      * issues already shown — because one call failed would be a worse answer than showing what we have.
      */
+    // A StateFlow, not a plain Flow: it keeps the last answer through a failed reload (filterNotNull drops the null).
     private val scanIssues: StateFlow<List<ScanIssue>?> =
         merge(
             scanIssueLoadAttempts.map { },
@@ -271,7 +276,7 @@ class AdminInboxViewModel internal constructor(
                     overlay.update {
                         it.copy(
                             isReleasing = false,
-                            selected = it.selected - releasing,
+                            selected = it.selected.intersect(ready.bookIds.toSet()) - releasing,
                             lastReleasedCount = releasing.size,
                         )
                     }
@@ -287,9 +292,10 @@ class AdminInboxViewModel internal constructor(
 
     /** Toggle a book's selection for batch release. */
     fun toggleBookSelection(bookId: String) {
-        if (state.value !is AdminInboxUiState.Ready) return
+        val ready = state.value as? AdminInboxUiState.Ready ?: return
         overlay.update { ov ->
-            ov.copy(selected = if (bookId in ov.selected) ov.selected - bookId else ov.selected + bookId)
+            val toggled = if (bookId in ov.selected) ov.selected - bookId else ov.selected + bookId
+            ov.copy(selected = toggled.intersect(ready.bookIds.toSet()))
         }
     }
 
