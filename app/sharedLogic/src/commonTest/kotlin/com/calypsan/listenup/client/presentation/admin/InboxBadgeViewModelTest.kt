@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.admin
 
-import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.test.fake.FakeInboxRepository
 import com.calypsan.listenup.core.BookId
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -31,11 +31,12 @@ class InboxBadgeViewModelTest :
             vararg heldIds: String,
         ) {
             val isAdminFlow = MutableStateFlow(isAdmin)
-            val held = MutableStateFlow(heldIds.map { BookId(it) }.toSet())
+            val inbox = FakeInboxRepository().apply { hold(*heldIds) }
+            val held get() = inbox.held
             val viewModel =
                 InboxBadgeViewModel(
                     userRepository = mock<UserRepository> { every { observeIsAdmin() } returns isAdminFlow },
-                    inboxRepository = mock<InboxRepository> { every { observeHeldBookIds() } returns held },
+                    inboxRepository = inbox,
                 )
         }
 
@@ -69,6 +70,20 @@ class InboxBadgeViewModelTest :
             runTest(dispatcher) {
                 val f = Fixture(isAdmin = false, "b1", "b2")
                 backgroundScope.launch { f.viewModel.heldCount.collect { } }
+                advanceUntilIdle()
+
+                f.viewModel.heldCount.value shouldBe 0
+            }
+        }
+
+        test("losing admin mid-session drops the count to zero") {
+            runTest(dispatcher) {
+                val f = Fixture(isAdmin = true, "b1", "b2")
+                backgroundScope.launch { f.viewModel.heldCount.collect { } }
+                advanceUntilIdle()
+                f.viewModel.heldCount.value shouldBe 2
+
+                f.isAdminFlow.value = false
                 advanceUntilIdle()
 
                 f.viewModel.heldCount.value shouldBe 0
