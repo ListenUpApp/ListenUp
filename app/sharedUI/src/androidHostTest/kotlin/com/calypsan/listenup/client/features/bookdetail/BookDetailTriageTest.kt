@@ -1,11 +1,15 @@
 package com.calypsan.listenup.client.features.bookdetail
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
@@ -28,7 +32,9 @@ import org.robolectric.annotation.Config
  *
  * No Koin is started here on purpose. The rating, readers and Hardcover sections each resolve a
  * ViewModel through `koinViewModel()`; rendering any of them would throw, so this spec passing on
- * both layouts is itself the proof that the triage layout leaves them out.
+ * both layouts is itself the proof that the triage layout leaves them out. On a phone they are lazy
+ * items far below the fold, so the spec scrolls the page through to the chapters first: an item never
+ * composed could not throw, and its absence would prove nothing.
  */
 @RunWith(RobolectricTestRunner::class)
 class BookDetailTriageTest {
@@ -45,6 +51,10 @@ class BookDetailTriageTest {
     fun `on a phone, a held book offers Release, Edit, Match and Edit chapters, and nothing else`() {
         setContent()
         assertTriageOnly()
+        // Walk the lazy page item by item down to the chapters, past where rating, readers and
+        // Hardcover would sit, so each of them would have been composed (and thrown) were it there.
+        composeRule.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Chapters"))
+        composeRule.onNodeWithText("Chapters").assertIsDisplayed()
     }
 
     @Test
@@ -94,7 +104,8 @@ class BookDetailTriageTest {
         // Absent: play, download, and the overflow menu that carries shelf, collection and share.
         // Rating, readers and Hardcover are absent too: see the class KDoc (no Koin is started).
         composeRule.onNodeWithText("Play").assertDoesNotExist()
-        composeRule.onNodeWithText("Download").assertDoesNotExist()
+        // The download control is an icon button: its name is its content description.
+        composeRule.onNodeWithContentDescription("Download book").assertDoesNotExist()
         composeRule.onNodeWithContentDescription("More options").assertDoesNotExist()
         composeRule.onNodeWithText("Add to shelf").assertDoesNotExist()
         composeRule.onNodeWithText("Add to collection").assertDoesNotExist()
