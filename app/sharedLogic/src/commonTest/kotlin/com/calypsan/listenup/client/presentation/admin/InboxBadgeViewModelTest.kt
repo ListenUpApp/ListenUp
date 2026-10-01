@@ -113,6 +113,21 @@ class InboxBadgeViewModelTest :
             }
         }
 
+        // iOS has no ViewModelStore: the observer closes the VM from its deinit (#1192).
+        test("a closed view model stops following the inbox") {
+            runTest(dispatcher) {
+                val f = Fixture(isAdmin = true, "b1")
+                backgroundScope.launch { f.viewModel.heldCount.collect { } }
+                advanceUntilIdle()
+
+                f.viewModel.close()
+                f.held.value = setOf(BookId("b1"), BookId("b2"))
+                advanceUntilIdle()
+
+                f.viewModel.heldCount.value shouldBe 1
+            }
+        }
+
         test("anyone who is not an admin previews nothing") {
             runTest(dispatcher) {
                 val f = Fixture(isAdmin = false, "b1", "b2")
