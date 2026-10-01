@@ -714,7 +714,9 @@ class TransportBarTest :
             // which would send the listener checking a network that is fine.
             message shouldBe BookError.HeldForReview().message
             message.shouldNotBeNull() shouldNotContain "try again"
-            manager.playbackError.value.shouldNotBeNull().isRecoverable shouldBe false
+            manager.playbackError.value
+                .shouldNotBeNull()
+                .isRecoverable shouldBe false
             manager.currentBookId.value shouldBe null
 
             playback.close()

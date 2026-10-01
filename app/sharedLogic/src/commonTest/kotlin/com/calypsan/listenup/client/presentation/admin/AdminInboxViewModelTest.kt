@@ -172,7 +172,9 @@ class AdminInboxViewModelTest :
                 val vm = f.build()
                 advanceUntilIdle()
 
-                vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>().bookIds shouldBe listOf("b1", "b2")
+                vm.state.value
+                    .shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                    .bookIds shouldBe listOf("b1", "b2")
             }
         }
 
@@ -287,7 +289,9 @@ class AdminInboxViewModelTest :
                 vm.loadInboxBooks()
                 advanceUntilIdle()
 
-                vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>().bookIds shouldBe listOf("b1")
+                vm.state.value
+                    .shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                    .bookIds shouldBe listOf("b1")
             }
         }
 
@@ -303,7 +307,9 @@ class AdminInboxViewModelTest :
 
                 f.inbox.scanIssueLoads shouldBe loadsBefore + 1
                 withClue("held books come from Room; the event must not invent one") {
-                    vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>().bookIds shouldBe emptyList()
+                    vm.state.value
+                        .shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                        .bookIds shouldBe emptyList()
                 }
             }
         }
@@ -367,7 +373,10 @@ class AdminInboxViewModelTest :
                 vm.dismissScanIssue("i1")
                 advanceUntilIdle()
 
-                vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>().scanIssues.map { it.id } shouldBe listOf("i2")
+                vm.state.value
+                    .shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                    .scanIssues
+                    .map { it.id } shouldBe listOf("i2")
             }
         }
     })

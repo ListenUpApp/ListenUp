@@ -233,7 +233,13 @@ class AdminInboxViewModel internal constructor(
                 updateReady { it.copy(isReleasing = false, error = "No library available") }
                 return@launch
             }
-            when (val result = inboxRepository.releaseBooks(libraryId, releasing.associateWith { emptyList<String>() })) {
+            when (
+                val result =
+                    inboxRepository.releaseBooks(
+                        libraryId,
+                        releasing.associateWith { emptyList<String>() },
+                    )
+            ) {
                 is AppResult.Success -> {
                     updateReady { current ->
                         current.copy(

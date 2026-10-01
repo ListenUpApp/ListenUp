@@ -100,7 +100,11 @@ class BookRepositoryImplHeldTest :
                 db.searchDao().insertBookFts("visible", "Mist over the long and winding road", null, null, null, null, null, null)
 
                 // The premise: the held books fill the whole page of the unfiltered search.
-                db.searchDao().searchBooks("mist*", limit = BOOK_SEARCH_LIMIT).map { it.book.id.value }.toSet() shouldBe
+                db
+                    .searchDao()
+                    .searchBooks("mist*", limit = BOOK_SEARCH_LIMIT)
+                    .map { it.book.id.value }
+                    .toSet() shouldBe
                     heldIds.toSet()
 
                 repository(db).search("mist").test {

@@ -154,7 +154,9 @@ class BookDetailViewModelHeldTest :
                 f.heldIds.value = emptySet()
                 advanceUntilIdle()
 
-                vm.state.value.shouldBeInstanceOf<BookDetailUiState.Ready>().isHeld shouldBe false
+                vm.state.value
+                    .shouldBeInstanceOf<BookDetailUiState.Ready>()
+                    .isHeld shouldBe false
             }
         }
 
@@ -171,7 +173,9 @@ class BookDetailViewModelHeldTest :
                 advanceUntilIdle()
 
                 verifySuspend { f.inboxRepository.releaseBooks("test-library", mapOf("book-1" to emptyList())) }
-                vm.state.value.shouldBeInstanceOf<BookDetailUiState.Ready>().isReleasingFromInbox shouldBe false
+                vm.state.value
+                    .shouldBeInstanceOf<BookDetailUiState.Ready>()
+                    .isReleasingFromInbox shouldBe false
             }
         }
 
