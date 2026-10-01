@@ -53,6 +53,27 @@ class PlaybackPositionDaoHeldExclusionTest :
             }
         }
 
+        test("observeRecentPositions — a book held mid-subscription leaves Continue Listening") {
+            withHeldBookDb { db ->
+                HeldBookFixture.seedBook(db, "visible")
+                HeldBookFixture.seedBook(db, "other")
+                HeldBookFixture.publish(db, "visible")
+                HeldBookFixture.publish(db, "other")
+                db.playbackPositionDao().save(position("other", lastPlayedAt = 1_000L))
+                db.playbackPositionDao().save(position("visible", lastPlayedAt = 2_000L))
+                db
+                    .playbackPositionDao()
+                    .observeRecentPositions(limit = 1)
+                    .map { rows -> rows.map { it.bookId.value } }
+                    .test {
+                        awaitItem() shouldContainExactly listOf("visible")
+                        HeldBookFixture.hold(db, "visible")
+                        awaitItemMatching { it == listOf("other") } shouldContainExactly listOf("other")
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
+
         test("getRecentPositions — voice resume, Android Auto, iOS resume, media resumption") {
             withHeldBookDb { db ->
                 seedPositions(db)
