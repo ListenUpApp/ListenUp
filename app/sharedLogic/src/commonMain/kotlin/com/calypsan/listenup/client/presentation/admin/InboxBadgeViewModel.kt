@@ -4,10 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 
 /**
@@ -24,15 +28,29 @@ class InboxBadgeViewModel(
     userRepository: UserRepository,
     inboxRepository: InboxRepository,
 ) : ViewModel() {
-    /** Books held for review, or 0 when there are none or the viewer is not an admin. */
-    val heldCount: StateFlow<Int> =
+    /**
+     * The held set as this viewer sees it, oldest hold first: everything held for an admin, nothing
+     * for anyone else. One subscription to Room and to the admin flag, shared by [heldCount] and
+     * [previewBookIds] rather than each opening its own.
+     */
+    private val visibleHeld: Flow<List<BookId>> =
         combine(userRepository.observeIsAdmin(), inboxRepository.observeHeldBookIds()) { isAdmin, held ->
-            if (isAdmin) held.size else 0
-        }.stateIn(
+            if (isAdmin) held.toList() else emptyList()
+        }.shareIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = 0,
+            replay = 1,
         )
+
+    /** Books held for review, or 0 when there are none or the viewer is not an admin. */
+    val heldCount: StateFlow<Int> =
+        visibleHeld
+            .map { it.size }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = 0,
+            )
 
     /**
      * The newest held books, newest first, at most [PREVIEW_SIZE] — the covers the Library entry
@@ -40,21 +58,13 @@ class InboxBadgeViewModel(
      * the id alone. Empty whenever [heldCount] is 0, including for anyone who is not an admin.
      */
     val previewBookIds: StateFlow<List<String>> =
-        combine(userRepository.observeIsAdmin(), inboxRepository.observeHeldBookIds()) { isAdmin, held ->
-            if (isAdmin) {
-                held
-                    .toList()
-                    .takeLast(PREVIEW_SIZE)
-                    .reversed()
-                    .map { it.value }
-            } else {
-                emptyList()
-            }
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = emptyList(),
-        )
+        visibleHeld
+            .map { held -> held.takeLast(PREVIEW_SIZE).reversed().map { it.value } }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = emptyList(),
+            )
 
     /**
      * Cancels this ViewModel's coroutines. Idempotent. Android clears it through its

@@ -22,6 +22,10 @@ interface InboxRepository {
      * The books currently held for review, oldest hold first. The one held set the inbox page, the
      * Library entry, the navigation badge and Book Detail all read. Always empty on a member's
      * device, which never receives INBOX rows.
+     *
+     * The iteration order is part of the contract, not an accident of the backing set: consumers
+     * take the newest holds from its end (the Library entry's cover fan), so an implementation must
+     * emit an insertion-ordered set, oldest hold first.
      */
     fun observeHeldBookIds(): Flow<Set<BookId>>
 

@@ -90,6 +90,20 @@ class InboxBadgeViewModelTest :
             }
         }
 
+        test("the count and the preview share one subscription to the held set") {
+            runTest(dispatcher) {
+                val f = Fixture(isAdmin = true, "b1", "b2")
+                backgroundScope.launch { f.viewModel.heldCount.collect { } }
+                backgroundScope.launch { f.viewModel.previewBookIds.collect { } }
+                advanceUntilIdle()
+
+                f.held.subscriptionCount.value shouldBe 1
+                f.isAdminFlow.subscriptionCount.value shouldBe 1
+                f.viewModel.heldCount.value shouldBe 2
+                f.viewModel.previewBookIds.value shouldBe listOf("b2", "b1")
+            }
+        }
+
         test("the preview is the newest three held books, newest first") {
             runTest(dispatcher) {
                 val f = Fixture(isAdmin = true, "b1", "b2", "b3", "b4")
