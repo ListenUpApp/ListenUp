@@ -27,6 +27,7 @@ internal fun reader(
     progressPct: Int? = null,
     finishes: List<Long> = emptyList(),
     rating: ListenerRating? = null,
+    hardcoverFinishes: List<Long> = emptyList(),
 ) = Reader(
     userId = userId,
     displayName = displayName,
@@ -34,6 +35,7 @@ internal fun reader(
     currentProgressPct = progressPct,
     finishes = finishes,
     rating = rating,
+    hardcoverFinishes = hardcoverFinishes,
 )
 
 internal fun readerRating(
@@ -131,6 +133,41 @@ class ReadersTest :
             stateLine(ReaderLineKind.Reading(null), READERS_NOW) shouldBe "Listening now"
             stateLine(ReaderLineKind.Reading(42), READERS_NOW) shouldBe "42% through"
             stateLine(ReaderLineKind.Finished(READERS_NOW - DAY), READERS_NOW) shouldBe "Finished yesterday"
+            stateLine(ReaderLineKind.FinishedOnHardcover(READERS_NOW - DAY), READERS_NOW) shouldBe "Read yesterday"
+        }
+
+        test("a Hardcover read says Read with its date and wears a Hardcover label") {
+            val host =
+                panel(
+                    readersData(
+                        reader(userId = "u2", displayName = "Grace Hopper", hardcoverFinishes = listOf(READERS_NOW - DAY)),
+                    ),
+                )
+
+            rows(host).map { it.textContent?.trim() } shouldContainExactly listOf("Grace HopperRead yesterdayHardcover")
+            text(host, ".rdr-src") shouldBe "Hardcover"
+        }
+
+        test("a ListenUp finish wears no Hardcover label") {
+            val host = panel(readersData(reader(userId = "u2", displayName = "Grace Hopper", finishes = listOf(READERS_NOW - DAY))))
+            host.querySelector(".rdr-src").shouldBeNull()
+        }
+
+        test("a Hardcover read and a ListenUp finish of the same day are two lines") {
+            val host =
+                panel(
+                    readersData(
+                        reader(
+                            userId = "u2",
+                            displayName = "Grace Hopper",
+                            finishes = listOf(READERS_NOW - DAY),
+                            hardcoverFinishes = listOf(READERS_NOW - DAY),
+                        ),
+                    ),
+                )
+
+            rows(host).size shouldBe 2
+            host.querySelectorAll(".rdr-src").length shouldBe 1
         }
 
         test("the current user is You, wherever they sit in the list") {

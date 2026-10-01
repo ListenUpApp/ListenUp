@@ -23,4 +23,11 @@ interface HardcoverRepository {
 
     /** Disconnects; see [com.calypsan.listenup.api.HardcoverService.disconnect]. */
     suspend fun disconnect(): AppResult<Unit>
+
+    /**
+     * A client came to the foreground: the server pulls this user's Hardcover shelf if its last pull is
+     * stale. Cheap, and safe to call on every foreground; see
+     * [com.calypsan.listenup.api.HardcoverService.syncIfStale].
+     */
+    suspend fun syncIfStale(): AppResult<Unit>
 }

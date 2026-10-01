@@ -12,7 +12,9 @@ import com.calypsan.listenup.server.api.BookAccessPolicy
  * The manual side of matching (spec B4), behind [com.calypsan.listenup.api.HardcoverService]:
  * search Hardcover's catalog, link a book to the user's pick (which unparks its waiting pushes), and
  * unlink it for "Change match". Search costs one Hardcover `search` plus one lookup for the editions,
- * both paced by the shared [HardcoverRateLimiter].
+ * both paced by the shared [HardcoverRateLimiter]. A link or unlink tells the pull
+ * ([HardcoverPullRequests.onMatchChanged]): reads pulled through the old match no longer belong to the
+ * book, and the whole shelf is re-read.
  */
 class HardcoverBookLinking(
     private val graphQl: HardcoverGraphQlClient,
@@ -23,6 +25,7 @@ class HardcoverBookLinking(
     private val nudge: HardcoverPushNudge,
     private val access: BookAccessPolicy,
     private val rateLimiter: HardcoverRateLimiter,
+    private val pulls: HardcoverPullRequests,
 ) {
     /** Catalog candidates for [query], best first, through [userId]'s connection. */
     suspend fun searchCatalog(
@@ -99,6 +102,7 @@ class HardcoverBookLinking(
         links.linkManually(userId, bookId, hcBookId, hcEditionId)
         outbox.unpark(userId, bookId)
         nudge.nudge(userId)
+        pulls.onMatchChanged(userId, bookId)
         return AppResult.Success(Unit)
     }
 
@@ -117,6 +121,7 @@ class HardcoverBookLinking(
             return AppResult.Failure(BookError.NotFound(debugInfo = "bookId=$bookId"))
         }
         links.unlink(userId, bookId)
+        pulls.onMatchChanged(userId, bookId)
         return AppResult.Success(Unit)
     }
 

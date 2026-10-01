@@ -222,6 +222,23 @@ class HardcoverPushRecorderTest :
             }
         }
 
+        test("a Hardcover read pulled after the listen-through began does not silence its progress") {
+            recorderTest {
+                connect()
+                restart(T0)
+                sql.bookReadsQueries.insert(
+                    id = "pulled",
+                    user_id = USER,
+                    book_id = BOOK,
+                    finished_at = T0 + 10_000L,
+                    source = "hardcover",
+                    created_at = T0 + 10_000L,
+                )
+                listen("e1", endedAtMs = T0 + 90_000L, wallMs = 90_000L, endPositionMs = 90_000L)
+                queued().filterIsInstance<HardcoverPushPayload.Progress>() shouldBe listOf(HardcoverPushPayload.Progress(90L))
+            }
+        }
+
         test("a re-read is a new listen-through: its START is queued as a re-read and lifts an old suppression") {
             recorderTest {
                 connect()

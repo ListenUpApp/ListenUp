@@ -136,6 +136,7 @@ private fun ReaderLine.stableKey(): String =
     when (val lineKind = kind) {
         is ReaderLineKind.Reading -> "$userId:reading"
         is ReaderLineKind.Finished -> "$userId:finished:${lineKind.finishedAtMs}"
+        is ReaderLineKind.FinishedOnHardcover -> "$userId:hardcover:${lineKind.finishedAtMs}"
         ReaderLineKind.Rated -> "$userId:rated"
     }
 
@@ -167,7 +168,15 @@ private fun ReaderRow(
                 // The rating rides on a person's first line only — see `flattenToLines`.
                 line.rating?.let { RatingStars(halfStars = it.halfStars) }
             }
-            Span(attrs = { classes("rdr-s") }) { Text(stateLine(kind, nowMs)) }
+            if (kind is ReaderLineKind.FinishedOnHardcover) {
+                // Where the read was logged, named in text — never the service's logo.
+                Div(attrs = { classes("rdr-sl") }) {
+                    Span(attrs = { classes("rdr-s") }) { Text(stateLine(kind, nowMs)) }
+                    Span(attrs = { classes("rdr-src") }) { Text(HARDCOVER) }
+                }
+            } else {
+                Span(attrs = { classes("rdr-s") }) { Text(stateLine(kind, nowMs)) }
+            }
             line.rating?.note?.let { note ->
                 Span(attrs = { classes("rdr-note") }) { Text("\u201C$note\u201D") }
             }
@@ -176,6 +185,7 @@ private fun ReaderRow(
             when (kind) {
                 is ReaderLineKind.Reading -> WebIcon.Volume
                 is ReaderLineKind.Finished -> WebIcon.Check
+                is ReaderLineKind.FinishedOnHardcover -> WebIcon.Check
                 ReaderLineKind.Rated -> WebIcon.Star
             },
             size = MARK_SIZE,
@@ -189,6 +199,8 @@ private fun ReaderRow(
  * A Reading line with no percentage still says "Listening now": presence tells us they are on the
  * book even when no position has synced, and an empty second line would read as missing data
  * rather than as a reader we know less about.
+ *
+ * A read logged on Hardcover says "Read …", never "Finished …": it wasn't listened to here.
  */
 internal fun stateLine(
     kind: ReaderLineKind,
@@ -198,6 +210,9 @@ internal fun stateLine(
         is ReaderLineKind.Reading -> kind.progressPct?.let { "$it% through" } ?: "Listening now"
 
         is ReaderLineKind.Finished -> "Finished ${relativeOrMonthYear(kind.finishedAtMs, nowMs)}"
+
+        // Logged on Hardcover, not listened to here: it was read, never "finished" in ListenUp.
+        is ReaderLineKind.FinishedOnHardcover -> "Read ${relativeOrMonthYear(kind.finishedAtMs, nowMs)}"
 
         // Rated without reading it here (imported history, say): no progress and no date to give.
         ReaderLineKind.Rated -> "Rated"
@@ -210,3 +225,5 @@ private const val AVATAR_SIZE = 32
 private const val MARK_SIZE = 16
 
 private const val READERS = "Readers"
+
+private const val HARDCOVER = "Hardcover"

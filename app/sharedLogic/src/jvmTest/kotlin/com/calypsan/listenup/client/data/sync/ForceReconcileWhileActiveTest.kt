@@ -169,6 +169,7 @@ class ForceReconcileWhileActiveTest :
                         SyncRepositoryImpl(
                             syncEngine = engine,
                             reevaluateConnection = {},
+                            onForegrounded = { AppResult.Success(Unit) },
                             syncEngineState = state,
                             authSession = authSession,
                             listeningEventRecorder = recorder,

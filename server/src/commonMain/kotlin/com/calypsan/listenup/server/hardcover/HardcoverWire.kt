@@ -156,3 +156,50 @@ internal data class MutationResultWire(
     @SerialName("id") val id: Long? = null,
     @SerialName("error") val error: String? = null,
 )
+
+@Serializable
+internal data class ChangedUserBooksResponse(
+    @SerialName("data") val data: ChangedUserBooksData? = null,
+)
+
+@Serializable
+internal data class ChangedUserBooksData(
+    @SerialName("me") val me: List<ChangedUserBooksMeWire> = emptyList(),
+)
+
+@Serializable
+internal data class ChangedUserBooksMeWire(
+    @SerialName("user_books") val userBooks: List<ChangedUserBookWire> = emptyList(),
+)
+
+/** One `user_books` row as the pull's changed-since query answers it. */
+@Serializable
+internal data class ChangedUserBookWire(
+    @SerialName("id") val id: Long,
+    @SerialName("book_id") val bookId: Long,
+    @SerialName("updated_at") val updatedAt: String,
+    @SerialName("user_book_reads") val reads: List<UserBookReadWire> = emptyList(),
+    @SerialName("edition") val edition: PulledEditionWire? = null,
+    @SerialName("book") val book: BookWire? = null,
+) {
+    fun toEntry(): HardcoverShelfEntry =
+        HardcoverShelfEntry(
+            userBookId = id,
+            hcBookId = bookId,
+            updatedAt = updatedAt,
+            finishedReads = reads.mapNotNull { read -> read.finishedAt?.let { HardcoverFinishedRead(read.id, it) } },
+            title = book?.title,
+            authors = book?.contributions?.mapNotNull { it.author?.name }.orEmpty(),
+            editionAsin = edition?.asin?.takeIf { it.isNotBlank() },
+            editionIsbns = listOfNotNull(edition?.isbn13, edition?.isbn10).filter { it.isNotBlank() },
+            defaultAudioEditionId = book?.defaultAudioEditionId,
+        )
+}
+
+/** The identifiers of the edition a user logged a book as. */
+@Serializable
+internal data class PulledEditionWire(
+    @SerialName("asin") val asin: String? = null,
+    @SerialName("isbn_13") val isbn13: String? = null,
+    @SerialName("isbn_10") val isbn10: String? = null,
+)

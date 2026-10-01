@@ -189,6 +189,24 @@ class HardcoverBookLinkStore(
         readId: Long,
     ): Boolean = suspendTransaction(sql) { sql.hardcoverPushedReadsQueries.isPushedRead(userId, readId).executeAsOne() }
 
+    /** Which of [readIds] ListenUp opened or continued — the pull's echo check, one query per page. */
+    suspend fun pushedReadsAmong(
+        userId: String,
+        readIds: Collection<Long>,
+    ): Set<Long> =
+        if (readIds.isEmpty()) {
+            emptySet()
+        } else {
+            suspendTransaction(
+                sql,
+            ) {
+                sql.hardcoverPushedReadsQueries
+                    .pushedAmong(userId, readIds)
+                    .executeAsList()
+                    .toSet()
+            }
+        }
+
     /** Up to [limit] started, unmatched books of [userId] with ids after [after]. */
     suspend fun unlinkedStartedBooks(
         userId: String,

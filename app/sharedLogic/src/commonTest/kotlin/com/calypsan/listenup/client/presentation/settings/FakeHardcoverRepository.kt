@@ -28,6 +28,14 @@ internal class FakeHardcoverRepository(
     var disconnectCalls = 0
         private set
 
+    var syncIfStaleCalls = 0
+        private set
+
+    override suspend fun syncIfStale(): AppResult<Unit> {
+        syncIfStaleCalls++
+        return AppResult.Success(Unit)
+    }
+
     override fun observeConnection(): Flow<HardcoverConnection> = connection.filterNotNull()
 
     override suspend fun startLink(): AppResult<HardcoverLinkPrompt> {

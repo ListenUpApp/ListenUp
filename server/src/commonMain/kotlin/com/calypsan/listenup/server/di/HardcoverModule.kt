@@ -15,6 +15,10 @@ import com.calypsan.listenup.server.hardcover.HardcoverLinker
 import com.calypsan.listenup.server.hardcover.HardcoverMatchBackfill
 import com.calypsan.listenup.server.hardcover.HardcoverOAuthClient
 import com.calypsan.listenup.server.hardcover.HardcoverOutbox
+import com.calypsan.listenup.server.hardcover.HardcoverPullRequests
+import com.calypsan.listenup.server.hardcover.HardcoverPullStore
+import com.calypsan.listenup.server.hardcover.HardcoverPullWorker
+import com.calypsan.listenup.server.hardcover.HardcoverPuller
 import com.calypsan.listenup.server.hardcover.HardcoverPushExecutor
 import com.calypsan.listenup.server.hardcover.HardcoverPushHook
 import com.calypsan.listenup.server.hardcover.HardcoverPushNudge
@@ -23,9 +27,11 @@ import com.calypsan.listenup.server.hardcover.HardcoverPushWorker
 import com.calypsan.listenup.server.hardcover.HardcoverRateLimiter
 import com.calypsan.listenup.server.hardcover.HardcoverRatingConnection
 import com.calypsan.listenup.server.hardcover.HardcoverRatingSource
+import com.calypsan.listenup.server.hardcover.HardcoverShelfResolver
 import com.calypsan.listenup.server.hardcover.HardcoverTokenCipher
 import com.calypsan.listenup.server.hardcover.HardcoverTokenProvider
 import com.calypsan.listenup.server.hardcover.HardcoverUserBooks
+import com.calypsan.listenup.server.hardcover.HardcoverUserGate
 import com.calypsan.listenup.server.ratings.toIdentity
 import com.calypsan.listenup.server.services.BookRepository
 import io.ktor.client.HttpClient
@@ -46,7 +52,7 @@ private val HARDCOVER_HTTP = named("hardcoverHttp")
  * which the application cancels at shutdown), the [HardcoverTokenProvider], the [HardcoverRatingSource]
  * the metadata registry lists, and [HardcoverService]. It also binds Hardcover push and matching: the
  * outbox, the per-user push worker, the recorder `StatsRecorder` calls, the background match pass,
- * and manual linking.
+ * manual linking, and the pull (its store, the shelf resolver, the puller and the per-user pull worker).
  *
  * [clientId] is null when the operator hasn't set `hardcover.clientId` (resolved once at startup by
  * `Application.resolveHardcoverClientId`). The graph is built either way, so watching and
@@ -86,6 +92,7 @@ fun hardcoverModule(
         }
         single { HardcoverTokenProvider(oauth = get(), store = get(), linker = get(), clock = get()) }
         single { HardcoverRateLimiter() }
+        single { HardcoverUserGate() }
         single { HardcoverRatingConnection(store = get(), tokens = get()) }
         single {
             HardcoverRatingSource(
@@ -114,6 +121,7 @@ fun hardcoverModule(
                 connections = get(),
                 linker = get(),
                 identities = get(),
+                gate = get(),
                 clock = get(),
             )
         }
@@ -138,6 +146,7 @@ fun hardcoverModule(
                 scope = applicationScope,
             )
         }
+        hardcoverPull()
         single {
             HardcoverBookLinking(
                 graphQl = get(),
@@ -148,6 +157,7 @@ fun hardcoverModule(
                 nudge = get(),
                 access = get(),
                 rateLimiter = get(),
+                pulls = get(),
             )
         }
         single {
@@ -155,6 +165,7 @@ fun hardcoverModule(
                 linker = get(),
                 clientIdConfigured = clientId != null,
                 linking = get(),
+                pulls = get(),
                 principal =
                     PrincipalProvider {
                         error("Unscoped HardcoverService — call copyWith(PrincipalProvider) at the route")
@@ -163,6 +174,39 @@ fun hardcoverModule(
         }
         single<HardcoverService> { get<HardcoverServiceImpl>() }
     }
+
+/**
+ * The pull (spec B3): its store, the shelf resolver, the puller, and the per-user pull worker — also
+ * bound as the [HardcoverPullRequests] that "Sync now", the foreground nudge and manual linking use.
+ */
+private fun Module.hardcoverPull() {
+    single { HardcoverPullStore(sql = get(), clock = get()) }
+    single { HardcoverShelfResolver(sql = get(), access = get()) }
+    single {
+        HardcoverPuller(
+            userBooks = get(),
+            store = get(),
+            resolver = get(),
+            links = get(),
+            rateLimiter = get(),
+            sql = get(),
+            clock = get(),
+        )
+    }
+    single {
+        HardcoverPullWorker(
+            puller = get(),
+            store = get(),
+            tokens = get(),
+            connections = get(),
+            linker = get(),
+            gate = get(),
+            pushNudge = get(),
+            clock = get(),
+        )
+    }
+    single<HardcoverPullRequests> { get<HardcoverPullWorker>() }
+}
 
 /**
  * Dedicated [HttpClient] for Hardcover. No content negotiation: both clients decode Hardcover's

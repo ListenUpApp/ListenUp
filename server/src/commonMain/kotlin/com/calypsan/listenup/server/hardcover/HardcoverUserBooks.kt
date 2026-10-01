@@ -41,6 +41,37 @@ data class HardcoverUserBook(
 }
 
 /**
+ * A dated, finished read on the user's shelf, as the pull sees it: Hardcover's read id and its finish
+ * date (`YYYY-MM-DD`). A read with no finish date is never one of these — ListenUp won't invent a date.
+ */
+data class HardcoverFinishedRead(
+    val id: Long,
+    val finishedOn: String,
+)
+
+/**
+ * One shelf entry the pull (spec B3) found changed: its identity and cursor position ([userBookId],
+ * [updatedAt]), its finished reads, and what the reverse match needs — the logged edition's
+ * identifiers and the book's title and every contributor's name ([authors], illustrators and
+ * translators included: Hardcover gives them no role, and may list one first).
+ *
+ * [updatedAt] is Hardcover's own `timestamptz` text, opaque: it is handed back verbatim as the next
+ * cursor and never parsed, re-rendered or compared locally — Hasura trims trailing fractional zeros
+ * (`…19.1+00:00` beside `…19.10654+00:00`), so only Hardcover orders it.
+ */
+data class HardcoverShelfEntry(
+    val userBookId: Long,
+    val hcBookId: Long,
+    val updatedAt: String,
+    val finishedReads: List<HardcoverFinishedRead>,
+    val title: String?,
+    val authors: List<String>,
+    val editionAsin: String?,
+    val editionIsbns: List<String>,
+    val defaultAudioEditionId: Long?,
+)
+
+/**
  * The user's own library on Hardcover: one book's shelf entry, and the writes push needs. A face on
  * [HardcoverGraphQlClient]'s transport — same client, same [HardcoverCall] classification — kept apart
  * so that class stays about the catalog. Dates are calendar dates; the caller picks the user's zone.
@@ -82,6 +113,38 @@ class HardcoverUserBooks(
                             },
                     )
                 }
+        }
+
+    /**
+     * Up to [limit] of the user's shelf entries changed after the cursor ([after], [afterId]), oldest
+     * first by `(updated_at, id)`. [after] is Hardcover's own `updated_at` text, passed back verbatim;
+     * Hardcover does the ordering and comparing, and the pair makes entries that share a timestamp
+     * page cleanly.
+     */
+    suspend fun changedSince(
+        accessToken: String,
+        after: String,
+        afterId: Long,
+        limit: Int,
+    ): HardcoverCall<List<HardcoverShelfEntry>> =
+        graphQl.fetch(
+            accessToken,
+            CHANGED_SINCE_QUERY,
+            buildJsonObject {
+                put("after", after)
+                put("afterId", afterId)
+                put("limit", limit)
+            },
+            "changedSince",
+        ) { body ->
+            hardcoverJson
+                .decodeFromString<ChangedUserBooksResponse>(body)
+                .data
+                ?.me
+                ?.firstOrNull()
+                ?.userBooks
+                .orEmpty()
+                .map { it.toEntry() }
         }
 
     /** Shelves [hcBookId] at [statusId], as [hcEditionId] when one is known. Answers the new entry's id. */
@@ -202,6 +265,12 @@ class HardcoverUserBooks(
         const val USER_BOOK_QUERY =
             "query(\$bookId:Int!){ me { user_books(where:{book_id:{_eq:\$bookId}}, limit:1){ " +
                 "id status_id user_book_reads(order_by:{id:asc}){ id started_at finished_at progress_seconds edition_id } } } }"
+        const val CHANGED_SINCE_QUERY =
+            "query(\$after:timestamptz!,\$afterId:Int!,\$limit:Int!){ me { user_books(" +
+                "where:{_or:[{updated_at:{_gt:\$after}},{updated_at:{_eq:\$after},id:{_gt:\$afterId}}]}, " +
+                "order_by:[{updated_at:asc},{id:asc}], limit:\$limit){ id book_id updated_at " +
+                "user_book_reads(order_by:{id:asc}){ id finished_at } edition { asin isbn_13 isbn_10 } " +
+                "book { id title default_audio_edition_id contributions { author { name } } } } } }"
         const val INSERT_USER_BOOK =
             "mutation(\$object:UserBookCreateInput!){ insert_user_book(object:\$object){ id error } }"
         const val UPDATE_USER_BOOK =

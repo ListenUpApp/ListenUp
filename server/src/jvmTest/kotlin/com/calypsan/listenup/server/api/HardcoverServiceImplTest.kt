@@ -22,6 +22,7 @@ import com.calypsan.listenup.server.hardcover.HardcoverOAuthClient
 import com.calypsan.listenup.server.hardcover.HardcoverOutbox
 import com.calypsan.listenup.server.hardcover.HardcoverPushNudge
 import com.calypsan.listenup.server.hardcover.HardcoverRateLimiter
+import com.calypsan.listenup.server.hardcover.RecordingPullRequests
 import com.calypsan.listenup.server.hardcover.HardcoverTokenCipher
 import com.calypsan.listenup.server.hardcover.HardcoverTokenProvider
 import com.calypsan.listenup.server.hardcover.HardcoverTokens
@@ -99,6 +100,7 @@ private class Rig(
         )
     private val tokenProvider =
         HardcoverTokenProvider(HardcoverOAuthClient(hardcover.client, "listenup-test", "https://hc.test"), store, linker)
+    val pulls = RecordingPullRequests()
     val unscoped =
         HardcoverServiceImpl(
             linker,
@@ -112,7 +114,9 @@ private class Rig(
                 nudge = HardcoverPushNudge { },
                 access = BookAccessPolicy(dbs.sql, dbs.driver),
                 rateLimiter = HardcoverRateLimiter(),
+                pulls = pulls,
             ),
+            pulls = pulls,
         )
 
     fun serviceFor(userId: String) = unscoped.copyWith(principalOf(userId))
@@ -185,7 +189,35 @@ class HardcoverServiceImplTest :
                     .shouldBeInstanceOf<RpcEvent.Error>()
                     .error
                     .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                unscoped
+                    .syncNow()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                unscoped
+                    .syncIfStale()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                pulls.syncNowCalls shouldBe emptyList()
+                pulls.staleChecks shouldBe emptyList()
                 hardcover.paths shouldBe emptyList()
+            }
+        }
+
+        test("Sync now and the foreground nudge act for the caller, and Sync now passes on the pull's answer") {
+            serviceTest {
+                serviceFor(USER).syncNow() shouldBe AppResult.Success(Unit)
+                serviceFor(OTHER_USER).syncIfStale() shouldBe AppResult.Success(Unit)
+                pulls.syncNowCalls shouldBe listOf(USER)
+                pulls.staleChecks shouldBe listOf(OTHER_USER)
+
+                pulls.syncNowResult = AppResult.Failure(HardcoverError.NotConnected())
+                serviceFor(USER)
+                    .syncNow()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<HardcoverError.NotConnected>()
             }
         }
 

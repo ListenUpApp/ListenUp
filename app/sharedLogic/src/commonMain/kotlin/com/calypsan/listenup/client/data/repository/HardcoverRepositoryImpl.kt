@@ -61,4 +61,7 @@ internal class HardcoverRepositoryImpl(
         channel.call(idempotent = false) { it.startLink() }
 
     override suspend fun disconnect(): AppResult<Unit> = channel.call(idempotent = true) { it.disconnect() }
+
+    // Idempotent server-side (a stale check), so a blind retry is safe.
+    override suspend fun syncIfStale(): AppResult<Unit> = channel.call(idempotent = true) { it.syncIfStale() }
 }

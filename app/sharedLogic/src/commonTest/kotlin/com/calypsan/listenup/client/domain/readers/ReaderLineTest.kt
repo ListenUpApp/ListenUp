@@ -71,4 +71,39 @@ class ReaderLineTest :
             lines.map { it.kind::class } shouldBe listOf(ReaderLineKind.Finished::class, ReaderLineKind.Rated::class)
             lines.last().rating shouldBe rating
         }
+
+        test("Hardcover reads are their own finished lines, newest-first among ListenUp's") {
+            val readers =
+                listOf(
+                    Reader(
+                        "u1",
+                        "Ann",
+                        isYou = false,
+                        currentProgressPct = null,
+                        finishes = listOf(300L),
+                        hardcoverFinishes = listOf(500L, 100L),
+                    ),
+                )
+            flattenToLines(readers).map { it.kind } shouldBe
+                listOf(
+                    ReaderLineKind.FinishedOnHardcover(500L),
+                    ReaderLineKind.Finished(300L),
+                    ReaderLineKind.FinishedOnHardcover(100L),
+                )
+        }
+
+        test("someone whose only reads are on Hardcover is a reader, not rated-only") {
+            val rating = ListenerRating(bookId = "b", userId = "u1", halfStars = 8, note = null, ratedAtMs = 1L)
+            val reader =
+                Reader(
+                    "u1",
+                    "Ann",
+                    isYou = false,
+                    currentProgressPct = null,
+                    finishes = emptyList(),
+                    rating = rating,
+                    hardcoverFinishes = listOf(5L),
+                )
+            flattenToLines(listOf(reader)).map { it.kind } shouldBe listOf(ReaderLineKind.FinishedOnHardcover(5L))
+        }
     })

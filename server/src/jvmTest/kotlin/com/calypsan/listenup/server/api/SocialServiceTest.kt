@@ -372,6 +372,34 @@ class SocialServiceTest :
             }
         }
 
+        test("bookReadership carries pulled Hardcover reads apart from ListenUp finishes, and lists a Hardcover-only reader") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                sql.seedTestBook("b1")
+                sql.seedPublicProfile("u1", displayName = "User One")
+                sql.seedPublicProfile("u2", displayName = "User Two")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "b1", viewerId = "u1")
+                    sql.seedFinish("u1-a", userId = "u1", bookId = "b1", finishedAt = 300L)
+                    sql.seedFinish("u1-h", userId = "u1", bookId = "b1", finishedAt = 100L, source = "hardcover")
+                    sql.seedFinish("u2-h", userId = "u2", bookId = "b1", finishedAt = 200L, source = "hardcover")
+
+                    val readers =
+                        makeService(sql, driver, principalFor("u1"))
+                            .bookReadership(BookId("b1"))
+                            .value()
+                            .readers
+
+                    readers.first { it.userId == "u1" }.finishes shouldBe listOf(300L)
+                    readers.first { it.userId == "u1" }.hardcoverFinishes shouldBe listOf(100L)
+                    readers.first { it.userId == "u2" }.finishes shouldBe emptyList()
+                    readers.first { it.userId == "u2" }.hardcoverFinishes shouldBe listOf(200L)
+                }
+            }
+        }
+
         test("bookReadership does not show a reader who abandoned the book months ago as reading it") {
             // A book someone left at 40% in March is not something they are reading now. Showing
             // "reading, 40%" forever tells the viewer something false about a friend.

@@ -57,12 +57,14 @@ class BookReadersRepositoryImplTest :
             displayName: String,
             currentProgressPct: Int? = null,
             finishes: List<Long> = emptyList(),
+            hardcoverFinishes: List<Long> = emptyList(),
         ) = BookReaderEntry(
             userId = userId,
             displayName = displayName,
             avatarType = "auto",
             currentProgressPct = currentProgressPct,
             finishes = finishes,
+            hardcoverFinishes = hardcoverFinishes,
         )
 
         fun user(
@@ -169,6 +171,29 @@ class BookReadersRepositoryImplTest :
                             it.currentProgressPct shouldBe 43
                             it.finishes.shouldBeEmpty()
                         }
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
+
+        test("a reader's Hardcover reads survive the Room cache, apart from their ListenUp finishes") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { bookReadership(BookId("b1")) } returns
+                            AppResult.Success(
+                                BookReadership(
+                                    listOf(entry("u2", "Jake", finishes = listOf(300L), hardcoverFinishes = listOf(900L, 100L))),
+                                ),
+                            )
+                    }
+
+                repo(RpcChannel.forTest(service), FakeBookReadershipDao(), currentUser = user(id = "me"))
+                    .observeReadersFor("b1")
+                    .test {
+                        val jake = awaitNonEmpty().single()
+                        jake.finishes shouldBe listOf(300L)
+                        jake.hardcoverFinishes shouldBe listOf(900L, 100L)
                         cancelAndIgnoreRemainingEvents()
                     }
             }

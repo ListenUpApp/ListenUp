@@ -14,6 +14,7 @@ CREATE TABLE hardcover_book_links (
     suppressed_listen_through_started_at INTEGER,
     last_progress_pushed_at              INTEGER,
     updated_at                           INTEGER NOT NULL,
+    pull_seen_at                         INTEGER,
     PRIMARY KEY (user_id, book_id)
 );
 
@@ -100,3 +101,16 @@ WHERE p.user_id = :user_id AND p.deleted_at IS NULL AND b.deleted_at IS NULL AND
   AND NOT EXISTS (SELECT 1 FROM hardcover_book_links AS l WHERE l.user_id = p.user_id AND l.book_id = p.book_id)
 ORDER BY p.book_id
 LIMIT :limit;
+
+-- The pull: which of the user's books are LINKED to Hardcover book :hc_book_id.
+linkedBooksFor:
+SELECT book_id FROM hardcover_book_links
+WHERE user_id = :user_id AND hc_book_id = :hc_book_id AND match_state = 'LINKED';
+
+-- Whether the book has any link row at all: a NEEDS_MATCH row is the user's to settle, never the pull's.
+hasLink:
+SELECT EXISTS(SELECT 1 FROM hardcover_book_links WHERE user_id = :user_id AND book_id = :book_id);
+
+-- The pull saw this book's shelf entry at :pull_seen_at (a completed full pull deletes what it didn't see).
+markPullSeen:
+UPDATE hardcover_book_links SET pull_seen_at = :pull_seen_at WHERE user_id = :user_id AND book_id = :book_id;

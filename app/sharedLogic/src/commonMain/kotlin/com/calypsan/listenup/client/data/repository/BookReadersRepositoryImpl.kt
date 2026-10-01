@@ -152,6 +152,7 @@ private fun BookReaderEntry.toEntity(
         currentProgressPct = currentProgressPct,
         finishesJson = finishes.joinToString(","),
         observedAt = observedAt,
+        hardcoverFinishesJson = hardcoverFinishes.joinToString(","),
     )
 
 private fun BookReadershipEntity.toReader(currentUserId: String?): Reader =
@@ -160,8 +161,13 @@ private fun BookReadershipEntity.toReader(currentUserId: String?): Reader =
         displayName = displayName,
         isYou = userId == currentUserId,
         currentProgressPct = currentProgressPct,
-        finishes = if (finishesJson.isEmpty()) emptyList() else finishesJson.split(",").map { it.toLong() },
+        finishes = timestampsIn(finishesJson),
+        hardcoverFinishes = timestampsIn(hardcoverFinishesJson),
     )
+
+/** The epoch-ms list a readership column holds, comma-joined (empty string = none). */
+private fun timestampsIn(column: String): List<Long> =
+    if (column.isEmpty()) emptyList() else column.split(",").map { it.toLong() }
 
 private fun BookRatingEntity.toListenerRating(): ListenerRating =
     ListenerRating(

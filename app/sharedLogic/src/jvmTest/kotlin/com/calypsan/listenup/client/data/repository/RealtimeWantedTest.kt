@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.remote.RpcChannel
@@ -47,6 +48,7 @@ class RealtimeWantedTest :
                         SyncRepositoryImpl(
                             syncEngine = engine,
                             reevaluateConnection = {},
+                            onForegrounded = { AppResult.Success(Unit) },
                             syncEngineState = state,
                             authSession = mock<AuthSession> { everySuspend { getUserId() } returns "user-test" },
                             listeningEventRecorder =

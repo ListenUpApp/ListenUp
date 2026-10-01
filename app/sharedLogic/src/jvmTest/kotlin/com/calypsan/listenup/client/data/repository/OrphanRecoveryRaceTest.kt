@@ -116,6 +116,7 @@ class OrphanRecoveryRaceTest :
                         SyncRepositoryImpl(
                             syncEngine = engine,
                             reevaluateConnection = {},
+                            onForegrounded = { AppResult.Success(Unit) },
                             syncEngineState = state,
                             authSession = authSession,
                             listeningEventRecorder = recorder,
@@ -189,6 +190,7 @@ class OrphanRecoveryRaceTest :
                         SyncRepositoryImpl(
                             syncEngine = engine,
                             reevaluateConnection = {},
+                            onForegrounded = { AppResult.Success(Unit) },
                             syncEngineState = state,
                             authSession = authSession,
                             listeningEventRecorder = recorder,

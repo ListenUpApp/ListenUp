@@ -164,6 +164,19 @@ class HardcoverRepositoryImplTest :
                 dispatch.lastIdempotent shouldBe true
             }
         }
+
+        test("the foreground nudge reaches the server and is a safe blind retry") {
+            runTest {
+                val service = FakeHardcoverService()
+                val dispatch = IdempotenceRecordingDispatch<HardcoverService>(service)
+                val repository = HardcoverRepositoryImpl(RpcChannel(dispatch, RpcPolicy.Authed))
+
+                repository.syncIfStale() shouldBe AppResult.Success(Unit)
+
+                service.syncIfStaleCount shouldBe 1
+                dispatch.lastIdempotent shouldBe true
+            }
+        }
     })
 
 /** In-memory [HardcoverService]: each subscribe pops the next scripted stream; unary calls return what they were given. */
@@ -200,6 +213,16 @@ private class FakeHardcoverService(
     ): AppResult<Unit> = AppResult.Failure(HardcoverError.NotConfigured())
 
     override suspend fun unlinkBook(bookId: BookId): AppResult<Unit> = AppResult.Failure(HardcoverError.NotConfigured())
+
+    var syncIfStaleCount = 0
+        private set
+
+    override suspend fun syncNow(): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun syncIfStale(): AppResult<Unit> {
+        syncIfStaleCount++
+        return AppResult.Success(Unit)
+    }
 }
 
 /** Records the [idempotent] flag each unary call was dispatched with, then delegates to the service. */
