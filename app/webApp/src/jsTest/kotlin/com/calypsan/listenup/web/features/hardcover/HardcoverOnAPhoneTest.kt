@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.hardcover
 
+import com.calypsan.listenup.api.dto.hardcover.HardcoverHistory
 import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverBookToMatch
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverCandidateRow
@@ -61,6 +62,8 @@ class HardcoverOnAPhoneTest :
                                 onDisconnect = {},
                                 onSyncNow = {},
                                 onSetShareMode = {},
+                                onSendHistory = {},
+                                onDismissHistory = {},
                                 onFindMatch = {},
                                 onOpenSettings = {},
                                 nowMs = 1L,
@@ -94,6 +97,8 @@ class HardcoverOnAPhoneTest :
                                 onDisconnect = {},
                                 onSyncNow = {},
                                 onSetShareMode = {},
+                                onSendHistory = {},
+                                onDismissHistory = {},
                                 onFindMatch = {},
                                 onOpenSettings = {},
                                 nowMs = 1L,
@@ -107,6 +112,42 @@ class HardcoverOnAPhoneTest :
                 options.forEach { option ->
                     withClue(option.textContent) { frame.takesTapsWithin(option, MIN_TARGET_PX / 2 - 1) shouldBe true }
                 }
+            }
+
+            test("at ${width}px the earlier-books offer fits, with Send above Not now, each the card's full width") {
+                val frame =
+                    frames.mount(width) {
+                        InShell {
+                            HardcoverPage(
+                                state =
+                                    HardcoverSettingsUiState.Connected(
+                                        username = "simonhull",
+                                        since = 0L,
+                                        isDisconnecting = false,
+                                        history = HardcoverHistory.Offer(74),
+                                    ),
+                                onConnect = {},
+                                onDisconnect = {},
+                                onSyncNow = {},
+                                onSetShareMode = {},
+                                onSendHistory = {},
+                                onDismissHistory = {},
+                                onFindMatch = {},
+                                onOpenSettings = {},
+                                nowMs = 1L,
+                            )
+                        }
+                    }
+
+                withClue(frame.pastTheEdge().joinToString("\n")) { frame.contentOverflow() shouldBe 0 }
+                val buttons = frame.findAll(".hc-history-acts .btn")
+                buttons.size shouldBe 2
+                val send = frame.rect(buttons[0])
+                val notNow = frame.rect(buttons[1])
+                buttons[0].textContent.orEmpty().trim() shouldBe "Send 74 books"
+                (notNow.top >= send.bottom) shouldBe true
+                send.width shouldBe notNow.width
+                buttons.forEach { frame.rect(it).height shouldBeGreaterThanOrEqual MIN_TARGET_PX }
             }
 
             test("at ${width}px Find on Hardcover stacks each result, with Pick across its width") {

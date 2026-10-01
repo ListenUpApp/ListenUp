@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
+import com.calypsan.listenup.api.dto.hardcover.HardcoverHistory
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
 import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
@@ -31,6 +32,7 @@ import com.calypsan.listenup.web.design.SegmentItem
 import com.calypsan.listenup.web.design.SegmentedControl
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
+import kotlinx.browser.document
 import org.jetbrains.compose.web.dom.B
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H2
@@ -59,11 +61,14 @@ import org.jetbrains.compose.web.dom.Ul
  * says; "Copied" appears only when the copy actually landed.
  *
  * Connected, the page is the approved sync canvas's two columns: who, the sync line and the books
- * that need a match on the left; what is shared and what comes back, and Disconnect, on the right.
+ * that need a match on the left, with the earlier-books card between who and Sync (#1540); what is
+ * shared and what comes back, and Disconnect, on the right.
  * A Sync now that failed is not drawn here — it is brief, so the route says it in a toast with
  * Try again while the sync line stays as it was; only a push or pull that is stuck gets a card.
  *
  * @param onSetShareMode Chooses when ListenUp updates Hardcover.
+ * @param onSendHistory Sends the books finished before connecting.
+ * @param onDismissHistory "Not now" on the earlier-books offer, or dismissing what the send came to.
  * @param onFindMatch Opens Find on Hardcover for one book of the Needs a match list.
  * @param nowMs What "Last synced …" measures against — read once per composition by the caller.
  * @param copyText Puts text on the clipboard and reports whether it got there. Specs replace it,
@@ -76,6 +81,8 @@ fun HardcoverPage(
     onDisconnect: () -> Unit,
     onSyncNow: () -> Unit,
     onSetShareMode: (HardcoverShareMode) -> Unit,
+    onSendHistory: () -> Unit,
+    onDismissHistory: () -> Unit,
     onFindMatch: (bookId: String) -> Unit,
     onOpenSettings: () -> Unit,
     nowMs: Long,
@@ -106,7 +113,7 @@ fun HardcoverPage(
             }
 
             is HardcoverSettingsUiState.Connected -> {
-                Connected(state, nowMs, onDisconnect, onSyncNow, onSetShareMode, onFindMatch)
+                Connected(state, nowMs, onDisconnect, onSyncNow, onSetShareMode, onSendHistory, onDismissHistory, onFindMatch)
             }
 
             is HardcoverSettingsUiState.Broken -> {
@@ -318,6 +325,8 @@ private fun Connected(
     onDisconnect: () -> Unit,
     onSyncNow: () -> Unit,
     onSetShareMode: (HardcoverShareMode) -> Unit,
+    onSendHistory: () -> Unit,
+    onDismissHistory: () -> Unit,
     onFindMatch: (bookId: String) -> Unit,
 ) {
     var confirming by remember { mutableStateOf(false) }
@@ -339,10 +348,24 @@ private fun Connected(
                     Span(attrs = { classes("hc-since") }) { Text("Since ${formatDateLong(state.since)}") }
                 }
             }
+            // Canvas: the earlier-books card sits between who you are and Sync.
+            HistoryCard(
+                history = state.history,
+                onSend = onSendHistory,
+                onDismiss = onDismissHistory,
+                onShowNeedsMatch = { document.getElementById(NEEDS_MATCH_ID)?.scrollIntoView() },
+            )
             Panel(title = "Sync") {
                 SyncBlock(lastSyncedAt = state.lastSyncedAt, sync = state.sync, nowMs = nowMs, onSyncNow = onSyncNow)
+                val history = state.history
+                if (history is HardcoverHistory.Available) EarlierBooksRow(books = history.bookCount, onSend = onSendHistory)
             }
-            NeedsMatch(books = state.booksToMatch, isKnown = state.isMatchListKnown, onFindMatch = onFindMatch)
+            Div(attrs = {
+                id(NEEDS_MATCH_ID)
+                classes("hc-anchor")
+            }) {
+                NeedsMatch(books = state.booksToMatch, isKnown = state.isMatchListKnown, onFindMatch = onFindMatch)
+            }
         }
 
         Div(attrs = { classes("hc-col") }) {
@@ -639,3 +662,6 @@ private const val NEEDS_MATCH = "Needs a match"
 
 /** en.json's `hardcover.share_mode_label`. */
 private const val SHARE_MODE_LABEL = "Update Hardcover"
+
+/** Where Done's "need a match" scrolls to. */
+private const val NEEDS_MATCH_ID = "hc-needs-match"

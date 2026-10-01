@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.hardcover
 
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookSync
+import com.calypsan.listenup.api.dto.hardcover.HardcoverHistory
 import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
 import com.calypsan.listenup.client.presentation.hardcover.BookHardcoverUiState
@@ -101,6 +102,32 @@ class HardcoverRoutesTest :
                 host.button("Only when I finish").click()
                 awaitFrame()
                 chosen shouldBe listOf(HardcoverShareMode.FINISHED_ONLY)
+            } finally {
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("Send and Not now on the earlier-books offer reach the session") {
+            var sends = 0
+            var dismissals = 0
+            val (host, router, composition) =
+                mountAt(
+                    "/settings/hardcover",
+                    openHardcover =
+                        fixedHardcover(
+                            CONNECTED.copy(history = HardcoverHistory.Offer(74)),
+                            onSendHistory = { sends++ },
+                            onDismissHistory = { dismissals++ },
+                        ),
+                )
+
+            try {
+                host.button("Send 74 books").click()
+                host.button("Not now").click()
+                awaitFrame()
+                sends shouldBe 1
+                dismissals shouldBe 1
             } finally {
                 composition.dispose()
                 router.dispose()
