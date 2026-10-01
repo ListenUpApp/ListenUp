@@ -736,8 +736,10 @@ private fun DetailScreen(
             AdminInboxScreen(
                 viewModel = viewModel,
                 onBackClick = navigateBack,
-                // Tapping a row opens book-edit to fix tags/collections before release.
-                onBookClick = { navigateTo(DetailDestination.BookEdit(it)) },
+                // Tapping a row opens the book's detail page: a held book's triage layout (spec §8).
+                onBookClick = { navigateTo(DetailDestination.Book(it)) },
+                // The row's edit button goes straight to book-edit to fix tags/collections.
+                onEditClick = { navigateTo(DetailDestination.BookEdit(it)) },
                 // Per-row "Match on Audible" — opens the metadata match wizard for that book (iOS parity).
                 onMatchClick = { navigateTo(DetailDestination.MetadataSearch(it)) },
             )

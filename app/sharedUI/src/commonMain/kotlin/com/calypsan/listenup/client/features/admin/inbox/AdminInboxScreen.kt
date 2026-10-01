@@ -102,8 +102,10 @@ import com.calypsan.listenup.client.design.theme.HeroInk
  * a cover thumbnail, title / author / duration, and a review-and-edit button. A `primaryContainer`
  * color-block hero carries the title, the awaiting-review count (or a live selection count), and a
  * select-all toggle; the bottom action bar releases the selected books once any are chosen. Tapping a
- * row opens book-edit (where tags / collections are fixed); collection assignment is intentionally not
- * done here. The empty state centres a scalloped inbox glyph at every width.
+ * row opens the book's detail page — the triage layout, where it is edited, matched and released
+ * (spec §8); the row's edit button goes straight to book-edit, and the checkbox alone selects.
+ * Collection assignment is intentionally not done here. The empty state centres a scalloped inbox
+ * glyph at every width.
  *
  * Responsive: below [TwoPaneMinWidth] (960.dp) the screen is a single comfortable column with a
  * rounded-bottom hero; at or above it the hero becomes a horizontal card and the queue flows into a
@@ -115,13 +117,16 @@ import com.calypsan.listenup.client.design.theme.HeroInk
  *
  * @param viewModel The inbox ViewModel (state + selection + release actions, live sync updates).
  * @param onBackClick Navigate back to Admin.
- * @param onBookClick Open book-edit for the tapped book id (fix tags / collections before release).
+ * @param onBookClick Open the tapped book's detail page, which shows a held book's triage layout.
+ * @param onEditClick Open book-edit for the book id (fix tags / collections before release).
+ * @param onMatchClick Open the metadata match for the book id.
  */
 @Composable
 fun AdminInboxScreen(
     viewModel: AdminInboxViewModel,
     onBackClick: () -> Unit,
     onBookClick: (String) -> Unit,
+    onEditClick: (String) -> Unit,
     onMatchClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -161,6 +166,7 @@ fun AdminInboxScreen(
             innerPadding = innerPadding,
             onBackClick = onBackClick,
             onBookClick = onBookClick,
+            onEditClick = onEditClick,
             onMatchClick = onMatchClick,
             onBookSelectionToggle = viewModel::toggleBookSelection,
             onDismissScanIssue = viewModel::dismissScanIssue,
@@ -185,12 +191,13 @@ fun AdminInboxScreen(
 }
 
 @Composable
-private fun AdminInboxBody(
+internal fun AdminInboxBody(
     state: AdminInboxUiState,
     isWide: Boolean,
     innerPadding: PaddingValues,
     onBackClick: () -> Unit,
     onBookClick: (String) -> Unit,
+    onEditClick: (String) -> Unit,
     onMatchClick: (String) -> Unit,
     onBookSelectionToggle: (String) -> Unit,
     onDismissScanIssue: (String) -> Unit,
@@ -223,6 +230,7 @@ private fun AdminInboxBody(
                     state = state,
                     onBackClick = onBackClick,
                     onBookClick = onBookClick,
+                    onEditClick = onEditClick,
                     onMatchClick = onMatchClick,
                     onBookSelectionToggle = onBookSelectionToggle,
                     onDismissScanIssue = onDismissScanIssue,
@@ -236,6 +244,7 @@ private fun AdminInboxBody(
                     state = state,
                     onBackClick = onBackClick,
                     onBookClick = onBookClick,
+                    onEditClick = onEditClick,
                     onMatchClick = onMatchClick,
                     onBookSelectionToggle = onBookSelectionToggle,
                     onDismissScanIssue = onDismissScanIssue,
@@ -256,6 +265,7 @@ private fun InboxPhoneLayout(
     state: AdminInboxUiState.Ready,
     onBackClick: () -> Unit,
     onBookClick: (String) -> Unit,
+    onEditClick: (String) -> Unit,
     onMatchClick: (String) -> Unit,
     onBookSelectionToggle: (String) -> Unit,
     onDismissScanIssue: (String) -> Unit,
@@ -289,6 +299,7 @@ private fun InboxPhoneLayout(
                     state = state,
                     big = false,
                     onBookClick = onBookClick,
+                    onEditClick = onEditClick,
                     onMatchClick = onMatchClick,
                     onBookSelectionToggle = onBookSelectionToggle,
                 )
@@ -321,6 +332,7 @@ private fun InboxWideLayout(
     state: AdminInboxUiState.Ready,
     onBackClick: () -> Unit,
     onBookClick: (String) -> Unit,
+    onEditClick: (String) -> Unit,
     onMatchClick: (String) -> Unit,
     onBookSelectionToggle: (String) -> Unit,
     onDismissScanIssue: (String) -> Unit,
@@ -354,6 +366,7 @@ private fun InboxWideLayout(
                 state = state,
                 big = true,
                 onBookClick = onBookClick,
+                onEditClick = onEditClick,
                 onMatchClick = onMatchClick,
                 onBookSelectionToggle = onBookSelectionToggle,
             )
@@ -371,6 +384,7 @@ private fun LazyGridScope.inboxRowItems(
     state: AdminInboxUiState.Ready,
     big: Boolean,
     onBookClick: (String) -> Unit,
+    onEditClick: (String) -> Unit,
     onMatchClick: (String) -> Unit,
     onBookSelectionToggle: (String) -> Unit,
 ) {
@@ -381,6 +395,7 @@ private fun LazyGridScope.inboxRowItems(
             isReleasing = state.isReleasing && book.id in state.selectedBookIds,
             big = big,
             onClick = { onBookClick(book.id) },
+            onEdit = { onEditClick(book.id) },
             onMatch = { onMatchClick(book.id) },
             onSelectionToggle = { onBookSelectionToggle(book.id) },
         )
@@ -708,6 +723,7 @@ private fun InboxRow(
     isReleasing: Boolean,
     big: Boolean,
     onClick: () -> Unit,
+    onEdit: () -> Unit,
     onMatch: () -> Unit,
     onSelectionToggle: () -> Unit,
     modifier: Modifier = Modifier,
@@ -746,7 +762,7 @@ private fun InboxRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(15.dp),
     ) {
-        // The row itself opens the book for review, so the box is its own named checkbox.
+        // The row itself opens the book's detail page, so the box is its own named checkbox.
         val selectLabel = stringResource(Res.string.selection_select_name, book.title)
         ExpressiveCheckbox(
             checked = isSelected,
@@ -784,7 +800,7 @@ private fun InboxRow(
             ReviewEditButton(
                 isSelected = isSelected,
                 size = editTileSize,
-                onClick = onClick,
+                onClick = onEdit,
             )
         }
     }
