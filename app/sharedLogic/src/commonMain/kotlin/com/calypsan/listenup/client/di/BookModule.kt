@@ -66,6 +66,7 @@ internal val bookModule: Module =
                 chapterDao = get(),
                 audioFileDao = get(),
                 searchDao = get(),
+                collectionBookDao = get(),
                 transactionRunner = get(),
                 imageStorage = get(),
                 joinSources =

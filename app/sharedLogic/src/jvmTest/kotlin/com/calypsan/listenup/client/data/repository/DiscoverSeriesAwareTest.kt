@@ -122,6 +122,7 @@ private fun withDiscoverRepo(block: suspend (BookRepositoryImpl, ListenUpDatabas
                     chapterDao = db.chapterDao(),
                     audioFileDao = db.audioFileDao(),
                     searchDao = db.searchDao(),
+                    collectionBookDao = db.collectionBookDao(),
                     transactionRunner = transactionRunner,
                     imageStorage = imageStorage,
                     joinSources = BookDetailJoinSources(genreRepository, tagRepository, moodRepository),

@@ -5,6 +5,7 @@ import com.calypsan.listenup.core.ChapterId
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ChapterDao
+import com.calypsan.listenup.client.data.local.db.CollectionBookDao
 import com.calypsan.listenup.client.data.local.db.ChapterEntity
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
@@ -48,6 +49,7 @@ class ObserveChaptersTest :
                 chapterDao = chapterDao,
                 audioFileDao = mock<AudioFileDao>(MockMode.autoUnit),
                 searchDao = mock<SearchDao>(MockMode.autoUnit),
+                collectionBookDao = mock<CollectionBookDao>(MockMode.autoUnit),
                 transactionRunner = mock<TransactionRunner>(MockMode.autoUnit),
                 imageStorage = mock<ImageStorage>(MockMode.autoUnit),
                 joinSources =
