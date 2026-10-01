@@ -263,6 +263,12 @@ private fun DesktopAuthenticatedNavigation() {
     val navigateTo: (DetailDestination) -> Unit = { backStack.add(it) }
     val navigateBack: () -> Unit = { backStack.removeLastOrNull() }
 
+    // Every selectable grid opens the bulk editor the same way, remembering how to end its selection.
+    val openBulkEdit: (List<String>, () -> Unit) -> Unit = { bookIds, endSelection ->
+        pendingSelectionExit.arm(endSelection)
+        navigateTo(DetailDestination.BulkEdit(bookIds))
+    }
+
     // A landed bulk edit ends the selection it was opened over and says how many books it changed;
     // the grid it returns to shows covers and titles, so an unannounced write is an invisible one.
     val onBulkEditApplied: (Int) -> Unit = { changedCount ->
@@ -323,10 +329,7 @@ private fun DesktopAuthenticatedNavigation() {
                                 onNavigateToLibrary = onNavigateToLibrary,
                                 onShelfClick = { navigateTo(DetailDestination.Shelf(it)) },
                                 onSeeAllShelves = onNavigateToLibrary,
-                                onEditSelected = { bookIds, endSelection ->
-                                    pendingSelectionExit.arm(endSelection)
-                                    navigateTo(DetailDestination.BulkEdit(bookIds))
-                                },
+                                onEditSelected = openBulkEdit,
                                 modifier = Modifier.padding(padding),
                             )
                         },
@@ -337,10 +340,7 @@ private fun DesktopAuthenticatedNavigation() {
                                 onAuthorClick = { navigateTo(DetailDestination.Contributor(it)) },
                                 onNarratorClick = { navigateTo(DetailDestination.Contributor(it)) },
                                 appHeader = appHeader,
-                                onEditSelected = { bookIds, endSelection ->
-                                    pendingSelectionExit.arm(endSelection)
-                                    navigateTo(DetailDestination.BulkEdit(bookIds))
-                                },
+                                onEditSelected = openBulkEdit,
                                 onOpenInbox = { navigateTo(DetailDestination.AdminInbox) },
                                 modifier = Modifier.padding(padding),
                             )
@@ -351,10 +351,7 @@ private fun DesktopAuthenticatedNavigation() {
                                 onShelfClick = { navigateTo(DetailDestination.Shelf(it)) },
                                 onBookClick = { navigateTo(DetailDestination.Book(it)) },
                                 onUserProfileClick = { navigateTo(DetailDestination.UserProfile(it)) },
-                                onEditSelected = { bookIds, endSelection ->
-                                    pendingSelectionExit.arm(endSelection)
-                                    navigateTo(DetailDestination.BulkEdit(bookIds))
-                                },
+                                onEditSelected = openBulkEdit,
                                 modifier = Modifier.padding(padding),
                             )
                         },
