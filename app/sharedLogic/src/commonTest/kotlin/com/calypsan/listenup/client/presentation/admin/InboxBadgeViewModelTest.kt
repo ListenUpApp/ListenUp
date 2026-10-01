@@ -89,4 +89,37 @@ class InboxBadgeViewModelTest :
                 f.viewModel.heldCount.value shouldBe 0
             }
         }
+
+        test("the preview is the newest three held books, newest first") {
+            runTest(dispatcher) {
+                val f = Fixture(isAdmin = true, "b1", "b2", "b3", "b4")
+                backgroundScope.launch { f.viewModel.previewBookIds.collect { } }
+                advanceUntilIdle()
+
+                f.viewModel.previewBookIds.value shouldBe listOf("b4", "b3", "b2")
+            }
+        }
+
+        test("the preview follows a release live") {
+            runTest(dispatcher) {
+                val f = Fixture(isAdmin = true, "b1", "b2")
+                backgroundScope.launch { f.viewModel.previewBookIds.collect { } }
+                advanceUntilIdle()
+
+                f.held.value = setOf(BookId("b1"))
+                advanceUntilIdle()
+
+                f.viewModel.previewBookIds.value shouldBe listOf("b1")
+            }
+        }
+
+        test("anyone who is not an admin previews nothing") {
+            runTest(dispatcher) {
+                val f = Fixture(isAdmin = false, "b1", "b2")
+                backgroundScope.launch { f.viewModel.previewBookIds.collect { } }
+                advanceUntilIdle()
+
+                f.viewModel.previewBookIds.value shouldBe emptyList()
+            }
+        }
     })

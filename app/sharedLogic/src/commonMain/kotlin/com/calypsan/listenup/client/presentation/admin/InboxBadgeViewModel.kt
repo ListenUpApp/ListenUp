@@ -32,4 +32,21 @@ class InboxBadgeViewModel(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = 0,
         )
+
+    /**
+     * The newest held books, newest first, at most [PREVIEW_SIZE] — the covers the Library entry
+     * fans beside its count. Ids rather than list items because every client resolves a cover from
+     * the id alone. Empty whenever [heldCount] is 0, including for anyone who is not an admin.
+     */
+    val previewBookIds: StateFlow<List<String>> =
+        combine(userRepository.observeIsAdmin(), inboxRepository.observeHeldBookIds()) { isAdmin, held ->
+            if (isAdmin) held.toList().takeLast(PREVIEW_SIZE).reversed().map { it.value } else emptyList()
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList(),
+        )
 }
+
+/** How many held covers the Library entry fans out (canvas: three). */
+private const val PREVIEW_SIZE = 3
