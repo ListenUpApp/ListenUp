@@ -352,6 +352,7 @@ internal val bookPresentationModule =
                 bookAvailability = get(),
                 serverReachability = get(),
                 documentRepository = get(),
+                inboxRepository = get(),
             )
         }
         factory { params ->

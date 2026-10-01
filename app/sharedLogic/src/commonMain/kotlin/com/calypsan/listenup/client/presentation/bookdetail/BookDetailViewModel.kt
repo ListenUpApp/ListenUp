@@ -20,6 +20,7 @@ import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
+import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
@@ -75,6 +76,7 @@ class BookDetailViewModel(
     private val bookAvailability: BookAvailability,
     private val serverReachability: ServerReachability,
     private val documentRepository: DocumentRepository,
+    private val inboxRepository: InboxRepository,
 ) : ViewModel() {
     val state: StateFlow<BookDetailUiState>
         field = MutableStateFlow<BookDetailUiState>(BookDetailUiState.Loading)
@@ -159,6 +161,7 @@ class BookDetailViewModel(
             collectionError = previous.collectionError,
             isDeletingBook = previous.isDeletingBook,
             deleteError = previous.deleteError,
+            isReleasingFromInbox = previous.isReleasingFromInbox,
         )
     }
 
@@ -276,17 +279,24 @@ class BookDetailViewModel(
                 combine(
                     bookRepository.observeBookDetail(bookId),
                     bookAvailability.observe(BookId(bookId)),
-                ) { detail, availability ->
+                    inboxRepository.observeHeldBookIds(),
+                ) { detail, availability, heldIds ->
                     if (detail == null) {
                         BookDetailUiState.Error(BookError.NotFound())
                     } else {
+                        val held = BookId(bookId) in heldIds
                         buildReady(detail, domainChapters, position).copy(
                             downloadStatus = availability.downloadStatus,
                             isPlaybackAvailable = availability.isPlaybackAvailable,
-                            canPlay = availability.canPlay,
-                            canDownload = availability.canDownload,
-                            showServerWarning = availability.showServerWarning,
+                            // A held book is triage-only: no play, no download, and no "server
+                            // unreachable" nag about a playback that cannot happen. Forced off here
+                            // so a platform that misses the triage layout still cannot offer a
+                            // working Play or Download; the choke points refuse regardless.
+                            canPlay = availability.canPlay && !held,
+                            canDownload = availability.canDownload && !held,
+                            showServerWarning = availability.showServerWarning && !held,
                             isWaitingForWifi = availability.isWaitingForWifi,
+                            isHeld = held,
                         )
                     }
                 },
@@ -639,6 +649,36 @@ class BookDetailViewModel(
     }
 
     /**
+     * Releases this held book to everyone — `releaseBooks` with an empty target list moves it into
+     * ALL_BOOKS. The UI confirms first ("Release to everyone?"); this is what its Release button calls.
+     *
+     * Only meaningful when [BookDetailUiState.Ready.isHeld], which is never true on a member's device.
+     * On success there is nothing to emit: the INBOX membership leaves Room at once (the repository
+     * writes the release through), [BookDetailUiState.Ready.isHeld] turns false, and the held section
+     * goes with it. A refusal goes to [errorBus] and the book stays held.
+     */
+    fun releaseFromInbox() {
+        val ready = state.value as? BookDetailUiState.Ready ?: return
+        if (!ready.isHeld || ready.isReleasingFromInbox) return
+        val book = ready.book
+        viewModelScope.launch {
+            updateReady { it.copy(isReleasingFromInbox = true) }
+            when (val result = inboxRepository.releaseBooks(book.libraryId.value, mapOf(book.id.value to emptyList()))) {
+                is AppResult.Success -> {
+                    updateReady { it.copy(isReleasingFromInbox = false) }
+                    logger.info { "Released ${book.id.value} from the inbox" }
+                }
+
+                is AppResult.Failure -> {
+                    updateReady { it.copy(isReleasingFromInbox = false) }
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to release ${book.id.value} from the inbox: ${result.error.code}" }
+                }
+            }
+        }
+    }
+
+    /**
      * Handle a tap on a supplementary document row.
      *
      * For PDF documents: downloads (if not already cached) then emits
@@ -738,6 +778,16 @@ sealed interface BookDetailUiState {
          * sentence back apart.
          */
         val deleteError: AppError? = null,
+        /**
+         * Held for review in the admin inbox — hidden from every member until released. A held book
+         * is **triage-only** (spec §8): when true, every platform renders the triage layout — the
+         * held section ("Held for review · Hidden from all members") with **Edit** and **Release**
+         * — and no other action. [canPlay], [canDownload] and [showServerWarning] are already forced
+         * false for it. Follows Room live; always false on a member's device.
+         */
+        val isHeld: Boolean = false,
+        /** True while [BookDetailViewModel.releaseFromInbox] is in flight — the Release button goes busy. */
+        val isReleasingFromInbox: Boolean = false,
         val downloadStatus: BookDownloadStatus = BookDownloadStatus.NotDownloaded(""), // overwritten before emit; "" id never observed
         val isPlaybackAvailable: Boolean = true,
         val canPlay: Boolean = true,

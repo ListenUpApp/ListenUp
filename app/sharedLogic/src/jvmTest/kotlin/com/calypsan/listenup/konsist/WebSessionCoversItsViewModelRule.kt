@@ -287,6 +287,10 @@ private val EXCUSED =
         // A deep-link wrapper — `selectCandidate` with a bare ASIN — used by the natives' match-preview
         // route when it is opened from a link. Web reaches the same preview through selectCandidate.
         "ContributorMetadataViewModel.selectAsin",
+        // ── GAP — owed, not blessed ───────────────────────────────────────────────────────────
+        // Releasing a held book from Book Detail. Web's Book Detail session does not wire it yet;
+        // the stale-entry test below forces this line out the moment it does.
+        "BookDetailViewModel.releaseFromInbox",
         // ── UNREVIEWED — an offender nobody has triaged yet. NOT a to-do list. ────────────────
         //
         // ⛔ Do not build from this section. Three times now a cluster here has turned out to be a
