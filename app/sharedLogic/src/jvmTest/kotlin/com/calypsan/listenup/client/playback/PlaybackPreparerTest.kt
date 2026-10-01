@@ -951,6 +951,29 @@ class PlaybackPreparerTest :
             }
         }
 
+        test("a held book that is fully downloaded is still refused — its audio on disk is no way around triage") {
+            runTest {
+                // Working collaborators on the offline-first path: every file is local, so prepare()
+                // never reaches the server. Only the gate can refuse it, and it must sit above the
+                // fully-downloaded short-circuit, not on the streaming branch.
+                val (prepareRepository, _) = downloadedWithServerPosition(AppResult.Success(null))
+                val preparer =
+                    buildPreparer(downloadService = downloadedDownloadService(), prepareRepository = prepareRepository)
+                holdTheBook()
+                try {
+                    preparer
+                        .prepare(bookId)
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<BookError.HeldForReview>()
+                } finally {
+                    releaseTheBook()
+                }
+                // The same book plays from disk the moment it is released.
+                preparer.prepare(bookId).shouldBeInstanceOf<AppResult.Success<PreparedPlayback>>()
+            }
+        }
+
         test("prepareOrNull — the iOS accessor — is refused the same way, and plays once released") {
             runTest {
                 // Working collaborators, so only the gate can make it null.
