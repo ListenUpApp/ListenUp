@@ -10281,6 +10281,106 @@
         }
       }
     },
+    "hardcover.book_row_change_match": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change match"
+          }
+        }
+      }
+    },
+    "hardcover.book_row_chosen_by_you": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matched by you"
+          }
+        }
+      }
+    },
+    "hardcover.book_row_matched_unnamed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matched on Hardcover"
+          }
+        }
+      }
+    },
+    "hardcover.book_row_needs_match": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs a match"
+          }
+        }
+      }
+    },
+    "hardcover.book_row_needs_match_detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick the right book so your listening syncs."
+          }
+        }
+      }
+    },
+    "hardcover.book_row_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hardcover"
+          }
+        }
+      }
+    },
+    "hardcover.book_sync_nothing_yet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing sent yet"
+          }
+        }
+      }
+    },
+    "hardcover.book_sync_removed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused: you removed it on Hardcover. Listening to it again starts a new read."
+          }
+        }
+      }
+    },
+    "hardcover.book_sync_up_to_date": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to date on Hardcover"
+          }
+        }
+      }
+    },
+    "hardcover.book_sync_waiting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting to sync"
+          }
+        }
+      }
+    },
     "hardcover.broken_cannot_decrypt": {
       "localizations": {
         "en": {
@@ -10451,12 +10551,42 @@
         }
       }
     },
+    "hardcover.find_on_hardcover": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find on Hardcover"
+          }
+        }
+      }
+    },
     "hardcover.intro": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Connect your Hardcover account and ListenUp will mark what you listen to as read there."
+          }
+        }
+      }
+    },
+    "hardcover.last_synced": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last synced %1$@"
+          }
+        }
+      }
+    },
+    "hardcover.last_synced_just_now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last synced just now"
           }
         }
       }
@@ -10487,6 +10617,216 @@
           "stringUnit": {
             "state": "translated",
             "value": "Checking your Hardcover connection…"
+          }
+        }
+      }
+    },
+    "hardcover.match_audiobook": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audiobook"
+          }
+        }
+      }
+    },
+    "hardcover.match_book_missing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This book is no longer in your library."
+          }
+        }
+      }
+    },
+    "hardcover.match_current": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matched now"
+          }
+        }
+      }
+    },
+    "hardcover.match_failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hardcover couldn't be searched just now."
+          }
+        }
+      }
+    },
+    "hardcover.match_matching": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matching %1$@"
+          }
+        }
+      }
+    },
+    "hardcover.match_no_results": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing on Hardcover matches that. Try just the title, or the author's last name."
+          }
+        }
+      }
+    },
+    "hardcover.match_pick": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick"
+          }
+        }
+      }
+    },
+    "hardcover.match_pick_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Match to %1$@"
+          }
+        }
+      }
+    },
+    "hardcover.match_ratings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ ratings"
+          }
+        }
+      }
+    },
+    "hardcover.match_ratings_none": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No ratings yet"
+          }
+        }
+      }
+    },
+    "hardcover.match_ratings_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 rating"
+          }
+        }
+      }
+    },
+    "hardcover.match_remove": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove match"
+          }
+        }
+      }
+    },
+    "hardcover.match_remove_detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ListenUp stops syncing this book until you pick one."
+          }
+        }
+      }
+    },
+    "hardcover.match_same_author": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Same author"
+          }
+        }
+      }
+    },
+    "hardcover.match_search": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search"
+          }
+        }
+      }
+    },
+    "hardcover.match_search_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Title or author"
+          }
+        }
+      }
+    },
+    "hardcover.match_searching": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Searching Hardcover…"
+          }
+        }
+      }
+    },
+    "hardcover.match_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find on Hardcover"
+          }
+        }
+      }
+    },
+    "hardcover.needs_match_detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ListenUp couldn't tell which Hardcover book these are. Pick each one and it starts syncing."
+          }
+        }
+      }
+    },
+    "hardcover.needs_match_section": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs a match"
+          }
+        }
+      }
+    },
+    "hardcover.never_synced": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not synced yet"
           }
         }
       }
@@ -10527,6 +10867,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Open Hardcover in a new tab"
+          }
+        }
+      }
+    },
+    "hardcover.problem_pull_stalled": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ListenUp can't read your Hardcover shelf right now. It keeps trying."
+          }
+        }
+      }
+    },
+    "hardcover.problem_push_stalled": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some of your listening hasn't reached Hardcover yet. ListenUp keeps trying."
+          }
+        }
+      }
+    },
+    "hardcover.problem_sync_now_failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hardcover didn't answer just now. ListenUp will keep trying."
           }
         }
       }
@@ -10621,6 +10991,36 @@
         }
       }
     },
+    "hardcover.shared_progress_row": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How far you've listened"
+          }
+        }
+      }
+    },
+    "hardcover.shared_pulled_row": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books you've read elsewhere, shown in ListenUp"
+          }
+        }
+      }
+    },
+    "hardcover.shared_started_row": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books you start, as Currently reading"
+          }
+        }
+      }
+    },
     "hardcover.shares_finished": {
       "localizations": {
         "en": {
@@ -10637,6 +11037,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "You sign in on Hardcover itself. ListenUp never sees your password."
+          }
+        }
+      }
+    },
+    "hardcover.sync_now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sync now"
+          }
+        }
+      }
+    },
+    "hardcover.sync_section": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sync"
+          }
+        }
+      }
+    },
+    "hardcover.syncing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Syncing…"
+          }
+        }
+      }
+    },
+    "hardcover.try_again": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try again"
           }
         }
       }
