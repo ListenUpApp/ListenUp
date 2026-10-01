@@ -62,7 +62,9 @@ import com.calypsan.listenup.client.features.library.CollectionPickerSheet
 import com.calypsan.listenup.client.features.library.ShelfPickerSheet
 import com.calypsan.listenup.client.features.bookdetail.components.AboutSection
 import com.calypsan.listenup.client.features.bookdetail.components.BookDetailTopBar
+import com.calypsan.listenup.client.features.admin.inbox.ReleaseToEveryoneDialog
 import com.calypsan.listenup.client.features.bookdetail.components.BookRatingBlock
+import com.calypsan.listenup.client.features.bookdetail.components.HeldForReviewSection
 import com.calypsan.listenup.client.features.bookdetail.components.BookHardcoverSection
 import com.calypsan.listenup.client.features.bookdetail.components.BookReadersSection
 import com.calypsan.listenup.client.features.bookdetail.components.ChapterListItem
@@ -330,6 +332,7 @@ private fun BookDetailReadyContent(
     var showMarkCompleteDialog by remember { mutableStateOf(false) }
     var showMarkNotStartedDialog by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
+    var showReleaseDialog by remember { mutableStateOf(false) }
 
     // Callback for opening metadata search
     val onFindMetadataClick: () -> Unit = {
@@ -418,6 +421,7 @@ private fun BookDetailReadyContent(
         onMoodClick = onMoodClick,
         onSeeAllReaders = onSeeAllReaders,
         onFindHardcoverMatch = onFindHardcoverMatch,
+        onReleaseFromInboxClick = { showReleaseDialog = true },
     )
 
     if (showDeleteDialog) {
@@ -484,6 +488,19 @@ private fun BookDetailReadyContent(
                 showMarkCompleteDialog = false
             },
             onDismiss = { showMarkCompleteDialog = false },
+        )
+    }
+
+    // Release asks first (spec §7). Confirming closes the question at once; the held section's
+    // Release button carries the in-flight state, and success turns this into the ordinary page.
+    if (showReleaseDialog && state.isHeld) {
+        ReleaseToEveryoneDialog(
+            bookCount = 1,
+            onConfirm = {
+                showReleaseDialog = false
+                viewModel.releaseFromInbox()
+            },
+            onDismiss = { showReleaseDialog = false },
         )
     }
 
@@ -579,6 +596,7 @@ fun BookDetailContent(
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit = {},
     onFindHardcoverMatch: ((bookId: String) -> Unit)? = null,
+    onReleaseFromInboxClick: () -> Unit = {},
 ) {
     val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
 
@@ -631,6 +649,7 @@ fun BookDetailContent(
             onUserProfileClick = onUserProfileClick,
             onSeeAllReaders = onSeeAllReaders,
             onFindHardcoverMatch = onFindHardcoverMatch,
+            onReleaseFromInboxClick = onReleaseFromInboxClick,
         )
     } else {
         ImmersiveBookDetail(
@@ -673,6 +692,7 @@ fun BookDetailContent(
             onUserProfileClick = onUserProfileClick,
             onSeeAllReaders = onSeeAllReaders,
             onFindHardcoverMatch = onFindHardcoverMatch,
+            onReleaseFromInboxClick = onReleaseFromInboxClick,
         )
     }
 }
@@ -731,6 +751,7 @@ private fun ImmersiveBookDetail(
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit,
     onFindHardcoverMatch: ((bookId: String) -> Unit)?,
+    onReleaseFromInboxClick: () -> Unit,
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var isChaptersExpanded by rememberSaveable { mutableStateOf(false) }
@@ -760,6 +781,7 @@ private fun ImmersiveBookDetail(
             onAddToCollectionClick = onAddToCollectionClick,
             onShareClick = onShareClick,
             onDeleteClick = onDeleteBookClick,
+            showActions = !state.isHeld,
         )
 
         val playerInset = LocalNowPlayingInsets.current.asPaddingValues().calculateBottomPadding()
@@ -818,9 +840,25 @@ private fun ImmersiveBookDetail(
                 )
             }
 
+            // A held book is triage-only (spec §8, §10): the held section — Release, Edit, Match,
+            // Edit chapters — stands where Play would, under the title, and nothing below offers
+            // anything else. Match and Edit chapters reuse the overflow menu's routes.
+            if (state.isHeld) {
+                item {
+                    HeldForReviewSection(
+                        isReleasing = state.isReleasingFromInbox,
+                        onReleaseClick = onReleaseFromInboxClick,
+                        onEditClick = onEditClick,
+                        onMatchClick = onFindMetadataClick,
+                        onEditChaptersClick = onEditChaptersClick,
+                        modifier = screenPadding.padding(top = 20.dp),
+                    )
+                }
+            }
+
             // Primary actions — connected Play + Download group, kept above the description so the
             // primary action is reachable without scrolling past the synopsis.
-            if (showPlaybackActions) {
+            if (showPlaybackActions && !state.isHeld) {
                 item {
                     PrimaryActionsSection(
                         downloadStatus = downloadStatus,
@@ -858,31 +896,34 @@ private fun ImmersiveBookDetail(
                 )
             }
 
-            // Rating — your listeners' stars and your own, right above the people who left them.
-            item {
-                BookRatingBlock(
-                    bookId = bookId,
-                    modifier = screenPadding.padding(vertical = 8.dp),
-                )
-            }
+            // Rating, readers and Hardcover are hidden for a held book (spec §9: hidden, not refused).
+            if (!state.isHeld) {
+                // Rating — your listeners' stars and your own, right above the people who left them.
+                item {
+                    BookRatingBlock(
+                        bookId = bookId,
+                        modifier = screenPadding.padding(vertical = 8.dp),
+                    )
+                }
 
-            // Readers — social reading activity.
-            item {
-                BookReadersSection(
-                    bookId = bookId,
-                    onUserClick = onUserProfileClick,
-                    onSeeAllClick = onSeeAllReaders,
-                    modifier = screenPadding.padding(vertical = 8.dp),
-                )
-            }
+                // Readers — social reading activity.
+                item {
+                    BookReadersSection(
+                        bookId = bookId,
+                        onUserClick = onUserProfileClick,
+                        onSeeAllClick = onSeeAllReaders,
+                        modifier = screenPadding.padding(vertical = 8.dp),
+                    )
+                }
 
-            // Hardcover — where this book stands on the user's Hardcover shelf; nothing when not connected.
-            item {
-                BookHardcoverSection(
-                    bookId = bookId,
-                    onFindMatch = onFindHardcoverMatch,
-                    modifier = screenPadding.padding(vertical = 8.dp),
-                )
+                // Hardcover — where this book stands on the user's Hardcover shelf; nothing when not connected.
+                item {
+                    BookHardcoverSection(
+                        bookId = bookId,
+                        onFindMatch = onFindHardcoverMatch,
+                        modifier = screenPadding.padding(vertical = 8.dp),
+                    )
+                }
             }
 
             // Chapters — deep dive.

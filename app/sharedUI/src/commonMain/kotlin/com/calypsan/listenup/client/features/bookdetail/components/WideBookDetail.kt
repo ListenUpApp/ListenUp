@@ -102,6 +102,7 @@ fun WideBookDetail(
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit = {},
     onFindHardcoverMatch: ((bookId: String) -> Unit)? = null,
+    onReleaseFromInboxClick: () -> Unit = {},
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var isChaptersExpanded by rememberSaveable { mutableStateOf(false) }
@@ -131,6 +132,7 @@ fun WideBookDetail(
             onAddToCollectionClick = onAddToCollectionClick,
             onShareClick = onShareClick,
             onDeleteClick = onDeleteBookClick,
+            showActions = !state.isHeld,
         )
 
         // The viewport is measured so the chapter pane can be given a finite height: it is a lazy
@@ -213,6 +215,10 @@ fun WideBookDetail(
                     onUserProfileClick = onUserProfileClick,
                     onSeeAllReaders = onSeeAllReaders,
                     onFindHardcoverMatch = onFindHardcoverMatch,
+                    onEditClick = onEditClick,
+                    onFindMetadataClick = onFindMetadataClick,
+                    onEditChaptersClick = onEditChaptersClick,
+                    onReleaseFromInboxClick = onReleaseFromInboxClick,
                     chapterPaneMaxHeight = viewportHeight,
                     modifier = screenPadding.fillMaxWidth().padding(top = 24.dp),
                 )
@@ -266,6 +272,10 @@ private fun WideBodyColumns(
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit,
     onFindHardcoverMatch: ((bookId: String) -> Unit)?,
+    onEditClick: () -> Unit,
+    onFindMetadataClick: () -> Unit,
+    onEditChaptersClick: () -> Unit,
+    onReleaseFromInboxClick: () -> Unit,
     chapterPaneMaxHeight: Dp,
     modifier: Modifier = Modifier,
 ) {
@@ -293,11 +303,16 @@ private fun WideBodyColumns(
             onCancelClick = onCancelClick,
             onDeleteClick = onDeleteClick,
             onPlayDisabledClick = onPlayDisabledClick,
+            onEditClick = onEditClick,
+            onFindMetadataClick = onFindMetadataClick,
+            onEditChaptersClick = onEditChaptersClick,
+            onReleaseFromInboxClick = onReleaseFromInboxClick,
             modifier = Modifier.weight(1f),
         )
 
         WideRightColumn(
             bookId = bookId,
+            isHeld = state.isHeld,
             chapters = state.chapters,
             documents = documents,
             onOpenDocument = onOpenDocument,
@@ -339,6 +354,10 @@ private fun WideLeftColumn(
     onCancelClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onPlayDisabledClick: () -> Unit,
+    onEditClick: () -> Unit,
+    onFindMetadataClick: () -> Unit,
+    onEditChaptersClick: () -> Unit,
+    onReleaseFromInboxClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val book = state.book
@@ -346,7 +365,17 @@ private fun WideLeftColumn(
     Column(modifier = modifier) {
         // Primary actions — connected Play + Download group, kept above the description so the
         // primary action is reachable without scrolling on short foldable inner displays.
-        if (showPlaybackActions) {
+        // A held book is triage-only (spec §8, §10): the held section takes Play's place at the top.
+        if (state.isHeld) {
+            HeldForReviewSection(
+                isReleasing = state.isReleasingFromInbox,
+                onReleaseClick = onReleaseFromInboxClick,
+                onEditClick = onEditClick,
+                onMatchClick = onFindMetadataClick,
+                onEditChaptersClick = onEditChaptersClick,
+                modifier = Modifier.padding(bottom = 16.dp),
+            )
+        } else if (showPlaybackActions) {
             PrimaryActionsSection(
                 downloadStatus = downloadStatus,
                 onPlayClick = onPlayClick,
@@ -401,6 +430,7 @@ private fun WideLeftColumn(
 @Composable
 private fun WideRightColumn(
     bookId: String,
+    isHeld: Boolean,
     chapters: List<ChapterUiModel>,
     documents: List<BookDocument>,
     onOpenDocument: (docId: String) -> Unit,
@@ -416,29 +446,32 @@ private fun WideRightColumn(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
     ) {
-        // Rating card — your listeners' stars and your own, right above the Readers card.
-        BookRatingBlock(
-            bookId = bookId,
-            isCard = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        // Rating, readers and Hardcover are hidden for a held book (spec §9: hidden, not refused).
+        if (!isHeld) {
+            // Rating card — your listeners' stars and your own, right above the Readers card.
+            BookRatingBlock(
+                bookId = bookId,
+                isCard = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
 
-        // Readers card — social reading activity. Self-cards only when populated, so no
-        // hollow surface is drawn on the common no-readers / Loading / Error paths.
-        BookReadersSection(
-            bookId = bookId,
-            onUserClick = onUserProfileClick,
-            isCard = true,
-            onSeeAllClick = onSeeAllReaders,
-            modifier = Modifier.fillMaxWidth(),
-        )
+            // Readers card — social reading activity. Self-cards only when populated, so no
+            // hollow surface is drawn on the common no-readers / Loading / Error paths.
+            BookReadersSection(
+                bookId = bookId,
+                onUserClick = onUserProfileClick,
+                isCard = true,
+                onSeeAllClick = onSeeAllReaders,
+                modifier = Modifier.fillMaxWidth(),
+            )
 
-        // Hardcover card — only for a connected user whose book is matched or needs a match.
-        BookHardcoverSection(
-            bookId = bookId,
-            onFindMatch = onFindHardcoverMatch,
-            modifier = Modifier.fillMaxWidth(),
-        )
+            // Hardcover card — only for a connected user whose book is matched or needs a match.
+            BookHardcoverSection(
+                bookId = bookId,
+                onFindMatch = onFindHardcoverMatch,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
 
         // Chapters card — header + (optionally collapsed) chapter rows + "show all" affordance.
         WideSectionCard {
