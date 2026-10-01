@@ -64,6 +64,7 @@ class HardcoverPushExecutor(
             is HardcoverPushPayload.Start -> target.start(payload)
             is HardcoverPushPayload.Progress -> target.progress(payload)
             is HardcoverPushPayload.Finish -> target.finish(payload)
+            is HardcoverPushPayload.History -> PushOutcome.Failed(HardcoverCall.Failed("HISTORY rows arrive in the next commit"))
         }
     }
 
