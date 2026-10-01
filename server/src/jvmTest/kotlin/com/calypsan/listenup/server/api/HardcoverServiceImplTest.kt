@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
+import com.calypsan.listenup.api.dto.hardcover.HardcoverHistory
 import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.HardcoverError
@@ -18,6 +19,7 @@ import com.calypsan.listenup.server.hardcover.HardcoverBookLinking
 import com.calypsan.listenup.server.hardcover.HardcoverCatalogCache
 import com.calypsan.listenup.server.hardcover.HardcoverConnectionStore
 import com.calypsan.listenup.server.hardcover.HardcoverGraphQlClient
+import com.calypsan.listenup.server.hardcover.HardcoverHistorySender
 import com.calypsan.listenup.server.hardcover.HardcoverLinker
 import com.calypsan.listenup.server.hardcover.HardcoverMe
 import com.calypsan.listenup.server.hardcover.HardcoverOAuthClient
@@ -31,7 +33,10 @@ import com.calypsan.listenup.server.hardcover.HardcoverTokenCipher
 import com.calypsan.listenup.server.hardcover.HardcoverTokenProvider
 import com.calypsan.listenup.server.hardcover.HardcoverTokens
 import com.calypsan.listenup.server.hardcover.hardcoverShareMode
+import com.calypsan.listenup.server.hardcover.seedOwnRead
 import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.seedTestBook
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -111,6 +116,7 @@ private class Rig(
             activity = activity,
         )
     private val preferences = HardcoverPreferences(dbs.sql, activity = activity)
+    private val history = HardcoverHistorySender(dbs.sql, activity = activity)
     private val tokenProvider =
         HardcoverTokenProvider(HardcoverOAuthClient(hardcover.client, "listenup-test", "https://hc.test"), store, linker)
     val pulls = RecordingPullRequests()
@@ -133,6 +139,7 @@ private class Rig(
             ),
             pulls = pulls,
             preferences = preferences,
+            history = history,
         )
 
     fun serviceFor(userId: String) = unscoped.copyWith(principalOf(userId))
@@ -342,6 +349,68 @@ class HardcoverServiceImplTest :
                     .error
                     .shouldBeInstanceOf<AuthError.PermissionDenied>()
                 sql.hardcoverShareMode(USER) shouldBe HardcoverShareMode.AS_I_LISTEN
+            }
+        }
+
+        test("sendHistory queues the caller's earlier books, and their Connected carries Sending live") {
+            serviceTest {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-1")
+                sql.seedOwnRead(USER, "book-1", "r1", finishedAt = 1_000L)
+                seedConnected(USER)
+                val service = serviceFor(USER)
+                service.observeConnection().test {
+                    awaitItem()
+                        .shouldBeInstanceOf<RpcEvent.Data<HardcoverConnection>>()
+                        .value
+                        .shouldBeInstanceOf<HardcoverConnection.Connected>()
+                        .history shouldBe HardcoverHistory.Offer(bookCount = 1)
+
+                    service.sendHistory() shouldBe AppResult.Success(Unit)
+
+                    awaitItem()
+                        .shouldBeInstanceOf<RpcEvent.Data<HardcoverConnection>>()
+                        .value
+                        .shouldBeInstanceOf<HardcoverConnection.Connected>()
+                        .history shouldBe HardcoverHistory.Sending(sentBooks = 0, totalBooks = 1)
+                }
+                hardcover.paths.filter { it == "/v1/graphql" } shouldBe emptyList()
+            }
+        }
+
+        test("dismissHistory turns the caller's offer into the quiet row, live") {
+            serviceTest {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-1")
+                sql.seedOwnRead(USER, "book-1", "r1", finishedAt = 1_000L)
+                seedConnected(USER)
+                val service = serviceFor(USER)
+                service.observeConnection().test {
+                    awaitItem()
+                    service.dismissHistory() shouldBe AppResult.Success(Unit)
+                    awaitItem()
+                        .shouldBeInstanceOf<RpcEvent.Data<HardcoverConnection>>()
+                        .value
+                        .shouldBeInstanceOf<HardcoverConnection.Connected>()
+                        .history shouldBe HardcoverHistory.Available(bookCount = 1)
+                }
+            }
+        }
+
+        test("sendHistory without a connection is NotConnected") {
+            serviceTest {
+                serviceFor(USER)
+                    .sendHistory()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<HardcoverError.NotConnected>()
+            }
+        }
+
+        test("without a principal sendHistory and dismissHistory are PermissionDenied") {
+            serviceTest {
+                unscoped.sendHistory().shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<AuthError.PermissionDenied>()
+                unscoped.dismissHistory().shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<AuthError.PermissionDenied>()
             }
         }
     })

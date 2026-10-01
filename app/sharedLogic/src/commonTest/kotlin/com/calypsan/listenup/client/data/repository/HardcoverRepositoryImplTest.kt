@@ -303,6 +303,21 @@ private class FakeHardcoverService(
         return AppResult.Success(Unit)
     }
 
+    var sendHistoryCount = 0
+        private set
+    var dismissHistoryCount = 0
+        private set
+
+    override suspend fun sendHistory(): AppResult<Unit> {
+        sendHistoryCount++
+        return AppResult.Success(Unit)
+    }
+
+    override suspend fun dismissHistory(): AppResult<Unit> {
+        dismissHistoryCount++
+        return AppResult.Success(Unit)
+    }
+
     var searchResult: AppResult<List<HardcoverBookCandidate>> = AppResult.Success(emptyList())
     var linkResult: AppResult<Unit> = AppResult.Success(Unit)
     var unlinkResult: AppResult<Unit> = AppResult.Success(Unit)

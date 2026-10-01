@@ -6,6 +6,8 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.server.hardcover.HardcoverBookLinking
+import com.calypsan.listenup.server.hardcover.HardcoverHistoryProgress
+import com.calypsan.listenup.server.hardcover.HardcoverHistorySender
 import com.calypsan.listenup.server.hardcover.HardcoverPreferences
 import com.calypsan.listenup.server.hardcover.HardcoverPullRequests
 import com.calypsan.listenup.server.hardcover.HardcoverPullWorker
@@ -74,6 +76,8 @@ class HardcoverModuleBootTest :
                     koinGet<HardcoverPullRequests>().shouldBeInstanceOf<HardcoverPullWorker>()
                     koinGet<HardcoverPreferences>().shouldNotBeNull()
                     koinGet<HardcoverWantToRead>().shouldNotBeNull()
+                    koinGet<HardcoverHistorySender>().shouldNotBeNull()
+                    koinGet<HardcoverHistoryProgress>().shouldNotBeNull()
                 }
 
                 val service = authedService<HardcoverService>(rootToken())
