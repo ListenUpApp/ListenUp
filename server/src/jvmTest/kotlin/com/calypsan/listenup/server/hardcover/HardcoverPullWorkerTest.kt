@@ -71,6 +71,7 @@ private class PullWorkerRig(
     val links = HardcoverBookLinkStore(sql, clock)
     val gate = HardcoverUserGate()
     val pushNudges = CopyOnWriteArrayList<String>()
+    val activity = HardcoverSyncActivity()
     val worker =
         HardcoverPullWorker(
             puller =
@@ -90,6 +91,7 @@ private class PullWorkerRig(
             gate = gate,
             pushNudge = HardcoverPushNudge { pushNudges += it },
             clock = clock,
+            activity = activity,
         )
 
     init {
@@ -366,6 +368,51 @@ class HardcoverPullWorkerTest :
                 store.pulledReads(USER) shouldBe emptyList()
                 worker.step(USER).shouldBeInstanceOf<LaneStep.Sleep>()
                 lastAfter() shouldBe PULL_EPOCH
+            }
+        }
+
+        test("Sync now is syncing until the full pull it asked for catches up") {
+            pullWorkerTest {
+                connect()
+                worker.syncNow(USER) shouldBe AppResult.Success(Unit)
+                activity.isSyncing(USER) shouldBe true
+                worker.step(USER) shouldBe LaneStep.Sleep(T0 + INTERVAL_MS)
+                activity.isSyncing(USER) shouldBe false
+                activity.syncNowFailed(USER) shouldBe false
+            }
+        }
+
+        test("a Sync now whose pull fails says so, and the next pull that catches up clears it") {
+            pullWorkerTest {
+                connect()
+                worker.syncNow(USER)
+                hardcover.failNext(FakeReply(HttpStatusCode.InternalServerError))
+                worker.step(USER)
+                activity.isSyncing(USER) shouldBe false
+                activity.syncNowFailed(USER) shouldBe true
+                at(T0 + INTERVAL_MS)
+                worker.step(USER)
+                activity.syncNowFailed(USER) shouldBe false
+            }
+        }
+
+        test("a throttled Sync now is still syncing: it is waiting, not failing") {
+            pullWorkerTest {
+                connect()
+                worker.syncNow(USER)
+                hardcover.failNext(FakeReply(HttpStatusCode.TooManyRequests, headers = mapOf("Retry-After" to "120")))
+                worker.step(USER)
+                activity.isSyncing(USER) shouldBe true
+                activity.syncNowFailed(USER) shouldBe false
+            }
+        }
+
+        test("a periodic pull that fails is not a failed Sync now") {
+            pullWorkerTest {
+                connect()
+                hardcover.failNext(FakeReply(HttpStatusCode.InternalServerError))
+                worker.step(USER)
+                activity.syncNowFailed(USER) shouldBe false
             }
         }
     })

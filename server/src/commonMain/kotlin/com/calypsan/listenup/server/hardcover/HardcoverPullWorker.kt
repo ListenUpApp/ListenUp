@@ -64,6 +64,9 @@ interface HardcoverPullRequests {
  * that page's step reschedules, and a full pull asked for ([syncNow], [onMatchChanged]) is written at
  * once and written again inside the gate before the next page, so a full pull already running can't
  * complete over the request and quietly turn it into an incremental one.
+ *
+ * A Sync now is reported on [activity]: requested here, settled by the first pull that begins after
+ * it, whether it catches up or fails. A throttled pull is waiting, not failing.
  */
 class HardcoverPullWorker(
     private val puller: HardcoverPuller,
@@ -74,6 +77,7 @@ class HardcoverPullWorker(
     private val gate: HardcoverUserGate,
     private val pushNudge: HardcoverPushNudge,
     private val clock: Clock = Clock.System,
+    private val activity: HardcoverSyncActivity = HardcoverSyncActivity(),
 ) : HardcoverPullRequests {
     private val lock = SynchronizedObject()
     private val dueAt = HashMap<String, Long>()
@@ -103,6 +107,7 @@ class HardcoverPullWorker(
 
             is StoredConnection.Healthy -> Unit
         }
+        activity.syncRequested(userId)
         requestFullPull(userId)
         pullNow(userId)
         pushNudge.nudge(userId)
@@ -135,6 +140,7 @@ class HardcoverPullWorker(
         if (due > now) return LaneStep.Sleep(due)
         // From here, a request made before this step is being served; one made during it is not.
         synchronized(lock) { pullWanted.remove(userId) }
+        val serving = activity.generation(userId)
         val token =
             when (val lookup = tokens.accessToken(userId)) {
                 is TokenLookup.Valid -> {
@@ -142,6 +148,7 @@ class HardcoverPullWorker(
                 }
 
                 TokenLookup.Unavailable -> {
+                    activity.pullFailed(userId, serving)
                     return LaneStep.Sleep(now + PULL_TOKEN_RETRY.inWholeMilliseconds)
                 }
 
@@ -157,12 +164,12 @@ class HardcoverPullWorker(
             is HardcoverCall.Ok -> {
                 when (page.value) {
                     PullProgress.MORE_PAGES -> LaneStep.Continue
-                    PullProgress.CAUGHT_UP -> caughtUp(userId)
+                    PullProgress.CAUGHT_UP -> caughtUp(userId, serving)
                 }
             }
 
             HardcoverCall.Unauthorized -> {
-                onUnauthorized(userId, token)
+                onUnauthorized(userId, token, serving)
             }
 
             is HardcoverCall.MissingScope -> {
@@ -184,6 +191,7 @@ class HardcoverPullWorker(
             is HardcoverCall.Failed -> {
                 val attempts = bumpFailures(userId)
                 if (attempts >= PULL_MAX_ATTEMPTS) connections.recordPullError(userId, page.detail)
+                activity.pullFailed(userId, serving)
                 retryAt(
                     userId,
                     now + exponentialBackoff(attempts, PULL_FAILURE_BACKOFF_BASE, PULL_INTERVAL).inWholeMilliseconds,
@@ -192,13 +200,17 @@ class HardcoverPullWorker(
         }
     }
 
-    private suspend fun caughtUp(userId: String): LaneStep {
+    private suspend fun caughtUp(
+        userId: String,
+        serving: Long,
+    ): LaneStep {
         val at = now()
         synchronized(lock) {
             caughtUpAt[userId] = at
             failures.remove(userId)
         }
         connections.markPulled(userId, at)
+        activity.pullCaughtUp(userId, serving)
         return retryAt(userId, at + PULL_INTERVAL.inWholeMilliseconds)
     }
 
@@ -206,6 +218,7 @@ class HardcoverPullWorker(
     private suspend fun onUnauthorized(
         userId: String,
         token: String,
+        serving: Long,
     ): LaneStep {
         val firstRejection = synchronized(lock) { refreshed.add(userId) }
         if (!firstRejection) return breakConnection(userId, HardcoverBrokenReason.REVOKED)
@@ -217,6 +230,7 @@ class HardcoverPullWorker(
             TokenLookup.Unavailable -> {
                 // A refresh that couldn't reach Hardcover doesn't count.
                 synchronized(lock) { refreshed.remove(userId) }
+                activity.pullFailed(userId, serving)
                 LaneStep.Sleep(now() + PULL_TOKEN_RETRY.inWholeMilliseconds)
             }
 
@@ -280,6 +294,7 @@ class HardcoverPullWorker(
             failures.remove(userId)
             refreshed.remove(userId)
         }
+        activity.forget(userId)
     }
 
     private fun now() = clock.now().toEpochMilliseconds()

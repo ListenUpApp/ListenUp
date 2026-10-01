@@ -206,6 +206,7 @@ private fun Module.hardcoverPull() {
             gate = get(),
             pushNudge = get(),
             clock = get(),
+            activity = get(),
         )
     }
     single<HardcoverPullRequests> { get<HardcoverPullWorker>() }
