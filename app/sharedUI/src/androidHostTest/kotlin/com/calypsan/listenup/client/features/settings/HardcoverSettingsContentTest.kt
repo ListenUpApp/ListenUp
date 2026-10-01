@@ -54,6 +54,8 @@ class HardcoverSettingsContentTest {
                     onDisconnect = { disconnects++ },
                     onSyncNow = {},
                     onSetShareMode = {},
+                    onSendHistory = {},
+                    onDismissHistory = {},
                     onFindMatch = {},
                 )
             }

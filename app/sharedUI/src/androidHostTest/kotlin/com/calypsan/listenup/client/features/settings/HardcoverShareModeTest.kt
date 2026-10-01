@@ -58,6 +58,8 @@ class HardcoverShareModeTest {
                     onDisconnect = {},
                     onSyncNow = {},
                     onSetShareMode = { chosen += it },
+                    onSendHistory = {},
+                    onDismissHistory = {},
                     onFindMatch = {},
                 )
             }

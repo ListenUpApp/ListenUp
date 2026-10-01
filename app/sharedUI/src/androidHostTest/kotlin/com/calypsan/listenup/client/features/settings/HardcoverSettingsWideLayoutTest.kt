@@ -36,6 +36,8 @@ class HardcoverSettingsWideLayoutTest {
                     onDisconnect = {},
                     onSyncNow = {},
                     onSetShareMode = {},
+                    onSendHistory = {},
+                    onDismissHistory = {},
                     onFindMatch = {},
                 )
             }

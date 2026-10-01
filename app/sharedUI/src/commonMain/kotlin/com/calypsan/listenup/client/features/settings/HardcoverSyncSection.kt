@@ -40,6 +40,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.api.dto.hardcover.HardcoverHistory
 import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.CountBadge
@@ -91,12 +92,16 @@ private val HardcoverSyncStatus.isSyncNowFailure: Boolean
  *
  * A failed Sync now is brief, not a state of the screen: the line stays as it was, and
  * [HardcoverSyncNowFailedNotice] says it once.
+ *
+ * After "Not now" on the earlier-books offer, its quiet row follows the sync line ([HardcoverEarlierBooksRow]).
  */
 @Composable
 internal fun HardcoverSyncBlock(
     lastSyncedAt: Long?,
     sync: HardcoverSyncStatus,
+    history: HardcoverHistory,
     onSyncNow: () -> Unit,
+    onSendHistory: () -> Unit,
 ) {
     SectionGroup(label = stringResource(Res.string.hardcover_sync_section)) {
         if (sync is HardcoverSyncStatus.Problem && !sync.isSyncNowFailure) {
@@ -107,6 +112,9 @@ internal fun HardcoverSyncBlock(
                 isSyncing = sync == HardcoverSyncStatus.Syncing,
                 onSyncNow = onSyncNow,
             )
+        }
+        if (history is HardcoverHistory.Available) {
+            HardcoverEarlierBooksRow(books = history.bookCount, onSend = onSendHistory)
         }
     }
 }
@@ -209,10 +217,12 @@ internal fun HardcoverNeedsMatch(
     books: List<HardcoverBookToMatch>,
     isKnown: Boolean,
     onFindMatch: (bookId: String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     if (!isKnown) return
     SectionGroup(
         label = stringResource(Res.string.hardcover_needs_match_section),
+        modifier = modifier,
         trailing = { if (books.isNotEmpty()) CountBadge(count = books.size) },
     ) {
         if (books.isEmpty()) {

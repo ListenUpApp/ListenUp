@@ -135,6 +135,8 @@ fun HardcoverSettingsScreen(
             onDisconnect = viewModel::disconnect,
             onSyncNow = viewModel::syncNow,
             onSetShareMode = viewModel::setShareMode,
+            onSendHistory = viewModel::sendHistory,
+            onDismissHistory = viewModel::dismissHistory,
             onFindMatch = onFindMatch,
             modifier = Modifier.padding(padding),
         )
@@ -159,6 +161,8 @@ internal fun HardcoverSettingsContent(
     onDisconnect: () -> Unit,
     onSyncNow: () -> Unit,
     onSetShareMode: (HardcoverShareMode) -> Unit,
+    onSendHistory: () -> Unit,
+    onDismissHistory: () -> Unit,
     onFindMatch: (bookId: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -204,6 +208,8 @@ internal fun HardcoverSettingsContent(
                     onRequestDisconnect = { confirmingDisconnect = true },
                     onSyncNow = onSyncNow,
                     onSetShareMode = onSetShareMode,
+                    onSendHistory = onSendHistory,
+                    onDismissHistory = onDismissHistory,
                     onFindMatch = onFindMatch,
                 )
             PhaseLayout(phase = phase, isWide = isWide, modifier = modifier)
