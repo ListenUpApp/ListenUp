@@ -4,8 +4,11 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.auth.UserRoleLookup
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.sync.ShelfBookRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
+
+private val log = loggerFor<HardcoverWantToRead>()
 
 /** The shelf Want to Read lands on once the user's starter "To Read" shelf is gone. */
 internal const val WANT_TO_READ_SHELF_NAME = "Want to Read"
@@ -80,6 +83,22 @@ class HardcoverWantToRead(
             if (left is AppResult.Failure) return left
         }
         return AppResult.Success(Unit)
+    }
+
+    /**
+     * The connection ended, or changed to another Hardcover account: everything Hardcover put on a shelf
+     * comes off (books the user shelved stay), and every record goes, taken-off-by-hand ones included.
+     */
+    suspend fun forget(userId: String) {
+        for (record in entries.records(userId)) {
+            val left = leave(userId, record)
+            if (left is AppResult.Failure) {
+                log.warn {
+                    "hardcover want to read: couldn't take ${record.bookId} off ${record.shelfId}: ${left.error.code}"
+                }
+            }
+        }
+        entries.forgetAll(userId)
     }
 
     private suspend fun place(

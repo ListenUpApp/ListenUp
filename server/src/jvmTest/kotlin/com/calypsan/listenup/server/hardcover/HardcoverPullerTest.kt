@@ -54,7 +54,6 @@ internal class PullRig(
     val store = HardcoverPullStore(sql, clock)
     val links = HardcoverBookLinkStore(sql, clock)
     val outbox = HardcoverOutbox(sql, clock)
-    val connections = HardcoverConnectionStore(sql, HardcoverTokenCipher(HardcoverTokenCipher.deriveKey("secret")), clock)
     val userBooks = HardcoverUserBooks(hardcover.client())
     val bus = ChangeBus()
     private val registry = SyncRegistry()
@@ -62,6 +61,8 @@ internal class PullRig(
     val shelfBooks = ShelfBookRepository(sql, bus, registry, clock)
     val shelfEntries = HardcoverShelfEntryStore(sql, clock)
     val wantToRead = HardcoverWantToRead(sql, shelfEntries, shelves, shelfBooks, BookAccessPolicy(sql, dbs.driver))
+    val connections =
+        HardcoverConnectionStore(sql, HardcoverTokenCipher(HardcoverTokenCipher.deriveKey("secret")), clock, wantToRead = wantToRead)
     val puller =
         HardcoverPuller(
             userBooks = userBooks,

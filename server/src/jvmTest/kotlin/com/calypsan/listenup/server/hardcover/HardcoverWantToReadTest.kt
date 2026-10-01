@@ -309,4 +309,39 @@ class HardcoverWantToReadTest :
                 booksOn(starter) shouldBe listOf(BOOK)
             }
         }
+
+        test("disconnecting takes off what Hardcover shelved, keeps what the user shelved, and forgets every record") {
+            pullTest {
+                val starter = starterShelf()
+                secondBook()
+                shelfBooks.addBook(starter, BOOK_2, USER)
+                connect()
+                wantToReadOnHardcover()
+                wantToReadOnHardcover(HC_BOOK_2, editionId = 9_002L)
+                pullAll()
+                booksOn(starter) shouldBe listOf(BOOK_2, BOOK)
+
+                connections.delete(USER)
+
+                booksOn(starter) shouldBe listOf(BOOK_2)
+                shelfEntries.records(USER) shouldBe emptyList()
+            }
+        }
+
+        test("reconnecting the same account keeps Hardcover's books; connecting a different one takes them off") {
+            pullTest {
+                val starter = starterShelf()
+                connect(hcUserId = 42)
+                wantToReadOnHardcover()
+                pullAll()
+
+                connect(hcUserId = 42)
+                booksOn(starter) shouldBe listOf(BOOK)
+                shelfEntries.recordFor(USER, BOOK)!!.state shouldBe HardcoverShelfEntryState.ON_SHELF
+
+                connect(hcUserId = 99)
+                booksOn(starter) shouldBe emptyList()
+                shelfEntries.records(USER) shouldBe emptyList()
+            }
+        }
     })

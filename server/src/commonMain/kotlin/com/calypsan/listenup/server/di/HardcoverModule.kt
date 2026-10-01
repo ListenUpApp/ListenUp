@@ -87,7 +87,15 @@ fun hardcoverModule(
         }
         single { HardcoverGraphQlClient(http = get(HARDCOVER_HTTP), apiBaseUrl = apiBaseUrl) }
         single { HardcoverSyncActivity() }
-        single { HardcoverConnectionStore(sql = get(), cipher = get(), clock = get(), activity = get()) }
+        single {
+            HardcoverConnectionStore(
+                sql = get(),
+                cipher = get(),
+                clock = get(),
+                activity = get(),
+                wantToRead = get(),
+            )
+        }
         single { HardcoverPreferences(sql = get(), clock = get(), activity = get()) }
         single {
             HardcoverLinker(
