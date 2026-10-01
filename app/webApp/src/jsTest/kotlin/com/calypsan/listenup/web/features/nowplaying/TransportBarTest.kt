@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.playback.PlaybackState
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
@@ -16,6 +17,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
 import org.w3c.dom.HTMLDialogElement
@@ -685,6 +687,38 @@ class TransportBarTest :
             host.querySelector(".tport-note")!!.textContent.orEmpty() shouldContain "Couldn't start this book"
 
             playback.close()
+            URL.revokeObjectURL(segment.url)
+        }
+
+        test("a held book's refusal names what unlocks it, and is not offered as a retry") {
+            val player = HtmlAudioPlayer()
+            val segment = silentSegment(AUDIO_SEGMENT_MS)
+            val manager = fakePlaybackManager(segment, title = "Dune")
+            manager.stubbedPrepareError = BookError.HeldForReview()
+            val playback =
+                LivePlayback(
+                    manager,
+                    WebPlaybackController(
+                        player,
+                        manager,
+                    ),
+                    player,
+                    FakePlaybackPreferences(),
+                    FakeBookRepository(),
+                )
+
+            playback.playBook(BookId("book-1"))
+
+            val message = withTimeout(PLAYING_TIMEOUT_MS) { playback.error.first { it != null } }
+            // The refusal's own words — "Release it first." — not the connection-failure notice,
+            // which would send the listener checking a network that is fine.
+            message shouldBe BookError.HeldForReview().message
+            message.shouldNotBeNull() shouldNotContain "try again"
+            manager.playbackError.value.shouldNotBeNull().isRecoverable shouldBe false
+            manager.currentBookId.value shouldBe null
+
+            playback.close()
+            player.releasePlayer()
             URL.revokeObjectURL(segment.url)
         }
 

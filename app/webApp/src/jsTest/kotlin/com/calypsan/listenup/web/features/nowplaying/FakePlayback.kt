@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import kotlinx.coroutines.flow.flowOf
@@ -64,6 +65,13 @@ internal class FakePlaybackManager(
     private val resumeBoostDb: Float = 0f,
 ) : PlaybackManager {
     private var prepareCount = 0
+
+    /**
+     * When set, every prepare ends in this typed refusal instead of a timeline — the shape the real
+     * choke point returns for, say, a book held for review. Distinct from [PrepareOutcome.THROWS],
+     * which models an escaping failure rather than a typed one.
+     */
+    var stubbedPrepareError: AppError? = null
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -149,6 +157,7 @@ internal class FakePlaybackManager(
         // finished state instead, which is how the no-restart spec passed with its own fix deleted.
         yield()
         prepareCount++
+        stubbedPrepareError?.let { return AppResult.Failure(it) }
         when (prepare) {
             PrepareOutcome.SUCCEEDS -> Unit
 
