@@ -266,6 +266,27 @@ class AdminInboxViewModelTest :
             }
         }
 
+        test("a tap that lands on a book no longer held is never released") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.inbox.hold("b1", "b2")
+                val vm = observed(f.build())
+                advanceUntilIdle()
+
+                // A stale row: b9 left the inbox before the tap reached the ViewModel.
+                vm.toggleBookSelection("b9")
+                vm.toggleBookSelection("b1")
+                advanceUntilIdle()
+                vm.state.value
+                    .shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                    .selectedBookIds shouldBe setOf("b1")
+                vm.releaseSelected()
+                advanceUntilIdle()
+
+                f.inbox.releases.single() shouldBe ("lib1" to mapOf("b1" to emptyList<String>()))
+            }
+        }
+
         test("a refused release is reported once, on the error bus, and keeps the books") {
             runTest(dispatcher) {
                 val f = Fixture()

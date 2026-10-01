@@ -87,8 +87,8 @@ private data class InboxOverlay(
  *
  * [state] is derived, never written: the held books, the scan issues, the dismissed issues and the
  * admin's [InboxOverlay] combine into it, and actions only write those inputs. The selection shown is
- * the overlay's selection intersected with what is held, so a book released elsewhere cannot stay
- * selected for release here.
+ * the overlay's selection intersected with what is held, and a release sends only selected books that
+ * are still held, so a book released elsewhere is neither shown selected nor released again here.
  *
  * Releasing is the RPC. Every inbox release is public — `releaseBooks` with an empty target list
  * moves the book into ALL_BOOKS; per-book collection assignment is book-edit's job. The book leaves
@@ -120,8 +120,10 @@ class AdminInboxViewModel internal constructor(
         heldReadAttempts
             .flatMapLatest {
                 heldBooks()
-                    // A book that stops being held drops out of the stored selection, so if it is held
-                    // again later it comes back unselected rather than pre-armed for release.
+                    // While the inbox is observed, a book that stops being held drops out of the stored
+                    // selection, so if it is held again later it comes back unselected rather than
+                    // pre-armed for release. Nothing prunes while nobody observes; [state]'s intersection
+                    // and the release's own snapshot are what keep a stale id from being shown or sent.
                     .onEach { held -> overlay.update { it.copy(selected = it.selected.intersect(held.ids.toSet())) } }
                     .map<HeldBooks, HeldLoad> { HeldLoad.Loaded(it) }
                     // Only a Retry from Error shows Loading; a re-subscription to a Ready inbox must not flash it.
@@ -277,7 +279,7 @@ class AdminInboxViewModel internal constructor(
                     overlay.update {
                         it.copy(
                             isReleasing = false,
-                            selected = it.selected.intersect(ready.bookIds.toSet()) - releasing,
+                            selected = it.selected - releasing,
                             lastReleasedCount = releasing.size,
                         )
                     }
@@ -293,10 +295,9 @@ class AdminInboxViewModel internal constructor(
 
     /** Toggle a book's selection for batch release. */
     fun toggleBookSelection(bookId: String) {
-        val ready = state.value as? AdminInboxUiState.Ready ?: return
+        if (state.value !is AdminInboxUiState.Ready) return
         overlay.update { ov ->
-            val toggled = if (bookId in ov.selected) ov.selected - bookId else ov.selected + bookId
-            ov.copy(selected = toggled.intersect(ready.bookIds.toSet()))
+            ov.copy(selected = if (bookId in ov.selected) ov.selected - bookId else ov.selected + bookId)
         }
     }
 
