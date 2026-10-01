@@ -356,7 +356,10 @@ class ShelfRepositoryImplTest :
                         everySuspend { coverHashesByBookFor("s1") } returns emptyList()
                         everySuspend { totalDurationMsOfBooks(listOf("held")) } returns 3_000_000L
                     }
-                val collectionBookDao = mock<CollectionBookDao> { everySuspend { heldBookIds() } returns listOf("held") }
+                // "elsewhere" is held but not on this shelf: only the held books ON this shelf may
+                // come off its count and length.
+                val collectionBookDao =
+                    mock<CollectionBookDao> { everySuspend { heldBookIds() } returns listOf("held", "elsewhere") }
 
                 val result =
                     repo(shelfDao = dao, service = service, collectionBookDao = collectionBookDao)
