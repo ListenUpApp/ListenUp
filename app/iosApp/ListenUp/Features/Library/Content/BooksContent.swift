@@ -24,6 +24,9 @@ struct BooksContent: View {
     let selection: BookSelectionObserver
     /// The section switcher, shown as the first row in every state; `nil` in the iPad sidebar.
     var picker: LibrarySectionPicker?
+    /// The admin inbox entry, the Books section's first row after the picker; nil when nothing is
+    /// held, for a member, while selecting, or in the other sections.
+    var inbox: LibraryInboxEntryModel?
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -80,6 +83,11 @@ struct BooksContent: View {
         return ScrollViewReader { proxy in
             ScrollView {
                 picker?.headerRow(horizontalMargin: layout.sideMargin)
+                if let inbox {
+                    LibraryInboxEntry(model: inbox)
+                        .padding(.horizontal, layout.sideMargin)
+                        .padding(.bottom, Spacing.s)
+                }
                 LazyVGrid(columns: columns, alignment: .leading, spacing: layout.gridSpacing) {
                     ForEach(letterSections) { section in
                         Section {
@@ -209,11 +217,17 @@ struct BooksContent: View {
 
     private var emptyState: some View {
         LibrarySectionState(picker: picker) {
-            ContentUnavailableView(
-                String(localized: "library.empty_title"),
-                systemImage: "books.vertical",
-                description: Text(String(localized: "library.empty_description"))
-            )
+            VStack(spacing: Spacing.m) {
+                if let inbox {
+                    LibraryInboxEntry(model: inbox)
+                        .padding(.horizontal, Spacing.m)
+                }
+                ContentUnavailableView(
+                    String(localized: "library.empty_title"),
+                    systemImage: "books.vertical",
+                    description: Text(String(localized: "library.empty_description"))
+                )
+            }
         }
     }
 

@@ -24,6 +24,8 @@ struct LibraryView: View {
     /// The window's one library projection, shared by every Library tab and sidebar entry; nil until
     /// the shell has built it.
     let observer: LibraryObserver?
+    /// The admin inbox entry for the Books section; nil when nothing is held (always nil for a member).
+    var inbox: LibraryInboxEntryModel?
     @State private var selection: BookSelectionObserver?
 
     private var user: User? { userObserver.user }
@@ -189,7 +191,9 @@ struct LibraryView: View {
                 ignoreTitleArticles: observer.ignoreTitleArticles,
                 onRefresh: { observer.refresh() },
                 selection: selection,
-                picker: sectionPicker
+                picker: sectionPicker,
+                // Selecting turns the grid into a picking surface the entry would clutter.
+                inbox: isSelecting ? nil : inbox
             )
         case .series:
             SeriesContent(

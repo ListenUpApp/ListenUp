@@ -22,6 +22,8 @@ struct MainTabView: View {
     @State private var playerCoordinator: PlayerCoordinator?
     /// One library projection for every Library tab and sidebar entry in this window.
     @State private var libraryObserver: LibraryObserver?
+    /// The held-for-review count for the Library badge and the Books entry, one per window.
+    @State private var inboxBadge: InboxBadgeObserver?
     @State private var bookLinkError: BookLinkError?
     /// The window's book share links, for every book context menu under the shell.
     @State private var shareLinks = BookShareLinks()
@@ -60,6 +62,9 @@ struct MainTabView: View {
             isPhone: UIDevice.current.userInterfaceIdiom == .phone
         )
     }
+
+    /// Books held for review — 0 for anyone who is not an admin, which hides every badge.
+    private var heldCount: Int { inboxBadge?.heldCount ?? 0 }
 
     var body: some View {
         @Bindable var shell = shell
@@ -141,6 +146,9 @@ struct MainTabView: View {
             if libraryObserver == nil {
                 libraryObserver = LibraryObserver(viewModel: deps.libraryViewModel)
             }
+            if inboxBadge == nil {
+                inboxBadge = InboxBadgeObserver(viewModel: deps.createInboxBadgeViewModel())
+            }
             restoreNavigationOnce()
         }
         .onChange(of: usesSidebar, initial: true) { _, usesSidebar in
@@ -205,6 +213,8 @@ struct MainTabView: View {
                         tabStack(.librarySection(section)) { libraryView(for: .librarySection(section)) }
                     }
                     .customizationID("listenup.library.\(section.rawValue)")
+                    // The held count rides Books, the section the entry heads (canvas sI1).
+                    .badge(section == .books ? heldCount : 0)
                 }
             }
             .customizationID("listenup.librarySections")
@@ -213,6 +223,7 @@ struct MainTabView: View {
                 tabStack(.library) { libraryView(for: .library) }
             }
             .customizationID("listenup.library")
+            .badge(heldCount)
         }
     }
 
@@ -228,7 +239,11 @@ struct MainTabView: View {
                 set: { shell.selectLibrarySection($0, from: tab) }
             ),
             chrome: LibraryChrome(tab: tab),
-            observer: libraryObserver
+            observer: libraryObserver,
+            inbox: LibraryInboxEntryModel.make(
+                count: heldCount,
+                previewBookIds: inboxBadge?.previewBookIds ?? []
+            )
         )
     }
 
