@@ -104,6 +104,9 @@ final class Dependencies {
     func createBookReadersViewModel(bookId: String) -> BookReadersViewModel {
         KoinHelper.shared.getBookReadersViewModel(bookId: bookId)
     }
+    func createBookHardcoverViewModel(bookId: String) -> BookHardcoverViewModel {
+        KoinHelper.shared.getBookHardcoverViewModel(bookId: bookId)
+    }
     func createBookRatingsViewModel(bookId: String) -> BookRatingsViewModel {
         KoinHelper.shared.getBookRatingsViewModel(bookId: bookId)
     }
@@ -155,6 +158,10 @@ final class Dependencies {
     func createDevicesViewModel() -> DevicesViewModel { KoinHelper.shared.getDevicesViewModel() }
     func createHardcoverSettingsViewModel() -> HardcoverSettingsViewModel {
         KoinHelper.shared.getHardcoverSettingsViewModel()
+    }
+    /// Find on Hardcover for exactly this book. Parametrized, so a fresh instance per sheet.
+    func createHardcoverMatchViewModel(bookId: String) -> HardcoverMatchViewModel {
+        KoinHelper.shared.getHardcoverMatchViewModel(bookId: bookId)
     }
     func createNotificationBellViewModel() -> NotificationBellViewModel {
         KoinHelper.shared.getNotificationBellViewModel()
