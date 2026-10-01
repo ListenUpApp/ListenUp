@@ -1,8 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,12 +8,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FormatListNumbered
-import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -26,12 +22,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.InboxGlyphTile
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.ContentShapes
@@ -81,21 +77,7 @@ fun HeldForReviewSection(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(MaterialTheme.colorScheme.tertiaryContainer),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Inbox,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
+                InboxGlyphTile(size = 40.dp, corner = 14.dp, glyphSize = 22.dp)
                 Column {
                     Text(
                         text = stringResource(Res.string.admin_held_for_review),

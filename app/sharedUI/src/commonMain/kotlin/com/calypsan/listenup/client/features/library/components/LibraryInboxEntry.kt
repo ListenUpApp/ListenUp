@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.library.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -29,6 +27,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.BookCoverImage
+import com.calypsan.listenup.client.design.components.InboxGlyphTile
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.features.admin.inbox.inboxEntryDescription
@@ -86,20 +85,7 @@ fun LibraryInboxEntry(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(MaterialTheme.colorScheme.tertiaryContainer),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Inbox,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                )
-            }
+            InboxGlyphTile(size = 48.dp, corner = 16.dp)
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = inboxEntryTitle(heldCount),
