@@ -163,4 +163,13 @@ class HardcoverSyncSectionTest {
             "They never count as listening.",
         ).forEach { composeRule.onNodeWithText(it, substring = true).performScrollTo().assertIsDisplayed() }
     }
+
+    @Test
+    fun `what comes back includes the Want to Read list, on the To Read shelf`() {
+        render(connected())
+        composeRule
+            .onNodeWithText("Your Want to Read list, on your To Read shelf")
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
 }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoStories
+import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.TaskAlt
@@ -20,6 +21,8 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
@@ -33,6 +36,7 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.hardcover_comes_back_line
 import listenup.composeapp.generated.resources.hardcover_comes_back_never_listening
+import listenup.composeapp.generated.resources.hardcover_comes_back_want_to_read
 import listenup.composeapp.generated.resources.hardcover_share_mode_as_i_listen
 import listenup.composeapp.generated.resources.hardcover_share_mode_finished_only
 import listenup.composeapp.generated.resources.hardcover_share_mode_label
@@ -55,7 +59,8 @@ private val SHARE_MODES = HardcoverShareMode.entries
  * What ListenUp sends to Hardcover, and what comes back. "Update Hardcover" chooses between As I listen
  * (books started, how far, books finished) and Only when I finish (finished books alone, with when they
  * were started and finished); the rows beneath say what the chosen mode sends. What comes back is the
- * same either way: reads from elsewhere, labelled in Readers and never counted as listening.
+ * same either way: reads from elsewhere, labelled in Readers and never counted as listening, and the Want
+ * to Read list, on the To Read shelf.
  */
 @Composable
 internal fun HardcoverWhatIsShared(
@@ -99,26 +104,35 @@ internal fun HardcoverWhatIsShared(
         val quiet = SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)
         val line = stringResource(Res.string.hardcover_comes_back_line)
         val never = stringResource(Res.string.hardcover_comes_back_never_listening)
-        SectionSegment {
-            Row(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = Spacing.lg),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Download,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text =
-                        buildAnnotatedString {
-                            append(line)
-                            append(' ')
-                            withStyle(quiet) { append(never) }
-                        },
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-            }
+        ComesBackLine(
+            icon = Icons.Outlined.Download,
+            text =
+                buildAnnotatedString {
+                    append(line)
+                    append(' ')
+                    withStyle(quiet) { append(never) }
+                },
+        )
+        ComesBackLine(
+            icon = Icons.Outlined.BookmarkAdd,
+            text = AnnotatedString(stringResource(Res.string.hardcover_comes_back_want_to_read)),
+        )
+    }
+}
+
+/** One thing Hardcover sends back, as a segment: a muted glyph beside the sentence. */
+@Composable
+private fun ComesBackLine(
+    icon: ImageVector,
+    text: AnnotatedString,
+) {
+    SectionSegment {
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = Spacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(text = text, style = MaterialTheme.typography.bodyLarge)
         }
     }
 }
