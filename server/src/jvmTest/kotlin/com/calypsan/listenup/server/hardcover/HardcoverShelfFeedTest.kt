@@ -173,4 +173,22 @@ class HardcoverShelfFeedTest :
                     .map { it.id } shouldBe listOf(readId)
             }
         }
+
+        test("an entry carries its reading status, Want to Read included, and a status change brings it back") {
+            runTest {
+                val hardcover = FakeHardcoverLibrary().withCatalog()
+                hardcover.seedShelf(HAIL_MARY, HardcoverStatus.WANT_TO_READ, editionId = 9_001L)
+                hardcover.seedShelf(DCC5, HardcoverStatus.READ, "2017-01-02" to "2017-03-01", editionId = 9_002L)
+                val feed = HardcoverUserBooks(hardcover.client())
+
+                val first = feed.page()
+                first.map { it.hcBookId to it.statusId } shouldBe
+                    listOf(HAIL_MARY to HardcoverStatus.WANT_TO_READ, DCC5 to HardcoverStatus.READ)
+
+                hardcover.moveTo(HAIL_MARY, HardcoverStatus.READING)
+                val last = first.last()
+                feed.page(after = last.updatedAt, afterId = last.userBookId).map { it.hcBookId to it.statusId } shouldBe
+                    listOf(HAIL_MARY to HardcoverStatus.READING)
+            }
+        }
     })

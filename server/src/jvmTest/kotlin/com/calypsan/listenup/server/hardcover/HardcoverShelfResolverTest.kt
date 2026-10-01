@@ -24,10 +24,12 @@ private fun entry(
     asin: String? = null,
     isbns: List<String> = emptyList(),
     finished: List<HardcoverFinishedRead> = listOf(HardcoverFinishedRead(7L, "2017-03-01")),
+    statusId: Int = HardcoverStatus.READ,
 ) = HardcoverShelfEntry(
     userBookId = userBookId,
     hcBookId = hcBookId,
     updatedAt = "2026-09-30T00:00:00.000001+00:00",
+    statusId = statusId,
     finishedReads = finished,
     title = title,
     authors = authors,

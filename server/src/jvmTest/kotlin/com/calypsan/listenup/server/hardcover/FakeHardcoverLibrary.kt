@@ -200,6 +200,18 @@ class FakeHardcoverLibrary(
         updatedAt: String,
     ) = synchronized(lock) { shelves.first { it.bookId == hcBookId }.updatedAt = updatedAt }
 
+    /** Moves [hcBookId]'s shelf entry to [statusId], as the user would on Hardcover's site. */
+    fun moveTo(
+        hcBookId: Long,
+        statusId: Int,
+    ) {
+        synchronized(lock) {
+            val shelf = shelves.first { it.bookId == hcBookId }
+            shelf.statusId = statusId
+            touch(shelf)
+        }
+    }
+
     fun deleteShelf(hcBookId: Long) = synchronized(lock) { shelves.removeAll { it.bookId == hcBookId } }
 
     fun deleteRead(readId: Long) =
@@ -446,6 +458,7 @@ class FakeHardcoverLibrary(
             put("id", shelf.id)
             put("book_id", shelf.bookId)
             put("updated_at", shelf.updatedAt)
+            put("status_id", shelf.statusId)
             putJsonArray("user_book_reads") {
                 shelf.reads.sortedBy { it.id }.forEach { read ->
                     addJsonObject {
