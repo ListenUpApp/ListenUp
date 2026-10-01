@@ -5,7 +5,7 @@ import Shared
 ///
 /// A centered hero (with a soft `CoverGlow` halo behind the cover) leads, followed by
 /// a resume bar, two secondary action pills, and the description / chapters /
-/// details sections. A narrow width stacks everything; a wide one splits into a left rail
+/// details sections — with Readers and, for a book matched on Hardcover, its Hardcover section. A narrow width stacks everything; a wide one splits into a left rail
 /// (hero + resume + pills), sized from the width, beside a flexible right column (description,
 /// chapters, details) — see `DetailColumns`. All state comes from `BookDetailObserver`; the overflow menu offers
 /// the progress resets and, for an admin, Delete Book.
@@ -17,6 +17,10 @@ struct BookDetailView: View {
     @State var observer: BookDetailObserver?
     @State private var readersObserver: BookReadersObserver?
     @State private var ratingsObserver: BookRatingsObserver?
+    @State private var hardcoverObserver: BookHardcoverObserver?
+    /// Find on Hardcover, opened from the Hardcover section (Change Match, or Find on Hardcover).
+    @State private var hardcoverMatchTarget: HardcoverMatchTarget?
+    @State private var confirmingHardcoverRemoval = false
     @State private var showRateSheet = false
     @State private var showRatingBreakdown = false
     /// Counts completed book actions (download, delete download, mark finished) so `commit`
@@ -99,6 +103,19 @@ struct BookDetailView: View {
                 )
             }
         }
+        .sheet(item: $hardcoverMatchTarget) { HardcoverMatchSheet(bookId: $0.bookId) }
+        .confirmationDialog(
+            String(localized: "hardcover.match_remove").titleStyled,
+            isPresented: $confirmingHardcoverRemoval,
+            titleVisibility: .hidden
+        ) {
+            Button(String(localized: "hardcover.match_remove").titleStyled, role: .destructive) {
+                hardcoverObserver?.removeMatch()
+            }
+            Button(String(localized: "common.cancel"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "hardcover.match_remove_detail"))
+        }
         .sheet(isPresented: $showCast) {
             if let observer, let book = observer.book {
                 CastCreditsSheet(book: book) { showCast = false }
@@ -141,6 +158,7 @@ struct BookDetailView: View {
             // no separate load call needed.
             readersObserver = BookReadersObserver(viewModel: deps.createBookReadersViewModel(bookId: bookId))
             ratingsObserver = BookRatingsObserver(viewModel: deps.createBookRatingsViewModel(bookId: bookId))
+            hardcoverObserver = BookHardcoverObserver(viewModel: deps.createBookHardcoverViewModel(bookId: bookId))
         }
     }
 
@@ -206,6 +224,8 @@ struct BookDetailView: View {
 
                 readersSection
 
+                hardcoverSection
+
                 Divider()
 
                 if !observer.documents.isEmpty {
@@ -266,6 +286,8 @@ struct BookDetailView: View {
                 ratingSection
 
                 readersSection
+
+                hardcoverSection
 
                 Divider()
 
@@ -357,6 +379,20 @@ struct BookDetailView: View {
         if case .data(let rows) = readersObserver?.phase {
             Divider()
             BookReadersSection(readers: rows)
+        }
+    }
+
+    /// The Hardcover match, under Readers. Renders only for a connected user whose book is matched or
+    /// needs a match; otherwise it stays out of the layout, divider and all.
+    @ViewBuilder
+    private var hardcoverSection: some View {
+        if let phase = hardcoverObserver?.phase, phase != .hidden {
+            Divider()
+            BookHardcoverSection(
+                phase: phase,
+                onFindMatch: { hardcoverMatchTarget = HardcoverMatchTarget(bookId: bookId) },
+                onRemoveMatch: { confirmingHardcoverRemoval = true }
+            )
         }
     }
 
