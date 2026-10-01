@@ -56,7 +56,9 @@ class NoWaitRateLimiter : HardcoverRateLimiter() {
  * survives the worse answer, [ReadUpdates.REPLACE], which nulls every omitted field.
  *
  * Like the real Hardcover (seen live, 2026-09-30), `insert_user_book` at Currently Reading opens a
- * read of its own, dated [FAKE_TODAY] at the shelved edition.
+ * read of its own, dated [FAKE_TODAY] at the shelved edition. With [opensReadOnStatusChange],
+ * `update_user_book` does the same when the entry has no open read. That is unverified on the real
+ * Hardcover, so push is tested against both.
  *
  * Every shelf carries an `updated_at` ([Shelf.updatedAt]), stamped from a counter so it only ever
  * grows, and the changed-since query the pull sends pages by `(updated_at, id)`. Stamps are written
@@ -68,6 +70,7 @@ class NoWaitRateLimiter : HardcoverRateLimiter() {
 class FakeHardcoverLibrary(
     private val readUpdates: ReadUpdates = ReadUpdates.PATCH,
     private val readChangesTouchShelf: Boolean = true,
+    private val opensReadOnStatusChange: Boolean = false,
 ) {
     /** How `update_user_book_read` treats the `DatesReadInput` fields a request omits. */
     enum class ReadUpdates {
@@ -309,6 +312,10 @@ class FakeHardcoverLibrary(
             "update_user_book" -> {
                 shelves.firstOrNull { it.id == variables.long("id") }?.let { shelf ->
                     shelf.statusId = variables.obj("object").int("status_id")
+                    if (opensReadOnStatusChange && shelf.reads.none { it.finishedAt == null }) {
+                        shelf.reads +=
+                            Read(nextId++, FAKE_TODAY, finishedAt = null, progressSeconds = null, editionId = shelf.editionId)
+                    }
                     touch(shelf)
                     mutation("update_user_book", shelf.id)
                 } ?: mutationError("update_user_book", "User book not found")

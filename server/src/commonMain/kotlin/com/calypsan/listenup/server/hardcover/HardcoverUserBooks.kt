@@ -190,12 +190,16 @@ class HardcoverUserBooks(
             },
         ).map { }
 
-    /** Opens a new read on [userBookId], started on [startedAt] when known. Answers the read's id. */
+    /**
+     * Adds a read to [userBookId], started on [startedAt] when known — finished on [finishedAt] too when
+     * given, which is how a history read arrives whole, in one call. Answers the read's id.
+     */
     suspend fun openRead(
         accessToken: String,
         userBookId: Long,
         startedAt: LocalDate?,
         hcEditionId: Long?,
+        finishedAt: LocalDate? = null,
     ): HardcoverCall<Long> =
         mutate(
             accessToken,
@@ -205,6 +209,7 @@ class HardcoverUserBooks(
                 put("userBookId", userBookId)
                 putJsonObject("read") {
                     startedAt?.let { put("started_at", it.toString()) }
+                    finishedAt?.let { put("finished_at", it.toString()) }
                     hcEditionId?.let { put("edition_id", it) }
                 }
             },

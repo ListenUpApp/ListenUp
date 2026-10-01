@@ -72,3 +72,10 @@ VALUES (:user_id, :read_id, :outcome, :recorded_at);
 
 outcomeOf:
 SELECT outcome FROM hardcover_history_reads WHERE user_id = :user_id AND read_id = :read_id;
+
+-- The own read a live FINISH just sent: the newest of the book finished at or after its listen-through began.
+latestOwnReadSince:
+SELECT id FROM book_reads
+WHERE user_id = :user_id AND book_id = :book_id AND source <> 'hardcover' AND finished_at >= :since
+ORDER BY finished_at DESC, id DESC
+LIMIT 1;

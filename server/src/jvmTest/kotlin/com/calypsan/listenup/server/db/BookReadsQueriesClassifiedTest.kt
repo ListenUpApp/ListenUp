@@ -55,6 +55,7 @@ private val CLASSIFIED: Map<String, ReadsSide> =
         "HardcoverHistory.countUnsentHistoryBooks" to ReadsSide.LISTENUP_ONLY,
         "HardcoverHistory.countOwnReadsThrough" to ReadsSide.LISTENUP_ONLY,
         "HardcoverHistory.readExists" to ReadsSide.BY_ID,
+        "HardcoverHistory.latestOwnReadSince" to ReadsSide.LISTENUP_ONLY,
     )
 
 /** Production files that may touch `bookReadsQueries` directly, relative to the server's commonMain kotlin root. */

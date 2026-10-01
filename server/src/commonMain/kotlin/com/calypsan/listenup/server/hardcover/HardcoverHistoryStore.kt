@@ -71,5 +71,28 @@ internal suspend fun ListenUpDatabase.recordHardcoverHistoryRead(
     }
 }
 
+/**
+ * A live FINISH of [bookId] reached Hardcover: its read — the newest own read finished since the
+ * listen-through began at [listenThrough] — goes in the history ledger as SENT. Reconnecting the same account
+ * then never offers it as history.
+ */
+internal suspend fun ListenUpDatabase.recordLiveFinish(
+    userId: String,
+    bookId: String,
+    listenThrough: Long,
+    at: Long,
+) {
+    suspendTransaction(this) {
+        hardcoverHistoryQueries.latestOwnReadSince(userId, bookId, listenThrough).executeAsOneOrNull()?.let { readId ->
+            hardcoverHistoryQueries.recordRead(
+                user_id = userId,
+                read_id = readId,
+                outcome = HardcoverHistoryOutcome.SENT.name,
+                recorded_at = at,
+            )
+        }
+    }
+}
+
 internal fun SelectUnsentHistory.toHistoryRead(): HardcoverHistoryRead =
     HardcoverHistoryRead(readId = id, bookId = book_id, startedAt = derived_started_at, finishedAt = finished_at)

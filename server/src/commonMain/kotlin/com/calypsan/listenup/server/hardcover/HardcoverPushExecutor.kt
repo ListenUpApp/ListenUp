@@ -39,7 +39,9 @@ private data class OpenRead(
 /**
  * Runs one outbox row against Hardcover (spec B2, "Which read an operation targets" and "The deletion
  * rule"). Each attempt starts from Hardcover's current shelf entry, so a retry after a lost answer
- * adopts the read the lost call created instead of opening a second one.
+ * adopts the read the lost call created instead of opening a second one. A HISTORY row (#1540) goes to
+ * [HardcoverHistoryPush], which paces each call on the shared rate limiter. A FINISH that lands records
+ * its read in the history ledger.
  */
 class HardcoverPushExecutor(
     private val userBooks: HardcoverUserBooks,
@@ -47,7 +49,10 @@ class HardcoverPushExecutor(
     private val outbox: HardcoverOutbox,
     private val sql: ListenUpDatabase,
     private val clock: Clock = Clock.System,
+    rateLimiter: HardcoverRateLimiter = HardcoverRateLimiter(),
 ) {
+    private val history = HardcoverHistoryPush(userBooks, links, sql, clock, rateLimiter)
+
     /** Runs [row] for LINKED [link] with [accessToken]. */
     suspend fun execute(
         row: HardcoverOutboxRow,
@@ -55,17 +60,28 @@ class HardcoverPushExecutor(
         accessToken: String,
     ): PushOutcome {
         val hcBookId = checkNotNull(link.hcBookId) { "only a LINKED book is pushed" }
+        return when (val payload = row.payload) {
+            // A finished read of its own (#1540): no listen-through to continue, so the deletion rule has nothing to act on.
+            is HardcoverPushPayload.History -> history.send(row, payload, link, hcBookId, accessToken)
+            is HardcoverPushPayload.Start -> live(row, link, hcBookId, accessToken) { start(payload) }
+            is HardcoverPushPayload.Progress -> live(row, link, hcBookId, accessToken) { progress(payload) }
+            is HardcoverPushPayload.Finish -> live(row, link, hcBookId, accessToken) { finish(payload) }
+        }
+    }
+
+    /** Runs one listen-through's [operation] from Hardcover's current shelf entry, unless the deletion rule silences it. */
+    private suspend fun live(
+        row: HardcoverOutboxRow,
+        link: HardcoverBookLink,
+        hcBookId: Long,
+        accessToken: String,
+        operation: suspend Target.() -> PushOutcome,
+    ): PushOutcome {
         if (link.suppressedListenThrough == row.listenThrough) return suppress(row)
         val shelf = userBooks.userBookFor(accessToken, hcBookId).valueOr { return PushOutcome.Failed(it) }
         if (deletedOnHardcover(link, row.listenThrough, shelf)) return suppress(row)
         val zone = sql.homeTimeZone(row.userId)
-        val target = Target(row, link, hcBookId, shelf, accessToken, zone)
-        return when (val payload = row.payload) {
-            is HardcoverPushPayload.Start -> target.start(payload)
-            is HardcoverPushPayload.Progress -> target.progress(payload)
-            is HardcoverPushPayload.Finish -> target.finish(payload)
-            is HardcoverPushPayload.History -> PushOutcome.Failed(HardcoverCall.Failed("HISTORY rows arrive in the next commit"))
-        }
+        return Target(row, link, hcBookId, shelf, accessToken, zone).operation()
     }
 
     /** Everything one row's operation needs, so the three operations read as the spec does. */
@@ -123,6 +139,8 @@ class HardcoverPushExecutor(
                     ).valueOr { return PushOutcome.Failed(it) }
             }
             links.clearOpenRead(row.userId, row.bookId)
+            // The read is on Hardcover now: it is never history to offer again, even after a reconnect (#1540).
+            sql.recordLiveFinish(row.userId, row.bookId, row.listenThrough, clock.now().toEpochMilliseconds())
             return PushOutcome.Done
         }
 

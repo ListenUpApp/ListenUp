@@ -9,9 +9,14 @@ CREATE TABLE hardcover_pushed_reads (
     PRIMARY KEY (user_id, hc_read_id)
 );
 
+-- origin: LIVE for a read a listen-through opened or continued; HISTORY for one a HISTORY row wrote (#1540).
 recordPushedRead:
-INSERT OR IGNORE INTO hardcover_pushed_reads (user_id, hc_read_id, book_id, recorded_at)
-VALUES (:user_id, :hc_read_id, :book_id, :recorded_at);
+INSERT OR IGNORE INTO hardcover_pushed_reads (user_id, hc_read_id, book_id, recorded_at, origin)
+VALUES (:user_id, :hc_read_id, :book_id, :recorded_at, :origin);
+
+-- Whether ListenUp pushed read :hc_read_id live: such a read never counts as an earlier read for history.
+isLivePushedRead:
+SELECT EXISTS(SELECT 1 FROM hardcover_pushed_reads WHERE user_id = :user_id AND hc_read_id = :hc_read_id AND origin = 'LIVE');
 
 isPushedRead:
 SELECT EXISTS(SELECT 1 FROM hardcover_pushed_reads WHERE user_id = :user_id AND hc_read_id = :hc_read_id);
