@@ -7,9 +7,11 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atTime
 import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Instant
 
 private val log = loggerFor<HardcoverPuller>()
 
@@ -41,7 +43,9 @@ enum class PullProgress {
  * opened or continued (the pushed-read ledger — the echo suppression, which wins even when the user
  * finished that read on Hardcover), and commits the rest as `source = 'hardcover'` reads together
  * with the cursor move ([HardcoverPullStore.commitPage]). A read with no finish date never arrives
- * ([HardcoverFinishedRead]). The cursor is the last entry's `updated_at` exactly as Hardcover wrote it:
+ * ([HardcoverFinishedRead]), and neither does one finished after today in the user's zone: that date is
+ * a typo ListenUp doesn't try to correct, so the read is treated as absent (a full pull removes it if it
+ * was pulled before) and arrives on the first full pull once the date is real. The cursor is the last entry's `updated_at` exactly as Hardcover wrote it:
  * only Hardcover orders and compares it.
  *
  * Every [FULL_PULL_INTERVAL] (or when asked, see [HardcoverPullStore.requestFullPull]) the pull
@@ -98,12 +102,16 @@ class HardcoverPuller(
         val resolved = resolver.resolve(userId, page)
         val listenUpsOwn = links.pushedReadsAmong(userId, page.flatMap { entry -> entry.finishedReads.map { it.id } })
         val zone = sql.homeTimeZone(userId)
+        val today = Instant.fromEpochMilliseconds(now).toLocalDateTime(zone).date
         val books =
             page.mapNotNull { entry ->
                 val resolution = resolved[entry.userBookId] ?: return@mapNotNull null
                 PulledBook(
                     bookId = resolution.bookId,
-                    reads = entry.finishedReads.filterNot { it.id in listenUpsOwn }.mapNotNull { it.toPulled(zone) },
+                    reads =
+                        entry.finishedReads
+                            .filterNot { it.id in listenUpsOwn }
+                            .mapNotNull { it.toPulled(zone, today) },
                     newLink = (resolution as? ShelfResolution.Matched)?.match,
                 )
             }
@@ -117,8 +125,14 @@ class HardcoverPuller(
     ): Boolean = lastFullPullAt == null || now - lastFullPullAt >= FULL_PULL_INTERVAL.inWholeMilliseconds
 }
 
-/** Noon on the read's finish date in [zone]; null (and logged) when Hardcover sent a date ListenUp can't read. */
-private fun HardcoverFinishedRead.toPulled(zone: TimeZone): PulledRead? {
+/**
+ * Noon on the read's finish date in [zone]; null (and logged) when Hardcover sent a date ListenUp can't
+ * read, or one after [today] — a finish that hasn't happened yet is nonsense, not ours to fix.
+ */
+private fun HardcoverFinishedRead.toPulled(
+    zone: TimeZone,
+    today: LocalDate,
+): PulledRead? {
     val date =
         try {
             LocalDate.parse(finishedOn.take(ISO_DATE_LENGTH))
@@ -126,5 +140,9 @@ private fun HardcoverFinishedRead.toPulled(zone: TimeZone): PulledRead? {
             log.warn { "hardcover pull: read $id has an unreadable finish date '$finishedOn'; skipped" }
             return null
         }
+    if (date > today) {
+        log.info { "hardcover pull: read $id finishes on $date, after today ($today); skipped until then" }
+        return null
+    }
     return PulledRead(id, date.atTime(PULLED_READ_HOUR, 0).toInstant(zone).toEpochMilliseconds())
 }

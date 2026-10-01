@@ -216,6 +216,35 @@ class HardcoverPullSpecsTest :
             }
         }
 
+        test("a read moved into the future on Hardcover is treated as gone: the next full pull removes it") {
+            pullTest(readChangesTouchShelf = false) {
+                connect()
+                val shelf = hardcover.seedShelf(HC_BOOK, HardcoverStatus.READ, "2016-01-01" to "2016-02-01", editionId = 9_001L)
+                pullAll()
+                hardcover.editRead(shelf.reads.single().id) { it.finishedAt = "2026-12-18" }
+                pullAll()
+                store.pulledReads(USER).size shouldBe 1
+
+                aDayLater()
+                pullAll()
+                store.pulledReads(USER) shouldBe emptyList()
+            }
+        }
+
+        test("a read finished in the future comes in on the first pull once its date is real") {
+            pullTest {
+                connect()
+                val shelf = hardcover.seedShelf(HC_BOOK, HardcoverStatus.READ, "2026-05-01" to "2026-05-25", editionId = 9_001L)
+                pullAll()
+                store.pulledReads(USER) shouldBe emptyList()
+
+                // 2026-05-25 00:30 UTC: the finish date is today now.
+                clock.instant = Instant.fromEpochMilliseconds(T0 + 60.hours.inWholeMilliseconds + 30.minutes.inWholeMilliseconds)
+                pullAll()
+                store.pulledReads(USER) shouldBe listOf(PulledReadRow(BOOK, noonUtc("2026-05-25"), shelf.reads.single().id))
+            }
+        }
+
         test("deletion mirroring: a whole shelf entry deleted on Hardcover goes at the next full pull; ListenUp's own read stays") {
             pullTest {
                 connect()
