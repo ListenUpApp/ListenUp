@@ -19,7 +19,6 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.SyncProblem
-import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -50,10 +49,8 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
-import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.SegmentedGroup
-import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.avatarInitials
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
@@ -84,13 +81,11 @@ import listenup.composeapp.generated.resources.hardcover_linking_title
 import listenup.composeapp.generated.resources.hardcover_not_connected_title
 import listenup.composeapp.generated.resources.hardcover_open_hardcover
 import listenup.composeapp.generated.resources.hardcover_reconnect
-import listenup.composeapp.generated.resources.hardcover_shared_finished_row
 import listenup.composeapp.generated.resources.hardcover_shares_finished
 import listenup.composeapp.generated.resources.hardcover_shares_no_password
 import listenup.composeapp.generated.resources.hardcover_waiting_detail
 import listenup.composeapp.generated.resources.hardcover_waiting_title
 import listenup.composeapp.generated.resources.hardcover_was_connected_as
-import listenup.composeapp.generated.resources.hardcover_what_is_shared
 import listenup.composeapp.generated.resources.hardcover_your_code
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -107,6 +102,8 @@ internal fun hardcoverPhase(
     onOpenHardcover: () -> Unit,
     onCancelLinking: () -> Unit,
     onRequestDisconnect: () -> Unit,
+    onSyncNow: () -> Unit,
+    onFindMatch: (bookId: String) -> Unit,
 ): HardcoverPhase =
     when (state) {
         is HardcoverSettingsUiState.NotConnected -> {
@@ -145,7 +142,16 @@ internal fun hardcoverPhase(
         is HardcoverSettingsUiState.Connected -> {
             HardcoverPhase(
                 lead = { ConnectedHero(username = state.username, since = state.since, bleeds = !isWide) },
-                detail = { WhatIsShared() },
+                // Canvas order: sync, then Needs a match (the one part that asks you to act), then sharing.
+                detail = {
+                    HardcoverSyncBlock(lastSyncedAt = state.lastSyncedAt, sync = state.sync, onSyncNow = onSyncNow)
+                    HardcoverNeedsMatch(
+                        books = state.booksToMatch,
+                        isKnown = state.isMatchListKnown,
+                        onFindMatch = onFindMatch,
+                    )
+                    HardcoverWhatIsShared()
+                },
                 actions = {
                     ListenUpButton(
                         text = stringResource(Res.string.hardcover_disconnect),
@@ -419,16 +425,6 @@ private fun ConnectedHero(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun WhatIsShared() {
-    SectionGroup(label = stringResource(Res.string.hardcover_what_is_shared)) {
-        SettingRow(
-            title = stringResource(Res.string.hardcover_shared_finished_row),
-            icon = Icons.Outlined.TaskAlt,
-        )
     }
 }
 

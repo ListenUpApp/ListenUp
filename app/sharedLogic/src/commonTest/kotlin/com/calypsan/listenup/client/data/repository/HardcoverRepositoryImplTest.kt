@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.repository
 import app.cash.turbine.test
 import com.calypsan.listenup.api.HardcoverService
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookCandidate
+import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
@@ -22,7 +23,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import kotlin.time.Clock
 import kotlin.time.Duration
+import kotlin.time.Instant
 
 /**
  * [HardcoverRepositoryImpl] over the real [RpcChannel] fold, driven by an in-memory
@@ -177,6 +180,64 @@ class HardcoverRepositoryImplTest :
                 dispatch.lastIdempotent shouldBe true
             }
         }
+
+        test("a link that lands announces the book; one that fails doesn't") {
+            runTest {
+                val service = FakeHardcoverService()
+                val repository = HardcoverRepositoryImpl(RpcChannel.forTest(service))
+                repository.matchChanges.test {
+                    repository.linkBook(BookId("b1"), 427_578L, 9_001L) shouldBe AppResult.Success(Unit)
+                    awaitItem() shouldBe BookId("b1")
+                    service.linkResult = AppResult.Failure(HardcoverError.Unavailable())
+                    repository.linkBook(BookId("b2"), 1L, null)
+                    repository.unlinkBook(BookId("b3")) shouldBe AppResult.Success(Unit)
+                    awaitItem() shouldBe BookId("b3")
+                }
+                service.linked shouldBe
+                    listOf(Triple(BookId("b1"), 427_578L, 9_001L), Triple(BookId("b2"), 1L, null))
+            }
+        }
+
+        test("a link that lands is remembered with its time until the book is unlinked; a failed one isn't") {
+            runTest {
+                val service = FakeHardcoverService()
+                val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
+                val repository = HardcoverRepositoryImpl(RpcChannel.forTest(service), clock)
+                repository.linkedAt(BookId("b1")) shouldBe null
+                repository.linkBook(BookId("b1"), 427_578L, 9_001L) shouldBe AppResult.Success(Unit)
+                repository.linkedAt(BookId("b1")) shouldBe Instant.fromEpochMilliseconds(1_000L)
+                clock.now = Instant.fromEpochMilliseconds(5_000L)
+                service.linkResult = AppResult.Failure(HardcoverError.Unavailable())
+                repository.linkBook(BookId("b1"), 1L, null)
+                repository.linkedAt(BookId("b1")) shouldBe Instant.fromEpochMilliseconds(1_000L)
+                repository.unlinkBook(BookId("b1")) shouldBe AppResult.Success(Unit)
+                repository.linkedAt(BookId("b1")) shouldBe null
+            }
+        }
+
+        test("the reads and Sync now reach the server and are safe blind retries") {
+            runTest {
+                val service =
+                    FakeHardcoverService().apply {
+                        booksNeedingMatchResult = AppResult.Success(listOf(BookId("b1")))
+                        bookMatchResult = AppResult.Success(HardcoverBookMatch.NeedsMatch)
+                    }
+                val dispatch = IdempotenceRecordingDispatch<HardcoverService>(service)
+                val repository = HardcoverRepositoryImpl(RpcChannel(dispatch, RpcPolicy.Authed))
+
+                repository.booksNeedingMatch() shouldBe AppResult.Success(listOf(BookId("b1")))
+                dispatch.lastIdempotent shouldBe true
+                repository.bookMatch(BookId("b1")) shouldBe AppResult.Success(HardcoverBookMatch.NeedsMatch)
+                dispatch.lastIdempotent shouldBe true
+                repository.searchCatalog("hail mary") shouldBe AppResult.Success(emptyList())
+                dispatch.lastIdempotent shouldBe true
+                repository.syncNow() shouldBe AppResult.Success(Unit)
+                dispatch.lastIdempotent shouldBe true
+                service.syncNowCount shouldBe 1
+                repository.linkBook(BookId("b1"), 1L, null)
+                dispatch.lastIdempotent shouldBe true
+            }
+        }
     })
 
 /** In-memory [HardcoverService]: each subscribe pops the next scripted stream; unary calls return what they were given. */
@@ -203,21 +264,39 @@ private class FakeHardcoverService(
         return disconnectResult
     }
 
-    override suspend fun searchCatalog(query: String): AppResult<List<HardcoverBookCandidate>> =
-        AppResult.Failure(HardcoverError.NotConfigured())
+    var searchResult: AppResult<List<HardcoverBookCandidate>> = AppResult.Success(emptyList())
+    var linkResult: AppResult<Unit> = AppResult.Success(Unit)
+    var unlinkResult: AppResult<Unit> = AppResult.Success(Unit)
+    var booksNeedingMatchResult: AppResult<List<BookId>> = AppResult.Success(emptyList())
+    var bookMatchResult: AppResult<HardcoverBookMatch> = AppResult.Success(HardcoverBookMatch.Unmatched)
+    var syncNowCount = 0
+        private set
+    val linked = mutableListOf<Triple<BookId, Long, Long?>>()
+
+    override suspend fun searchCatalog(query: String): AppResult<List<HardcoverBookCandidate>> = searchResult
 
     override suspend fun linkBook(
         bookId: BookId,
         hcBookId: Long,
         hcEditionId: Long?,
-    ): AppResult<Unit> = AppResult.Failure(HardcoverError.NotConfigured())
+    ): AppResult<Unit> {
+        linked += Triple(bookId, hcBookId, hcEditionId)
+        return linkResult
+    }
 
-    override suspend fun unlinkBook(bookId: BookId): AppResult<Unit> = AppResult.Failure(HardcoverError.NotConfigured())
+    override suspend fun unlinkBook(bookId: BookId): AppResult<Unit> = unlinkResult
+
+    override suspend fun syncNow(): AppResult<Unit> {
+        syncNowCount++
+        return AppResult.Success(Unit)
+    }
+
+    override suspend fun booksNeedingMatch(): AppResult<List<BookId>> = booksNeedingMatchResult
+
+    override suspend fun bookMatch(bookId: BookId): AppResult<HardcoverBookMatch> = bookMatchResult
 
     var syncIfStaleCount = 0
         private set
-
-    override suspend fun syncNow(): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun syncIfStale(): AppResult<Unit> {
         syncIfStaleCount++
@@ -245,4 +324,11 @@ private class IdempotenceRecordingDispatch<S : Any>(
     override suspend fun invalidate() = Unit
 
     override suspend fun retire() = Unit
+}
+
+/** A [Clock] the test moves by hand. */
+private class MutableClock(
+    var now: Instant,
+) : Clock {
+    override fun now(): Instant = now
 }

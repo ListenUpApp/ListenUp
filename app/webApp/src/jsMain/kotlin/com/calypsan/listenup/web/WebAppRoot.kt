@@ -13,7 +13,14 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
+import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
+import com.calypsan.listenup.client.presentation.hardcover.HardcoverMatchEvent
+import com.calypsan.listenup.client.presentation.hardcover.HardcoverSyncStatus
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsEvent
+import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsUiState
+import com.calypsan.listenup.web.design.ShowActionToast
+import com.calypsan.listenup.web.design.ToastAction
+import com.calypsan.listenup.web.design.ToastTone
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailNavAction
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookedit.BookEditNavAction
@@ -114,8 +121,12 @@ import com.calypsan.listenup.web.features.admin.UserDetailPage
 import com.calypsan.listenup.web.features.admin.OpenAdmin
 import com.calypsan.listenup.web.features.devices.DevicesPage
 import com.calypsan.listenup.web.features.devices.OpenDevices
+import com.calypsan.listenup.web.features.hardcover.HardcoverMatchPage
 import com.calypsan.listenup.web.features.hardcover.HardcoverPage
+import com.calypsan.listenup.web.features.hardcover.OpenBookHardcover
 import com.calypsan.listenup.web.features.hardcover.OpenHardcover
+import com.calypsan.listenup.web.features.hardcover.OpenHardcoverMatch
+import com.calypsan.listenup.web.features.hardcover.linkedToastText
 import com.calypsan.listenup.web.features.serieslist.SeriesListPage
 import com.calypsan.listenup.web.features.settings.OpenSettings
 import com.calypsan.listenup.web.features.licences.LicencesPage
@@ -268,9 +279,12 @@ fun WebAppRoot(
     openGenreDestination: OpenGenreDestination,
     openBookReaders: OpenBookReaders,
     openBookRatings: OpenBookRatings,
+    openHardcoverMatch: OpenHardcoverMatch,
+    openBookHardcover: OpenBookHardcover,
     openSeeAll: OpenSeeAll,
     openDeadLetters: OpenDeadLetters,
     onToast: (String) -> Unit,
+    onActionToast: ShowActionToast,
     openNotificationBell: OpenNotificationBell,
     openPlayback: OpenPlayback,
     observeIsAdmin: () -> Flow<Boolean>,
@@ -369,8 +383,11 @@ fun WebAppRoot(
             openGenreDestination = openGenreDestination,
             openBookReaders = openBookReaders,
             openBookRatings = openBookRatings,
+            openHardcoverMatch = openHardcoverMatch,
+            openBookHardcover = openBookHardcover,
             openSeeAll = openSeeAll,
             onToast = onToast,
+            onActionToast = onActionToast,
             librarySession = librarySession,
             playback = playback,
             heroBookId = heroBookId,
@@ -445,7 +462,7 @@ private val ROUTE_SHAPES: Map<String, (List<String>) -> Boolean> =
         LIBRARY_KEY to { it.isSection(CONTRIBUTORS_KEY, SERIES_KEY) },
         SEARCH_KEY to { it.size <= 2 },
         SETTINGS_KEY to { it.isSection(DEVICES_KEY, NOTIFICATIONS_KEY, HARDCOVER_KEY, LICENCES_KEY) },
-        BOOK_KEY to { it.isIdWith(EDIT_KEY, CHAPTERS_KEY, MATCH_KEY, READERS_KEY) },
+        BOOK_KEY to { it.isIdWith(EDIT_KEY, CHAPTERS_KEY, MATCH_KEY, READERS_KEY, HARDCOVER_KEY) },
         BOOKS_KEY to { it.size == 2 && it[1] == EDIT_KEY },
         CONTRIBUTOR_KEY to { it.isIdWith(EDIT_KEY, BOOKS_KEY, MATCH_KEY) },
         SERIES_KEY to { it.isIdWith(EDIT_KEY) },
@@ -733,8 +750,11 @@ private fun RouteContent(
     openGenreDestination: OpenGenreDestination,
     openBookReaders: OpenBookReaders,
     openBookRatings: OpenBookRatings,
+    openHardcoverMatch: OpenHardcoverMatch,
+    openBookHardcover: OpenBookHardcover,
     openSeeAll: OpenSeeAll,
     onToast: (String) -> Unit,
+    onActionToast: ShowActionToast,
     librarySession: LibrarySession,
     playback: PlaybackSession,
     heroBookId: String?,
@@ -772,12 +792,7 @@ private fun RouteContent(
     if (!route.isServed()) {
         NotFoundPage(onGoHome = { router.navigate(Route(emptyList())) })
     } else if (bulkEditIds.isNotEmpty()) {
-        BulkEditRoute(
-            router = router,
-            openBulkEdit = openBulkEdit,
-            bookIds = bulkEditIds,
-            onToast = onToast,
-        )
+        BulkEditRoute(router = router, openBulkEdit = openBulkEdit, bookIds = bulkEditIds, onToast = onToast)
     } else if (bookId != null) {
         BookRouteContent(
             bookId = bookId,
@@ -789,7 +804,10 @@ private fun RouteContent(
             openMetadata = openMetadata,
             openBookReaders = openBookReaders,
             openBookRatings = openBookRatings,
+            openHardcoverMatch = openHardcoverMatch,
+            openBookHardcover = openBookHardcover,
             onToast = onToast,
+            onActionToast = onActionToast,
             playback = playback,
         )
     } else if (isContributors || contributorId != null) {
@@ -870,6 +888,7 @@ private fun RouteContent(
             openLicences = openLicences,
             admin = admin,
             onToast = onToast,
+            onActionToast = onActionToast,
         )
     } else if (active == DISCOVER_KEY) {
         DiscoverRoute(router, openDiscover, feeds)
@@ -1615,8 +1634,11 @@ private fun BookRouteContent(
     openMetadata: OpenMetadata,
     openBookReaders: OpenBookReaders,
     openBookRatings: OpenBookRatings,
+    openHardcoverMatch: OpenHardcoverMatch,
+    openBookHardcover: OpenBookHardcover,
     playback: PlaybackSession,
     onToast: (String) -> Unit,
+    onActionToast: ShowActionToast,
 ) {
     val editingBookId = route.editTargetOf(bookId)
     // `/book/{id}/chapters` — a route of its own, for the reason `/book/{id}/edit` is one, and one
@@ -1626,6 +1648,19 @@ private fun BookRouteContent(
     val matchingBookId = bookId.takeIf { route.segments.getOrNull(2) == MATCH_KEY }
     // `/book/{id}/readers` — the whole readership, where the side panel's "See all" leads.
     val readersBookId = bookId.takeIf { route.segments.getOrNull(2) == READERS_KEY }
+    // `/book/{id}/hardcover` — Find on Hardcover, where the Hardcover panel's Change match leads.
+    val hardcoverBookId = bookId.takeIf { route.segments.getOrNull(2) == HARDCOVER_KEY }
+
+    if (hardcoverBookId != null) {
+        HardcoverMatchRoute(
+            router = router,
+            openHardcoverMatch = openHardcoverMatch,
+            bookId = hardcoverBookId,
+            onToast = onToast,
+            onActionToast = onActionToast,
+        )
+        return
+    }
 
     if (readersBookId != null) {
         ReadersPage(
@@ -1674,8 +1709,36 @@ private fun BookRouteContent(
         return
     }
 
+    BookDetailRoute(
+        bookId = bookId,
+        router = router,
+        route = route,
+        openBookDetail = openBookDetail,
+        openBookReaders = openBookReaders,
+        openBookRatings = openBookRatings,
+        openBookHardcover = openBookHardcover,
+        playback = playback,
+        onToast = onToast,
+    )
+}
+
+/** `/book/{id}` itself — the book, its panels, and every way out of them. */
+@Composable
+private fun BookDetailRoute(
+    bookId: String,
+    router: Router,
+    route: Route,
+    openBookDetail: OpenBookDetail,
+    openBookReaders: OpenBookReaders,
+    openBookRatings: OpenBookRatings,
+    openBookHardcover: OpenBookHardcover,
+    playback: PlaybackSession,
+    onToast: (String) -> Unit,
+) {
     val detailSession = bookDetailSession(bookId, openBookDetail)
     val ratingsSession = bookRatingsSession(bookId, openBookRatings)
+    val hardcoverSession = remember(bookId) { openBookHardcover(bookId) }
+    DisposableEffect(hardcoverSession) { onDispose { hardcoverSession.close() } }
     // Sharing suspends (it asks the server who it is), and the press that starts it is not a
     // composition. `rememberCoroutineScope` ties the work to this page: navigate away mid-share and
     // it is cancelled rather than resolving into a toast over a book the reader has left.
@@ -1755,6 +1818,9 @@ private fun BookRouteContent(
         nowMs = nowMs(),
         onOpenProfile = { id -> router.navigate(Route(listOf(PROFILE_KEY, id))) },
         onSeeAllReaders = { router.navigate(Route(listOf(BOOK_KEY, bookId, READERS_KEY))) },
+        hardcover = hardcoverSession.state.collectAsState().value,
+        onFindHardcoverMatch = { router.navigate(Route(listOf(BOOK_KEY, bookId, HARDCOVER_KEY))) },
+        onRemoveHardcoverMatch = hardcoverSession.onRemoveMatch,
     )
 }
 
@@ -2345,9 +2411,21 @@ private fun HardcoverRoute(
     router: Router,
     openHardcover: OpenHardcover,
     onToast: (String) -> Unit,
+    onActionToast: ShowActionToast,
 ) {
     val session = remember { openHardcover() }
     DisposableEffect(session) { onDispose { session.close() } }
+    val state = session.state.collectAsState().value
+    // A Sync now that failed is brief: a toast with Try again says it, while the sync line stays as
+    // it was. Keyed on the failure itself, so it is said once each time it arrives.
+    val syncNowFailed =
+        (state as? HardcoverSettingsUiState.Connected)?.sync ==
+            HardcoverSyncStatus.Problem(HardcoverSyncProblem.SYNC_NOW_FAILED)
+    LaunchedEffect(syncNowFailed) {
+        if (syncNowFailed) {
+            onActionToast(SYNC_NOW_FAILED_NOTICE, ToastTone.Failure, ToastAction("Try again", session.onSyncNow))
+        }
+    }
     LaunchedEffect(session) {
         session.events.collect { event ->
             when (event) {
@@ -2360,10 +2438,68 @@ private fun HardcoverRoute(
     }
 
     HardcoverPage(
-        state = session.state.collectAsState().value,
+        state = state,
         onConnect = session.onConnect,
         onDisconnect = session.onDisconnect,
+        onSyncNow = session.onSyncNow,
+        onFindMatch = { bookId -> router.navigate(Route(listOf(BOOK_KEY, bookId, HARDCOVER_KEY))) },
         onOpenSettings = { router.navigate(Route(listOf(SETTINGS_KEY))) },
+        nowMs = nowMs(),
+    )
+}
+
+/** en.json's `hardcover.sync_now_failed_notice`. */
+private const val SYNC_NOW_FAILED_NOTICE = "Couldn't reach Hardcover. Nothing was lost."
+
+/**
+ * `/book/{id}/hardcover` — Find on Hardcover over one book. Not `/match`: that is the Audible wizard's.
+ *
+ * A pick or a removed match goes to the book, replacing this page in history so Back leaves the way
+ * the reader came in; a pick says what it matched in a toast with Undo, which the session keeps
+ * answering after the page has gone. An error is a toast in the words the error already carries.
+ */
+@Composable
+private fun HardcoverMatchRoute(
+    router: Router,
+    openHardcoverMatch: OpenHardcoverMatch,
+    bookId: String,
+    onToast: (String) -> Unit,
+    onActionToast: ShowActionToast,
+) {
+    val session = remember(bookId) { openHardcoverMatch(bookId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+    LaunchedEffect(session) {
+        session.events.collect { event ->
+            when (event) {
+                is HardcoverMatchEvent.Linked -> {
+                    onActionToast(
+                        linkedToastText(event.picked),
+                        ToastTone.Notice,
+                        ToastAction("Undo", session.onUndoLink),
+                    )
+                    router.replace(Route(listOf(BOOK_KEY, bookId)))
+                }
+
+                HardcoverMatchEvent.MatchRemoved -> {
+                    router.replace(Route(listOf(BOOK_KEY, bookId)))
+                }
+
+                // `AppError.message` is a user-facing constant per subtype — printed, not reworded.
+                is HardcoverMatchEvent.ShowError -> {
+                    onToast(event.error.message)
+                }
+            }
+        }
+    }
+    HardcoverMatchPage(
+        state = session.state.collectAsState().value,
+        onQueryChange = session.onQueryChange,
+        onSearch = session.onSearch,
+        onSearchFor = session.onSearchFor,
+        onPick = session.onPick,
+        onRemoveMatch = session.onRemoveMatch,
+        onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+        onOpenBook = { router.navigate(Route(listOf(BOOK_KEY, bookId))) },
     )
 }
 
@@ -3670,6 +3806,7 @@ private fun AccountRouteContent(
     openLicences: OpenLicences,
     admin: AdminSessions,
     onToast: (String) -> Unit,
+    onActionToast: ShowActionToast,
 ) {
     when {
         segments.firstOrNull() == ADMIN_KEY && segments.size > 1 -> {
@@ -3691,7 +3828,12 @@ private fun AccountRouteContent(
         }
 
         segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == HARDCOVER_KEY -> {
-            HardcoverRoute(router = router, openHardcover = openHardcover, onToast = onToast)
+            HardcoverRoute(
+                router = router,
+                openHardcover = openHardcover,
+                onToast = onToast,
+                onActionToast = onActionToast,
+            )
         }
 
         segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == LICENCES_KEY -> {

@@ -410,6 +410,14 @@ data object NotificationSettings : Route
 data object HardcoverSettings : Route
 
 /**
+ * Find on Hardcover for [bookId] — search Hardcover's catalog, pick the right book, or remove the match.
+ */
+@Serializable
+data class HardcoverMatch(
+    val bookId: String,
+) : Route
+
+/**
  * Settings screen - app preferences and configuration.
  */
 @Serializable

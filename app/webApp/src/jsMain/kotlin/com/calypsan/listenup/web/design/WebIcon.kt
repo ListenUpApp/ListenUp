@@ -23,6 +23,8 @@ enum class WebIcon(
     internal val path: String,
     internal val solid: Boolean = false,
 ) {
+    // From the Hardcover sync canvas (2026-09-30): a sync that is not keeping up.
+    Alert("M12 3.5L2.5 20h19z M12 10v4.5 M12 17.5h.01"),
     ArrowDown("M12 4v15 M6 13l6 6 6-6"),
     ArrowRight("M4 12h15 M13 6l6 6-6 6"),
     ArrowUp("M12 20V5 M6 11l6-6 6 6"),
@@ -61,6 +63,13 @@ enum class WebIcon(
         "M12 3c3 3.5 4.5 5.8 4.5 8a4.5 4.5 0 0 1-9 0c0-1.2.4-2.3 1.2-3.4 " +
             "M12 20.5a4 4 0 0 1-2-7.5c.8 1.4 1.5 2 2 2s1.2-.6 2-2a4 4 0 0 1-2 7.5",
     ),
+
+    // From the Hardcover sync canvas (2026-09-30): "How far you've listened".
+    Headphones(
+        "M4 15v-3a8 8 0 0 1 16 0v3 " +
+            "M4.5 14h1A1.5 1.5 0 0 1 7 15.5v3A1.5 1.5 0 0 1 5.5 20h-1A1.5 1.5 0 0 1 3 18.5v-3A1.5 1.5 0 0 1 4.5 14z " +
+            "M18.5 14h1a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-1a1.5 1.5 0 0 1-1.5-1.5v-3a1.5 1.5 0 0 1 1.5-1.5z",
+    ),
     Hash("M5 9h14 M5 15h14 M10 4l-2 16 M16 4l-2 16"),
     Grip("M5 9h14 M5 15h14"),
     Home("M4 11.4L12 4l8 7.4 M5.6 10v9.6h12.8V10 M9.6 19.6v-5.2h4.8v5.2"),
@@ -96,6 +105,9 @@ enum class WebIcon(
     ),
     Plus("M12 5v14 M5 12h14"),
     Play("M8 5l11 7-11 7z", solid = true),
+
+    // From the Hardcover sync canvas (2026-09-30): Sync now and Try again — two arcs chasing each other.
+    Refresh("M20 11a8 8 0 0 0-14.9-3.9 M4 4v4h4 M4 13a8 8 0 0 0 14.9 3.9 M20 20v-4h-4"),
     Search("M11 11m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0 M20 20l-3.6-3.6"),
 
     // Not mirrored from the design project — it carries no sparkle. A four-point star with a small

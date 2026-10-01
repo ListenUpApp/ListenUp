@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.features.genredestination.GenreDestinationSc
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BookEdit
 import com.calypsan.listenup.client.navigation.BookReaders
+import com.calypsan.listenup.client.navigation.HardcoverMatch
 import com.calypsan.listenup.client.navigation.BulkEdit
 import com.calypsan.listenup.client.navigation.ChapterEditor
 import com.calypsan.listenup.client.navigation.BrowseFacet
@@ -77,9 +78,8 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
                 onUserProfileClick = { userId ->
                     backStack.add(UserProfile(userId))
                 },
-                onSeeAllReaders = { id ->
-                    backStack.add(BookReaders(id))
-                },
+                onSeeAllReaders = { id -> backStack.add(BookReaders(id)) },
+                onFindHardcoverMatch = { id -> backStack.add(HardcoverMatch(id)) },
                 onOpenDocumentViewer = { localPath ->
                     backStack.add(DocumentViewer(localPath))
                 },

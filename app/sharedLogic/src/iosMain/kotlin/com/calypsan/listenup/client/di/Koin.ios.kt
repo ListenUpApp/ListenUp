@@ -94,6 +94,8 @@ import com.calypsan.listenup.client.presentation.search.SeeAllSearchViewModel
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailViewModel
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditViewModel
 import com.calypsan.listenup.client.presentation.settings.DevicesViewModel
+import com.calypsan.listenup.client.presentation.hardcover.BookHardcoverViewModel
+import com.calypsan.listenup.client.presentation.hardcover.HardcoverMatchViewModel
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsViewModel
 import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel
@@ -378,6 +380,12 @@ object KoinHelper {
 
     fun getBookRatingsViewModel(bookId: String): BookRatingsViewModel =
         resolveWithParams(BookRatingsViewModel::class, listOf(bookId))
+
+    fun getHardcoverMatchViewModel(bookId: String): HardcoverMatchViewModel =
+        resolveWithParams(HardcoverMatchViewModel::class, listOf(bookId))
+
+    fun getBookHardcoverViewModel(bookId: String): BookHardcoverViewModel =
+        resolveWithParams(BookHardcoverViewModel::class, listOf(bookId))
 
     fun getSeriesDetailViewModel(): SeriesDetailViewModel = resolve(SeriesDetailViewModel::class)
 

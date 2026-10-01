@@ -54,7 +54,11 @@ struct HardcoverPhaseMappingTests {
         let state = HardcoverSettingsUiStateConnected(
             username: "simon",
             since: 1_790_000_000_000,
-            isDisconnecting: true
+            isDisconnecting: true,
+            lastSyncedAt: nil,
+            sync: HardcoverSyncStatusIdle.shared,
+            booksToMatch: [],
+            isMatchListKnown: false
         )
         guard case .connected(let model) = HardcoverSettingsObserver.phase(from: state) else {
             Issue.record("expected .connected")

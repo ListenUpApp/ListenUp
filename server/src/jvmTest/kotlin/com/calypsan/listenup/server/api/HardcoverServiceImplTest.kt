@@ -14,6 +14,7 @@ import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.hardcover.HARDCOVER_SCOPES
 import com.calypsan.listenup.server.hardcover.HardcoverBookLinkStore
 import com.calypsan.listenup.server.hardcover.HardcoverBookLinking
+import com.calypsan.listenup.server.hardcover.HardcoverCatalogCache
 import com.calypsan.listenup.server.hardcover.HardcoverConnectionStore
 import com.calypsan.listenup.server.hardcover.HardcoverGraphQlClient
 import com.calypsan.listenup.server.hardcover.HardcoverLinker
@@ -115,6 +116,8 @@ private class Rig(
                 access = BookAccessPolicy(dbs.sql, dbs.driver),
                 rateLimiter = HardcoverRateLimiter(),
                 pulls = pulls,
+                catalog =
+                    HardcoverCatalogCache(HardcoverGraphQlClient(hardcover.client, "https://hc.test"), HardcoverRateLimiter()),
             ),
             pulls = pulls,
         )

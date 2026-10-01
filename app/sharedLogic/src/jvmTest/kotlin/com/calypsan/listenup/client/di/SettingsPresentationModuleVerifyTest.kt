@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.connection.ConnectionHealthStore
 import com.calypsan.listenup.client.domain.repository.AuthRepository
+import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.LibraryPreferences
@@ -18,6 +19,7 @@ import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
+import kotlinx.coroutines.CoroutineScope
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.test.verify.verify
 
@@ -36,7 +38,9 @@ import org.koin.test.verify.verify
  *  - [LogoutUseCase] — owned by `authModule`.
  *  - [PushRepository] — owned by the push module.
  *  - [HardcoverRepository] — owned by `hardcoverClientModule` (the Settings row's state).
+ *  - [BookRepository] — owned by `bookModule` (names the Hardcover books that need a match).
  *  - [ErrorBus] — owned by `appCoreModule`.
+ *  - [CoroutineScope] — the `appScope`, owned by `appCoreModule` (Find on Hardcover's Undo outlives the screen).
  *  - [AuthRepository] — owned by `authModule` (the Devices screen's active-session list).
  *  - [PendingOperationRepository] — owned by `clientSyncModule`.
  *  - [SyncRepository] — owned by `clientSyncModule`.
@@ -63,7 +67,9 @@ class SettingsPresentationModuleVerifyTest :
                         LogoutUseCase::class,
                         PushRepository::class,
                         HardcoverRepository::class,
+                        BookRepository::class,
                         ErrorBus::class,
+                        CoroutineScope::class,
                         AuthRepository::class,
                         PendingOperationRepository::class,
                         SyncRepository::class,

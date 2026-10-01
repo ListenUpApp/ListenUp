@@ -63,6 +63,7 @@ import com.calypsan.listenup.client.features.library.ShelfPickerSheet
 import com.calypsan.listenup.client.features.bookdetail.components.AboutSection
 import com.calypsan.listenup.client.features.bookdetail.components.BookDetailTopBar
 import com.calypsan.listenup.client.features.bookdetail.components.BookRatingBlock
+import com.calypsan.listenup.client.features.bookdetail.components.BookHardcoverSection
 import com.calypsan.listenup.client.features.bookdetail.components.BookReadersSection
 import com.calypsan.listenup.client.features.bookdetail.components.ChapterListItem
 import com.calypsan.listenup.client.features.bookdetail.components.ChaptersHeader
@@ -131,6 +132,7 @@ fun BookDetailScreen(
     onMoodClick: (moodId: String, moodName: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit = {},
+    onFindHardcoverMatch: ((bookId: String) -> Unit)? = null,
     onOpenDocumentViewer: (localPath: String) -> Unit = {},
     viewModel: BookDetailViewModel = koinViewModel(),
 ) {
@@ -217,6 +219,7 @@ fun BookDetailScreen(
                     onMoodClick = onMoodClick,
                     onUserProfileClick = onUserProfileClick,
                     onSeeAllReaders = onSeeAllReaders,
+                    onFindHardcoverMatch = onFindHardcoverMatch,
                 )
             }
         }
@@ -308,6 +311,7 @@ private fun BookDetailReadyContent(
     onMoodClick: (moodId: String, moodName: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit,
+    onFindHardcoverMatch: ((bookId: String) -> Unit)?,
 ) {
     val platformActions: BookDetailPlatformActions = koinInject()
     val instanceRepository: InstanceRepository = koinInject()
@@ -413,6 +417,7 @@ private fun BookDetailReadyContent(
         onTagClick = onTagClick,
         onMoodClick = onMoodClick,
         onSeeAllReaders = onSeeAllReaders,
+        onFindHardcoverMatch = onFindHardcoverMatch,
     )
 
     if (showDeleteDialog) {
@@ -573,6 +578,7 @@ fun BookDetailContent(
     onMoodClick: (moodId: String, moodName: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit = {},
+    onFindHardcoverMatch: ((bookId: String) -> Unit)? = null,
 ) {
     val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
 
@@ -624,6 +630,7 @@ fun BookDetailContent(
             onMoodClick = onMoodClick,
             onUserProfileClick = onUserProfileClick,
             onSeeAllReaders = onSeeAllReaders,
+            onFindHardcoverMatch = onFindHardcoverMatch,
         )
     } else {
         ImmersiveBookDetail(
@@ -665,6 +672,7 @@ fun BookDetailContent(
             onMoodClick = onMoodClick,
             onUserProfileClick = onUserProfileClick,
             onSeeAllReaders = onSeeAllReaders,
+            onFindHardcoverMatch = onFindHardcoverMatch,
         )
     }
 }
@@ -722,6 +730,7 @@ private fun ImmersiveBookDetail(
     onMoodClick: (moodId: String, moodName: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit,
+    onFindHardcoverMatch: ((bookId: String) -> Unit)?,
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var isChaptersExpanded by rememberSaveable { mutableStateOf(false) }
@@ -863,6 +872,15 @@ private fun ImmersiveBookDetail(
                     bookId = bookId,
                     onUserClick = onUserProfileClick,
                     onSeeAllClick = onSeeAllReaders,
+                    modifier = screenPadding.padding(vertical = 8.dp),
+                )
+            }
+
+            // Hardcover — where this book stands on the user's Hardcover shelf; nothing when not connected.
+            item {
+                BookHardcoverSection(
+                    bookId = bookId,
+                    onFindMatch = onFindHardcoverMatch,
                     modifier = screenPadding.padding(vertical = 8.dp),
                 )
             }

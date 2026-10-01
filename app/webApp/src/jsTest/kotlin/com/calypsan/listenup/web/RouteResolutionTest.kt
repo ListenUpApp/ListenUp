@@ -1,11 +1,13 @@
 package com.calypsan.listenup.web
 
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
+import com.calypsan.listenup.client.presentation.hardcover.HardcoverMatchUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.web.features.admin.fixedRestore
 import com.calypsan.listenup.web.features.bulkedit.fixedBulkEdit
 import com.calypsan.listenup.web.features.devices.fixedDevices
 import com.calypsan.listenup.web.features.discover.fixedDiscover
+import com.calypsan.listenup.web.features.hardcover.fixedHardcoverMatch
 import com.calypsan.listenup.web.features.home.fixedHome
 import com.calypsan.listenup.web.features.licences.LicencesUiState
 import com.calypsan.listenup.web.features.licences.fixedLicences
@@ -57,6 +59,7 @@ class RouteResolutionTest :
             "/books",
             "/book/42/nonsense",
             "/book/42/edit/nonsense",
+            "/book/42/hardcover/nonsense",
             "/contributor/c1/nonsense",
             "/contributor/c1/books/nonsense",
             "/series/s1/nonsense",
@@ -104,6 +107,23 @@ class RouteResolutionTest :
             try {
                 opened shouldBe 1
                 heading(host) shouldBe "Home"
+            } finally {
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("/book/{id}/hardcover opens Find on Hardcover over that book, not the Audible wizard") {
+            val opened = mutableListOf<String>()
+            val (host, router, composition) =
+                mountAt(
+                    "/book/42/hardcover",
+                    openHardcoverMatch = fixedHardcoverMatch(HardcoverMatchUiState.BookMissing, onOpen = { opened += it }),
+                )
+
+            try {
+                opened shouldBe listOf("42")
+                heading(host) shouldBe "Find on Hardcover"
             } finally {
                 composition.dispose()
                 router.dispose()

@@ -1,13 +1,18 @@
 package com.calypsan.listenup.client.presentation.settings
 
+import com.calypsan.listenup.api.dto.hardcover.HardcoverBookCandidate
+import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.HardcoverRepository
+import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
+import kotlin.time.Instant
 
 /**
  * In-memory [HardcoverRepository]: [connection] is the server's stream (null = no answer yet),
@@ -48,6 +53,73 @@ internal class FakeHardcoverRepository(
         disconnectCalls++
         disconnectGate?.await()
         return disconnectResult
+    }
+
+    val matchChangesFlow = MutableSharedFlow<BookId>(extraBufferCapacity = 16)
+    override val matchChanges: Flow<BookId> = matchChangesFlow
+
+    var syncNowResult: AppResult<Unit> = AppResult.Success(Unit)
+    var syncNowGate: CompletableDeferred<Unit>? = null
+    var syncNowCalls = 0
+        private set
+
+    var searchResult: AppResult<List<HardcoverBookCandidate>> = AppResult.Success(emptyList())
+    val searches = mutableListOf<String>()
+
+    var linkResult: AppResult<Unit> = AppResult.Success(Unit)
+    var linkGate: CompletableDeferred<Unit>? = null
+    val links = mutableListOf<Triple<BookId, Long, Long?>>()
+
+    var unlinkResult: AppResult<Unit> = AppResult.Success(Unit)
+    val unlinks = mutableListOf<BookId>()
+
+    var booksNeedingMatchResult: AppResult<List<BookId>> = AppResult.Success(emptyList())
+    var booksNeedingMatchCalls = 0
+        private set
+
+    var bookMatchResult: AppResult<HardcoverBookMatch> = AppResult.Success(HardcoverBookMatch.Unmatched)
+    var bookMatchCalls = 0
+        private set
+
+    override suspend fun syncNow(): AppResult<Unit> {
+        syncNowCalls++
+        syncNowGate?.await()
+        return syncNowResult
+    }
+
+    override suspend fun searchCatalog(query: String): AppResult<List<HardcoverBookCandidate>> {
+        searches += query
+        return searchResult
+    }
+
+    override suspend fun linkBook(
+        bookId: BookId,
+        hcBookId: Long,
+        hcEditionId: Long?,
+    ): AppResult<Unit> {
+        links += Triple(bookId, hcBookId, hcEditionId)
+        linkGate?.await()
+        return linkResult.also { if (it is AppResult.Success) matchChangesFlow.tryEmit(bookId) }
+    }
+
+    override suspend fun unlinkBook(bookId: BookId): AppResult<Unit> {
+        unlinks += bookId
+        return unlinkResult.also { if (it is AppResult.Success) matchChangesFlow.tryEmit(bookId) }
+    }
+
+    override suspend fun booksNeedingMatch(): AppResult<List<BookId>> {
+        booksNeedingMatchCalls++
+        return booksNeedingMatchResult
+    }
+
+    /** What [linkedAt] answers, per book: when this device last linked it. */
+    val linkedAtByBook = mutableMapOf<BookId, Instant>()
+
+    override fun linkedAt(bookId: BookId): Instant? = linkedAtByBook[bookId]
+
+    override suspend fun bookMatch(bookId: BookId): AppResult<HardcoverBookMatch> {
+        bookMatchCalls++
+        return bookMatchResult
     }
 
     companion object {

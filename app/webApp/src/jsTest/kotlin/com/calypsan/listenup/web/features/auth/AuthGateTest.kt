@@ -3,6 +3,8 @@ package com.calypsan.listenup.web.features.auth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.remember
+import com.calypsan.listenup.web.features.hardcover.fixedBookHardcover
+import com.calypsan.listenup.web.features.hardcover.fixedHardcoverMatch
 import com.calypsan.listenup.web.features.licences.fixedLicences
 import com.calypsan.listenup.web.features.licences.OpenLicences
 import com.calypsan.listenup.web.features.licences.LicencesUiState
@@ -228,6 +230,8 @@ private fun Gate(
         openGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
         openBookReaders = fixedBookReaders(BookReadersUiState.Loading),
         openBookRatings = fixedBookRatings(BookRatingsUiState.Loading),
+        openHardcoverMatch = fixedHardcoverMatch(),
+        openBookHardcover = fixedBookHardcover(),
         openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
         openDeadLetters = fixedDeadLetters(),
         openPlayback = fixedPlayback(),

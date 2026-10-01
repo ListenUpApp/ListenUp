@@ -4,6 +4,8 @@ import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookCandidate
+import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
+import com.calypsan.listenup.api.dto.hardcover.HardcoverBookSync
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.HardcoverError
@@ -49,6 +51,7 @@ private class LinkingRig(
     private val oauth = HardcoverOAuthClient(HttpClient(), "id", "https://hc.test")
     private val linker = HardcoverLinker(oauth, hardcover.client(), connections, CoroutineScope(Dispatchers.Unconfined), clock)
     val pulls = RecordingPullRequests()
+    val catalog = HardcoverCatalogCache(hardcover.client(), NoWaitRateLimiter())
     val linking =
         HardcoverBookLinking(
             graphQl = hardcover.client(),
@@ -60,6 +63,7 @@ private class LinkingRig(
             access = BookAccessPolicy(dbs.sql, dbs.driver),
             rateLimiter = NoWaitRateLimiter(),
             pulls = pulls,
+            catalog = catalog,
         )
     val service = HardcoverServiceImpl(linker, clientIdConfigured = true, linking = linking, pulls = pulls)
 
@@ -75,6 +79,8 @@ private class LinkingRig(
                 listOf("Andy Weir"),
                 readingFormatId = 2,
                 defaultAudioEditionId = 9_001L,
+                ratingsCount = 8_107,
+                releaseYear = 2021,
             ),
         )
     }
@@ -96,7 +102,16 @@ class HardcoverBookLinkingTest :
                 connect()
                 serviceAs(UserRole.ROOT).searchCatalog("hail mary") shouldBe
                     AppResult.Success(
-                        listOf(HardcoverBookCandidate(427_578L, 9_001L, "Project Hail Mary", listOf("Andy Weir"), releaseYear = null)),
+                        listOf(
+                            HardcoverBookCandidate(
+                                427_578L,
+                                9_001L,
+                                "Project Hail Mary",
+                                listOf("Andy Weir"),
+                                releaseYear = 2021,
+                                ratingsCount = 8_107,
+                            ),
+                        ),
                     )
                 hardcover.operations shouldBe listOf("search", "books_by_ids")
             }
@@ -223,6 +238,16 @@ class HardcoverBookLinkingTest :
                     ).shouldBeInstanceOf<AppResult.Failure>()
                     .error
                     .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                service
+                    .booksNeedingMatch()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                service
+                    .bookMatch(BookId(BOOK))
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.PermissionDenied>()
             }
         }
 
@@ -232,6 +257,131 @@ class HardcoverBookLinkingTest :
                 serviceAs(UserRole.ROOT).linkBook(BookId(BOOK), 427_578L, 9_001L) shouldBe AppResult.Success(Unit)
                 serviceAs(UserRole.ROOT).unlinkBook(BookId(BOOK)) shouldBe AppResult.Success(Unit)
                 pulls.matchChanges shouldBe listOf(USER to BOOK, USER to BOOK)
+            }
+        }
+
+        test("a search remembers what it found, so naming the pick costs nothing more") {
+            linkingTest {
+                connect()
+                serviceAs(UserRole.ROOT).searchCatalog("hail mary")
+                catalog.cached(427_578L)?.title shouldBe "Project Hail Mary"
+            }
+        }
+
+        test("the books that need a match are listed newest first") {
+            linkingTest {
+                connect()
+                sql.seedTestBook("book-2")
+                sql.seedTestBook("book-3")
+                links.recordAutomaticMatch(USER, BOOK, null)
+                clock.instant = Instant.fromEpochMilliseconds(T0 + 1)
+                links.recordAutomaticMatch(USER, "book-2", null)
+                links.recordAutomaticMatch(USER, "book-3", HardcoverMatch(1L, null, HardcoverMatchMethod.ASIN))
+
+                serviceAs(UserRole.ROOT).booksNeedingMatch() shouldBe
+                    AppResult.Success(listOf(BookId("book-2"), BookId(BOOK)))
+            }
+        }
+
+        test("a book the caller can't see isn't listed") {
+            linkingTest {
+                connect()
+                links.recordAutomaticMatch(USER, BOOK, null)
+                serviceAs(UserRole.MEMBER).booksNeedingMatch() shouldBe AppResult.Success(emptyList())
+            }
+        }
+
+        test("without a connection there is no list to show") {
+            linkingTest {
+                serviceAs(UserRole.ROOT)
+                    .booksNeedingMatch()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<HardcoverError.NotConnected>()
+            }
+        }
+
+        test("a book never matched is Unmatched; one ListenUp couldn't match Needs a match") {
+            linkingTest {
+                connect()
+                serviceAs(UserRole.ROOT).bookMatch(BookId(BOOK)) shouldBe AppResult.Success(HardcoverBookMatch.Unmatched)
+                links.recordAutomaticMatch(USER, BOOK, null)
+                serviceAs(UserRole.ROOT).bookMatch(BookId(BOOK)) shouldBe AppResult.Success(HardcoverBookMatch.NeedsMatch)
+            }
+        }
+
+        test("a linked book is named from the catalog once, and says the user chose it") {
+            linkingTest {
+                connect()
+                serviceAs(UserRole.ROOT).linkBook(BookId(BOOK), 427_578L, 9_001L)
+                val expected =
+                    HardcoverBookMatch.Linked(
+                        hcBookId = 427_578L,
+                        hcEditionId = 9_001L,
+                        title = "Project Hail Mary",
+                        authors = listOf("Andy Weir"),
+                        releaseYear = 2021,
+                        chosenByYou = true,
+                        sync = HardcoverBookSync.NOTHING_SENT_YET,
+                    )
+                serviceAs(UserRole.ROOT).bookMatch(BookId(BOOK)) shouldBe AppResult.Success(expected)
+                serviceAs(UserRole.ROOT).bookMatch(BookId(BOOK)) shouldBe AppResult.Success(expected)
+                hardcover.operations.count { it == "books_by_ids" } shouldBe 1
+            }
+        }
+
+        test("a pending push makes a linked book Waiting") {
+            linkingTest {
+                connect()
+                links.recordAutomaticMatch(USER, BOOK, HardcoverMatch(427_578L, 9_001L, HardcoverMatchMethod.ASIN))
+                outbox.enqueueStart(USER, BOOK, T0, T0, false)
+                val match =
+                    serviceAs(UserRole.ROOT)
+                        .bookMatch(BookId(BOOK))
+                        .shouldBeInstanceOf<AppResult.Success<HardcoverBookMatch>>()
+                        .data
+                        .shouldBeInstanceOf<HardcoverBookMatch.Linked>()
+                match.sync shouldBe HardcoverBookSync.WAITING
+                match.chosenByYou shouldBe false
+            }
+        }
+
+        test("the deletion rule outranks everything; a shelf entry with nothing waiting is up to date") {
+            val link =
+                HardcoverBookLink(
+                    userId = USER,
+                    bookId = BOOK,
+                    hcBookId = 1L,
+                    hcEditionId = null,
+                    method = HardcoverMatchMethod.ISBN,
+                    isLinked = true,
+                    hcUserBookId = 55L,
+                    openHcReadId = null,
+                    openReadListenThrough = null,
+                    suppressedListenThrough = null,
+                    lastProgressPushedAt = null,
+                )
+            bookSyncOf(link, pending = 0) shouldBe HardcoverBookSync.UP_TO_DATE
+            bookSyncOf(link, pending = 2) shouldBe HardcoverBookSync.WAITING
+            bookSyncOf(link.copy(suppressedListenThrough = T0), pending = 2) shouldBe HardcoverBookSync.REMOVED_ON_HARDCOVER
+            bookSyncOf(link.copy(hcUserBookId = null), pending = 0) shouldBe HardcoverBookSync.NOTHING_SENT_YET
+        }
+
+        test("a book the caller can't see is NotFound; no connection is NotConnected") {
+            linkingTest {
+                connect()
+                serviceAs(UserRole.ROOT)
+                    .bookMatch(BookId("ghost"))
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<BookError.NotFound>()
+            }
+            linkingTest {
+                serviceAs(UserRole.ROOT)
+                    .bookMatch(BookId(BOOK))
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<HardcoverError.NotConnected>()
             }
         }
     })

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookCandidate
+import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
 import com.calypsan.listenup.api.result.AppResult
@@ -80,4 +81,19 @@ interface HardcoverService {
      * as soon as any pull is queued.
      */
     suspend fun syncIfStale(): AppResult<Unit>
+
+    /**
+     * The caller's books that need a match — ListenUp couldn't tell which Hardcover book they are, or the
+     * user removed the match — newest first, limited to books they can still see. Their pushes wait.
+     * [com.calypsan.listenup.api.error.HardcoverError.NotConnected] without a connection.
+     */
+    suspend fun booksNeedingMatch(): AppResult<List<BookId>>
+
+    /**
+     * How [bookId] is matched on Hardcover, for its Book Detail row. A linked book is named from
+     * Hardcover's catalog when Hardcover can be asked (at most once per book per server run).
+     * [com.calypsan.listenup.api.error.BookError.NotFound] for a book the caller can't see;
+     * [com.calypsan.listenup.api.error.HardcoverError.NotConnected] without a connection.
+     */
+    suspend fun bookMatch(bookId: BookId): AppResult<HardcoverBookMatch>
 }

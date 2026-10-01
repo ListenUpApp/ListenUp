@@ -82,3 +82,7 @@ DELETE FROM hardcover_outbox WHERE user_id = :user_id;
 
 selectForUser:
 SELECT * FROM hardcover_outbox WHERE user_id = :user_id ORDER BY id;
+
+-- How many operations wait for one book, parked or due: the Book Detail row's "Waiting to sync".
+pendingCountForBook:
+SELECT COUNT(*) FROM hardcover_outbox WHERE user_id = :user_id AND book_id = :book_id;

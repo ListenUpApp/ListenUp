@@ -18,9 +18,11 @@ import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
+import com.calypsan.listenup.client.presentation.hardcover.BookHardcoverUiState
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.features.ratings.RatingsPanel
+import com.calypsan.listenup.web.features.hardcover.BookHardcoverPanel
 import com.calypsan.listenup.web.features.readers.ReadersPanel
 import com.calypsan.listenup.web.design.BookMarkdown
 import com.calypsan.listenup.web.design.Breadcrumb
@@ -111,6 +113,13 @@ fun BookDetailPage(
     nowMs: Long = 0L,
     onOpenProfile: (String) -> Unit = {},
     onSeeAllReaders: () -> Unit = {},
+    /**
+     * The Hardcover panel's state and its three ways out. Defaulted to Hidden, which draws no panel
+     * at all, so the no-op actions are unreachable until a caller supplies a state.
+     */
+    hardcover: BookHardcoverUiState = BookHardcoverUiState.Hidden,
+    onFindHardcoverMatch: () -> Unit = {},
+    onRemoveHardcoverMatch: () -> Unit = {},
     selection: Set<Int> = emptySet(),
     onSelectionChange: (Set<Int>) -> Unit = {},
     bookId: String? = null,
@@ -218,6 +227,9 @@ fun BookDetailPage(
                                 nowMs = nowMs,
                                 onOpenProfile = onOpenProfile,
                                 onSeeAllReaders = onSeeAllReaders,
+                                hardcover = hardcover,
+                                onFindHardcoverMatch = onFindHardcoverMatch,
+                                onRemoveHardcoverMatch = onRemoveHardcoverMatch,
                             )
                         }
                     }
@@ -397,6 +409,9 @@ private fun OverviewPane(
     nowMs: Long,
     onOpenProfile: (String) -> Unit,
     onSeeAllReaders: () -> Unit,
+    hardcover: BookHardcoverUiState,
+    onFindHardcoverMatch: () -> Unit,
+    onRemoveHardcoverMatch: () -> Unit,
 ) {
     Div(attrs = { classes("bd-cols") }) {
         Div(attrs = { classes("bd-main") }) {
@@ -420,6 +435,13 @@ private fun OverviewPane(
             Panel(title = "Details") {
                 MetaList(details(state))
             }
+            // Between Details and Readers, as the sync canvas draws it, and silent unless connected
+            // and matched or needing a match — see [BookHardcoverPanel].
+            BookHardcoverPanel(
+                state = hardcover,
+                onFindMatch = onFindHardcoverMatch,
+                onRemoveMatch = onRemoveHardcoverMatch,
+            )
             // Directly above Readers, as on Android and iOS; silent while loading — see [RatingsPanel].
             RatingsPanel(
                 state = ratings,

@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.hardcover
 
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
+import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
 import com.calypsan.listenup.server.db.sqldelight.Hardcover_connections
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -34,11 +35,18 @@ sealed interface StoredConnection {
     /** The decrypted tokens, or null when they can't be decrypted. */
     val credentials: StoredCredentials?
 
-    /** Usable: connected as [hardcoverUsername] since [connectedAt] (epoch ms). */
+    /**
+     * Usable: connected as [hardcoverUsername] since [connectedAt] (epoch ms). [lastSyncedAt] is the
+     * last push that landed or pull that caught up; [pushStalled] / [pullStalled] say an error has
+     * outlasted that direction's retry cap.
+     */
     data class Healthy(
         val hardcoverUsername: String,
         val connectedAt: Long,
         override val credentials: StoredCredentials,
+        val lastSyncedAt: Long? = null,
+        val pushStalled: Boolean = false,
+        val pullStalled: Boolean = false,
     ) : StoredConnection
 
     /**
@@ -68,12 +76,15 @@ data class HardcoverPushHealth(
  * read rather than written back, so restoring the original secret heals it with no migration.
  *
  * It also owns push and pull health, and forgets a user's book links, pending pushes and pulled reads
- * when the connection ends or changes account.
+ * when the connection ends or changes account. Every change to sync health ([markSynced],
+ * [recordPushError], [markPulled], [recordPullError]) is announced on
+ * [HardcoverSyncActivity.healthChanged], so a watching client sees it.
  */
 class HardcoverConnectionStore(
     private val sql: ListenUpDatabase,
     private val cipher: HardcoverTokenCipher,
     private val clock: Clock = Clock.System,
+    private val activity: HardcoverSyncActivity? = null,
 ) {
     private val queries get() = sql.hardcoverConnectionsQueries
 
@@ -84,9 +95,27 @@ class HardcoverConnectionStore(
     /** What [userId]'s client should show, straight from the row. */
     suspend fun connectionState(userId: String): HardcoverConnection =
         when (val stored = connectionFor(userId)) {
-            null -> HardcoverConnection.NotConnected()
-            is StoredConnection.Healthy -> HardcoverConnection.Connected(stored.hardcoverUsername, stored.connectedAt)
-            is StoredConnection.Broken -> HardcoverConnection.Broken(stored.reason, stored.hardcoverUsername)
+            null -> {
+                HardcoverConnection.NotConnected()
+            }
+
+            is StoredConnection.Healthy -> {
+                HardcoverConnection.Connected(
+                    hardcoverUsername = stored.hardcoverUsername,
+                    since = stored.connectedAt,
+                    lastSyncedAt = stored.lastSyncedAt,
+                    syncProblem =
+                        when {
+                            stored.pushStalled -> HardcoverSyncProblem.PUSH_STALLED
+                            stored.pullStalled -> HardcoverSyncProblem.PULL_STALLED
+                            else -> null
+                        },
+                )
+            }
+
+            is StoredConnection.Broken -> {
+                HardcoverConnection.Broken(stored.reason, stored.hardcoverUsername)
+            }
         }
 
     /**
@@ -180,6 +209,7 @@ class HardcoverConnectionStore(
         at: Long,
     ) {
         suspendTransaction(sql) { queries.markSynced(last_synced_at = at, user_id = userId) }
+        activity?.healthChanged(userId)
     }
 
     /** A push failed past the retry cap with [detail]; the row stays and keeps retrying slowly. */
@@ -188,6 +218,7 @@ class HardcoverConnectionStore(
         detail: String,
     ) {
         suspendTransaction(sql) { queries.recordPushError(push_error = detail, user_id = userId) }
+        activity?.healthChanged(userId)
     }
 
     /** A pull caught up at [at]: remember it as the last sync, and clear any recorded pull error. */
@@ -196,6 +227,7 @@ class HardcoverConnectionStore(
         at: Long,
     ) {
         suspendTransaction(sql) { queries.markPulled(last_synced_at = at, user_id = userId) }
+        activity?.healthChanged(userId)
     }
 
     /** A pull failed past its retry cap with [detail]; it keeps retrying on schedule. */
@@ -204,6 +236,7 @@ class HardcoverConnectionStore(
         detail: String,
     ) {
         suspendTransaction(sql) { queries.recordPullError(pull_error = detail, user_id = userId) }
+        activity?.healthChanged(userId)
     }
 
     /** [userId]'s push health, or null without a connection. */
@@ -233,9 +266,24 @@ class HardcoverConnectionStore(
             if (access != null && refresh != null) StoredCredentials(access, access_expires_at, refresh) else null
         val reason = broken_reason?.let(::brokenReasonNamed)
         return when {
-            reason != null -> StoredConnection.Broken(reason, hc_username, credentials)
-            credentials == null -> StoredConnection.Broken(HardcoverBrokenReason.CANNOT_DECRYPT, hc_username, null)
-            else -> StoredConnection.Healthy(hc_username, connected_at, credentials)
+            reason != null -> {
+                StoredConnection.Broken(reason, hc_username, credentials)
+            }
+
+            credentials == null -> {
+                StoredConnection.Broken(HardcoverBrokenReason.CANNOT_DECRYPT, hc_username, null)
+            }
+
+            else -> {
+                StoredConnection.Healthy(
+                    hardcoverUsername = hc_username,
+                    connectedAt = connected_at,
+                    credentials = credentials,
+                    lastSyncedAt = last_synced_at,
+                    pushStalled = push_error != null,
+                    pullStalled = pull_error != null,
+                )
+            }
         }
     }
 

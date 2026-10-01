@@ -22,10 +22,39 @@ struct HardcoverLinkingModel: Equatable {
 }
 
 /// Connected as `username` since `since`. `isDisconnecting` while Disconnect is in flight.
+/// `lastSyncedAt` is nil before the first sync, either way; `sync` is the sync line. `booksToMatch`
+/// are the books ListenUp couldn't match, in the server's order; `isMatchListKnown` is false until
+/// the server has answered, so only a known empty list says every book is matched.
 struct HardcoverConnectedModel: Equatable {
     let username: String
     let since: Date
     let isDisconnecting: Bool
+    var lastSyncedAt: Date?
+    var sync: HardcoverSyncLine = .idle
+    var booksToMatch: [HardcoverBookToMatchRow] = []
+    var isMatchListKnown = false
+}
+
+/// The Connected screen's sync line, each sentence already resolved.
+enum HardcoverSyncLine: Equatable {
+    /// Nothing in flight: when it last synced, and Sync Now.
+    case idle
+    /// A sync is running: Sync Now waits.
+    case syncing
+    /// The Sync Now just pressed didn't finish. The line stays idle — Sync Now is the retry — with
+    /// this brief notice beneath it.
+    case syncNowFailed(String)
+    /// A push or a pull is stuck past its retries: this sentence, with Try Again, in place of the line.
+    case stalled(String)
+}
+
+/// One book that needs a match, native, for a `ForEach` (iosApp rule 8).
+struct HardcoverBookToMatchRow: Equatable, Identifiable {
+    let id: String
+    let title: String
+    let authorNames: String
+    let coverPath: String?
+    let coverHash: String?
 }
 
 /// Needs a reconnect, for the reason `reasonMessage` explains. `username` is who it was connected
@@ -79,6 +108,9 @@ final class HardcoverSettingsObserver {
     /// Disconnect, or cancel a pending sign-in. Callers confirm first, except for Cancel.
     func disconnect() { viewModel.disconnect() }
 
+    /// Sync Now, or Try Again beside a stuck sync. The ViewModel ignores a press while one is in flight.
+    func syncNow() { viewModel.syncNow() }
+
     // MARK: - Event routing
 
     private func apply(_ effect: HardcoverEffect?) {
@@ -120,7 +152,19 @@ final class HardcoverSettingsObserver {
                 HardcoverConnectedModel(
                     username: connected.username,
                     since: Date(timeIntervalSince1970: Double(connected.since) / 1_000),
-                    isDisconnecting: connected.isDisconnecting
+                    isDisconnecting: connected.isDisconnecting,
+                    lastSyncedAt: connected.lastSyncedAt.map { Date(timeIntervalSince1970: Double($0) / 1_000) },
+                    sync: syncLine(from: connected.sync),
+                    booksToMatch: connected.booksToMatch.map {
+                        HardcoverBookToMatchRow(
+                            id: $0.bookId,
+                            title: $0.title,
+                            authorNames: $0.authorNames,
+                            coverPath: $0.coverPath,
+                            coverHash: $0.coverHash
+                        )
+                    },
+                    isMatchListKnown: connected.isMatchListKnown
                 )
             )
         case .broken(let brokenType):
@@ -151,6 +195,37 @@ final class HardcoverSettingsObserver {
     nonisolated static func announcement(from old: HardcoverPhase, to new: HardcoverPhase) -> String? {
         guard case .linking = old, case .connected(let connected) = new else { return nil }
         return String(format: String(localized: "hardcover.row_subtitle_connected"), connected.username)
+    }
+
+    nonisolated static func syncLine(from status: HardcoverSyncStatus) -> HardcoverSyncLine {
+        switch status.sealedType() {
+        case .idle: .idle
+        case .syncing: .syncing
+        case .problem(let problemType): syncLine(for: problemType.value.problem)
+        }
+    }
+
+    // Deliberately no `default`: a new problem must fail to compile here rather than borrow another's
+    // words. A failed Sync Now is a passing notice; a stuck push or pull is a standing problem.
+    nonisolated static func syncLine(for problem: HardcoverSyncProblem) -> HardcoverSyncLine {
+        switch problem {
+        case .syncNowFailed: .syncNowFailed(String(localized: "hardcover.sync_now_failed_notice"))
+        case .pushStalled: .stalled(String(localized: "hardcover.problem_push_stalled"))
+        case .pullStalled: .stalled(String(localized: "hardcover.problem_pull_stalled"))
+        }
+    }
+
+    /// "Last synced 5 minutes ago", "Last synced just now", or "Not synced yet". The relative phrase is
+    /// the system's own, so it reads naturally in every language the app ships.
+    nonisolated static func lastSyncedText(_ date: Date?, now: Date) -> String {
+        guard let date else { return String(localized: "hardcover.never_synced") }
+        if now.timeIntervalSince(date) < 60 { return String(localized: "hardcover.last_synced_just_now") }
+        let relative = RelativeDateTimeFormatter()
+        relative.unitsStyle = .full
+        return String(
+            format: String(localized: "hardcover.last_synced"),
+            relative.localizedString(for: date, relativeTo: now)
+        )
     }
 
     // Deliberately no `default` branches: a new reason must fail to compile here rather than

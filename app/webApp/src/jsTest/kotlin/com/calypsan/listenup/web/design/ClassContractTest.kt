@@ -1,8 +1,20 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.api.dto.hardcover.HardcoverBookSync
+import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
+import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.domain.model.ListenerRating
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
+import com.calypsan.listenup.client.presentation.hardcover.BookHardcoverUiState
+import com.calypsan.listenup.client.presentation.hardcover.HardcoverBookToMatch
+import com.calypsan.listenup.client.presentation.hardcover.HardcoverCandidateRow
+import com.calypsan.listenup.client.presentation.hardcover.HardcoverMatchUiState
+import com.calypsan.listenup.client.presentation.hardcover.HardcoverMatchedBook
+import com.calypsan.listenup.client.presentation.hardcover.HardcoverSearchState
+import com.calypsan.listenup.client.presentation.hardcover.HardcoverSyncStatus
+import com.calypsan.listenup.web.features.hardcover.BookHardcoverPanel
+import com.calypsan.listenup.web.features.hardcover.HardcoverMatchPage
 import com.calypsan.listenup.web.features.ratings.RateBookDialog
 import com.calypsan.listenup.web.features.ratings.RatingsPanel
 import com.calypsan.listenup.web.features.admin.MergeHistoryActions
@@ -2564,9 +2576,63 @@ private fun ratingShapes(): List<@Composable () -> Unit> {
  * The Hardcover page in every phase, the failure note included — each phase draws its own layout,
  * so a phase nobody renders here is a phase whose classes nothing checks.
  */
-private fun hardcoverShapes(): List<@Composable () -> Unit> {
+private fun hardcoverShapes(): List<@Composable () -> Unit> = hardcoverSettingsShapes() + hardcoverMatchShapes()
+
+/** Find on Hardcover in each search shape, and Book Detail's panel in each of its own. */
+private fun hardcoverMatchShapes(): List<@Composable () -> Unit> {
+    val strong = HardcoverCandidateRow(1L, 9L, "Project Hail Mary", listOf("Andy Weir"), 2021, 812, true, true)
+    val quiet = HardcoverCandidateRow(2L, null, "A Summary", emptyList(), null, 0, false, false)
+    val match = HardcoverMatchedBook(1L, "Project Hail Mary", listOf("Andy Weir"), 2021, true, 9L)
+
+    fun find(search: HardcoverSearchState): @Composable () -> Unit =
+        {
+            HardcoverMatchPage(
+                HardcoverMatchUiState.Ready(
+                    "b1",
+                    "Project Hail Mary",
+                    "Andy Weir",
+                    null,
+                    null,
+                    "q",
+                    search,
+                    match,
+                    null,
+                    false,
+                    listOf("x"),
+                ),
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+            )
+        }
+    return listOf(
+        find(HardcoverSearchState.Results(listOf(strong, quiet))),
+        find(HardcoverSearchState.Results(listOf(quiet))),
+        find(HardcoverSearchState.NoResults),
+        find(HardcoverSearchState.Failed(HardcoverError.Unavailable())),
+        { BookHardcoverPanel(BookHardcoverUiState.NeedsMatch, {}, {}) },
+        { BookHardcoverPanel(BookHardcoverUiState.Linked(match, HardcoverBookSync.REMOVED_ON_HARDCOVER), {}, {}) },
+    )
+}
+
+private fun hardcoverSettingsShapes(): List<@Composable () -> Unit> {
     fun page(state: HardcoverSettingsUiState): @Composable () -> Unit =
-        { HardcoverPage(state, onConnect = {}, onDisconnect = {}, onOpenSettings = {}, copyText = { _, done -> done(true) }) }
+        {
+            HardcoverPage(
+                state,
+                onConnect = {},
+                onDisconnect = {},
+                onSyncNow = {},
+                onFindMatch = {},
+                onOpenSettings = {},
+                nowMs = 0L,
+                copyText = { _, done -> done(true) },
+            )
+        }
     return listOf(
         page(HardcoverSettingsUiState.Loading),
         page(HardcoverSettingsUiState.NotOffered),
@@ -2580,6 +2646,26 @@ private fun hardcoverShapes(): List<@Composable () -> Unit> {
             ),
         ),
         page(HardcoverSettingsUiState.Connected(username = "simon", since = 0L, isDisconnecting = false)),
+        // The sync line in each shape, the stuck card, and Needs a match both listed and empty.
+        page(
+            HardcoverSettingsUiState.Connected(
+                username = "simon",
+                since = 0L,
+                isDisconnecting = false,
+                sync = HardcoverSyncStatus.Syncing,
+                booksToMatch = listOf(HardcoverBookToMatch("b1", "Piranesi", "Susanna Clarke", null, null)),
+                isMatchListKnown = true,
+            ),
+        ),
+        page(
+            HardcoverSettingsUiState.Connected(
+                username = "simon",
+                since = 0L,
+                isDisconnecting = false,
+                sync = HardcoverSyncStatus.Problem(HardcoverSyncProblem.PUSH_STALLED),
+                isMatchListKnown = true,
+            ),
+        ),
         page(HardcoverSettingsUiState.Broken(reason = HardcoverBrokenReason.REVOKED, username = "simon", isStarting = false)),
     )
 }

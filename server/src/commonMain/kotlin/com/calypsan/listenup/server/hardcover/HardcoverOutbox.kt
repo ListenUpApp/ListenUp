@@ -220,6 +220,12 @@ class HardcoverOutbox(
         }
     }
 
+    /** How many operations wait for [bookId], parked or due. */
+    suspend fun pendingCountFor(
+        userId: String,
+        bookId: String,
+    ): Long = suspendTransaction(sql) { queries.pendingCountForBook(userId, bookId).executeAsOne() }
+
     private fun now() = clock.now().toEpochMilliseconds()
 
     private fun encode(payload: HardcoverPushPayload): String =

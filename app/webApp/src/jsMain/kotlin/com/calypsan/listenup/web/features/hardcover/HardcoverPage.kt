@@ -7,23 +7,31 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
+import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
+import com.calypsan.listenup.client.presentation.hardcover.HardcoverBookToMatch
+import com.calypsan.listenup.client.presentation.hardcover.HardcoverSyncStatus
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsUiState
 import com.calypsan.listenup.client.util.formatDateLong
+import com.calypsan.listenup.client.util.relativeLastActiveInSentence
 import com.calypsan.listenup.web.copyToClipboard
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.ButtonLink
 import com.calypsan.listenup.web.design.ConfirmDialog
+import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.EmptyLook
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.LoadingState
 import com.calypsan.listenup.web.design.PageHeader
+import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
+import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.dom.B
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H2
+import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.Li
 import org.jetbrains.compose.web.dom.Ol
 import org.jetbrains.compose.web.dom.P
@@ -47,6 +55,13 @@ import org.jetbrains.compose.web.dom.Ul
  * LAN server, which is most of these. The code is on screen and selectable whatever the clipboard
  * says; "Copied" appears only when the copy actually landed.
  *
+ * Connected, the page is the approved sync canvas's two columns: who, the sync line and the books
+ * that need a match on the left; what is shared and what comes back, and Disconnect, on the right.
+ * A Sync now that failed is not drawn here — it is brief, so the route says it in a toast with
+ * Try again while the sync line stays as it was; only a push or pull that is stuck gets a card.
+ *
+ * @param onFindMatch Opens Find on Hardcover for one book of the Needs a match list.
+ * @param nowMs What "Last synced …" measures against — read once per composition by the caller.
  * @param copyText Puts text on the clipboard and reports whether it got there. Specs replace it,
  *   because a headless browser's clipboard answers depend on permissions this page does not own.
  */
@@ -55,7 +70,10 @@ fun HardcoverPage(
     state: HardcoverSettingsUiState,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
+    onSyncNow: () -> Unit,
+    onFindMatch: (bookId: String) -> Unit,
     onOpenSettings: () -> Unit,
+    nowMs: Long,
     copyText: (String, (Boolean) -> Unit) -> Unit = ::copyToClipboard,
 ) {
     Div(attrs = { classes("hc") }) {
@@ -83,7 +101,7 @@ fun HardcoverPage(
             }
 
             is HardcoverSettingsUiState.Connected -> {
-                Connected(state, onDisconnect)
+                Connected(state, nowMs, onDisconnect, onSyncNow, onFindMatch)
             }
 
             is HardcoverSettingsUiState.Broken -> {
@@ -121,7 +139,7 @@ private fun NotConnected(
                 // Informational rather than alarming: the answer to every one is to connect again.
                 P(attrs = {
                     classes("hc-note")
-                    attr("role", "status")
+                    attr(ROLE, STATUS)
                 }) { Text(failure.message()) }
             }
             Div(attrs = { classes("hc-actions") }) {
@@ -212,7 +230,7 @@ private fun Linking(
 
     Div(attrs = {
         classes("hc-wait")
-        attr("role", "status")
+        attr(ROLE, STATUS)
         attr("aria-live", "polite")
     }) {
         Span(attrs = {
@@ -245,44 +263,196 @@ private fun Step(
 @Composable
 private fun Connected(
     state: HardcoverSettingsUiState.Connected,
+    nowMs: Long,
     onDisconnect: () -> Unit,
+    onSyncNow: () -> Unit,
+    onFindMatch: (bookId: String) -> Unit,
 ) {
     var confirming by remember { mutableStateOf(false) }
 
     PageHeader(title = SCREEN_TITLE)
-    Div(attrs = { classes("hc-cols") }) {
-        Section(attrs = { classes(CARD, "hc-hero", "hc-who") }) {
-            Span(attrs = {
-                classes("hc-avatar")
-                attr(ARIA_HIDDEN, "true")
-            }) { Text(state.username.take(1).uppercase()) }
-            Div(attrs = { classes("hc-who-text") }) {
-                Span(attrs = { classes("hc-badge") }) {
-                    Icon(WebIcon.Check, size = BADGE_ICON)
-                    Text("Connected")
+    Div(attrs = { classes("hc-cols", "hc-cols-top") }) {
+        Div(attrs = { classes("hc-col") }) {
+            Section(attrs = { classes(CARD, "hc-hero", "hc-who") }) {
+                Span(attrs = {
+                    classes("hc-avatar")
+                    attr(ARIA_HIDDEN, "true")
+                }) { Text(state.username.take(1).uppercase()) }
+                Div(attrs = { classes("hc-who-text") }) {
+                    Span(attrs = { classes("hc-badge") }) {
+                        Icon(WebIcon.Check, size = BADGE_ICON)
+                        Text("Connected")
+                    }
+                    H2(attrs = { classes("hc-user") }) { Text(state.username) }
+                    Span(attrs = { classes("hc-since") }) { Text("Since ${formatDateLong(state.since)}") }
                 }
-                H2(attrs = { classes("hc-user") }) { Text(state.username) }
-                Span(attrs = { classes("hc-since") }) { Text("Since ${formatDateLong(state.since)}") }
             }
+            Panel(title = "Sync") {
+                SyncBlock(lastSyncedAt = state.lastSyncedAt, sync = state.sync, nowMs = nowMs, onSyncNow = onSyncNow)
+            }
+            NeedsMatch(books = state.booksToMatch, isKnown = state.isMatchListKnown, onFindMatch = onFindMatch)
         }
 
-        Section(attrs = { classes(CARD) }) {
-            H2(attrs = { classes("hc-card-h") }) { Text("What ListenUp shares") }
-            Ul(attrs = { classes("hc-list") }) {
-                ListItem(WebIcon.Check, "Books you finish, marked as read")
+        Div(attrs = { classes("hc-col") }) {
+            Panel(title = "What ListenUp shares") {
+                Ul(attrs = { classes("hc-list") }) {
+                    ListItem(WebIcon.Book, "Books you start, as Currently reading")
+                    ListItem(WebIcon.Headphones, "How far you've listened")
+                    ListItem(WebIcon.Check, "Books you finish, marked as read")
+                }
+                H3(attrs = { classes("hc-label", "hc-back-h") }) { Text("What comes back") }
+                Ul(attrs = { classes("hc-list") }) {
+                    Li(attrs = { classes("hc-item") }) {
+                        Span(attrs = {
+                            classes("hc-item-i")
+                            attr(ARIA_HIDDEN, "true")
+                        }) { Icon(WebIcon.Download, size = ITEM_ICON) }
+                        Span {
+                            Text("Books you've read elsewhere appear in Readers with a Hardcover label. ")
+                            Span(attrs = { classes("hc-quiet") }) { Text("They never count as listening.") }
+                        }
+                    }
+                }
+            }
+            Div(attrs = { classes("hc-actions") }) {
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = { confirming = true },
+                    enabled = !state.isDisconnecting,
+                ) { Text("Disconnect") }
             }
         }
-    }
-
-    Div(attrs = { classes("hc-actions") }) {
-        Button(
-            kind = ButtonKind.Secondary,
-            onClick = { confirming = true },
-            enabled = !state.isDisconnecting,
-        ) { Text("Disconnect") }
     }
 
     DisconnectConfirm(open = confirming, onDisconnect = onDisconnect, onDismiss = { confirming = false })
+}
+
+/**
+ * The sync line: when it last synced (or "Syncing…", announced as it starts) beside Sync now — or,
+ * while a push or a pull is stuck, that said in plain words on a warning card, with Try again.
+ *
+ * A Sync now that failed draws as the plain line: it is brief, and the route's toast says it.
+ * Sync now stays on screen while a sync runs, disabled and busy, so the line does not jump.
+ */
+@Composable
+private fun SyncBlock(
+    lastSyncedAt: Long?,
+    sync: HardcoverSyncStatus,
+    nowMs: Long,
+    onSyncNow: () -> Unit,
+) {
+    val stuck = (sync as? HardcoverSyncStatus.Problem)?.problem?.takeIf { it != HardcoverSyncProblem.SYNC_NOW_FAILED }
+    if (stuck != null) {
+        Div(attrs = {
+            classes("hc-problem")
+            attr(ROLE, STATUS)
+        }) {
+            Span(attrs = {
+                classes("hc-problem-i")
+                attr(ARIA_HIDDEN, "true")
+            }) { Icon(WebIcon.Alert, size = ITEM_ICON) }
+            P { Text(stuck.words()) }
+        }
+        Div(attrs = { classes("hc-problem-act") }) {
+            Button(kind = ButtonKind.Secondary, onClick = onSyncNow) {
+                Icon(WebIcon.Refresh, size = BUTTON_ICON)
+                Text("Try again")
+            }
+        }
+        return
+    }
+
+    val syncing = sync == HardcoverSyncStatus.Syncing
+    Div(attrs = { classes("hc-sync") }) {
+        Span(attrs = {
+            classes("hc-sync-i")
+            attr(ARIA_HIDDEN, "true")
+        }) {
+            if (syncing) Span(attrs = { classes("hc-spin", "hc-spin-sm") }) else Icon(WebIcon.Clock, size = SYNC_ICON)
+        }
+        Span(attrs = {
+            classes("hc-sync-t")
+            attr(ROLE, STATUS)
+        }) {
+            Text(
+                when {
+                    syncing -> "Syncing…"
+                    lastSyncedAt == null -> "Not synced yet"
+                    else -> "Last synced ${relativeLastActiveInSentence(lastSyncedAt, nowMs)}"
+                },
+            )
+        }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = onSyncNow,
+            enabled = !syncing,
+            attrs = { if (syncing) attr("aria-busy", "true") },
+        ) {
+            Icon(WebIcon.Refresh, size = BUTTON_ICON)
+            Text("Sync now")
+        }
+    }
+}
+
+/**
+ * The books ListenUp couldn't match, each with Find on Hardcover — or, once the server has said there
+ * are none, one quiet line. Nothing at all while the list is not known: an unanswered read must not
+ * claim that everything is matched.
+ */
+@Composable
+private fun NeedsMatch(
+    books: List<HardcoverBookToMatch>,
+    isKnown: Boolean,
+    onFindMatch: (bookId: String) -> Unit,
+) {
+    if (books.isEmpty()) {
+        if (isKnown) {
+            Panel(title = NEEDS_MATCH) {
+                EmptyState(title = "Every book you've started is matched", look = EmptyLook.Inline)
+            }
+        }
+        return
+    }
+    Panel(
+        title = NEEDS_MATCH,
+        flush = true,
+        trailing = { Span(attrs = { classes("hc-count", "mono") }) { Text(books.size.toString()) } },
+    ) {
+        P(attrs = { classes("hc-match-lede") }) {
+            Text("ListenUp couldn't tell which Hardcover book these are. Pick each one and it starts syncing.")
+        }
+        Ul(attrs = { classes("hc-match-list") }) {
+            books.forEach { book ->
+                val titleId = "hc-nm-${book.bookId}"
+                Li(attrs = { classes("hc-match-row") }) {
+                    Cover(
+                        title = book.title,
+                        imageUrl = coverUrl(book.bookId, book.coverHash, width = MATCH_COVER * 2),
+                        size = MATCH_COVER,
+                        decorative = true,
+                    )
+                    Div(attrs = { classes("hc-match-text") }) {
+                        Span(attrs = {
+                            classes("hc-match-title")
+                            id(titleId)
+                        }) { Text(book.title) }
+                        if (book.authorNames.isNotBlank()) {
+                            Span(attrs = { classes("hc-match-by") }) { Text(book.authorNames) }
+                        }
+                    }
+                    // Every row's button reads the same, so it is described by its own book's title.
+                    Button(
+                        kind = ButtonKind.Secondary,
+                        onClick = { onFindMatch(book.bookId) },
+                        attrs = { attr("aria-describedby", titleId) },
+                    ) {
+                        Icon(WebIcon.Search, size = BUTTON_ICON)
+                        Text("Find on Hardcover")
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -344,6 +514,17 @@ private fun DisconnectConfirm(
     )
 }
 
+/**
+ * A stuck sync in plain words — en.json's `hardcover.problem_*`. Deliberately no `else`: a new
+ * problem must fail to compile here rather than borrow another's words.
+ */
+private fun HardcoverSyncProblem.words(): String =
+    when (this) {
+        HardcoverSyncProblem.SYNC_NOW_FAILED -> "Hardcover didn't answer just now. ListenUp will keep trying."
+        HardcoverSyncProblem.PUSH_STALLED -> "Some of your listening hasn't reached Hardcover yet. ListenUp keeps trying."
+        HardcoverSyncProblem.PULL_STALLED -> "ListenUp can't read your Hardcover shelf right now. It keeps trying."
+    }
+
 /** Why the last attempt ended — en.json's `hardcover.failure_*`. */
 private fun HardcoverLinkFailure.message(): String =
     when (this) {
@@ -374,6 +555,8 @@ private fun HardcoverBrokenReason.message(): String =
 private fun String.withoutScheme(): String = substringAfter("://")
 
 private const val ARIA_HIDDEN = "aria-hidden"
+private const val ROLE = "role"
+private const val STATUS = "status"
 private const val CARD = "hc-card"
 private const val LEDE = "hc-lede"
 
@@ -384,3 +567,9 @@ private const val STEP_THREE = 3
 private const val GLYPH_ICON = 28
 private const val ITEM_ICON = 18
 private const val BADGE_ICON = 14
+private const val BUTTON_ICON = 16
+private const val SYNC_ICON = 22
+private const val MATCH_COVER = 48
+
+/** en.json's `hardcover.needs_match_section`. */
+private const val NEEDS_MATCH = "Needs a match"

@@ -2,6 +2,9 @@ package com.calypsan.listenup.web.features.hardcover
 
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
+import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
+import com.calypsan.listenup.client.presentation.hardcover.HardcoverBookToMatch
+import com.calypsan.listenup.client.presentation.hardcover.HardcoverSyncStatus
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsUiState
 import com.calypsan.listenup.client.util.formatDateLong
 import com.calypsan.listenup.web.MountRegistry
@@ -9,8 +12,11 @@ import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import io.kotest.matchers.string.shouldStartWith
+import kotlinx.browser.document
 import org.w3c.dom.HTMLAnchorElement
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
@@ -28,6 +34,12 @@ private val LINKING =
     )
 
 private val CONNECTED = HardcoverSettingsUiState.Connected(username = "simon", since = SINCE_MS, isDisconnecting = false)
+
+/** The page's clock, three days after [SINCE_MS]: the sync line measures against this, not the real one. */
+private const val NOW_MS = SINCE_MS + 3 * 24 * 60 * 60 * 1000L
+
+private val HAIL_MARY = HardcoverBookToMatch("b1", "Project Hail Mary", "Andy Weir", null, null)
+private val PIRANESI = HardcoverBookToMatch("b2", "Piranesi", "Susanna Clarke", null, "h2")
 
 private fun broken(
     reason: HardcoverBrokenReason = HardcoverBrokenReason.REVOKED,
@@ -58,6 +70,8 @@ class HardcoverPageTest :
             onConnect: () -> Unit = {},
             onDisconnect: () -> Unit = {},
             onOpenSettings: () -> Unit = {},
+            onSyncNow: () -> Unit = {},
+            onFindMatch: (String) -> Unit = {},
             copyText: (String, (Boolean) -> Unit) -> Unit = { _, onResult -> onResult(true) },
         ): HTMLElement =
             mounts.mount {
@@ -65,7 +79,10 @@ class HardcoverPageTest :
                     state = state,
                     onConnect = onConnect,
                     onDisconnect = onDisconnect,
+                    onSyncNow = onSyncNow,
+                    onFindMatch = onFindMatch,
                     onOpenSettings = onOpenSettings,
+                    nowMs = NOW_MS,
                     copyText = copyText,
                 )
             }
@@ -231,8 +248,6 @@ class HardcoverPageTest :
                 .map { it.textContent }
                 .contains("What ListenUp shares") shouldBe true
             text shouldContain "Books you finish, marked as read"
-            // The sync row is a placeholder for a later PR, and must not ship as a promise.
-            text shouldNotContain "Sync now"
         }
 
         test("disconnecting asks first, and only the confirm disconnects") {
@@ -317,4 +332,134 @@ class HardcoverPageTest :
 
             disconnected shouldBe 1
         }
+
+        test("a sync this minute reads just now, and Sync now asks for one") {
+            var syncs = 0
+            val host = mount(CONNECTED.copy(lastSyncedAt = NOW_MS - 20_000L), onSyncNow = { syncs++ })
+
+            host.querySelector(".hc-sync-t")!!.textContent shouldBe "Last synced just now"
+            host.button("Sync now").click()
+
+            syncs shouldBe 1
+        }
+
+        test("an older sync says how long ago") {
+            val host = mount(CONNECTED.copy(lastSyncedAt = NOW_MS - 3 * 60 * 1000L))
+
+            host.querySelector(".hc-sync-t")!!.textContent.orEmpty() shouldStartWith "Last synced "
+            host.querySelector(".hc-sync-t")!!.textContent shouldNotBe "Last synced just now"
+        }
+
+        test("never synced says so") {
+            mount(CONNECTED).querySelector(".hc-sync-t")!!.textContent shouldBe "Not synced yet"
+        }
+
+        test("syncing is announced, and Sync now cannot be pressed a second time") {
+            var syncs = 0
+            val host = mount(CONNECTED.copy(sync = HardcoverSyncStatus.Syncing), onSyncNow = { syncs++ })
+
+            val line = host.querySelector(".hc-sync-t")!!
+            line.textContent shouldBe "Syncing…"
+            line.getAttribute("role") shouldBe "status"
+            val press = host.button("Sync now")
+            press.disabled shouldBe true
+            press.getAttribute("aria-busy") shouldBe "true"
+            press.click()
+            syncs shouldBe 0
+        }
+
+        test("a stalled push is said in plain words, on its own card, with Try again") {
+            var syncs = 0
+            val host =
+                mount(
+                    CONNECTED.copy(sync = HardcoverSyncStatus.Problem(HardcoverSyncProblem.PUSH_STALLED)),
+                    onSyncNow = { syncs++ },
+                )
+
+            val card = host.querySelector(".hc-problem")!!
+            card.getAttribute("role") shouldBe "status"
+            card.textContent.orEmpty() shouldContain
+                "Some of your listening hasn't reached Hardcover yet. ListenUp keeps trying."
+            host.button("Try again").click()
+            syncs shouldBe 1
+        }
+
+        test("a stalled pull has its own words") {
+            mount(CONNECTED.copy(sync = HardcoverSyncStatus.Problem(HardcoverSyncProblem.PULL_STALLED)))
+                .querySelector(".hc-problem")!!
+                .textContent
+                .orEmpty() shouldContain "ListenUp can't read your Hardcover shelf right now. It keeps trying."
+        }
+
+        test("a Sync now that failed is the toast's to say: the sync line stays as it was") {
+            val host =
+                mount(
+                    CONNECTED.copy(
+                        lastSyncedAt = NOW_MS - 20_000L,
+                        sync = HardcoverSyncStatus.Problem(HardcoverSyncProblem.SYNC_NOW_FAILED),
+                    ),
+                )
+
+            host.querySelector(".hc-problem") shouldBe null
+            host.querySelector(".hc-sync-t")!!.textContent shouldBe "Last synced just now"
+            host.button("Sync now").disabled shouldBe false
+        }
+
+        test("the books that need a match are listed and counted, and each opens Find on Hardcover") {
+            val opened = mutableListOf<String>()
+            val host =
+                mount(
+                    CONNECTED.copy(booksToMatch = listOf(HAIL_MARY, PIRANESI), isMatchListKnown = true),
+                    onFindMatch = { opened += it },
+                )
+
+            val section = host.panel("Needs a match")
+            section.textContent.orEmpty() shouldContain
+                "ListenUp couldn't tell which Hardcover book these are. Pick each one and it starts syncing."
+            section.querySelector(".hc-count")!!.textContent shouldBe "2"
+            val rows = section.querySelectorAll(".hc-match-row").asList().map { it as HTMLElement }
+            rows.map { it.querySelector(".hc-match-title")!!.textContent } shouldBe listOf("Project Hail Mary", "Piranesi")
+            rows[1].querySelector(".hc-match-by")!!.textContent shouldBe "Susanna Clarke"
+            rows[1].button("Find on Hardcover").click()
+            opened shouldBe listOf("b2")
+        }
+
+        test("each Find on Hardcover is described by the book it finds, so a screen reader can tell them apart") {
+            val host = mount(CONNECTED.copy(booksToMatch = listOf(HAIL_MARY, PIRANESI), isMatchListKnown = true))
+
+            val press = host.panel("Needs a match").querySelectorAll("button").item(1) as HTMLElement
+            val described = document.getElementById(press.getAttribute("aria-describedby")!!)!!
+            described.textContent shouldBe "Piranesi"
+        }
+
+        test("a known empty list says every started book is matched") {
+            val host = mount(CONNECTED.copy(isMatchListKnown = true))
+
+            host.panel("Needs a match").textContent.orEmpty() shouldContain "Every book you've started is matched"
+        }
+
+        test("a list that is not known yet draws no section at all") {
+            mount(CONNECTED).textContent.orEmpty() shouldNotContain "Needs a match"
+        }
+
+        test("what is shared names all four things, and what comes back never counts as listening") {
+            val shares = mount(CONNECTED).panel("What ListenUp shares")
+            val text = shares.textContent.orEmpty()
+
+            listOf(
+                "Books you start, as Currently reading",
+                "How far you've listened",
+                "Books you finish, marked as read",
+            ).forEach { text shouldContain it }
+            shares.querySelector("h3")!!.textContent shouldBe "What comes back"
+            text shouldContain "Books you've read elsewhere appear in Readers with a Hardcover label."
+            text shouldContain "They never count as listening."
+        }
     })
+
+/** The panel whose heading reads [title]. */
+private fun HTMLElement.panel(title: String): HTMLElement =
+    querySelectorAll("section")
+        .asList()
+        .map { it as HTMLElement }
+        .first { it.querySelector("h2")?.textContent == title }

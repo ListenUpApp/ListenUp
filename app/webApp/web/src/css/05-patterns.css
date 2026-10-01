@@ -94,6 +94,13 @@
 
 .toast .t-x { width:32px; height:32px; border-radius:var(--r-sm); display:inline-flex; align-items:center; justify-content:center; opacity:.6; cursor:pointer; }
 @media (hover: hover) { .toast .t-x:hover { opacity:1; background:rgba(255,255,255,.10); } }
+/* A toast's one action — Undo, Try again. Words, not a glyph, in the toast's own ink; the 44px
+   height is the canvas's, so it is a full target on any pointer. */
+.toast .t-act { height:44px; padding:0 var(--sp-12); border-radius:var(--r-sm); font-weight:800; cursor:pointer; white-space:nowrap; }
+@media (hover: hover) {
+  .toast .t-act:hover { background:rgba(255,255,255,.10); }
+  [data-theme="dark"] .toast .t-act:hover { background:var(--surface-2); }
+}
 
 /* The toast stack: bottom-centre, above everything including the transport bar (z 5/6) and the
    command palette's scrim (z 50). Fixed rather than sticky — a toast reports on the app, not on

@@ -2,11 +2,13 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.HardcoverService
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookCandidate
+import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -94,6 +96,16 @@ class HardcoverServiceImpl(
         val userId = callerId() ?: return permissionDenied()
         pulls.syncIfStale(userId)
         return AppResult.Success(Unit)
+    }
+
+    override suspend fun booksNeedingMatch(): AppResult<List<BookId>> {
+        val caller = principal.current() ?: return permissionDenied()
+        return linking.booksNeedingMatch(caller.userId.value, caller.role).map { ids -> ids.map(::BookId) }
+    }
+
+    override suspend fun bookMatch(bookId: BookId): AppResult<HardcoverBookMatch> {
+        val caller = principal.current() ?: return permissionDenied()
+        return linking.bookMatch(caller.userId.value, caller.role, bookId.value)
     }
 
     private fun HardcoverConnection.offeredOrNot(): HardcoverConnection =

@@ -101,6 +101,7 @@ fun WideBookDetail(
     onMoodClick: (moodId: String, moodName: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit = {},
+    onFindHardcoverMatch: ((bookId: String) -> Unit)? = null,
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var isChaptersExpanded by rememberSaveable { mutableStateOf(false) }
@@ -211,6 +212,7 @@ fun WideBookDetail(
                     onPlayDisabledClick = onPlayDisabledClick,
                     onUserProfileClick = onUserProfileClick,
                     onSeeAllReaders = onSeeAllReaders,
+                    onFindHardcoverMatch = onFindHardcoverMatch,
                     chapterPaneMaxHeight = viewportHeight,
                     modifier = screenPadding.fillMaxWidth().padding(top = 24.dp),
                 )
@@ -263,6 +265,7 @@ private fun WideBodyColumns(
     onPlayDisabledClick: () -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit,
+    onFindHardcoverMatch: ((bookId: String) -> Unit)?,
     chapterPaneMaxHeight: Dp,
     modifier: Modifier = Modifier,
 ) {
@@ -302,6 +305,7 @@ private fun WideBodyColumns(
             onExpandChapters = onExpandChapters,
             onUserProfileClick = onUserProfileClick,
             onSeeAllReaders = onSeeAllReaders,
+            onFindHardcoverMatch = onFindHardcoverMatch,
             chapterPaneMaxHeight = chapterPaneMaxHeight,
             modifier = Modifier.widthIn(max = RIGHT_COLUMN_MAX_WIDTH),
         )
@@ -404,6 +408,7 @@ private fun WideRightColumn(
     onExpandChapters: () -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit,
+    onFindHardcoverMatch: ((bookId: String) -> Unit)?,
     chapterPaneMaxHeight: Dp,
     modifier: Modifier = Modifier,
 ) {
@@ -425,6 +430,13 @@ private fun WideRightColumn(
             onUserClick = onUserProfileClick,
             isCard = true,
             onSeeAllClick = onSeeAllReaders,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        // Hardcover card — only for a connected user whose book is matched or needs a match.
+        BookHardcoverSection(
+            bookId = bookId,
+            onFindMatch = onFindHardcoverMatch,
             modifier = Modifier.fillMaxWidth(),
         )
 
