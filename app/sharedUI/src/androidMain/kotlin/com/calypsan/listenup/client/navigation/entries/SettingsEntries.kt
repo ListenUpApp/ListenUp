@@ -15,10 +15,7 @@ import com.calypsan.listenup.client.navigation.Settings
 import com.calypsan.listenup.client.navigation.Storage
 
 /** Settings navigation entries, including the Devices screen. */
-internal fun EntryProviderScope<NavKey>.settingsEntries(
-    backStack: NavBackStack<NavKey>,
-    onSignOut: () -> Unit,
-) {
+internal fun EntryProviderScope<NavKey>.settingsEntries(backStack: NavBackStack<NavKey>) {
     entry<Settings> {
         SettingsScreen(
             showDynamicColors = true,
@@ -79,13 +76,6 @@ internal fun EntryProviderScope<NavKey>.settingsEntries(
         com.calypsan.listenup.client.features.settings.DevicesScreen(
             onBack = {
                 backStack.removeAt(backStack.lastIndex)
-            },
-            onSignedOutEverywhere = {
-                // Same local teardown as the Shell sign-out action (LogoutUseCase, via
-                // onSignOut) — the server-side revoke-all already happened in
-                // signOutEverywhere(); this just clears local state so auth-state
-                // routing returns the user to login.
-                onSignOut()
             },
         )
     }

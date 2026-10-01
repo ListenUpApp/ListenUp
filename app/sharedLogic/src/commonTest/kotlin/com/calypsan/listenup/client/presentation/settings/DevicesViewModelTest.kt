@@ -27,6 +27,7 @@ import kotlinx.coroutines.test.runTest
  * - Secondary descriptor join (platform/version + client/version), blank-safe
  * - listSessions success → [DevicesUiState.Ready] with resolved rows
  * - revokeDevice success → reload reflects the removed row
+ * - signOutOtherDevices → every other row goes, this device stays signed in
  * - listSessions failure → [DevicesUiState.Error]
  *
  * Uses a fake [AuthRepository] (no Mokkery) for hermetic seam-level testing.
@@ -109,6 +110,33 @@ class DevicesViewModelTest :
             }
         }
 
+        // ========== Sign out all other devices ==========
+
+        test("signOutOtherDevices keeps this device signed in and drops every other row") {
+            runTest {
+                val repo =
+                    SignedInEverywhere(
+                        summary(id = "here", deviceModel = "iPhone 17", current = true),
+                        summary(id = "s2", deviceModel = "Pixel 10"),
+                        summary(id = "s3", deviceModel = "iPad"),
+                    )
+                val vm = DevicesViewModel(repo)
+                vm.uiState.test {
+                    awaitUntil { it is DevicesUiState.Ready && it.devices.size == 3 }
+
+                    vm.signOutOtherDevices()
+
+                    val after =
+                        awaitUntil { it !is DevicesUiState.Ready || it.devices.size != 3 }
+                            .shouldBeInstanceOf<DevicesUiState.Ready>()
+                    after.devices.map { it.sessionId } shouldBe listOf("here")
+                    after.devices.single().isCurrent shouldBe true
+                    repo.liveSessionIds shouldBe setOf("here")
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
         // ========== Error ==========
 
         test("load failure → Error") {
@@ -156,6 +184,23 @@ private fun fakeRepo(sessions: List<SessionSummary>): AuthRepository =
         override suspend fun listSessions(): AppResult<List<SessionSummary>> = AppResult.Success(sessions)
     }
 
+/** A user signed in on several devices, the [SessionSummary.current] one being this device. */
+private class SignedInEverywhere(
+    vararg sessions: SessionSummary,
+) : FakeAuthRepository() {
+    private val sessions = sessions.toMutableList()
+    private val callerId = sessions.single { it.current }.id.value
+
+    val liveSessionIds: Set<String> get() = sessions.map { it.id.value }.toSet()
+
+    override suspend fun listSessions(): AppResult<List<SessionSummary>> = AppResult.Success(sessions.toList())
+
+    override suspend fun revokeOtherSessions(): AppResult<Unit> {
+        sessions.removeAll { it.id.value != callerId }
+        return AppResult.Success(Unit)
+    }
+}
+
 /**
  * Open fake [AuthRepository] — every method fails by default so tests override
  * only the surface they exercise.
@@ -175,7 +220,7 @@ private open class FakeAuthRepository : AuthRepository {
 
     override suspend fun revokeSession(sessionId: SessionId): AppResult<Unit> = fail()
 
-    override suspend fun logoutAll(): AppResult<Unit> = fail()
+    override suspend fun revokeOtherSessions(): AppResult<Unit> = fail()
 
     private fun <T> fail(): AppResult<T> = AppResult.Failure(AuthError.SessionExpired())
 }

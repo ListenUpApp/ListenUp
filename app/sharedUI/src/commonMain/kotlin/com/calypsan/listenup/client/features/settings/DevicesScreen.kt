@@ -70,9 +70,8 @@ import listenup.composeapp.generated.resources.devices_empty
 import listenup.composeapp.generated.resources.devices_note_sign_out_effect
 import listenup.composeapp.generated.resources.devices_other_devices
 import listenup.composeapp.generated.resources.devices_sign_out_all_others
+import listenup.composeapp.generated.resources.devices_sign_out_all_others_confirm
 import listenup.composeapp.generated.resources.devices_sign_out_device
-import listenup.composeapp.generated.resources.devices_sign_out_everywhere
-import listenup.composeapp.generated.resources.devices_sign_out_everywhere_confirm
 import listenup.composeapp.generated.resources.devices_signed_in_count
 import listenup.composeapp.generated.resources.devices_this_device
 import listenup.composeapp.generated.resources.devices_title
@@ -85,7 +84,7 @@ import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Lists the caller's active sessions ("devices") and lets them revoke a single
- * device or sign out everywhere.
+ * device or sign out every other device — this one always stays signed in.
  *
  * Rebuilt to the M3 Expressive mockup: a primaryContainer color-block hero showing the
  * current device, an Other Devices section with tinted icon tiles and per-row sign-out,
@@ -97,29 +96,27 @@ import com.calypsan.listenup.client.design.theme.HeroInk
  * rather than mutating optimistically, so the UI is a pure render of [DevicesUiState].
  *
  * @param onBack Navigate back to Settings.
- * @param onSignedOutEverywhere Invoked after a global sign-out completes (e.g. route to login).
  * @param viewModel The Devices ViewModel, provided via Koin.
  */
 @OptIn(ExperimentalTime::class)
 @Composable
 fun DevicesScreen(
     onBack: () -> Unit,
-    onSignedOutEverywhere: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DevicesViewModel = koinViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    var showSignOutEverywhereDialog by remember { mutableStateOf(false) }
+    var showSignOutOthersDialog by remember { mutableStateOf(false) }
 
-    if (showSignOutEverywhereDialog) {
+    if (showSignOutOthersDialog) {
         ListenUpDestructiveDialog(
-            onDismissRequest = { showSignOutEverywhereDialog = false },
-            title = stringResource(Res.string.devices_sign_out_everywhere),
-            text = stringResource(Res.string.devices_sign_out_everywhere_confirm),
-            confirmText = stringResource(Res.string.devices_sign_out_everywhere),
+            onDismissRequest = { showSignOutOthersDialog = false },
+            title = stringResource(Res.string.devices_sign_out_all_others),
+            text = stringResource(Res.string.devices_sign_out_all_others_confirm),
+            confirmText = stringResource(Res.string.devices_sign_out_all_others),
             onConfirm = {
-                showSignOutEverywhereDialog = false
-                viewModel.signOutEverywhere(onSignedOutEverywhere)
+                showSignOutOthersDialog = false
+                viewModel.signOutOtherDevices()
             },
             dismissText = stringResource(Res.string.common_cancel),
         )
@@ -133,7 +130,7 @@ fun DevicesScreen(
         isWide = isWide,
         onBack = onBack,
         onRevokeDevice = viewModel::revokeDevice,
-        onSignOutEverywhere = { showSignOutEverywhereDialog = true },
+        onSignOutOthers = { showSignOutOthersDialog = true },
         onRetry = viewModel::retry,
         modifier = modifier,
     )
@@ -146,7 +143,7 @@ private fun DevicesBody(
     isWide: Boolean,
     onBack: () -> Unit,
     onRevokeDevice: (String) -> Unit,
-    onSignOutEverywhere: () -> Unit,
+    onSignOutOthers: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -193,7 +190,7 @@ private fun DevicesBody(
                     nowMs = nowMs,
                     onBack = onBack,
                     onRevokeDevice = onRevokeDevice,
-                    onSignOutEverywhere = onSignOutEverywhere,
+                    onSignOutOthers = onSignOutOthers,
                     modifier = modifier,
                 )
             } else {
@@ -204,7 +201,7 @@ private fun DevicesBody(
                     nowMs = nowMs,
                     onBack = onBack,
                     onRevokeDevice = onRevokeDevice,
-                    onSignOutEverywhere = onSignOutEverywhere,
+                    onSignOutOthers = onSignOutOthers,
                     modifier = modifier,
                 )
             }
@@ -222,7 +219,7 @@ private fun DevicesPhoneLayout(
     nowMs: Long,
     onBack: () -> Unit,
     onRevokeDevice: (String) -> Unit,
-    onSignOutEverywhere: () -> Unit,
+    onSignOutOthers: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -253,7 +250,7 @@ private fun DevicesPhoneLayout(
                 DevicesNoteRow()
                 Spacer(modifier = Modifier.height(22.dp))
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    SignOutAllOthersButton(onClick = onSignOutEverywhere)
+                    SignOutAllOthersButton(onClick = onSignOutOthers)
                 }
             }
         }
@@ -270,7 +267,7 @@ private fun DevicesWideLayout(
     nowMs: Long,
     onBack: () -> Unit,
     onRevokeDevice: (String) -> Unit,
-    onSignOutEverywhere: () -> Unit,
+    onSignOutOthers: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
@@ -278,7 +275,7 @@ private fun DevicesWideLayout(
         DevicesWideHero(
             totalCount = state.devices.size,
             onBack = onBack,
-            onSignOutEverywhere = onSignOutEverywhere,
+            onSignOutOthers = onSignOutOthers,
         )
 
         // Two-column body: left = current session card, right = other devices list
@@ -393,7 +390,7 @@ private fun DevicesHero(
 private fun DevicesWideHero(
     totalCount: Int,
     onBack: () -> Unit,
-    onSignOutEverywhere: () -> Unit,
+    onSignOutOthers: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -454,7 +451,7 @@ private fun DevicesWideHero(
 
             // Sign out all others — destructive tonal
             Button(
-                onClick = onSignOutEverywhere,
+                onClick = onSignOutOthers,
                 colors =
                     ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer,

@@ -765,7 +765,7 @@ private class FakeAudioAuthRepository(
 
     override suspend fun revokeSession(sessionId: SessionId): AppResult<Unit> = throw NotImplementedError()
 
-    override suspend fun logoutAll(): AppResult<Unit> = throw NotImplementedError()
+    override suspend fun revokeOtherSessions(): AppResult<Unit> = throw NotImplementedError()
 }
 
 /** Builds a minimal [ContractAuthSession] fixture. Shape copied from TokenRefreshSingleFlightTest. */

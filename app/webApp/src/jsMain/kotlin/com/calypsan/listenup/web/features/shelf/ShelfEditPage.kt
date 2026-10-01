@@ -32,7 +32,7 @@ import org.jetbrains.compose.web.dom.Text
  *
  * Deleting asks through the shared [ConfirmDialog]. It shipped as a two-step inline confirm because
  * web had no dialog primitive and inventing one inside a feature would have committed the design
- * system to an unreviewed pattern; "sign out everywhere" was the second destructive action, which is
+ * system to an unreviewed pattern; "sign out all other devices" was the second destructive action, which is
  * where that pattern got decided. Two shapes of "are you sure" in one app was the thing to avoid.
  *
  * [CreateEditShelfUiState.Loaded] seeds the inputs by keying their `remember` on it. Re-seeding on

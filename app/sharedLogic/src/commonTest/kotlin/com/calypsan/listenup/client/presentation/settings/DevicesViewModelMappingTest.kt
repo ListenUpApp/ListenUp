@@ -67,7 +67,7 @@ private open class MappingFakeAuthRepository : AuthRepository {
 
     override suspend fun revokeSession(sessionId: SessionId): AppResult<Unit> = fail()
 
-    override suspend fun logoutAll(): AppResult<Unit> = fail()
+    override suspend fun revokeOtherSessions(): AppResult<Unit> = fail()
 
     private fun <T> fail(): AppResult<T> = AppResult.Failure(AuthError.SessionExpired())
 }

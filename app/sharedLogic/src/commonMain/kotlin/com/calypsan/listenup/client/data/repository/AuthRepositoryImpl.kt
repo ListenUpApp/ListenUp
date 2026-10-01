@@ -42,7 +42,7 @@ private val logger = KotlinLogging.logger {}
  * The channel split is the recursion firewall, not an organizational nicety: the pre-auth
  * handshake calls (login, register, setupRoot, and — critically — refreshSession) ride
  * [authPublicChannel], an anonymous `RpcPolicy.Public` channel whose recovery is `None`. The
- * bearer-gated session calls (logout, listSessions, revokeSession, logoutAll) ride
+ * bearer-gated session calls (logout, listSessions, revokeSession, revokeOtherSessions) ride
  * [authedChannel], which self-heals a handshake 401 with one refresh + retry. Because the refresh
  * primitive itself rides the Public (never-recover) channel, a 401 during refresh can never loop
  * back into another refresh.
@@ -248,7 +248,7 @@ internal class AuthRepositoryImpl(
     override suspend fun revokeSession(sessionId: SessionId): AppResult<Unit> =
         authedChannel.call { it.revokeSession(sessionId) }
 
-    override suspend fun logoutAll(): AppResult<Unit> = authedChannel.call { it.logoutAll() }
+    override suspend fun revokeOtherSessions(): AppResult<Unit> = authedChannel.call { it.revokeOtherSessions() }
 }
 
 /** How long a successful refresh answers further refresh requests — seconds, far inside the access token's life. */

@@ -37,7 +37,6 @@ class DestinationEntriesTest :
                         profileRefreshKey = 0,
                         onProfileRefreshed = {},
                         onNotificationAction = {},
-                        onSignOut = {},
                     )
                 }
 

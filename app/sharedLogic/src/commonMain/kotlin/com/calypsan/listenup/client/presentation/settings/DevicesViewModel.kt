@@ -23,7 +23,7 @@ private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
  *
  * Lists the caller's active sessions ("devices"), resolving each into a
  * display-ready [DeviceRow]. Supports revoking a single device and signing
- * out everywhere. State is produced via `stateIn(WhileSubscribed)` driven by
+ * out every other device. State is produced via `stateIn(WhileSubscribed)` driven by
  * a [refresh] trigger — revoking a device bumps the trigger to re-fetch the
  * authoritative session list rather than mutating the list optimistically.
  *
@@ -77,14 +77,15 @@ class DevicesViewModel(
         }
     }
 
-    /** Revoke every session for the caller, then invoke [onDone] (e.g. navigate to login). */
-    fun signOutEverywhere(onDone: () -> Unit) {
+    /**
+     * Sign out every device except this one. The server spares the session the request is made
+     * from, so this device stays signed in; on success the list is re-fetched and only this
+     * device's row remains.
+     */
+    fun signOutOtherDevices() {
         viewModelScope.launch {
-            val _ = authRepository.logoutAll()
-            // Never stranded: run the nav teardown unconditionally even if the
-            // server-side revoke failed — it clears local tokens and routes to
-            // login regardless, and the server revokes on next refresh as backstop.
-            onDone()
+            val result = authRepository.revokeOtherSessions()
+            if (result is AppResult.Success) refresh.update { it + 1 }
         }
     }
 

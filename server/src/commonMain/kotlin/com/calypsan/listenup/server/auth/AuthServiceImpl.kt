@@ -585,6 +585,12 @@ class AuthServiceImpl(
         return AppResult.Success(Unit)
     }
 
+    override suspend fun revokeOtherSessions(): AppResult<Unit> {
+        val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
+        sessions.revokeAllExcept(p.userId, p.sessionId)
+        return AppResult.Success(Unit)
+    }
+
     override suspend fun revokeSession(sessionId: SessionId): AppResult<Unit> {
         val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         sessions.revoke(sessionId, p.userId)

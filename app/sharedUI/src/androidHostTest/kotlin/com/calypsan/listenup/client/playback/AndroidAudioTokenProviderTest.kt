@@ -87,7 +87,7 @@ private class FakeAuthRepository(
 
     override suspend fun revokeSession(sessionId: SessionId): AppResult<Unit> = AppResult.Success(Unit)
 
-    override suspend fun logoutAll(): AppResult<Unit> = AppResult.Success(Unit)
+    override suspend fun revokeOtherSessions(): AppResult<Unit> = AppResult.Success(Unit)
 
     companion object {
         private const val ONE_HOUR_MS = 60L * 60L * 1000L

@@ -7,11 +7,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
-/** An open Devices session: where you are signed in, and the two ways to stop being. */
+/**
+ * An open Devices session: where you are signed in, and the two ways to stop being somewhere else.
+ * Neither signs out the device it is used on — that is the account menu's Sign out.
+ */
 class DevicesSession(
     val state: StateFlow<DevicesUiState>,
     val onRevoke: (String) -> Unit,
-    val onSignOutEverywhere: (onDone: () -> Unit) -> Unit,
+    val onSignOutOthers: () -> Unit,
     val onRetry: () -> Unit,
     val close: () -> Unit,
 )
@@ -27,7 +30,7 @@ fun graphDevices(koin: Koin): OpenDevices =
         DevicesSession(
             state = viewModel.uiState,
             onRevoke = viewModel::revokeDevice,
-            onSignOutEverywhere = viewModel::signOutEverywhere,
+            onSignOutOthers = viewModel::signOutOtherDevices,
             onRetry = viewModel::retry,
             close = store::clear,
         )
@@ -37,14 +40,14 @@ fun graphDevices(koin: Koin): OpenDevices =
 fun fixedDevices(
     state: DevicesUiState = DevicesUiState.Loading,
     onRevoke: (String) -> Unit = {},
-    onSignOutEverywhere: (onDone: () -> Unit) -> Unit = {},
+    onSignOutOthers: () -> Unit = {},
     onRetry: () -> Unit = {},
 ): OpenDevices =
     {
         DevicesSession(
             state = MutableStateFlow(state),
             onRevoke = onRevoke,
-            onSignOutEverywhere = onSignOutEverywhere,
+            onSignOutOthers = onSignOutOthers,
             onRetry = onRetry,
             close = {},
         )

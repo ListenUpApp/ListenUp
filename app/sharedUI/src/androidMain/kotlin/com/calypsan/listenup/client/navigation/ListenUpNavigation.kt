@@ -934,7 +934,6 @@ private fun authenticatedNavEntries(
                 backStack = backStack,
                 onSelectShellDestination = onShellDestinationChange,
             ),
-        onSignOut = onSignOut,
     )
     // Re-auth entry pushed by the shell banner's "Sign in" action while SessionLapsed.
     // Back returns to the shell — sign-in is never forced (M3). On success, AuthState flips
@@ -979,7 +978,6 @@ internal fun EntryProviderScope<NavKey>.destinationEntries(
     profileRefreshKey: Int,
     onProfileRefreshed: () -> Unit,
     onNotificationAction: (ShortcutAction) -> Unit,
-    onSignOut: () -> Unit,
 ) {
     bookEntries(backStack, scope, snackbarHostState, pendingSelectionExit)
     seriesEntries(backStack)
@@ -992,10 +990,7 @@ internal fun EntryProviderScope<NavKey>.destinationEntries(
     )
     shelfEntries(backStack)
     notificationEntries(backStack = backStack, onAction = onNotificationAction)
-    settingsEntries(
-        backStack = backStack,
-        onSignOut = onSignOut,
-    )
+    settingsEntries(backStack = backStack)
 }
 
 /**

@@ -9401,32 +9401,22 @@
         }
       }
     },
+    "devices.sign_out_all_others_confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign out of all other devices? This device stays signed in."
+          }
+        }
+      }
+    },
     "devices.sign_out_device": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Sign out device"
-          }
-        }
-      }
-    },
-    "devices.sign_out_everywhere": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sign out everywhere"
-          }
-        }
-      }
-    },
-    "devices.sign_out_everywhere_confirm": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sign out of all devices, including this one?"
           }
         }
       }
