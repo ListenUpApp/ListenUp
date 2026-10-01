@@ -233,3 +233,14 @@ UPDATE users SET avatar_type = :avatar_type, avatar_updated_at = :avatar_updated
 -- count in the backup manifest (replaces the Exposed `UserTable.selectAll().where { deletedAt.isNull() }.count()`).
 countLive:
 SELECT COUNT(*) FROM users WHERE deleted_at IS NULL;
+
+-- Where Hardcover's Want to Read lands (#1539): the starter "To Read" shelf, and the "Want to Read" shelf
+-- the pull made once that was gone. Either may name a shelf the user has since deleted.
+selectShelfTargets:
+SELECT starter_shelf_id, hardcover_shelf_id FROM users WHERE id = :id;
+
+setStarterShelf:
+UPDATE users SET starter_shelf_id = :starter_shelf_id WHERE id = :id;
+
+setHardcoverShelf:
+UPDATE users SET hardcover_shelf_id = :hardcover_shelf_id WHERE id = :id;
