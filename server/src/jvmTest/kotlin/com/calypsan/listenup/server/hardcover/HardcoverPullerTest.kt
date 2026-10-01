@@ -167,6 +167,45 @@ class HardcoverPullerTest :
             }
         }
 
+        test("a read finished after today is not pulled; one finished today or yesterday is") {
+            pullTest {
+                connect()
+                val shelf =
+                    hardcover.seedShelf(
+                        HC_BOOK,
+                        HardcoverStatus.READ,
+                        "2026-05-01" to "2026-05-21",
+                        "2026-05-21" to "2026-05-22",
+                        "2026-05-22" to "2026-05-23",
+                        editionId = 9_001L,
+                    )
+                val (yesterday, today, _) = shelf.reads.map { it.id }
+
+                pull() shouldBe PullProgress.CAUGHT_UP
+
+                store.pulledReads(USER).map { it.hcReadId } shouldBe listOf(yesterday, today)
+            }
+        }
+
+        test("today is the user's own date: far east of UTC, tomorrow-in-UTC is already today") {
+            pullTest {
+                connect()
+                sql.usersQueries.updateTimezone(timezone = "Pacific/Kiritimati", id = USER)
+                val shelf =
+                    hardcover.seedShelf(
+                        HC_BOOK,
+                        HardcoverStatus.READ,
+                        "2026-05-20" to "2026-05-23",
+                        "2026-05-20" to "2026-05-24",
+                        editionId = 9_001L,
+                    )
+
+                pull()
+
+                store.pulledReads(USER).map { it.hcReadId } shouldBe listOf(shelf.reads.first().id)
+            }
+        }
+
         test("open reads, undated Read books and books outside the library pull nothing, and the cursor passes them") {
             pullTest {
                 connect()
