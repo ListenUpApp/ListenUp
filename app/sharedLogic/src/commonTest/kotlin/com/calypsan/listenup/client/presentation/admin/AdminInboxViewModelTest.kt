@@ -15,7 +15,7 @@ import com.calypsan.listenup.client.domain.model.AdminEvent
 import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.repository.EventStreamRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
-import com.calypsan.listenup.client.domain.repository.InboxRepository
+import com.calypsan.listenup.client.test.fake.FakeInboxRepository
 import com.calypsan.listenup.client.domain.repository.LibraryRepository
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
@@ -27,62 +27,25 @@ import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import app.cash.turbine.turbineScope
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-
-/**
- * In-memory [InboxRepository]. [held] stands in for Room's held set, and a successful release removes
- * the books from it — exactly what the real write-through does — so these specs exercise the
- * ViewModel's real convergence path instead of a local prune.
- */
-private class FakeInboxRepository : InboxRepository {
-    val held = MutableStateFlow<Set<BookId>>(emptySet())
-    var heldSource: Flow<Set<BookId>>? = null
-    var releaseResult: AppResult<Unit> = AppResult.Success(Unit)
-    val releases = mutableListOf<Pair<String, Map<String, List<String>>>>()
-    var scanIssues: AppResult<List<ScanIssue>> = AppResult.Success(emptyList())
-    var scanIssueLoads = 0
-    var dismissResult: AppResult<Unit> = AppResult.Success(Unit)
-
-    fun hold(vararg ids: String) {
-        held.update { current -> current + ids.map { BookId(it) } }
-    }
-
-    override fun observeHeldBookIds(): Flow<Set<BookId>> = heldSource ?: held
-
-    override suspend fun releaseBooks(
-        libraryId: String,
-        assignments: Map<String, List<String>>,
-    ): AppResult<Unit> {
-        releases += libraryId to assignments
-        if (releaseResult is AppResult.Success) {
-            held.update { current -> current.filterNot { it.value in assignments.keys }.toSet() }
-        }
-        return releaseResult
-    }
-
-    override suspend fun listScanIssues(): AppResult<List<ScanIssue>> {
-        scanIssueLoads++
-        return scanIssues
-    }
-
-    override suspend fun dismissScanIssue(issueId: String): AppResult<Unit> = dismissResult
-}
 
 /**
  * [AdminInboxViewModel] lists exactly the Room held set, follows it live, hydrates each id from Room,
@@ -140,6 +103,7 @@ class AdminInboxViewModelTest :
             val bookDao: BookDao = mock()
             val imageStorage: ImageStorage = mock()
             val adminEvents = MutableSharedFlow<AdminEvent>()
+            val errorBus = ErrorBus()
 
             init {
                 every { bookDao.observeByIdsWithContributors(any()) } returns flowOf(emptyList())
@@ -162,19 +126,23 @@ class AdminInboxViewModelTest :
                 every { eventStream.adminEvents } returns adminEvents
             }
 
-            fun build(): AdminInboxViewModel = AdminInboxViewModel(inbox, libraryRepo, eventStream, bookDao, imageStorage, ErrorBus())
+            fun build(): AdminInboxViewModel = AdminInboxViewModel(inbox, libraryRepo, eventStream, bookDao, imageStorage, errorBus)
         }
+
+        /** The screen is what keeps the state hot; a spec that reads `state` must observe it first. */
+        fun TestScope.observed(vm: AdminInboxViewModel): AdminInboxViewModel = vm.also { backgroundScope.launch { it.state.collect { } } }
 
         test("lists exactly the Room held set, oldest hold first") {
             runTest(dispatcher) {
                 val f = Fixture()
-                f.inbox.hold("b1", "b2")
-                val vm = f.build()
+                // Held order, not id order: b2 was held first.
+                f.inbox.hold("b2", "b1")
+                val vm = observed(f.build())
                 advanceUntilIdle()
 
                 vm.state.value
                     .shouldBeInstanceOf<AdminInboxUiState.Ready>()
-                    .bookIds shouldBe listOf("b1", "b2")
+                    .bookIds shouldBe listOf("b2", "b1")
             }
         }
 
@@ -189,7 +157,7 @@ class AdminInboxViewModelTest :
                             bookWith(id = "b2", title = "Mistborn", author = "Brandon Sanderson"),
                         ),
                     )
-                val vm = f.build()
+                val vm = observed(f.build())
                 advanceUntilIdle()
 
                 val ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
@@ -200,13 +168,55 @@ class AdminInboxViewModelTest :
             }
         }
 
+        test("hydrated books follow held order, not the order Room returns the rows in") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.inbox.hold("b2", "b1")
+                every { f.bookDao.observeByIdsWithContributors(any()) } returns
+                    flowOf(
+                        listOf(
+                            bookWith(id = "b1", title = "The Way of Kings", author = "Brandon Sanderson"),
+                            bookWith(id = "b2", title = "Mistborn", author = "Brandon Sanderson"),
+                        ),
+                    )
+                val vm = observed(f.build())
+                advanceUntilIdle()
+
+                vm.state.value
+                    .shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                    .books
+                    .map { it.id } shouldBe listOf("b2", "b1")
+            }
+        }
+
+        test("a row Room still returns for a book no longer held is not listed") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.inbox.hold("b1")
+                every { f.bookDao.observeByIdsWithContributors(any()) } returns
+                    flowOf(
+                        listOf(
+                            bookWith(id = "b1", title = "The Way of Kings", author = "Brandon Sanderson"),
+                            bookWith(id = "b9", title = "Released Elsewhere", author = "Someone Else"),
+                        ),
+                    )
+                val vm = observed(f.build())
+                advanceUntilIdle()
+
+                vm.state.value
+                    .shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                    .books
+                    .map { it.id } shouldBe listOf("b1")
+            }
+        }
+
         test("a held id whose book has not synced is counted, and joins the list when it lands") {
             runTest(dispatcher) {
                 val f = Fixture()
                 f.inbox.hold("b1", "b2")
                 every { f.bookDao.observeByIdsWithContributors(any()) } returns
                     flowOf(listOf(bookWith(id = "b1", title = "The Way of Kings", author = "Brandon Sanderson")))
-                val vm = f.build()
+                val vm = observed(f.build())
                 advanceUntilIdle()
 
                 val ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
@@ -219,7 +229,7 @@ class AdminInboxViewModelTest :
             runTest(dispatcher) {
                 val f = Fixture()
                 f.inbox.hold("b1", "b2")
-                val vm = f.build()
+                val vm = observed(f.build())
                 advanceUntilIdle()
                 vm.toggleBookSelection("b2")
 
@@ -239,7 +249,7 @@ class AdminInboxViewModelTest :
             runTest(dispatcher) {
                 val f = Fixture()
                 f.inbox.hold("b1", "b2", "b3")
-                val vm = f.build()
+                val vm = observed(f.build())
                 advanceUntilIdle()
 
                 vm.toggleBookSelection("b1")
@@ -256,22 +266,84 @@ class AdminInboxViewModelTest :
             }
         }
 
-        test("a refused release surfaces a transient error and keeps the books") {
+        test("a refused release is reported once, on the error bus, and keeps the books") {
             runTest(dispatcher) {
                 val f = Fixture()
                 f.inbox.hold("b1")
-                f.inbox.releaseResult = AppResult.Failure(ValidationError(message = "release failed"))
-                val vm = f.build()
+                val refusal = ValidationError(message = "release failed")
+                f.inbox.releaseResult = AppResult.Failure(refusal)
+                val vm = observed(f.build())
                 advanceUntilIdle()
 
+                turbineScope {
+                    val errors = f.errorBus.errors.testIn(backgroundScope)
+
+                    vm.toggleBookSelection("b1")
+                    vm.releaseSelected()
+                    advanceUntilIdle()
+
+                    errors.awaitItem() shouldBe refusal
+                    val ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                    withClue("every platform already shows the bus; a second, screen-level copy says it twice") {
+                        ready.error shouldBe null
+                    }
+                    ready.bookIds shouldBe listOf("b1")
+                    ready.isReleasing shouldBe false
+                    errors.cancel()
+                }
+            }
+        }
+
+        test("a double tap on Release sends one release, not two") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.inbox.hold("b1")
+                f.inbox.releaseGate = CompletableDeferred()
+                val vm = observed(f.build())
+                advanceUntilIdle()
                 vm.toggleBookSelection("b1")
+                advanceUntilIdle()
+
+                // Two taps inside one frame: nothing has been dispatched between them.
+                vm.releaseSelected()
                 vm.releaseSelected()
                 advanceUntilIdle()
 
-                val ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
-                ready.error shouldBe "release failed"
-                ready.bookIds shouldBe listOf("b1")
-                ready.isReleasing shouldBe false
+                f.inbox.releases.size shouldBe 1
+                vm.state.value
+                    .shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                    .isReleasing shouldBe true
+                f.inbox.releaseGate?.complete(Unit)
+                advanceUntilIdle()
+                vm.state.value
+                    .shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                    .isReleasing shouldBe false
+            }
+        }
+
+        test("nothing is read until someone observes the inbox") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                val vm = f.build()
+                advanceUntilIdle()
+
+                f.inbox.scanIssueLoads shouldBe 0
+                vm.state.value shouldBe AdminInboxUiState.Loading
+            }
+        }
+
+        test("the inbox stays Loading until the held set has been read, even if the issues arrive first") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.inbox.heldSource = MutableSharedFlow()
+                f.inbox.scanIssues =
+                    AppResult.Success(listOf(ScanIssue("i1", "Author/A", ScanIssueReason.FILE_UNREADABLE, null, 1L, 1L)))
+                val vm = observed(f.build())
+                advanceUntilIdle()
+
+                withClue("a Ready with no books yet would claim nothing is held") {
+                    vm.state.value shouldBe AdminInboxUiState.Loading
+                }
             }
         }
 
@@ -279,7 +351,7 @@ class AdminInboxViewModelTest :
             runTest(dispatcher) {
                 val f = Fixture()
                 f.inbox.heldSource = flow { throw IllegalStateException("disk I/O error") }
-                val vm = f.build()
+                val vm = observed(f.build())
                 advanceUntilIdle()
 
                 vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Error>()
@@ -298,7 +370,7 @@ class AdminInboxViewModelTest :
         test("a scan that adds a book reloads the scan issues; the list itself needs no event") {
             runTest(dispatcher) {
                 val f = Fixture()
-                val vm = f.build()
+                val vm = observed(f.build())
                 advanceUntilIdle()
                 val loadsBefore = f.inbox.scanIssueLoads
 
@@ -330,7 +402,7 @@ class AdminInboxViewModelTest :
                             ),
                         ),
                     )
-                val vm = f.build()
+                val vm = observed(f.build())
                 advanceUntilIdle()
 
                 val ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
@@ -346,7 +418,7 @@ class AdminInboxViewModelTest :
                 val f = Fixture()
                 f.inbox.hold("b1")
                 f.inbox.scanIssues = AppResult.Failure(TransportError.NetworkUnavailable())
-                val vm = f.build()
+                val vm = observed(f.build())
                 advanceUntilIdle()
 
                 withClue("the held-books half is independently useful — show what we do have") {
@@ -367,7 +439,7 @@ class AdminInboxViewModelTest :
                             ScanIssue("i2", "Author/B", ScanIssueReason.FILE_UNREADABLE, null, 1L, 1L),
                         ),
                     )
-                val vm = f.build()
+                val vm = observed(f.build())
                 advanceUntilIdle()
 
                 vm.dismissScanIssue("i1")
