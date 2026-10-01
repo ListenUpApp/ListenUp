@@ -1,7 +1,8 @@
 import SwiftUI
 import Shared
 
-/// The Hardcover screen while connected: who you are, how sync stands, the books that need a match,
+/// The Hardcover screen while connected: who you are, the offer to send earlier books when there is one,
+/// how sync stands, the books that need a match,
 /// what ListenUp shares and what comes back, then Disconnect.
 ///
 /// One grouped `Form`, a section per subject with the system's headers and footers. HIG, Lists and
@@ -10,41 +11,55 @@ struct HardcoverConnectedPhase: View {
     let model: HardcoverConnectedModel
     let onSyncNow: () -> Void
     let onSetShareMode: (HardcoverShareMode) -> Void
+    let onSendHistory: () -> Void
+    let onDismissHistory: () -> Void
     let onFindMatch: (String) -> Void
     let onDisconnect: () -> Void
 
     var body: some View {
-        Form {
-            identitySection
-            syncSection
-            needsMatchSection
-            whatIsSharedSection
-            Section {
-                HardcoverStatementRow(
-                    systemImage: "arrow.down.to.line",
-                    text: String(localized: "hardcover.comes_back_line"),
-                    tint: Color.secondary
+        ScrollViewReader { proxy in
+            Form {
+                identitySection
+                HardcoverHistorySection(
+                    history: model.history,
+                    onSend: onSendHistory,
+                    onDismiss: onDismissHistory,
+                    onShowNeedsMatch: { withAnimation { proxy.scrollTo(Self.needsMatchID, anchor: .top) } }
                 )
-                HardcoverStatementRow(
-                    systemImage: "bookmark",
-                    text: String(localized: "hardcover.comes_back_want_to_read"),
-                    tint: Color.secondary
-                )
-            } header: {
-                Text(String(localized: "hardcover.what_comes_back"))
-            } footer: {
-                Text(String(localized: "hardcover.comes_back_never_listening"))
+                syncSection
+                needsMatchSection
+                    .id(Self.needsMatchID)
+                whatIsSharedSection
+                Section {
+                    HardcoverStatementRow(
+                        systemImage: "arrow.down.to.line",
+                        text: String(localized: "hardcover.comes_back_line"),
+                        tint: Color.secondary
+                    )
+                    HardcoverStatementRow(
+                        systemImage: "bookmark",
+                        text: String(localized: "hardcover.comes_back_want_to_read"),
+                        tint: Color.secondary
+                    )
+                } header: {
+                    Text(String(localized: "hardcover.what_comes_back"))
+                } footer: {
+                    Text(String(localized: "hardcover.comes_back_never_listening"))
+                }
+                disconnectSection
             }
-            disconnectSection
-        }
-        .readableListWidth(720)
-        .onChange(of: model.sync) { _, sync in
-            // The notice appears beneath the row the user just pressed; say it as well as show it.
-            if case .syncNowFailed(let notice) = sync {
-                AccessibilityNotification.Announcement(notice).post()
+            .readableListWidth(720)
+            .onChange(of: model.sync) { _, sync in
+                // The notice appears beneath the row the user just pressed; say it as well as show it.
+                if case .syncNowFailed(let notice) = sync {
+                    AccessibilityNotification.Announcement(notice).post()
+                }
             }
         }
     }
+
+    /// Where Done's "need a match" row scrolls to.
+    private static let needsMatchID = "hardcover.needs-match"
 
     // MARK: - Identity
 
@@ -101,6 +116,9 @@ struct HardcoverConnectedPhase: View {
                 syncNowButton(isEnabled: false)
             case .stalled(let words):
                 stalledRow(words)
+            }
+            if case .available(let books) = model.history {
+                HardcoverEarlierBooksRow(books: books, onSend: onSendHistory)
             }
         } header: {
             Text(String(localized: "hardcover.sync_section"))

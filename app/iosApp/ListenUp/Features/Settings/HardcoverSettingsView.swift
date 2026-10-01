@@ -84,6 +84,8 @@ struct HardcoverSettingsView: View {
                     model: connected,
                     onSyncNow: { observer.syncNow() },
                     onSetShareMode: { observer.setShareMode($0) },
+                    onSendHistory: { observer.sendHistory() },
+                    onDismissHistory: { observer.dismissHistory() },
                     onFindMatch: { matchTarget = HardcoverMatchTarget(bookId: $0) },
                     onDisconnect: { showingDisconnectConfirmation = true }
                 )
