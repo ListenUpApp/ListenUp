@@ -104,6 +104,12 @@ class BookDetailSession(
     /** Clears a delete refusal, so a dismissed dialog reopens clean. */
     val onClearDeleteError: () -> Unit,
     /**
+     * Release this held book to everyone — admin-only, and only ever offered for a book held for
+     * review (the triage layout). The page confirms first; this is what its Release calls. Success
+     * needs no event: `Ready.isHeld` turns false and the page becomes the ordinary one.
+     */
+    val onReleaseFromInbox: () -> Unit,
+    /**
      * The ViewModel's one-shot navigation events. Web honours only `BookDeleted` — leave the page
      * for the library. The document-viewer events never fire here, because `onOpenDocument` is
      * deliberately unwired (see [documents]).
@@ -156,6 +162,7 @@ fun graphBookDetail(koin: Koin): OpenBookDetail =
             onRetryConnection = viewModel::retryConnection,
             onDeleteBook = viewModel::deleteBook,
             onClearDeleteError = viewModel::clearDeleteError,
+            onReleaseFromInbox = viewModel::releaseFromInbox,
             navActions = viewModel.navActions,
             close = store::clear,
         )
@@ -186,6 +193,7 @@ fun fixedBookDetail(
     onRetryConnection: () -> Unit = {},
     onDeleteBook: () -> Unit = {},
     onClearDeleteError: () -> Unit = {},
+    onReleaseFromInbox: () -> Unit = {},
     navActions: Flow<BookDetailNavAction> = emptyFlow(),
 ): OpenBookDetail =
     {
@@ -212,6 +220,7 @@ fun fixedBookDetail(
             onRetryConnection = onRetryConnection,
             onDeleteBook = onDeleteBook,
             onClearDeleteError = onClearDeleteError,
+            onReleaseFromInbox = onReleaseFromInbox,
             navActions = navActions,
             close = {},
         )

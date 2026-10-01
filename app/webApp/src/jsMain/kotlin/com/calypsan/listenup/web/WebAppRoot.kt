@@ -1810,6 +1810,7 @@ private fun BookDetailRoute(
         onRetryConnection = detailSession.onRetryConnection,
         onDeleteBook = detailSession.onDeleteBook,
         onClearDeleteError = detailSession.onClearDeleteError,
+        onReleaseFromInbox = detailSession.onReleaseFromInbox,
         pickers = bookPickersFor(detailSession),
         onEdit = { router.navigate(Route(listOf(BOOK_KEY, bookId, EDIT_KEY))) },
         onEditChapters = { router.navigate(Route(listOf(BOOK_KEY, bookId, CHAPTERS_KEY))) },

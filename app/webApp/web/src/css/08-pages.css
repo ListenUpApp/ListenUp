@@ -1210,3 +1210,25 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
     padding: var(--sp-4) 0 var(--sp-24);
   }
 }
+
+/* Book Detail's held panel (triage only): the main column's first block, on --warn-soft with a
+   --warn tile — amber is "waiting for you"; Release keeps the coral primary ("act here"). */
+.luw .bd-held {
+  display: flex; align-items: center; gap: 16px; padding: 18px; margin-bottom: var(--sp-16);
+  border-radius: 14px; background: var(--warn-soft);
+  border: 1px solid color-mix(in srgb, var(--warn) 22%, var(--warn-soft));
+}
+.luw .bd-held-tile {
+  width: 44px; height: 44px; flex: none; border-radius: 12px;
+  background: var(--warn); color: var(--on-warn); display: flex; align-items: center; justify-content: center;
+}
+.luw .bd-held-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.luw .bd-held-t { margin: 0; font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; }
+.luw .bd-held-sub { margin: 0; font-size: 0.875rem; line-height: 1.5; color: var(--ink-2); }
+.luw .bd-held-actions { display: flex; flex-wrap: wrap; gap: 8px; flex: none; max-width: 22rem; justify-content: flex-end; }
+/* On a phone the panel stacks: the words, then the two buttons sharing the width. */
+@media (max-width: 759px) {
+  .luw .bd-held { flex-wrap: wrap; }
+  .luw .bd-held-actions { width: 100%; }
+  .luw .bd-held-actions > * { flex: 1; }
+}
