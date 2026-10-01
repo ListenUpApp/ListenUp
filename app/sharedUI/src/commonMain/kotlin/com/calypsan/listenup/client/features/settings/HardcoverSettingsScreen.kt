@@ -63,12 +63,14 @@ import org.koin.compose.viewmodel.koinViewModel
  * and surface failures in the screen's snackbar.
  *
  * @param onNavigateBack Navigate back to Settings.
+ * @param onFindMatch Open Find on Hardcover for a book that needs a match.
  * @param modifier Modifier for the screen scaffold.
  * @param viewModel The Hardcover settings ViewModel, provided via Koin.
  */
 @Composable
 fun HardcoverSettingsScreen(
     onNavigateBack: () -> Unit,
+    onFindMatch: (bookId: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HardcoverSettingsViewModel = koinViewModel(),
 ) {
@@ -93,6 +95,14 @@ fun HardcoverSettingsScreen(
                 }
             }
         }
+    }
+
+    (state as? HardcoverSettingsUiState.Connected)?.let { connected ->
+        HardcoverSyncNowFailedNotice(
+            sync = connected.sync,
+            snackbarHostState = snackbarHostState,
+            onTryAgain = viewModel::syncNow,
+        )
     }
 
     val isWide =
@@ -122,6 +132,8 @@ fun HardcoverSettingsScreen(
             onOpenHardcover = viewModel::openVerificationPage,
             onCancelLinking = viewModel::disconnect,
             onDisconnect = viewModel::disconnect,
+            onSyncNow = viewModel::syncNow,
+            onFindMatch = onFindMatch,
             modifier = Modifier.padding(padding),
         )
     }
@@ -143,6 +155,8 @@ internal fun HardcoverSettingsContent(
     onOpenHardcover: () -> Unit,
     onCancelLinking: () -> Unit,
     onDisconnect: () -> Unit,
+    onSyncNow: () -> Unit,
+    onFindMatch: (bookId: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var confirmingDisconnect by rememberSaveable { mutableStateOf(false) }
@@ -185,6 +199,8 @@ internal fun HardcoverSettingsContent(
                     onOpenHardcover = onOpenHardcover,
                     onCancelLinking = onCancelLinking,
                     onRequestDisconnect = { confirmingDisconnect = true },
+                    onSyncNow = onSyncNow,
+                    onFindMatch = onFindMatch,
                 )
             PhaseLayout(phase = phase, isWide = isWide, modifier = modifier)
         }

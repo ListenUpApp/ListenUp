@@ -109,6 +109,7 @@ internal fun sampleRoutes(): List<Route> =
         add(LicenseDetail(uniqueId = "test-license-id"))
         add(Storage)
         add(HardcoverSettings)
+        add(HardcoverMatch(bookId = "test-book-id"))
 
         // Shelf
         add(ShelfDetail(shelfId = "test-shelf-id"))

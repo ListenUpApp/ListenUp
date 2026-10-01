@@ -990,7 +990,11 @@ internal fun EntryProviderScope<NavKey>.destinationEntries(
     )
     shelfEntries(backStack)
     notificationEntries(backStack = backStack, onAction = onNotificationAction)
-    settingsEntries(backStack = backStack)
+    settingsEntries(
+        backStack = backStack,
+        scope = scope,
+        snackbarHostState = snackbarHostState,
+    )
 }
 
 /**

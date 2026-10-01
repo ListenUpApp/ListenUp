@@ -3,19 +3,30 @@ package com.calypsan.listenup.client.navigation.entries
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import com.calypsan.listenup.client.features.settings.HardcoverMatchScreen
 import com.calypsan.listenup.client.features.settings.HardcoverSettingsScreen
 import com.calypsan.listenup.client.features.settings.NotificationSettingsScreen
 import com.calypsan.listenup.client.features.settings.SettingsScreen
 import com.calypsan.listenup.client.navigation.Devices
+import com.calypsan.listenup.client.navigation.HardcoverMatch
 import com.calypsan.listenup.client.navigation.HardcoverSettings
 import com.calypsan.listenup.client.navigation.LicenseDetail
 import com.calypsan.listenup.client.navigation.Licenses
 import com.calypsan.listenup.client.navigation.NotificationSettings
 import com.calypsan.listenup.client.navigation.Settings
 import com.calypsan.listenup.client.navigation.Storage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 /** Settings navigation entries, including the Devices screen. */
-internal fun EntryProviderScope<NavKey>.settingsEntries(backStack: NavBackStack<NavKey>) {
+internal fun EntryProviderScope<NavKey>.settingsEntries(
+    backStack: NavBackStack<NavKey>,
+    scope: CoroutineScope,
+    snackbarHostState: SnackbarHostState,
+) {
     entry<Settings> {
         SettingsScreen(
             showDynamicColors = true,
@@ -43,6 +54,28 @@ internal fun EntryProviderScope<NavKey>.settingsEntries(backStack: NavBackStack<
         HardcoverSettingsScreen(
             onNavigateBack = {
                 backStack.removeAt(backStack.lastIndex)
+            },
+            onFindMatch = { bookId -> backStack.add(HardcoverMatch(bookId)) },
+        )
+    }
+    entry<HardcoverMatch> { args ->
+        HardcoverMatchScreen(
+            bookId = args.bookId,
+            onNavigateBack = {
+                backStack.removeAt(backStack.lastIndex)
+            },
+            // The screen is gone once the link lands, so Undo rides the shell's snackbar and scope.
+            onLinked = { message, undoLabel, undo ->
+                backStack.removeAt(backStack.lastIndex)
+                scope.launch {
+                    val result =
+                        snackbarHostState.showSnackbar(
+                            message,
+                            actionLabel = undoLabel,
+                            duration = SnackbarDuration.Long,
+                        )
+                    if (result == SnackbarResult.ActionPerformed) undo()
+                }
             },
         )
     }

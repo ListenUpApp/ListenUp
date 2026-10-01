@@ -52,6 +52,8 @@ class HardcoverSettingsContentTest {
                     onOpenHardcover = { opens++ },
                     onCancelLinking = { cancels++ },
                     onDisconnect = { disconnects++ },
+                    onSyncNow = {},
+                    onFindMatch = {},
                 )
             }
         }
