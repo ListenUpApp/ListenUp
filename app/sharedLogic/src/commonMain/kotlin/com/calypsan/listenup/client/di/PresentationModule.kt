@@ -175,6 +175,14 @@ internal val adminPresentationModule =
                 errorBus = get(),
             )
         }
+        // The Library entry's and the nav badge's held count — factory, resolved by each shell's own
+        // ViewModelStore, like NotificationBellViewModel.
+        factory {
+            com.calypsan.listenup.client.presentation.admin.InboxBadgeViewModel(
+                userRepository = get(),
+                inboxRepository = get(),
+            )
+        }
         factory {
             com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel(
                 collectionRepository = get(),
