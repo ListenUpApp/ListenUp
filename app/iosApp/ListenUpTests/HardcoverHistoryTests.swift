@@ -35,18 +35,26 @@ struct HardcoverHistoryTests {
         #expect(model(HardcoverHistoryNone.shared) == HardcoverHistoryModel.none)
         #expect(model(HardcoverHistoryOffer(bookCount: 74)) == HardcoverHistoryModel.offer(books: 74))
         #expect(model(HardcoverHistoryAvailable(bookCount: 74)) == HardcoverHistoryModel.available(books: 74))
-        #expect(model(HardcoverHistorySending(sentBooks: 23, totalBooks: 74)) == HardcoverHistoryModel.sending(sent: 23, total: 74))
-        #expect(model(HardcoverHistoryDone(sentBooks: 70, needsMatchBooks: 4)) == HardcoverHistoryModel.done(sent: 70, needsMatch: 4))
+        #expect(
+            model(HardcoverHistorySending(sentBooks: 23, totalBooks: 74))
+                == HardcoverHistoryModel.sending(sent: 23, total: 74)
+        )
+        #expect(
+            model(HardcoverHistoryDone(sentBooks: 70, needsMatchBooks: 4))
+                == HardcoverHistoryModel.done(sent: 70, needsMatch: 4)
+        )
     }
 
     @Test func theOfferCountsBooksAndSaysOneInTheSingular() {
         #expect(
             HardcoverHistoryText.offerBody(books: 74)
-                == "You finished 74 books in ListenUp before connecting. Send them to Hardcover as read, with when you started and finished."
+                == "You finished 74 books in ListenUp before connecting. "
+                + "Send them to Hardcover as read, with when you started and finished."
         )
         #expect(
             HardcoverHistoryText.offerBody(books: 1)
-                == "You finished 1 book in ListenUp before connecting. Send it to Hardcover as read, with when you started and finished."
+                == "You finished 1 book in ListenUp before connecting. "
+                + "Send it to Hardcover as read, with when you started and finished."
         )
     }
 
@@ -73,8 +81,12 @@ struct HardcoverHistoryTests {
 
     /// D4: a send that reached nothing never reads "Sent 0 books" — it says what waits for a match.
     @Test func doneWithNothingSentSaysWhatNeedsAMatchInstead() {
-        #expect(HardcoverHistoryText.doneTitle(sent: 0, needsMatch: 4) == "4 books need a match before they can be sent")
-        #expect(HardcoverHistoryText.doneTitle(sent: 0, needsMatch: 1) == "1 book needs a match before it can be sent")
+        #expect(
+            HardcoverHistoryText.doneTitle(sent: 0, needsMatch: 4) == "4 books need a match before they can be sent"
+        )
+        #expect(
+            HardcoverHistoryText.doneTitle(sent: 0, needsMatch: 1) == "1 book needs a match before it can be sent"
+        )
     }
 
     @Test func theQuietRowCountsWhatWasFinishedBeforeConnecting() {
