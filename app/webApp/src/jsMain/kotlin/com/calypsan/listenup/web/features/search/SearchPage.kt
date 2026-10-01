@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.domain.model.SearchResult
 import com.calypsan.listenup.client.presentation.search.SearchResultCaps
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.design.EmptyState
+import com.calypsan.listenup.web.design.HeldPill
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
@@ -289,6 +290,9 @@ internal fun SearchRow(
             Div(attrs = { classes("search-name") }) { Text(hit.name) }
             hitMeta(hit)?.let { meta -> Div(attrs = { classes("search-meta") }) { Text(meta) } }
         }
+
+        // The never-stranded path: a held book is found, marked, and opens into its triage page.
+        if (hit.isHeld) HeldPill()
 
         // The chevron promises "this leads somewhere" — showing it on a hit type with no
         // destination would be the same dead affordance as the click itself.

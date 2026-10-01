@@ -437,3 +437,12 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .pill.on { background:var(--coral-soft); border-color:transparent; color:var(--coral-text); }
 .pill .x { display:inline-flex; align-items:center; opacity:.6; cursor:pointer; border-radius:var(--r-pill); }
 
+/* The Held marker: .pill's geometry, but static — no pointer, no hover, no press — on the amber
+   "waiting for you" tokens. */
+.held-pill {
+  display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 10px 0 8px; flex:none;
+  border-radius:var(--r-pill); background:var(--warn-soft); color:var(--warn);
+  border:1px solid color-mix(in srgb, var(--warn) 22%, var(--warn-soft));
+  font-size:0.78125rem; font-weight:700; white-space:nowrap; cursor:default;
+}
+
