@@ -11,6 +11,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.comparables.shouldBeGreaterThanOrEqualTo
 import io.kotest.matchers.shouldBe
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration.Companion.milliseconds
@@ -19,6 +20,7 @@ import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.job
@@ -27,6 +29,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.builtins.serializer
 
@@ -296,7 +299,18 @@ class PendingQueueDrainSchedulingTest :
 
         test("an unreachable-failure wave parks (no fixed-1s busy-loop); a Connected edge re-drives and delivers") {
             runBlocking {
-                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                // One dedicated engine thread, so "the drain observer has seen this connection value"
+                // is a deterministic wait (see settleEngine) rather than a wall-clock gap.
+                val engineThread = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+                val scope = CoroutineScope(SupervisorJob() + engineThread)
+
+                /**
+                 * Returns once every task already queued on the engine thread has run. A `StateFlow`
+                 * write resumes the engine's suspended observers by dispatching onto that thread there
+                 * and then, so this guarantees the drain observer has processed the new value.
+                 */
+                suspend fun settleEngine() = withContext(engineThread) {}
+
                 val db = createInMemoryTestDatabase()
                 try {
                     val reachable =
@@ -337,12 +351,12 @@ class PendingQueueDrainSchedulingTest :
                     db.pendingOperationV2Dao().get(opId)?.failureCount shouldBe 0
 
                     // Server returns; a reconnect (Disconnected→Connected edge) re-drives drain and delivers.
-                    // The delay between the two transitions lets the collector observe the intermediate
-                    // Disconnected value (StateFlow conflates back-to-back emissions) — the same real time
-                    // gap a genuine server-restart reconnect has.
+                    // The settle between the two transitions makes the collector observe the intermediate
+                    // Disconnected value — StateFlow conflates back-to-back emissions, so without it the
+                    // collector can see Connected → Connected and the edge never fires.
                     reachable.set(true)
                     state.setConnection(ConnectionState.Disconnected(reason = "server restart"))
-                    delay(POLL_DELAY_MILLIS * 3)
+                    settleEngine()
                     state.setConnection(ConnectionState.Connected(lastEventId = null))
                     withTimeout(TIMEOUT_SECONDS.seconds) {
                         while (db.pendingOperationV2Dao().get(opId) != null) delay(POLL_DELAY_MILLIS)
@@ -352,6 +366,7 @@ class PendingQueueDrainSchedulingTest :
                     scope.cancel()
                     scope.coroutineContext.job.children
                         .forEach { it.join() }
+                    engineThread.close()
                     db.close()
                 }
             }
