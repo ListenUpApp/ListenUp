@@ -312,4 +312,68 @@ class HardcoverPushExecutorTest :
                 outbox.pendingFor(USER).size shouldBe 1
             }
         }
+
+        test("Only when I finish: a FINISH with nothing before it shelves the book once, dates the read from the listen-through, and marks it Read") {
+            executorTest(FakeHardcoverLibrary.ReadUpdates.REPLACE) {
+                outbox.enqueueFinish(USER, BOOK, listenThrough = T0, finishedAt = T0 + 3 * DAY)
+                runHead() shouldBe PushOutcome.Done
+
+                val shelf = shelf()!!
+                shelf.statusId shouldBe HardcoverStatus.READ
+                shelf.editionId shouldBe HC_EDITION
+                val read = shelf.reads.single()
+                read.startedAt shouldBe "2026-05-22"
+                read.finishedAt shouldBe "2026-05-25"
+                read.progressSeconds.shouldBeNull()
+                read.editionId shouldBe HC_EDITION
+                hardcover.operations.count { it == "insert_user_book" } shouldBe 1
+                hardcover.operations.count { it == "insert_user_book_read" } shouldBe 0
+                links.isPushedRead(USER, read.id) shouldBe true
+                link().openHcReadId.shouldBeNull()
+            }
+        }
+
+        test("Only when I finish: a FINISH whose answer to shelving was lost still lands one entry with the real dates") {
+            executorTest(FakeHardcoverLibrary.ReadUpdates.REPLACE) {
+                hardcover.loseNextReplyTo("insert_user_book")
+                outbox.enqueueFinish(USER, BOOK, listenThrough = T0, finishedAt = T0 + 3 * DAY)
+                runHead().shouldBeInstanceOf<PushOutcome.Failed>()
+
+                runHead() shouldBe PushOutcome.Done
+
+                hardcover.operations.count { it == "insert_user_book" } shouldBe 1
+                val read = shelf()!!.reads.single()
+                read.startedAt shouldBe "2026-05-22"
+                read.finishedAt shouldBe "2026-05-25"
+                shelf()!!.statusId shouldBe HardcoverStatus.READ
+            }
+        }
+
+        test("a FINISH from before listen-throughs knows no start, so the read keeps the date Hardcover gave it") {
+            executorTest(FakeHardcoverLibrary.ReadUpdates.REPLACE) {
+                outbox.enqueueFinish(USER, BOOK, listenThrough = LEGACY_LISTEN_THROUGH, finishedAt = T0 + 3 * DAY)
+                runHead() shouldBe PushOutcome.Done
+
+                val read = shelf()!!.reads.single()
+                read.startedAt shouldBe FAKE_TODAY
+                read.finishedAt shouldBe "2026-05-25"
+                shelf()!!.statusId shouldBe HardcoverStatus.READ
+            }
+        }
+
+        test("As I listen chosen again mid-book: a PROGRESS with no START before it shelves the book and dates the read from the listen-through") {
+            executorTest(FakeHardcoverLibrary.ReadUpdates.REPLACE) {
+                outbox.enqueueProgress(USER, BOOK, listenThrough = T0, positionSeconds = 390L, notBefore = T0)
+                runHead() shouldBe PushOutcome.Done
+
+                val shelf = shelf()!!
+                shelf.statusId shouldBe HardcoverStatus.READING
+                val read = shelf.reads.single()
+                read.startedAt shouldBe "2026-05-22"
+                read.progressSeconds shouldBe 390L
+                read.editionId shouldBe HC_EDITION
+                hardcover.operations.count { it == "insert_user_book_read" } shouldBe 0
+                link().openHcReadId shouldBe read.id
+            }
+        }
     })
