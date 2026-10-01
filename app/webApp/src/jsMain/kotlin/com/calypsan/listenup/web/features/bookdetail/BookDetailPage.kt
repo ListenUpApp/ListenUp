@@ -308,7 +308,6 @@ private fun SharedHeader(
     if (state is BookDetailUiState.Error) return
     val ready = state as? BookDetailUiState.Ready
     val id = ready?.book?.id?.value ?: bookId ?: return
-    var showDeleteDialog by remember(id) { mutableStateOf(false) }
 
     Div(attrs = { classes("bd-head") }) {
         Cover(
@@ -340,90 +339,126 @@ private fun SharedHeader(
                 }
                 // The row itself is not gated on `canPlay`: a book with no playable audio is
                 // exactly the one whose metadata most needs correcting, so Edit has to survive
-                // the absence of Play. It is gated on `isHeld`: a held book's only actions are the
-                // held panel's.
-                // A held book's hero has no Play, no actions menu, and no icon buttons: Edit lives
-                // in the held panel.
+                // the absence of Play. It is gated on `isHeld`: a held book's hero has no Play, no
+                // actions menu and no icon buttons — its only actions are the held panel's.
                 if (!ready.isHeld) {
-                    Div(attrs = { classes("bd-actions") }) {
-                        if (ready.canPlay) {
-                            // ⛔ The button answers its own tap. Preparing a book nulls the transport
-                            // bar's title (nothing is loaded, so the bar is gone) — which left pressing
-                            // Play with no visible consequence anywhere until audio actually began. The
-                            // flag behind this is `preparingBookIdUi`, delayed so a fast prepare never
-                            // flashes; both natives make this same button their busy surface.
-                            Button(
-                                kind = ButtonKind.Primary,
-                                size = ButtonSize.Lg,
-                                onClick = { onPlay() },
-                                enabled = !isPreparing,
-                            ) {
-                                Icon(if (isPreparing) WebIcon.Clock else WebIcon.Play, size = PLAY_ICON_SIZE)
-                                Text(playLabel(ready, isPreparing))
-                            }
-                        }
-                        ready?.let { loaded ->
-                            // Finishing asks for the days first, as it does on Android and iOS — the
-                            // menu item opens the question rather than answering it with "now".
-                            var askingFinishDates by remember { mutableStateOf(false) }
-                            BookActionsMenu(
-                                ready = loaded,
-                                onMarkComplete = { askingFinishDates = true },
-                                onDiscardProgress = onDiscardProgress,
-                                onRestart = onRestart,
-                                onAddToShelf = pickers.onShowShelfPicker,
-                                onAddToCollection = pickers.onShowCollectionPicker,
-                                onShare = onShare,
-                                onDeleteBook = {
-                                    // A refusal left over from a dialog dismissed mid-flight must not
-                                    // greet the next attempt.
-                                    onClearDeleteError()
-                                    showDeleteDialog = true
-                                },
-                            )
-                            BookPickerDialogs(ready = loaded, pickers = pickers)
-                            // Gated on isAdmin as well as the flag, as the collection picker is: the
-                            // dialog must not render for a member even if the flag ever leaked true.
-                            if (showDeleteDialog && loaded.isAdmin) {
-                                DeleteBookDialog(
-                                    ready = loaded,
-                                    documents = documents,
-                                    onConfirm = onDeleteBook,
-                                    // Left open on failure so the refusal is readable; success leaves
-                                    // the page on BookDeleted and never returns here.
-                                    onDismiss = {
-                                        showDeleteDialog = false
-                                        onClearDeleteError()
-                                    },
-                                )
-                            }
-                            MarkFinishedDialog(
-                                open = askingFinishDates,
-                                startedAtMs = loaded.startedAtMs,
-                                onConfirm = { startedAt, finishedAt ->
-                                    askingFinishDates = false
-                                    onMarkComplete(startedAt, finishedAt)
-                                },
-                                onDismiss = { askingFinishDates = false },
-                            )
-                        }
-                        // Icon-only, so the accessible name is the attribute, not the content —
-                        // BookDetailEditButtonTest pins both the label and that it matches Play's height.
-                        Button(kind = ButtonKind.Icon, size = ButtonSize.Lg, onClick = {
-                            onEdit()
-                        }, label = "Edit book") { Icon(WebIcon.Pencil) }
-                        // Beside Edit, not inside it: matching is a different act. Edit changes what
-                        // the reader believes; matching asks a catalogue and offers its answer.
-                        Button(
-                            kind = ButtonKind.Icon,
-                            size = ButtonSize.Lg,
-                            onClick = { onMatchMetadata() },
-                            label = "Match metadata",
-                        ) { Icon(WebIcon.Sparkles) }
-                    }
+                    HeroActions(
+                        ready = ready,
+                        isPreparing = isPreparing,
+                        onMarkComplete = onMarkComplete,
+                        onDiscardProgress = onDiscardProgress,
+                        onRestart = onRestart,
+                        onShare = onShare,
+                        pickers = pickers,
+                        onPlay = onPlay,
+                        onEdit = onEdit,
+                        onMatchMetadata = onMatchMetadata,
+                        documents = documents,
+                        onDeleteBook = onDeleteBook,
+                        onClearDeleteError = onClearDeleteError,
+                    )
                 }
             }
         }
+    }
+}
+
+/**
+ * The hero's action row for a book that is not held: Play, the actions menu (finish, shelf,
+ * collection, share, progress, delete) and the Edit and Match icon buttons.
+ */
+@Composable
+private fun HeroActions(
+    ready: BookDetailUiState.Ready,
+    isPreparing: Boolean,
+    onMarkComplete: (startedAt: Long, finishedAt: Long) -> Unit,
+    onDiscardProgress: () -> Unit,
+    onRestart: () -> Unit,
+    onShare: () -> Unit,
+    pickers: BookPickers,
+    onPlay: () -> Unit,
+    onEdit: () -> Unit,
+    onMatchMetadata: () -> Unit,
+    documents: List<BookDocument>,
+    onDeleteBook: () -> Unit,
+    onClearDeleteError: () -> Unit,
+) {
+    var showDeleteDialog by remember(ready.book.id) { mutableStateOf(false) }
+    Div(attrs = { classes("bd-actions") }) {
+        if (ready.canPlay) {
+            // ⛔ The button answers its own tap. Preparing a book nulls the transport
+            // bar's title (nothing is loaded, so the bar is gone) — which left pressing
+            // Play with no visible consequence anywhere until audio actually began. The
+            // flag behind this is `preparingBookIdUi`, delayed so a fast prepare never
+            // flashes; both natives make this same button their busy surface.
+            Button(
+                kind = ButtonKind.Primary,
+                size = ButtonSize.Lg,
+                onClick = { onPlay() },
+                enabled = !isPreparing,
+            ) {
+                Icon(if (isPreparing) WebIcon.Clock else WebIcon.Play, size = PLAY_ICON_SIZE)
+                Text(playLabel(ready, isPreparing))
+            }
+        }
+        ready.let { loaded ->
+            // Finishing asks for the days first, as it does on Android and iOS — the
+            // menu item opens the question rather than answering it with "now".
+            var askingFinishDates by remember { mutableStateOf(false) }
+            BookActionsMenu(
+                ready = loaded,
+                onMarkComplete = { askingFinishDates = true },
+                onDiscardProgress = onDiscardProgress,
+                onRestart = onRestart,
+                onAddToShelf = pickers.onShowShelfPicker,
+                onAddToCollection = pickers.onShowCollectionPicker,
+                onShare = onShare,
+                onDeleteBook = {
+                    // A refusal left over from a dialog dismissed mid-flight must not
+                    // greet the next attempt.
+                    onClearDeleteError()
+                    showDeleteDialog = true
+                },
+            )
+            BookPickerDialogs(ready = loaded, pickers = pickers)
+            // Gated on isAdmin as well as the flag, as the collection picker is: the
+            // dialog must not render for a member even if the flag ever leaked true.
+            if (showDeleteDialog && loaded.isAdmin) {
+                DeleteBookDialog(
+                    ready = loaded,
+                    documents = documents,
+                    onConfirm = onDeleteBook,
+                    // Left open on failure so the refusal is readable; success leaves
+                    // the page on BookDeleted and never returns here.
+                    onDismiss = {
+                        showDeleteDialog = false
+                        onClearDeleteError()
+                    },
+                )
+            }
+            MarkFinishedDialog(
+                open = askingFinishDates,
+                startedAtMs = loaded.startedAtMs,
+                onConfirm = { startedAt, finishedAt ->
+                    askingFinishDates = false
+                    onMarkComplete(startedAt, finishedAt)
+                },
+                onDismiss = { askingFinishDates = false },
+            )
+        }
+        // Icon-only, so the accessible name is the attribute, not the content —
+        // BookDetailEditButtonTest pins both the label and that it matches Play's height.
+        Button(kind = ButtonKind.Icon, size = ButtonSize.Lg, onClick = {
+            onEdit()
+        }, label = "Edit book") { Icon(WebIcon.Pencil) }
+        // Beside Edit, not inside it: matching is a different act. Edit changes what
+        // the reader believes; matching asks a catalogue and offers its answer.
+        Button(
+            kind = ButtonKind.Icon,
+            size = ButtonSize.Lg,
+            onClick = { onMatchMetadata() },
+            label = "Match metadata",
+        ) { Icon(WebIcon.Sparkles) }
     }
 }
 
