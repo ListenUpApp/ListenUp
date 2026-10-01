@@ -14,8 +14,12 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * browser never grew. That is not hypothetical: `BookDetailSession` shipped as `(state, close)`
  * with every one of its ViewModel's actions missing, and it took a six-domain audit to notice.
  *
- * So: for every `graph*` factory, every public function of the ViewModel it resolves must appear
- * somewhere in that factory's file — or be named in [EXCUSED] with a reason.
+ * So: for every `graph*` factory, every public function of the ViewModel it resolves must be
+ * referenced on that ViewModel in that factory's file — or be named in [EXCUSED] with a reason.
+ *
+ * **Per receiver, not per file.** `DiscoverStore` resolves three ViewModels, two of which have a
+ * `refresh`; wiring `discover::refresh` once read as wiring both. A reference now counts only when
+ * it is made through the binding that holds that ViewModel — see [actionCoverage].
  *
  * **Comments are stripped before matching.** A KDoc explaining why an action is *not* wired would
  * otherwise satisfy the rule by naming it — the exact false negative this guard exists to prevent.
@@ -82,17 +86,10 @@ class WebSessionCoversItsViewModelRule :
 
             val offenders =
                 factoryFiles.flatMap { (file, code) ->
-                    RESOLVED_VIEW_MODEL
-                        .findAll(code)
-                        .map { it.groupValues[1] }
-                        .distinct()
-                        .flatMap { viewModel ->
-                            viewModelFunctions[viewModel]
-                                .orEmpty()
-                                .filterNot { fn -> Regex("\\b${Regex.escape(fn)}\\b").containsMatchIn(code) }
-                                .filterNot { fn -> "$viewModel.$fn" in EXCUSED }
-                                .map { fn -> "$viewModel.$fn never referenced in ${file.name}" }
-                        }
+                    actionCoverage(code, viewModelFunctions)
+                        .filterNot { it.isWired }
+                        .filterNot { it.qualifiedName in EXCUSED }
+                        .map { "${it.qualifiedName} never referenced in ${file.name}" }
                 }
 
             // The clue carries every offender: a rule that names one of four sends the reader
@@ -112,15 +109,13 @@ class WebSessionCoversItsViewModelRule :
                     .filter { file -> file.functions().any { it.name.startsWith("graph") } }
                     .associate { it.name to it.text.withoutComments() }
 
-            val stale =
-                EXCUSED.filter { entry ->
-                    val viewModel = entry.substringBefore('.')
-                    val function = entry.substringAfter('.')
-                    factoryText.any { (_, text) ->
-                        RESOLVED_VIEW_MODEL.findAll(text).any { it.groupValues[1] == viewModel } &&
-                            Regex("\\b${Regex.escape(function)}\\b").containsMatchIn(text)
-                    }
-                }
+            val wired =
+                factoryText.values
+                    .flatMap { text -> actionCoverage(text, excusedActionsByViewModel()) }
+                    .filter { it.isWired }
+                    .map { it.qualifiedName }
+                    .toSet()
+            val stale = EXCUSED.filter { it in wired }
 
             withClue(stale.joinToString("\n", prefix = "\nWired now — delete these lines:\n")) {
                 stale.shouldBeEmpty()
@@ -134,6 +129,75 @@ class WebSessionCoversItsViewModelRule :
  * ViewModel is resolved; matching only `()` left all seven of those factories unpoliced.
  */
 private val RESOLVED_VIEW_MODEL = Regex("""koin\.get<(\w+ViewModel)>\s*(?:\(\)|\{)""")
+
+/** One public action of a ViewModel a factory file resolves, and whether that file wires it. */
+internal data class ActionCoverage(
+    val viewModel: String,
+    val action: String,
+    val isWired: Boolean,
+) {
+    val qualifiedName: String get() = "$viewModel.$action"
+}
+
+/**
+ * Every action of every ViewModel [code] resolves, each marked wired or not. [actionsByViewModel]
+ * names each ViewModel's public actions; a ViewModel it does not know contributes nothing.
+ *
+ * An action is credited to the ViewModel whose binding it is called on — `discover::refresh` or
+ * `discover.refresh(…)`, where `val discover = koin.get<DiscoverViewModel>()` — so a file that
+ * resolves two ViewModels sharing an action name cannot wire one and pass for both. A binding's
+ * reach runs from its declaration to the next declaration of the same name, which is how one file
+ * can call every factory's ViewModel `viewModel` and still be charged correctly.
+ *
+ * ⛔ If any resolution in the file binds no local name (`koin.get<X>().state` inline), the file
+ * falls back to the old, coarser match: the action's name anywhere in the file. No web factory
+ * takes that shape today.
+ */
+internal fun actionCoverage(
+    code: String,
+    actionsByViewModel: Map<String, List<String>>,
+): List<ActionCoverage> {
+    val resolved =
+        RESOLVED_VIEW_MODEL
+            .findAll(code)
+            .map { it.groupValues[1] }
+            .distinct()
+            .toList()
+    val bindings = BOUND_VIEW_MODEL.findAll(code).toList()
+    val everyResolutionIsBound = bindings.size == RESOLVED_VIEW_MODEL.findAll(code).count()
+
+    fun isWired(
+        viewModel: String,
+        action: String,
+    ): Boolean {
+        if (!everyResolutionIsBound) return Regex("\\b${Regex.escape(action)}\\b").containsMatchIn(code)
+        return bindings
+            .filter { it.groupValues[2] == viewModel }
+            .any { binding ->
+                val name = binding.groupValues[1]
+                val reachEnd =
+                    Regex("""\b(?:val|var)\s+${Regex.escape(name)}\b""")
+                        .find(code, binding.range.last + 1)
+                        ?.range
+                        ?.first ?: code.length
+                Regex("""\b${Regex.escape(name)}\s*(?:\?\.|\.|::)\s*${Regex.escape(action)}\b""")
+                    .containsMatchIn(code.substring(binding.range.first, reachEnd))
+            }
+    }
+
+    return resolved.flatMap { viewModel ->
+        actionsByViewModel[viewModel].orEmpty().map { action ->
+            ActionCoverage(viewModel, action, isWired(viewModel, action))
+        }
+    }
+}
+
+/** `val discover = koin.get<DiscoverViewModel>()` — a resolution bound to a name: (name, ViewModel). */
+private val BOUND_VIEW_MODEL = Regex("""\b(?:val|var)\s+(\w+)\s*=\s*koin\.get<(\w+ViewModel)>\s*(?:\(\)|\{)""")
+
+/** [EXCUSED], regrouped as the action map [actionCoverage] takes. */
+private fun excusedActionsByViewModel(): Map<String, List<String>> =
+    EXCUSED.groupBy({ it.substringBefore('.') }, { it.substringAfter('.') })
 
 /**
  * Actions a web session deliberately does not wire, or that it reaches by another route.
@@ -189,6 +253,13 @@ private val EXCUSED =
         // the dead-letter half of this ViewModel (see DeadLetterStore).
         "SyncIndicatorViewModel.toggleExpanded",
         // ── FALSE POSITIVE (capability present under another name) ────────────────────────────
+        // Reached through the session's `close = store::clear`: clearing the ViewModelStore runs
+        // `onCleared`, which calls `close()`. `close` exists for iOS, which has no store to clear.
+        "BulkEditViewModel.close",
+        "ChapterEditorViewModel.close",
+        "HomeViewModel.close",
+        "LibraryViewModel.close",
+        "LibrarySetupViewModel.close",
         // Reached via onResultClicked, which IS onResultSelected(hit.id, hit.type, hit.name).
         "SearchViewModel.onResultSelected",
         "SeeAllSearchViewModel.onResultSelected",
@@ -219,6 +290,14 @@ private val EXCUSED =
         // web's own KDoc already explains the omission — this rule strips comments, so a documented
         // decision is indistinguishable from an oversight until a human looks. Then move it up to a
         // labelled section or close it and delete the line.
+        //
+        // Surfaced 2026-09-30 when matching went per receiver (CreateInviteViewModel.clearError in the
+        // same file had been standing in for it). Android and iOS show a failed permission save as a
+        // snackbar and then call this; web renders `Ready.error` as an inline alert instead, and
+        // nothing on web clears it — a successful toggle after a failed one leaves the old alert up,
+        // because the success path only copies `isSaving` and `user`. Looks like a real gap; triage
+        // whether the fix is web wiring this or the ViewModel clearing `error` on success.
+        "UserDetailViewModel.clearError",
     )
 
 /**
