@@ -216,6 +216,16 @@ private struct DownloadedBookRowView: View {
                 ))
                 .font(.caption)
                 .foregroundStyle(.tertiary)
+                // A held book's download stays — never strand bytes — but plays only once released.
+                if book.isHeld {
+                    HStack(spacing: Spacing.xs) {
+                        HeldBadge()
+                        Text(String(localized: "admin.held_release_to_play"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 2)
+                }
             }
             Spacer(minLength: 0)
         }

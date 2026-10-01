@@ -92,6 +92,12 @@ final class BookEditObserver {
     /// Whether the current user is an admin — gates the Collections section (admin-only, per the
     /// shared `BookEditUiState.isAdmin`).
     private(set) var isAdmin: Bool = false
+    /// Held for review: choosing collections releases it, and the Collections section says so.
+    private(set) var isHeld: Bool = false
+
+    /// Whether the Collections section shows the "choosing collections releases" line. Only an
+    /// admin sees Collections at all, and only a held book has an inbox to leave.
+    nonisolated static func warnsCollectionsRelease(isAdmin: Bool, isHeld: Bool) -> Bool { isAdmin && isHeld }
 
     // Raw Kotlin lists retained for the id→object lookup when a chip's remove button is tapped.
     // Held off the SwiftUI diff path (never iterated by a ForEach), so they don't re-bridge.
@@ -343,6 +349,7 @@ final class BookEditObserver {
         moods = state.moods.map { EditableRelation.mood(id: $0.id, slug: $0.slug) }
         collections = state.collections.map { EditableRelation.collection(id: $0.id, name: $0.name) }
         isAdmin = state.isAdmin
+        isHeld = state.isHeld
         applySearchState(state)
         hasChanges = state.hasChanges
         isSaving = state.isSaving
