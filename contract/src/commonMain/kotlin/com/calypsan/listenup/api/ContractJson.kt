@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api
 
+import com.calypsan.listenup.api.dto.hardcover.HardcoverHistory
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.UnknownError
 import kotlinx.serialization.DeserializationStrategy
@@ -56,6 +57,9 @@ public val contractJson: Json =
                 // the field fails on the error path the first time a newer server returns an
                 // error family added after that client shipped. See UnknownError's KDoc.
                 polymorphicDefaultDeserializer(AppError::class) { UnknownErrorDeserializer(it) }
+                // The same tolerance for the Hardcover history offer (#1540): a state a newer server adds
+                // reads as no offer, rather than failing the whole Connected stream on an older client.
+                polymorphicDefaultDeserializer(HardcoverHistory::class) { HardcoverHistory.None.serializer() }
             }
     }
 
