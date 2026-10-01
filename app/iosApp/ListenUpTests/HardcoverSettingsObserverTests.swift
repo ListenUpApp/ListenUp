@@ -60,7 +60,8 @@ struct HardcoverPhaseMappingTests {
             booksToMatch: [],
             isMatchListKnown: false,
             shareMode: .asIListen,
-            isSavingShareMode: false
+            isSavingShareMode: false,
+            history: HardcoverHistoryNone.shared
         )
         guard case .connected(let model) = HardcoverSettingsObserver.phase(from: state) else {
             Issue.record("expected .connected")
@@ -186,7 +187,8 @@ struct HardcoverShareModeTests {
             booksToMatch: [],
             isMatchListKnown: true,
             shareMode: shareMode,
-            isSavingShareMode: isSaving
+            isSavingShareMode: isSaving,
+            history: HardcoverHistoryNone.shared
         )
     }
 
