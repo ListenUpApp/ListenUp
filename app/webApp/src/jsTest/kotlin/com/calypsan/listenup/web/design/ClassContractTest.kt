@@ -1232,11 +1232,21 @@ class ClassContractTest :
                         // and the loaded page across a live scan, a bare sync, an empty shelf and
                         // all four stats states. It joins this contract by hand like the pages
                         // above — a state nobody lists here is a state whose classes go unchecked.
-                        HomePage(HomeUiState.Loading, HomeStatsUiState.Loading, {}, {}, {}, {}, {})
-                        HomePage(HomeUiState.Error("nope"), HomeStatsUiState.Loading, {}, {}, {}, {}, {})
-                        HomePage(readyHome(), HomeStatsUiState.Loading, {}, {}, {}, {}, {})
-                        HomePage(readyHome(), HomeStatsUiState.Empty, {}, {}, {}, {}, {})
-                        HomePage(readyHome(), HomeStatsUiState.Error(isRetryable = true), {}, {}, {}, {}, {})
+                        HomePage(HomeUiState.Loading, HomeStatsUiState.Loading, {}, {}, {}, {}, {}, onRetry = {}, onRetryStats = {})
+                        HomePage(HomeUiState.Error("nope"), HomeStatsUiState.Loading, {}, {}, {}, {}, {}, onRetry = {}, onRetryStats = {})
+                        HomePage(readyHome(), HomeStatsUiState.Loading, {}, {}, {}, {}, {}, onRetry = {}, onRetryStats = {})
+                        HomePage(readyHome(), HomeStatsUiState.Empty, {}, {}, {}, {}, {}, onRetry = {}, onRetryStats = {})
+                        HomePage(
+                            readyHome(),
+                            HomeStatsUiState.Error(isRetryable = true),
+                            {},
+                            {},
+                            {},
+                            {},
+                            {},
+                            onRetry = {},
+                            onRetryStats = {},
+                        )
                         HomePage(
                             readyHome(continueListening = listOf(continuing("b1", "The Institute"))),
                             weekStats(topGenres = listOf(GenreShare("Fiction", 3), GenreShare("Sci-Fi", 1))),
@@ -1245,6 +1255,8 @@ class ClassContractTest :
                             {},
                             {},
                             {},
+                            onRetry = {},
+                            onRetryStats = {},
                         )
                         // A slot whose book has not synced yet — the skeleton card's own classes.
                         HomePage(
@@ -1255,12 +1267,34 @@ class ClassContractTest :
                             {},
                             {},
                             {},
+                            onRetry = {},
+                            onRetryStats = {},
                         )
-                        HomePage(readyHome(isBuildingInitialLibrary = true), weekStats(), {}, {}, {}, {}, {})
-                        HomePage(readyHome(scanProgress = scanning()), weekStats(), {}, {}, {}, {}, {})
+                        HomePage(
+                            readyHome(isBuildingInitialLibrary = true),
+                            weekStats(),
+                            {},
+                            {},
+                            {},
+                            {},
+                            {},
+                            onRetry = {},
+                            onRetryStats = {},
+                        )
+                        HomePage(readyHome(scanProgress = scanning()), weekStats(), {}, {}, {}, {}, {}, onRetry = {}, onRetryStats = {})
                         // With shelves, so the row's own classes are checked, and without,
                         // so its empty state's are.
-                        HomePage(readyHome(myShelves = listOf(shelf("Finished"))), weekStats(), {}, {}, {}, {}, {})
+                        HomePage(
+                            readyHome(myShelves = listOf(shelf("Finished"))),
+                            weekStats(),
+                            {},
+                            {},
+                            {},
+                            {},
+                            {},
+                            onRetry = {},
+                            onRetryStats = {},
+                        )
                         // Discover joins by hand for the same reason Home does. Every section is
                         // listed in all four of its shapes, because a state nobody renders here is
                         // a state whose classes nothing checks — and this page is mostly states.
@@ -2182,6 +2216,8 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
                 onSelectPeriod = {},
                 onSelectCategory = {},
                 onRefresh = {},
+                onRefreshLeaderboard = {},
+                onRefreshActivity = {},
             )
         }
 

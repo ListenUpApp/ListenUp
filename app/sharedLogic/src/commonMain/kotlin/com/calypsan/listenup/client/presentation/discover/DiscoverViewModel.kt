@@ -80,14 +80,25 @@ class DiscoverViewModel(
             }
         }
 
+    /**
+     * Bumped by [refresh] to re-run a failed currently-listening observation.
+     *
+     * ⛔ The fallback sits INSIDE the [flatMapLatest], so a failure ends one run rather than the flow
+     * the screen is subscribed to — see [discoverBooksRefreshTrigger].
+     */
+    private val currentlyListeningRuns = MutableStateFlow(0)
+
     val currentlyListeningState: StateFlow<CurrentlyListeningUiState> =
-        currentlyListeningFlow
-            .map<_, CurrentlyListeningUiState> { sessions ->
-                CurrentlyListeningUiState.Ready(sessions = sessions.map { it.toUiModel() })
-            }.onStart { emit(CurrentlyListeningUiState.Loading) }
-            .fallbackTo { e ->
-                logger.error(e) { "Error observing currently listening" }
-                CurrentlyListeningUiState.Error("Failed to load currently listening")
+        currentlyListeningRuns
+            .flatMapLatest {
+                currentlyListeningFlow
+                    .map<_, CurrentlyListeningUiState> { sessions ->
+                        CurrentlyListeningUiState.Ready(sessions = sessions.map { it.toUiModel() })
+                    }.onStart { emit(CurrentlyListeningUiState.Loading) }
+                    .fallbackTo { e ->
+                        logger.error(e) { "Error observing currently listening" }
+                        CurrentlyListeningUiState.Error("Failed to load currently listening")
+                    }
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
@@ -159,19 +170,26 @@ class DiscoverViewModel(
 
     // === Recently Added State (from Room) ===
 
+    private val recentlyAddedRuns = MutableStateFlow(0)
+
     /**
      * Observe recently added books from Room with author info.
      * Sorted by createdAt timestamp descending.
+     *
+     * Restartable through [recentlyAddedRuns] for the same reason as [currentlyListeningState].
      */
     val recentlyAddedState: StateFlow<RecentlyAddedUiState> =
-        bookRepository
-            .observeRecentlyAddedBooks(limit = 10)
-            .map<_, RecentlyAddedUiState> { books ->
-                RecentlyAddedUiState.Ready(books = books.map { it.toRecentlyAddedUiBook() })
-            }.onStart { emit(RecentlyAddedUiState.Loading) }
-            .fallbackTo { e ->
-                logger.error(e) { "Error observing recently added books" }
-                RecentlyAddedUiState.Error("Failed to load recently added")
+        recentlyAddedRuns
+            .flatMapLatest {
+                bookRepository
+                    .observeRecentlyAddedBooks(limit = 10)
+                    .map<_, RecentlyAddedUiState> { books ->
+                        RecentlyAddedUiState.Ready(books = books.map { it.toRecentlyAddedUiBook() })
+                    }.onStart { emit(RecentlyAddedUiState.Loading) }
+                    .fallbackTo { e ->
+                        logger.error(e) { "Error observing recently added books" }
+                        RecentlyAddedUiState.Error("Failed to load recently added")
+                    }
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
@@ -261,10 +279,13 @@ class DiscoverViewModel(
      * Refresh all discovery content.
      * - Shelves: re-fetched via the discover RPC
      * - Books: new RANDOM() selection via refresh trigger
-     * - Sessions & recently added: automatically updated via Room flows
+     * - Sessions & recently added: live flows that update themselves, so only a FAILED one is
+     *   restarted — re-subscribing a healthy one would say the same thing again
      */
     fun refresh() {
         discoverBooksRefreshTrigger.update { it + 1 }
+        if (currentlyListeningState.value is CurrentlyListeningUiState.Error) currentlyListeningRuns.update { it + 1 }
+        if (recentlyAddedState.value is RecentlyAddedUiState.Error) recentlyAddedRuns.update { it + 1 }
         loadDiscoverShelves()
     }
 }

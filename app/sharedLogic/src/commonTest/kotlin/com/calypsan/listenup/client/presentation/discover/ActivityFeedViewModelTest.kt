@@ -204,6 +204,31 @@ class ActivityFeedViewModelTest :
             }
         }
 
+        test("state recovers from Error when refresh is called") {
+            // ⛔ The regression: the fallback sat OUTSIDE any restartable run, so the Error ended the
+            // flow. refresh() re-synced Room underneath a feed that could no longer hear it, and the
+            // section said "Failed to load activity feed" until the screen was torn down.
+            runTest {
+                val fixture = createFixture()
+                var collections = 0
+                every { fixture.activityRepository.observeRecent(any()) } returns
+                    flow {
+                        collections++
+                        if (collections == 1) throw SimulatedFailure("transient")
+                        emit(listOf(createActivity(id = "a-1")))
+                    }
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<ActivityFeedUiState.Error>()
+
+                viewModel.refresh()
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<ActivityFeedUiState.Ready>()
+                ready.activities.first().id shouldBe "a-1"
+            }
+        }
+
         // ========== Pull-to-refresh Tests ==========
 
         test("refresh routes to syncRepository.refresh (Never-Stranded manual reconcile)") {

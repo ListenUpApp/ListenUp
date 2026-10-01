@@ -25,6 +25,13 @@ import org.koin.core.Koin
 class HomeSession(
     val state: StateFlow<HomeUiState>,
     val stats: StateFlow<HomeStatsUiState>,
+    /**
+     * Re-runs a failed Home. The page offers it only on the failed page, as "Try again" — web
+     * still has no page-level refresh.
+     */
+    val onRetry: () -> Unit,
+    /** Re-runs failed stats; offered only on the failed stats section. */
+    val onRetryStats: () -> Unit,
     val close: () -> Unit,
 )
 
@@ -54,6 +61,8 @@ fun graphHome(koin: Koin): OpenHome =
         HomeSession(
             state = home.state,
             stats = stats.uiState,
+            onRetry = home::refresh,
+            onRetryStats = stats::refresh,
             close = store::clear,
         )
     }
@@ -62,11 +71,15 @@ fun graphHome(koin: Koin): OpenHome =
 fun fixedHome(
     state: HomeUiState,
     stats: HomeStatsUiState = HomeStatsUiState.Loading,
+    onRetry: () -> Unit = {},
+    onRetryStats: () -> Unit = {},
 ): OpenHome =
     {
         HomeSession(
             state = MutableStateFlow(state),
             stats = MutableStateFlow(stats),
+            onRetry = onRetry,
+            onRetryStats = onRetryStats,
             close = {},
         )
     }

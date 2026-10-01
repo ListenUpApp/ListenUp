@@ -56,10 +56,12 @@ import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.presentation.books.SelectionMode
+import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelfUi
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverUserShelves
 import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
+import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
 import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -91,6 +93,9 @@ fun DiscoverScreen(
     modifier: Modifier = Modifier,
     viewModel: DiscoverViewModel = koinViewModel(),
     multiSelect: BookMultiSelectViewModel = koinViewModel(),
+    // The same instances the leaderboard and activity sections resolve: one store owner, one key.
+    leaderboardViewModel: LeaderboardViewModel = koinViewModel(),
+    activityFeedViewModel: ActivityFeedViewModel = koinViewModel(),
 ) {
     val shelvesState by viewModel.discoverShelvesState.collectAsStateWithLifecycle()
     val haptics = LocalHaptics.current
@@ -113,7 +118,10 @@ fun DiscoverScreen(
             isRefreshing = shelvesState is DiscoverShelvesUiState.Loading,
             onRefresh = {
                 haptics.thresholdActivate()
+                // One pull reaches every section: each ViewModel restarts only what failed.
                 viewModel.refresh()
+                leaderboardViewModel.refresh()
+                activityFeedViewModel.refresh()
             },
             modifier = Modifier.fillMaxSize(),
         ) {

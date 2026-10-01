@@ -18,6 +18,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -25,7 +26,9 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.concurrent.Volatile
 
 private val logger = KotlinLogging.logger {}
 private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
@@ -130,11 +133,18 @@ class HomeViewModel(
             shelfRepository.observeMyShelves(userId)
         }
 
-    private val continueListeningFlow: Flow<List<ContinueListeningItem>> =
+    /**
+     * Set when this run's Continue Listening observation fell back to an empty row, so [refresh]
+     * knows the run needs restarting even though the screen is not in [HomeUiState.Error].
+     */
+    @Volatile private var continueListeningFailed = false
+
+    private fun continueListeningFlow(): Flow<List<ContinueListeningItem>> =
         homeRepository
             .observeContinueListening(CONTINUE_LISTENING_LIMIT)
             .fallbackTo { e ->
                 logger.error(e) { "Error observing continue listening" }
+                continueListeningFailed = true
                 snackbarChannel.trySend("Failed to load continue listening")
                 emptyList()
             }
@@ -146,10 +156,29 @@ class HomeViewModel(
             state to building
         }
 
+    /**
+     * Bumped by [refresh] to re-run a failed pipeline.
+     *
+     * ⛔ Both fallbacks — the screen's Error and Continue Listening's empty row — sit INSIDE the
+     * [flatMapLatest], so a failure ends one run rather than the flow the screen is subscribed to.
+     * Outside it, a failure was the flow's last word: refresh re-synced Room underneath a screen that
+     * could no longer hear it. `LibraryViewModel` has the same shape for the same reason.
+     */
+    private val pipelineRuns = MutableStateFlow(0)
+
     val state: StateFlow<HomeUiState> =
+        pipelineRuns
+            .flatMapLatest { homeStatePipeline() }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                initialValue = HomeUiState.Loading,
+            )
+
+    private fun homeStatePipeline(): Flow<HomeUiState> =
         combine(
             userFlow,
-            continueListeningFlow,
+            continueListeningFlow(),
             shelvesFlow,
             syncFlow,
             syncRepository.scanProgress,
@@ -168,11 +197,7 @@ class HomeViewModel(
         }.fallbackTo { e ->
             logger.error(e) { "Home state pipeline failed" }
             HomeUiState.Error("Failed to load home screen")
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-            initialValue = HomeUiState.Loading,
-        )
+        }
 
     /**
      * Refresh home screen data.
@@ -180,8 +205,15 @@ class HomeViewModel(
      * Triggers a full sync with the server, which pulls updated playback progress
      * (including isFinished state) into local Room. The continue listening and
      * shelves Flows then emit automatically with the new data.
+     *
+     * A pipeline that failed is also re-run. A healthy one is already live on Room, and re-running
+     * it would say the same thing again.
      */
     fun refresh() {
+        if (state.value is HomeUiState.Error || continueListeningFailed) {
+            continueListeningFailed = false
+            pipelineRuns.update { it + 1 }
+        }
         viewModelScope.launch {
             logger.debug { "Refresh: triggering sync to pull latest progress" }
             syncRepository

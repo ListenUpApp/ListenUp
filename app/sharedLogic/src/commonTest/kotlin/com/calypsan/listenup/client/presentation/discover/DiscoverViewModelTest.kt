@@ -266,6 +266,31 @@ class DiscoverViewModelTest :
             }
         }
 
+        test("currentlyListeningState recovers from Error when refresh is called") {
+            // ⛔ The regression: the fallback sat OUTSIDE any restartable run, so the Error it emitted
+            // was the flow's last word — a refresh had nothing to restart, and "What others are
+            // listening to" stayed failed until the screen was torn down.
+            runTest {
+                val fixture = createFixture()
+                var collections = 0
+                every { fixture.activeSessionRepository.observeActiveSessions(any()) } returns
+                    flow {
+                        collections++
+                        if (collections == 1) throw SimulatedFailure("transient")
+                        emit(listOf(createActiveSession(sessionId = "s-1")))
+                    }
+                val viewModel = fixture.build().also { keepStateHot(it.currentlyListeningState) }
+                advanceUntilIdle()
+                viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Error>()
+
+                viewModel.refresh()
+                advanceUntilIdle()
+
+                val ready = viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Ready>()
+                ready.sessions.first().sessionId shouldBe "s-1"
+            }
+        }
+
         // ========== Recently Added Tests ==========
 
         test("recentlyAddedState becomes Ready when flow emits") {
@@ -316,6 +341,51 @@ class DiscoverViewModelTest :
                 // Then
                 val err = viewModel.recentlyAddedState.value.shouldBeInstanceOf<RecentlyAddedUiState.Error>()
                 err.message shouldBe "Failed to load recently added"
+            }
+        }
+
+        test("recentlyAddedState recovers from Error when refresh is called") {
+            // ⛔ Same regression as currently-listening: the Error ended the flow, so no refresh
+            // could ever bring "Recently added" back.
+            runTest {
+                val fixture = createFixture()
+                var collections = 0
+                every { fixture.bookRepository.observeRecentlyAddedBooks(any()) } returns
+                    flow {
+                        collections++
+                        if (collections == 1) throw SimulatedFailure("transient")
+                        emit(listOf(createDiscoveryBook(id = "new-1")))
+                    }
+                val viewModel = fixture.build().also { keepStateHot(it.recentlyAddedState) }
+                advanceUntilIdle()
+                viewModel.recentlyAddedState.value.shouldBeInstanceOf<RecentlyAddedUiState.Error>()
+
+                viewModel.refresh()
+                advanceUntilIdle()
+
+                val ready = viewModel.recentlyAddedState.value.shouldBeInstanceOf<RecentlyAddedUiState.Ready>()
+                ready.books.first().id shouldBe "new-1"
+            }
+        }
+
+        test("refresh leaves a healthy recently-added subscription alone") {
+            // Only a failed section restarts: a live Room observation already says everything a
+            // re-subscription would.
+            runTest {
+                val fixture = createFixture()
+                var collections = 0
+                every { fixture.bookRepository.observeRecentlyAddedBooks(any()) } returns
+                    flow {
+                        collections++
+                        emit(listOf(createDiscoveryBook(id = "new-1")))
+                    }
+                val viewModel = fixture.build().also { keepStateHot(it.recentlyAddedState) }
+                advanceUntilIdle()
+
+                viewModel.refresh()
+                advanceUntilIdle()
+
+                collections shouldBe 1
             }
         }
 

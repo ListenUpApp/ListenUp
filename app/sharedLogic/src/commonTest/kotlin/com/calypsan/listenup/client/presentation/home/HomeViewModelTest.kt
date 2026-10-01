@@ -375,6 +375,82 @@ class HomeViewModelTest :
             }
         }
 
+        test("Home recovers from Error when refresh is called") {
+            // ⛔ The regression: the fallback sat OUTSIDE any restartable run, so the Error ended the
+            // flow. refresh() re-synced Room underneath a screen that could no longer hear it, and
+            // iOS's "Try again" did nothing at all.
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.syncRepository.sync() } returns AppResult.Success(Unit)
+                var collections = 0
+                every { fixture.userRepository.observeCurrentUser() } returns
+                    flow {
+                        collections++
+                        if (collections == 1) throw SimulatedFailure("transient")
+                        emit(createUser(displayName = "Jane Doe"))
+                    }
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<HomeUiState.Error>()
+
+                viewModel.refresh()
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
+                ready.userName shouldBe "Jane"
+            }
+        }
+
+        test("a failed Continue Listening row comes back when refresh is called") {
+            // Continue Listening falls back to an empty row (plus a snackbar) rather than failing
+            // the screen — and that fallback, too, used to be the row's last word.
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.syncRepository.sync() } returns AppResult.Success(Unit)
+                var collections = 0
+                every { fixture.homeRepository.observeContinueListening(any()) } returns
+                    flow {
+                        collections++
+                        if (collections == 1) throw SimulatedFailure("transient")
+                        emit(listOf(createReadyItem(bookId = "book-1")))
+                    }
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .continueListening
+                    .isEmpty() shouldBe true
+
+                viewModel.refresh()
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
+                ready.continueListening.map { it.bookId } shouldBe listOf("book-1")
+            }
+        }
+
+        test("refresh leaves a healthy Home pipeline alone") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.syncRepository.sync() } returns AppResult.Success(Unit)
+                var collections = 0
+                every { fixture.userRepository.observeCurrentUser() } returns
+                    flow {
+                        collections++
+                        emit(createUser())
+                    }
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+                // The user stream feeds two branches of the pipeline, so count from here.
+                val healthyCollections = collections
+
+                viewModel.refresh()
+                advanceUntilIdle()
+
+                collections shouldBe healthyCollections
+            }
+        }
+
         // ========== State Derived Properties Tests ==========
 
         test("hasContinueListening is true when list not empty") {

@@ -911,6 +911,8 @@ private fun HomeRoute(
             onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
             onOpenShelf = { id -> router.navigate(Route(listOf(SHELF_KEY, id))) },
             onCreateShelf = { router.navigate(Route(listOf(SHELF_KEY, NEW_KEY))) },
+            onRetry = session.onRetry,
+            onRetryStats = session.onRetryStats,
             selection = selection,
         )
     }
@@ -956,6 +958,8 @@ private fun DiscoverRoute(
             onSelectPeriod = session.onSelectPeriod,
             onSelectCategory = session.onSelectCategory,
             onRefresh = session.onRefresh,
+            onRefreshLeaderboard = session.onRefreshLeaderboard,
+            onRefreshActivity = session.onRefreshActivity,
             selection = selection,
         )
     }

@@ -8,10 +8,15 @@ import com.calypsan.listenup.client.domain.WeeklyStats
 import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.repository.StatsRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 
 private val logger = KotlinLogging.logger {}
 private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
@@ -32,10 +37,36 @@ private const val MINUTES_PER_HOUR = 60L
  *
  * @property statsRepository Repository for computing local stats
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class HomeStatsViewModel(
     private val statsRepository: StatsRepository,
 ) : ViewModel() {
+    /**
+     * Bumped by [refresh] to re-run a failed observation.
+     *
+     * ⛔ The fallback sits INSIDE the [flatMapLatest], so a failure ends one run rather than the flow
+     * the screen is subscribed to. Outside it, the Error was the flow's last word and
+     * `isRetryable = true` promised a retry nothing could deliver.
+     */
+    private val observationRuns = MutableStateFlow(0)
+
     val uiState: StateFlow<HomeStatsUiState> =
+        observationRuns
+            .flatMapLatest { observeStats() }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                initialValue = HomeStatsUiState.Loading,
+            )
+
+    /**
+     * Re-run a failed stats observation. Healthy stats are already live on Room and are left alone.
+     */
+    fun refresh() {
+        if (uiState.value is HomeStatsUiState.Error) observationRuns.update { it + 1 }
+    }
+
+    private fun observeStats(): Flow<HomeStatsUiState> =
         statsRepository
             .observeWeeklyStats()
             .map<_, HomeStatsUiState> { stats ->
@@ -53,11 +84,7 @@ class HomeStatsViewModel(
             }.fallbackTo { e ->
                 logger.error(e) { "Error observing stats" }
                 HomeStatsUiState.Error(isRetryable = true)
-            }.stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-                initialValue = HomeStatsUiState.Loading,
-            )
+            }
 }
 
 /**

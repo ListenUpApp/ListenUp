@@ -165,6 +165,33 @@ class HomeStatsViewModelTest :
             }
         }
 
+        test("Error recovers when refresh is called") {
+            // ⛔ The regression: `isRetryable = true` promised a retry nothing could deliver — the
+            // fallback sat outside any restartable run, so the Error ended the flow for good.
+            runTest {
+                var collections = 0
+                val repo =
+                    object : StatsRepository {
+                        override fun observeWeeklyStats(): Flow<WeeklyStats> =
+                            flow {
+                                collections++
+                                if (collections == 1) throw SimulatedFailure("transient")
+                                emit(nonEmptyStats(totalSeconds = 3_600L))
+                            }
+                    }
+                val vm = HomeStatsViewModel(repo)
+                vm.uiState.test {
+                    awaitUntil { it is HomeStatsUiState.Error }
+
+                    vm.refresh()
+
+                    val data = awaitUntil { it is HomeStatsUiState.Data }.shouldBeInstanceOf<HomeStatsUiState.Data>()
+                    data.totalSecondsThisWeek shouldBe 3_600L
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
         // ========== Display helpers on Data ==========
 
         test("formattedListenTime: 0 seconds → 0m") {

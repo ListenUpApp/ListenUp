@@ -212,6 +212,61 @@ class LeaderboardViewModelTest :
             }
         }
 
+        // ── 6b. Error recovers ────────────────────────────────────────────────
+
+        test("Error recovers when refresh is called") {
+            // ⛔ The regression: `isRetryable = true` promised a retry the ViewModel could not
+            // deliver — the fallback sat outside any restartable run, so the Error ended the flow.
+            runTest {
+                var collections = 0
+                val repo =
+                    FakeLeaderboardRepository {
+                        flow {
+                            collections++
+                            if (collections == 1) throw SimulatedFailure("transient")
+                            emit(snapshot("alice"))
+                        }
+                    }
+                val vm = LeaderboardViewModel(repo)
+                backgroundScope.launch(testDispatcher) { vm.uiState.collect {} }
+                advanceUntilIdle()
+                vm.uiState.value.shouldBeInstanceOf<LeaderboardUiState.Error>()
+
+                vm.refresh()
+                advanceUntilIdle()
+
+                val data = vm.uiState.value.shouldBeInstanceOf<LeaderboardUiState.Data>()
+                data.snapshot.time
+                    .single()
+                    .userId shouldBe "alice"
+            }
+        }
+
+        test("Error recovers when a period is picked") {
+            // The Android error state keeps the period chips on screen; picking one is a retry.
+            runTest {
+                var collections = 0
+                val repo =
+                    FakeLeaderboardRepository {
+                        flow {
+                            collections++
+                            if (collections == 1) throw SimulatedFailure("transient")
+                            emit(snapshot("alice"))
+                        }
+                    }
+                val vm = LeaderboardViewModel(repo)
+                backgroundScope.launch(testDispatcher) { vm.uiState.collect {} }
+                advanceUntilIdle()
+                vm.uiState.value.shouldBeInstanceOf<LeaderboardUiState.Error>()
+
+                vm.selectPeriod(LeaderboardPeriod.Month)
+                advanceUntilIdle()
+
+                val data = vm.uiState.value.shouldBeInstanceOf<LeaderboardUiState.Data>()
+                data.period shouldBe LeaderboardPeriod.Month
+            }
+        }
+
         // ── 7. Single emission carries all three lists ────────────────────────
 
         test("single snapshot emission contains all three pre-computed category lists") {

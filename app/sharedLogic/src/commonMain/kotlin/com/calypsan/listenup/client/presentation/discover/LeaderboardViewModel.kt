@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 
 /**
  * Sealed UI state for the Discover leaderboard.
@@ -24,7 +25,7 @@ import kotlinx.coroutines.flow.stateIn
  * [Loading] is the `stateIn` initial value — emitted before the first Room query
  * completes. [Data] carries the [LeaderboardSnapshot] plus the user's current
  * [period] + [category] selection. [Empty] is reached when all three snapshot lists
- * are empty. [Error] is emitted on an unrecoverable pipeline failure.
+ * are empty. [Error] is emitted when the pipeline fails; [LeaderboardViewModel.refresh] re-runs it.
  *
  * Changing the active [category] is a pure state filter — the snapshot already
  * contains all three lists, so no upstream DB re-query is triggered.
@@ -51,7 +52,7 @@ sealed interface LeaderboardUiState {
     ) : LeaderboardUiState
 
     /**
-     * Terminal pipeline failure.
+     * Pipeline failure. The run that failed is over; a refresh or a period pick starts another.
      *
      * @property isRetryable True when a retry may succeed (transient error).
      */
@@ -70,6 +71,9 @@ sealed interface LeaderboardUiState {
  *   render is driven by the same downstream state machine.
  * - Failures emit [LeaderboardUiState.Error] (via `fallbackTo`, which re-throws
  *   cancellation) so the section never silently hides errors.
+ * - ⛔ That fallback sits INSIDE a `flatMapLatest` over [pipelineRuns], so a failure ends one run
+ *   rather than the flow the screen is subscribed to. Outside it, the Error was the flow's last
+ *   word and `isRetryable = true` promised a retry nothing could deliver.
  *
  * @property repo Repository that vends [LeaderboardSnapshot] flows from Room.
  */
@@ -79,7 +83,18 @@ class LeaderboardViewModel(
     private val period = MutableStateFlow<LeaderboardPeriod>(LeaderboardPeriod.Week)
     private val category = MutableStateFlow(LeaderboardCategory.Time)
 
+    private val pipelineRuns = MutableStateFlow(0)
+
     val uiState: StateFlow<LeaderboardUiState> =
+        pipelineRuns
+            .flatMapLatest { leaderboardPipeline() }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = LeaderboardUiState.Loading,
+            )
+
+    private fun leaderboardPipeline() =
         combine(
             period.flatMapLatest { p ->
                 repo.observeSnapshot(p, limit = 20).map { snap -> p to snap }
@@ -93,11 +108,7 @@ class LeaderboardViewModel(
             }
         }.fallbackTo {
             LeaderboardUiState.Error(isRetryable = true)
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = LeaderboardUiState.Loading,
-        )
+        }
 
     /**
      * Select a new leaderboard period. Triggers a new upstream Room subscription
@@ -106,6 +117,8 @@ class LeaderboardViewModel(
      */
     fun selectPeriod(p: LeaderboardPeriod) {
         period.value = p
+        // The failed state keeps its period control on screen, so picking a period is a retry too.
+        restartIfFailed()
     }
 
     /**
@@ -114,5 +127,16 @@ class LeaderboardViewModel(
      */
     fun selectCategory(c: LeaderboardCategory) {
         category.value = c
+    }
+
+    /**
+     * Re-run a failed leaderboard. A healthy one is already live on Room and is left alone.
+     */
+    fun refresh() {
+        restartIfFailed()
+    }
+
+    private fun restartIfFailed() {
+        if (uiState.value is LeaderboardUiState.Error) pipelineRuns.update { it + 1 }
     }
 }
