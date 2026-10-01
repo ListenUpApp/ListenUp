@@ -83,8 +83,20 @@ struct SearchRow: Identifiable, Equatable, Hashable {
     let author: String?
     let coverPath: String?
     let coverHash: String?
+    /// Held for review in the admin inbox — only a book can be. Drawn as `HeldBadge`; the row still
+    /// just opens the book, into its triage page.
+    let isHeld: Bool
 
-    init(id: String, kind: SearchRowKind, name: String, subtitle: String?, author: String?, coverPath: String?, coverHash: String?) {
+    init(
+        id: String,
+        kind: SearchRowKind,
+        name: String,
+        subtitle: String?,
+        author: String?,
+        coverPath: String?,
+        coverHash: String?,
+        isHeld: Bool = false
+    ) {
         self.id = id
         self.kind = kind
         self.name = name
@@ -92,6 +104,7 @@ struct SearchRow: Identifiable, Equatable, Hashable {
         self.author = author
         self.coverPath = coverPath
         self.coverHash = coverHash
+        self.isHeld = isHeld
     }
 
     /// Snapshot a Kotlin `SearchHit` into native values once — reads each bridged property (and the
@@ -102,6 +115,7 @@ struct SearchRow: Identifiable, Equatable, Hashable {
         self.author = hit.author?.nilIfEmpty
         self.coverPath = hit.coverPath
         self.coverHash = hit.coverHash
+        self.isHeld = hit.type == .book && hit.isHeld
         switch hit.type {
         case .book:
             self.kind = .book

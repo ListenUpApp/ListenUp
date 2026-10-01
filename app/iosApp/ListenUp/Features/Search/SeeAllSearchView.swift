@@ -123,6 +123,9 @@ private struct SeeAllBookCard: View {
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.m))
                 .coverHoverEffect(cornerRadius: Radius.m)
+                .overlay(alignment: .topLeading) {
+                    if row.isHeld { HeldBadge(onCover: true).padding(Spacing.xs) }
+                }
             Text(row.name)
                 .font(.subheadline)
                 .foregroundStyle(.primary)
