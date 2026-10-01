@@ -149,19 +149,15 @@ class AdminInboxViewModel internal constructor(
 
     private fun applyHeldBooks(held: HeldBooks) {
         state.update { current ->
-            when (current) {
-                is AdminInboxUiState.Ready -> {
-                    current.copy(
-                        bookIds = held.ids,
-                        books = held.books,
-                        // A book released elsewhere cannot stay selected for release here.
-                        selectedBookIds = current.selectedBookIds.intersect(held.ids.toSet()),
-                    )
-                }
-
-                else -> {
-                    AdminInboxUiState.Ready(bookIds = held.ids, books = held.books)
-                }
+            if (current is AdminInboxUiState.Ready) {
+                current.copy(
+                    bookIds = held.ids,
+                    books = held.books,
+                    // A book released elsewhere cannot stay selected for release here.
+                    selectedBookIds = current.selectedBookIds.intersect(held.ids.toSet()),
+                )
+            } else {
+                AdminInboxUiState.Ready(bookIds = held.ids, books = held.books)
             }
         }
     }
