@@ -76,7 +76,8 @@ data class HardcoverPushHealth(
  * read rather than written back, so restoring the original secret heals it with no migration.
  *
  * It also owns push and pull health, and forgets a user's book links, pending pushes and pulled reads
- * when the connection ends or changes account. Every change to sync health ([markSynced],
+ * when the connection ends or changes account. The listener's share mode is not sync state: it lives in
+ * [HardcoverPreferences] and survives both. Every change to sync health ([markSynced],
  * [recordPushError], [markPulled], [recordPullError]) is announced on
  * [HardcoverSyncActivity.healthChanged], so a watching client sees it.
  */
@@ -110,6 +111,7 @@ class HardcoverConnectionStore(
                             stored.pullStalled -> HardcoverSyncProblem.PULL_STALLED
                             else -> null
                         },
+                    shareMode = sql.hardcoverShareMode(userId),
                 )
             }
 
@@ -147,7 +149,8 @@ class HardcoverConnectionStore(
                 connected_at = now,
             )
         }
-        return HardcoverConnection.Connected(me.username, now)
+        // The share mode outlives the connection row this just replaced, so a reconnect reports it.
+        return HardcoverConnection.Connected(me.username, now, shareMode = sql.hardcoverShareMode(userId))
     }
 
     /**

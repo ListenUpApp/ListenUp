@@ -79,6 +79,11 @@ class HardcoverSyncActivity {
         changed.tryEmit(userId)
     }
 
+    /** One of [userId]'s Hardcover choices changed (the share mode): their Connected is worth republishing. */
+    fun preferencesChanged(userId: String) {
+        changed.tryEmit(userId)
+    }
+
     /** [userId]'s connection ended or broke: nothing is in flight for them any more. */
     fun forget(userId: String) {
         synchronized(lock) {

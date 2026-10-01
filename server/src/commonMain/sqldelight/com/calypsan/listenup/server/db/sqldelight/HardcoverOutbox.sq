@@ -86,3 +86,7 @@ SELECT * FROM hardcover_outbox WHERE user_id = :user_id ORDER BY id;
 -- How many operations wait for one book, parked or due: the Book Detail row's "Waiting to sync".
 pendingCountForBook:
 SELECT COUNT(*) FROM hardcover_outbox WHERE user_id = :user_id AND book_id = :book_id;
+
+-- Only when I finish (#1538): the user's queued starts and progress are dropped; their FINISH rows stay.
+deleteStartsAndProgressForUser:
+DELETE FROM hardcover_outbox WHERE user_id = :user_id AND op IN ('START', 'PROGRESS');
