@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
 import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.onSuccess
 import com.calypsan.listenup.api.streaming.RpcEvent
@@ -129,6 +130,10 @@ internal class HardcoverRepositoryImpl(
         channel.call(idempotent = false) { it.startLink() }
 
     override suspend fun disconnect(): AppResult<Unit> = channel.call(idempotent = true) { it.disconnect() }
+
+    // Choosing the same mode twice leaves it chosen, so a blind retry is safe.
+    override suspend fun setShareMode(mode: HardcoverShareMode): AppResult<Unit> =
+        channel.call(idempotent = true) { it.setShareMode(mode) }
 
     // Idempotent server-side (a stale check), so a blind retry is safe.
     override suspend fun syncIfStale(): AppResult<Unit> = channel.call(idempotent = true) { it.syncIfStale() }

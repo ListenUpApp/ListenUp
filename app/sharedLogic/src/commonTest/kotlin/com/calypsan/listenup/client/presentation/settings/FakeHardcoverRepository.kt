@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
 import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.HardcoverRepository
 import com.calypsan.listenup.core.BookId
@@ -54,6 +55,16 @@ internal class FakeHardcoverRepository(
         disconnectCalls++
         disconnectGate?.await()
         return disconnectResult
+    }
+
+    var setShareModeResult: AppResult<Unit> = AppResult.Success(Unit)
+    var setShareModeGate: CompletableDeferred<Unit>? = null
+    val shareModes = mutableListOf<HardcoverShareMode>()
+
+    override suspend fun setShareMode(mode: HardcoverShareMode): AppResult<Unit> {
+        shareModes += mode
+        setShareModeGate?.await()
+        return setShareModeResult
     }
 
     val matchChangesFlow = MutableSharedFlow<BookId>(extraBufferCapacity = 16)

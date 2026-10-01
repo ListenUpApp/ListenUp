@@ -257,6 +257,19 @@ class HardcoverRepositoryImplTest :
                 dispatch.lastIdempotent shouldBe true
             }
         }
+
+        test("choosing a share mode reaches the server and is a safe blind retry") {
+            runTest {
+                val service = FakeHardcoverService()
+                val dispatch = IdempotenceRecordingDispatch<HardcoverService>(service)
+                val repository = HardcoverRepositoryImpl(RpcChannel(dispatch, RpcPolicy.Authed))
+
+                repository.setShareMode(HardcoverShareMode.FINISHED_ONLY) shouldBe AppResult.Success(Unit)
+
+                service.shareModes shouldBe listOf(HardcoverShareMode.FINISHED_ONLY)
+                dispatch.lastIdempotent shouldBe true
+            }
+        }
     })
 
 /** In-memory [HardcoverService]: each subscribe pops the next scripted stream; unary calls return what they were given. */

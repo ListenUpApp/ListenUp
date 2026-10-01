@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
 import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.flow.Flow
@@ -29,6 +30,9 @@ interface HardcoverRepository {
 
     /** Disconnects; see [com.calypsan.listenup.api.HardcoverService.disconnect]. */
     suspend fun disconnect(): AppResult<Unit>
+
+    /** Chooses when ListenUp updates Hardcover; see [com.calypsan.listenup.api.HardcoverService.setShareMode]. */
+    suspend fun setShareMode(mode: HardcoverShareMode): AppResult<Unit>
 
     /**
      * A client came to the foreground: the server pulls this user's Hardcover shelf if its last pull is
