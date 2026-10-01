@@ -28,6 +28,7 @@ import com.calypsan.listenup.server.hardcover.HardcoverRateLimiter
 import com.calypsan.listenup.server.hardcover.HardcoverRatingConnection
 import com.calypsan.listenup.server.hardcover.HardcoverRatingSource
 import com.calypsan.listenup.server.hardcover.HardcoverShelfResolver
+import com.calypsan.listenup.server.hardcover.HardcoverSyncActivity
 import com.calypsan.listenup.server.hardcover.HardcoverTokenCipher
 import com.calypsan.listenup.server.hardcover.HardcoverTokenProvider
 import com.calypsan.listenup.server.hardcover.HardcoverUserBooks
@@ -80,7 +81,8 @@ fun hardcoverModule(
             )
         }
         single { HardcoverGraphQlClient(http = get(HARDCOVER_HTTP), apiBaseUrl = apiBaseUrl) }
-        single { HardcoverConnectionStore(sql = get(), cipher = get(), clock = get()) }
+        single { HardcoverSyncActivity() }
+        single { HardcoverConnectionStore(sql = get(), cipher = get(), clock = get(), activity = get()) }
         single {
             HardcoverLinker(
                 oauth = get(),
@@ -88,6 +90,7 @@ fun hardcoverModule(
                 store = get(),
                 applicationScope = applicationScope,
                 clock = get(),
+                activity = get(),
             )
         }
         single { HardcoverTokenProvider(oauth = get(), store = get(), linker = get(), clock = get()) }

@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
+import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.util.KeyedMutex
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
@@ -45,6 +47,11 @@ private val SLOW_DOWN_STEP_MS = 5.seconds.inWholeMilliseconds
  * refresh ([HardcoverTokenProvider]) serialize on the same per-user lock ([withUserLock]), so a
  * disconnect that arrives mid-refresh revokes the pair the refresh just committed; and a grant whose
  * owner can't be looked up is revoked rather than dropped.
+ *
+ * Sync health lives outside a connection's lifecycle — a push landing, a pull catching up, an error
+ * passing its cap, a Sync now starting or ending — so the linker also republishes Connected each time
+ * [HardcoverSyncActivity.changes] names a user it holds a state for. A republish only ever replaces
+ * Connected with Connected: it never overwrites a sign-in in progress, a break or a disconnect.
  */
 class HardcoverLinker(
     private val oauth: HardcoverOAuthClient,
@@ -52,6 +59,7 @@ class HardcoverLinker(
     private val store: HardcoverConnectionStore,
     private val applicationScope: CoroutineScope,
     private val clock: Clock = Clock.System,
+    private val activity: HardcoverSyncActivity = HardcoverSyncActivity(),
 ) {
     private val lock = SynchronizedObject()
     private val states = HashMap<String, MutableStateFlow<HardcoverConnection>>()
@@ -66,6 +74,10 @@ class HardcoverLinker(
      * nightly sweep to notice every book Hardcover has never tried.
      */
     val connections: SharedFlow<String> = connected.asSharedFlow()
+
+    init {
+        applicationScope.launch { activity.changes.collect { republish(it) } }
+    }
 
     /**
      * Runs [block] holding [userId]'s connection lock — the one [disconnect] holds while it revokes
@@ -135,6 +147,7 @@ class HardcoverLinker(
             store.connectionFor(userId)?.credentials?.let { revokeBestEffort(it.accessToken, it.refreshToken) }
             store.delete(userId)
             stateFor(userId).value = HardcoverConnection.NotConnected()
+            activity.forget(userId)
         }
     }
 
@@ -171,6 +184,7 @@ class HardcoverLinker(
                 name
             } ?: return false
         onBroken(userId, reason, username)
+        activity.forget(userId)
         return true
     }
 
@@ -235,9 +249,33 @@ class HardcoverLinker(
 
     private suspend fun stateFor(userId: String): MutableStateFlow<HardcoverConnection> {
         synchronized(lock) { states[userId] }?.let { return it }
-        val seeded = store.connectionState(userId)
+        val seeded = decorate(userId, store.connectionState(userId))
         return synchronized(lock) { states.getOrPut(userId) { MutableStateFlow(seeded) } }
     }
+
+    /** Re-reads [userId]'s row and republishes it — only over a Connected, and only as a Connected. */
+    private suspend fun republish(userId: String) {
+        val state = synchronized(lock) { states[userId] } ?: return
+        val fresh = decorate(userId, store.connectionState(userId))
+        state.update { current ->
+            if (current is HardcoverConnection.Connected && fresh is HardcoverConnection.Connected) fresh else current
+        }
+    }
+
+    /** [connection] with what's in flight: a running Sync now, and a failed one, which outranks any stored problem. */
+    private fun decorate(
+        userId: String,
+        connection: HardcoverConnection,
+    ): HardcoverConnection =
+        if (connection !is HardcoverConnection.Connected) {
+            connection
+        } else {
+            connection.copy(
+                isSyncing = activity.isSyncing(userId),
+                syncProblem =
+                    if (activity.syncNowFailed(userId)) HardcoverSyncProblem.SYNC_NOW_FAILED else connection.syncProblem,
+            )
+        }
 
     private fun nowMs() = clock.now().toEpochMilliseconds()
 }
