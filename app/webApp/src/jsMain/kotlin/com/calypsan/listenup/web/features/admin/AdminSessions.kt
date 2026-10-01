@@ -28,4 +28,6 @@ data class AdminSessions(
     val userDetail: OpenUserDetail,
     val upload: OpenUpload,
     val organize: OpenOrganize,
+    /** The held-for-review count behind the Library nav badge and the Library's inbox strip. */
+    val inboxBadge: OpenInboxBadge,
 )

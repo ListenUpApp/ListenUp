@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.web.features.admin.fixedInboxBadge
 import com.calypsan.listenup.web.features.hardcover.fixedBookHardcover
 import com.calypsan.listenup.web.features.hardcover.fixedHardcoverMatch
 import com.calypsan.listenup.web.features.licences.fixedLicences
@@ -150,6 +151,7 @@ class ComposeHtmlRenderTest :
                                 userDetail = fixedUserDetail(UserDetailUiState.Loading),
                                 upload = fixedUpload(UploadBooksUiState.Idle),
                                 organize = fixedOrganize(OrganizeSettingsUiState.Loading),
+                                inboxBadge = fixedInboxBadge(),
                             ),
                         openShelfDetail = fixedShelfDetail(),
                         openShelfEdit = fixedShelfEdit(),
@@ -225,6 +227,7 @@ class ComposeHtmlRenderTest :
                                 userDetail = fixedUserDetail(UserDetailUiState.Loading),
                                 upload = fixedUpload(UploadBooksUiState.Idle),
                                 organize = fixedOrganize(OrganizeSettingsUiState.Loading),
+                                inboxBadge = fixedInboxBadge(),
                             ),
                         openShelfDetail = fixedShelfDetail(),
                         openShelfEdit = fixedShelfEdit(),

@@ -47,6 +47,9 @@
   font-size:11px; font-weight:800; font-variant-numeric:tabular-nums;
   display:inline-flex; align-items:center; justify-content:center;
 }
+/* The Library's held count: amber is "waiting for you", never the coral of unread ("act here").
+   Placement (sidebar, rail corner, phone tab corner) is the plain badge's, inherited. */
+.nav-badge.is-held { background:var(--warn); color:var(--on-warn); }
 .sb-spacer { flex:1; }
 /* The phone tab bar's overflow tab. Only a phone has a bar too short for every destination; the
    sidebar and the rail show the footer entries themselves, so everywhere else this is absent. */

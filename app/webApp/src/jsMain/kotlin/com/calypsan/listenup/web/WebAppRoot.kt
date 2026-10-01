@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.web.shell.NavBadgeKind
+import com.calypsan.listenup.web.features.admin.OpenInboxBadge
+import com.calypsan.listenup.web.features.admin.InboxBadgeState
 import com.calypsan.listenup.web.features.bookdetail.ShareOutcome
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -309,6 +312,9 @@ fun WebAppRoot(
     // outlives every page. Closing it with a route would blank the count the moment you navigated
     // away from the one page that proves it was right.
     val unreadCount = notificationBadge(openNotificationBell)
+    // Shell-lifetime, like the unread count: the held count rides Library in the sidebar, and the
+    // Library page's inbox strip reads the same session.
+    val inbox = inboxBadge(admin.inboxBadge)
     val playback = playbackState(openPlayback)
     val route = router.current
     val page = route.segments.firstOrNull() ?: HOME_KEY
@@ -319,7 +325,7 @@ fun WebAppRoot(
     FadeOnPageChange(page)
 
     Shell(
-        sections = listOf(PRIMARY_NAV),
+        sections = listOf(primaryNav(heldCount = inbox.heldCount)),
         active = active,
         // The whole path, not just the first segment the fade keys on: `/book/42` → `/book/42/edit`
         // is a new page with a new heading, even though it does not fade.
@@ -2987,6 +2993,21 @@ private fun notificationBadge(openNotificationBell: OpenNotificationBell): Int {
 }
 
 /**
+ * The held count and cover preview, open for as long as the app is — keyed to nothing, for the
+ * reason [notificationBadge] is: re-opening it per route would rebuild its Room subscription on
+ * every navigation. Zero for anyone who is not an admin (the ViewModel's own gate).
+ */
+@Composable
+private fun inboxBadge(openInboxBadge: OpenInboxBadge): InboxBadgeState {
+    val session = remember { openInboxBadge() }
+    DisposableEffect(session) { onDispose { session.close() } }
+    return InboxBadgeState(
+        heldCount = session.heldCount.collectAsState().value,
+        previewBookIds = session.previewBookIds.collectAsState().value,
+    )
+}
+
+/**
  * Opens a Series Edit session for [seriesId], collects it, and answers the navigation it asks for.
  */
 @Composable
@@ -3214,12 +3235,18 @@ private const val SEARCH_QUERY_KEY = "q"
  */
 private val SEARCH_OPENABLE_TYPES = SearchHitType.entries.toSet()
 
-private val PRIMARY_NAV =
+/**
+ * The primary destinations, with the held-for-review count on Library.
+ *
+ * A function rather than a constant for the reason [footerNav] is one: the badge moves, and a `val`
+ * could only ever show the count the app started with.
+ */
+private fun primaryNav(heldCount: Int): NavSection =
     NavSection(
         entries =
             listOf(
                 NavEntry(HOME_KEY, "Home", WebIcon.Home, href = "/"),
-                NavEntry(LIBRARY_KEY, "Library", WebIcon.Book),
+                NavEntry(LIBRARY_KEY, "Library", WebIcon.Book, badge = heldCount, badgeKind = NavBadgeKind.Held),
                 NavEntry(DISCOVER_KEY, "Discover", WebIcon.Compass),
                 NavEntry("search", "Search", WebIcon.Search),
             ),

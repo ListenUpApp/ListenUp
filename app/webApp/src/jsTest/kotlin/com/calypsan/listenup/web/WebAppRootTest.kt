@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.web.features.admin.fixedInboxBadge
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.notifications.NotificationEvent
 import com.calypsan.listenup.client.domain.model.BookSeries
@@ -1861,6 +1862,29 @@ class WebAppRootTest :
 
             try {
                 (host.querySelector(".nav-badge") as HTMLElement).textContent shouldBe "99+"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // The held count rides Library, in amber, for as long as anything waits.
+        test("the sidebar Library carries the held count") {
+            val (host, router) = mountAt("/", openInboxBadge = fixedInboxBadge(heldCount = 3))
+
+            try {
+                val badge = host.querySelector(".nav-i[href='/library'] .nav-badge") as HTMLElement
+                badge.textContent shouldBe "3"
+                badge.classList.contains("is-held") shouldBe true
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("nothing held, no Library badge") {
+            val (host, router) = mountAt("/", openInboxBadge = fixedInboxBadge(heldCount = 0))
+
+            try {
+                host.querySelector(".nav-i[href='/library'] .nav-badge") shouldBe null
             } finally {
                 router.dispose()
             }
