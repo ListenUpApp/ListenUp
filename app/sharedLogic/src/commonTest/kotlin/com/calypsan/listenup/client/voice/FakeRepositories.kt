@@ -78,6 +78,18 @@ class FakeSearchRepository : SearchRepository {
             facets = SearchFacets(),
         )
     }
+
+    /** Models the SQL exclusion: held hits never come back, and [limit] applies after it. */
+    override suspend fun searchPlayableBooks(
+        query: String,
+        limit: Int,
+    ): List<SearchHit> {
+        exceptionToThrow?.let { throw it }
+
+        lastQuery = query
+        lastTypes = listOf(SearchHitType.BOOK)
+        return searchResults.filter { it.type == SearchHitType.BOOK && !it.isHeld }.take(limit)
+    }
 }
 
 // ========== Fake Home Repository ==========

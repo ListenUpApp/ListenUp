@@ -68,6 +68,25 @@ internal class SearchRepositoryImpl(
     }
 
     /**
+     * Book-only local FTS5 search that leaves out held books in SQL, before [limit]
+     * ([SearchDao.searchUnheldBooks]). A failing index read yields an empty list, as in [search].
+     */
+    override suspend fun searchPlayableBooks(
+        query: String,
+        limit: Int,
+    ): List<SearchHit> {
+        val sanitizedQuery = QueryUtils.sanitize(query)
+        if (sanitizedQuery.isBlank()) return emptyList()
+        return withContext(IODispatcher) {
+            safeSearch("Playable book FTS") {
+                searchDao
+                    .searchUnheldBooks(QueryUtils.toFtsQuery(sanitizedQuery), limit)
+                    .map { it.toSearchHit(imageStorage) }
+            }
+        }
+    }
+
+    /**
      * Local Room FTS5 search.
      */
     private suspend fun searchLocal(

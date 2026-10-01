@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.voice
 
 import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.client.domain.model.SearchHit
-import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.SearchRepository
@@ -80,27 +79,19 @@ class VoiceIntentResolver(
         query: String,
         hints: VoiceHints,
     ): PlaybackIntent {
-        val searchResult =
-            searchRepository.search(
-                query = query,
-                types = listOf(SearchHitType.BOOK),
-                limit = MAX_SEARCH_RESULTS,
-            )
+        // A held book is triage-only — never a play target. The playable search leaves held books out
+        // before its limit, so they can't crowd out a book voice could actually play.
+        val hits = searchRepository.searchPlayableBooks(query = query, limit = MAX_SEARCH_RESULTS)
 
-        if (searchResult.hits.isEmpty()) {
+        if (hits.isEmpty()) {
             return PlaybackIntent.NotFound(query)
         }
 
         // Score and rank results
         val scoredMatches =
-            searchResult.hits
-                .filter { it.type == SearchHitType.BOOK }
+            hits
                 .map { hit -> scoreMatch(hit, query, hints) }
                 .sortedByDescending { it.confidence }
-
-        if (scoredMatches.isEmpty()) {
-            return PlaybackIntent.NotFound(query)
-        }
 
         val topMatch = scoredMatches.first()
 

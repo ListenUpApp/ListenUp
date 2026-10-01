@@ -72,6 +72,17 @@ class VoiceIntentResolverTest :
             }
         }
 
+        test("a held book is never a voice play target") {
+            runTest {
+                setup()
+                searchRepository.setResults(
+                    testSearchHit(id = "held", name = "The Hobbit", score = 1.0f).copy(isHeld = true),
+                )
+
+                resolver.resolve("The Hobbit").shouldBeInstanceOf<PlaybackIntent.NotFound>()
+            }
+        }
+
         test("partial title match with high score returns PlayBook") {
             runTest {
                 setup()

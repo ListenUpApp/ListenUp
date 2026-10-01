@@ -99,6 +99,25 @@ class SearchRepositoryTest :
             }
         }
 
+        test("searchPlayableBooks reads the held-excluding book query, never the marking one") {
+            runTest {
+                val repo =
+                    repository {
+                        everySuspend { searchUnheldBooks(any(), 10) } returns listOf(bookResult(id = "visible"))
+                        everySuspend { searchBooks(any(), any()) } returns
+                            listOf(bookResult(id = "held", isHeld = true), bookResult(id = "visible"))
+                    }
+
+                repo.searchPlayableBooks("mist", limit = 10).map { it.id } shouldBe listOf("visible")
+            }
+        }
+
+        test("searchPlayableBooks short-circuits a blank query") {
+            runTest {
+                repository { }.searchPlayableBooks("   ", limit = 10).shouldBeEmpty()
+            }
+        }
+
         test("federates across books, contributors, series, and tags") {
             runTest {
                 val repo =
