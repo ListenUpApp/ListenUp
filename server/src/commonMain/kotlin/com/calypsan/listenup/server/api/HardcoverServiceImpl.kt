@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
 import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.result.AppResult
@@ -15,6 +16,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.hardcover.HardcoverBookLinking
 import com.calypsan.listenup.server.hardcover.HardcoverLinker
+import com.calypsan.listenup.server.hardcover.HardcoverPreferences
 import com.calypsan.listenup.server.hardcover.HardcoverPullRequests
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
@@ -31,7 +33,7 @@ import kotlinx.coroutines.flow.map
  * A caller with no connection then watches [HardcoverConnection.NotOffered], so clients hide the
  * entry instead of offering a dead end. Watching and disconnecting still work, so a connection made
  * before the id was cleared can still be seen and ended. Manual linking delegates to [HardcoverBookLinking];
- * syncing to [HardcoverPullRequests].
+ * syncing to [HardcoverPullRequests]; the share mode to [HardcoverPreferences].
  *
  * Route handlers call [copyWith] to bind each connection to the authenticated principal. Without
  * one, every method fails closed with [AuthError.PermissionDenied].
@@ -41,11 +43,12 @@ class HardcoverServiceImpl(
     private val clientIdConfigured: Boolean,
     private val linking: HardcoverBookLinking,
     private val pulls: HardcoverPullRequests,
+    private val preferences: HardcoverPreferences,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : HardcoverService {
     /** Returns a copy scoped to [provider]. The RPC mount calls this per connection. */
     fun copyWith(provider: PrincipalProvider): HardcoverServiceImpl =
-        HardcoverServiceImpl(linker, clientIdConfigured, linking, pulls, provider)
+        HardcoverServiceImpl(linker, clientIdConfigured, linking, pulls, preferences, provider)
 
     override suspend fun startLink(): AppResult<HardcoverLinkPrompt> {
         val userId = callerId() ?: return permissionDenied()
@@ -66,6 +69,12 @@ class HardcoverServiceImpl(
     override suspend fun disconnect(): AppResult<Unit> {
         val userId = callerId() ?: return permissionDenied()
         linker.disconnect(userId)
+        return AppResult.Success(Unit)
+    }
+
+    override suspend fun setShareMode(mode: HardcoverShareMode): AppResult<Unit> {
+        val userId = callerId() ?: return permissionDenied()
+        preferences.setShareMode(userId, mode)
         return AppResult.Success(Unit)
     }
 

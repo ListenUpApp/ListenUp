@@ -16,6 +16,7 @@ import com.calypsan.listenup.server.hardcover.HardcoverLinker
 import com.calypsan.listenup.server.hardcover.HardcoverMatchBackfill
 import com.calypsan.listenup.server.hardcover.HardcoverOAuthClient
 import com.calypsan.listenup.server.hardcover.HardcoverOutbox
+import com.calypsan.listenup.server.hardcover.HardcoverPreferences
 import com.calypsan.listenup.server.hardcover.HardcoverPullRequests
 import com.calypsan.listenup.server.hardcover.HardcoverPullStore
 import com.calypsan.listenup.server.hardcover.HardcoverPullWorker
@@ -51,7 +52,8 @@ private val HARDCOVER_HTTP = named("hardcoverHttp")
 /**
  * Koin module for the Hardcover connection: the token cipher, the two Hardcover clients over one
  * [HttpClient], the encrypted store, the sign-in [HardcoverLinker] (polling in [applicationScope],
- * which the application cancels at shutdown), the [HardcoverTokenProvider], the [HardcoverRatingSource]
+ * which the application cancels at shutdown), the listener's [HardcoverPreferences], the
+ * [HardcoverTokenProvider], the [HardcoverRatingSource]
  * the metadata registry lists, and [HardcoverService]. It also binds Hardcover push and matching: the
  * outbox, the per-user push worker, the recorder `StatsRecorder` calls, the background match pass,
  * manual linking, and the pull (its store, the shelf resolver, the puller and the per-user pull worker).
@@ -84,6 +86,7 @@ fun hardcoverModule(
         single { HardcoverGraphQlClient(http = get(HARDCOVER_HTTP), apiBaseUrl = apiBaseUrl) }
         single { HardcoverSyncActivity() }
         single { HardcoverConnectionStore(sql = get(), cipher = get(), clock = get(), activity = get()) }
+        single { HardcoverPreferences(sql = get(), clock = get(), activity = get()) }
         single {
             HardcoverLinker(
                 oauth = get(),
@@ -172,6 +175,7 @@ fun hardcoverModule(
                 clientIdConfigured = clientId != null,
                 linking = get(),
                 pulls = get(),
+                preferences = get(),
                 principal =
                     PrincipalProvider {
                         error("Unscoped HardcoverService — call copyWith(PrincipalProvider) at the route")
