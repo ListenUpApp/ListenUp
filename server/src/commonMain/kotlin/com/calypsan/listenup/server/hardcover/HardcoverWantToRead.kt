@@ -16,6 +16,8 @@ internal const val WANT_TO_READ_SHELF_NAME = "Want to Read"
  * - A matched Want to Read book the user can see is placed on the target shelf: the starter "To Read"
  *   shelf while it lives (whatever it's called now); else the "Want to Read" shelf made for this before;
  *   else a new public "Want to Read" shelf, made only when there is a book to put on it.
+ * - An entry that moves to any other status (started, finished, paused, did not finish) takes its book off
+ *   the shelf, but only a book Hardcover put there.
  * - A book already on the shelf by hand is the user's: it is never recorded, so never taken off.
  * - A book the user took off by hand ([HardcoverShelfEntryState.USER_REMOVED]) stays off.
  *
@@ -35,8 +37,9 @@ class HardcoverWantToRead(
 
     /**
      * Applies one pull page, whose entries resolved to the library books in [resolved] (keyed by
-     * user-book id), seen at [seenAt]. A failed shelf write is answered at once, so the page isn't committed
-     * and the pull asks for it again.
+     * user-book id), seen at [seenAt]. Entries no longer on Want to Read leave first, then Want to Read
+     * entries are placed. A failed shelf write is answered at once, so the page isn't committed and the pull
+     * asks for it again.
      */
     suspend fun applyPage(
         userId: String,
@@ -44,6 +47,11 @@ class HardcoverWantToRead(
         resolved: Map<Long, ShelfResolution>,
         seenAt: Long,
     ): AppResult<Unit> {
+        val elsewhere = page.filter { it.statusId != HardcoverStatus.WANT_TO_READ }.map { it.userBookId }
+        for (record in entries.recordsFromEntries(userId, elsewhere)) {
+            val left = leave(userId, record)
+            if (left is AppResult.Failure) return left
+        }
         val wanted =
             page
                 .filter { it.statusId == HardcoverStatus.WANT_TO_READ }
@@ -110,6 +118,22 @@ class HardcoverWantToRead(
             is AppResult.Success -> AppResult.Success(Unit)
             is AppResult.Failure -> added
         }
+    }
+
+    /**
+     * [record]'s book is no longer on Want to Read: off its shelf if Hardcover put it there and it's still
+     * there, and the record goes either way, so a book taken off by hand can come back if it returns.
+     */
+    private suspend fun leave(
+        userId: String,
+        record: HardcoverShelfEntryRecord,
+    ): AppResult<Unit> {
+        if (record.state == HardcoverShelfEntryState.ON_SHELF && entries.isOnShelf(record.shelfId, record.bookId)) {
+            val removed = shelfBooks.removeBook(record.shelfId, record.bookId, userId)
+            if (removed is AppResult.Failure) return removed
+        }
+        entries.forget(userId, record.bookId)
+        return AppResult.Success(Unit)
     }
 
     /** The live shelf Want to Read lands on now, or null when there is none yet. */

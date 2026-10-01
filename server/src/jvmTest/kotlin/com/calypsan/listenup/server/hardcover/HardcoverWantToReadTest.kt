@@ -195,4 +195,41 @@ class HardcoverWantToReadTest :
                     .map { it.shelfId to it.bookId } shouldBe listOf(made.id to BOOK)
             }
         }
+
+        test("a book already on the shelf by hand is never recorded, and never taken off") {
+            pullTest {
+                val starter = starterShelf()
+                shelfBooks.addBook(starter, BOOK, USER)
+                connect()
+                wantToReadOnHardcover()
+                pullAll()
+                shelfEntries.recordFor(USER, BOOK) shouldBe null
+
+                hardcover.moveTo(HC_BOOK, HardcoverStatus.READ)
+                pullAll()
+
+                booksOn(starter) shouldBe listOf(BOOK)
+            }
+        }
+
+        test("starting or finishing it on Hardcover takes off only the books Hardcover added") {
+            pullTest {
+                val starter = starterShelf()
+                secondBook()
+                shelfBooks.addBook(starter, BOOK_2, USER)
+                connect()
+                wantToReadOnHardcover()
+                wantToReadOnHardcover(HC_BOOK_2, editionId = 9_002L)
+                pullAll()
+                booksOn(starter) shouldBe listOf(BOOK_2, BOOK)
+
+                hardcover.moveTo(HC_BOOK, HardcoverStatus.READING)
+                hardcover.moveTo(HC_BOOK_2, HardcoverStatus.READ)
+                pullAll()
+
+                booksOn(starter) shouldBe listOf(BOOK_2)
+                shelfEntries.records(USER) shouldBe emptyList()
+                syncEvents("shelf_books").filterIsInstance<SyncEvent.Deleted>().size shouldBe 1
+            }
+        }
     })
