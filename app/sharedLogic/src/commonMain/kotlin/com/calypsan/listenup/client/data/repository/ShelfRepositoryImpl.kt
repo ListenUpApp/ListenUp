@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.dto.ShelfBookMutation
 import com.calypsan.listenup.api.dto.ShelfMutation
 import com.calypsan.listenup.api.error.ShelfError
+import com.calypsan.listenup.client.data.local.db.CollectionBookDao
 import com.calypsan.listenup.client.data.local.db.ShelfBookDao
 import com.calypsan.listenup.client.data.local.db.ShelfBookEntity
 import com.calypsan.listenup.client.data.local.db.ShelfDao
@@ -61,6 +62,7 @@ import kotlinx.coroutines.flow.map
  * @property channel Dispatches [com.calypsan.listenup.api.ShelfService] RPCs through the seam.
  * @property offlineEditor Composes the optimistic Room merge and the durable outbox enqueue into a
  *   single transaction for the offline-first surfaces.
+ * @property collectionBookDao The held-for-review set, kept out of the shelf detail on an admin's device.
  */
 internal class ShelfRepositoryImpl(
     private val dao: ShelfDao,
@@ -68,6 +70,7 @@ internal class ShelfRepositoryImpl(
     private val userDao: UserDao,
     private val channel: RpcChannel<ShelfService>,
     private val offlineEditor: OfflineEditor,
+    private val collectionBookDao: CollectionBookDao,
 ) : ShelfRepository {
     // ── Own-shelf observation (Room) ──────────────────────────────────────────────
 
@@ -103,8 +106,25 @@ internal class ShelfRepositoryImpl(
             .call(idempotent = true) { it.getShelf(shelfId) }
             .map { detail ->
                 val coverHashByBook = dao.coverHashesByBookFor(shelfId.value).associate { it.bookId to it.coverHash }
-                detail.toDomain(coverHashByBook)
+                detail.withoutHeldBooks().toDomain(coverHashByBook)
             }
+
+    /**
+     * Drops the books held for review from a server-built shelf detail and takes them out of its
+     * count and length, so the header agrees with the list — as the shelf card's Room aggregates do.
+     * On a member's device the held set is empty and the detail passes through untouched (the server
+     * never shows a member a held book in the first place).
+     */
+    private suspend fun ShelfDetailDto.withoutHeldBooks(): ShelfDetailDto {
+        val held = collectionBookDao.heldBookIds().toSet()
+        val heldHere = books.map { it.bookId }.filter { it in held }
+        if (heldHere.isEmpty()) return this
+        return copy(
+            books = books.filterNot { it.bookId in held },
+            bookCount = (bookCount - heldHere.size).coerceAtLeast(0),
+            totalDurationMs = (totalDurationMs - dao.totalDurationMsOfBooks(heldHere)).coerceAtLeast(0L),
+        )
+    }
 
     // ── Mutation (RPC) ────────────────────────────────────────────────────────────
 

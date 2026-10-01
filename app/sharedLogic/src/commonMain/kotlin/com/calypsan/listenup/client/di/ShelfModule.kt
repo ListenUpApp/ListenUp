@@ -68,6 +68,7 @@ internal val shelfModule: Module =
                 userDao = get(),
                 channel = rpcChannel(),
                 offlineEditor = get(),
+                collectionBookDao = get(),
             )
         }
 

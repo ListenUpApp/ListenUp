@@ -168,6 +168,13 @@ internal interface ShelfDao {
     )
     suspend fun totalDurationMsFor(shelfId: String): Long
 
+    /**
+     * Sum of audio duration (ms) across [bookIds] present in the local mirror; 0 when none are.
+     * Lets the shelf detail take held books' length out of the server's shelf total.
+     */
+    @Query("SELECT COALESCE(SUM(totalDuration), 0) FROM books WHERE id IN (:bookIds)")
+    suspend fun totalDurationMsOfBooks(bookIds: List<String>): Long
+
     /** Live (non-tombstoned) shelf ids. */
     @Query("SELECT id FROM shelves WHERE deletedAt IS NULL")
     suspend fun liveIds(): List<String>

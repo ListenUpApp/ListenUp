@@ -63,4 +63,12 @@ class ShelfDaoHeldExclusionTest :
                 db.shelfDao().totalDurationMsFor("s1") shouldBe 3_000L
             }
         }
+
+        test("totalDurationMsOfBooks sums exactly the named books") {
+            withHeldBookDb { db ->
+                seedShelf(db)
+                db.shelfDao().totalDurationMsOfBooks(listOf("held")) shouldBe 2_000L
+                db.shelfDao().totalDurationMsOfBooks(listOf("visible", "held")) shouldBe 3_000L
+            }
+        }
     })

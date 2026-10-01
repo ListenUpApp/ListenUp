@@ -21,6 +21,7 @@ import org.koin.test.verify.verify
  *  - [ServerConfig] — owned by `settingsModule`.
  *  - [ShelfDao] — owned by `persistenceModule`.
  *  - [UserDao] — owned by `persistenceModule`.
+ *  - [CollectionBookDao][com.calypsan.listenup.client.data.local.db.CollectionBookDao] — owned by `persistenceModule`.
  *  - [ImageRepository] — owned by `mediaModule`.
  *  - [BookRatingDao] — owned by `persistenceModule` ([BookRatingRepository][com.calypsan.listenup.client.domain.repository.BookRatingRepository] is piggy-backed here, see [shelfModule]'s KDoc).
  *  - [OfflineEditor] — owned by `clientSyncModule`.
@@ -36,6 +37,7 @@ class ShelfModuleVerifyTest :
                     listOf(
                         ShelfDao::class,
                         UserDao::class,
+                        com.calypsan.listenup.client.data.local.db.CollectionBookDao::class,
                         ImageRepository::class,
                         ApiClientFactory::class,
                         ServerConfig::class,

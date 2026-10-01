@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.shelf.ShelfBookView
 import com.calypsan.listenup.api.dto.shelf.ShelfDetail as ShelfDetailDto
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.local.db.CollectionBookDao
 import com.calypsan.listenup.client.data.local.db.ShelfBookCoverHash
 import com.calypsan.listenup.client.data.local.db.ShelfBookDao
 import com.calypsan.listenup.client.data.local.db.ShelfDao
@@ -69,8 +70,16 @@ class ShelfRepositoryImplTest :
             shelfBookDao: ShelfBookDao = mock(MockMode.autofill),
             userDao: UserDao = mock { everySuspend { getCurrentUser() } returns user() },
             service: ShelfService = mock(),
+            collectionBookDao: CollectionBookDao = mock { everySuspend { heldBookIds() } returns emptyList() },
         ): ShelfRepositoryImpl =
-            ShelfRepositoryImpl(shelfDao, shelfBookDao, userDao, RpcChannel.forTest(service), noopOfflineEditor())
+            ShelfRepositoryImpl(
+                shelfDao,
+                shelfBookDao,
+                userDao,
+                RpcChannel.forTest(service),
+                noopOfflineEditor(),
+                collectionBookDao,
+            )
 
         fun shelfEntity(
             id: String,
@@ -317,6 +326,46 @@ class ShelfRepositoryImplTest :
                 val detail = (result as AppResult.Success).data
                 detail.books.first { it.id.value == "b1" }.coverHash shouldBe "hash-b1"
                 detail.books.first { it.id.value == "b2" }.coverHash shouldBe null
+            }
+        }
+
+        test("getShelfDetail leaves a held book off the shelf and out of its count and length") {
+            runTest {
+                val service =
+                    mock<ShelfService> {
+                        everySuspend { getShelf(ShelfId("s1")) } returns
+                            AppResult.Success(
+                                ShelfDetailDto(
+                                    id = ShelfId("s1"),
+                                    name = "Reading",
+                                    description = "",
+                                    isPrivate = false,
+                                    isOwner = true,
+                                    books =
+                                        listOf(
+                                            ShelfBookView(bookId = "b1", title = "Mistborn", authors = listOf("Sanderson")),
+                                            ShelfBookView(bookId = "held", title = "Mistwraith", authors = listOf("Wurts")),
+                                        ),
+                                    bookCount = 2,
+                                    totalDurationMs = 7_200_000L,
+                                ),
+                            )
+                    }
+                val dao =
+                    mock<ShelfDao> {
+                        everySuspend { coverHashesByBookFor("s1") } returns emptyList()
+                        everySuspend { totalDurationMsOfBooks(listOf("held")) } returns 3_000_000L
+                    }
+                val collectionBookDao = mock<CollectionBookDao> { everySuspend { heldBookIds() } returns listOf("held") }
+
+                val result =
+                    repo(shelfDao = dao, service = service, collectionBookDao = collectionBookDao)
+                        .getShelfDetail(ShelfId("s1"))
+
+                val detail = (result as AppResult.Success).data
+                detail.books.map { it.id.value } shouldBe listOf("b1")
+                detail.bookCount shouldBe 1
+                detail.totalDurationSeconds shouldBe 4_200L
             }
         }
 
