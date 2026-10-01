@@ -634,8 +634,8 @@ internal val settingsPresentationModule =
                 errorBus = get(),
             )
         }
-        // Settings → Account → Hardcover: connect, watch the sign-in complete, disconnect.
-        factory { HardcoverSettingsViewModel(get()) }
+        // Settings → Account → Hardcover: connect, sync, the books that need a match, disconnect.
+        factory { HardcoverSettingsViewModel(repository = get(), bookRepository = get()) }
         // DevicesViewModel for the Devices (active sessions) screen
         factory { DevicesViewModel(authRepository = get()) }
         // factory (NOT single) — same cancelled-viewModelScope hazard as the Library VMs above.
