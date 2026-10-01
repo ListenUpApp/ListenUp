@@ -1,8 +1,14 @@
 package com.calypsan.listenup.server.hardcover
 
 import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
+import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
+import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.ShelfBookRepository
+import com.calypsan.listenup.server.sync.ShelfRepository
+import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.MutableClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -11,6 +17,7 @@ import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.test.runTest
@@ -19,6 +26,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atTime
 import kotlinx.datetime.toInstant
 import kotlinx.serialization.json.jsonPrimitive
+import kotlin.time.Clock
 import kotlin.time.Instant
 
 private const val USER = "u1"
@@ -46,14 +54,22 @@ internal class PullRig(
     val store = HardcoverPullStore(sql, clock)
     val links = HardcoverBookLinkStore(sql, clock)
     val outbox = HardcoverOutbox(sql, clock)
-    val connections = HardcoverConnectionStore(sql, HardcoverTokenCipher(HardcoverTokenCipher.deriveKey("secret")), clock)
     val userBooks = HardcoverUserBooks(hardcover.client())
+    val bus = ChangeBus()
+    private val registry = SyncRegistry()
+    val shelves = ShelfRepository(sql, bus, registry, clock)
+    val shelfBooks = ShelfBookRepository(sql, bus, registry, clock)
+    val shelfEntries = HardcoverShelfEntryStore(sql, clock)
+    val wantToRead = HardcoverWantToRead(sql, shelfEntries, shelves, shelfBooks, BookAccessPolicy(sql, dbs.driver))
+    val connections =
+        HardcoverConnectionStore(sql, HardcoverTokenCipher(HardcoverTokenCipher.deriveKey("secret")), clock, wantToRead = wantToRead)
     val puller =
         HardcoverPuller(
             userBooks = userBooks,
             store = store,
             resolver = HardcoverShelfResolver(sql, BookAccessPolicy(sql, dbs.driver)),
             links = links,
+            wantToRead = wantToRead,
             rateLimiter = NoWaitRateLimiter(),
             sql = sql,
             clock = clock,
@@ -102,6 +118,22 @@ internal fun pullTest(
     readChangesTouchShelf: Boolean = true,
     block: suspend PullRig.() -> Unit,
 ) = withSqlDatabase { runTest { PullRig(this@withSqlDatabase, readChangesTouchShelf).block() } }
+
+/** A [HardcoverWantToRead] over [dbs] with shelves of its own, for rigs that never look at a shelf. */
+internal fun testWantToRead(
+    dbs: SqlTestDatabases,
+    clock: Clock,
+): HardcoverWantToRead {
+    val bus = ChangeBus()
+    val registry = SyncRegistry()
+    return HardcoverWantToRead(
+        dbs.sql,
+        HardcoverShelfEntryStore(dbs.sql, clock),
+        ShelfRepository(dbs.sql, bus, registry, clock),
+        ShelfBookRepository(dbs.sql, bus, registry, clock),
+        BookAccessPolicy(dbs.sql, dbs.driver),
+    )
+}
 
 /** One page of spec B3's pull: fetch what changed, resolve it, mirror its finished reads, move the cursor. */
 class HardcoverPullerTest :
@@ -219,5 +251,14 @@ class HardcoverPullerTest :
                 store.pulledReads(USER) shouldBe emptyList()
                 store.pullState(USER)!!.cursorId shouldBe stranger.id
             }
+        }
+
+        test("a shelf write that fails is the page's failure, so the cursor stays where it was") {
+            AppResult.Success(Unit).asPullFailure() shouldBe null
+            AppResult
+                .Failure(SyncError.NotFound(domain = "shelf_books", entityId = "x"))
+                .asPullFailure()
+                .shouldBeInstanceOf<HardcoverCall.Failed>()
+                .detail shouldContain "want to read"
         }
     })

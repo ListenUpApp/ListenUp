@@ -44,7 +44,8 @@ data class OwnedShelf(
  *  - [listOwnedBy] — all live shelves for a user
  *  - [findById] — one live shelf by id, or null
  *  - [findOwnedById] — one live shelf + its owner id, or null
- *  - [createStarterShelf] — the one-shot "To Read" shelf created at registration
+ *  - [createStarterShelf] — the one-shot "To Read" shelf created at registration, remembered on the user
+ *  - [createPublicShelf] — an empty public shelf made for a user (the starter, or Hardcover's Want to Read)
  *  - [listForOwner] — every live public shelf owned by a user (with owner id)
  *  - [listDiscoverable] — every live public shelf NOT owned by a user (with owner id)
  */
@@ -213,7 +214,8 @@ class ShelfRepository(
         }
 
     /**
-     * Creates a "To Read" starter shelf for [userId].
+     * Creates a "To Read" starter shelf for [userId] and remembers it on the user
+     * (`users.starter_shelf_id`), so Hardcover's Want to Read (#1539) still finds it after a rename.
      *
      * This is a one-shot call made at user-registration time. It is intentionally NOT
      * idempotent — registering a user is idempotent at the row level and this call is
@@ -224,11 +226,27 @@ class ShelfRepository(
      * event of a UUID clash).
      */
     suspend fun createStarterShelf(userId: String): AppResult<ShelfSyncPayload> {
+        val created = createPublicShelf(userId, name = "To Read")
+        if (created is AppResult.Success) {
+            suspendTransaction(db) { db.usersQueries.setStarterShelf(starter_shelf_id = created.data.id, id = userId) }
+        }
+        return created
+    }
+
+    /**
+     * Creates an empty public shelf named [name] for [userId], through [upsert], so it syncs to the user's
+     * devices like any shelf they made themselves. Used for the starter shelf, and by Hardcover's Want to
+     * Read when that shelf is gone.
+     */
+    suspend fun createPublicShelf(
+        userId: String,
+        name: String,
+    ): AppResult<ShelfSyncPayload> {
         val now = clock.now().toEpochMilliseconds()
         val payload =
             ShelfSyncPayload(
                 id = Uuid.random().toString(),
-                name = "To Read",
+                name = name,
                 description = "",
                 isPrivate = false,
                 revision = 0L,

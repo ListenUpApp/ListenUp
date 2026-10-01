@@ -75,10 +75,10 @@ data class HardcoverPushHealth(
  * [StoredConnection.Broken] with [HardcoverBrokenReason.CANNOT_DECRYPT]. That is derived on every
  * read rather than written back, so restoring the original secret heals it with no migration.
  *
- * It also owns push and pull health, and forgets a user's book links, pending pushes and pulled reads
- * when the connection ends or changes account. The listener's share mode is not sync state: it lives in
- * [HardcoverPreferences] and survives both. Every change to sync health ([markSynced],
- * [recordPushError], [markPulled], [recordPullError]) is announced on
+ * It also owns push and pull health, and forgets a user's book links, pending pushes, pulled reads and
+ * Hardcover's Want to Read shelf books when the connection ends or changes account. The listener's share
+ * mode is not sync state: it lives in [HardcoverPreferences] and survives both. Every change to sync
+ * health ([markSynced], [recordPushError], [markPulled], [recordPullError]) is announced on
  * [HardcoverSyncActivity.healthChanged], so a watching client sees it.
  */
 class HardcoverConnectionStore(
@@ -86,6 +86,7 @@ class HardcoverConnectionStore(
     private val cipher: HardcoverTokenCipher,
     private val clock: Clock = Clock.System,
     private val activity: HardcoverSyncActivity? = null,
+    private val wantToRead: HardcoverWantToRead? = null,
 ) {
     private val queries get() = sql.hardcoverConnectionsQueries
 
@@ -130,6 +131,10 @@ class HardcoverConnectionStore(
         tokens: HardcoverTokens,
     ): HardcoverConnection.Connected {
         val now = clock.now().toEpochMilliseconds()
+        // Shelf changes go through the shelf repositories, each in its own transaction and synced, so they
+        // run before the connection's own transaction rather than inside it.
+        val previous = suspendTransaction(sql) { queries.selectHcUserId(userId).executeAsOneOrNull() }
+        if (previous != null && previous != me.id) wantToRead?.forget(userId)
         suspendTransaction(sql) {
             // Links, pending pushes and pulled reads belong to ONE Hardcover account: connecting a different
             // one must neither write to the old account's records nor show its reads. The same account
@@ -191,11 +196,12 @@ class HardcoverConnectionStore(
     }
 
     /**
-     * Forgets [userId]'s connection, their book links, their pending pushes and their pulled Hardcover
-     * reads. The pushed-read ledger
-     * survives, so a later reconnect never pulls ListenUp's own reads back. A no-op when there is none.
+     * Forgets [userId]'s connection, their book links, their pending pushes, their pulled Hardcover reads
+     * and the books Hardcover's Want to Read put on a shelf. The pushed-read ledger survives, so a later
+     * reconnect never pulls ListenUp's own reads back. A no-op when there is none.
      */
     suspend fun delete(userId: String) {
+        wantToRead?.forget(userId)
         suspendTransaction(sql) {
             queries.deleteByUser(userId)
             forgetSyncState(userId)

@@ -1049,6 +1049,7 @@ One beautiful library.</string>
     <string name="hardcover_code_copied">Copied</string>
     <string name="hardcover_comes_back_line">Books you've read elsewhere appear in Readers with a Hardcover label.</string>
     <string name="hardcover_comes_back_never_listening">They never count as listening.</string>
+    <string name="hardcover_comes_back_want_to_read">Your Want to Read list, on your To Read shelf</string>
     <string name="hardcover_connect">Connect Hardcover</string>
     <string name="hardcover_connected">Connected</string>
     <string name="hardcover_connected_since">Since %1$s</string>

@@ -1,0 +1,52 @@
+-- hardcover_shelf_entries: the books Hardcover's Want to Read put on a ListenUp shelf (#1539), and the
+-- ones the user then took off by hand. See V80__hardcover_want_to_read.sql for every column's meaning.
+-- FKs (→ users, → books, → shelves, ON DELETE CASCADE) live in the migration DDL.
+CREATE TABLE hardcover_shelf_entries (
+    user_id         TEXT    NOT NULL,
+    book_id         TEXT    NOT NULL,
+    shelf_id        TEXT    NOT NULL,
+    hc_user_book_id INTEGER NOT NULL,
+    state           TEXT    NOT NULL CHECK (state IN ('ON_SHELF', 'USER_REMOVED')),
+    seen_at         INTEGER NOT NULL,
+    updated_at      INTEGER NOT NULL,
+    PRIMARY KEY (user_id, book_id)
+);
+
+CREATE INDEX idx_hardcover_shelf_entries_hc ON hardcover_shelf_entries(user_id, hc_user_book_id);
+CREATE INDEX idx_hardcover_shelf_entries_book ON hardcover_shelf_entries(book_id);
+CREATE INDEX idx_hardcover_shelf_entries_shelf ON hardcover_shelf_entries(shelf_id);
+
+selectForBook:
+SELECT * FROM hardcover_shelf_entries WHERE user_id = :user_id AND book_id = :book_id;
+
+-- The records a page's non-Want-to-Read entries came from: how a status change finds its book.
+selectForHcUserBooks:
+SELECT * FROM hardcover_shelf_entries
+WHERE user_id = :user_id AND hc_user_book_id IN :hc_user_book_ids
+ORDER BY book_id;
+
+-- What a full pull that started at :since never saw on Want to Read.
+selectNotSeenSince:
+SELECT * FROM hardcover_shelf_entries WHERE user_id = :user_id AND seen_at < :since ORDER BY book_id;
+
+selectForUser:
+SELECT * FROM hardcover_shelf_entries WHERE user_id = :user_id ORDER BY book_id;
+
+putOnShelf:
+INSERT OR REPLACE INTO hardcover_shelf_entries (user_id, book_id, shelf_id, hc_user_book_id, state, seen_at, updated_at)
+VALUES (:user_id, :book_id, :shelf_id, :hc_user_book_id, 'ON_SHELF', :seen_at, :updated_at);
+
+markSeen:
+UPDATE hardcover_shelf_entries SET hc_user_book_id = :hc_user_book_id, seen_at = :seen_at
+WHERE user_id = :user_id AND book_id = :book_id;
+
+-- The user took a book Hardcover put on THIS shelf off it by hand (ShelfServiceImpl.removeBookFromShelf).
+markRemovedByHand:
+UPDATE hardcover_shelf_entries SET state = 'USER_REMOVED', updated_at = :updated_at
+WHERE user_id = :user_id AND shelf_id = :shelf_id AND book_id = :book_id AND state = 'ON_SHELF';
+
+deleteForBook:
+DELETE FROM hardcover_shelf_entries WHERE user_id = :user_id AND book_id = :book_id;
+
+deleteForUser:
+DELETE FROM hardcover_shelf_entries WHERE user_id = :user_id;

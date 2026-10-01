@@ -10481,6 +10481,16 @@
         }
       }
     },
+    "hardcover.comes_back_want_to_read": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Want to Read list, on your To Read shelf"
+          }
+        }
+      }
+    },
     "hardcover.connect": {
       "localizations": {
         "en": {

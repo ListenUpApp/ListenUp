@@ -16,6 +16,8 @@ import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.hardcover.HardcoverShelfEntryState
+import com.calypsan.listenup.server.hardcover.HardcoverShelfEntryStore
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.services.ActivitySyncRepository
@@ -63,6 +65,7 @@ class ShelfServiceTest :
         fun makeService(
             sql: ListenUpDatabase,
             driver: SqlDriver,
+            hardcoverShelfEntries: HardcoverShelfEntryStore? = null,
         ): ShelfServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
@@ -73,6 +76,7 @@ class ShelfServiceTest :
                 readAssembler = ShelfReadAssembler(sql),
                 clock = fixedClock,
                 principal = principalFor("u1"),
+                hardcoverShelfEntries = hardcoverShelfEntries,
             )
         }
 
@@ -512,6 +516,53 @@ class ShelfServiceTest :
                     val result = base.actAs("u2").getShelf(shelf.id)
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<ShelfError.NotFound>()
+                }
+            }
+        }
+
+        test("taking a book Hardcover shelved off by hand is remembered — on that shelf only") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestBook("b1")
+
+                runTest {
+                    seedOwnedCollection(sql, driver, "u1-col", "b1")
+                    val entries = HardcoverShelfEntryStore(sql, fixedClock)
+                    val service = makeService(sql, driver, hardcoverShelfEntries = entries).actAs("u1")
+                    val toRead = service.createShelf(name = "To Read").value()
+                    val other = service.createShelf(name = "Favourites").value()
+                    service.addBookToShelf(toRead.id, BookId("b1")).value()
+                    service.addBookToShelf(other.id, BookId("b1")).value()
+                    entries.putOnShelf("u1", "b1", toRead.id.value, hcUserBookId = 7L, seenAt = 1L)
+
+                    service.removeBookFromShelf(other.id, BookId("b1")).value()
+                    entries.recordFor("u1", "b1")!!.state shouldBe HardcoverShelfEntryState.ON_SHELF
+
+                    service.removeBookFromShelf(toRead.id, BookId("b1")).value()
+                    entries.recordFor("u1", "b1")!!.state shouldBe HardcoverShelfEntryState.USER_REMOVED
+                }
+            }
+        }
+
+        test("Hardcover's own removal, through the repository, is never taken for the user's") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestBook("b1")
+
+                runTest {
+                    seedOwnedCollection(sql, driver, "u1-col", "b1")
+                    val entries = HardcoverShelfEntryStore(sql, fixedClock)
+                    val service = makeService(sql, driver, hardcoverShelfEntries = entries).actAs("u1")
+                    val toRead = service.createShelf(name = "To Read").value()
+                    service.addBookToShelf(toRead.id, BookId("b1")).value()
+                    entries.putOnShelf("u1", "b1", toRead.id.value, hcUserBookId = 7L, seenAt = 1L)
+
+                    ShelfBookRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                        .removeBook(toRead.id.value, "b1", userId = "u1")
+
+                    entries.recordFor("u1", "b1")!!.state shouldBe HardcoverShelfEntryState.ON_SHELF
                 }
             }
         }

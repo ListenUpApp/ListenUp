@@ -13,6 +13,7 @@ import com.calypsan.listenup.server.hardcover.HardcoverPushHook
 import com.calypsan.listenup.server.hardcover.HardcoverPushRecorder
 import com.calypsan.listenup.server.hardcover.HardcoverPushWorker
 import com.calypsan.listenup.server.hardcover.HardcoverTokenProvider
+import com.calypsan.listenup.server.hardcover.HardcoverWantToRead
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.testing.authedService
 import com.calypsan.listenup.server.testing.publicAuthService
@@ -72,6 +73,7 @@ class HardcoverModuleBootTest :
                     koinGet<HardcoverPullWorker>().shouldNotBeNull()
                     koinGet<HardcoverPullRequests>().shouldBeInstanceOf<HardcoverPullWorker>()
                     koinGet<HardcoverPreferences>().shouldNotBeNull()
+                    koinGet<HardcoverWantToRead>().shouldNotBeNull()
                 }
 
                 val service = authedService<HardcoverService>(rootToken())

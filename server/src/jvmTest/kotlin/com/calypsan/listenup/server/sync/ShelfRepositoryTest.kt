@@ -66,6 +66,48 @@ class ShelfRepositoryTest :
             }
         }
 
+        test("the starter shelf is remembered on its user, so it stays the starter whatever it is renamed to") {
+            withSqlDatabase {
+                sql.seedTestUser("userA")
+                val repo = ShelfRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+
+                runTest {
+                    val starter = repo.createStarterShelf("userA").shouldBeInstanceOf<AppResult.Success<ShelfSyncPayload>>().data
+
+                    starter.name shouldBe "To Read"
+                    starter.isPrivate shouldBe false
+                    sql.usersQueries
+                        .selectShelfTargets("userA")
+                        .executeAsOne()
+                        .starter_shelf_id shouldBe starter.id
+                }
+            }
+        }
+
+        test("a public shelf made for a user is theirs, public, and is not their starter shelf") {
+            withSqlDatabase {
+                sql.seedTestUser("userA")
+                val repo = ShelfRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+
+                runTest {
+                    val made =
+                        repo
+                            .createPublicShelf(
+                                "userA",
+                                "Want to Read",
+                            ).shouldBeInstanceOf<AppResult.Success<ShelfSyncPayload>>()
+                            .data
+
+                    repo.listOwnedBy("userA").map { it.id to it.name } shouldContainExactly listOf(made.id to "Want to Read")
+                    made.isPrivate shouldBe false
+                    sql.usersQueries
+                        .selectShelfTargets("userA")
+                        .executeAsOne()
+                        .starter_shelf_id shouldBe null
+                }
+            }
+        }
+
         test("a shelf row carries the owner's user_id") {
             withSqlDatabase {
                 sql.seedTestUser("userA")

@@ -80,6 +80,7 @@ private class PullWorkerRig(
                     store = store,
                     resolver = HardcoverShelfResolver(sql, BookAccessPolicy(sql, dbs.driver)),
                     links = links,
+                    wantToRead = testWantToRead(dbs, clock),
                     rateLimiter = NoWaitRateLimiter(),
                     sql = sql,
                     clock = clock,

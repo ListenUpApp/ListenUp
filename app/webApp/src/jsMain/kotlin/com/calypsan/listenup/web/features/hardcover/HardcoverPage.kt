@@ -374,6 +374,7 @@ private fun Connected(
                             Span(attrs = { classes("hc-quiet") }) { Text("They never count as listening.") }
                         }
                     }
+                    ListItem(WebIcon.Bookmark, "Your Want to Read list, on your To Read shelf")
                 }
             }
             Div(attrs = { classes("hc-actions") }) {

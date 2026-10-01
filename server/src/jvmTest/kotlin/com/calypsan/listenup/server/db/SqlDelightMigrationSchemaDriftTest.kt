@@ -140,6 +140,7 @@ private val SQ_TABLES =
         "hardcover_outbox",
         "hardcover_pushed_reads",
         "hardcover_preferences",
+        "hardcover_shelf_entries",
     )
 
 /** A table's comparable shape: column → storage-class category, and the set of its indexes. */

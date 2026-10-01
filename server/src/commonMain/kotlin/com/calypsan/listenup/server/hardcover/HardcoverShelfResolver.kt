@@ -30,8 +30,8 @@ private val REVERSE_TIERS = listOf(HardcoverMatchMethod.ASIN, HardcoverMatchMeth
 
 /**
  * Resolves the pull's shelf entries (spec B3) to the user's library books. A book LINKED to the
- * entry's Hardcover book wins. Otherwise, for an entry with a finished read to write, a local reverse
- * match runs — the logged edition's ASIN, then its ISBNs, then an exact normalised title with at least
+ * entry's Hardcover book wins. Otherwise, for an entry with a finished read to write or one on Want to
+ * Read (#1539), a local reverse match runs — the logged edition's ASIN, then its ISBNs, then an exact normalised title with at least
  * one exact author — the way the ABS importer's `BookMatcher` does: exactly one book the user may see
  * wins, more than one stops the search. The author test accepts ANY of the entry's contributors:
  * Hardcover lists illustrators and translators with no role, sometimes first (Alice's John Tenniel).
@@ -65,7 +65,8 @@ class HardcoverShelfResolver(
                         ShelfResolution.Linked(linked.single())
                     }
 
-                    linked.isEmpty() && entry.finishedReads.isNotEmpty() -> {
+                    linked.isEmpty() &&
+                        (entry.finishedReads.isNotEmpty() || entry.statusId == HardcoverStatus.WANT_TO_READ) -> {
                         reverseMatch(
                             userId,
                             role,
