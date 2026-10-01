@@ -2,7 +2,8 @@ import SwiftUI
 import Shared
 
 /// Settings › Account › Hardcover: connect with Hardcover's device sign-in, watch it complete, see
-/// who you're connected as, disconnect, and reconnect a broken connection.
+/// who you're connected as, when it last synced and which books need a match, disconnect, and
+/// reconnect a broken connection.
 ///
 /// A grouped `Form` per phase, with the phase's actions held at the bottom edge as prominent
 /// capsule buttons, where a thumb reaches them. Disconnect confirms with an action sheet; Cancel
@@ -12,6 +13,8 @@ struct HardcoverSettingsView: View {
     @Environment(\.openURL) private var openURL
     @State private var observer: HardcoverSettingsObserver?
     @State private var showingDisconnectConfirmation = false
+    /// The book Find on Hardcover is open for, from the Needs a Match list.
+    @State private var matchTarget: HardcoverMatchTarget?
 
     var body: some View {
         Group {
@@ -48,6 +51,7 @@ struct HardcoverSettingsView: View {
             Text(String(localized: "hardcover.disconnect_confirm_body"))
         }
         .messageAlert(alertBinding)
+        .sheet(item: $matchTarget) { HardcoverMatchSheet(bookId: $0.bookId) }
     }
 
     private var alertBinding: Binding<MessageAlert?> {
@@ -76,7 +80,12 @@ struct HardcoverSettingsView: View {
                     onCancel: { observer.disconnect() }
                 )
             case .connected(let connected):
-                HardcoverConnectedPhase(model: connected) { showingDisconnectConfirmation = true }
+                HardcoverConnectedPhase(
+                    model: connected,
+                    onSyncNow: { observer.syncNow() },
+                    onFindMatch: { matchTarget = HardcoverMatchTarget(bookId: $0) },
+                    onDisconnect: { showingDisconnectConfirmation = true }
+                )
             case .broken(let broken):
                 HardcoverBrokenPhase(
                     model: broken,
@@ -240,69 +249,6 @@ private struct HardcoverLinkingPhase: View {
     }
 }
 
-// MARK: - Connected
-
-private struct HardcoverConnectedPhase: View {
-    let model: HardcoverConnectedModel
-    let onDisconnect: () -> Void
-
-    var body: some View {
-        Form {
-            Section {
-                HStack(spacing: 14) {
-                    Circle()
-                        .fill(Color.luTint)
-                        .frame(width: 56, height: 56)
-                        .overlay {
-                            Text(model.username.prefix(1).uppercased())
-                                .font(.title2.weight(.semibold))
-                                .foregroundStyle(Color.luOnTint)
-                        }
-                        .accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(model.username)
-                            .font(.headline)
-                        Label(String(localized: "hardcover.connected"), systemImage: "checkmark")
-                            .font(.subheadline)
-                            .foregroundStyle(.green)
-                        Text(String(format: String(localized: "hardcover.connected_since"), sinceText))
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                    .accessibilityElement(children: .combine)
-                }
-                .padding(.vertical, Spacing.xxs)
-            }
-            Section(String(localized: "hardcover.what_is_shared")) {
-                HardcoverStatementRow(
-                    systemImage: "checkmark",
-                    text: String(localized: "hardcover.shared_finished_row"),
-                    tint: Color.secondary
-                )
-            }
-            Section {
-                Button(role: .destructive, action: onDisconnect) {
-                    HStack {
-                        Spacer()
-                        if model.isDisconnecting {
-                            ProgressView()
-                        } else {
-                            Text(String(localized: "hardcover.disconnect"))
-                        }
-                        Spacer()
-                    }
-                }
-                .disabled(model.isDisconnecting)
-            }
-        }
-        .readableListWidth(720)
-    }
-
-    private var sinceText: String {
-        model.since.formatted(date: .long, time: .omitted)
-    }
-}
-
 // MARK: - Needs reconnecting
 
 private struct HardcoverBrokenPhase: View {
@@ -381,7 +327,7 @@ private struct HardcoverHero: View {
 }
 
 /// One promise about what connecting does, with its glyph.
-private struct HardcoverStatementRow: View {
+struct HardcoverStatementRow: View {
     let systemImage: String
     let text: String
     let tint: Color
