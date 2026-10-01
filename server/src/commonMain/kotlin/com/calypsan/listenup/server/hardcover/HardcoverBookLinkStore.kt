@@ -214,6 +214,10 @@ class HardcoverBookLinkStore(
         limit: Long,
     ): List<String> = suspendTransaction(sql) { queries.unlinkedStartedBooks(userId, after, limit).executeAsList() }
 
+    /** [userId]'s live books that need a match, newest first. */
+    suspend fun booksNeedingMatch(userId: String): List<String> =
+        suspendTransaction(sql) { queries.needsMatchBooks(userId).executeAsList() }
+
     private fun now() = clock.now().toEpochMilliseconds()
 
     private fun Hardcover_book_links.toLink() =

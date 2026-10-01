@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.repository
 import app.cash.turbine.test
 import com.calypsan.listenup.api.HardcoverService
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookCandidate
+import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
@@ -223,6 +224,10 @@ private class FakeHardcoverService(
         syncIfStaleCount++
         return AppResult.Success(Unit)
     }
+    override suspend fun booksNeedingMatch(): AppResult<List<BookId>> = AppResult.Failure(HardcoverError.NotConfigured())
+
+    override suspend fun bookMatch(bookId: BookId): AppResult<HardcoverBookMatch> =
+        AppResult.Failure(HardcoverError.NotConfigured())
 }
 
 /** Records the [idempotent] flag each unary call was dispatched with, then delegates to the service. */

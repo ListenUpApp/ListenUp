@@ -114,3 +114,11 @@ SELECT EXISTS(SELECT 1 FROM hardcover_book_links WHERE user_id = :user_id AND bo
 -- The pull saw this book's shelf entry at :pull_seen_at (a completed full pull deletes what it didn't see).
 markPullSeen:
 UPDATE hardcover_book_links SET pull_seen_at = :pull_seen_at WHERE user_id = :user_id AND book_id = :book_id;
+
+-- The user's books that need a match, newest first. Live books only: a removed book has nothing to sync.
+needsMatchBooks:
+SELECT l.book_id
+FROM hardcover_book_links AS l
+JOIN books AS b ON b.id = l.book_id
+WHERE l.user_id = :user_id AND l.match_state = 'NEEDS_MATCH' AND b.deleted_at IS NULL
+ORDER BY l.updated_at DESC, l.book_id;
