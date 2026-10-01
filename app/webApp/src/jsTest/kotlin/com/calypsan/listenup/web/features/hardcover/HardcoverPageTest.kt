@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.hardcover
 
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverBookToMatch
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverSyncStatus
@@ -71,6 +72,7 @@ class HardcoverPageTest :
             onDisconnect: () -> Unit = {},
             onOpenSettings: () -> Unit = {},
             onSyncNow: () -> Unit = {},
+            onSetShareMode: (HardcoverShareMode) -> Unit = {},
             onFindMatch: (String) -> Unit = {},
             copyText: (String, (Boolean) -> Unit) -> Unit = { _, onResult -> onResult(true) },
         ): HTMLElement =
@@ -80,6 +82,7 @@ class HardcoverPageTest :
                     onConnect = onConnect,
                     onDisconnect = onDisconnect,
                     onSyncNow = onSyncNow,
+                    onSetShareMode = onSetShareMode,
                     onFindMatch = onFindMatch,
                     onOpenSettings = onOpenSettings,
                     nowMs = NOW_MS,
@@ -454,6 +457,54 @@ class HardcoverPageTest :
             shares.querySelector("h3")!!.textContent shouldBe "What comes back"
             text shouldContain "Books you've read elsewhere appear in Readers with a Hardcover label."
             text shouldContain "They never count as listening."
+        }
+
+        test("Update Hardcover offers As I listen and Only when I finish, as a labelled group, the current one pressed") {
+            val group = mount(CONNECTED).panel("What ListenUp shares").querySelector(".hc-share-mode .seg") as HTMLElement
+
+            group.getAttribute("role") shouldBe "group"
+            group.getAttribute("aria-label") shouldBe "Update Hardcover"
+            val options = group.querySelectorAll("button").asList().map { it as HTMLButtonElement }
+            options.map { it.textContent.orEmpty().trim() } shouldBe listOf("As I listen", "Only when I finish")
+            options.map { it.getAttribute("aria-pressed") } shouldBe listOf("true", "false")
+        }
+
+        test("Only when I finish names only finishing, with its dates, and says nothing is shared while listening") {
+            val shares = mount(CONNECTED.copy(shareMode = HardcoverShareMode.FINISHED_ONLY)).panel("What ListenUp shares")
+            val text = shares.textContent.orEmpty()
+
+            text shouldContain "Only books you finish, marked as read, with when you started and finished"
+            text shouldContain "Nothing is shared while you're still listening"
+            text shouldNotContain "How far you've listened"
+            text shouldNotContain "Books you start, as Currently reading"
+            shares.button("Only when I finish").getAttribute("aria-pressed") shouldBe "true"
+            text shouldContain "They never count as listening."
+        }
+
+        test("choosing a mode asks for it") {
+            val chosen = mutableListOf<HardcoverShareMode>()
+            val host = mount(CONNECTED, onSetShareMode = { chosen += it })
+
+            host.button("Only when I finish").click()
+
+            chosen shouldBe listOf(HardcoverShareMode.FINISHED_ONLY)
+        }
+
+        test("while a choice saves, neither option can be pressed, and focus stays where it was") {
+            val chosen = mutableListOf<HardcoverShareMode>()
+            val host =
+                mount(
+                    CONNECTED.copy(shareMode = HardcoverShareMode.FINISHED_ONLY, isSavingShareMode = true),
+                    onSetShareMode = { chosen += it },
+                )
+            val options = host.querySelectorAll(".hc-share-mode .seg button").asList().map { it as HTMLButtonElement }
+
+            options.map { it.getAttribute("aria-disabled") } shouldBe listOf("true", "true")
+            // aria-disabled rather than `disabled`: a disabled button drops the focus a keyboard press put on it.
+            options.forEach { it.disabled shouldBe false }
+            host.button("As I listen").click()
+
+            chosen shouldBe emptyList()
         }
     })
 

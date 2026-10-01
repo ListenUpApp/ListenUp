@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.browser.document
 import org.jetbrains.compose.web.dom.Text
+import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.asList
 import org.w3c.dom.events.KeyboardEvent
@@ -182,6 +183,27 @@ class NavigationTest :
             awaitFrame()
             active shouldBe "unheard"
         }
+        test("a segmented control that is not enabled says so, keeps its buttons focusable, and ignores a press") {
+            var selected: String? = null
+            val host =
+                mounts.mount {
+                    SegmentedControl(
+                        listOf(SegmentItem("all", "All 44"), SegmentItem("unheard", "Unheard 35")),
+                        active = "all",
+                        label = "Show",
+                        enabled = false,
+                    ) { selected = it }
+                }
+
+            val segments = host.querySelectorAll(".seg button").asList().filterIsInstance<HTMLButtonElement>()
+            segments.map { it.getAttribute("aria-disabled") } shouldBe listOf("true", "true")
+            segments.map { it.disabled } shouldBe listOf(false, false)
+
+            segments[1].click()
+            awaitFrame()
+            selected shouldBe null
+        }
+
         test("a filter chip's remove control is a real, named button") {
             val host = mounts.mount { Pill("Horror", selected = true, onClick = {}, onRemove = {}) }
 
