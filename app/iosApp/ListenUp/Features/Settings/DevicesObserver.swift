@@ -70,9 +70,8 @@ final class DevicesObserver {
 
     func revokeDevice(_ sessionId: String) { viewModel.revokeDevice(sessionId: sessionId) }
 
-    func signOutEverywhere(onDone: @escaping () -> Void) {
-        viewModel.signOutEverywhere(onDone: onDone)
-    }
+    /// Signs out every device except this one, which stays signed in; the list then re-fetches.
+    func signOutOtherDevices() { viewModel.signOutOtherDevices() }
 
     // MARK: - State mapping
 

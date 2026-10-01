@@ -173,7 +173,7 @@ private class FailThenRotateRepository : AuthRepository {
 
     override suspend fun revokeSession(sessionId: SessionId) = TODO()
 
-    override suspend fun logoutAll() = TODO()
+    override suspend fun revokeOtherSessions() = TODO()
 }
 
 /**
@@ -196,7 +196,7 @@ private class AlwaysSameTokenRepository : AuthRepository {
 
     override suspend fun revokeSession(sessionId: SessionId) = TODO()
 
-    override suspend fun logoutAll() = TODO()
+    override suspend fun revokeOtherSessions() = TODO()
 }
 
 private fun stubSession(token: AccessToken): ContractAuthSession =

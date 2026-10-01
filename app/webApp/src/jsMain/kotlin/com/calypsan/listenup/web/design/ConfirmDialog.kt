@@ -14,8 +14,8 @@ import org.jetbrains.compose.web.dom.Text
  * ## Why this exists
  *
  * Deleting a shelf shipped as a two-step inline confirm because web had no dialog, and the note
- * said the pattern should be decided before a second destructive action needed it. "Sign out
- * everywhere" is the second. This is that decision, and Delete Shelf now uses it too rather than
+ * said the pattern should be decided before a second destructive action needed it. "Sign out all
+ * other devices" is the second. This is that decision, and Delete Shelf now uses it too rather than
  * leaving two shapes of "are you sure" in one app.
  *
  * ## No red

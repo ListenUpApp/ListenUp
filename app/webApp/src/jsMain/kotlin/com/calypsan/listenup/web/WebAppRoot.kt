@@ -3352,9 +3352,7 @@ private fun DevicesRoute(openDevices: OpenDevices) {
         state = session.state.collectAsState().value,
         nowMs = nowMs,
         onRevoke = session.onRevoke,
-        // The callback exists so a caller can navigate after the fact; signing out drops the whole
-        // shell on its own, so there is nothing for this one to do.
-        onSignOutEverywhere = { session.onSignOutEverywhere {} },
+        onSignOutOthers = session.onSignOutOthers,
         onRetry = session.onRetry,
     )
 }

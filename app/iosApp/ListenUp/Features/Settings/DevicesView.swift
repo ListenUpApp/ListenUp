@@ -32,26 +32,18 @@ struct DevicesView: View {
             }
         }
         .confirmationDialog(
-            String(localized: "devices.sign_out_everywhere"),
+            String(localized: "devices.sign_out_all_others"),
             isPresented: $showSignOutAllConfirmation,
             titleVisibility: .visible
         ) {
-            Button(String(localized: "devices.sign_out_everywhere"), role: .destructive) {
-                observer?.signOutEverywhere(onDone: {
-                    // Clearing auth tokens routes the app back to login via AuthStateObserver.
-                    Task {
-                        do {
-                            try await deps.authSession.clearAuthTokens()
-                        } catch is CancellationError {
-                        } catch {
-                            Log.error("clearAuthTokens failed after sign-out-everywhere", error: error)
-                        }
-                    }
-                })
+            // This device stays signed in, so there is nothing to tear down here — the list
+            // re-fetches and only this device's row remains.
+            Button(String(localized: "devices.sign_out_all_others"), role: .destructive) {
+                observer?.signOutOtherDevices()
             }
             Button(String(localized: "common.cancel"), role: .cancel) {}
         } message: {
-            Text(String(localized: "devices.sign_out_everywhere_confirm"))
+            Text(String(localized: "devices.sign_out_all_others_confirm"))
         }
     }
 

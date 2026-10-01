@@ -10,6 +10,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import org.w3c.dom.HTMLElement
 
 /** Two days back, so the relative time is stable to read. */
@@ -128,23 +129,27 @@ class DevicesPageTest :
             host.textContent.orEmpty() shouldContain "2 days ago"
         }
 
-        test("signing out everywhere asks first, and says this device is included") {
-            // The consequence someone actually needs to know before pressing it.
+        test("signing out the other devices asks first, and says this device stays signed in") {
+            // The consequence someone actually needs to know before pressing it — and it must be the
+            // true one: the action spares the device it is pressed on.
             var signedOut = 0
             val host =
                 mounts.mount {
                     DevicesPage(ready(device("s1", "This Mac", isCurrent = true)), NOW_MS, {}, { signedOut++ }, {})
                 }
 
-            (host.querySelector(".dev-danger button") as HTMLElement).click()
+            val button = host.querySelector(".dev-danger button") as HTMLElement
+            button.textContent.orEmpty() shouldContain "Sign out all other devices"
+            button.click()
             awaitFrame()
 
             signedOut shouldBe 0
             val dialog = host.querySelector("dialog.dlg").shouldNotBeNull()
-            dialog.textContent.orEmpty() shouldContain "including this one"
+            dialog.textContent.orEmpty() shouldContain "This one stays signed in"
+            dialog.textContent.orEmpty() shouldNotContain "including this one"
         }
 
-        test("confirming is what signs everything out") {
+        test("confirming is what signs the other devices out") {
             var signedOut = 0
             val host =
                 mounts.mount {

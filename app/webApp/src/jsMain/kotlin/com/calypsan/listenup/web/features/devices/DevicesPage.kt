@@ -27,15 +27,15 @@ import org.jetbrains.compose.web.dom.Text
  * The device you are reading this on is shown apart from the rest and carries **no revoke control**
  * — the same shape the Compose screen takes. Revoking your own session is signing yourself out,
  * which is a different intention from ending a session on a laptop you no longer have, and a button
- * that quietly does the first while looking like the second is a trap. "Sign out everywhere" is the
- * deliberate way to include this one, and it says so.
+ * that quietly does the first while looking like the second is a trap. "Sign out all other devices"
+ * spares this one too, and its confirmation says so; signing this device out is the account menu's.
  */
 @Composable
 fun DevicesPage(
     state: DevicesUiState,
     nowMs: Long,
     onRevoke: (String) -> Unit,
-    onSignOutEverywhere: () -> Unit,
+    onSignOutOthers: () -> Unit,
     onRetry: () -> Unit,
 ) {
     var confirming by remember { mutableStateOf(false) }
@@ -91,20 +91,20 @@ fun DevicesPage(
                 }
 
                 Div(attrs = { classes("dev-danger") }) {
-                    Button(kind = ButtonKind.Secondary, onClick = { confirming = true }) { Text("Sign out everywhere") }
+                    Button(kind = ButtonKind.Secondary, onClick = { confirming = true }) {
+                        Text("Sign out all other devices")
+                    }
                 }
 
                 ConfirmDialog(
                     open = confirming,
-                    title = "Sign out everywhere?",
-                    // Names the consequence people actually care about: this one included.
-                    body =
-                        "Every device is signed out, including this one. " +
-                            "Downloaded books stay on the devices that have them.",
-                    confirmLabel = "Sign out everywhere",
+                    title = "Sign out all other devices?",
+                    // Names the consequence people actually care about: which device survives.
+                    body = "Every other device is signed out. This one stays signed in.",
+                    confirmLabel = "Sign out all other devices",
                     onConfirm = {
                         confirming = false
-                        onSignOutEverywhere()
+                        onSignOutOthers()
                     },
                     onDismiss = { confirming = false },
                 )

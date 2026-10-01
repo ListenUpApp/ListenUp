@@ -100,15 +100,15 @@ class AuthRepositoryImplTest :
             }
         }
 
-        test("logoutAll delegates to the authed service") {
+        test("revokeOtherSessions delegates to the authed service") {
             runTest {
                 val authed = mock<AuthServiceAuthed>()
-                everySuspend { authed.logoutAll() } returns AppResult.Success(Unit)
+                everySuspend { authed.revokeOtherSessions() } returns AppResult.Success(Unit)
 
-                val result = repository(authed).logoutAll()
+                val result = repository(authed).revokeOtherSessions()
 
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
-                verifySuspend { authed.logoutAll() }
+                verifySuspend { authed.revokeOtherSessions() }
             }
         }
 

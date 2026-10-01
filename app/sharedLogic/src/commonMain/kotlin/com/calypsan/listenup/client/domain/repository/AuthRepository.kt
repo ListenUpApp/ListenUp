@@ -71,6 +71,6 @@ interface AuthRepository {
     /** Revoke a specific session by id ("sign out this device"). Owner-scoped server-side. */
     suspend fun revokeSession(sessionId: SessionId): AppResult<Unit>
 
-    /** Revoke every session for the caller ("sign out everywhere"). */
-    suspend fun logoutAll(): AppResult<Unit>
+    /** Revoke every session for the caller except this device's own ("sign out all other devices"). */
+    suspend fun revokeOtherSessions(): AppResult<Unit>
 }

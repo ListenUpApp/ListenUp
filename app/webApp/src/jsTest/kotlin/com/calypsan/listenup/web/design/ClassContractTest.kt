@@ -2357,9 +2357,9 @@ private fun devicesShapes(): List<@Composable () -> Unit> {
         {
             ConfirmDialog(
                 open = true,
-                title = "Sign out everywhere?",
-                body = "Every device is signed out, including this one.",
-                confirmLabel = "Sign out everywhere",
+                title = "Sign out all other devices?",
+                body = "Every other device is signed out. This one stays signed in.",
+                confirmLabel = "Sign out all other devices",
                 onConfirm = {},
                 onDismiss = {},
             )
