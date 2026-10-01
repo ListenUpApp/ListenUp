@@ -79,3 +79,47 @@ SELECT id FROM book_reads
 WHERE user_id = :user_id AND book_id = :book_id AND source <> 'hardcover' AND finished_at >= :since
 ORDER BY finished_at DESC, id DESC
 LIMIT 1;
+
+selectHistory:
+SELECT * FROM hardcover_history WHERE user_id = :user_id;
+
+upsertHistory:
+INSERT OR REPLACE INTO hardcover_history (user_id, hc_user_id, state, total_books, updated_at)
+VALUES (:user_id, :hc_user_id, :state, :total_books, :updated_at);
+
+updateHistoryState:
+UPDATE hardcover_history SET state = :state, updated_at = :updated_at WHERE user_id = :user_id;
+
+deleteHistory:
+DELETE FROM hardcover_history WHERE user_id = :user_id;
+
+deleteHistoryReads:
+DELETE FROM hardcover_history_reads WHERE user_id = :user_id;
+
+-- Every HISTORY row of the user, live book or not: whether a send still has anything in the outbox.
+countHistoryRows:
+SELECT COUNT(*) FROM hardcover_outbox WHERE user_id = :user_id AND op = 'HISTORY';
+
+-- Distinct live books with a HISTORY row still queued, parked or not: what Sending has yet to finish.
+countBooksWithHistoryRows:
+SELECT COUNT(DISTINCT o.book_id)
+FROM hardcover_outbox AS o
+JOIN books AS b ON b.id = o.book_id AND b.deleted_at IS NULL
+WHERE o.user_id = :user_id AND o.op = 'HISTORY';
+
+-- Distinct live books whose HISTORY rows are parked behind NEEDS_MATCH: Done's "need a match".
+countParkedHistoryBooks:
+SELECT COUNT(DISTINCT o.book_id)
+FROM hardcover_outbox AS o
+JOIN books AS b ON b.id = o.book_id AND b.deleted_at IS NULL
+JOIN hardcover_book_links AS l ON l.user_id = o.user_id AND l.book_id = o.book_id AND l.match_state = 'NEEDS_MATCH'
+WHERE o.user_id = :user_id AND o.op = 'HISTORY';
+
+-- HISTORY rows of live books that the lane can still run (matched, or never tried): while any remain, a
+-- send is not Done.
+countRunnableHistoryRows:
+SELECT COUNT(*)
+FROM hardcover_outbox AS o
+JOIN books AS b ON b.id = o.book_id AND b.deleted_at IS NULL
+LEFT JOIN hardcover_book_links AS l ON l.user_id = o.user_id AND l.book_id = o.book_id
+WHERE o.user_id = :user_id AND o.op = 'HISTORY' AND (l.match_state IS NULL OR l.match_state = 'LINKED');
