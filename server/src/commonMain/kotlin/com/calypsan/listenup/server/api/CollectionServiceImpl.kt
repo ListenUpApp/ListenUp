@@ -221,6 +221,9 @@ private fun decisionFor(
  * bridges the contract [UserRole] to the DB [UserRoleColumn] the
  * [CollectionAccessPolicy] speaks, and gates every operation through that policy.
  *
+ * **Only admins write collections** ([createCollection] is admin-gated, and the policy gives
+ * write permission to ROOT/ADMIN alone), so a member can never hide a public book by curating it.
+ *
  * Access semantics deliberately distinguish "can't see" from "can see but can't":
  * - **Read** ([getCollection], [listCollectionBooks]) require [CollectionAccessPolicy.Decision.canAccess];
  *   otherwise [CollectionError.NotFound] — we never leak the existence of a collection
@@ -228,15 +231,15 @@ private fun decisionFor(
  * - **Write-book** ([addBookToCollection], [removeBookFromCollection]) require write
  *   permission; a caller who can read but not write gets [CollectionError.Forbidden],
  *   a caller who can't see it at all gets [CollectionError.NotFound].
- * - **Owner-only** ([renameCollection], [deleteCollection]) require ownership (admins
- *   bypass via the policy); a non-owner who can read gets [CollectionError.Forbidden],
- *   one who can't see it gets [CollectionError.NotFound].
+ * - **Admin-only management** ([renameCollection], [deleteCollection]) require ROOT/ADMIN;
+ *   a member who can read (even one owning a collection from before the admin-only rule)
+ *   gets [CollectionError.Forbidden], one who can't see it gets [CollectionError.NotFound].
  *
  * Route handlers call [copyWith] to bind each request to the authenticated principal;
  * the Koin singleton carries an unscoped placeholder that yields no principal.
  *
- * Sharing ([shareCollection], [updateShare], [revokeShare], [listShares]) is owner-only —
- * gated through [ownerGate] like rename/delete. System collections (ALL_BOOKS, INBOX) reject
+ * Sharing ([shareCollection], [updateShare], [revokeShare], [listShares]) is admin-only —
+ * gated through [manageGate] like rename/delete. System collections (ALL_BOOKS, INBOX) reject
  * all three share mutations with [CollectionError.SystemCollectionReadOnly]; the default
  * ALL_BOOKS grants are managed exclusively by [DefaultAllBooksGrantIssuer]. The per-user
  * `AccessChanged` reconcile signal on share/unshare is Collections-1b (it depends on the
@@ -334,6 +337,7 @@ internal class CollectionServiceImpl(
         name: String,
     ): AppResult<CollectionSummary> {
         val caller = resolveCaller() ?: return noPrincipal()
+        adminGate(caller.role)?.let { return AppResult.Failure(it) }
         val trimmed = name.trim()
         if (trimmed.isEmpty() || trimmed.length > MAX_NAME_LENGTH) {
             return AppResult.Failure(CollectionError.InvalidInput())
@@ -359,7 +363,7 @@ internal class CollectionServiceImpl(
     ): AppResult<CollectionSummary> {
         val caller = resolveCaller() ?: return noPrincipal()
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
-        ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+        manageGate(decision, caller.role)?.let { return AppResult.Failure(it) }
         val systemIds = collectionRepo.systemCollectionIds()
         if (id.value in systemIds) return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
 
@@ -377,7 +381,7 @@ internal class CollectionServiceImpl(
     override suspend fun deleteCollection(id: CollectionId): AppResult<Unit> {
         val caller = resolveCaller() ?: return noPrincipal()
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
-        ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+        manageGate(decision, caller.role)?.let { return AppResult.Failure(it) }
 
         if (collectionRepo.findById(id.value) == null) return AppResult.Failure(CollectionError.NotFound())
         val systemIds = collectionRepo.systemCollectionIds()
@@ -591,11 +595,12 @@ internal class CollectionServiceImpl(
     ): AppResult<CollectionShareDto> {
         val caller = resolveCaller() ?: return noPrincipal()
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
-        ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+        manageGate(decision, caller.role)?.let { return AppResult.Failure(it) }
         val systemIds = collectionRepo.systemCollectionIds()
         if (id.value in systemIds) return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
-        // canShare is an ADDITIONAL gate beyond ownership: a member must hold canShare AND own
-        // (or admin-bypass) the collection to share it. ROOT/ADMIN pass the flag implicitly.
+        // Inert since only admins write collections: manageGate admits ROOT/ADMIN alone, and they
+        // pass the canShare flag implicitly. Kept so sharing stays gated on canShare if member
+        // collection writes ever return.
         permissionPolicy
             .requireCanShare(UserId(caller.userId), caller.role.toContract())
             ?.let { return AppResult.Failure(it) }
@@ -641,7 +646,7 @@ internal class CollectionServiceImpl(
     ): AppResult<CollectionShareDto> {
         val caller = resolveCaller() ?: return noPrincipal()
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
-        ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+        manageGate(decision, caller.role)?.let { return AppResult.Failure(it) }
         val systemIds = collectionRepo.systemCollectionIds()
         if (id.value in systemIds) return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
 
@@ -673,7 +678,7 @@ internal class CollectionServiceImpl(
     ): AppResult<Unit> {
         val caller = resolveCaller() ?: return noPrincipal()
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
-        ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+        manageGate(decision, caller.role)?.let { return AppResult.Failure(it) }
         val systemIds = collectionRepo.systemCollectionIds()
         if (id.value in systemIds) return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
 
@@ -694,7 +699,7 @@ internal class CollectionServiceImpl(
     override suspend fun listShares(id: CollectionId): AppResult<List<CollectionShareDto>> {
         val caller = resolveCaller() ?: return noPrincipal()
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
-        ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+        manageGate(decision, caller.role)?.let { return AppResult.Failure(it) }
 
         val shares = grantRepo.listActiveGrantsForCollection(id.value).map { it.toDto() }
         return AppResult.Success(shares)
@@ -1146,19 +1151,18 @@ internal class CollectionServiceImpl(
     private fun noPrincipal(): AppResult.Failure = AppResult.Failure(CollectionError.NotFound())
 
     /**
-     * Owner-only gate: null = allowed (owner or admin); [CollectionError.Forbidden] if the
-     * caller can see the collection but is neither owner nor admin; [CollectionError.NotFound]
-     * if they can't see it at all (don't leak existence).
+     * Management gate (rename, delete, share, list shares): null = allowed (ROOT/ADMIN);
+     * [CollectionError.Forbidden] if the caller can see the collection but is not an admin;
+     * [CollectionError.NotFound] if they can't see it at all (don't leak existence).
      *
-     * A write-share recipient holds `canWrite` but is not an owner — so ownership can't be
-     * inferred from the [decision] alone; admin status is read from [role] directly.
+     * Only admins write collections — a member who owns a collection from before that rule
+     * can read it but not manage it (see [CollectionAccessPolicy]).
      */
-    private fun ownerGate(
+    private fun manageGate(
         decision: CollectionAccessPolicy.Decision,
         role: UserRoleColumn,
     ): CollectionError? =
         when {
-            decision.isOwner -> null
             role == UserRoleColumn.ROOT || role == UserRoleColumn.ADMIN -> null
             decision.canAccess -> CollectionError.Forbidden()
             else -> CollectionError.NotFound()

@@ -15,6 +15,7 @@ import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.DomainDigest
@@ -32,6 +33,7 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.testing.domainFrames
 import com.calypsan.listenup.server.testing.memberPrincipal
 import com.calypsan.listenup.server.testing.publicAuthService
@@ -239,10 +241,12 @@ class SeamLeakE2ETest :
                     val collections = collectionServiceAs(admin.userId, UserRole.ADMIN)
                     // Private collection owned by a STRANGER — the admin has no relationship to it,
                     // so a reachable result can only come from the ADMIN bypass, not ownership.
-                    // The stranger can only curate a book they can see: B starts in ALL_BOOKS (reached
-                    // through the default grant registration issued them) and leaves it on curation.
+                    // Only admins create collections, so a member-owned one exists only as a row from
+                    // before that rule: seed it directly, then the admin curates B into it. B starts in
+                    // ALL_BOOKS and leaves it on curation, so the public substrate can't explain reach either.
                     makeBookPublic("B")
-                    collections.createPrivateCollectionAs(stranger.userId, "Private", "B")
+                    val strangersCollection = seedCollectionOwnedBy(stranger.userId, "Private")
+                    collections.addBookToCollection(strangersCollection, BookId("B")).requireSuccess()
                     collections.addToInbox("B_inbox", "test-library").requireSuccess()
 
                     // SEAM 1: getBook → 200 for both.
@@ -497,14 +501,29 @@ private suspend fun CollectionServiceImpl.createPrivateCollection(
     return created.data.id
 }
 
-/** Creates a private collection owned by [ownerId] (acting as that user) and adds [bookId]. */
-private suspend fun CollectionServiceImpl.createPrivateCollectionAs(
+/**
+ * Seeds a live collection owned by member [ownerId] straight through the repository — as rows from
+ * before the admin-only collection-write rule exist on real servers — and returns its id.
+ */
+private suspend fun io.ktor.server.testing.ApplicationTestBuilder.seedCollectionOwnedBy(
     ownerId: String,
     name: String,
-    bookId: String,
-): CollectionId =
-    copyWith(PrincipalProvider { UserPrincipal(UserId(ownerId), SessionId("s-$ownerId"), UserRole.MEMBER) })
-        .createPrivateCollection(name, bookId)
+): CollectionId {
+    val collectionRepo by application.inject<CollectionRepository>()
+    val id = "$ownerId-$name"
+    collectionRepo
+        .upsert(
+            CollectionSyncPayload(
+                id = id,
+                libraryId = "test-library",
+                ownerId = ownerId,
+                name = name,
+                revision = 0L,
+                updatedAt = 0L,
+            ),
+        ).requireSuccess()
+    return CollectionId(id)
+}
 
 private suspend fun <T> AppResult<T>.requireSuccess(): T {
     require(this is AppResult.Success) { "expected Success but got $this" }

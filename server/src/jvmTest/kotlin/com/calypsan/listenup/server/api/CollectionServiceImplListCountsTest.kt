@@ -16,6 +16,8 @@ import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
+import com.calypsan.listenup.core.CollectionId
+import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
@@ -87,26 +89,20 @@ class CollectionServiceImplListCountsTest :
                 sql.seedTestBook("b2")
                 sql.seedTestBook("b3")
                 runTest {
-                    // `addBookToCollection` only lets a caller curate a book they can already SEE, and
-                    // book visibility is a pure union: a live book is visible to a member only via a
-                    // collection they own or hold a grant on. Production always supplies one — the
-                    // scanner files every new book into ALL_BOOKS (INBOX for a held library) and
-                    // `DefaultAllBooksGrantIssuer` hands every member a live ALL_BOOKS read grant at
-                    // creation, re-healed on each login. `seedTestBook`/`seedTestUser` write the bare
-                    // `books`/`users` rows and neither of those, so without this seam u1 cannot see its
-                    // own books, all three adds fail `BookNotFound`, and every count reads zero.
+                    // u1 curates as an admin (only admins write collections), and an admin sees every
+                    // live book, so this is not needed for the adds to succeed. It keeps each book in a
+                    // second, unrelated real collection — the scenario this test has always counted.
                     // Suspend, so it seeds here rather than beside the non-suspend seeds above.
                     db.makeBooksVisibleTo("u1", "b1", "b2", "b3")
                     val service = makeService(db)
-                    val owner = service.actAs("u1")
+                    val owner = service.actAs("u1", UserRole.ADMIN)
                     val colOwned = owner.createCollection("test-library", "Owned")
                     val colShared = owner.createCollection("test-library", "SharedOut")
                     require(colOwned is AppResult.Success)
                     require(colShared is AppResult.Success)
 
-                    // Assert the setup: 020 gates curation on book visibility, so a silently
-                    // failing add would leave the counts at zero and the test would be measuring
-                    // nothing.
+                    // Assert the setup: a silently failing add would leave the counts at zero and the
+                    // test would be measuring nothing.
                     require(owner.addBookToCollection(colOwned.data.id, BookId("b1")) is AppResult.Success)
                     require(owner.addBookToCollection(colOwned.data.id, BookId("b2")) is AppResult.Success)
                     require(owner.addBookToCollection(colShared.data.id, BookId("b3")) is AppResult.Success)
@@ -125,8 +121,17 @@ class CollectionServiceImplListCountsTest :
                     )
 
                     val u2 = service.actAs("u2")
-                    val u2ColUnshared = u2.createCollection("test-library", "U2Owned")
-                    require(u2ColUnshared is AppResult.Success)
+                    // A member-owned row from before only admins could create collections.
+                    CollectionRepository(db = db.sql, bus = ChangeBus(), registry = SyncRegistry(), driver = db.driver).upsert(
+                        CollectionSyncPayload(
+                            id = "u2-col",
+                            libraryId = "test-library",
+                            ownerId = "u2",
+                            name = "U2Owned",
+                            revision = 0L,
+                            updatedAt = 0L,
+                        ),
+                    )
 
                     // Owner's view: both collections it owns, Write, isOwner, with their real counts.
                     val ownerList = owner.listCollections()
@@ -143,8 +148,8 @@ class CollectionServiceImplListCountsTest :
                     val u2List = u2.listCollections()
                     require(u2List is AppResult.Success)
                     val u2ById = u2List.data.associateBy { it.id }
-                    u2ById.getValue(u2ColUnshared.data.id).bookCount shouldBe 0L
-                    u2ById.getValue(u2ColUnshared.data.id).isOwner shouldBe true
+                    u2ById.getValue(CollectionId("u2-col")).bookCount shouldBe 0L
+                    u2ById.getValue(CollectionId("u2-col")).isOwner shouldBe true
                     u2ById.getValue(colShared.data.id).bookCount shouldBe 1L
                     u2ById.getValue(colShared.data.id).isOwner shouldBe false
                     u2ById.getValue(colShared.data.id).callerPermission shouldBe SharePermission.Read

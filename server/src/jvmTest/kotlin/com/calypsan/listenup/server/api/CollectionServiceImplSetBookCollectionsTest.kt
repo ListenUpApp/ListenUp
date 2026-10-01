@@ -339,8 +339,8 @@ class CollectionServiceImplSetBookCollectionsTest :
                     val (service, bus) = makeHarness(db)
                     val admin = service.actAs("admin", UserRole.ADMIN)
 
-                    // u1 owns c1 (read-shared to u2); u1 owns c2 (read-shared to u3).
-                    val u1 = service.actAs("u1")
+                    // u1 (an admin) owns c1 (read-shared to u2) and c2 (read-shared to u3).
+                    val u1 = service.actAs("u1", UserRole.ADMIN)
                     val c1 = u1.createCollection("test-library", "C1")
                     val c2 = u1.createCollection("test-library", "C2")
                     require(c1 is AppResult.Success)

@@ -27,7 +27,49 @@ import kotlinx.coroutines.test.runTest
 class CollectionAccessPolicyTest :
     FunSpec({
 
-        test("owner gets WRITE + isOwner") {
+        test("an admin owner gets WRITE + isOwner") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val collectionRepo =
+                    CollectionRepository(
+                        db = sql,
+                        bus = bus,
+                        registry = registry,
+                        driver = driver,
+                    )
+                val grantRepo =
+                    CollectionGrantRepository(
+                        db = sql,
+                        bus = bus,
+                        registry = registry,
+                        driver = driver,
+                    )
+                val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
+
+                runTest {
+                    collectionRepo.upsert(
+                        CollectionSyncPayload(
+                            id = "col1",
+                            libraryId = "test-library",
+                            ownerId = "user1",
+                            name = "Owned",
+                            revision = 0L,
+                            updatedAt = 0L,
+                        ),
+                    )
+
+                    val decision = policy.decide("user1", UserRoleColumn.ADMIN, "col1")
+
+                    decision.canAccess shouldBe true
+                    decision.permission shouldBe SharePermission.Write
+                    decision.isOwner shouldBe true
+                }
+            }
+        }
+
+        test("a member owner reads but does not write — only admins write collections") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
@@ -63,7 +105,7 @@ class CollectionAccessPolicyTest :
                     val decision = policy.decide("user1", UserRoleColumn.MEMBER, "col1")
 
                     decision.canAccess shouldBe true
-                    decision.permission shouldBe SharePermission.Write
+                    decision.permission shouldBe SharePermission.Read
                     decision.isOwner shouldBe true
                 }
             }
@@ -165,7 +207,7 @@ class CollectionAccessPolicyTest :
             }
         }
 
-        test("active write-share gets WRITE") {
+        test("a member's write share confers READ — only admins write collections") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestUser("user2")
@@ -213,7 +255,7 @@ class CollectionAccessPolicyTest :
                     val decision = policy.decide("user2", UserRoleColumn.MEMBER, "col1")
 
                     decision.canAccess shouldBe true
-                    decision.permission shouldBe SharePermission.Write
+                    decision.permission shouldBe SharePermission.Read
                     decision.isOwner shouldBe false
                 }
             }

@@ -38,12 +38,13 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
 /**
- * Tests for the book-visibility gate on [CollectionServiceImpl.addBookToCollection] — proves a
- * member cannot add a book they can't see into a collection they own, and the deny is
- * indistinguishable from "absent" (`CollectionError.BookNotFound`, the same error the missing-book
- * branch already returns). Without this gate the write would itself grant the caller the book:
- * visibility is "in at least one collection you own or are granted", so adding an unseen book to
- * your own collection re-derives it as visible.
+ * Tests for who may add a book via [CollectionServiceImpl.addBookToCollection], and what they may add.
+ *
+ * Only admins write collections, so a member — even one owning a collection from before that rule —
+ * is refused with `CollectionError.Forbidden` at the write gate, before any book-visibility check runs:
+ * whether or not they can see the book, the answer is the same, so the add can neither hand them an
+ * unseen book nor reveal that one exists. An admin sees every live book, so the admin may add a book
+ * no member can reach.
  *
  * Each test seeds a real in-memory database, builds the impl with real repos plus
  * [BookAccessPolicy], scopes the caller via [CollectionServiceImpl.copyWith] + a
@@ -94,7 +95,9 @@ class CollectionAddBookAccessTest :
             )
         }
 
-        test("addBookToCollection reports a book the member cannot see as BookNotFound") {
+        // Was "reports a book the member cannot see as BookNotFound": members can no longer add at all,
+        // so the visibility gate is unreachable for them — the write gate refuses first.
+        test("a member adding a book they cannot see to their own legacy collection is Forbidden, not BookNotFound") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestUser("member")
@@ -110,12 +113,14 @@ class CollectionAddBookAccessTest :
                     val result = scoped.addBookToCollection(CollectionId("mine"), BookId("hidden"))
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
-                    failure.error.shouldBeInstanceOf<CollectionError.BookNotFound>()
+                    failure.error.shouldBeInstanceOf<CollectionError.Forbidden>()
                 }
             }
         }
 
-        test("addBookToCollection accepts a book the member can see via an ALL_BOOKS grant") {
+        // Was "accepts a book the member can see via an ALL_BOOKS grant": seeing a book no longer lets
+        // a member curate it — curating it would take it out of ALL_BOOKS for everyone else.
+        test("a member adding a book they can see via an ALL_BOOKS grant to their own legacy collection is Forbidden") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestUser("member")
@@ -132,7 +137,8 @@ class CollectionAddBookAccessTest :
                     val scoped = f.service.copyWith(principalFor("member", UserRole.MEMBER))
                     val result = scoped.addBookToCollection(CollectionId("mine"), BookId("visible"))
 
-                    result shouldBe AppResult.Success(Unit)
+                    val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                    failure.error.shouldBeInstanceOf<CollectionError.Forbidden>()
                 }
             }
         }
