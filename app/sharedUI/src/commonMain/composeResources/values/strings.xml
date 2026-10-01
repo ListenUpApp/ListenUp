@@ -1114,7 +1114,12 @@ One beautiful library.</string>
     <string name="hardcover_row_title">Hardcover</string>
     <string name="hardcover_row_value_connecting">Waiting…</string>
     <string name="hardcover_screen_title">Hardcover</string>
+    <string name="hardcover_share_mode_as_i_listen">As I listen</string>
+    <string name="hardcover_share_mode_finished_only">Only when I finish</string>
+    <string name="hardcover_share_mode_label">Update Hardcover</string>
     <string name="hardcover_shared_finished_row">Books you finish, marked as read</string>
+    <string name="hardcover_shared_finished_with_dates_row">Only books you finish, marked as read, with when you started and finished</string>
+    <string name="hardcover_shared_nothing_while_listening">Nothing is shared while you're still listening</string>
     <string name="hardcover_shared_progress_row">How far you've listened</string>
     <string name="hardcover_shared_started_row">Books you start, as Currently reading</string>
     <string name="hardcover_shares_finished">A book you finish is marked as read on Hardcover.</string>
