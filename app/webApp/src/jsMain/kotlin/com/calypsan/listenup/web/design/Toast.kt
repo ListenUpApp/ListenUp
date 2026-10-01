@@ -35,7 +35,20 @@ class ToastMessage(
     val id: Long,
     val text: String,
     val tone: ToastTone,
+    val action: ToastAction? = null,
 )
+
+/**
+ * The one thing a toast can offer to do — Undo after a one-tap pick, Try again after a sync that did
+ * not land. Pressing it runs [onAction] and takes the toast away: the offer has been answered.
+ */
+class ToastAction(
+    val label: String,
+    val onAction: () -> Unit,
+)
+
+/** Shows a toast that carries a [ToastAction]: how a page reaches the shell's [ToastQueue] for one. */
+typealias ShowActionToast = (text: String, tone: ToastTone, action: ToastAction) -> Unit
 
 /**
  * The live toasts, and the rules for how they come and go.
@@ -63,12 +76,13 @@ class ToastQueue {
     fun show(
         text: String,
         tone: ToastTone,
+        action: ToastAction? = null,
     ): Long {
         messages.lastOrNull()?.let { newest ->
             if (newest.text == text && newest.tone == tone) return newest.id
         }
         val id = nextId++
-        messages = (messages + ToastMessage(id, text, tone)).takeLast(MAX_VISIBLE)
+        messages = (messages + ToastMessage(id, text, tone, action)).takeLast(MAX_VISIBLE)
         return id
     }
 
@@ -126,6 +140,16 @@ fun ToastHost(
                         if (message.tone == ToastTone.Failure) classes("t-bad")
                     }) {}
                     Span { Text(message.text) }
+                    message.action?.let { action ->
+                        Button(attrs = {
+                            classes("t-act")
+                            attr("type", "button")
+                            onClick {
+                                queue.dismiss(message.id)
+                                action.onAction()
+                            }
+                        }) { Text(action.label) }
+                    }
                     // A real button: this was a `<span role="button">` — announced as a button and then
                     // impossible to press from the keyboard, with no tab stop and no key handler.
                     Button(attrs = {

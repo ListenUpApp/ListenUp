@@ -50,6 +50,7 @@
 .bulk-b:active,
 .bulk-x:active,
 .toast .t-x:active,
+.toast .t-act:active,
 .rel-x:active,
 .rel-add-role:active,
 .rel-drop:active,
@@ -197,7 +198,7 @@
    squares may overlap — a tap in the overlap goes to the later one, which is still a control the
    finger was on. TouchTargetsTest measures a representative set with the browser's own hit test. */
 @media (pointer: coarse) {
-  .luw :is(.btn, .f-eye, .cbx-hit, .toast .t-x, .tab, .seg button,
+  .luw :is(.btn, .f-eye, .cbx-hit, .toast .t-x, .toast .t-act, .tab, .seg button,
            .facet-chip, .bulk-b, .bulk-x, .pill, .tport-b, .tport-skip, .tport-ch, .tport-sleep,
            .tport-boost, .tport-expand, .tport-speed, .tport-note-x, .np-b, .np-chstep, .np-chip,
            .np-goto, .rel-x, .bd-pick-x, .lsetup-err-x, .lsetup-up, .lsetup-check,
@@ -207,7 +208,7 @@
            .lib-sort-option, .lib-sort-direction) {
     position: relative;
   }
-  .luw :is(.btn, .f-eye, .cbx-hit, .toast .t-x, .tab, .seg button,
+  .luw :is(.btn, .f-eye, .cbx-hit, .toast .t-x, .toast .t-act, .tab, .seg button,
            .facet-chip, .bulk-b, .bulk-x, .pill, .tport-b, .tport-skip, .tport-ch, .tport-sleep,
            .tport-boost, .tport-expand, .tport-speed, .tport-note-x, .np-b, .np-chstep, .np-chip,
            .np-goto, .rel-x, .bd-pick-x, .lsetup-err-x, .lsetup-up, .lsetup-check,

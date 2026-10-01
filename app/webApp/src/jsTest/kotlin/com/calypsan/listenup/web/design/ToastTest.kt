@@ -200,6 +200,35 @@ class ToastTest :
             awaitFrame()
             host.querySelectorAll(".toast").length shouldBe 0
         }
+
+        test("a toast's one action is a real button that acts, then takes the toast away") {
+            // Undo after a one-tap pick, Try again after a sync that did not reach the server: the
+            // toast is the only place either is offered, so it has to be a press the keyboard can make.
+            var undone = 0
+            val queue = ToastQueue()
+            val host = mount { ToastHost(queue) }
+            queue.show("Matched to Piranesi", ToastTone.Notice, ToastAction("Undo") { undone++ })
+            awaitFrame()
+
+            val action = host.querySelector(".toast .t-act") as HTMLElement
+            action.tagName shouldBe "BUTTON"
+            action.getAttribute("type") shouldBe "button"
+            action.textContent.orEmpty().trim() shouldBe "Undo"
+
+            action.click()
+            awaitFrame()
+            undone shouldBe 1
+            host.querySelectorAll(".toast").length shouldBe 0
+        }
+
+        test("a toast without an action draws no action button") {
+            val queue = ToastQueue()
+            val host = mount { ToastHost(queue) }
+            queue.show("Saved.", ToastTone.Notice)
+            awaitFrame()
+
+            host.querySelectorAll(".toast .t-act").length shouldBe 0
+        }
     })
 
 /** Short enough to wait out in a spec; the real lifetime is seven seconds. */
