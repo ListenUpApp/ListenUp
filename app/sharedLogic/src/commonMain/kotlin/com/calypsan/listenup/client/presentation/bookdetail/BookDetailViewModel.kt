@@ -661,8 +661,9 @@ class BookDetailViewModel(
         val ready = state.value as? BookDetailUiState.Ready ?: return
         if (!ready.isHeld || ready.isReleasingFromInbox) return
         val book = ready.book
+        // Busy BEFORE the launch: a second tap in the same frame must already see it.
+        updateReady { it.copy(isReleasingFromInbox = true) }
         viewModelScope.launch {
-            updateReady { it.copy(isReleasingFromInbox = true) }
             when (val result = inboxRepository.releaseBooks(book.libraryId.value, mapOf(book.id.value to emptyList()))) {
                 is AppResult.Success -> {
                     updateReady { it.copy(isReleasingFromInbox = false) }

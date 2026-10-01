@@ -9,13 +9,13 @@ import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
-import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.Reachability
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.test.fake.FakeInboxRepository
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
@@ -23,12 +23,11 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
-import dev.mokkery.verify.VerifyMode
-import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,8 +57,8 @@ class BookDetailViewModelHeldTest :
             val shelfRepository: ShelfRepository = mock()
             val collectionRepository: CollectionRepository = mock()
             val documentRepository: DocumentRepository = mock()
-            val inboxRepository: InboxRepository = mock()
-            val heldIds = MutableStateFlow<Set<BookId>>(emptySet())
+            val inboxRepository = FakeInboxRepository()
+            val heldIds get() = inboxRepository.held
             val errorBus = ErrorBus()
 
             init {
@@ -71,7 +70,6 @@ class BookDetailViewModelHeldTest :
                 every { tagRepository.observeAll() } returns flowOf(emptyList())
                 every { documentRepository.observeDocuments(any()) } returns flowOf(emptyList())
                 every { collectionRepository.observeCollections() } returns flowOf(emptyList())
-                every { inboxRepository.observeHeldBookIds() } returns heldIds
                 every { bookRepository.observeBookDetail("book-1") } returns flowOf(TestData.bookDetail(id = "book-1"))
                 everySuspend { bookRepository.getChapters("book-1") } returns emptyList()
             }
@@ -95,8 +93,9 @@ class BookDetailViewModelHeldTest :
                                         downloadStatus = BookDownloadStatus.NotDownloaded(""),
                                         isPlaybackAvailable = true,
                                         canPlay = true,
-                                        canDownload = false,
-                                        showServerWarning = false,
+                                        // Both ON: a held book's "off" must come from the hold, not the fixture.
+                                        canDownload = true,
+                                        showServerWarning = true,
                                         isWaitingForWifi = false,
                                     ),
                                 )
@@ -140,6 +139,8 @@ class BookDetailViewModelHeldTest :
                 val ready = vm.state.value.shouldBeInstanceOf<BookDetailUiState.Ready>()
                 ready.isHeld shouldBe false
                 ready.canPlay shouldBe true
+                ready.canDownload shouldBe true
+                ready.showServerWarning shouldBe true
             }
         }
 
@@ -154,9 +155,10 @@ class BookDetailViewModelHeldTest :
                 f.heldIds.value = emptySet()
                 advanceUntilIdle()
 
-                vm.state.value
-                    .shouldBeInstanceOf<BookDetailUiState.Ready>()
-                    .isHeld shouldBe false
+                val ready = vm.state.value.shouldBeInstanceOf<BookDetailUiState.Ready>()
+                ready.isHeld shouldBe false
+                ready.canPlay shouldBe true
+                ready.canDownload shouldBe true
             }
         }
 
@@ -164,7 +166,6 @@ class BookDetailViewModelHeldTest :
             runTest(dispatcher) {
                 val f = Fixture()
                 f.heldIds.value = setOf(BookId("book-1"))
-                everySuspend { f.inboxRepository.releaseBooks(any(), any()) } returns AppResult.Success(Unit)
                 val vm = f.build()
                 vm.loadBook("book-1")
                 advanceUntilIdle()
@@ -172,7 +173,7 @@ class BookDetailViewModelHeldTest :
                 vm.releaseFromInbox()
                 advanceUntilIdle()
 
-                verifySuspend { f.inboxRepository.releaseBooks("test-library", mapOf("book-1" to emptyList())) }
+                f.inboxRepository.releases.single() shouldBe ("test-library" to mapOf("book-1" to emptyList<String>()))
                 vm.state.value
                     .shouldBeInstanceOf<BookDetailUiState.Ready>()
                     .isReleasingFromInbox shouldBe false
@@ -184,7 +185,7 @@ class BookDetailViewModelHeldTest :
                 val f = Fixture()
                 f.heldIds.value = setOf(BookId("book-1"))
                 val refusal = ValidationError(message = "Only admins can release books.")
-                everySuspend { f.inboxRepository.releaseBooks(any(), any()) } returns AppResult.Failure(refusal)
+                f.inboxRepository.releaseResult = AppResult.Failure(refusal)
                 val vm = f.build()
                 vm.loadBook("book-1")
                 advanceUntilIdle()
@@ -214,7 +215,53 @@ class BookDetailViewModelHeldTest :
                 vm.releaseFromInbox()
                 advanceUntilIdle()
 
-                verifySuspend(VerifyMode.not) { f.inboxRepository.releaseBooks(any(), any()) }
+                f.inboxRepository.releases shouldBe emptyList()
+            }
+        }
+
+        test("a double tap on Release sends one release, not two") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.heldIds.value = setOf(BookId("book-1"))
+                f.inboxRepository.releaseGate = CompletableDeferred()
+                val vm = f.build()
+                vm.loadBook("book-1")
+                advanceUntilIdle()
+
+                // Two taps inside one frame: nothing has been dispatched between them.
+                vm.releaseFromInbox()
+                vm.releaseFromInbox()
+                advanceUntilIdle()
+
+                f.inboxRepository.releases.size shouldBe 1
+                f.inboxRepository.releaseGate?.complete(Unit)
+                advanceUntilIdle()
+            }
+        }
+
+        test("the Release button stays busy when the held set re-emits mid-release") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.heldIds.value = setOf(BookId("book-1"))
+                f.inboxRepository.releaseGate = CompletableDeferred()
+                val vm = f.build()
+                vm.loadBook("book-1")
+                advanceUntilIdle()
+
+                vm.releaseFromInbox()
+                advanceUntilIdle()
+                // A scan holds another book while this release is still on the wire.
+                f.heldIds.value = setOf(BookId("book-1"), BookId("book-2"))
+                advanceUntilIdle()
+
+                vm.state.value
+                    .shouldBeInstanceOf<BookDetailUiState.Ready>()
+                    .isReleasingFromInbox shouldBe true
+                f.inboxRepository.releaseGate?.complete(Unit)
+                advanceUntilIdle()
+                vm.state.value
+                    .shouldBeInstanceOf<BookDetailUiState.Ready>()
+                    .isReleasingFromInbox shouldBe false
             }
         }
     })
