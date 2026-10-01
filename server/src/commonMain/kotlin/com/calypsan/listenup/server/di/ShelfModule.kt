@@ -6,6 +6,7 @@ import com.calypsan.listenup.server.api.ShelfReadAssembler
 import com.calypsan.listenup.server.api.ShelfServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.hardcover.HardcoverShelfEntryStore
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.sync.ShelfBookRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
@@ -44,6 +45,7 @@ fun shelfModule(): Module =
                 clock = get(),
                 principal = unscopedShelfPlaceholder(),
                 activityRecorder = getOrNull<ActivityRecorder>(),
+                hardcoverShelfEntries = getOrNull<HardcoverShelfEntryStore>(),
             )
         }
         single<ShelfService> { get<ShelfServiceImpl>() }

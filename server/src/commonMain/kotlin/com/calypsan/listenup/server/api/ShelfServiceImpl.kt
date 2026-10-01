@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.sync.ShelfSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.hardcover.HardcoverShelfEntryStore
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.sync.OwnedShelf
 import com.calypsan.listenup.server.sync.ShelfBookRepository
@@ -61,6 +62,10 @@ internal const val MAX_BOOKS_PER_SHELF_REORDER = 5000
  *   set has ≥1 caller-accessible book, with the book count reflecting only what the
  *   caller can see.
  *
+ * Removing a book Hardcover's Want to Read put on a shelf marks it as taken off by hand
+ * ([HardcoverShelfEntryStore.markRemovedByHand]), so Hardcover doesn't put it back (#1539). This RPC is
+ * the user's only way to remove a shelf book; Hardcover's own removals never come through it.
+ *
  * Route handlers call [copyWith] to bind each request to the authenticated principal;
  * the Koin singleton carries an unscoped placeholder that yields no principal.
  */
@@ -72,6 +77,7 @@ internal class ShelfServiceImpl(
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider,
     private val activityRecorder: ActivityRecorder? = null,
+    private val hardcoverShelfEntries: HardcoverShelfEntryStore? = null,
 ) : ShelfService {
     // ── Own-shelf mutation ────────────────────────────────────────────────────
 
@@ -188,6 +194,10 @@ internal class ShelfServiceImpl(
                 is OwnerGate.Allowed -> gate.owned
             }
 
+        // The user's own removal, and only theirs: Hardcover's Want to Read takes books off through
+        // ShelfBookRepository directly, never through this RPC. Marked before the removal, so the pull's
+        // "Hardcover's book is missing, put it back" can never see the book gone and the mark not yet made.
+        hardcoverShelfEntries?.markRemovedByHand(owned.ownerId, shelfId.value, bookId.value)
         shelfBookRepo.removeBook(shelfId.value, bookId.value, userId = owned.ownerId)
         return AppResult.Success(Unit)
     }
@@ -295,6 +305,7 @@ internal class ShelfServiceImpl(
             clock = clock,
             principal = principal,
             activityRecorder = activityRecorder,
+            hardcoverShelfEntries = hardcoverShelfEntries,
         )
 
     // ── Private helpers ───────────────────────────────────────────────────────

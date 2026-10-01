@@ -1,10 +1,19 @@
 package com.calypsan.listenup.server.hardcover
 
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ShelfSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
+import com.calypsan.listenup.server.api.BookAccessPolicy
+import com.calypsan.listenup.server.api.ShelfReadAssembler
+import com.calypsan.listenup.server.api.ShelfServiceImpl
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.testing.seedTestBook
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -66,6 +75,22 @@ private fun PullRig.aDayLater() {
         Instant.fromEpochMilliseconds(
             clock.now().toEpochMilliseconds() + FULL_PULL_INTERVAL.inWholeMilliseconds + 1.minutes.inWholeMilliseconds,
         )
+}
+
+/** The user takes [bookId] off [shelfId] by hand, through the real shelf RPC implementation. */
+private suspend fun PullRig.removeByHand(
+    shelfId: String,
+    bookId: String,
+) {
+    ShelfServiceImpl(
+        shelfRepo = shelves,
+        shelfBookRepo = shelfBooks,
+        bookAccessPolicy = BookAccessPolicy(sql, dbs.driver),
+        readAssembler = ShelfReadAssembler(sql),
+        clock = clock,
+        principal = PrincipalProvider { UserPrincipal(UserId(USER), SessionId("s-$USER"), UserRole.ROOT) },
+        hardcoverShelfEntries = shelfEntries,
+    ).removeBookFromShelf(ShelfId(shelfId), BookId(bookId)).shouldBeInstanceOf<AppResult.Success<Unit>>()
 }
 
 /** #1539: Hardcover's Want to Read list, on the user's To Read shelf — one way, and only what Hardcover added. */
@@ -259,6 +284,29 @@ class HardcoverWantToReadTest :
 
                 booksOn(starter) shouldBe emptyList()
                 shelfEntries.records(USER) shouldBe emptyList()
+            }
+        }
+
+        test("a book taken off by hand stays off while it stays on Want to Read, and comes back if it leaves and returns") {
+            pullTest {
+                val starter = starterShelf()
+                connect()
+                wantToReadOnHardcover()
+                pullAll()
+
+                removeByHand(starter, BOOK)
+                store.requestFullPull(USER)
+                pullAll()
+                booksOn(starter) shouldBe emptyList()
+                shelfEntries.recordFor(USER, BOOK)!!.state shouldBe HardcoverShelfEntryState.USER_REMOVED
+
+                hardcover.moveTo(HC_BOOK, HardcoverStatus.READ)
+                pullAll()
+                shelfEntries.recordFor(USER, BOOK) shouldBe null
+
+                hardcover.moveTo(HC_BOOK, HardcoverStatus.WANT_TO_READ)
+                pullAll()
+                booksOn(starter) shouldBe listOf(BOOK)
             }
         }
     })
