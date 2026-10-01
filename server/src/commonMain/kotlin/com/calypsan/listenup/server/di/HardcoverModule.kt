@@ -130,34 +130,7 @@ fun hardcoverModule(
             val books = get<BookRepository>()
             HardcoverBookIdentities { bookId -> books.findById(BookId(bookId))?.toIdentity() }
         }
-        single {
-            HardcoverPushExecutor(
-                userBooks = get(),
-                links = get(),
-                outbox = get(),
-                sql = get(),
-                clock = get(),
-                rateLimiter = get(),
-            )
-        }
-        single { HardcoverHistoryProgress(sql = get(), clock = get(), activity = get()) }
-        single { HardcoverHistorySender(sql = get(), clock = get(), nudge = get(), activity = get()) }
-        single {
-            HardcoverPushWorker(
-                outbox = get(),
-                links = get(),
-                matcher = get(),
-                executor = get(),
-                tokens = get(),
-                connections = get(),
-                linker = get(),
-                identities = get(),
-                gate = get(),
-                clock = get(),
-                history = get(),
-            )
-        }
-        single<HardcoverPushNudge> { get<HardcoverPushWorker>() }
+        hardcoverPushLane()
         single {
             HardcoverPushRecorder(
                 sql = get(),
@@ -210,6 +183,42 @@ fun hardcoverModule(
         }
         single<HardcoverService> { get<HardcoverServiceImpl>() }
     }
+
+/**
+ * The push lane (spec B2): the executor, the per-user push worker — also bound as the [HardcoverPushNudge]
+ * that wakes it — and the earlier-books send it drains (#1540): [HardcoverHistorySender] queues it,
+ * [HardcoverHistoryProgress] settles it.
+ */
+private fun Module.hardcoverPushLane() {
+    single {
+        HardcoverPushExecutor(
+            userBooks = get(),
+            links = get(),
+            outbox = get(),
+            sql = get(),
+            clock = get(),
+            rateLimiter = get(),
+        )
+    }
+    single { HardcoverHistoryProgress(sql = get(), clock = get(), activity = get()) }
+    single { HardcoverHistorySender(sql = get(), clock = get(), nudge = get(), activity = get()) }
+    single {
+        HardcoverPushWorker(
+            outbox = get(),
+            links = get(),
+            matcher = get(),
+            executor = get(),
+            tokens = get(),
+            connections = get(),
+            linker = get(),
+            identities = get(),
+            gate = get(),
+            clock = get(),
+            history = get(),
+        )
+    }
+    single<HardcoverPushNudge> { get<HardcoverPushWorker>() }
+}
 
 /**
  * The pull (spec B3): its store, the shelf resolver, Want to Read (#1539), the puller, and the per-user
