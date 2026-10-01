@@ -459,7 +459,7 @@ configurations.matching { it.name == "swiftExportClasspathResolvable" }.configur
         if (requested.group == "org.jetbrains.kotlinx" &&
             (requested.name == "kotlinx-coroutines-core" || requested.name == "kotlinx-coroutines-core-jvm")
         ) {
-            useTarget("org.jetbrains.intellij.deps.kotlinx:kotlinx-coroutines-core-jvm:1.10.2-intellij-1")
+            useTarget("org.jetbrains.intellij.deps.kotlinx:kotlinx-coroutines-core-jvm:1.11.0-intellij-1")
             because(
                 "Swift Export's Analysis API worker needs IntellijCoroutines (only in the intellij coroutines variant)",
             )
