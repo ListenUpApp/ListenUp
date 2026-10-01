@@ -10611,6 +10611,236 @@
         }
       }
     },
+    "hardcover.history_needs_match": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d need a match"
+          }
+        }
+      }
+    },
+    "hardcover.history_needs_match_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 needs a match"
+          }
+        }
+      }
+    },
+    "hardcover.history_none_sent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books need a match before they can be sent"
+          }
+        }
+      }
+    },
+    "hardcover.history_none_sent_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 book needs a match before it can be sent"
+          }
+        }
+      }
+    },
+    "hardcover.history_not_now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not now"
+          }
+        }
+      }
+    },
+    "hardcover.history_offer_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You finished %1$d books in ListenUp before connecting. Send them to Hardcover as read, with when you started and finished."
+          }
+        }
+      }
+    },
+    "hardcover.history_offer_body_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You finished 1 book in ListenUp before connecting. Send it to Hardcover as read, with when you started and finished."
+          }
+        }
+      }
+    },
+    "hardcover.history_offer_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send your earlier listening?"
+          }
+        }
+      }
+    },
+    "hardcover.history_progress_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sending earlier books"
+          }
+        }
+      }
+    },
+    "hardcover.history_progress_value": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d of %2$d"
+          }
+        }
+      }
+    },
+    "hardcover.history_row_detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d finished before you connected"
+          }
+        }
+      }
+    },
+    "hardcover.history_row_detail_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 finished before you connected"
+          }
+        }
+      }
+    },
+    "hardcover.history_row_send": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send"
+          }
+        }
+      }
+    },
+    "hardcover.history_row_send_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send earlier books to Hardcover"
+          }
+        }
+      }
+    },
+    "hardcover.history_row_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send earlier books"
+          }
+        }
+      }
+    },
+    "hardcover.history_send": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send %1$d books"
+          }
+        }
+      }
+    },
+    "hardcover.history_send_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send 1 book"
+          }
+        }
+      }
+    },
+    "hardcover.history_sending": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sending %1$d of %2$d books…"
+          }
+        }
+      }
+    },
+    "hardcover.history_sending_note": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can leave this screen — it keeps going. Your new listening is sent first."
+          }
+        }
+      }
+    },
+    "hardcover.history_sending_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sending 1 book…"
+          }
+        }
+      }
+    },
+    "hardcover.history_sent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sent %1$d books to Hardcover"
+          }
+        }
+      }
+    },
+    "hardcover.history_sent_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sent all %1$d books to Hardcover"
+          }
+        }
+      }
+    },
+    "hardcover.history_sent_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sent 1 book to Hardcover"
+          }
+        }
+      }
+    },
     "hardcover.intro": {
       "localizations": {
         "en": {
