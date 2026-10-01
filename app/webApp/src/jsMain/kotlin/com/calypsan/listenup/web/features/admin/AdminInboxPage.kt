@@ -20,7 +20,6 @@ import com.calypsan.listenup.web.design.BulkAction
 import com.calypsan.listenup.web.design.BulkBar
 import com.calypsan.listenup.web.design.MenuAction
 import com.calypsan.listenup.web.design.ActionsMenu
-import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
@@ -156,13 +155,9 @@ private fun ReadyContent(
         )
     }
 
-    ConfirmDialog(
+    ReleaseToEveryoneDialog(
         open = confirmingRelease,
-        title = "Release without collections?",
-        body =
-            "These books will become visible to everyone on this server. You can put them in " +
-                "collections afterwards from each book's own page.",
-        confirmLabel = "Release anyway",
+        bookCount = state.selectedCount,
         onConfirm = {
             confirmingRelease = false
             onRelease()

@@ -1931,16 +1931,6 @@
         }
       }
     },
-    "admin.release_anyway": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Release anyway"
-          }
-        }
-      }
-    },
     "admin.release_to_everyone": {
       "localizations": {
         "en": {
@@ -1967,16 +1957,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Every member will be able to find and play them."
-          }
-        }
-      }
-    },
-    "admin.release_without_collections": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Release without collections"
           }
         }
       }
@@ -2617,16 +2597,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "The display name for this collection"
-          }
-        }
-      }
-    },
-    "admin.these_books_will_become_visible": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "These books will become visible to ALL users."
           }
         }
       }

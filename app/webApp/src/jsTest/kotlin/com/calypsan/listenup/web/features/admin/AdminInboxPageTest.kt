@@ -275,7 +275,25 @@ class AdminInboxPageTest :
             button(host, "Release 1").shouldNotBeNull().click()
             awaitFrame()
 
-            host.querySelector("dialog.dlg")?.textContent.orEmpty() shouldContain "visible to everyone"
+            host.querySelector("dialog.dlg .dlg-t")?.textContent shouldBe "Release to everyone?"
+            host.querySelector("dialog.dlg .dlg-p")?.textContent shouldBe "Every member will be able to find and play it."
+            host.querySelectorAll("dialog.dlg .dlg-actions button").asList().map { it.textContent } shouldBe
+                listOf("Cancel", "Release")
+        }
+
+        test("several books are asked about in the plural") {
+            val host =
+                page(
+                    readyInbox(
+                        books = listOf(inboxBook(id = "b1"), inboxBook(id = "b2", title = "Words of Radiance")),
+                        selectedBookIds = setOf("b1", "b2"),
+                    ),
+                )
+
+            button(host, "Release 2").shouldNotBeNull().click()
+            awaitFrame()
+
+            host.querySelector("dialog.dlg .dlg-p")?.textContent shouldBe "Every member will be able to find and play them."
         }
 
         test("a release in flight says so and cannot be started again") {

@@ -73,19 +73,15 @@ struct AdminInboxView: View {
                     }
                 )
                 .alert(
-                    String(format: String(localized: "admin.inbox_release_count"), ready.selectedCount),
+                    ReleaseToEveryone.title,
                     isPresented: $showingReleaseConfirm,
                     actions: {
-                        Button(
-                            String(format: String(localized: "admin.inbox_release_count"), ready.selectedCount),
-                            role: .destructive
-                        ) {
-                            observer.releaseSelected()
-                        }
                         Button(String(localized: "common.cancel"), role: .cancel) {}
+                        // Not destructive: nothing is deleted, the books are shared (HIG, Alerts).
+                        Button(ReleaseToEveryone.confirm) { observer.releaseSelected() }
                     },
                     message: {
-                        Text(releaseConfirmMessage(count: ready.selectedCount))
+                        Text(ReleaseToEveryone.message(count: ready.selectedCount))
                     }
                 )
                 // The released books leaving the list is the visible confirmation; the haptic and the
@@ -94,7 +90,7 @@ struct AdminInboxView: View {
                 .onChange(of: ready.lastReleasedCount) { _, count in
                     guard let count else { return }
                     releases += 1
-                    VoiceOverAnnouncement.post(releaseConfirmMessage(count: count))
+                    VoiceOverAnnouncement.post(releasedAnnouncement(count: count))
                     observer.clearReleaseResult()
                 }
         case .error(let message):
@@ -351,9 +347,11 @@ struct AdminInboxView: View {
         )
     }
 
-    private func releaseConfirmMessage(count: Int) -> String {
+    /// "Released 3 books" — what VoiceOver hears after a release lands. A result, never a prompt:
+    /// the prompt is `ReleaseToEveryone`.
+    private func releasedAnnouncement(count: Int) -> String {
         count == 1
-            ? String(localized: "admin.inbox_released_count")
+            ? String(format: String(localized: "admin.inbox_released_count"), count)
             : String(format: String(localized: "admin.inbox_released_count_plural"), count)
     }
 }

@@ -67,7 +67,6 @@ import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.ExpressiveCheckbox
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.HeroNavRow
-import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.core.DurationFormatter
@@ -88,10 +87,7 @@ import listenup.composeapp.generated.resources.admin_inbox_review_edit
 import listenup.composeapp.generated.resources.metadata_match_on_audible
 import listenup.composeapp.generated.resources.admin_inbox_select_all
 import listenup.composeapp.generated.resources.admin_newly_scanned_books_will_appear
-import listenup.composeapp.generated.resources.admin_release_anyway
-import listenup.composeapp.generated.resources.admin_release_without_collections
 import listenup.composeapp.generated.resources.admin_selected_count
-import listenup.composeapp.generated.resources.admin_these_books_will_become_visible
 import listenup.composeapp.generated.resources.common_administration
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_inbox
@@ -174,17 +170,11 @@ fun AdminInboxScreen(
         )
     }
 
-    // Releasing makes the selected books publicly visible — confirm before committing.
+    // Releasing makes the selected books visible to every member — ask first (spec §7).
     val ready = state as? AdminInboxUiState.Ready
     if (showReleaseConfirmation && ready != null) {
-        val count = ready.selectedCount
-        ListenUpDestructiveDialog(
-            onDismissRequest = { showReleaseConfirmation = false },
-            title = stringResource(Res.string.admin_release_without_collections),
-            text =
-                "$count book${if (count != 1) "s" else ""} " +
-                    stringResource(Res.string.admin_these_books_will_become_visible),
-            confirmText = stringResource(Res.string.admin_release_anyway),
+        ReleaseToEveryoneDialog(
+            bookCount = ready.selectedCount,
             onConfirm = {
                 showReleaseConfirmation = false
                 viewModel.releaseSelected()
