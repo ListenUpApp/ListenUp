@@ -50,6 +50,11 @@ private val CLASSIFIED: Map<String, ReadsSide> =
         "BookReads.deletePulledNotSeenSince" to ReadsSide.HARDCOVER_ONLY,
         "BookReads.deletePulledForUser" to ReadsSide.HARDCOVER_ONLY,
         "BookReads.pulledForUser" to ReadsSide.HARDCOVER_ONLY,
+        // The history backfill (#1540): only the listener's own reads are history.
+        "HardcoverHistory.selectUnsentHistory" to ReadsSide.LISTENUP_ONLY,
+        "HardcoverHistory.countUnsentHistoryBooks" to ReadsSide.LISTENUP_ONLY,
+        "HardcoverHistory.countOwnReadsThrough" to ReadsSide.LISTENUP_ONLY,
+        "HardcoverHistory.readExists" to ReadsSide.BY_ID,
     )
 
 /** Production files that may touch `bookReadsQueries` directly, relative to the server's commonMain kotlin root. */
