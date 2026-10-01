@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
 import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.core.BookId
@@ -36,6 +37,14 @@ interface HardcoverService {
      * user connected) and forgets it. Cancels a sign-in in progress. Idempotent.
      */
     suspend fun disconnect(): AppResult<Unit>
+
+    /**
+     * Chooses when ListenUp updates the caller's Hardcover: [HardcoverShareMode.AS_I_LISTEN] (the default)
+     * or [HardcoverShareMode.FINISHED_ONLY]. Switching to Only when I finish drops the starts and progress
+     * still waiting to be sent; nothing already on Hardcover changes. The choice survives a disconnect and a
+     * reconnect, and every device watching [observeConnection] sees it on Connected. Idempotent.
+     */
+    suspend fun setShareMode(mode: HardcoverShareMode): AppResult<Unit>
 
     /**
      * Searches Hardcover's catalog for [query] — a title, an author, or both — best match first, for

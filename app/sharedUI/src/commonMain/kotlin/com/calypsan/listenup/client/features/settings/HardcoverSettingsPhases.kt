@@ -47,6 +47,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.SectionSegment
@@ -103,6 +104,7 @@ internal fun hardcoverPhase(
     onCancelLinking: () -> Unit,
     onRequestDisconnect: () -> Unit,
     onSyncNow: () -> Unit,
+    onSetShareMode: (HardcoverShareMode) -> Unit,
     onFindMatch: (bookId: String) -> Unit,
 ): HardcoverPhase =
     when (state) {
@@ -150,7 +152,11 @@ internal fun hardcoverPhase(
                         isKnown = state.isMatchListKnown,
                         onFindMatch = onFindMatch,
                     )
-                    HardcoverWhatIsShared()
+                    HardcoverWhatIsShared(
+                        shareMode = state.shareMode,
+                        isSavingShareMode = state.isSavingShareMode,
+                        onSetShareMode = onSetShareMode,
+                    )
                 },
                 actions = {
                     ListenUpButton(

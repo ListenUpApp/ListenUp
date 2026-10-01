@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.hardcover
 
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookSync
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
 import com.calypsan.listenup.client.presentation.hardcover.BookHardcoverUiState
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverBookToMatch
@@ -85,6 +86,21 @@ class HardcoverRoutesTest :
             try {
                 awaitFrame()
                 toasts shouldBe emptyList()
+            } finally {
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("choosing Only when I finish on the Hardcover page reaches the session") {
+            val chosen = mutableListOf<HardcoverShareMode>()
+            val (host, router, composition) =
+                mountAt("/settings/hardcover", openHardcover = fixedHardcover(CONNECTED, onSetShareMode = { chosen += it }))
+
+            try {
+                host.button("Only when I finish").click()
+                awaitFrame()
+                chosen shouldBe listOf(HardcoverShareMode.FINISHED_ONLY)
             } finally {
                 composition.dispose()
                 router.dispose()

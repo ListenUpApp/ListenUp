@@ -53,6 +53,7 @@ class HardcoverSettingsContentTest {
                     onCancelLinking = { cancels++ },
                     onDisconnect = { disconnects++ },
                     onSyncNow = {},
+                    onSetShareMode = {},
                     onFindMatch = {},
                 )
             }

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.hardcover
 
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverBookToMatch
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverCandidateRow
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverMatchUiState
@@ -8,6 +9,7 @@ import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsUiSta
 import com.calypsan.listenup.web.InShell
 import com.calypsan.listenup.web.MIN_TARGET_PX
 import com.calypsan.listenup.web.PHONE
+import com.calypsan.listenup.web.Pointer
 import com.calypsan.listenup.web.SMALL_PHONE
 import com.calypsan.listenup.web.ViewportFrames
 import com.calypsan.listenup.web.contentOverflow
@@ -58,6 +60,7 @@ class HardcoverOnAPhoneTest :
                                 onConnect = {},
                                 onDisconnect = {},
                                 onSyncNow = {},
+                                onSetShareMode = {},
                                 onFindMatch = {},
                                 onOpenSettings = {},
                                 nowMs = 1L,
@@ -72,6 +75,37 @@ class HardcoverOnAPhoneTest :
                 presses.forEach {
                     frame.rect(it).right shouldBeLessThanOrEqual edge
                     frame.rect(it).height shouldBeGreaterThanOrEqual MIN_TARGET_PX
+                }
+            }
+
+            test("at ${width}px on a touchscreen Update Hardcover fits, and each option takes a tap within 22px of its centre") {
+                val frame =
+                    frames.mount(width, pointer = Pointer.Touch) {
+                        InShell {
+                            HardcoverPage(
+                                state =
+                                    HardcoverSettingsUiState.Connected(
+                                        username = "simonhull",
+                                        since = 0L,
+                                        isDisconnecting = false,
+                                        shareMode = HardcoverShareMode.FINISHED_ONLY,
+                                    ),
+                                onConnect = {},
+                                onDisconnect = {},
+                                onSyncNow = {},
+                                onSetShareMode = {},
+                                onFindMatch = {},
+                                onOpenSettings = {},
+                                nowMs = 1L,
+                            )
+                        }
+                    }
+
+                withClue(frame.pastTheEdge().joinToString("\n")) { frame.contentOverflow() shouldBe 0 }
+                val options = frame.findAll(".hc-share-mode .seg button")
+                options.size shouldBe 2
+                options.forEach { option ->
+                    withClue(option.textContent) { frame.takesTapsWithin(option, MIN_TARGET_PX / 2 - 1) shouldBe true }
                 }
             }
 

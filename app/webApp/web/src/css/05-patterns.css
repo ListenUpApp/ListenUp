@@ -397,6 +397,7 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .seg { display:inline-flex; padding:3px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--r-md); gap:2px; }
 .seg button { height:30px; padding:0 11px; border-radius:var(--r-sm); display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-small); font-weight:600; color:var(--ink-2); cursor:pointer; white-space:nowrap; }
 .seg button.on { background:var(--surface); color:var(--ink); box-shadow:var(--shadow-raise); }
+.seg button[aria-disabled="true"] { opacity:.5; cursor:default; }
 
 /* ---- bulk action bar ---- */
 /* ⛔ STICKY, and that is the bug this fixes. The bar had every other floating-pill property —

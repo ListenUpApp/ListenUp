@@ -35,6 +35,7 @@ class HardcoverSettingsWideLayoutTest {
                     onCancelLinking = {},
                     onDisconnect = {},
                     onSyncNow = {},
+                    onSetShareMode = {},
                     onFindMatch = {},
                 )
             }

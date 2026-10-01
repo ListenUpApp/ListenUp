@@ -22,7 +22,9 @@ struct HardcoverSyncMappingTests {
             lastSyncedAt: lastSyncedAt,
             sync: sync,
             booksToMatch: books,
-            isMatchListKnown: isMatchListKnown
+            isMatchListKnown: isMatchListKnown,
+            shareMode: .asIListen,
+            isSavingShareMode: false
         )
     }
 

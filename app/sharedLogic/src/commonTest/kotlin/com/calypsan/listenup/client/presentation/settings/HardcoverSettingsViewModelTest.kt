@@ -6,6 +6,7 @@ import app.cash.turbine.turbineScope
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.result.AppResult
@@ -399,6 +400,111 @@ class HardcoverSettingsViewModelTest :
                     vm.syncNow()
                     advanceUntilIdle()
                     repo.syncNowCalls shouldBe 1
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        // ========== Share mode ==========
+
+        test("Connected carries the server's share mode: As I listen when it says nothing, then whatever it says") {
+            runTest {
+                val repo = FakeHardcoverRepository(HardcoverConnection.Connected("reader", SINCE))
+                val vm = HardcoverSettingsViewModel(repo, books())
+                vm.uiState.test {
+                    val connected = awaitSettled() as HardcoverSettingsUiState.Connected
+                    connected.shareMode shouldBe HardcoverShareMode.AS_I_LISTEN
+                    connected.isSavingShareMode shouldBe false
+
+                    repo.connection.value = HardcoverConnection.Connected("reader", SINCE, shareMode = HardcoverShareMode.FINISHED_ONLY)
+                    advanceUntilIdle()
+                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).shareMode shouldBe HardcoverShareMode.FINISHED_ONLY
+                }
+            }
+        }
+
+        test("a choice shows at once, saving, and holds until the server carries it back") {
+            runTest {
+                val repo = FakeHardcoverRepository(HardcoverConnection.Connected("reader", SINCE))
+                repo.setShareModeGate = CompletableDeferred()
+                val vm = HardcoverSettingsViewModel(repo, books())
+                vm.uiState.test {
+                    awaitSettled()
+                    vm.setShareMode(HardcoverShareMode.FINISHED_ONLY)
+                    advanceUntilIdle()
+                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).let {
+                        it.shareMode shouldBe HardcoverShareMode.FINISHED_ONLY
+                        it.isSavingShareMode shouldBe true
+                    }
+
+                    repo.setShareModeGate!!.complete(Unit)
+                    repo.connection.value = HardcoverConnection.Connected("reader", SINCE, shareMode = HardcoverShareMode.FINISHED_ONLY)
+                    advanceUntilIdle()
+                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).let {
+                        it.shareMode shouldBe HardcoverShareMode.FINISHED_ONLY
+                        it.isSavingShareMode shouldBe false
+                    }
+                }
+                repo.shareModes shouldBe listOf(HardcoverShareMode.FINISHED_ONLY)
+            }
+        }
+
+        test("a saved choice the server never echoes lets go after the handoff, showing what the server holds") {
+            runTest {
+                val repo = FakeHardcoverRepository(HardcoverConnection.Connected("reader", SINCE))
+                val vm = HardcoverSettingsViewModel(repo, books())
+                vm.uiState.test {
+                    awaitSettled()
+                    vm.setShareMode(HardcoverShareMode.FINISHED_ONLY)
+                    advanceUntilIdle()
+                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).let {
+                        it.shareMode shouldBe HardcoverShareMode.AS_I_LISTEN
+                        it.isSavingShareMode shouldBe false
+                    }
+                }
+            }
+        }
+
+        test("a choice the server refuses goes back to the server's mode and shows the error") {
+            runTest {
+                val repo = FakeHardcoverRepository(HardcoverConnection.Connected("reader", SINCE))
+                repo.setShareModeResult = AppResult.Failure(HardcoverError.Unavailable())
+                val vm = HardcoverSettingsViewModel(repo, books())
+                turbineScope {
+                    val states = vm.uiState.testIn(backgroundScope)
+                    val events = vm.events.testIn(backgroundScope)
+                    states.awaitSettled()
+                    vm.setShareMode(HardcoverShareMode.FINISHED_ONLY)
+                    events.awaitItem() shouldBe HardcoverSettingsEvent.ShowError(HardcoverError.Unavailable())
+                    advanceUntilIdle()
+                    (states.expectMostRecentItem() as HardcoverSettingsUiState.Connected).let {
+                        it.shareMode shouldBe HardcoverShareMode.AS_I_LISTEN
+                        it.isSavingShareMode shouldBe false
+                    }
+                }
+            }
+        }
+
+        test("the mode already shown, a second choice while one saves, and any choice outside Connected send nothing") {
+            runTest {
+                val repo = FakeHardcoverRepository(HardcoverConnection.Connected("reader", SINCE))
+                repo.setShareModeGate = CompletableDeferred()
+                val vm = HardcoverSettingsViewModel(repo, books())
+                vm.uiState.test {
+                    awaitSettled()
+                    vm.setShareMode(HardcoverShareMode.AS_I_LISTEN)
+                    vm.setShareMode(HardcoverShareMode.FINISHED_ONLY)
+                    advanceUntilIdle()
+                    vm.setShareMode(HardcoverShareMode.AS_I_LISTEN)
+                    advanceUntilIdle()
+                    repo.shareModes shouldBe listOf(HardcoverShareMode.FINISHED_ONLY)
+
+                    repo.setShareModeGate!!.complete(Unit)
+                    repo.connection.value = HardcoverConnection.NotConnected()
+                    advanceUntilIdle()
+                    vm.setShareMode(HardcoverShareMode.AS_I_LISTEN)
+                    advanceUntilIdle()
+                    repo.shareModes shouldBe listOf(HardcoverShareMode.FINISHED_ONLY)
                     cancelAndIgnoreRemainingEvents()
                 }
             }

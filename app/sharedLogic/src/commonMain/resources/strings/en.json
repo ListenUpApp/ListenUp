@@ -1711,7 +1711,12 @@
       "match_linked_with_detail": "Matched to %1$s (%2$s)",
       "undo": "Undo",
       "book_row_on_hardcover": "On Hardcover",
-      "book_row_just_matched": "Matched just now"
+      "book_row_just_matched": "Matched just now",
+      "share_mode_label": "Update Hardcover",
+      "share_mode_as_i_listen": "As I listen",
+      "share_mode_finished_only": "Only when I finish",
+      "shared_finished_with_dates_row": "Only books you finish, marked as read, with when you started and finished",
+      "shared_nothing_while_listening": "Nothing is shared while you're still listening"
     },
   "chapter_editor": {
     "title": "Edit chapters",

@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.hardcover
 
 import com.calypsan.listenup.api.dto.activity.RealListen
 import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.BookReadsRepository
@@ -45,6 +46,7 @@ private class RecorderRig(
     val outbox = HardcoverOutbox(sql, clock)
     val links = HardcoverBookLinkStore(sql, clock)
     val connections = HardcoverConnectionStore(sql, HardcoverTokenCipher(HardcoverTokenCipher.deriveKey("secret")), clock)
+    val preferences = HardcoverPreferences(sql, clock)
     val nudged = CopyOnWriteArrayList<String>()
     private val events = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
     val reads = BookReadsRepository(db = sql)
@@ -304,6 +306,50 @@ class HardcoverPushRecorderTest :
                     finish(T0 + 100_000L)
                 }
                 queued().shouldBeEmpty()
+            }
+        }
+
+        test("Only when I finish: a real start and its sessions queue nothing") {
+            recorderTest {
+                connect()
+                preferences.setShareMode(USER, HardcoverShareMode.FINISHED_ONLY)
+                restart(T0)
+                listen("e1", endedAtMs = T0 + 90_000L, wallMs = 90_000L, endPositionMs = 90_000L)
+                listen("e2", endedAtMs = T0 + 400_000L, wallMs = 300_000L, endPositionMs = 390_000L)
+
+                queued().shouldBeEmpty()
+                nudged.shouldBeEmpty()
+            }
+        }
+
+        test("Only when I finish: a finish queues FINISH on the listen-through, whose start dates the read") {
+            recorderTest {
+                connect()
+                preferences.setShareMode(USER, HardcoverShareMode.FINISHED_ONLY)
+                restart(T0)
+                listen("e1", endedAtMs = T0 + 90_000L, wallMs = 90_000L, endPositionMs = 90_000L)
+                finish(T0 + 100_000L)
+
+                val row = outbox.pendingFor(USER).single()
+                row.payload shouldBe HardcoverPushPayload.Finish(T0 + 100_000L)
+                row.listenThrough shouldBe T0
+                nudged.toSet() shouldBe setOf(USER)
+            }
+        }
+
+        test("choosing As I listen again mid-book queues the next session's PROGRESS on the listen-through, and no START") {
+            recorderTest {
+                connect()
+                preferences.setShareMode(USER, HardcoverShareMode.FINISHED_ONLY)
+                restart(T0)
+                listen("e1", endedAtMs = T0 + 90_000L, wallMs = 90_000L, endPositionMs = 90_000L)
+
+                preferences.setShareMode(USER, HardcoverShareMode.AS_I_LISTEN)
+                listen("e2", endedAtMs = T0 + 400_000L, wallMs = 300_000L, endPositionMs = 390_000L)
+
+                val row = outbox.pendingFor(USER).single()
+                row.payload shouldBe HardcoverPushPayload.Progress(positionSeconds = 390L)
+                row.listenThrough shouldBe T0
             }
         }
     })

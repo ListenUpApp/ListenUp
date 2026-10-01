@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverBookToMatch
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverSyncStatus
@@ -26,6 +27,8 @@ import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.LoadingState
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
+import com.calypsan.listenup.web.design.SegmentItem
+import com.calypsan.listenup.web.design.SegmentedControl
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.dom.B
@@ -60,6 +63,7 @@ import org.jetbrains.compose.web.dom.Ul
  * A Sync now that failed is not drawn here — it is brief, so the route says it in a toast with
  * Try again while the sync line stays as it was; only a push or pull that is stuck gets a card.
  *
+ * @param onSetShareMode Chooses when ListenUp updates Hardcover.
  * @param onFindMatch Opens Find on Hardcover for one book of the Needs a match list.
  * @param nowMs What "Last synced …" measures against — read once per composition by the caller.
  * @param copyText Puts text on the clipboard and reports whether it got there. Specs replace it,
@@ -71,6 +75,7 @@ fun HardcoverPage(
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     onSyncNow: () -> Unit,
+    onSetShareMode: (HardcoverShareMode) -> Unit,
     onFindMatch: (bookId: String) -> Unit,
     onOpenSettings: () -> Unit,
     nowMs: Long,
@@ -101,7 +106,7 @@ fun HardcoverPage(
             }
 
             is HardcoverSettingsUiState.Connected -> {
-                Connected(state, nowMs, onDisconnect, onSyncNow, onFindMatch)
+                Connected(state, nowMs, onDisconnect, onSyncNow, onSetShareMode, onFindMatch)
             }
 
             is HardcoverSettingsUiState.Broken -> {
@@ -165,6 +170,52 @@ private fun ListItem(
             attr(ARIA_HIDDEN, "true")
         }) { Icon(icon, size = ITEM_ICON) }
         Span { Text(text) }
+    }
+}
+
+/** A list item that says what is NOT shared, in the quiet style. */
+@Composable
+private fun QuietItem(
+    icon: WebIcon,
+    text: String,
+) {
+    Li(attrs = { classes("hc-item") }) {
+        Span(attrs = {
+            classes("hc-item-i")
+            attr(ARIA_HIDDEN, "true")
+        }) { Icon(icon, size = ITEM_ICON) }
+        Span(attrs = { classes("hc-quiet") }) { Text(text) }
+    }
+}
+
+/**
+ * "Update Hardcover": As I listen, or Only when I finish (en.json's `hardcover.share_mode_*`), on the
+ * shared [SegmentedControl] — a group named "Update Hardcover" whose buttons announce pressed or not.
+ * The visible label is hidden from assistive tech, because the group already carries it as its name.
+ * The choice shows at once; while it saves ([isSaving]) neither option takes a press.
+ */
+@Composable
+private fun ShareModeChoice(
+    mode: HardcoverShareMode,
+    isSaving: Boolean,
+    onSetShareMode: (HardcoverShareMode) -> Unit,
+) {
+    Div(attrs = { classes("hc-share-mode") }) {
+        Span(attrs = {
+            classes("hc-label")
+            attr(ARIA_HIDDEN, "true")
+        }) { Text(SHARE_MODE_LABEL) }
+        SegmentedControl(
+            items =
+                listOf(
+                    SegmentItem(HardcoverShareMode.AS_I_LISTEN.name, "As I listen"),
+                    SegmentItem(HardcoverShareMode.FINISHED_ONLY.name, "Only when I finish"),
+                ),
+            active = mode.name,
+            label = SHARE_MODE_LABEL,
+            enabled = !isSaving,
+            onSelect = { key -> HardcoverShareMode.entries.firstOrNull { it.name == key }?.let(onSetShareMode) },
+        )
     }
 }
 
@@ -266,6 +317,7 @@ private fun Connected(
     nowMs: Long,
     onDisconnect: () -> Unit,
     onSyncNow: () -> Unit,
+    onSetShareMode: (HardcoverShareMode) -> Unit,
     onFindMatch: (bookId: String) -> Unit,
 ) {
     var confirming by remember { mutableStateOf(false) }
@@ -295,10 +347,20 @@ private fun Connected(
 
         Div(attrs = { classes("hc-col") }) {
             Panel(title = "What ListenUp shares") {
+                ShareModeChoice(mode = state.shareMode, isSaving = state.isSavingShareMode, onSetShareMode = onSetShareMode)
                 Ul(attrs = { classes("hc-list") }) {
-                    ListItem(WebIcon.Book, "Books you start, as Currently reading")
-                    ListItem(WebIcon.Headphones, "How far you've listened")
-                    ListItem(WebIcon.Check, "Books you finish, marked as read")
+                    when (state.shareMode) {
+                        HardcoverShareMode.AS_I_LISTEN -> {
+                            ListItem(WebIcon.Book, "Books you start, as Currently reading")
+                            ListItem(WebIcon.Headphones, "How far you've listened")
+                            ListItem(WebIcon.Check, "Books you finish, marked as read")
+                        }
+
+                        HardcoverShareMode.FINISHED_ONLY -> {
+                            ListItem(WebIcon.Check, "Only books you finish, marked as read, with when you started and finished")
+                            QuietItem(WebIcon.Headphones, "Nothing is shared while you're still listening")
+                        }
+                    }
                 }
                 H3(attrs = { classes("hc-label", "hc-back-h") }) { Text("What comes back") }
                 Ul(attrs = { classes("hc-list") }) {
@@ -573,3 +635,6 @@ private const val MATCH_COVER = 48
 
 /** en.json's `hardcover.needs_match_section`. */
 private const val NEEDS_MATCH = "Needs a match"
+
+/** en.json's `hardcover.share_mode_label`. */
+private const val SHARE_MODE_LABEL = "Update Hardcover"

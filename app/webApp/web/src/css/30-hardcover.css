@@ -125,6 +125,7 @@
 /* What comes back — under what is shared, quieter than it. */
 .luw .hc-back-h { margin: 1.2rem 0 0.8rem; }
 .luw .hc-quiet { color: var(--ink-2); }
+.luw .hc-share-mode { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; margin: 0 0 1.2rem; }
 
 @media (max-width: 759px) {
   .luw .hc-match-row { flex-wrap: wrap; }

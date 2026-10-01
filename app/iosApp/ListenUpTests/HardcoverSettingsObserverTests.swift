@@ -58,7 +58,9 @@ struct HardcoverPhaseMappingTests {
             lastSyncedAt: nil,
             sync: HardcoverSyncStatusIdle.shared,
             booksToMatch: [],
-            isMatchListKnown: false
+            isMatchListKnown: false,
+            shareMode: .asIListen,
+            isSavingShareMode: false
         )
         guard case .connected(let model) = HardcoverSettingsObserver.phase(from: state) else {
             Issue.record("expected .connected")
@@ -167,5 +169,64 @@ struct HardcoverRowValueTests {
         let row = HardcoverRowValue(from: HardcoverRowStateNeedsAttention.shared)
         #expect(row == .needsAttention)
         #expect(row?.trailingText == String(localized: "hardcover.reconnect"))
+    }
+}
+
+// MARK: - Share mode
+
+@Suite("Hardcover share mode")
+struct HardcoverShareModeTests {
+    private func connected(shareMode: HardcoverShareMode, isSaving: Bool) -> HardcoverSettingsUiStateConnected {
+        HardcoverSettingsUiStateConnected(
+            username: "simon",
+            since: 1_790_000_000_000,
+            isDisconnecting: false,
+            lastSyncedAt: nil,
+            sync: HardcoverSyncStatusIdle.shared,
+            booksToMatch: [],
+            isMatchListKnown: true,
+            shareMode: shareMode,
+            isSavingShareMode: isSaving
+        )
+    }
+
+    @Test func connectedCarriesTheShareModeAndWhetherItIsSaving() {
+        let state = connected(shareMode: .finishedOnly, isSaving: true)
+        guard case .connected(let model) = HardcoverSettingsObserver.phase(from: state) else {
+            Issue.record("expected .connected")
+            return
+        }
+        #expect(model.shareMode == .finishedOnly)
+        #expect(model.isSavingShareMode == true)
+    }
+
+    @Test func eachModeHasItsOwnNameInTitleStyle() {
+        #expect(
+            HardcoverSettingsObserver.shareModeLabel(.asIListen)
+                == String(localized: "hardcover.share_mode_as_i_listen").titleStyled
+        )
+        #expect(
+            HardcoverSettingsObserver.shareModeLabel(.finishedOnly)
+                == String(localized: "hardcover.share_mode_finished_only").titleStyled
+        )
+    }
+
+    @Test func asIListenSharesStartingProgressAndFinishing() {
+        let lines = HardcoverSettingsObserver.sharedLines(for: .asIListen)
+        #expect(lines.map(\.text) == [
+            String(localized: "hardcover.shared_started_row"),
+            String(localized: "hardcover.shared_progress_row"),
+            String(localized: "hardcover.shared_finished_row")
+        ])
+        #expect(lines.allSatisfy { !$0.isQuiet })
+    }
+
+    @Test func onlyWhenIFinishSharesFinishingWithItsDatesAndSaysNothingElseIsShared() {
+        let lines = HardcoverSettingsObserver.sharedLines(for: .finishedOnly)
+        #expect(lines.map(\.text) == [
+            String(localized: "hardcover.shared_finished_with_dates_row"),
+            String(localized: "hardcover.shared_nothing_while_listening")
+        ])
+        #expect(lines.map(\.isQuiet) == [false, true])
     }
 }

@@ -24,7 +24,8 @@ struct HardcoverLinkingModel: Equatable {
 /// Connected as `username` since `since`. `isDisconnecting` while Disconnect is in flight.
 /// `lastSyncedAt` is nil before the first sync, either way; `sync` is the sync line. `booksToMatch`
 /// are the books ListenUp couldn't match, in the server's order; `isMatchListKnown` is false until
-/// the server has answered, so only a known empty list says every book is matched.
+/// the server has answered, so only a known empty list says every book is matched. `shareMode` is when
+/// ListenUp updates Hardcover: the server's, or the one just chosen while `isSavingShareMode`.
 struct HardcoverConnectedModel: Equatable {
     let username: String
     let since: Date
@@ -33,6 +34,17 @@ struct HardcoverConnectedModel: Equatable {
     var sync: HardcoverSyncLine = .idle
     var booksToMatch: [HardcoverBookToMatchRow] = []
     var isMatchListKnown = false
+    var shareMode: HardcoverShareMode = .asIListen
+    var isSavingShareMode = false
+}
+
+/// One line of "What ListenUp shares", native, for a `ForEach` (iosApp rule 8). A quiet line says what
+/// is NOT shared, in the secondary style.
+struct HardcoverSharedLine: Equatable, Identifiable {
+    let systemImage: String
+    let text: String
+    var isQuiet = false
+    var id: String { text }
 }
 
 /// The Connected screen's sync line, each sentence already resolved.
@@ -111,6 +123,10 @@ final class HardcoverSettingsObserver {
     /// Sync Now, or Try Again beside a stuck sync. The ViewModel ignores a press while one is in flight.
     func syncNow() { viewModel.syncNow() }
 
+    /// Update Hardcover: As I listen, or Only when I finish. The ViewModel shows the choice at once and
+    /// puts the server's back, with an alert, if the server refuses it.
+    func setShareMode(_ mode: HardcoverShareMode) { viewModel.setShareMode(mode: mode) }
+
     // MARK: - Event routing
 
     private func apply(_ effect: HardcoverEffect?) {
@@ -164,7 +180,9 @@ final class HardcoverSettingsObserver {
                             coverHash: $0.coverHash
                         )
                     },
-                    isMatchListKnown: connected.isMatchListKnown
+                    isMatchListKnown: connected.isMatchListKnown,
+                    shareMode: connected.shareMode,
+                    isSavingShareMode: connected.isSavingShareMode
                 )
             )
         case .broken(let brokenType):
@@ -212,6 +230,44 @@ final class HardcoverSettingsObserver {
         case .syncNowFailed: .syncNowFailed(String(localized: "hardcover.sync_now_failed_notice"))
         case .pushStalled: .stalled(String(localized: "hardcover.problem_push_stalled"))
         case .pullStalled: .stalled(String(localized: "hardcover.problem_pull_stalled"))
+        }
+    }
+
+    /// Each mode's name, for the Update Hardcover menu, in title style: HIG, Menus — "To be consistent
+    /// with platform experiences, use title-style capitalization." Deliberately no `default`: a new mode
+    /// must fail to compile here rather than borrow a name.
+    nonisolated static func shareModeLabel(_ mode: HardcoverShareMode) -> String {
+        switch mode {
+        case .asIListen: String(localized: "hardcover.share_mode_as_i_listen").titleStyled
+        case .finishedOnly: String(localized: "hardcover.share_mode_finished_only").titleStyled
+        }
+    }
+
+    /// What the chosen mode sends to Hardcover, row by row; Only when I finish ends with a quiet line
+    /// saying nothing is shared while listening.
+    nonisolated static func sharedLines(for mode: HardcoverShareMode) -> [HardcoverSharedLine] {
+        switch mode {
+        case .asIListen:
+            [
+                HardcoverSharedLine(systemImage: "book", text: String(localized: "hardcover.shared_started_row")),
+                HardcoverSharedLine(
+                    systemImage: "headphones",
+                    text: String(localized: "hardcover.shared_progress_row")
+                ),
+                HardcoverSharedLine(systemImage: "checkmark", text: String(localized: "hardcover.shared_finished_row"))
+            ]
+        case .finishedOnly:
+            [
+                HardcoverSharedLine(
+                    systemImage: "checkmark",
+                    text: String(localized: "hardcover.shared_finished_with_dates_row")
+                ),
+                HardcoverSharedLine(
+                    systemImage: "headphones",
+                    text: String(localized: "hardcover.shared_nothing_while_listening"),
+                    isQuiet: true
+                )
+            ]
         }
     }
 

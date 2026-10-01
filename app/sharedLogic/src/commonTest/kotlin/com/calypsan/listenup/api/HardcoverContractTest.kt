@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.HardcoverError
@@ -44,6 +45,32 @@ class HardcoverContractTest :
             val legacy = """{"type":"HardcoverConnection.Broken","reason":"REVOKED"}"""
             contractJson.decodeFromString(HardcoverConnection.serializer(), legacy) shouldBe
                 HardcoverConnection.Broken(reason = HardcoverBrokenReason.REVOKED, hardcoverUsername = null)
+        }
+
+        test("Connected carries its share mode, and each mode round-trips") {
+            HardcoverShareMode.entries.forEach { mode ->
+                val state = HardcoverConnection.Connected(hardcoverUsername = "simon", since = 1L, shareMode = mode)
+                val json = contractJson.encodeToString(HardcoverConnection.serializer(), state)
+                contractJson.decodeFromString(HardcoverConnection.serializer(), json) shouldBe state
+            }
+        }
+
+        test("the share modes are spelled on the wire as the server stores them") {
+            contractJson.encodeToString(HardcoverShareMode.serializer(), HardcoverShareMode.AS_I_LISTEN) shouldBe "\"AS_I_LISTEN\""
+            contractJson.encodeToString(HardcoverShareMode.serializer(), HardcoverShareMode.FINISHED_ONLY) shouldBe "\"FINISHED_ONLY\""
+        }
+
+        test("a Connected payload from a server that predates the share mode reads as As I listen") {
+            val legacy = """{"type":"HardcoverConnection.Connected","hardcoverUsername":"simon","since":1}"""
+            val decoded = contractJson.decodeFromString(HardcoverConnection.serializer(), legacy)
+            decoded shouldBe HardcoverConnection.Connected(hardcoverUsername = "simon", since = 1L)
+            (decoded as HardcoverConnection.Connected).shareMode shouldBe HardcoverShareMode.AS_I_LISTEN
+        }
+
+        test("a share mode this build doesn't know reads as As I listen instead of breaking the stream") {
+            val future = """{"type":"HardcoverConnection.Connected","hardcoverUsername":"simon","since":1,"shareMode":"AFTER_AN_HOUR"}"""
+            val decoded = contractJson.decodeFromString(HardcoverConnection.serializer(), future)
+            (decoded as HardcoverConnection.Connected).shareMode shouldBe HardcoverShareMode.AS_I_LISTEN
         }
 
         listOf<Pair<String, AppError>>(

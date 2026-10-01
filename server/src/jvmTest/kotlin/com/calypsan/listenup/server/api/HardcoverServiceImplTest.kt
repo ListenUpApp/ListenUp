@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.result.AppResult
@@ -21,12 +22,15 @@ import com.calypsan.listenup.server.hardcover.HardcoverLinker
 import com.calypsan.listenup.server.hardcover.HardcoverMe
 import com.calypsan.listenup.server.hardcover.HardcoverOAuthClient
 import com.calypsan.listenup.server.hardcover.HardcoverOutbox
+import com.calypsan.listenup.server.hardcover.HardcoverPreferences
 import com.calypsan.listenup.server.hardcover.HardcoverPushNudge
 import com.calypsan.listenup.server.hardcover.HardcoverRateLimiter
+import com.calypsan.listenup.server.hardcover.HardcoverSyncActivity
 import com.calypsan.listenup.server.hardcover.RecordingPullRequests
 import com.calypsan.listenup.server.hardcover.HardcoverTokenCipher
 import com.calypsan.listenup.server.hardcover.HardcoverTokenProvider
 import com.calypsan.listenup.server.hardcover.HardcoverTokens
+import com.calypsan.listenup.server.hardcover.hardcoverShareMode
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
@@ -90,15 +94,23 @@ private class Rig(
     clientIdConfigured: Boolean,
 ) {
     val hardcover = ScriptedHardcover()
+    val sql = dbs.sql
+    private val activity = HardcoverSyncActivity()
     val store =
-        HardcoverConnectionStore(dbs.sql, HardcoverTokenCipher(HardcoverTokenCipher.deriveKey("a-jwt-secret")))
+        HardcoverConnectionStore(
+            dbs.sql,
+            HardcoverTokenCipher(HardcoverTokenCipher.deriveKey("a-jwt-secret")),
+            activity = activity,
+        )
     private val linker =
         HardcoverLinker(
             HardcoverOAuthClient(hardcover.client, "listenup-test", "https://hc.test"),
             HardcoverGraphQlClient(hardcover.client, "https://hc.test"),
             store,
             scope.backgroundScope,
+            activity = activity,
         )
+    private val preferences = HardcoverPreferences(dbs.sql, activity = activity)
     private val tokenProvider =
         HardcoverTokenProvider(HardcoverOAuthClient(hardcover.client, "listenup-test", "https://hc.test"), store, linker)
     val pulls = RecordingPullRequests()
@@ -120,6 +132,7 @@ private class Rig(
                     HardcoverCatalogCache(HardcoverGraphQlClient(hardcover.client, "https://hc.test"), HardcoverRateLimiter()),
             ),
             pulls = pulls,
+            preferences = preferences,
         )
 
     fun serviceFor(userId: String) = unscoped.copyWith(principalOf(userId))
@@ -294,6 +307,41 @@ class HardcoverServiceImplTest :
                 }
                 store.connectionFor(USER).shouldNotBeNull()
                 hardcover.paths shouldBe emptyList()
+            }
+        }
+
+        test("setShareMode records the caller's choice, and their Connected carries it live, asking Hardcover nothing") {
+            serviceTest {
+                seedConnected(USER)
+                val service = serviceFor(USER)
+                service.observeConnection().test {
+                    awaitItem()
+                        .shouldBeInstanceOf<RpcEvent.Data<HardcoverConnection>>()
+                        .value
+                        .shouldBeInstanceOf<HardcoverConnection.Connected>()
+                        .shareMode shouldBe HardcoverShareMode.AS_I_LISTEN
+
+                    service.setShareMode(HardcoverShareMode.FINISHED_ONLY) shouldBe AppResult.Success(Unit)
+
+                    awaitItem()
+                        .shouldBeInstanceOf<RpcEvent.Data<HardcoverConnection>>()
+                        .value
+                        .shouldBeInstanceOf<HardcoverConnection.Connected>()
+                        .shareMode shouldBe HardcoverShareMode.FINISHED_ONLY
+                }
+                sql.hardcoverShareMode(OTHER_USER) shouldBe HardcoverShareMode.AS_I_LISTEN
+                hardcover.paths shouldBe emptyList()
+            }
+        }
+
+        test("without a principal setShareMode is PermissionDenied and records nothing") {
+            serviceTest {
+                unscoped
+                    .setShareMode(HardcoverShareMode.FINISHED_ONLY)
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                sql.hardcoverShareMode(USER) shouldBe HardcoverShareMode.AS_I_LISTEN
             }
         }
     })

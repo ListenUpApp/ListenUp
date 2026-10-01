@@ -11131,12 +11131,62 @@
         }
       }
     },
+    "hardcover.share_mode_as_i_listen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As I listen"
+          }
+        }
+      }
+    },
+    "hardcover.share_mode_finished_only": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only when I finish"
+          }
+        }
+      }
+    },
+    "hardcover.share_mode_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update Hardcover"
+          }
+        }
+      }
+    },
     "hardcover.shared_finished_row": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Books you finish, marked as read"
+          }
+        }
+      }
+    },
+    "hardcover.shared_finished_with_dates_row": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only books you finish, marked as read, with when you started and finished"
+          }
+        }
+      }
+    },
+    "hardcover.shared_nothing_while_listening": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing is shared while you're still listening"
           }
         }
       }

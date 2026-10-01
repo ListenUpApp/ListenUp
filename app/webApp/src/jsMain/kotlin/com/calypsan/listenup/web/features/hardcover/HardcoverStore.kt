@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.hardcover
 
 import androidx.lifecycle.ViewModelStore
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsEvent
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsUiState
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsViewModel
@@ -11,7 +12,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import org.koin.core.Koin
 
 /**
- * An open Hardcover screen: the connection, its one-shot effects, the four gestures, and the
+ * An open Hardcover screen: the connection, its one-shot effects, the five gestures, and the
  * teardown.
  *
  * [onOpenVerificationPage] is wired for completeness but the page does not call it. On web the
@@ -26,6 +27,7 @@ class HardcoverSession(
     val onOpenVerificationPage: () -> Unit,
     val onDisconnect: () -> Unit,
     val onSyncNow: () -> Unit,
+    val onSetShareMode: (HardcoverShareMode) -> Unit,
     val close: () -> Unit,
 )
 
@@ -44,6 +46,7 @@ fun graphHardcover(koin: Koin): OpenHardcover =
             onOpenVerificationPage = viewModel::openVerificationPage,
             onDisconnect = viewModel::disconnect,
             onSyncNow = viewModel::syncNow,
+            onSetShareMode = viewModel::setShareMode,
             close = store::clear,
         )
     }
@@ -61,6 +64,7 @@ fun fixedHardcover(
     onOpenVerificationPage: () -> Unit = {},
     onDisconnect: () -> Unit = {},
     onSyncNow: () -> Unit = {},
+    onSetShareMode: (HardcoverShareMode) -> Unit = {},
 ): OpenHardcover =
     {
         HardcoverSession(
@@ -70,6 +74,7 @@ fun fixedHardcover(
             onOpenVerificationPage = onOpenVerificationPage,
             onDisconnect = onDisconnect,
             onSyncNow = onSyncNow,
+            onSetShareMode = onSetShareMode,
             close = {},
         )
     }

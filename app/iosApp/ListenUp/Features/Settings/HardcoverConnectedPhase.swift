@@ -1,4 +1,5 @@
 import SwiftUI
+import Shared
 
 /// The Hardcover screen while connected: who you are, how sync stands, the books that need a match,
 /// what ListenUp shares and what comes back, then Disconnect.
@@ -8,6 +9,7 @@ import SwiftUI
 struct HardcoverConnectedPhase: View {
     let model: HardcoverConnectedModel
     let onSyncNow: () -> Void
+    let onSetShareMode: (HardcoverShareMode) -> Void
     let onFindMatch: (String) -> Void
     let onDisconnect: () -> Void
 
@@ -16,23 +18,7 @@ struct HardcoverConnectedPhase: View {
             identitySection
             syncSection
             needsMatchSection
-            Section(String(localized: "hardcover.what_is_shared")) {
-                HardcoverStatementRow(
-                    systemImage: "book",
-                    text: String(localized: "hardcover.shared_started_row"),
-                    tint: Color.secondary
-                )
-                HardcoverStatementRow(
-                    systemImage: "headphones",
-                    text: String(localized: "hardcover.shared_progress_row"),
-                    tint: Color.secondary
-                )
-                HardcoverStatementRow(
-                    systemImage: "checkmark",
-                    text: String(localized: "hardcover.shared_finished_row"),
-                    tint: Color.secondary
-                )
-            }
+            whatIsSharedSection
             Section {
                 HardcoverStatementRow(
                     systemImage: "arrow.down.to.line",
@@ -195,6 +181,33 @@ struct HardcoverConnectedPhase: View {
                     text: String(localized: "hardcover.needs_match_none"),
                     tint: Color.secondary
                 )
+            }
+        }
+    }
+
+    // MARK: - What ListenUp shares
+
+    /// Update Hardcover, then what the chosen mode sends. A menu-style picker is a pop-up button — HIG,
+    /// Pop-up buttons: "Use a pop-up button to present a flat list of mutually exclusive options or
+    /// states", with "an introductory label … giving context to the options"; the rows beneath are the
+    /// "explanatory text below the list" that says what each choice does. In a form it shows its label
+    /// and the current value, and VoiceOver reads both. Disabled while a choice saves.
+    private var whatIsSharedSection: some View {
+        Section(String(localized: "hardcover.what_is_shared")) {
+            Picker(
+                String(localized: "hardcover.share_mode_label").titleStyled,
+                selection: Binding(get: { model.shareMode }, set: { onSetShareMode($0) })
+            ) {
+                ForEach(Array(HardcoverShareMode.allCases), id: \.self) { mode in
+                    Text(HardcoverSettingsObserver.shareModeLabel(mode)).tag(mode)
+                }
+            }
+            .pickerStyle(.menu)
+            .disabled(model.isSavingShareMode)
+            .haptic(.selectionTick, trigger: model.shareMode)
+            ForEach(HardcoverSettingsObserver.sharedLines(for: model.shareMode)) { line in
+                HardcoverStatementRow(systemImage: line.systemImage, text: line.text, tint: Color.secondary)
+                    .foregroundStyle(line.isQuiet ? Color.secondary : Color.primary)
             }
         }
     }

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.design
 
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookSync
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.client.domain.model.ListenerAverage
@@ -2627,6 +2628,7 @@ private fun hardcoverSettingsShapes(): List<@Composable () -> Unit> {
                 onConnect = {},
                 onDisconnect = {},
                 onSyncNow = {},
+                onSetShareMode = {},
                 onFindMatch = {},
                 onOpenSettings = {},
                 nowMs = 0L,
@@ -2646,6 +2648,15 @@ private fun hardcoverSettingsShapes(): List<@Composable () -> Unit> {
             ),
         ),
         page(HardcoverSettingsUiState.Connected(username = "simon", since = 0L, isDisconnecting = false)),
+        page(
+            HardcoverSettingsUiState.Connected(
+                username = "simon",
+                since = 0L,
+                isDisconnecting = false,
+                shareMode = HardcoverShareMode.FINISHED_ONLY,
+                isSavingShareMode = true,
+            ),
+        ),
         // The sync line in each shape, the stuck card, and Needs a match both listed and empty.
         page(
             HardcoverSettingsUiState.Connected(

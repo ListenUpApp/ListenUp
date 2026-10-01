@@ -44,6 +44,7 @@ class HardcoverSyncSectionTest {
                     onCancelLinking = {},
                     onDisconnect = {},
                     onSyncNow = { syncs++ },
+                    onSetShareMode = {},
                     onFindMatch = { opened += it },
                 )
             }

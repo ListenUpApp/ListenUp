@@ -86,7 +86,8 @@ private class LinkingRig(
             pulls = pulls,
             catalog = catalog,
         )
-    val service = HardcoverServiceImpl(linker, clientIdConfigured = true, linking = linking, pulls = pulls)
+    val service =
+        HardcoverServiceImpl(linker, clientIdConfigured = true, linking = linking, pulls = pulls, preferences = HardcoverPreferences(sql))
 
     init {
         sql.seedTestUser(USER)

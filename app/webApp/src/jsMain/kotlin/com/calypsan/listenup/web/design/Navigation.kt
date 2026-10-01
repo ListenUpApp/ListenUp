@@ -126,12 +126,17 @@ class SegmentItem(
  *
  * A named group of `<button aria-pressed>`, the same shape the sort row uses, rather than the
  * clickable `<b>`s it was. [label] names what the group chooses between ("Show").
+ *
+ * Not [enabled] — a choice still saving — its buttons say `aria-disabled` and ignore a press, rather
+ * than taking `disabled`: a press is exactly what disables them, and a `disabled` button drops the
+ * keyboard focus that press put on it back to the top of the page.
  */
 @Composable
 fun SegmentedControl(
     items: List<SegmentItem>,
     active: String,
     label: String,
+    enabled: Boolean = true,
     onSelect: ((String) -> Unit)? = null,
 ) {
     Div(attrs = {
@@ -145,7 +150,8 @@ fun SegmentedControl(
                 if (isActive) classes("on")
                 attr("type", BUTTON)
                 attr("aria-pressed", isActive.toString())
-                onSelect?.let { select -> onClick { select(item.key) } }
+                if (!enabled) attr("aria-disabled", "true")
+                onSelect?.let { select -> onClick { if (enabled) select(item.key) } }
             }) {
                 item.icon?.let { Icon(it, size = SEGMENT_ICON_SIZE) }
                 Text(item.label)

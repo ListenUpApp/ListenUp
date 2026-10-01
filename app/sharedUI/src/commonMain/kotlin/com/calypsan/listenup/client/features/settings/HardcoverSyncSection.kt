@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoStories
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.TaskAlt
@@ -41,10 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
 import com.calypsan.listenup.client.design.components.BookCoverImage
@@ -61,8 +55,6 @@ import com.calypsan.listenup.client.presentation.hardcover.HardcoverBookToMatch
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverSyncStatus
 import kotlinx.coroutines.delay
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.hardcover_comes_back_line
-import listenup.composeapp.generated.resources.hardcover_comes_back_never_listening
 import listenup.composeapp.generated.resources.hardcover_find_on_hardcover
 import listenup.composeapp.generated.resources.hardcover_last_synced
 import listenup.composeapp.generated.resources.hardcover_last_synced_just_now
@@ -73,16 +65,11 @@ import listenup.composeapp.generated.resources.hardcover_never_synced
 import listenup.composeapp.generated.resources.hardcover_problem_pull_stalled
 import listenup.composeapp.generated.resources.hardcover_problem_push_stalled
 import listenup.composeapp.generated.resources.hardcover_problem_sync_now_failed
-import listenup.composeapp.generated.resources.hardcover_shared_finished_row
-import listenup.composeapp.generated.resources.hardcover_shared_progress_row
-import listenup.composeapp.generated.resources.hardcover_shared_started_row
 import listenup.composeapp.generated.resources.hardcover_sync_now
 import listenup.composeapp.generated.resources.hardcover_sync_now_failed_notice
 import listenup.composeapp.generated.resources.hardcover_sync_section
 import listenup.composeapp.generated.resources.hardcover_syncing
 import listenup.composeapp.generated.resources.hardcover_try_again
-import listenup.composeapp.generated.resources.hardcover_what_comes_back
-import listenup.composeapp.generated.resources.hardcover_what_is_shared
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Clock
@@ -295,48 +282,9 @@ private fun NeedsMatchRow(
     }
 }
 
-/**
- * What ListenUp sends to Hardcover — books started, how far, books finished — and what comes back:
- * reads from elsewhere, labelled in Readers and never counted as listening.
- */
-@Composable
-internal fun HardcoverWhatIsShared() {
-    SectionGroup(label = stringResource(Res.string.hardcover_what_is_shared)) {
-        SettingRow(title = stringResource(Res.string.hardcover_shared_started_row), icon = Icons.Outlined.AutoStories)
-        SettingRow(title = stringResource(Res.string.hardcover_shared_progress_row), icon = Icons.Outlined.Headphones)
-        SettingRow(title = stringResource(Res.string.hardcover_shared_finished_row), icon = Icons.Outlined.TaskAlt)
-    }
-    SectionGroup(label = stringResource(Res.string.hardcover_what_comes_back)) {
-        val quiet = SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)
-        val line = stringResource(Res.string.hardcover_comes_back_line)
-        val never = stringResource(Res.string.hardcover_comes_back_never_listening)
-        SectionSegment {
-            Row(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = Spacing.lg),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Download,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text =
-                        buildAnnotatedString {
-                            append(line)
-                            append(' ')
-                            withStyle(quiet) { append(never) }
-                        },
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-            }
-        }
-    }
-}
-
 /** A single quiet sentence as a segment: a muted glyph and muted text. */
 @Composable
-private fun QuietLine(
+internal fun QuietLine(
     icon: ImageVector,
     text: String,
 ) {

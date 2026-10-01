@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
 import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
+import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
@@ -256,6 +257,19 @@ class HardcoverRepositoryImplTest :
                 dispatch.lastIdempotent shouldBe true
             }
         }
+
+        test("choosing a share mode reaches the server and is a safe blind retry") {
+            runTest {
+                val service = FakeHardcoverService()
+                val dispatch = IdempotenceRecordingDispatch<HardcoverService>(service)
+                val repository = HardcoverRepositoryImpl(RpcChannel(dispatch, RpcPolicy.Authed))
+
+                repository.setShareMode(HardcoverShareMode.FINISHED_ONLY) shouldBe AppResult.Success(Unit)
+
+                service.shareModes shouldBe listOf(HardcoverShareMode.FINISHED_ONLY)
+                dispatch.lastIdempotent shouldBe true
+            }
+        }
     })
 
 /** In-memory [HardcoverService]: each subscribe pops the next scripted stream; unary calls return what they were given. */
@@ -280,6 +294,13 @@ private class FakeHardcoverService(
     override suspend fun disconnect(): AppResult<Unit> {
         disconnectCount++
         return disconnectResult
+    }
+
+    val shareModes = mutableListOf<HardcoverShareMode>()
+
+    override suspend fun setShareMode(mode: HardcoverShareMode): AppResult<Unit> {
+        shareModes += mode
+        return AppResult.Success(Unit)
     }
 
     var searchResult: AppResult<List<HardcoverBookCandidate>> = AppResult.Success(emptyList())
