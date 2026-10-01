@@ -186,6 +186,38 @@ internal interface CollectionBookDao {
     suspend fun liveCollectionIdsForBook(bookId: String): List<String>
 
     /**
+     * Observe the books held for review, oldest hold first — see [HELD_BOOK_IDS_SQL].
+     *
+     * The single source the inbox page, the Library entry, the navigation badge and the Book Detail
+     * held section all read, so they cannot disagree. Re-emits on any change to `collection_books`
+     * or `collections`. Always empty on a member's device.
+     */
+    @Query("$HELD_BOOK_IDS_SQL ORDER BY held_cb.createdAt ASC")
+    fun observeHeldBookIds(): Flow<List<String>>
+
+    /** One-shot counterpart to [observeHeldBookIds], for reads that are themselves one-shot (shelf detail). */
+    @Query(HELD_BOOK_IDS_SQL)
+    suspend fun heldBookIds(): List<String>
+
+    /**
+     * Tombstone the INBOX memberships of [bookIds] — the write-through after the server has
+     * committed a release, so the books leave the inbox, the badge and the library's exclusion the
+     * moment the RPC succeeds rather than when the echo lands.
+     *
+     * Local-only, like [tombstoneByIds]: the existing `revision` is preserved, so the server's own
+     * tombstone echo (a higher revision) still applies through the revision guard.
+     */
+    @Query(
+        "UPDATE collection_books SET deletedAt = :now " +
+            "WHERE deletedAt IS NULL AND bookId IN (:bookIds) " +
+            "AND collectionId IN (SELECT id FROM collections WHERE isInbox = 1)",
+    )
+    suspend fun tombstoneHeldRows(
+        bookIds: List<String>,
+        now: Long,
+    )
+
+    /**
      * Live (non-tombstoned) junction ids — the opaque wire [CollectionBookEntity.syncId] values
      * (SERVER-SYNC-04), used by the access-change reconcile so the local set lines up with
      * `catchUpTransient`'s returned set.
