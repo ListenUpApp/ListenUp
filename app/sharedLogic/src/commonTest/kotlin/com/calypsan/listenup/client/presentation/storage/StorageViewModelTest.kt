@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.StorageSpaceProvider
 import com.calypsan.listenup.client.playback.PlaybackStateProvider
+import com.calypsan.listenup.client.test.fake.FakeInboxRepository
 import dev.mokkery.verify.VerifyMode.Companion.not
 import kotlinx.coroutines.flow.StateFlow
 import dev.mokkery.answering.returns
@@ -69,6 +70,7 @@ class StorageViewModelTest :
             totalUsed: Long = 0L,
             available: Long = 1_000_000L,
             playingBookId: BookId? = null,
+            heldIds: Set<String> = emptySet(),
         ): Pair<StorageViewModel, Fixture> {
             val fixture =
                 Fixture(
@@ -86,9 +88,26 @@ class StorageViewModelTest :
                     storageSpaceProvider = fixture.storageSpaceProvider,
                     errorBus = ErrorBus(),
                     playbackStateProvider = FakePlaybackStateProvider(playingBookId),
+                    inboxRepository = FakeInboxRepository().apply { hold(*heldIds.toTypedArray()) },
                     backgroundDispatcher = UnconfinedTestDispatcher(testScheduler),
                 )
             return vm to fixture
+        }
+
+        test("a downloaded book held for review is marked held; the rest are not") {
+            runTest {
+                val held = DownloadedBookSummary("b1", "Held One", "A", 10L, 1)
+                val ordinary = DownloadedBookSummary("b2", "Public One", "A", 20L, 1)
+                val (vm, _) = buildVm(downloads = listOf(held, ordinary), heldIds = setOf("b1"))
+
+                vm.state.test {
+                    awaitItem().isLoading shouldBe true
+                    val books = awaitItem().downloadedBooks
+                    books.first { it.bookId == "b1" }.isHeld shouldBe true
+                    books.first { it.bookId == "b2" }.isHeld shouldBe false
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
         }
 
         test("state reflects downloaded books from repository") {

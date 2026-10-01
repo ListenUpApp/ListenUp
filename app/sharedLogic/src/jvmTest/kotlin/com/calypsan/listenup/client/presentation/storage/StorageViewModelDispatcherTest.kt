@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.StorageSpaceProvider
 import com.calypsan.listenup.client.playback.PlaybackStateProvider
+import com.calypsan.listenup.client.test.fake.FakeInboxRepository
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.mock
@@ -83,6 +84,7 @@ class StorageViewModelDispatcherTest :
                         storageSpaceProvider = storageSpaceProvider,
                         errorBus = ErrorBus(),
                         playbackStateProvider = FakePlaybackStateProvider(),
+                        inboxRepository = FakeInboxRepository(),
                     )
 
                 vm.state.test {

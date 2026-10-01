@@ -7,6 +7,7 @@ import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
+import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.StorageSpaceProvider
 import com.calypsan.listenup.client.playback.PlaybackStateProvider
@@ -65,6 +66,7 @@ class StorageViewModel(
     private val storageSpaceProvider: StorageSpaceProvider,
     private val errorBus: ErrorBus,
     private val playbackStateProvider: PlaybackStateProvider,
+    inboxRepository: InboxRepository,
     /**
      * Where [StorageSpaceProvider.calculateStorageUsed]'s blocking tree walk runs — injected, not
      * hardcoded, so tests can substitute a dispatcher the test scheduler controls. Pinning
@@ -80,7 +82,8 @@ class StorageViewModel(
         combine(
             internalState,
             downloadRepository.observeDownloadedBooks(),
-        ) { internal, books ->
+            inboxRepository.observeHeldBookIds(),
+        ) { internal, books, heldIds ->
             // calculateStorageUsed() walks the ENTIRE downloads tree — File.walkTopDown() plus a
             // stat per file, with zero suspension points — and getAvailableSpace() is a blocking
             // statvfs. This transform runs on the collector's context, i.e. Main
@@ -100,7 +103,7 @@ class StorageViewModel(
                 isLoading = false,
                 totalStorageUsed = totalUsed,
                 availableStorage = available,
-                downloadedBooks = books,
+                downloadedBooks = books.map { if (BookId(it.bookId) in heldIds) it.copy(isHeld = true) else it },
             )
         }.stateIn(
             scope = viewModelScope,

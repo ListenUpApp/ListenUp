@@ -681,6 +681,7 @@ internal val settingsPresentationModule =
                 // The concrete PlaybackManager implements PlaybackStateProvider (same narrowing as
                 // AuthModule's LogoutUseCase wiring) — used to refuse deleting the playing book (B9).
                 playbackStateProvider = get<com.calypsan.listenup.client.playback.PlaybackManager>(),
+                inboxRepository = get(),
             )
         }
     }
