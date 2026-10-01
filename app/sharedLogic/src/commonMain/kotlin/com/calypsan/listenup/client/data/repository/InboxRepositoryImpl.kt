@@ -13,8 +13,12 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.currentEpochMilliseconds
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * [InboxRepository] over the local held set ([CollectionBookDao]) and the `CollectionService` /
@@ -52,9 +56,22 @@ internal class InboxRepositoryImpl(
                         BookId(bookId) to targets.map(::CollectionId)
                     },
                 )
-            }.onSuccess {
-                collectionBookDao.tombstoneHeldRows(assignments.keys.toList(), currentEpochMilliseconds())
-            }
+            }.onSuccess { tombstoneReleasedLocally(assignments.keys.toList()) }
+
+    /**
+     * The release has already committed on the server, so a failed local write must not turn it into
+     * an error: the caller would report a release that happened. The server's tombstone echo still
+     * converges Room; until it lands the books simply stay in the inbox a moment longer.
+     */
+    private suspend fun tombstoneReleasedLocally(bookIds: List<String>) {
+        try {
+            collectionBookDao.tombstoneHeldRows(bookIds, currentEpochMilliseconds())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "Release committed, but the local inbox write-through failed; awaiting the sync echo" }
+        }
+    }
 
     override suspend fun listScanIssues(): AppResult<List<ScanIssue>> =
         scannerChannel.call(idempotent = true) { it.listScanIssues() }

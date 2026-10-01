@@ -205,12 +205,17 @@ internal interface CollectionBookDao {
      * moment the RPC succeeds rather than when the echo lands.
      *
      * Local-only, like [tombstoneByIds]: the existing `revision` is preserved, so the server's own
-     * tombstone echo (a higher revision) still applies through the revision guard.
+     * tombstone echo (a higher revision) still applies through the revision guard. The revision is
+     * kept deliberately — this write has no outbox op, so resetting it (say to 0) would let any older
+     * frame resurrect the row. The cost: a catch-up page already in flight at the same revision can
+     * briefly restore it, and the server's tombstone (R+1) converges it.
+     *
+     * Rows are selected by [HELD_MEMBERSHIPS_SQL], so only the INBOX memberships end — any other
+     * membership of the same book is left alone.
      */
     @Query(
         "UPDATE collection_books SET deletedAt = :now " +
-            "WHERE deletedAt IS NULL AND bookId IN (:bookIds) " +
-            "AND collectionId IN (SELECT id FROM collections WHERE isInbox = 1)",
+            "WHERE bookId IN (:bookIds) AND rowid IN (SELECT held_cb.rowid $HELD_MEMBERSHIPS_SQL)",
     )
     suspend fun tombstoneHeldRows(
         bookIds: List<String>,

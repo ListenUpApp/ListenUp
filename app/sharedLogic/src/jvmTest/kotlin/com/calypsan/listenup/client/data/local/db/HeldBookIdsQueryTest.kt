@@ -118,4 +118,32 @@ class HeldBookIdsQueryTest :
                 ended.revision shouldBe 1L
             }
         }
+
+        test("tombstoneHeldRows leaves a held book's other memberships alone") {
+            withHeldBookDb { db ->
+                // Mid-release race: the curated row has landed but the INBOX row has not ended yet.
+                db.collectionDao().upsert(
+                    CollectionEntity(
+                        id = "col-scifi",
+                        libraryId = "lib1",
+                        ownerId = "root",
+                        name = "Sci-fi",
+                        isInbox = false,
+                        revision = 1L,
+                        updatedAt = 100L,
+                    ),
+                )
+                HeldBookFixture.hold(db, "b1")
+                db.collectionBookDao().upsert(HeldBookFixture.membership("col-scifi", "b1"))
+
+                db.collectionBookDao().tombstoneHeldRows(listOf("b1"), now = 900L)
+
+                db.collectionBookDao().heldBookIds().shouldBeEmpty()
+                db
+                    .collectionBookDao()
+                    .findByKey("col-scifi", "b1")
+                    .shouldNotBeNull()
+                    .deletedAt shouldBe null
+            }
+        }
     })
