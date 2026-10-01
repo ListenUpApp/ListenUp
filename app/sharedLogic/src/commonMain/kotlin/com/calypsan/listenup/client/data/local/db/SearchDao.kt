@@ -70,6 +70,31 @@ internal interface SearchDao {
     ): List<BookSearchResult>
 
     /**
+     * [searchBooks] without the books held for review — for surfaces that only offer play (iOS App
+     * Intents, voice), where a held book is never a valid answer.
+     *
+     * The exclusion runs in SQL, before the `LIMIT`, so held books ranking near the top cannot take
+     * the slots of playable ones. [BookSearchResult.isHeld] is therefore always false.
+     */
+    @SkipQueryVerification
+    @Query(
+        """
+        SELECT b.*, fts.author AS authorName, 0 AS isHeld
+        FROM books_fts fts
+        INNER JOIN books b ON fts.bookId = b.id
+        WHERE books_fts MATCH :query
+          AND b.deletedAt IS NULL
+          AND b.id NOT IN ($HELD_BOOK_IDS_SQL)
+        ORDER BY bm25(books_fts)
+        LIMIT :limit
+    """,
+    )
+    suspend fun searchUnheldBooks(
+        query: String,
+        limit: Int = 20,
+    ): List<BookSearchResult>
+
+    /**
      * Search contributors using FTS5.
      */
     @SkipQueryVerification

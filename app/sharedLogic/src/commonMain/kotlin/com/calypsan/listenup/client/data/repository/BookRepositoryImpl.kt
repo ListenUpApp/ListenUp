@@ -347,9 +347,9 @@ internal class BookRepositoryImpl(
 
     /**
      * Local Room FTS5 search for the iOS App Intents "play …" surface. Emits exactly once. Leaves out
-     * books held for review: that surface only offers play, and a held book cannot be played. The
-     * never-stranded search — which keeps held books, marked — is
-     * [com.calypsan.listenup.client.domain.repository.SearchRepository].
+     * books held for review in SQL, before the limit ([SearchDao.searchUnheldBooks]): that surface only
+     * offers play, and a held book cannot be played. The never-stranded search — which keeps held
+     * books, marked — is [com.calypsan.listenup.client.domain.repository.SearchRepository].
      */
     override fun search(query: String): Flow<List<BookListItem>> =
         flow {
@@ -359,8 +359,7 @@ internal class BookRepositoryImpl(
             }
             val ids =
                 searchDao
-                    .searchBooks(QueryUtils.toFtsQuery(query), limit = SEARCH_LIMIT)
-                    .filterNot { it.isHeld }
+                    .searchUnheldBooks(QueryUtils.toFtsQuery(query), limit = SEARCH_LIMIT)
                     .map { it.book.id }
             if (ids.isEmpty()) {
                 emit(emptyList())
