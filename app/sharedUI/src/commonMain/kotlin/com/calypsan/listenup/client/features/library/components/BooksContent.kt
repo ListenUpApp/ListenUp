@@ -74,7 +74,7 @@ private const val INBOX_ENTRY_KEY = "library-inbox-entry"
 /**
  * Represents an item in the book grid - either a section header or a book.
  */
-private sealed class BookGridItem {
+internal sealed class BookGridItem {
     /** Section divider showing the [letter] heading above the books that follow it. */
     data class Header(
         val letter: Char,
@@ -94,7 +94,7 @@ private sealed class BookGridItem {
  *                       sorting (A, An, The ignored), affecting which letter
  *                       each book groups under.
  */
-private fun groupBooksWithHeaders(
+internal fun groupBooksWithHeaders(
     books: List<BookListItem>,
     sortState: SortState,
     ignoreArticles: Boolean,
@@ -336,36 +336,10 @@ private fun BookGrid(
             groupBooksWithHeaders(books, sortState, ignoreTitleArticles)
         }
 
-    // The header, when present, is grid item 0, so every letter's position moves down by one.
-    val headerOffset = if (header != null) 1 else 0
-
-    // Build alphabet index based on current sort category, accounting for headers
+    val hasHeader = header != null
     val alphabetIndex =
-        remember(gridItems, sortState, headerOffset) {
-            when (sortState.category) {
-                SortCategory.TITLE, SortCategory.AUTHOR, SortCategory.SERIES -> {
-                    // Map letters to their header positions in the grid
-                    val letterPositions = mutableMapOf<Char, Int>()
-                    gridItems.forEachIndexed { index, item ->
-                        if (item is BookGridItem.Header) {
-                            letterPositions[item.letter] = index + headerOffset
-                        }
-                    }
-                    if (letterPositions.isNotEmpty()) {
-                        // Sort: non-letters (#) first, then alphabetically
-                        val letters =
-                            letterPositions.keys
-                                .sortedWith(compareBy({ it.isLetter() }, { it }))
-                        AlphabetIndex(letters, letterPositions)
-                    } else {
-                        null
-                    }
-                }
-
-                else -> {
-                    null
-                } // Numeric sorts don't benefit from alphabet navigation
-            }
+        remember(gridItems, sortState, hasHeader) {
+            bookGridAlphabetIndex(gridItems, sortState.category, hasHeader)
         }
 
     val isScrolling by remember {
@@ -460,6 +434,32 @@ private fun BookGrid(
             )
         }
     }
+}
+
+/**
+ * The alphabet scrollbar's letters and the grid position each one jumps to, or null for a sort with
+ * no letters (numeric and date sorts) or nothing to index.
+ *
+ * [hasHeader]: the grid's item 0 is then the header slot (the Library's inbox entry), so every
+ * letter's section sits one item further on than its place in [gridItems].
+ */
+internal fun bookGridAlphabetIndex(
+    gridItems: List<BookGridItem>,
+    sortCategory: SortCategory,
+    hasHeader: Boolean,
+): AlphabetIndex? {
+    if (sortCategory !in setOf(SortCategory.TITLE, SortCategory.AUTHOR, SortCategory.SERIES)) return null
+    val headerOffset = if (hasHeader) 1 else 0
+    val letterPositions = mutableMapOf<Char, Int>()
+    gridItems.forEachIndexed { index, item ->
+        if (item is BookGridItem.Header) {
+            letterPositions[item.letter] = index + headerOffset
+        }
+    }
+    if (letterPositions.isEmpty()) return null
+    // Non-letters (#) first, then alphabetically.
+    val letters = letterPositions.keys.sortedWith(compareBy({ it.isLetter() }, { it }))
+    return AlphabetIndex(letters, letterPositions)
 }
 
 @Composable

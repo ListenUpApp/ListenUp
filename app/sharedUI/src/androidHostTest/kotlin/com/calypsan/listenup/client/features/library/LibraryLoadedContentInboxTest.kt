@@ -6,6 +6,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.domain.model.BookListItem
@@ -67,6 +69,42 @@ class LibraryLoadedContentInboxTest {
 
         awaitText(BOOK_TITLE)
         composeRule.onNodeWithContentDescription(ENTRY).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the entry heads the Books view only, not In progress or Series`() {
+        render(onOpenInbox = {})
+        awaitText(BOOK_TITLE)
+        composeRule.onNodeWithContentDescription(ENTRY).assertExists()
+
+        // In progress lists the same book, so its title appearing proves the grid is drawn.
+        composeRule.onNodeWithText("In progress").performClick()
+        awaitText(BOOK_TITLE)
+        composeRule.onNodeWithContentDescription(ENTRY).assertDoesNotExist()
+
+        composeRule.onNodeWithText("Series").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription(ENTRY).assertDoesNotExist()
+
+        composeRule.onNodeWithText("Books").performClick()
+        awaitText(BOOK_TITLE)
+        composeRule.onNodeWithContentDescription(ENTRY).assertExists()
+    }
+
+    @Test
+    fun `selecting books takes the entry away until the selection ends`() {
+        val multiSelect = multiSelect()
+        render(onOpenInbox = {}, multiSelect = multiSelect)
+        awaitText(BOOK_TITLE)
+        composeRule.onNodeWithContentDescription(ENTRY).assertExists()
+
+        composeRule.runOnIdle { multiSelect.enterSelectionMode("b1") }
+        awaitText(BOOK_TITLE)
+        composeRule.onNodeWithContentDescription(ENTRY).assertDoesNotExist()
+
+        composeRule.runOnIdle { multiSelect.exitSelectionMode() }
+        awaitText(BOOK_TITLE)
+        composeRule.onNodeWithContentDescription(ENTRY).assertExists()
     }
 
     private fun render(
