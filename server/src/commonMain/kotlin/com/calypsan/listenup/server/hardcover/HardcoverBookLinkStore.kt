@@ -219,7 +219,8 @@ class HardcoverBookLinkStore(
     suspend fun isLivePushedRead(
         userId: String,
         readId: Long,
-    ): Boolean = suspendTransaction(sql) { sql.hardcoverPushedReadsQueries.isLivePushedRead(userId, readId).executeAsOne() }
+    ): Boolean =
+        suspendTransaction(sql) { sql.hardcoverPushedReadsQueries.isLivePushedRead(userId, readId).executeAsOne() }
 
     /** Whether Hardcover read [readId] is one ListenUp opened or continued. */
     suspend fun isPushedRead(

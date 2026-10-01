@@ -633,7 +633,10 @@ class HardcoverSettingsViewModelTest :
             }
         }
 
-        test("Send from the quiet row sends too, once; and it sends nothing while sending, when done, with no history or outside Connected") {
+        test(
+            "Send from the quiet row sends too, once; and it sends nothing while sending, when done, " +
+                "with no history or outside Connected",
+        ) {
             runTest {
                 val repo = FakeHardcoverRepository(HardcoverConnection.Connected("reader", SINCE, history = HardcoverHistory.Available(5)))
                 repo.sendHistoryGate = CompletableDeferred()

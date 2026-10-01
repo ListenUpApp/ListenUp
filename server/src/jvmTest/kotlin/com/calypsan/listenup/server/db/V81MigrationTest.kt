@@ -101,11 +101,18 @@ class V81MigrationTest :
 
             MigrationRunner(path).migrate()
 
-            ds.execute("INSERT INTO hardcover_history (user_id, hc_user_id, state, total_books, updated_at) VALUES ('u1', 42, 'SENDING', 2, 1)")
-            ds.execute("INSERT INTO hardcover_history_reads (user_id, read_id, outcome, recorded_at) VALUES ('u1', 'r1', 'SENT', 1)")
-            ds.execute("INSERT INTO hardcover_history_reads (user_id, read_id, outcome, recorded_at) VALUES ('u1', 'r2', 'ALREADY_THERE', 1)")
             ds.execute(
-                "INSERT INTO hardcover_outbox (user_id, book_id, listen_through_started_at, op, payload, created_at, next_attempt_at, history_read_id) " +
+                "INSERT INTO hardcover_history (user_id, hc_user_id, state, total_books, updated_at) " +
+                    "VALUES ('u1', 42, 'SENDING', 2, 1)",
+            )
+            ds.execute("INSERT INTO hardcover_history_reads (user_id, read_id, outcome, recorded_at) VALUES ('u1', 'r1', 'SENT', 1)")
+            ds.execute(
+                "INSERT INTO hardcover_history_reads (user_id, read_id, outcome, recorded_at) " +
+                    "VALUES ('u1', 'r2', 'ALREADY_THERE', 1)",
+            )
+            ds.execute(
+                "INSERT INTO hardcover_outbox (user_id, book_id, listen_through_started_at, op, payload, created_at, " +
+                    "next_attempt_at, history_read_id) " +
                     "VALUES ('u1', 'book2', 600, 'HISTORY', '{}', 1, 1, 'r2')",
             )
             ds.single("SELECT history_read_id FROM hardcover_outbox WHERE user_id = 'u1'") shouldBe "r2"

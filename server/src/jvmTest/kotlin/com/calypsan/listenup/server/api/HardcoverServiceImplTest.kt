@@ -409,8 +409,16 @@ class HardcoverServiceImplTest :
 
         test("without a principal sendHistory and dismissHistory are PermissionDenied") {
             serviceTest {
-                unscoped.sendHistory().shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<AuthError.PermissionDenied>()
-                unscoped.dismissHistory().shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<AuthError.PermissionDenied>()
+                unscoped
+                    .sendHistory()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                unscoped
+                    .dismissHistory()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.PermissionDenied>()
             }
         }
     })

@@ -192,7 +192,11 @@ class HardcoverOutboxTest :
 
                 outbox.dropListenThrough(USER, "book-1", T0)
 
-                outbox.pendingFor(USER).map { it.payload }.single().shouldBeInstanceOf<HardcoverPushPayload.History>()
+                outbox
+                    .pendingFor(USER)
+                    .map { it.payload }
+                    .single()
+                    .shouldBeInstanceOf<HardcoverPushPayload.History>()
             }
         }
 

@@ -52,8 +52,7 @@ private class LifecycleRig(
     suspend fun connect(hcUserId: Long = 42L): HardcoverConnection.Connected =
         connections.save(USER, HardcoverMe(hcUserId, "reader"), HardcoverTokens("at", "rt", 604_800, HARDCOVER_SCOPES))
 
-    suspend fun history(): HardcoverHistory =
-        connections.connectionState(USER).shouldBeInstanceOf<HardcoverConnection.Connected>().history
+    suspend fun history(): HardcoverHistory = connections.connectionState(USER).shouldBeInstanceOf<HardcoverConnection.Connected>().history
 
     /** Hardcover took every queued row of [bookId]: complete them and record each read as sent. */
     suspend fun deliver(bookId: String) {
@@ -65,7 +64,11 @@ private class LifecycleRig(
         progress.settle(USER)
     }
 
-    fun state() = sql.hardcoverHistoryQueries.selectHistory(USER).executeAsOneOrNull()?.state
+    fun state() =
+        sql.hardcoverHistoryQueries
+            .selectHistory(USER)
+            .executeAsOneOrNull()
+            ?.state
 }
 
 private fun lifecycleTest(block: suspend LifecycleRig.() -> Unit) = withSqlDatabase { runTest { LifecycleRig(sql).block() } }
@@ -201,11 +204,19 @@ class HardcoverHistorySenderTest :
         test("Send without a connection is NotConnected; with a broken one, ConnectionBroken; neither queues anything") {
             lifecycleTest {
                 seedHistory()
-                sender.send(USER).shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<HardcoverError.NotConnected>()
+                sender
+                    .send(USER)
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<HardcoverError.NotConnected>()
 
                 connect()
                 connections.markBroken(USER, HardcoverBrokenReason.REVOKED)
-                sender.send(USER).shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<HardcoverError.ConnectionBroken>()
+                sender
+                    .send(USER)
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<HardcoverError.ConnectionBroken>()
                 outbox.pendingFor(USER) shouldBe emptyList()
             }
         }

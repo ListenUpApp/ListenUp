@@ -61,7 +61,8 @@ internal class HardcoverHistoryPush(
                     HardcoverCall.Ok(HardcoverHistoryOutcome.ALREADY_THERE)
                 }
 
-                hardcoverReads(row, shelf) >= sql.ownReadsThrough(row.userId, row.bookId, payload.finishedAt, payload.readId) -> {
+                hardcoverReads(row, shelf) >=
+                    sql.ownReadsThrough(row.userId, row.bookId, payload.finishedAt, payload.readId) -> {
                     alreadyThere(row, shelf, dates.finished, token)
                 }
 
@@ -161,7 +162,8 @@ internal class HardcoverHistoryPush(
         hcBookId: Long,
     ): HardcoverCall<HardcoverUserBook> {
         val entry = paced { userBooks.userBookFor(token, hcBookId) }.valueOr { return it }
-        return entry?.let { HardcoverCall.Ok(it) } ?: HardcoverCall.Failed("history: book $hcBookId is not on the shelf")
+        return entry?.let { HardcoverCall.Ok(it) }
+            ?: HardcoverCall.Failed("history: book $hcBookId is not on the shelf")
     }
 
     /**

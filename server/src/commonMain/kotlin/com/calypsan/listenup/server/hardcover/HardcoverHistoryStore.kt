@@ -175,7 +175,10 @@ internal suspend fun ListenUpDatabase.unsentHardcoverHistory(
 internal suspend fun ListenUpDatabase.unsentHardcoverHistoryBooks(
     userId: String,
     connectedAt: Long,
-): Int = suspendTransaction(this) { hardcoverHistoryQueries.countUnsentHistoryBooks(userId, connectedAt).executeAsOne().toInt() }
+): Int =
+    suspendTransaction(this) {
+        hardcoverHistoryQueries.countUnsentHistoryBooks(userId, connectedAt).executeAsOne().toInt()
+    }
 
 /** [userId]'s own reads of [bookId] up to and including [readId] (finished at [finishedAt]). */
 internal suspend fun ListenUpDatabase.ownReadsThrough(
@@ -200,7 +203,12 @@ internal suspend fun ListenUpDatabase.recordHardcoverHistoryRead(
 ) {
     suspendTransaction(this) {
         if (hardcoverHistoryQueries.readExists(readId).executeAsOne()) {
-            hardcoverHistoryQueries.recordRead(user_id = userId, read_id = readId, outcome = outcome.name, recorded_at = at)
+            hardcoverHistoryQueries.recordRead(
+                user_id = userId,
+                read_id = readId,
+                outcome = outcome.name,
+                recorded_at = at,
+            )
         }
     }
 }

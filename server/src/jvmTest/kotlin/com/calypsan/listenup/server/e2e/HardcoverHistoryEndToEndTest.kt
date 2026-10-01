@@ -49,7 +49,12 @@ private const val HAIL_MARY = 427_578L
 private const val PIRANESI = 312_460L
 
 /** Midday UTC on [date], in epoch ms — far from midnight, so no zone moves the day. */
-private fun noon(date: String): Long = LocalDate.parse(date).atTime(12, 0).toInstant(TimeZone.UTC).toEpochMilliseconds()
+private fun noon(date: String): Long =
+    LocalDate
+        .parse(date)
+        .atTime(12, 0)
+        .toInstant(TimeZone.UTC)
+        .toEpochMilliseconds()
 
 /**
  * The history backfill end to end, with only Hardcover faked:
@@ -88,7 +93,11 @@ class HardcoverHistoryEndToEndTest :
                 ),
             )
             val piranesiOnPaper =
-                hardcover.seedShelf(PIRANESI, HardcoverStatus.READ, "2025-01-03" to "2025-01-20", editionId = 9_002L).reads.single().id
+                hardcover
+                    .seedShelf(PIRANESI, HardcoverStatus.READ, "2025-01-03" to "2025-01-20", editionId = 9_002L)
+                    .reads
+                    .single()
+                    .id
             val fakeHardcover =
                 embeddedServer(CIO, port = 0, host = "127.0.0.1") {
                     routing {
@@ -130,6 +139,7 @@ class HardcoverHistoryEndToEndTest :
                     }
                     val store = app.koinGet<HardcoverConnectionStore>()
                     store.save(userId, HardcoverMe(42, "simon"), HardcoverTokens("hc_at_e2e", "hc_rt_e2e", 604_800, HARDCOVER_SCOPES))
+
                     suspend fun history() = store.connectionState(userId).shouldBeInstanceOf<HardcoverConnection.Connected>().history
                     history() shouldBe HardcoverHistory.Offer(bookCount = 2)
 
@@ -144,7 +154,11 @@ class HardcoverHistoryEndToEndTest :
                     hailMary.editionId shouldBe 9_001L
                     hailMary.reads.map { it.startedAt to it.finishedAt } shouldBe
                         listOf("2025-03-01" to "2025-03-10", "2025-06-01" to "2025-06-05")
-                    hardcover.shelfFor(PIRANESI).shouldNotBeNull().reads.map { it.startedAt to it.finishedAt } shouldBe
+                    hardcover
+                        .shelfFor(PIRANESI)
+                        .shouldNotBeNull()
+                        .reads
+                        .map { it.startedAt to it.finishedAt } shouldBe
                         listOf("2025-01-03" to "2025-01-20")
                     val writes = hardcover.operations.filter { it.startsWith("insert_") || it.startsWith("update_") }
                     writes.filter { it.startsWith("insert_") } shouldBe listOf("insert_user_book", "insert_user_book_read")

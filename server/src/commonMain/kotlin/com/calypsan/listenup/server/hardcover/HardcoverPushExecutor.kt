@@ -63,8 +63,11 @@ class HardcoverPushExecutor(
         return when (val payload = row.payload) {
             // A finished read of its own (#1540): no listen-through to continue, so the deletion rule has nothing to act on.
             is HardcoverPushPayload.History -> history.send(row, payload, link, hcBookId, accessToken)
+
             is HardcoverPushPayload.Start -> live(row, link, hcBookId, accessToken) { start(payload) }
+
             is HardcoverPushPayload.Progress -> live(row, link, hcBookId, accessToken) { progress(payload) }
+
             is HardcoverPushPayload.Finish -> live(row, link, hcBookId, accessToken) { finish(payload) }
         }
     }

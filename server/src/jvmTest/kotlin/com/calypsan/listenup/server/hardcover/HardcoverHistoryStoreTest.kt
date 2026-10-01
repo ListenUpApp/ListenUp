@@ -106,7 +106,10 @@ class HardcoverHistoryStoreTest :
                 sql.recordHardcoverHistoryRead(USER, "vanished", HardcoverHistoryOutcome.SENT, at = T0)
 
                 sql.hardcoverHistoryQueries.outcomeOf(USER, "first").executeAsOneOrNull() shouldBe "SENT"
-                sql.hardcoverHistoryQueries.outcomeOf(USER, "vanished").executeAsOneOrNull().shouldBeNull()
+                sql.hardcoverHistoryQueries
+                    .outcomeOf(USER, "vanished")
+                    .executeAsOneOrNull()
+                    .shouldBeNull()
             }
         }
     })

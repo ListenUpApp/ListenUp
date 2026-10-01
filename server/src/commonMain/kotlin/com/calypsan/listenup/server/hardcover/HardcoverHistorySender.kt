@@ -57,7 +57,13 @@ class HardcoverHistorySender(
             suspendTransaction(sql) {
                 val queries = sql.hardcoverHistoryQueries
                 val next =
-                    when (queries.selectHistory(userId).executeAsOneOrNull()?.state?.let(::hardcoverHistoryState)) {
+                    when (
+                        queries
+                            .selectHistory(userId)
+                            .executeAsOneOrNull()
+                            ?.state
+                            ?.let(::hardcoverHistoryState)
+                    ) {
                         HardcoverHistoryState.OFFERED -> HardcoverHistoryState.DECLINED
                         HardcoverHistoryState.DONE -> HardcoverHistoryState.DISMISSED
                         else -> null

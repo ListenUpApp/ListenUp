@@ -314,7 +314,13 @@ class FakeHardcoverLibrary(
                     shelf.statusId = variables.obj("object").int("status_id")
                     if (opensReadOnStatusChange && shelf.reads.none { it.finishedAt == null }) {
                         shelf.reads +=
-                            Read(nextId++, FAKE_TODAY, finishedAt = null, progressSeconds = null, editionId = shelf.editionId)
+                            Read(
+                                nextId++,
+                                FAKE_TODAY,
+                                finishedAt = null,
+                                progressSeconds = null,
+                                editionId = shelf.editionId,
+                            )
                     }
                     touch(shelf)
                     mutation("update_user_book", shelf.id)
