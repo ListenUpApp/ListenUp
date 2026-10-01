@@ -67,6 +67,21 @@ class HardcoverWantToRead(
         return AppResult.Success(Unit)
     }
 
+    /**
+     * The full pull that started at [startedAt] reached the end of the shelf: every record it never saw
+     * on Want to Read leaves, which is how an entry deleted on Hardcover is noticed.
+     */
+    suspend fun sweep(
+        userId: String,
+        startedAt: Long,
+    ): AppResult<Unit> {
+        for (record in entries.notSeenSince(userId, startedAt)) {
+            val left = leave(userId, record)
+            if (left is AppResult.Failure) return left
+        }
+        return AppResult.Success(Unit)
+    }
+
     private suspend fun place(
         userId: String,
         book: WantedBook,

@@ -9,6 +9,8 @@ import com.calypsan.listenup.server.testing.seedTestBook
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 
 private const val USER = "u1"
 private const val BOOK = "book-1"
@@ -57,6 +59,14 @@ private fun PullRig.syncEvents(domain: String): List<SyncEvent<*>> =
         .replayCache
         .filter { it.repo.domainName == domain }
         .map { it.event }
+
+/** Moves the rig's clock past the full-pull interval, so the next pull re-reads the whole shelf. */
+private fun PullRig.aDayLater() {
+    clock.instant =
+        Instant.fromEpochMilliseconds(
+            clock.now().toEpochMilliseconds() + FULL_PULL_INTERVAL.inWholeMilliseconds + 1.minutes.inWholeMilliseconds,
+        )
+}
 
 /** #1539: Hardcover's Want to Read list, on the user's To Read shelf — one way, and only what Hardcover added. */
 class HardcoverWantToReadTest :
@@ -230,6 +240,25 @@ class HardcoverWantToReadTest :
                 booksOn(starter) shouldBe listOf(BOOK_2)
                 shelfEntries.records(USER) shouldBe emptyList()
                 syncEvents("shelf_books").filterIsInstance<SyncEvent.Deleted>().size shouldBe 1
+            }
+        }
+
+        test("an entry deleted on Hardcover leaves the shelf at the daily full pull, and only then") {
+            pullTest {
+                val starter = starterShelf()
+                connect()
+                wantToReadOnHardcover()
+                pullAll()
+
+                hardcover.deleteShelf(HC_BOOK)
+                pullAll()
+                booksOn(starter) shouldBe listOf(BOOK)
+
+                aDayLater()
+                pullAll()
+
+                booksOn(starter) shouldBe emptyList()
+                shelfEntries.records(USER) shouldBe emptyList()
             }
         }
     })

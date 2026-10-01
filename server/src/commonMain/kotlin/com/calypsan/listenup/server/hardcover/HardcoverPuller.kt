@@ -92,7 +92,10 @@ class HardcoverPuller(
                 .valueOr { return it }
         if (page.isNotEmpty()) commit(userId, page, now)?.let { return it }
         if (page.size < PULL_PAGE_SIZE) {
-            state.fullPullStartedAt?.let { store.finishFullPull(userId, startedAt = it, at = now) }
+            state.fullPullStartedAt?.let { startedAt ->
+                wantToRead.sweep(userId, startedAt).asPullFailure()?.let { return it }
+                store.finishFullPull(userId, startedAt = startedAt, at = now)
+            }
             return HardcoverCall.Ok(PullProgress.CAUGHT_UP)
         }
         return HardcoverCall.Ok(PullProgress.MORE_PAGES)
