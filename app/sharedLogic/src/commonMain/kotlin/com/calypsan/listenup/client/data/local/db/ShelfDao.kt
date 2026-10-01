@@ -48,6 +48,8 @@ internal interface ShelfDao {
      *
      * `bookCount` counts live (non-tombstoned) [ShelfBookEntity] rows per shelf via LEFT JOIN —
      * the [CollectionDao.observeAllWithBookCount] precedent.
+     *
+     * Books held for review ([HELD_BOOK_IDS_SQL]) are excluded on an admin's device, matching the shelf detail.
      */
     @Query(
         """
@@ -56,7 +58,7 @@ internal interface ShelfDao {
         LEFT JOIN (
             SELECT shelfId, COUNT(*) AS cnt
             FROM shelf_books
-            WHERE deletedAt IS NULL
+            WHERE deletedAt IS NULL AND bookId NOT IN ($HELD_BOOK_IDS_SQL)
             GROUP BY shelfId
         ) b ON b.shelfId = s.id
         WHERE s.deletedAt IS NULL
@@ -74,6 +76,8 @@ internal interface ShelfDao {
      * [com.calypsan.listenup.client.domain.model.Shelf.bookCount] is the shelf's full live
      * count, not 1. Reactive: re-emits whenever the relevant shelves or memberships change.
      * The local mirror holds only the caller's own shelves, so no owner predicate is needed.
+     *
+     * Books held for review ([HELD_BOOK_IDS_SQL]) are excluded on an admin's device, matching the shelf detail.
      */
     @Query(
         """
@@ -83,7 +87,7 @@ internal interface ShelfDao {
         LEFT JOIN (
             SELECT shelfId, COUNT(*) AS cnt
             FROM shelf_books
-            WHERE deletedAt IS NULL
+            WHERE deletedAt IS NULL AND bookId NOT IN ($HELD_BOOK_IDS_SQL)
             GROUP BY shelfId
         ) b ON b.shelfId = s.id
         WHERE s.deletedAt IS NULL
@@ -97,13 +101,16 @@ internal interface ShelfDao {
      *
      * Used to render the shelf-card cover grid offline. Joins the live junction rows to
      * the local `books` mirror; only books present in Room with a non-null cover are returned.
+     *
+     * Books held for review ([HELD_BOOK_IDS_SQL]) are excluded on an admin's device, matching the shelf detail.
      */
     @Query(
         """
         SELECT b.coverHash
         FROM shelf_books sb
         JOIN books b ON sb.bookId = b.id
-        WHERE sb.shelfId = :shelfId AND sb.deletedAt IS NULL AND b.coverHash IS NOT NULL
+        WHERE sb.shelfId = :shelfId AND sb.deletedAt IS NULL AND sb.bookId NOT IN ($HELD_BOOK_IDS_SQL)
+            AND b.coverHash IS NOT NULL
         ORDER BY sb.sortOrder ASC
         LIMIT 4
     """,
@@ -134,22 +141,29 @@ internal interface ShelfDao {
      *
      * Used by the single-shelf mapping paths ([ShelfRepositoryImpl.observeById] /
      * [ShelfRepositoryImpl.getById]) so [com.calypsan.listenup.client.domain.model.Shelf.bookCount]
-     * is always the full junction count, not the cover-grid LIMIT.
+     * is the shelf's visible junction count (books held for review excluded), not the cover-grid LIMIT.
      */
-    @Query("SELECT COUNT(*) FROM shelf_books WHERE shelfId = :shelfId AND deletedAt IS NULL")
+    @Query(
+        """
+        SELECT COUNT(*) FROM shelf_books
+        WHERE shelfId = :shelfId AND deletedAt IS NULL AND bookId NOT IN ($HELD_BOOK_IDS_SQL)
+    """,
+    )
     suspend fun bookCountFor(shelfId: String): Int
 
     /**
      * Sum of audio duration (ms) across the shelf's live books present in the local mirror.
      *
      * Books not yet synced to Room contribute zero. Returns 0 for an empty shelf.
+     *
+     * Books held for review ([HELD_BOOK_IDS_SQL]) are excluded on an admin's device, matching the shelf detail.
      */
     @Query(
         """
         SELECT COALESCE(SUM(b.totalDuration), 0)
         FROM shelf_books sb
         JOIN books b ON sb.bookId = b.id
-        WHERE sb.shelfId = :shelfId AND sb.deletedAt IS NULL
+        WHERE sb.shelfId = :shelfId AND sb.deletedAt IS NULL AND sb.bookId NOT IN ($HELD_BOOK_IDS_SQL)
     """,
     )
     suspend fun totalDurationMsFor(shelfId: String): Long
