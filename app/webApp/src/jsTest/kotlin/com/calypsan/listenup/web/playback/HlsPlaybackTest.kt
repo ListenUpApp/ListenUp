@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.playback
 
+import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.client.data.settings.seedServerUrlFromOrigin
 import com.calypsan.listenup.client.di.jsSharedModules
 import com.calypsan.listenup.client.domain.model.AuthState
@@ -306,7 +307,7 @@ private suspend fun bootSignedInGraph(): KoinApplication {
 private suspend fun KoinApplication.startListening(title: String): PlaybackManager.PrepareResult {
     val bookId = awaitBookId(title)
     val manager = koin.get<PlaybackManager>()
-    val prepared = manager.prepareForPlayback(bookId)
+    val prepared = manager.prepareForPlayback(bookId).getOrNull()
     checkNotNull(prepared) { "prepare() returned nothing for '$title'" }
     manager.activateBook(bookId)
     koin.get<PlaybackController>().startPlayback(prepared)

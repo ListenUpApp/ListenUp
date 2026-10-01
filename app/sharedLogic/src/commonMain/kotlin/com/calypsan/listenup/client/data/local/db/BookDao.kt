@@ -155,6 +155,13 @@ internal interface BookDao {
     fun observeIsLive(id: BookId): Flow<Boolean>
 
     /**
+     * Whether [id] is held for review ([HELD_BOOK_IDS_SQL]). The single-book check behind the
+     * triage-only gates — see [heldRefusal]. Room-only, so it answers offline.
+     */
+    @Query("SELECT :id IN ($HELD_BOOK_IDS_SQL)")
+    suspend fun isHeld(id: BookId): Boolean
+
+    /**
      * Observe just the book's two chapter-grouping tier names.
      *
      * Two columns rather than the whole row because the chapter editor re-seeds its draft on every

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -282,7 +283,7 @@ class PlaybackManagerAutoRewindOnResumeTest :
                     val reporter = buildReporter(autoRewindEnabled = true, nowMillis = { now }, scope = scope)
                     val manager = createManager(db, scope, reporter)
 
-                    val prepared = manager.prepareForPlayback(BookId("book-1"))
+                    val prepared = manager.prepareForPlayback(BookId("book-1")).getOrNull()
                     checkNotNull(prepared) { "prepareForPlayback must succeed" }
                     manager.activateBook(BookId("book-1"))
 

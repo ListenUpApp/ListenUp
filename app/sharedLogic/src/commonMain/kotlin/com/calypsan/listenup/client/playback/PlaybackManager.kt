@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
@@ -136,11 +137,13 @@ interface PlaybackManager :
     fun clearPreparing()
 
     /**
-     * Prepare for playback of a book.
+     * Prepare for playback of a book, through [PlaybackPreparer.prepare] — the playback choke point.
      *
-     * @return [PrepareResult] with timeline + resume position, or null on failure.
+     * @return the [PrepareResult] (timeline + resume position), or a typed failure:
+     *   [com.calypsan.listenup.api.error.BookError.HeldForReview] for a book held for review,
+     *   [com.calypsan.listenup.api.error.PlaybackError.CouldNotStart] for anything else.
      */
-    suspend fun prepareForPlayback(bookId: BookId): PrepareResult?
+    suspend fun prepareForPlayback(bookId: BookId): AppResult<PrepareResult>
 
     /**
      * Start playback using a platform [AudioPlayer]. Bridges the prepared timeline

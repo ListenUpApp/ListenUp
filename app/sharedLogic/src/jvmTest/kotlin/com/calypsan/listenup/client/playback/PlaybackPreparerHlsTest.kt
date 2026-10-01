@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.dto.CodecCapability
 import com.calypsan.listenup.api.dto.PreparedAudioFile
@@ -239,7 +240,7 @@ class PlaybackPreparerHlsTest :
                         prepareRepository = preparedWith(hlsUrl1 = "/api/v1/hls/x/$audioFile1/master.m3u8?sig=a"),
                     )
 
-                val result = preparer.prepare(bookId)
+                val result = preparer.prepare(bookId).getOrNull()
 
                 result.shouldNotBeNull()
                 // The one file the server decided needs a transcode gets an absolute, server-prefixed
@@ -263,7 +264,7 @@ class PlaybackPreparerHlsTest :
                         prepareRepository = FakeHlsPlaybackPrepareRepository(fakePlaybackService),
                     )
 
-                val result = preparer.prepare(bookId)
+                val result = preparer.prepare(bookId).getOrNull()
 
                 result.shouldNotBeNull()
                 fakePlaybackService.prepareCallCount shouldBe 0 // no hlsUrl could ever arrive
@@ -293,7 +294,7 @@ class PlaybackPreparerHlsTest :
 
                 val preparer =
                     buildPreparer(downloadService, FakeHlsPlaybackPrepareRepository(fakePlaybackService))
-                val result = preparer.prepare(bookId)
+                val result = preparer.prepare(bookId).getOrNull()
 
                 result.shouldNotBeNull()
                 fakePlaybackService.prepareCallCount shouldBe 1

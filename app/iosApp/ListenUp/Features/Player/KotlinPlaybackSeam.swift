@@ -8,13 +8,15 @@ struct KotlinPlaybackPreparing: PlaybackPreparing {
     let preparer: PlaybackPreparer
 
     func prepare(bookId: String) async -> PreparedPlayback? {
-        // The Kotlin `prepare` returns `PreparedPlayback?` (nullable), logging its own
-        // failures and returning `nil`. Swift Export exposes it as `async throws`, so an
-        // infra fault (auth/network) can still throw. Split the two so a thrown error is
-        // surfaced (no longer silently dropped); type inference avoids naming the bridged
-        // Kotlin type, which collides with the native `PreparedPlayback` struct below.
+        // The Kotlin `prepareOrNull` returns `PreparedPlayback?` (nullable): it folds every
+        // refusal (a book held for review included) and failure of the Kotlin choke point
+        // `prepare` to `nil`, logging the typed cause. Swift never awaits the AppResult-returning
+        // `prepare` itself (Swift Export bridge trap). Swift Export exposes `prepareOrNull` as
+        // `async throws`, so an infra fault (auth/network) can still throw. Split the two so a
+        // thrown error is surfaced (no longer silently dropped); type inference avoids naming the
+        // bridged Kotlin type, which collides with the native `PreparedPlayback` struct below.
         do {
-            guard let prepared = try await preparer.prepare(bookId: BookId(value: bookId)) else {
+            guard let prepared = try await preparer.prepareOrNull(bookId: BookId(value: bookId)) else {
                 return nil
             }
             return PreparedPlayback(
@@ -47,7 +49,7 @@ struct KotlinPlaybackPreparing: PlaybackPreparing {
         } catch is CancellationError {
             return nil
         } catch {
-            Log.error("PlaybackPreparer.prepare failed for \(bookId)", error: error)
+            Log.error("PlaybackPreparer.prepareOrNull failed for \(bookId)", error: error)
             return nil
         }
     }

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import kotlinx.coroutines.flow.flowOf
 import com.calypsan.listenup.client.domain.model.Chapter
@@ -140,7 +141,7 @@ internal class FakePlaybackManager(
         preparingBookId.value = null
     }
 
-    override suspend fun prepareForPlayback(bookId: BookId): PlaybackManager.PrepareResult {
+    override suspend fun prepareForPlayback(bookId: BookId): AppResult<PlaybackManager.PrepareResult> {
         // A real prepare is an RPC round-trip, so it always suspends. Without this the fake returns
         // inline — and because `LivePlayback.playBook` launches UNDISPATCHED, the whole
         // prepare -> activate -> load chain would run to completion *before* `playBook` returns.
@@ -186,18 +187,20 @@ internal class FakePlaybackManager(
         // element with audio already loaded would never see a cold start's boost.
         volumeBoostDb.value = resumeBoostDb
         effectiveGainDb.value = VolumeGain.effectiveGainDb(null, null, resumeBoostDb)
-        return PlaybackManager.PrepareResult(
-            timeline = timeline,
-            bookTitle = title,
-            bookAuthor = "Frank Herbert",
-            seriesName = null,
-            coverPath = null,
-            totalChapters = 1,
-            resumePositionMs = 0L,
-            resumeSpeed = 1.0f,
-            resumeBoostDb = resumeBoostDb,
-            measuredGainDb = null,
-            normalizationGainDb = null,
+        return AppResult.Success(
+            PlaybackManager.PrepareResult(
+                timeline = timeline,
+                bookTitle = title,
+                bookAuthor = "Frank Herbert",
+                seriesName = null,
+                coverPath = null,
+                totalChapters = 1,
+                resumePositionMs = 0L,
+                resumeSpeed = 1.0f,
+                resumeBoostDb = resumeBoostDb,
+                measuredGainDb = null,
+                normalizationGainDb = null,
+            ),
         )
     }
 

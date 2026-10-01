@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
@@ -190,7 +191,7 @@ class PlaybackDefaultsSourceOfTruthTest :
 
         test("a book with no custom speed resumes at the synced default, not the stock 1x") {
             runTest {
-                val result = buildPreparer(FakeUserPreferencesRepository(syncedTwoX), savedPosition()).prepare(bookId)
+                val result = buildPreparer(FakeUserPreferencesRepository(syncedTwoX), savedPosition()).prepare(bookId).getOrNull()
 
                 result.shouldNotBeNull()
                 result.resumeSpeed shouldBe 2.0f
@@ -200,7 +201,7 @@ class PlaybackDefaultsSourceOfTruthTest :
 
         test("a never-played book resumes at the synced default too") {
             runTest {
-                val result = buildPreparer(FakeUserPreferencesRepository(syncedTwoX), savedPosition = null).prepare(bookId)
+                val result = buildPreparer(FakeUserPreferencesRepository(syncedTwoX), savedPosition = null).prepare(bookId).getOrNull()
 
                 result.shouldNotBeNull()
                 result.resumeSpeed shouldBe 2.0f
@@ -218,7 +219,7 @@ class PlaybackDefaultsSourceOfTruthTest :
                         hasCustomBoost = true,
                     )
 
-                val result = buildPreparer(FakeUserPreferencesRepository(syncedTwoX), custom).prepare(bookId)
+                val result = buildPreparer(FakeUserPreferencesRepository(syncedTwoX), custom).prepare(bookId).getOrNull()
 
                 result.shouldNotBeNull()
                 result.resumeSpeed shouldBe 1.25f
@@ -231,7 +232,7 @@ class PlaybackDefaultsSourceOfTruthTest :
                 val synced = FakeUserPreferencesRepository(syncedTwoX)
                 synced.failGetPreferences = InternalError(debugInfo = "server unreachable")
 
-                val result = buildPreparer(synced, savedPosition()).prepare(bookId)
+                val result = buildPreparer(synced, savedPosition()).prepare(bookId).getOrNull()
 
                 result.shouldNotBeNull()
                 result.resumeSpeed shouldBe 2.0f

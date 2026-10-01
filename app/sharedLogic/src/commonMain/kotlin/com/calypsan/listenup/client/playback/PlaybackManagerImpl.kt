@@ -2,6 +2,7 @@
 package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
@@ -213,10 +214,14 @@ internal class PlaybackManagerImpl(
      * 4. Build PlaybackTimeline
      * 5. Get resume position
      *
-     * @return PrepareResult with timeline and resume position, or null on failure
+     * @return the PrepareResult, or the choke point's typed failure
      */
-    override suspend fun prepareForPlayback(bookId: BookId): PlaybackManager.PrepareResult? {
-        val prepared = preparer.prepare(bookId) ?: return null
+    override suspend fun prepareForPlayback(bookId: BookId): AppResult<PlaybackManager.PrepareResult> {
+        val prepared =
+            when (val result = preparer.prepare(bookId)) {
+                is AppResult.Success -> result.data
+                is AppResult.Failure -> return result
+            }
 
         currentTimeline.value = prepared.timeline
         // Note: currentBookId is set by caller after reachability checks pass
@@ -231,18 +236,20 @@ internal class PlaybackManagerImpl(
         effectiveGainDb.value =
             VolumeGain.effectiveGainDb(prepared.measuredGainDb, prepared.normalizationGainDb, prepared.resumeBoostDb)
 
-        return PlaybackManager.PrepareResult(
-            timeline = prepared.timeline,
-            bookTitle = prepared.bookTitle,
-            bookAuthor = prepared.bookAuthor,
-            seriesName = prepared.seriesName,
-            coverPath = prepared.coverPath,
-            totalChapters = prepared.chapters.size,
-            resumePositionMs = prepared.resumePositionMs,
-            resumeSpeed = prepared.resumeSpeed,
-            resumeBoostDb = prepared.resumeBoostDb,
-            measuredGainDb = prepared.measuredGainDb,
-            normalizationGainDb = prepared.normalizationGainDb,
+        return AppResult.Success(
+            PlaybackManager.PrepareResult(
+                timeline = prepared.timeline,
+                bookTitle = prepared.bookTitle,
+                bookAuthor = prepared.bookAuthor,
+                seriesName = prepared.seriesName,
+                coverPath = prepared.coverPath,
+                totalChapters = prepared.chapters.size,
+                resumePositionMs = prepared.resumePositionMs,
+                resumeSpeed = prepared.resumeSpeed,
+                resumeBoostDb = prepared.resumeBoostDb,
+                measuredGainDb = prepared.measuredGainDb,
+                normalizationGainDb = prepared.normalizationGainDb,
+            ),
         )
     }
 

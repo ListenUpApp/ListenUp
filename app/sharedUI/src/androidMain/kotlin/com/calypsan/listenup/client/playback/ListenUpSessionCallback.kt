@@ -45,6 +45,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.api.result.getOrNull
+import com.calypsan.listenup.api.result.valueOrNull
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.localization.SystemStrings
@@ -481,7 +482,10 @@ internal class ListenUpSessionCallback(
             val bookId = BrowseTree.extractBookId(item.mediaId)
             if (bookId != null) {
                 // Prepare playback for this book
-                val prepareResult = playbackManager.prepareForPlayback(BookId(bookId))
+                val prepareResult =
+                    playbackManager.prepareForPlayback(BookId(bookId)).valueOrNull {
+                        logger.warn { "Browse selection not played for $bookId: ${it.code}" }
+                    }
                 if (prepareResult != null) {
                     // Build MediaItems from timeline
                     val bookItems =
@@ -675,7 +679,10 @@ internal class ListenUpSessionCallback(
         logger.info { "Playing book from voice search: $bookId" }
 
         // Prepare playback for the book
-        val prepareResult = playbackManager.prepareForPlayback(BookId(bookId))
+        val prepareResult =
+            playbackManager.prepareForPlayback(BookId(bookId)).valueOrNull {
+                logger.warn { "Voice playback not started for $bookId: ${it.code}" }
+            }
         if (prepareResult == null) {
             logger.error { "Failed to prepare book for voice playback: $bookId" }
             return emptyList<MediaItem>() to null
@@ -748,7 +755,10 @@ internal class ListenUpSessionCallback(
                     logger.info { "Resuming book: ${lastPlayed.bookId.value} at ${lastPlayed.positionMs}ms" }
 
                     // Prepare playback for the book
-                    val prepareResult = playbackManager.prepareForPlayback(lastPlayed.bookId)
+                    val prepareResult =
+                        playbackManager.prepareForPlayback(lastPlayed.bookId).valueOrNull {
+                            logger.warn { "Resumption not started for ${lastPlayed.bookId.value}: ${it.code}" }
+                        }
 
                     if (prepareResult == null) {
                         logger.error { "Failed to prepare book for resumption" }

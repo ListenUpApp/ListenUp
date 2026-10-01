@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.playback
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.playback.AudioPlayer
@@ -113,7 +114,7 @@ private val neverCalledPlaybackManager: PlaybackManager =
 
         override fun clearPreparing() = unexpected()
 
-        override suspend fun prepareForPlayback(bookId: BookId): PlaybackManager.PrepareResult? = unexpected()
+        override suspend fun prepareForPlayback(bookId: BookId): AppResult<PlaybackManager.PrepareResult> = unexpected()
 
         override suspend fun startPlayback(
             player: AudioPlayer,

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -218,7 +219,7 @@ class PlaybackManagerBufferingStateTest :
 
                     val player = FakePlayer()
 
-                    val prepareResult = sut.prepareForPlayback(BookId("book-1"))
+                    val prepareResult = sut.prepareForPlayback(BookId("book-1")).getOrNull()
                     checkNotNull(prepareResult) { "prepareForPlayback must succeed" }
                     sut.activateBook(BookId("book-1"))
 
@@ -267,7 +268,7 @@ class PlaybackManagerBufferingStateTest :
                     val sut = createPlaybackManager(db, scope = managerScope)
                     val player = FakePlayer()
 
-                    val prepareResult = sut.prepareForPlayback(BookId("book-1"))
+                    val prepareResult = sut.prepareForPlayback(BookId("book-1")).getOrNull()
                     checkNotNull(prepareResult) { "prepareForPlayback must succeed" }
                     sut.activateBook(BookId("book-1"))
 
@@ -300,7 +301,7 @@ class PlaybackManagerBufferingStateTest :
                     val sut = createPlaybackManager(db, scope = managerScope)
                     val player = FakePlayer()
 
-                    val prepareResult = sut.prepareForPlayback(BookId("book-1"))
+                    val prepareResult = sut.prepareForPlayback(BookId("book-1")).getOrNull()
                     checkNotNull(prepareResult) { "prepareForPlayback must succeed" }
                     sut.activateBook(BookId("book-1"))
 
@@ -335,7 +336,7 @@ class PlaybackManagerBufferingStateTest :
                     val sut = createPlaybackManager(db, scope = managerScope, progressTracker = progressTracker)
                     val player = FakePlayer()
 
-                    val prepareResult = sut.prepareForPlayback(BookId("book-1"))
+                    val prepareResult = sut.prepareForPlayback(BookId("book-1")).getOrNull()
                     checkNotNull(prepareResult) { "prepareForPlayback must succeed" }
                     sut.activateBook(BookId("book-1"))
                     sut.startPlayback(player = player, resumePositionMs = 0L, resumeSpeed = 1.0f)
@@ -368,7 +369,7 @@ class PlaybackManagerBufferingStateTest :
                     val sut = createPlaybackManager(db, scope = managerScope, progressTracker = progressTracker)
                     val player = FakePlayer()
 
-                    val prepareResult = sut.prepareForPlayback(BookId("book-1"))
+                    val prepareResult = sut.prepareForPlayback(BookId("book-1")).getOrNull()
                     checkNotNull(prepareResult) { "prepareForPlayback must succeed" }
                     sut.activateBook(BookId("book-1"))
                     sut.startPlayback(player = player, resumePositionMs = 0L, resumeSpeed = 1.0f)
@@ -414,7 +415,7 @@ class PlaybackManagerBufferingStateTest :
                     // Activate the book WITHOUT starting an AudioPlayer — this mirrors the
                     // Android path where Media3 drives state transitions and the writer
                     // pushes them into PlaybackManager.
-                    checkNotNull(sut.prepareForPlayback(BookId("book-1")))
+                    checkNotNull(sut.prepareForPlayback(BookId("book-1")).getOrNull())
                     sut.activateBook(BookId("book-1"))
 
                     sut.setPlaybackState(PlaybackState.Playing)
@@ -445,7 +446,7 @@ class PlaybackManagerBufferingStateTest :
 
                     val sut = createPlaybackManager(db, scope = managerScope, progressTracker = progressTracker)
 
-                    checkNotNull(sut.prepareForPlayback(BookId("book-1")))
+                    checkNotNull(sut.prepareForPlayback(BookId("book-1")).getOrNull())
                     sut.activateBook(BookId("book-1"))
 
                     sut.setPlaybackState(PlaybackState.Paused)

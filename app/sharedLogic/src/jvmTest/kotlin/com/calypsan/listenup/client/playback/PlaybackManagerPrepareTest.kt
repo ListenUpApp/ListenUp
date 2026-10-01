@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
@@ -154,7 +155,7 @@ class PlaybackManagerPrepareTest :
 
                     val playbackManager = createPlaybackManager(db)
 
-                    val result = playbackManager.prepareForPlayback(BookId("book-1")).shouldNotBeNull()
+                    val result = playbackManager.prepareForPlayback(BookId("book-1")).getOrNull().shouldNotBeNull()
 
                     withClue("timeline should have 3 segments") { result.timeline.files.size shouldBe 3 }
                     // Verify ordering: segments should be in index order (0, 1, 2)
@@ -188,7 +189,7 @@ class PlaybackManagerPrepareTest :
                         )
                     val player = FakePlayer()
 
-                    val prepareResult = sut.prepareForPlayback(BookId("book-1"))
+                    val prepareResult = sut.prepareForPlayback(BookId("book-1")).getOrNull()
                     checkNotNull(prepareResult) { "prepareForPlayback must succeed" }
                     sut.activateBook(BookId("book-1"))
 
