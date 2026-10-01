@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.library
 
+import com.calypsan.listenup.web.features.admin.InboxBadgeState
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.ProgressLook
 import com.calypsan.listenup.web.design.ProgressBar
@@ -75,6 +76,9 @@ fun LibraryPage(
     selectedIds: Set<String> = emptySet(),
     onToggleSelect: (String) -> Unit = {},
     onStartSelecting: (() -> Unit)? = null,
+    /** The held-for-review count and cover fan for the inbox strip; nothing held draws nothing. */
+    inbox: InboxBadgeState = InboxBadgeState(),
+    onOpenInbox: () -> Unit = {},
 ) {
     // Header and facet row render in EVERY state, because they are navigation rather than data: a
     // first sync can run for minutes, and hiding the row until the books land would strand a reader
@@ -123,6 +127,8 @@ fun LibraryPage(
                 selecting = selecting,
                 selectedIds = selectedIds,
                 onToggleSelect = onToggleSelect,
+                inbox = inbox,
+                onOpenInbox = onOpenInbox,
             )
         }
     }
@@ -137,6 +143,8 @@ private fun LoadedLibrary(
     selecting: Boolean,
     selectedIds: Set<String>,
     onToggleSelect: (String) -> Unit,
+    inbox: InboxBadgeState,
+    onOpenInbox: () -> Unit,
 ) {
     // Android's banner gate: `scanProgress` alone can outlive the scan it describes. The seed half
     // is only offered over a partial grid — an empty one already says it is syncing, in its own words.
@@ -145,6 +153,9 @@ private fun LoadedLibrary(
         isBuilding = state.isBuildingInitialLibrary && state.books.isNotEmpty(),
         placement = "is-above-grid",
     )
+    // Above the grid and above an empty library alike: an admin whose every new book is held has
+    // an empty grid, and the strip is the way in. Selecting turns the grid into a picking surface.
+    if (!selecting) LibraryInboxStrip(inbox = inbox, onOpenInbox = onOpenInbox)
     if (state.books.isEmpty()) {
         EmptyLibrary(isBuilding = state.isBuildingInitialLibrary)
         return

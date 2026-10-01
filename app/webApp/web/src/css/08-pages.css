@@ -28,6 +28,31 @@
 .luw .lib-status-track { flex: 1; min-width: 8rem; }
 /* On Library the strip sits above the grid, so it needs the gap Home's column gives it for free. */
 .luw .lib-status.is-above-grid { margin-bottom: var(--sp-16); }
+/* The Library's inbox strip: the .lib-status slot above the virtualised grid, so card heights never
+   change. Amber (--warn) is "waiting for you"; the focus ring is the coral one .lib-card uses. */
+.luw .lib-inbox {
+  display: flex; align-items: center; gap: 14px; min-height: 68px; box-sizing: border-box;
+  padding: 12px 14px; margin-bottom: var(--sp-16); border-radius: var(--r-md);
+  background: var(--warn-soft); border: 1px solid color-mix(in srgb, var(--warn) 22%, var(--warn-soft));
+  color: var(--ink); text-decoration: none;
+}
+.luw .lib-inbox:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+.luw .lib-inbox-tile {
+  width: 40px; height: 40px; flex: none; border-radius: 10px;
+  background: var(--warn); color: var(--on-warn); display: flex; align-items: center; justify-content: center;
+}
+.luw .lib-inbox-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.luw .lib-inbox-t { font-size: 0.9375rem; font-weight: 700; letter-spacing: -0.01em; }
+.luw .lib-inbox-sub { font-size: var(--fs-small); color: var(--ink-2); }
+.luw .lib-inbox-fan { display: flex; align-items: center; padding: 0 6px; }
+.luw .lib-inbox-fan .lib-inbox-cover + .lib-inbox-cover { margin-left: -14px; }
+.luw .lib-inbox-cover { border: 2px solid var(--warn-soft); border-radius: 6px; flex: none; }
+.luw .lib-inbox-review { font-size: 0.84375rem; font-weight: 700; color: var(--ink-2); }
+.luw .lib-inbox-chev { display: flex; color: var(--ink-2); }
+/* On a phone the word goes and the chevron stays (canvas W-Library-Phone). */
+@media (max-width: 759px) {
+  .luw .lib-inbox-review { display: none; }
+}
 .luw .lib-retry { margin-top: var(--sp-8); }
 /* The failed-setup-check panel's one move, filling the auth card like the sign-in submit does. */
 .luw .setup-check-retry { margin-top: var(--sp-8); }

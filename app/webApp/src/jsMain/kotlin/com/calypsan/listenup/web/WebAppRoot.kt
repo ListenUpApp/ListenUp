@@ -395,6 +395,7 @@ fun WebAppRoot(
             onToast = onToast,
             onActionToast = onActionToast,
             librarySession = librarySession,
+            inbox = inbox,
             playback = playback,
             heroBookId = heroBookId,
             onHeroBookIdChange = { heroBookId = it },
@@ -762,6 +763,7 @@ private fun RouteContent(
     onToast: (String) -> Unit,
     onActionToast: ShowActionToast,
     librarySession: LibrarySession,
+    inbox: InboxBadgeState,
     playback: PlaybackSession,
     heroBookId: String?,
     onHeroBookIdChange: (String) -> Unit,
@@ -863,6 +865,7 @@ private fun RouteContent(
     } else if (active == LIBRARY_KEY) {
         LibraryRouteContent(
             librarySession = librarySession,
+            inbox = inbox,
             openMultiSelect = openMultiSelect,
             router = router,
             heroBookId = heroBookId,
@@ -2149,6 +2152,7 @@ private fun BulkEditRoute(
 @Composable
 private fun LibraryRouteContent(
     librarySession: LibrarySession,
+    inbox: InboxBadgeState,
     openMultiSelect: OpenMultiSelect,
     router: Router,
     heroBookId: String?,
@@ -2169,6 +2173,8 @@ private fun LibraryRouteContent(
             selectedIds = selection.selectedIds,
             onToggleSelect = selection.onToggle,
             onStartSelecting = selection.onStart,
+            inbox = inbox,
+            onOpenInbox = { router.navigate(Route(listOf(ADMIN_KEY, INBOX_KEY))) },
         )
     }
 }

@@ -74,6 +74,9 @@ enum class WebIcon(
     Grip("M5 9h14 M5 15h14"),
     Home("M4 11.4L12 4l8 7.4 M5.6 10v9.6h12.8V10 M9.6 19.6v-5.2h4.8v5.2"),
 
+    // From the Admin Inbox canvas (2026-10-01): a tray — the inbox, and the Held marker's glyph.
+    Inbox("M3 13l2.6-8h12.8L21 13 M3 13v6h18v-6h-5l-1.5 2.5h-5L8 13z"),
+
     // Not mirrored from the design project — it carries no stack glyph. Three offset rectangles is
     // the standard "a set of things" shape; reconcile if the design project grows one.
     Layers("M12 3l8 4.5-8 4.5-8-4.5z M4 12l8 4.5 8-4.5 M4 16.5l8 4.5 8-4.5"),
