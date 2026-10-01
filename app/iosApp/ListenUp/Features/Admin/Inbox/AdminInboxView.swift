@@ -80,19 +80,9 @@ struct AdminInboxView: View {
                         if let message = ready.error { Text(message) }
                     }
                 )
-                .alert(
-                    ReleaseToEveryone.title,
-                    isPresented: $showingReleaseConfirm,
-                    actions: {
-                        Button(String(localized: "common.cancel"), role: .cancel) {}
-                        // Not destructive: nothing is deleted, the books are shared (HIG, Alerts).
-                        Button(ReleaseToEveryone.confirm) { observer.releaseSelected() }
-                            .keyboardShortcut(.defaultAction)   // the preferred action (HIG, Alerts)
-                    },
-                    message: {
-                        Text(ReleaseToEveryone.message(count: ready.selectedCount))
-                    }
-                )
+                .releaseConfirmation(isPresented: $showingReleaseConfirm, count: ready.selectedCount) {
+                    observer.releaseSelected()
+                }
                 // The released books leaving the list is the visible confirmation; the haptic and the
                 // announcement carry it to people not looking at the list (HIG, Feedback).
                 .haptic(.commit, trigger: releases)
@@ -210,16 +200,7 @@ struct AdminInboxView: View {
 
     @ViewBuilder
     private func subtitleRow(ready: AdminInboxReadyModel) -> some View {
-        let text: String = {
-            if ready.hasSelection {
-                let count = ready.selectedCount
-                return count == 1
-                    ? String(localized: "admin.inbox_release_count")
-                    : String(format: String(localized: "admin.inbox_released_count_plural"), count)
-            } else {
-                return "\(ready.bookCount) \(String(localized: "admin.inbox_workflow"))"
-            }
-        }()
+        let text = ReleaseToEveryone.subtitle(bookCount: ready.bookCount, selectedCount: ready.selectedCount)
         Text(text)
             .font(.subheadline)
             .foregroundStyle(.secondary)
