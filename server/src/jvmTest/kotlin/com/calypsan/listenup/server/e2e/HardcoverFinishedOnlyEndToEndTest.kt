@@ -45,7 +45,12 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import org.koin.ktor.ext.get as koinGet
 
-private fun dayOf(epochMs: Long): String = Instant.fromEpochMilliseconds(epochMs).toLocalDateTime(TimeZone.UTC).date.toString()
+private fun dayOf(epochMs: Long): String =
+    Instant
+        .fromEpochMilliseconds(epochMs)
+        .toLocalDateTime(TimeZone.UTC)
+        .date
+        .toString()
 
 /**
  * Only when I finish, end to end, with only Hardcover faked: the listener chooses it over RPC, listens
@@ -184,7 +189,12 @@ class HardcoverFinishedOnlyEndToEndTest :
                     // Nothing ListenUp sent ever carried a position.
                     hardcover.requests
                         .filter { it.operation == "update_user_book_read" }
-                        .forEach { update -> update.variables.getValue("read").jsonObject.containsKey("progress_seconds") shouldBe false }
+                        .forEach { update ->
+                            update.variables
+                                .getValue("read")
+                                .jsonObject
+                                .containsKey("progress_seconds") shouldBe false
+                        }
                 }
             } finally {
                 fakeHardcover.stop(0, 0)

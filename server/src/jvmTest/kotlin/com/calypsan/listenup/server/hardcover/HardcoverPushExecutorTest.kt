@@ -313,7 +313,7 @@ class HardcoverPushExecutorTest :
             }
         }
 
-        test("Only when I finish: a FINISH with nothing before it shelves the book once, dates the read from the listen-through, and marks it Read") {
+        test("Only when I finish: a FINISH with nothing before it shelves once, dates the read from its listen-through, marks it Read") {
             executorTest(FakeHardcoverLibrary.ReadUpdates.REPLACE) {
                 outbox.enqueueFinish(USER, BOOK, listenThrough = T0, finishedAt = T0 + 3 * DAY)
                 runHead() shouldBe PushOutcome.Done
@@ -361,7 +361,7 @@ class HardcoverPushExecutorTest :
             }
         }
 
-        test("As I listen chosen again mid-book: a PROGRESS with no START before it shelves the book and dates the read from the listen-through") {
+        test("As I listen chosen again mid-book: a PROGRESS with no START shelves the book and dates the read from its listen-through") {
             executorTest(FakeHardcoverLibrary.ReadUpdates.REPLACE) {
                 outbox.enqueueProgress(USER, BOOK, listenThrough = T0, positionSeconds = 390L, notBefore = T0)
                 runHead() shouldBe PushOutcome.Done
