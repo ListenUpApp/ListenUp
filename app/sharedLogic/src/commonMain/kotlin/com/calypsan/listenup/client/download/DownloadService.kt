@@ -71,6 +71,8 @@ interface DownloadService {
      *
      * Returns [AppResult.Failure] with [com.calypsan.listenup.api.error.DownloadError]
      * for unexpected errors (book not found, missing audio metadata, etc.).
+     * A book held for review is refused with
+     * [com.calypsan.listenup.api.error.BookError.HeldForReview] — held books are triage-only.
      */
     suspend fun downloadBook(bookId: BookId): AppResult<DownloadOutcome>
 
