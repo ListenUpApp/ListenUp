@@ -83,10 +83,10 @@ private fun SyncLine(state: BookHardcoverUiState.Linked) {
 // Deliberately no `else`: a new state must fail to compile here rather than borrow another's words.
 private fun HardcoverBookSync.words(): String =
     when (this) {
-        HardcoverBookSync.UP_TO_DATE -> "Up to date on Hardcover"
-        HardcoverBookSync.WAITING -> "Waiting to sync"
-        HardcoverBookSync.NOTHING_SENT_YET -> "Nothing sent yet"
-        HardcoverBookSync.REMOVED_ON_HARDCOVER -> "Paused: you removed it on Hardcover. Listening to it again starts a new read."
+        HardcoverBookSync.UP_TO_DATE -> "Up to date"
+        HardcoverBookSync.WAITING -> "Updating…"
+        HardcoverBookSync.NOTHING_SENT_YET -> "Not sent yet"
+        HardcoverBookSync.REMOVED_ON_HARDCOVER -> "Stopped — you removed it on Hardcover"
     }
 
 private fun HardcoverBookSync.icon(): WebIcon =

@@ -1037,10 +1037,10 @@ One beautiful library.</string>
     <string name="hardcover_book_row_needs_match_detail">Pick the right book so your listening syncs.</string>
     <string name="hardcover_book_row_on_hardcover">On Hardcover</string>
     <string name="hardcover_book_row_title">Hardcover</string>
-    <string name="hardcover_book_sync_nothing_yet">Nothing sent yet</string>
-    <string name="hardcover_book_sync_removed">Paused: you removed it on Hardcover. Listening to it again starts a new read.</string>
-    <string name="hardcover_book_sync_up_to_date">Up to date on Hardcover</string>
-    <string name="hardcover_book_sync_waiting">Waiting to sync</string>
+    <string name="hardcover_book_sync_nothing_yet">Not sent yet</string>
+    <string name="hardcover_book_sync_removed">Stopped — you removed it on Hardcover</string>
+    <string name="hardcover_book_sync_up_to_date">Up to date</string>
+    <string name="hardcover_book_sync_waiting">Updating…</string>
     <string name="hardcover_broken_cannot_decrypt">This server can't read its saved Hardcover sign-in, which usually means it was restored from a backup. Reconnect to continue.</string>
     <string name="hardcover_broken_missing_scope">ListenUp is missing a permission it needs on Hardcover. Reconnect to grant it.</string>
     <string name="hardcover_broken_revoked">Hardcover no longer accepts ListenUp's access — it may have been removed on Hardcover. Reconnect to continue.</string>

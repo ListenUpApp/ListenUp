@@ -100,4 +100,24 @@ class ReaderRowsRatingTest :
             rows.map { it.finishedWhen }.distinct() shouldHaveSize 1
             rows.map { it.listKey }.distinct() shouldHaveSize 2
         }
+
+        test("two ListenUp finishes by one reader in the same month are different list items") {
+            val dayMs = 86_400_000L
+            val nowMs = 400 * dayMs
+            val readers =
+                listOf(
+                    Reader(
+                        userId = "u1",
+                        displayName = "Ada",
+                        isYou = false,
+                        currentProgressPct = null,
+                        finishes = listOf(100 * dayMs, 110 * dayMs),
+                    ),
+                )
+
+            val rows = readers.toReaderRows(nowMs = nowMs)
+
+            rows.map { it.finishedWhen }.distinct() shouldHaveSize 1
+            rows.map { it.listKey }.distinct() shouldHaveSize 2
+        }
     })

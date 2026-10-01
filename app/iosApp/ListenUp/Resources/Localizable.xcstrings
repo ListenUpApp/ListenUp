@@ -10366,7 +10366,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nothing sent yet"
+            "value": "Not sent yet"
           }
         }
       }
@@ -10376,7 +10376,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Paused: you removed it on Hardcover. Listening to it again starts a new read."
+            "value": "Stopped — you removed it on Hardcover"
           }
         }
       }
@@ -10386,7 +10386,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Up to date on Hardcover"
+            "value": "Up to date"
           }
         }
       }
@@ -10396,7 +10396,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Waiting to sync"
+            "value": "Updating…"
           }
         }
       }
