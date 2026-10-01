@@ -19,9 +19,11 @@ import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -120,6 +122,21 @@ class InboxRepositoryImplTest :
                 buildRepo(service, dao)
                     .releaseBooks("lib1", mapOf("b1" to emptyList()))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
+            }
+        }
+
+        test("a cancellation during the local write-through is not swallowed") {
+            runTest {
+                val service = mock<CollectionService>()
+                everySuspend { service.releaseBooks(any(), any()) } returns AppResult.Success(Unit)
+                val dao =
+                    mock<CollectionBookDao> {
+                        everySuspend { tombstoneHeldRows(any(), any()) } throws CancellationException("scope cancelled")
+                    }
+
+                shouldThrow<CancellationException> {
+                    buildRepo(service, dao).releaseBooks("lib1", mapOf("b1" to emptyList()))
+                }
             }
         }
 

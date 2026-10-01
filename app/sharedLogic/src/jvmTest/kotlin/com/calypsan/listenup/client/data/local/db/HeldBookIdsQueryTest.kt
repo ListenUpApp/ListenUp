@@ -119,6 +119,19 @@ class HeldBookIdsQueryTest :
             }
         }
 
+        test("tombstoneHeldRows leaves an INBOX row the echo already ended untouched") {
+            withHeldBookDb { db ->
+                HeldBookFixture.hold(db, "b1")
+                HeldBookFixture.applyReleaseEcho(db, "b1")
+
+                db.collectionBookDao().tombstoneHeldRows(listOf("b1"), now = 900L)
+
+                val echoed = db.collectionBookDao().findByKey(HeldBookFixture.INBOX, "b1").shouldNotBeNull()
+                echoed.deletedAt shouldBe 5_000L
+                echoed.revision shouldBe 2L
+            }
+        }
+
         test("tombstoneHeldRows leaves a held book's other memberships alone") {
             withHeldBookDb { db ->
                 // Mid-release race: the curated row has landed but the INBOX row has not ended yet.

@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.diagnostics
 
+import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.settings.seedServerUrlFromOrigin
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.presentation.auth.LoginViewModel
@@ -109,13 +109,14 @@ suspend fun probeLibrarySync(
             }
 
         // The local store, never a network fetch: a fetch would pass with Room completely empty,
-        // which is the exact failure this probe exists to catch.
+        // which is the exact failure this probe exists to catch. Read the books table itself, not a
+        // library list: lists leave out books held for review, so an admin whose whole library is
+        // held would read as "nothing synced" when everything did.
+        val bookDao = app.koin.get<BookDao>()
         val books =
             withTimeoutOrNull(SYNC_TIMEOUT) {
-                app.koin
-                    .get<BookRepository>()
-                    .observeBookListItems()
-                    .first { it.isNotEmpty() }
+                bookDao.observeIsEmpty().first { isEmpty -> !isEmpty }
+                bookDao.getAllLive()
             }
 
         LibrarySyncProbe(

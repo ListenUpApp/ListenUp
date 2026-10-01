@@ -186,10 +186,10 @@ internal interface ContributorDao {
      * Returns contributors who have the specified role on at least one book,
      * ordered by name with the count of books they're associated with.
      *
-     * @param role The role to filter by (e.g., "author", "narrator")
-     *
      * Held books ([HELD_BOOK_IDS_SQL]) are not counted, so an author whose only books are held for
      * review drops out of the list.
+     *
+     * @param role The role to filter by (e.g., "author", "narrator")
      */
     @Query(
         """
@@ -216,11 +216,11 @@ internal interface ContributorDao {
     /**
      * Observe all roles a contributor has with book counts per role.
      *
+     * Held books ([HELD_BOOK_IDS_SQL]) are not counted, so a role whose only books are held for
+     * review drops out of the list.
+     *
      * @param contributorId The contributor's unique ID
      * @return Flow of role to book count pairs
-     *
-     * Held books ([HELD_BOOK_IDS_SQL]) are not counted, so an author whose only books are held for
-     * review drops out of the list.
      */
     @Query(
         """
