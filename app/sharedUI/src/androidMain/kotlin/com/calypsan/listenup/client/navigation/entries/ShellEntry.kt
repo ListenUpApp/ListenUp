@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.features.setup.scan.LibraryScanScreen
 import com.calypsan.listenup.client.features.shell.AppShell
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.navigation.Admin
+import com.calypsan.listenup.client.navigation.AdminInbox
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BrowseFacet
 import com.calypsan.listenup.client.navigation.BulkEdit
@@ -152,6 +153,8 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                             pendingSelectionExit.arm(endSelection)
                             backStack.add(BulkEdit(bookIds))
                         },
+                        // Onto the Library's own stack: Back pops to the shell with Library still selected.
+                        onOpenInbox = { backStack.add(AdminInbox) },
                         modifier = Modifier.padding(padding),
                     )
                 },

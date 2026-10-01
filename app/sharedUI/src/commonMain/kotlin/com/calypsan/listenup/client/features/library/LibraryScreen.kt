@@ -36,10 +36,12 @@ import com.calypsan.listenup.client.features.library.components.AuthorsContent
 import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
 import com.calypsan.listenup.client.features.library.components.BooksContent
 import com.calypsan.listenup.client.features.library.components.LibraryFilterChips
+import com.calypsan.listenup.client.features.library.components.LibraryInboxEntry
 import com.calypsan.listenup.client.features.library.components.NarratorsContent
 import com.calypsan.listenup.client.features.library.components.SeriesContent
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
+import com.calypsan.listenup.client.presentation.admin.InboxBadgeViewModel
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.presentation.books.SelectionMode
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
@@ -68,9 +70,11 @@ import org.koin.compose.viewmodel.koinViewModel
  * @param onEditSelected Navigate to the bulk metadata editor with the current multi-selection,
  *   with a callback that ends the selection once an apply has landed
  *   (null = this host has no route to the editor, so the action is not offered)
+ * @param onOpenInbox Opens the admin inbox from the Books view's entry
  * @param modifier Modifier from parent (includes scaffold padding)
  * @param viewModel The LibraryViewModel (injected via Koin)
  * @param multiSelect The per-screen multi-select ViewModel (injected via Koin)
+ * @param inboxBadge The held count and cover preview behind the entry (injected via Koin)
  */
 @Composable
 fun LibraryScreen(
@@ -80,9 +84,11 @@ fun LibraryScreen(
     onNarratorClick: (String) -> Unit,
     appHeader: AppHeaderSlot,
     onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)? = null,
+    onOpenInbox: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = koinViewModel(),
     multiSelect: BookMultiSelectViewModel = koinViewModel(),
+    inboxBadge: InboxBadgeViewModel = koinViewModel(),
 ) {
     // Trigger intelligent auto-sync when screen becomes visible (only once)
     LaunchedEffect(Unit) {
@@ -90,6 +96,10 @@ fun LibraryScreen(
     }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Shell-scoped like the nav badge: the same ViewModelStore resolves the same InboxBadgeViewModel.
+    val heldCount by inboxBadge.heldCount.collectAsStateWithLifecycle()
+    val previewBookIds by inboxBadge.previewBookIds.collectAsStateWithLifecycle()
 
     when (val state = uiState) {
         is LibraryUiState.Loading -> {
@@ -114,6 +124,9 @@ fun LibraryScreen(
                 onNarratorClick = onNarratorClick,
                 appHeader = appHeader,
                 onEditSelected = onEditSelected,
+                heldCount = heldCount,
+                previewBookIds = previewBookIds,
+                onOpenInbox = onOpenInbox,
                 onEvent = viewModel::onEvent,
                 modifier = modifier,
             )
@@ -176,6 +189,9 @@ private fun LibraryLoadedContent(
     onNarratorClick: (String) -> Unit,
     appHeader: AppHeaderSlot,
     onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)?,
+    heldCount: Int,
+    previewBookIds: List<String>,
+    onOpenInbox: () -> Unit,
     onEvent: (LibraryUiEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -200,7 +216,7 @@ private fun LibraryLoadedContent(
         )
 
     // The Books grid is reused for both the Books filter (all titles) and In progress (partial).
-    val booksGrid: @Composable (List<BookListItem>) -> Unit = { books ->
+    val booksGrid: @Composable (List<BookListItem>, Boolean) -> Unit = { books, showsInboxEntry ->
         BooksContent(
             books = books,
             hasLoadedBooks = true,
@@ -221,6 +237,20 @@ private fun LibraryLoadedContent(
             },
             onBookLongPress = multiSelect::enterSelectionMode,
             onRetry = { onEvent(LibraryUiEvent.RefreshRequested) },
+            // Books view only (canvas): In progress, Series, Authors and Narrators do not carry it,
+            // and selecting books turns the grid into a picking surface the entry would clutter.
+            header =
+                if (showsInboxEntry && heldCount > 0 && !isInSelectionMode) {
+                    {
+                        LibraryInboxEntry(
+                            heldCount = heldCount,
+                            previewBookIds = previewBookIds,
+                            onOpenInbox = onOpenInbox,
+                        )
+                    }
+                } else {
+                    null
+                },
         )
     }
 
@@ -253,8 +283,8 @@ private fun LibraryLoadedContent(
                 modifier = Modifier.fillMaxSize(),
             ) {
                 when (selectedFilter) {
-                    LibraryFilter.Books -> booksGrid(state.books)
-                    LibraryFilter.InProgress -> booksGrid(booksInProgress)
+                    LibraryFilter.Books -> booksGrid(state.books, true)
+                    LibraryFilter.InProgress -> booksGrid(booksInProgress, false)
                     LibraryFilter.Series ->
                         SeriesContent(
                             series = state.series,
