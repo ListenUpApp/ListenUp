@@ -107,7 +107,11 @@ class HeldBookIdsQueryTest :
                 db.collectionBookDao().tombstoneHeldRows(listOf("b1", "b3"), now = 900L)
 
                 db.collectionBookDao().heldBookIds() shouldContainExactly listOf("b2")
-                db.collectionBookDao().findByKey(HeldBookFixture.ALL_BOOKS, "b3").shouldNotBeNull().deletedAt shouldBe null
+                db
+                    .collectionBookDao()
+                    .findByKey(HeldBookFixture.ALL_BOOKS, "b3")
+                    .shouldNotBeNull()
+                    .deletedAt shouldBe null
                 val ended = db.collectionBookDao().findByKey(HeldBookFixture.INBOX, "b1").shouldNotBeNull()
                 ended.deletedAt shouldBe 900L
                 // Preserved, so the server's own tombstone echo (a higher revision) still applies.
