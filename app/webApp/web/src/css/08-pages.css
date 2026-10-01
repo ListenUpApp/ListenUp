@@ -653,27 +653,29 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 /* Rows, not cards: the reader is scanning a queue for the one that looks wrong, and a grid of
    covers makes that a hunt. */
 .luw .inbox-books { display: flex; flex-direction: column; gap: 0.5rem; }
-/* The row and its actions menu sit side by side: a <button> cannot contain another one, so the
-   per-book actions live beside the selection target rather than inside it. */
-.luw .inbox-book-row { display: flex; align-items: stretch; gap: var(--sp-8); }
+/* Checkbox, book, actions menu — side by side, never nested: the book is a <button>, which cannot
+   contain another control. The row draws the card so the three read as one book. */
+.luw .inbox-book-row {
+  display: flex; align-items: stretch; gap: var(--sp-4); padding-left: 0.7rem;
+  border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2);
+  transition: border-color var(--dur), background var(--dur);
+}
+.luw .inbox-book-row.is-sel { border-color: var(--coral); background: var(--coral-soft); }
+.luw .inbox-book-sel { flex: none; display: flex; align-items: center; }
 .luw .inbox-book-row > .inbox-book { flex: 1; min-width: 0; }
-.luw .inbox-book-row > .menu-anchor { display: flex; align-items: center; }
+.luw .inbox-book-row > .menu-anchor { display: flex; align-items: center; padding-right: 0.35rem; }
 .luw .inbox-book {
   display: flex; align-items: center; gap: 0.9rem; width: 100%; text-align: left;
-  padding: 0.5rem 0.7rem; border: 1px solid var(--line); border-radius: var(--r-md);
-  background: var(--surface-2); cursor: pointer; transition: border-color var(--dur), background var(--dur);
+  padding: 0.5rem 0.7rem; border: 0; border-radius: var(--r-md);
+  background: transparent; color: inherit; font: inherit; cursor: pointer;
 }
-@media (hover: hover) { .luw .inbox-book:hover { border-color: var(--coral); } }
+@media (hover: hover) { .luw .inbox-book:hover .inbox-book-title { color: var(--coral-text); } }
 .luw .inbox-book:focus { outline: none; }
 .luw .inbox-book:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
-.luw .inbox-book.is-sel { border-color: var(--coral); background: var(--coral-soft); }
 .luw .inbox-book-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
 .luw .inbox-book-title { font-size: var(--fs-body); font-weight: 700; color: var(--ink); }
 .luw .inbox-book-by { font-size: var(--fs-small); color: var(--ink-2); }
 .luw .inbox-book-dur { flex: none; font-size: var(--fs-small); color: var(--ink-3); font-variant-numeric: tabular-nums; }
-/* Always present, so selecting a row never changes its height and the queue never reflows. */
-.luw .inbox-tick { flex: none; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--coral-text); }
-.luw .inbox-book.is-sel .inbox-tick { background: var(--coral-fill); color: var(--on-coral); }
 
 .luw .inbox-issues { display: flex; flex-direction: column; gap: 0.6rem; }
 .luw .inbox-issue { display: flex; align-items: flex-start; gap: 0.9rem; padding: 0.7rem 0.8rem; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }

@@ -2939,6 +2939,7 @@ private fun AdminInboxRoute(
         onClearError = session.onClearError,
         onOpenBookEdit = { id -> router.navigate(Route(listOf(BOOK_KEY, id, EDIT_KEY))) },
         onOpenMatch = { id -> router.navigate(Route(listOf(BOOK_KEY, id, MATCH_KEY))) },
+        onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
         onClearReleaseResult = session.onClearReleaseResult,
         onRetry = session.onRetry,
         onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },

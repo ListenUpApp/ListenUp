@@ -14,6 +14,7 @@ import io.kotest.matchers.string.shouldContain
 import kotlinx.browser.document
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.asList
 
 private val hosts = mutableListOf<HTMLElement>()
@@ -76,6 +77,7 @@ private fun page(
     onOpenAdmin: () -> Unit = {},
     onOpenBookEdit: (String) -> Unit = {},
     onOpenMatch: (String) -> Unit = {},
+    onOpenBook: (String) -> Unit = {},
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
@@ -94,6 +96,7 @@ private fun page(
             onOpenAdmin = onOpenAdmin,
             onOpenBookEdit = onOpenBookEdit,
             onOpenMatch = onOpenMatch,
+            onOpenBook = onOpenBook,
         )
     }
     return host
@@ -117,6 +120,9 @@ private suspend fun openRowMenu(
 }
 
 private fun bookRows(host: HTMLElement) = host.querySelectorAll(".inbox-book").asList().filterIsInstance<HTMLElement>()
+
+private fun rowCheckboxes(host: HTMLElement) =
+    host.querySelectorAll(".inbox-book-row input[type='checkbox']").asList().filterIsInstance<HTMLInputElement>()
 
 /** Cancel is first in the DOM so a hurried Return lands on the safe choice; confirm follows it. */
 private fun dialogButton(
@@ -168,25 +174,56 @@ class AdminInboxPageTest :
             host.querySelector(".inbox-book-by").shouldBeNull()
         }
 
-        test("a row announces itself as a checkbox, and reports the press") {
+        // Spec §8: a held book's triage page opens "from the inbox or from search". The row is the
+        // way in; selection is its own explicit control, so the one tap never means two things.
+        test("pressing a row opens that book's page, and selects nothing") {
             val toggled = mutableListOf<String>()
-            val host = page(readyInbox(books = listOf(inboxBook(id = "b7"))), onToggleBook = { toggled += it })
+            var opened: String? = null
+            val host =
+                page(
+                    readyInbox(books = listOf(inboxBook(id = "b1"), inboxBook(id = "b7"))),
+                    onToggleBook = { toggled += it },
+                    onOpenBook = { opened = it },
+                )
 
-            val row = bookRows(host).single()
-            row.getAttribute("role") shouldBe "checkbox"
-            row.getAttribute("aria-checked") shouldBe "false"
-            row.click()
+            bookRows(host)[1].click()
+            awaitFrame()
+
+            opened shouldBe "b7"
+            toggled shouldBe emptyList()
+        }
+
+        test("a row is a plain button, not a checkbox wearing one") {
+            val host = page(readyInbox(books = listOf(inboxBook(id = "b7"))))
+
+            bookRows(host).single().getAttribute("role").shouldBeNull()
+        }
+
+        test("each row's checkbox names its book, and reports the toggle without opening it") {
+            val toggled = mutableListOf<String>()
+            var opened: String? = null
+            val host =
+                page(
+                    readyInbox(books = listOf(inboxBook(id = "b7", title = "Elantris"))),
+                    onToggleBook = { toggled += it },
+                    onOpenBook = { opened = it },
+                )
+
+            val box = rowCheckboxes(host).single()
+            box.getAttribute("aria-label") shouldBe "Select Elantris"
+            box.checked shouldBe false
+            box.click()
             awaitFrame()
 
             toggled shouldContainExactly listOf("b7")
+            opened.shouldBeNull()
         }
 
         test("a selected row says so, to the screen reader as well as the eye") {
             val host = page(readyInbox(books = listOf(inboxBook(id = "b7")), selectedBookIds = setOf("b7")))
 
-            val row = bookRows(host).single()
-            row.getAttribute("aria-checked") shouldBe "true"
-            row.className shouldContain "is-sel"
+            rowCheckboxes(host).single().checked shouldBe true
+            host.querySelector(".inbox-book-row")!!.className shouldContain "is-sel"
         }
 
         test("Select all offers itself until everything is selected, then offers the way back") {
@@ -454,8 +491,8 @@ class AdminInboxPageTest :
             retries shouldBe 1
         }
 
-        // ⛔ Beside the row, not inside it. The row is a <button role="checkbox"> and a <button>
-        // cannot contain another — invalid markup, and a screen reader loses the inner control.
+        // ⛔ Beside the row, not inside it. The row is a <button> and a <button> cannot contain
+        // another control — invalid markup, and a screen reader loses the inner control.
         test("a book's actions live beside the selection target, never nested inside it") {
             val host = page(readyInbox(books = listOf(inboxBook(id = "b7"))))
 

@@ -20,6 +20,7 @@ import com.calypsan.listenup.web.design.BulkAction
 import com.calypsan.listenup.web.design.BulkBar
 import com.calypsan.listenup.web.design.MenuAction
 import com.calypsan.listenup.web.design.ActionsMenu
+import com.calypsan.listenup.web.design.Checkbox
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
@@ -62,6 +63,8 @@ fun AdminInboxPage(
     onOpenAdmin: () -> Unit,
     onOpenBookEdit: (String) -> Unit = {},
     onOpenMatch: (String) -> Unit = {},
+    /** Open a held book's page — its triage layout (spec §8): a row's press, not its checkbox. */
+    onOpenBook: (String) -> Unit = {},
 ) {
     Div(attrs = { classes("inbox") }) {
         Breadcrumb(trail = listOf("Admin", "Inbox"), onNavigate = { onOpenAdmin() })
@@ -91,6 +94,7 @@ fun AdminInboxPage(
                     onClearReleaseResult = onClearReleaseResult,
                     onOpenBookEdit = onOpenBookEdit,
                     onOpenMatch = onOpenMatch,
+                    onOpenBook = onOpenBook,
                 )
             }
         }
@@ -109,6 +113,7 @@ private fun ReadyContent(
     onClearReleaseResult: () -> Unit,
     onOpenBookEdit: (String) -> Unit,
     onOpenMatch: (String) -> Unit,
+    onOpenBook: (String) -> Unit,
 ) {
     // Whether the release confirmation is up. View-local by nature: nothing has been asked of the
     // server yet, so there is nothing for the ViewModel to hold.
@@ -126,7 +131,7 @@ private fun ReadyContent(
     }
 
     if (state.hasBooks) {
-        WaitingForReview(state, onToggleBook, onSelectAll, onClearSelection, onOpenBookEdit, onOpenMatch)
+        WaitingForReview(state, onToggleBook, onSelectAll, onClearSelection, onOpenBookEdit, onOpenMatch, onOpenBook)
     }
     if (state.hasIssues) {
         NeedsAttention(state.scanIssues, onDismissIssue)
@@ -175,6 +180,7 @@ private fun WaitingForReview(
     onClearSelection: () -> Unit,
     onOpenBookEdit: (String) -> Unit,
     onOpenMatch: (String) -> Unit,
+    onOpenBook: (String) -> Unit,
 ) {
     Panel(
         title = "Waiting for review",
@@ -198,6 +204,7 @@ private fun WaitingForReview(
                         book = book,
                         selected = book.id in state.selectedBookIds,
                         onToggle = { onToggleBook(book.id) },
+                        onOpen = { onOpenBook(book.id) },
                         onEdit = { onOpenBookEdit(book.id) },
                         onMatch = { onOpenMatch(book.id) },
                     )
@@ -208,23 +215,34 @@ private fun WaitingForReview(
 }
 
 /**
- * One book waiting for review: the selection target, and what can be done about this book alone.
+ * One book waiting for review: its checkbox, the book itself, and what can be done about it alone.
  *
- * ⛔ The actions sit BESIDE the row rather than inside it. The row is a `<button role="checkbox">`,
- * and a `<button>` cannot contain another one — the markup is invalid and a screen reader loses the
- * inner control entirely. iOS's inbox row reaches the identical arrangement and says so in the same
- * words: "a single row-spanning Button can't host a nested control, so the two sit side by side."
+ * Three controls side by side, each meaning one thing. The checkbox selects (for the bulk Release);
+ * pressing the book opens its page — the triage layout, where a single book is released, edited or
+ * matched (spec §8: a held book opens "from the inbox or from search"); the menu is the shortcut.
+ *
+ * ⛔ Side by side, never nested. The book is a `<button>`, and a `<button>` cannot contain another
+ * control — the markup is invalid and a screen reader loses the inner one. iOS's inbox row reaches
+ * the identical arrangement: "a single row-spanning Button can't host a nested control, so the two
+ * sit side by side."
  */
 @Composable
 private fun InboxBookRow(
     book: InboxBookItem,
     selected: Boolean,
     onToggle: () -> Unit,
+    onOpen: () -> Unit,
     onEdit: () -> Unit,
     onMatch: () -> Unit,
 ) {
-    Div(attrs = { classes("inbox-book-row") }) {
-        InboxSelectTarget(book, selected, onToggle)
+    Div(attrs = {
+        classes("inbox-book-row")
+        if (selected) classes("is-sel")
+    }) {
+        Div(attrs = { classes("inbox-book-sel") }) {
+            Checkbox(checked = selected, indeterminate = false, label = "Select ${book.title}", onToggle = onToggle)
+        }
+        InboxBookButton(book, onOpen)
         ActionsMenu(
             items =
                 listOf(
@@ -237,20 +255,14 @@ private fun InboxBookRow(
 }
 
 @Composable
-private fun InboxSelectTarget(
+private fun InboxBookButton(
     book: InboxBookItem,
-    selected: Boolean,
-    onToggle: () -> Unit,
+    onOpen: () -> Unit,
 ) {
     Button(attrs = {
         classes("inbox-book")
-        if (selected) classes("is-sel")
         attr("type", VALUE_BUTTON)
-        // The row IS the checkbox, so it has to say so — without this a screen reader announces a
-        // button that gives no hint it has an on and an off.
-        attr("role", "checkbox")
-        attr("aria-checked", selected.toString())
-        onClick { onToggle() }
+        onClick { onOpen() }
     }) {
         Cover(
             title = book.title,
@@ -269,9 +281,6 @@ private fun InboxSelectTarget(
         }
         Span(attrs = { classes("inbox-book-dur") }) {
             Text(DurationFormatter.hoursMinutes(book.durationMs.milliseconds))
-        }
-        Div(attrs = { classes("inbox-tick") }) {
-            if (selected) Icon(WebIcon.Check, size = TICK_ICON_SIZE)
         }
     }
 }

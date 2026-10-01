@@ -274,6 +274,23 @@ class AccountRoutesTest :
             }
         }
 
+        test("pressing a book in the inbox opens its page") {
+            val (host, router) =
+                mountAt(
+                    "/admin/inbox",
+                    openAdminInbox = fixedAdminInbox(readyInbox(books = listOf(inboxBook(id = "b7")))),
+                )
+
+            try {
+                (host.querySelector(".inbox-book") as HTMLElement).click()
+                awaitFrame()
+
+                router.current.segments shouldBe listOf("book", "b7")
+            } finally {
+                router.dispose()
+            }
+        }
+
         test("finding metadata from the inbox opens the wizard over that book") {
             val (host, router) =
                 mountAt(
