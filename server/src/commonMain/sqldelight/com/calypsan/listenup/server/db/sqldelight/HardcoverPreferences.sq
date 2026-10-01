@@ -1,0 +1,15 @@
+-- hardcover_preferences: each user's choices about Hardcover sync, kept apart from hardcover_connections
+-- because reconnecting replaces that row. Survives a disconnect. No row means AS_I_LISTEN.
+-- FK (→ users ON DELETE CASCADE) lives in the migration DDL.
+CREATE TABLE hardcover_preferences (
+    user_id    TEXT    NOT NULL PRIMARY KEY,
+    share_mode TEXT    NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+selectShareMode:
+SELECT share_mode FROM hardcover_preferences WHERE user_id = :user_id;
+
+upsertShareMode:
+INSERT OR REPLACE INTO hardcover_preferences (user_id, share_mode, updated_at)
+VALUES (:user_id, :share_mode, :updated_at);
