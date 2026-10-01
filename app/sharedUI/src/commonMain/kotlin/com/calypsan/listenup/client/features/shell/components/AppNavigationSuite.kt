@@ -3,7 +3,6 @@
 package com.calypsan.listenup.client.features.shell.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.BadgedBox
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -51,6 +50,7 @@ import listenup.composeapp.generated.resources.shell_logout
 private val RailWidth = 100.dp
 private val BrandTile = 52.dp
 private val HELD_BADGE_MIN_SIZE = 18.dp
+private val HELD_BADGE_RING_WIDTH = 2.dp
 private const val HELD_BADGE_MAX_COUNT = 99
 
 /**
@@ -186,7 +186,9 @@ private fun DestinationIcon(
     val icon: @Composable () -> Unit = {
         Icon(
             imageVector = if (selected) destination.selectedIcon else destination.icon,
-            contentDescription = destination.title,
+            // The item's visible label already names the destination; naming the icon too made a
+            // screen reader say it twice ("Library, Library").
+            contentDescription = null,
         )
     }
     if (badgeCount > 0) {
@@ -199,20 +201,27 @@ private fun DestinationIcon(
 /**
  * The Library's held count: the house [CountBadge] in amber (tertiary / onTertiary) — "waiting for
  * you", never coral, which is "act here" and the selected indicator's colour. A 2dp ring in the bar's
- * own colour separates it from that indicator, against which amber has too little lightness contrast
- * on its own. Read as "3 books waiting for review", the true count; the drawn "99+" is not read.
+ * own colour, drawn outside the pill, separates it from that indicator, against which amber has
+ * too little lightness contrast on its own. Read as "3 books waiting for review", the true count; the drawn "99+" is not read.
  */
 @Composable
 private fun HeldCountBadge(count: Int) {
     val description = heldWaitingDescription(count)
-    Box(modifier = Modifier.clearAndSetSemantics { contentDescription = description }) {
+    // The ring is a disc of the bar's colour behind the pill, 2dp wider on every side, so it frames
+    // the amber rather than painting over its edge.
+    Box(
+        modifier =
+            Modifier
+                .clearAndSetSemantics { contentDescription = description }
+                .background(MaterialTheme.colorScheme.surfaceContainerLow, CircleShape)
+                .padding(HELD_BADGE_RING_WIDTH),
+    ) {
         CountBadge(
             count = count,
             containerColor = MaterialTheme.colorScheme.tertiary,
             contentColor = MaterialTheme.colorScheme.onTertiary,
             minSize = HELD_BADGE_MIN_SIZE,
             maxCount = HELD_BADGE_MAX_COUNT,
-            modifier = Modifier.border(2.dp, MaterialTheme.colorScheme.surfaceContainerLow, CircleShape),
         )
     }
 }

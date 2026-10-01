@@ -1,19 +1,28 @@
 package com.calypsan.listenup.client.features.shell
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.height
+import androidx.compose.ui.unit.width
+import com.calypsan.listenup.client.design.components.CountBadge
 import com.calypsan.listenup.client.design.components.ProvideNowPlayingInsets
 import com.calypsan.listenup.client.features.nowplaying.DockedNowPlayingBar
 import com.calypsan.listenup.client.features.nowplaying.DockedNowPlayingBarHeight
@@ -178,6 +187,90 @@ class AppNavigationSuiteTest {
         composeRule.onNodeWithContentDescription("3 books waiting for review", useUnmergedTree = true).assertIsDisplayed()
     }
 
+    /**
+     * The 2dp ring in the bar's colour sits OUTSIDE the amber pill: the badge is the house
+     * [CountBadge] grown by 2dp on every side. Drawn as a border on the pill itself, the ring
+     * painted over 2dp of amber instead of separating it, and the badge was the pill's own size.
+     */
+    @Test
+    fun theHeldBadgeRingSitsOutsideThePill() {
+        composeRule.setContent {
+            MaterialTheme {
+                Column {
+                    AppNavigationSuite(
+                        navType = ShellNavType.BottomBar,
+                        currentDestination = ShellDestination.Home,
+                        onDestinationSelected = {},
+                        onSignOutRequest = {},
+                        libraryBadgeCount = 3,
+                    )
+                    // The bare pill, exactly as the held badge draws it, to measure the ring against.
+                    CountBadge(
+                        count = 3,
+                        containerColor = MaterialTheme.colorScheme.tertiary,
+                        contentColor = MaterialTheme.colorScheme.onTertiary,
+                        minSize = 18.dp,
+                        maxCount = 99,
+                        modifier = Modifier.testTag(BARE_PILL),
+                    )
+                }
+            }
+        }
+        val badge =
+            composeRule
+                .onNodeWithContentDescription("3 books waiting for review", useUnmergedTree = true)
+                .getUnclippedBoundsInRoot()
+        val pill = composeRule.onNodeWithTag(BARE_PILL).getUnclippedBoundsInRoot()
+        badge.width shouldBe pill.width + 4.dp
+        badge.height shouldBe pill.height + 4.dp
+    }
+
+    /** The count belongs to Library, not to whichever destination happens to sit beside it. */
+    @Test
+    fun theHeldCountSitsOnLibraryAndNowhereElse() {
+        composeRule.setContent {
+            MaterialTheme {
+                AppNavigationSuite(
+                    navType = ShellNavType.BottomBar,
+                    currentDestination = ShellDestination.Home,
+                    onDestinationSelected = {},
+                    onSignOutRequest = {},
+                    libraryBadgeCount = 3,
+                )
+            }
+        }
+        composeRule
+            .onNode(hasText("Library") and hasContentDescription("3 books waiting for review"))
+            .assertIsDisplayed()
+        composeRule
+            .onAllNodes(hasContentDescription("3 books waiting for review"))
+            .assertCountEquals(1)
+    }
+
+    /**
+     * The visible label already names each destination, so the icon stays silent: a screen reader
+     * reads "Library", not "Library, Library".
+     */
+    @Test
+    fun aDestinationIsNamedOnceNotTwice() {
+        composeRule.setContent {
+            MaterialTheme {
+                AppNavigationSuite(
+                    navType = ShellNavType.BottomBar,
+                    currentDestination = ShellDestination.Home,
+                    onDestinationSelected = {},
+                    onSignOutRequest = {},
+                    libraryBadgeCount = 3,
+                )
+            }
+        }
+        val library = composeRule.onNode(hasText("Library")).fetchSemanticsNode()
+        library.config.getOrElse(SemanticsProperties.ContentDescription) { emptyList() } shouldBe
+            listOf("3 books waiting for review")
+        val home = composeRule.onNode(hasText("Home")).fetchSemanticsNode()
+        home.config.getOrElse(SemanticsProperties.ContentDescription) { emptyList() } shouldBe emptyList()
+    }
+
     @Test
     fun railLibraryCarriesTheHeldCount() {
         composeRule.setContent {
@@ -228,6 +321,7 @@ class AppNavigationSuiteTest {
 
     private companion object {
         const val DOCKED_BAR = "docked-bar"
+        const val BARE_PILL = "bare-pill"
 
         val dockedProgress =
             PlaybackProgress(
