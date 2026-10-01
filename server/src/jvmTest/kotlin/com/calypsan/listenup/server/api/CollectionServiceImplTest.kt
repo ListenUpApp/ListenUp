@@ -6,7 +6,6 @@ import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
-import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
@@ -96,7 +95,7 @@ class CollectionServiceImplTest :
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestUser("u1")
                 runTest {
-                    val service = makeService(db).actAs("u1")
+                    val service = makeService(db).actAs("u1", UserRole.ADMIN)
                     val created = service.createCollection("test-library", "Favourites")
                     require(created is AppResult.Success)
                     created.data.name shouldBe "Favourites"
@@ -120,7 +119,7 @@ class CollectionServiceImplTest :
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestUser("u1")
                 runTest {
-                    val service = makeService(db).actAs("u1")
+                    val service = makeService(db).actAs("u1", UserRole.ADMIN)
 
                     val blank = service.createCollection("test-library", "   ")
                     require(blank is AppResult.Failure)
@@ -144,13 +143,13 @@ class CollectionServiceImplTest :
                 sql.seedTestBook("book1")
                 runTest {
                     val service = makeService(db)
-                    val owner = service.actAs("u1")
+                    val owner = service.actAs("u1", UserRole.ADMIN)
 
                     val created = owner.createCollection("test-library", "Shared")
                     require(created is AppResult.Success)
                     val collectionId = created.data.id
 
-                    // Owner can add — a book they can see (seeded the way the substrate makes it so).
+                    // The admin owner can add (an admin sees every book; the seed keeps the prior scenario).
                     db.makeBooksVisibleTo("u1", "book1")
                     val ownerAdd = owner.addBookToCollection(collectionId, BookId("book1"))
                     ownerAdd shouldBe AppResult.Success(Unit)
@@ -186,7 +185,7 @@ class CollectionServiceImplTest :
                 sql.seedTestUser("u1")
                 sql.seedTestBook("book1")
                 runTest {
-                    val service = makeService(db).actAs("u1")
+                    val service = makeService(db).actAs("u1", UserRole.ADMIN)
                     val created = service.createCollection("test-library", "Favourites")
                     require(created is AppResult.Success)
                     val collectionId = created.data.id
@@ -217,7 +216,7 @@ class CollectionServiceImplTest :
                 sql.seedTestUser("u3")
                 runTest {
                     val service = makeService(db)
-                    val owner = service.actAs("u1")
+                    val owner = service.actAs("u1", UserRole.ADMIN)
                     val created = owner.createCollection("test-library", "Original")
                     require(created is AppResult.Success)
                     val collectionId = created.data.id
@@ -243,7 +242,7 @@ class CollectionServiceImplTest :
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestUser("u1")
                 runTest {
-                    val service = makeService(db).actAs("u1")
+                    val service = makeService(db).actAs("u1", UserRole.ADMIN)
                     val created = service.createCollection("test-library", "Disposable")
                     require(created is AppResult.Success)
                     service.deleteCollection(created.data.id) shouldBe AppResult.Success(Unit)
@@ -283,7 +282,7 @@ class CollectionServiceImplTest :
                 sql.seedTestUser("u2")
                 sql.seedTestBook("book1")
                 runTest {
-                    val service = makeService(db).actAs("u1")
+                    val service = makeService(db).actAs("u1", UserRole.ADMIN)
                     val created = service.createCollection("test-library", "Disposable")
                     require(created is AppResult.Success)
                     val collectionId = created.data.id
@@ -338,16 +337,24 @@ class CollectionServiceImplTest :
                     val service = makeService(db)
 
                     // u1 owns colOwned and colSharedOut.
-                    val owner = service.actAs("u1")
+                    val owner = service.actAs("u1", UserRole.ADMIN)
                     val colOwned = owner.createCollection("test-library", "Owned")
                     val colSharedOut = owner.createCollection("test-library", "SharedOut")
                     require(colOwned is AppResult.Success)
                     require(colSharedOut is AppResult.Success)
 
-                    // u2 owns colU2.
+                    // u2 owns "u2-col" — a member-owned row from before only admins could create collections.
                     val u2 = service.actAs("u2")
-                    val colU2 = u2.createCollection("test-library", "U2Owned")
-                    require(colU2 is AppResult.Success)
+                    db.newCollectionRepo(ChangeBus(), SyncRegistry()).upsert(
+                        CollectionSyncPayload(
+                            id = "u2-col",
+                            libraryId = "test-library",
+                            ownerId = "u2",
+                            name = "U2Owned",
+                            revision = 0L,
+                            updatedAt = 0L,
+                        ),
+                    )
 
                     // Share colSharedOut with u2 (read).
                     val grantRepo =
@@ -368,14 +375,14 @@ class CollectionServiceImplTest :
                     val u2List = u2.listCollections()
                     require(u2List is AppResult.Success)
                     u2List.data.map { it.id } shouldContainExactlyInAnyOrder
-                        listOf(colU2.data.id, colSharedOut.data.id)
+                        listOf(CollectionId("u2-col"), colSharedOut.data.id)
 
                     // Admin sees all three.
                     val admin = service.actAs("admin", UserRole.ADMIN)
                     val adminList = admin.listCollections()
                     require(adminList is AppResult.Success)
                     adminList.data.map { it.id } shouldContainExactlyInAnyOrder
-                        listOf(colOwned.data.id, colSharedOut.data.id, colU2.data.id)
+                        listOf(colOwned.data.id, colSharedOut.data.id, CollectionId("u2-col"))
                 }
             }
         }
@@ -390,7 +397,7 @@ class CollectionServiceImplTest :
                 sql.seedTestBook("book1")
                 sql.seedTestBook("book2")
                 runTest {
-                    val service = makeService(db).actAs("u1")
+                    val service = makeService(db).actAs("u1", UserRole.ADMIN)
                     val created = service.createCollection("test-library", "Reading List")
                     require(created is AppResult.Success)
                     val collectionId = created.data.id
@@ -416,7 +423,7 @@ class CollectionServiceImplTest :
                 sql.seedTestUser("u2")
                 runTest {
                     val service = makeService(db)
-                    val owner = service.actAs("u1")
+                    val owner = service.actAs("u1", UserRole.ADMIN)
                     val created = owner.createCollection("test-library", "Shared")
                     require(created is AppResult.Success)
                     val collectionId = created.data.id
@@ -437,23 +444,29 @@ class CollectionServiceImplTest :
             }
         }
 
-        test("shareCollection by an owner-member without canShare is denied with PermissionDenied") {
+        test("shareCollection by a member who owns a legacy collection is Forbidden, canShare notwithstanding") {
             withSqlDatabase {
                 val db = this
                 sql.seedTestLibraryAndFolder()
-                // u1 owns the collection but is a member whose canShare is revoked.
-                sql.seedTestUser("u1", UserRoleColumn.MEMBER, canShare = false)
+                // u1 is a member who still holds canShare and owns a collection from before the
+                // admin-only rule. Only admins write collections, so sharing is refused outright.
+                sql.seedTestUser("u1", UserRoleColumn.MEMBER, canShare = true)
                 sql.seedTestUser("u2")
                 runTest {
-                    val owner = makeService(db).actAs("u1")
-                    val created = owner.createCollection("test-library", "Shared")
-                    require(created is AppResult.Success)
-                    val collectionId = created.data.id
-
-                    // Owner gate passes (they own it) but the canShare gate denies.
-                    val shared = owner.shareCollection(collectionId, "u2", SharePermission.Read)
+                    db.newCollectionRepo(ChangeBus(), SyncRegistry()).upsert(
+                        CollectionSyncPayload(
+                            id = "legacy",
+                            libraryId = "test-library",
+                            ownerId = "u1",
+                            name = "Legacy",
+                            revision = 0L,
+                            updatedAt = 0L,
+                        ),
+                    )
+                    val member = makeService(db).actAs("u1")
+                    val shared = member.shareCollection(CollectionId("legacy"), "u2", SharePermission.Read)
                     require(shared is AppResult.Failure)
-                    shared.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
+                    shared.error.shouldBeInstanceOf<CollectionError.Forbidden>()
                 }
             }
         }
@@ -464,7 +477,7 @@ class CollectionServiceImplTest :
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestUser("u1")
                 runTest {
-                    val owner = makeService(db).actAs("u1")
+                    val owner = makeService(db).actAs("u1", UserRole.ADMIN)
                     val created = owner.createCollection("test-library", "Shared")
                     require(created is AppResult.Success)
                     val collectionId = created.data.id
@@ -489,7 +502,7 @@ class CollectionServiceImplTest :
                 sql.seedTestUser("u1")
                 sql.seedTestUser("u2")
                 runTest {
-                    val owner = makeService(db).actAs("u1")
+                    val owner = makeService(db).actAs("u1", UserRole.ADMIN)
                     val created = owner.createCollection("test-library", "Shared")
                     require(created is AppResult.Success)
                     val collectionId = created.data.id
@@ -513,7 +526,7 @@ class CollectionServiceImplTest :
                 sql.seedTestUser("u2")
                 runTest {
                     val service = makeService(db)
-                    val owner = service.actAs("u1")
+                    val owner = service.actAs("u1", UserRole.ADMIN)
                     val created = owner.createCollection("test-library", "Shared")
                     require(created is AppResult.Success)
                     val collectionId = created.data.id
@@ -541,7 +554,7 @@ class CollectionServiceImplTest :
                 sql.seedTestUser("u1")
                 sql.seedTestUser("u2")
                 runTest {
-                    val owner = makeService(db).actAs("u1")
+                    val owner = makeService(db).actAs("u1", UserRole.ADMIN)
                     val created = owner.createCollection("test-library", "Shared")
                     require(created is AppResult.Success)
 
@@ -560,7 +573,7 @@ class CollectionServiceImplTest :
                 sql.seedTestUser("u2")
                 runTest {
                     val service = makeService(db)
-                    val owner = service.actAs("u1")
+                    val owner = service.actAs("u1", UserRole.ADMIN)
                     val created = owner.createCollection("test-library", "Shared")
                     require(created is AppResult.Success)
                     val collectionId = created.data.id
@@ -593,7 +606,7 @@ class CollectionServiceImplTest :
                 sql.seedTestUser("u3")
                 runTest {
                     val service = makeService(db)
-                    val owner = service.actAs("u1")
+                    val owner = service.actAs("u1", UserRole.ADMIN)
                     val created = owner.createCollection("test-library", "Shared")
                     require(created is AppResult.Success)
                     val collectionId = created.data.id
@@ -625,7 +638,7 @@ class CollectionServiceImplTest :
                 sql.seedTestUser("u2")
                 sql.seedTestUser("u3")
                 runTest {
-                    val owner = makeService(db).actAs("u1")
+                    val owner = makeService(db).actAs("u1", UserRole.ADMIN)
                     val created = owner.createCollection("test-library", "Shared")
                     require(created is AppResult.Success)
                     val collectionId = created.data.id

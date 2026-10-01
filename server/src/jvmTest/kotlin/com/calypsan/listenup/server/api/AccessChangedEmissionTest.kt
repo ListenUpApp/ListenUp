@@ -48,6 +48,10 @@ import kotlinx.coroutines.test.runTest
  * Asserts via a direct probe of [ChangeBus.subscribeControl] rather than a full SSE round-trip:
  * the firehose's per-user filter is exercised by the firehose suite; here we pin the emission
  * contract — which frame, addressed to whom — at the source.
+ *
+ * Only admins write collections, so the collection owner `u1` is an admin throughout. The audience
+ * of a membership change is the collection's owner + its active share recipients — never every
+ * admin — so the expected recipient sets are unchanged by the owner's role.
  */
 class AccessChangedEmissionTest :
     FunSpec({
@@ -117,7 +121,7 @@ class AccessChangedEmissionTest :
         test("shareCollection emits AccessChanged to the share target only") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("u1")
+                sql.seedTestUser("u1", UserRoleColumn.ADMIN)
                 sql.seedTestUser("u2")
                 runTest(UnconfinedTestDispatcher()) {
                     val (service, bus) = makeHarness(this@withSqlDatabase)
@@ -125,7 +129,7 @@ class AccessChangedEmissionTest :
                     bus.subscribeControl().onEach { frames += it }.launchIn(backgroundScope)
                     drainControlFrames() // ensure the unconfined collector is subscribed before the action publishes
 
-                    val owner = service.actAs("u1")
+                    val owner = service.actAs("u1", UserRole.ADMIN)
                     val created = owner.createCollection("test-library", "Shared")
                     require(created is AppResult.Success)
 
@@ -148,11 +152,11 @@ class AccessChangedEmissionTest :
         test("updateShare emits AccessChanged to the recipient") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("u1")
+                sql.seedTestUser("u1", UserRoleColumn.ADMIN)
                 sql.seedTestUser("u2")
                 runTest(UnconfinedTestDispatcher()) {
                     val (service, bus) = makeHarness(this@withSqlDatabase)
-                    val owner = service.actAs("u1")
+                    val owner = service.actAs("u1", UserRole.ADMIN)
                     val created = owner.createCollection("test-library", "Shared")
                     require(created is AppResult.Success)
                     owner.shareCollection(created.data.id, "u2", SharePermission.Read).let {
@@ -183,11 +187,11 @@ class AccessChangedEmissionTest :
         test("revokeShare emits AccessChanged to the ex-target") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("u1")
+                sql.seedTestUser("u1", UserRoleColumn.ADMIN)
                 sql.seedTestUser("u2")
                 runTest(UnconfinedTestDispatcher()) {
                     val (service, bus) = makeHarness(this@withSqlDatabase)
-                    val owner = service.actAs("u1")
+                    val owner = service.actAs("u1", UserRole.ADMIN)
                     val created = owner.createCollection("test-library", "Shared")
                     require(created is AppResult.Success)
                     owner.shareCollection(created.data.id, "u2", SharePermission.Read).let {
@@ -215,11 +219,11 @@ class AccessChangedEmissionTest :
         test("revokeShare on a non-existent share emits nothing") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("u1")
+                sql.seedTestUser("u1", UserRoleColumn.ADMIN)
                 sql.seedTestUser("u2")
                 runTest(UnconfinedTestDispatcher()) {
                     val (service, bus) = makeHarness(this@withSqlDatabase)
-                    val owner = service.actAs("u1")
+                    val owner = service.actAs("u1", UserRole.ADMIN)
                     val created = owner.createCollection("test-library", "Shared")
                     require(created is AppResult.Success)
 
@@ -239,15 +243,16 @@ class AccessChangedEmissionTest :
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestUser("admin", UserRoleColumn.ADMIN)
-                sql.seedTestUser("u1")
+                sql.seedTestUser("u1", UserRoleColumn.ADMIN)
                 sql.seedTestUser("u2")
                 sql.seedTestBook("book1")
                 runTest(UnconfinedTestDispatcher()) {
                     val (service, bus) = makeHarness(this@withSqlDatabase)
                     val admin = service.actAs("admin", UserRole.ADMIN)
 
-                    // u1 owns the target collection; u2 holds a read-share on it.
-                    val u1 = service.actAs("u1")
+                    // u1 (an admin — only admins write collections) owns the target collection; u2 holds
+                    // a read-share on it. The acting `admin` is in neither role, so it is not in the audience.
+                    val u1 = service.actAs("u1", UserRole.ADMIN)
                     val target = u1.createCollection("test-library", "Target")
                     require(target is AppResult.Success)
                     u1.shareCollection(target.data.id, "u2", SharePermission.Read).let {
@@ -278,17 +283,19 @@ class AccessChangedEmissionTest :
         test("addBookToCollection emits AccessChanged to the collection's owner + share recipients") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("u1")
+                sql.seedTestUser("u1", UserRoleColumn.ADMIN)
                 sql.seedTestUser("u2")
                 sql.seedTestBook("book1")
                 runTest(UnconfinedTestDispatcher()) {
                     val (service, bus) = makeHarness(this@withSqlDatabase)
-                    val u1 = service.actAs("u1")
+                    val u1 = service.actAs("u1", UserRole.ADMIN)
                     val created = u1.createCollection("test-library", "Shelf")
                     require(created is AppResult.Success)
                     u1.shareCollection(created.data.id, "u2", SharePermission.Read).let {
                         require(it is AppResult.Success)
                     }
+                    // An admin needs no visibility path to curate; this keeps book1 in a real collection so
+                    // the add never flips its ALL_BOOKS membership (whose nudges would join the frames).
                     this@withSqlDatabase.makeBooksVisibleTo("u1", "book1")
 
                     // Subscribe after the share so we observe only the add's frames.
@@ -311,17 +318,19 @@ class AccessChangedEmissionTest :
         test("removeBookFromCollection emits AccessChanged to the collection's owner + share recipients") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("u1")
+                sql.seedTestUser("u1", UserRoleColumn.ADMIN)
                 sql.seedTestUser("u2")
                 sql.seedTestBook("book1")
                 runTest(UnconfinedTestDispatcher()) {
                     val (service, bus) = makeHarness(this@withSqlDatabase)
-                    val u1 = service.actAs("u1")
+                    val u1 = service.actAs("u1", UserRole.ADMIN)
                     val created = u1.createCollection("test-library", "Shelf")
                     require(created is AppResult.Success)
                     u1.shareCollection(created.data.id, "u2", SharePermission.Read).let {
                         require(it is AppResult.Success)
                     }
+                    // An admin needs no visibility path to curate; this keeps book1 in a real collection so
+                    // the add never flips its ALL_BOOKS membership (whose nudges would join the frames).
                     this@withSqlDatabase.makeBooksVisibleTo("u1", "book1")
                     u1.addBookToCollection(created.data.id, BookId("book1")) shouldBe AppResult.Success(Unit)
 

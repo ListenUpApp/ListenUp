@@ -10,10 +10,14 @@ import com.calypsan.listenup.server.sync.CollectionRepository
  *
  * Reused by `CollectionService` to gate mutations and scope listing. The decision
  * resolves in a fixed precedence order: a tombstoned (or absent) collection denies;
- * the owner gets [SharePermission.Write] with `isOwner = true`; an admin/root bypasses
- * to [SharePermission.Write] (but `isOwner = false` unless they also own it — the owner
- * check runs first to keep `isOwner` accurate); otherwise the active share's permission
- * applies; with no relationship, access is denied.
+ * the owner gets access with `isOwner = true`; an admin/root bypasses to access (but
+ * `isOwner = false` unless they also own it — the owner check runs first to keep `isOwner`
+ * accurate); otherwise an active share grants access; with no relationship, access is denied.
+ *
+ * **Only admins write collections.** Being in any normal collection takes a book out of
+ * ALL_BOOKS, so a member able to curate one could hide a public book from everyone else.
+ * [SharePermission.Write] therefore goes to ROOT/ADMIN alone: a member's ownership (rows from
+ * before this rule) or `write` share confers [SharePermission.Read].
  *
  * Book-level visibility (which books in a collection a user may see) is a separate
  * concern handled in Collections-1b.
@@ -46,14 +50,13 @@ internal class CollectionAccessPolicy(
             collectionRepo.findById(collectionId)
                 ?: return Decision(false, SharePermission.Read, false)
         if (coll.deletedAt != null) return Decision(false, SharePermission.Read, false)
-        if (coll.ownerId == userId) return Decision(true, SharePermission.Write, true)
-        if (role == UserRoleColumn.ROOT || role == UserRoleColumn.ADMIN) {
-            return Decision(true, SharePermission.Write, false)
-        }
-        val grant =
-            grantRepo.findActiveGrant(collectionId, userId)
-                ?: return Decision(false, SharePermission.Read, false)
-        return Decision(true, grant.permission, false)
+        val isAdmin = role == UserRoleColumn.ROOT || role == UserRoleColumn.ADMIN
+        val permission = if (isAdmin) SharePermission.Write else SharePermission.Read
+        if (coll.ownerId == userId) return Decision(true, permission, true)
+        if (isAdmin) return Decision(true, permission, false)
+        grantRepo.findActiveGrant(collectionId, userId)
+            ?: return Decision(false, SharePermission.Read, false)
+        return Decision(true, permission, false)
     }
 
     /** True when [userId] may read [collectionId]. */

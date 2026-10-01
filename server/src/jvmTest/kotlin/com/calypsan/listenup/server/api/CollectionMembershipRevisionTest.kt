@@ -40,6 +40,8 @@ import kotlinx.coroutines.test.runTest
  * `revision > cursor` pull re-delivers the now-visible book. Asserted against a recording fake
  * rather than the real [com.calypsan.listenup.server.services.BookRepository] — the touch is the
  * contract under test, not the revision-column mechanics.
+ *
+ * Only admins write collections, so every writer here acts as an admin.
  */
 class CollectionMembershipRevisionTest :
     FunSpec({
@@ -106,14 +108,16 @@ class CollectionMembershipRevisionTest :
             withSqlDatabase {
                 val db = this
                 sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("u1")
+                sql.seedTestUser("u1", userRole = UserRoleColumn.ADMIN)
                 sql.seedTestBook(bookId = "b1")
                 runTest(UnconfinedTestDispatcher()) {
                     val touch = FakeBookRevisionTouch()
                     val service = makeCollectionService(db, bookRevisionTouch = touch)
-                    val owner = service.actAs("u1")
+                    val owner = service.actAs("u1", UserRole.ADMIN)
                     val created = owner.createCollection("test-library", "Shelf")
                     require(created is AppResult.Success)
+                    // An admin needs no visibility path to curate; this only keeps the scenario this test
+                    // has always exercised — each book also sits in a second, unrelated real collection.
                     db.makeBooksVisibleTo("u1", "b1")
 
                     owner.addBookToCollection(created.data.id, BookId("b1")).let {
@@ -129,14 +133,16 @@ class CollectionMembershipRevisionTest :
             withSqlDatabase {
                 val db = this
                 sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("u1")
+                sql.seedTestUser("u1", userRole = UserRoleColumn.ADMIN)
                 sql.seedTestBook(bookId = "b1")
                 runTest(UnconfinedTestDispatcher()) {
                     val touch = FakeBookRevisionTouch()
                     val service = makeCollectionService(db, bookRevisionTouch = touch)
-                    val owner = service.actAs("u1")
+                    val owner = service.actAs("u1", UserRole.ADMIN)
                     val created = owner.createCollection("test-library", "Shelf")
                     require(created is AppResult.Success)
+                    // An admin needs no visibility path to curate; this only keeps the scenario this test
+                    // has always exercised — each book also sits in a second, unrelated real collection.
                     db.makeBooksVisibleTo("u1", "b1")
                     owner.addBookToCollection(created.data.id, BookId("b1")).let {
                         require(it is AppResult.Success)
@@ -240,16 +246,18 @@ class CollectionMembershipRevisionTest :
             withSqlDatabase {
                 val db = this
                 sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("u1")
+                sql.seedTestUser("u1", userRole = UserRoleColumn.ADMIN)
                 sql.seedTestBook(bookId = "b1")
                 sql.seedTestBook(bookId = "b2")
                 sql.seedTestBook(bookId = "b3")
                 runTest(UnconfinedTestDispatcher()) {
                     val touch = FakeBookRevisionTouch()
                     val service = makeCollectionService(db, bookRevisionTouch = touch)
-                    val owner = service.actAs("u1")
+                    val owner = service.actAs("u1", UserRole.ADMIN)
                     val created = owner.createCollection("test-library", "Shelf")
                     require(created is AppResult.Success)
+                    // An admin needs no visibility path to curate; this only keeps the scenario this test
+                    // has always exercised — each book also sits in a second, unrelated real collection.
                     db.makeBooksVisibleTo("u1", "b1", "b2", "b3")
                     listOf("b1", "b2", "b3").forEach { bookId ->
                         owner.addBookToCollection(created.data.id, BookId(bookId)).let {

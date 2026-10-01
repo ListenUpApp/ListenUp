@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
+import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.LibraryId
@@ -62,14 +63,27 @@ class AccessInvariantMatrixTest :
             return page.items.filter { it.deletedAt == null }.map { it.id }
         }
 
-        /** Creates a collection owned by [ownerId] (create is not admin-gated; owner = the caller). */
-        suspend fun CollectionServiceImpl.createCollectionAsOwner(
+        /**
+         * Seeds a live collection owned by [ownerId] straight through the repository. Only admins can
+         * create collections, so a member-owned collection exists only as a row from before that rule —
+         * which still grants its owner read access, the relationship I6 tombstones.
+         */
+        suspend fun CollectionAccessHarness.seedCollectionOwnedBy(
             ownerId: String,
             name: String,
         ): CollectionId {
-            val created = actAs(ownerId).createCollection("test-library", name)
-            require(created is AppResult.Success) { "createCollection failed for $ownerId: $created" }
-            return created.data.id
+            val id = "$ownerId-$name"
+            collectionRepo.upsert(
+                CollectionSyncPayload(
+                    id = id,
+                    libraryId = "test-library",
+                    ownerId = ownerId,
+                    name = name,
+                    revision = 0L,
+                    updatedAt = 0L,
+                ),
+            )
+            return CollectionId(id)
         }
 
         // ─────────────────────────────── I1: exclusivity ───────────────────────────────
@@ -275,21 +289,21 @@ class AccessInvariantMatrixTest :
                     val admin = h.service.actAs("admin", UserRole.ADMIN)
 
                     // (a) tombstoned junction: m owns C1, Bj was in it, junction tombstoned → deny.
-                    val c1 = admin.createCollectionAsOwner("m", "C1")
+                    val c1 = h.seedCollectionOwnedBy("m", "C1")
                     admin.addBookToCollection(c1, BookId("Bj"))
                     h.bookAccessPolicy.canAccess("m", UserRole.MEMBER, "Bj").shouldBeTrue() // control
                     h.collectionBookRepo.softDelete(collectionId = c1.value, bookId = "Bj")
                     h.bookAccessPolicy.canAccess("m", UserRole.MEMBER, "Bj").shouldBeFalse()
 
                     // (b) tombstoned collection: m owns C2 holding Bc (live junction), but C2 is tombstoned → deny.
-                    val c2 = admin.createCollectionAsOwner("m", "C2")
+                    val c2 = h.seedCollectionOwnedBy("m", "C2")
                     admin.addBookToCollection(c2, BookId("Bc"))
                     h.bookAccessPolicy.canAccess("m", UserRole.MEMBER, "Bc").shouldBeTrue() // control
                     h.collectionRepo.softDelete(c2.value, clientOpId = null)
                     h.bookAccessPolicy.canAccess("m", UserRole.MEMBER, "Bc").shouldBeFalse()
 
                     // (c) tombstoned grant: stranger owns C3 holding Bg; m's grant on C3 tombstoned → deny.
-                    val c3 = admin.createCollectionAsOwner("stranger", "C3")
+                    val c3 = h.seedCollectionOwnedBy("stranger", "C3")
                     admin.addBookToCollection(c3, BookId("Bg"))
                     h.grantRepo.upsert(
                         CollectionShareSyncPayload(

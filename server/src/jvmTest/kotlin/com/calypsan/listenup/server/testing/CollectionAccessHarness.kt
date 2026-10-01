@@ -160,15 +160,15 @@ internal suspend fun CollectionAccessHarness.grantAllBooks(
 }
 
 /**
- * Makes [bookIds] visible to [userId] before a test drives `addBookToCollection` as that member.
+ * Makes [bookIds] visible to member [userId] through the lightest real access path.
  *
- * `addBookToCollection` gates on book visibility — a member can only curate a book they can already
- * see — and a bare `seedTestBook` row is in no collection, so under the pure-union rule it is invisible
- * to every non-admin. This seeds the lightest real access path: a live collection owned by someone
- * else that holds the books, read-shared with [userId]. Deliberately **not** the `ALL_BOOKS` substrate:
- * curating a book out of `ALL_BOOKS` flips its system membership, which nudges every grant-holder and
- * re-bumps the book's revision — side effects that would change what an emission or revision test
- * observes. A plain share confers visibility with none of that.
+ * A bare `seedTestBook` row is in no collection, so under the pure-union rule it is invisible to every
+ * non-admin. This seeds a live collection owned by someone else that holds the books, read-shared with
+ * [userId]. Deliberately **not** the `ALL_BOOKS` substrate: curating a book out of `ALL_BOOKS` flips its
+ * system membership, which nudges every grant-holder and re-bumps the book's revision — side effects
+ * that would change what an emission or revision test observes. A plain share confers visibility with
+ * none of that. (Collection writes are admin-only and an admin sees every book, so a curating test
+ * that calls this does so only to keep the books in a second, unrelated real collection.)
  */
 internal suspend fun SqlTestDatabases.makeBooksVisibleTo(
     userId: String,

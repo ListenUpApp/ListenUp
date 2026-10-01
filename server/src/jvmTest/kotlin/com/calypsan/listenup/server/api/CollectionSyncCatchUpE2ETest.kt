@@ -7,11 +7,11 @@ import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
@@ -43,8 +43,9 @@ private const val SYNC_PULL_LIMIT = 100
  * against a Flyway-migrated SQLite database, no mocks) and then asserts at the two
  * seams Collections-2 will consume:
  *
- *  1. **Service read seam** — `listCollections` reflects owner (u1) vs shared (u2)
- *     correctly: `isOwner` and `callerPermission` differ per caller.
+ *  1. **Service read seam** — `listCollections` reflects owner (u1, an admin — only admins
+ *     write collections) vs shared (u2, a member) correctly: `isOwner` and `callerPermission`
+ *     differ per caller.
  *  2. **Sync catch-up seam** — `pullSince(userId = null, cursor = 0)` on each of the
  *     three syncable repositories (`collections`, `collection_books`,
  *     `collection_shares`) returns the freshly-written rows. This proves the
@@ -115,34 +116,16 @@ class CollectionSyncCatchUpE2ETest :
             withSqlDatabase {
                 val db = this
                 sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("u1")
+                sql.seedTestUser("u1", UserRoleColumn.ADMIN)
                 sql.seedTestUser("u2")
                 sql.seedTestBook("book1")
                 runTest {
                     // ---- Drive the real service end-to-end as u1 ----
+                    // u1 is an admin: only admins write collections. An admin sees every live book, so
+                    // u1 needs no visibility path to book1 — and no ALL_BOOKS collection is bootstrapped,
+                    // which matters because an admin's listCollections is a god-view that would list it.
                     val service = makeService(db)
-                    val owner = service.actAs("u1")
-
-                    // u1 can only curate a book they can see. Mirror the production substrate: book1
-                    // sits in ALL_BOOKS and u1 holds the default read grant every member is issued.
-                    // ALL_BOOKS rather than a plain share because system collections are excluded
-                    // from listCollections — the owner/shared views below assert exactly one each.
-                    val allBooks = service.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
-                    require(allBooks is AppResult.Success)
-                    service.actAs("admin", UserRole.ADMIN).addBookToCollection(allBooks.data.id, BookId("book1")) shouldBe
-                        AppResult.Success(Unit)
-                    CollectionGrantRepository(db = db.sql, bus = ChangeBus(), registry = SyncRegistry(), driver = db.driver)
-                        .upsert(
-                            CollectionShareSyncPayload(
-                                id = "grant-all-books-u1",
-                                collectionId = allBooks.data.id.value,
-                                sharedWithUserId = "u1",
-                                sharedByUserId = "system",
-                                permission = SharePermission.Read,
-                                revision = 0L,
-                                updatedAt = 0L,
-                            ),
-                        )
+                    val owner = service.actAs("u1", UserRole.ADMIN)
 
                     val created = owner.createCollection("test-library", "Reading List")
                     require(created is AppResult.Success)

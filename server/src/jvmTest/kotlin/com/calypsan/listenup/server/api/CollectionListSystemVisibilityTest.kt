@@ -8,6 +8,8 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
+import com.calypsan.listenup.api.sync.CollectionSyncPayload
+import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -120,9 +122,20 @@ class CollectionListSystemVisibilityTest :
                         service.getOrCreateSystemCollection("test-library", SystemCollectionType.INBOX)
                     require(inbox is AppResult.Success)
 
-                    // Create a normal user-owned collection.
-                    val normal = service.actAs("u1").createCollection("test-library", "My Shelf")
-                    require(normal is AppResult.Success)
+                    // A normal collection u1 owns. Only admins can create collections, so a member-owned
+                    // one exists only as a row from before that rule — seeded directly, as it exists on disk.
+                    CollectionRepository(db = db.sql, bus = ChangeBus(), registry = SyncRegistry(), driver = db.driver)
+                        .upsert(
+                            CollectionSyncPayload(
+                                id = "u1-shelf",
+                                libraryId = "test-library",
+                                ownerId = "u1",
+                                name = "My Shelf",
+                                revision = 0L,
+                                updatedAt = 0L,
+                            ),
+                        )
+                    val normalId = CollectionId("u1-shelf")
 
                     // Seed the default ALL_BOOKS grant that every member receives — this is the
                     // production path that caused the leak.
@@ -149,7 +162,7 @@ class CollectionListSystemVisibilityTest :
                     val memberList = service.actAs("u1").listCollections()
                     require(memberList is AppResult.Success)
                     val memberIds = memberList.data.map { it.id }
-                    memberIds shouldBe listOf(normal.data.id)
+                    memberIds shouldBe listOf(normalId)
                     // Explicit negative assertions for clarity.
                     (allBooks.data.id in memberIds) shouldBe false
                     (inbox.data.id in memberIds) shouldBe false
@@ -160,7 +173,7 @@ class CollectionListSystemVisibilityTest :
                     val adminIds = adminList.data.map { it.id }
                     (allBooks.data.id in adminIds) shouldBe true
                     (inbox.data.id in adminIds) shouldBe true
-                    (normal.data.id in adminIds) shouldBe true
+                    (normalId in adminIds) shouldBe true
                 }
             }
         }
