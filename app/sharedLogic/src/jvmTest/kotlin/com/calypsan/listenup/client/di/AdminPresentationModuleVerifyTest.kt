@@ -51,7 +51,7 @@ import org.koin.test.verify.verify
  *  - [LoadServerSettingsUseCase] — owned by `adminModule`.
  *  - [UpdateServerSettingsUseCase] — owned by `adminModule`.
  *  - [ErrorBus] — owned by `appCoreModule`.
- *  - [InboxRepository] — owned by `adminModule`.
+ *  - [InboxRepository] — owned by `collectionModule`.
  *  - [LibraryRepository] — owned by `libraryModule`.
  *  - [BookDao] — owned by `persistenceModule`.
  *  - [ImageStorage] — owned by `mediaModule`.
