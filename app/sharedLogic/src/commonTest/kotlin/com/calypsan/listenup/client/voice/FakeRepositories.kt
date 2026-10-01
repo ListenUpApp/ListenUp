@@ -192,8 +192,6 @@ class FakeInboxRepository : InboxRepository {
 
     override fun observeHeldBookIds(): Flow<Set<BookId>> = held
 
-    override suspend fun listInbox(libraryId: String): AppResult<List<String>> = AppResult.Success(emptyList())
-
     override suspend fun releaseBooks(
         libraryId: String,
         assignments: Map<String, List<String>>,

@@ -25,9 +25,6 @@ interface InboxRepository {
      */
     fun observeHeldBookIds(): Flow<Set<BookId>>
 
-    /** Returns the live (unreleased) book ids in the inbox for [libraryId]. */
-    suspend fun listInbox(libraryId: String): AppResult<List<String>>
-
     /**
      * Releases the books keyed in [assignments] out of the inbox. Each entry maps a
      * book id to the collection ids it should be added to on release (an empty list

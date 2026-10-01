@@ -4,7 +4,6 @@ import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.result.onSuccess
 import com.calypsan.listenup.client.data.local.db.CollectionBookDao
 import com.calypsan.listenup.client.data.remote.RpcChannel
@@ -38,11 +37,6 @@ internal class InboxRepositoryImpl(
 ) : InboxRepository {
     override fun observeHeldBookIds(): Flow<Set<BookId>> =
         collectionBookDao.observeHeldBookIds().map { ids -> ids.mapTo(LinkedHashSet<BookId>()) { BookId(it) } }
-
-    override suspend fun listInbox(libraryId: String): AppResult<List<String>> =
-        channel
-            .call(idempotent = true) { it.listInbox(LibraryId(libraryId)) }
-            .map { bookIds -> bookIds.map { it.value } }
 
     override suspend fun releaseBooks(
         libraryId: String,

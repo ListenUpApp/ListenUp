@@ -273,8 +273,8 @@ private val EXCUSED =
         "SearchViewModel.setTypeFilter",
         // Web signs out through AuthGraph.signOut() — see AuthGate.
         "SettingsViewModel.signOut",
-        // Loaded by the ViewModel itself — from `init`, and again when an admin event says the
-        // inbox changed. No client wires it because none needs to; it is public by accident.
+        // Loaded by the ViewModel itself — from `init`, from Retry (`loadInboxBooks`, which web
+        // wires), and again when an admin event says a scan ran. No client wires it directly.
         "AdminInboxViewModel.loadScanIssues",
         // A building block. Clients drive the two wrappers that cover it — `selectBook` and
         // `skipBook` — and web wires both.

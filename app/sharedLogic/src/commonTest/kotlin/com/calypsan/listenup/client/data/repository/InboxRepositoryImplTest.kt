@@ -29,12 +29,11 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 
 /**
- * Tests for [InboxRepositoryImpl] over the `CollectionService.listInbox` /
- * `CollectionService.releaseBooks` RPC surface.
+ * Tests for [InboxRepositoryImpl]: [InboxRepositoryImpl.observeHeldBookIds] over the local held set,
+ * and [InboxRepositoryImpl.releaseBooks] over the `CollectionService.releaseBooks` RPC.
  *
- * The repository is a thin pass-through to [CollectionService] via [RpcChannel]; these
- * tests pin the delegation and the domain (`String`) ↔ contract (typed id) mapping at
- * the boundary, including the per-book assignment map.
+ * These pin the delegation, the domain (`String`) ↔ contract (typed id) mapping at the boundary
+ * (including the per-book assignment map), and the release's local write-through.
  */
 class InboxRepositoryImplTest :
     FunSpec({
@@ -49,19 +48,6 @@ class InboxRepositoryImplTest :
                 collectionBookDao = collectionBookDao,
             )
 
-        test("listInbox forwards to the service and returns the mapped book ids") {
-            runTest {
-                val service = mock<CollectionService>()
-                everySuspend { service.listInbox(LibraryId("lib1")) } returns
-                    AppResult.Success(listOf(BookId("b1"), BookId("b2")))
-
-                val result = buildRepo(service).listInbox("lib1")
-
-                val success = result.shouldBeInstanceOf<AppResult.Success<List<String>>>()
-                success.data shouldBe listOf("b1", "b2")
-            }
-        }
-
         test("releaseBooks forwards the per-book assignment map verbatim") {
             runTest {
                 val service = mock<CollectionService>()
@@ -72,15 +58,6 @@ class InboxRepositoryImplTest :
                 buildRepo(service).releaseBooks("lib1", assignments).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 verifySuspend { service.releaseBooks(LibraryId("lib1"), typedAssignments) }
-            }
-        }
-
-        test("listInbox propagates a failure") {
-            runTest {
-                val service = mock<CollectionService>()
-                everySuspend { service.listInbox(any()) } returns AppResult.Failure(ValidationError(message = "forbidden"))
-
-                buildRepo(service).listInbox("lib1").shouldBeInstanceOf<AppResult.Failure>()
             }
         }
 
