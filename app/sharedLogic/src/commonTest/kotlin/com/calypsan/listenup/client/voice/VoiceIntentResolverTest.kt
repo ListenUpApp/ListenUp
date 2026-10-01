@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.voice
 
+import com.calypsan.listenup.client.test.fake.FakeInboxRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec

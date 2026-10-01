@@ -15,7 +15,7 @@ import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
-import com.calypsan.listenup.client.domain.repository.InboxRepository
+import com.calypsan.listenup.client.test.fake.FakeInboxRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.Reachability
 import com.calypsan.listenup.api.error.BookError
@@ -114,7 +114,7 @@ class BookDetailViewModelTest :
             val addBooksToShelfUseCase: AddBooksToShelfUseCase = mock()
             val createShelfUseCase: CreateShelfUseCase = mock()
             val documentRepository: DocumentRepository = mock()
-            val inboxRepository: InboxRepository = mock()
+            val inboxRepository = FakeInboxRepository()
             val bookAvailability = FakeBookAvailability()
             val serverReachability = FakeServerReachability()
 
@@ -127,7 +127,6 @@ class BookDetailViewModelTest :
                 every { userRepository.observeIsAdmin() } returns flowOf(false)
                 every { documentRepository.observeDocuments(any()) } returns flowOf(emptyList())
                 every { collectionRepository.observeCollections() } returns flowOf(emptyList())
-                every { inboxRepository.observeHeldBookIds() } returns flowOf(emptySet())
             }
 
             fun build(): BookDetailViewModel =
