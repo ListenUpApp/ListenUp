@@ -2,7 +2,9 @@ package com.calypsan.listenup.web.features.auth
 
 import com.calypsan.listenup.web.features.admin.OpenAdmin
 import com.calypsan.listenup.web.features.devices.OpenDevices
+import com.calypsan.listenup.web.features.hardcover.OpenBookHardcover
 import com.calypsan.listenup.web.features.hardcover.OpenHardcover
+import com.calypsan.listenup.web.features.hardcover.OpenHardcoverMatch
 import com.calypsan.listenup.web.features.settings.OpenSettings
 import com.calypsan.listenup.web.features.settings.watchSystemTheme
 import com.calypsan.listenup.web.features.settings.systemPrefersDark
@@ -125,6 +127,8 @@ fun AuthGate(
     openGenreDestination: OpenGenreDestination,
     openBookReaders: OpenBookReaders,
     openBookRatings: OpenBookRatings,
+    openHardcoverMatch: OpenHardcoverMatch,
+    openBookHardcover: OpenBookHardcover,
     openSeeAll: OpenSeeAll,
     openDeadLetters: OpenDeadLetters,
     openPlayback: OpenPlayback,
@@ -257,12 +261,15 @@ fun AuthGate(
                         openGenreDestination = openGenreDestination,
                         openBookReaders = openBookReaders,
                         openBookRatings = openBookRatings,
+                        openHardcoverMatch = openHardcoverMatch,
+                        openBookHardcover = openBookHardcover,
                         openSeeAll = openSeeAll,
                         openDeadLetters = openDeadLetters,
                         // A confirmed bulk action is exactly the kind of thing a toast is for:
                         // the change is real, it happened off-screen, and the number is the
                         // part the reader cannot check for themselves.
                         onToast = { message -> toasts.show(message, ToastTone.Notice) },
+                        onActionToast = { text, tone, action -> toasts.show(text, tone, action) },
                         onSignOut = { scope.launch { authGraph.signOut() } },
                         openPlayback = openPlayback,
                         observeIsAdmin = observeIsAdmin,

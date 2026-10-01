@@ -67,7 +67,9 @@ import com.calypsan.listenup.web.features.admin.graphCollections
 import com.calypsan.listenup.web.features.admin.graphServerSettings
 import com.calypsan.listenup.web.features.admin.graphLibrarySettings
 import com.calypsan.listenup.web.features.devices.graphDevices
+import com.calypsan.listenup.web.features.hardcover.graphBookHardcover
 import com.calypsan.listenup.web.features.hardcover.graphHardcover
+import com.calypsan.listenup.web.features.hardcover.graphHardcoverMatch
 import com.calypsan.listenup.web.features.licences.graphLicences
 import com.calypsan.listenup.web.features.settings.graphSettings
 import com.calypsan.listenup.web.features.shelf.graphShelfDetail
@@ -238,6 +240,8 @@ fun main() {
                 openGenreDestination = graphGenreDestination(koin),
                 openBookReaders = graphBookReaders(koin),
                 openBookRatings = graphBookRatings(koin),
+                openHardcoverMatch = graphHardcoverMatch(koin),
+                openBookHardcover = graphBookHardcover(koin),
                 openSeeAll = graphSeeAll(koin),
                 openDeadLetters = graphDeadLetters(koin),
                 openPlayback = graphPlayback(koin),

@@ -1,6 +1,11 @@
 package com.calypsan.listenup.web
 
 import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
+import com.calypsan.listenup.web.design.ShowActionToast
+import com.calypsan.listenup.web.features.hardcover.OpenBookHardcover
+import com.calypsan.listenup.web.features.hardcover.OpenHardcoverMatch
+import com.calypsan.listenup.web.features.hardcover.fixedBookHardcover
+import com.calypsan.listenup.web.features.hardcover.fixedHardcoverMatch
 import com.calypsan.listenup.web.features.licences.fixedLicences
 import com.calypsan.listenup.web.features.licences.OpenLicences
 import com.calypsan.listenup.web.features.licences.LicencesUiState
@@ -224,6 +229,8 @@ internal fun mountAt(
     openGenreDestination: OpenGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
     openBookReaders: OpenBookReaders = fixedBookReaders(BookReadersUiState.Loading),
     openBookRatings: OpenBookRatings = fixedBookRatings(BookRatingsUiState.Loading),
+    openHardcoverMatch: OpenHardcoverMatch = fixedHardcoverMatch(),
+    openBookHardcover: OpenBookHardcover = fixedBookHardcover(),
     openSeeAll: OpenSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
     openDeadLetters: OpenDeadLetters = fixedDeadLetters(),
     openCreateInvite: OpenCreateInvite = fixedCreateInvite(CreateInviteUiState.Ready()),
@@ -235,6 +242,7 @@ internal fun mountAt(
     openShelfDetail: OpenShelfDetail = fixedShelfDetail(),
     openShelfEdit: OpenShelfEdit = fixedShelfEdit(),
     onToast: (String) -> Unit = {},
+    onActionToast: ShowActionToast = { _, _, _ -> },
     openPlayback: OpenPlayback = fixedPlayback(),
     compositionProbe: (String) -> Unit = {},
 ): Triple<HTMLElement, Router, Composition> {
@@ -302,9 +310,12 @@ internal fun mountAt(
                     openGenreDestination = openGenreDestination,
                     openBookReaders = openBookReaders,
                     openBookRatings = openBookRatings,
+                    openHardcoverMatch = openHardcoverMatch,
+                    openBookHardcover = openBookHardcover,
                     openSeeAll = openSeeAll,
                     openDeadLetters = openDeadLetters,
                     onToast = onToast,
+                    onActionToast = onActionToast,
                     openNotificationBell = openNotificationBell,
                     openPlayback = openPlayback,
                     observeIsAdmin = { isAdmin },

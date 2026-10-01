@@ -84,3 +84,103 @@
 @media (max-width: 759px) {
   .luw .hc-broken, .luw .hc-who { flex-direction: column; }
 }
+
+/* Connected — the approved sync canvas's two columns. Each column stacks its own cards, so a short
+   card on one side never stretches to match a long list on the other. */
+.luw .hc-cols-top { align-items: start; }
+.luw .hc-col { display: flex; flex-direction: column; gap: 1.2rem; min-width: 0; }
+/* The canvas draws every Hardcover button at 44px, a full target on any pointer. */
+.luw :is(.hc, .hc-book) .btn-md { height: var(--ctl); }
+
+/* Sync — when it last synced, and Sync now, on one line. */
+.luw .hc-sync { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.luw .hc-sync-i { display: inline-flex; flex: none; color: var(--ink-3); }
+.luw .hc-sync-t { flex: 1; min-width: 9rem; font-size: 0.95rem; font-weight: 700; color: var(--ink); }
+.luw .hc-spin-sm { width: 20px; height: 20px; border-width: 2.5px; }
+/* A push or pull that is stuck: a warning, never an alarm — ListenUp keeps trying on its own. */
+.luw .hc-problem {
+  display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.9rem 1rem;
+  border-radius: var(--r-md); background: var(--warn-soft); color: var(--warn);
+}
+.luw .hc-problem p { margin: 0; flex: 1; font-size: 0.875rem; line-height: 1.5; font-weight: 600; }
+.luw .hc-problem-i { display: inline-flex; flex: none; padding-top: 1px; }
+.luw .hc-problem-act { display: flex; justify-content: flex-end; margin-top: 0.75rem; }
+
+/* Needs a match — one row per book: cover, title and author, Find on Hardcover. */
+.luw .hc-count { font-size: 0.6875rem; color: var(--ink-3); }
+.luw .hc-match-lede {
+  margin: 0; padding: 0.75rem 1rem; border-bottom: 1px solid var(--line-2);
+  font-size: 0.875rem; line-height: 1.5; color: var(--ink-2);
+}
+.luw .hc-match-list { margin: 0; padding: 0; list-style: none; }
+.luw .hc-match-row {
+  display: flex; align-items: center; gap: 0.9rem; min-width: 0; padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--line-2);
+}
+.luw .hc-match-row:last-child { border-bottom: 0; }
+.luw .hc-match-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1; }
+.luw .hc-match-title { font-size: 0.95rem; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); overflow-wrap: anywhere; }
+.luw .hc-match-by { font-size: 0.8125rem; color: var(--ink-2); overflow-wrap: anywhere; }
+
+/* What comes back — under what is shared, quieter than it. */
+.luw .hc-back-h { margin: 1.2rem 0 0.8rem; }
+.luw .hc-quiet { color: var(--ink-2); }
+
+@media (max-width: 759px) {
+  .luw .hc-match-row { flex-wrap: wrap; }
+  .luw .hc-match-row .btn { margin-left: calc(48px + 0.9rem); }
+}
+
+/* Find on Hardcover — the search, then one row per result: what it is, its format, its year, how
+   many people rated it, and Pick. The book's own author's results are drawn strong; the rest quiet. */
+.luw .hc-find { max-width: 64rem; }
+/* Library › a book's title › Find on Hardcover is longer than a phone is wide: the trail wraps. */
+.luw .hc-find .crumb { flex-wrap: wrap; row-gap: 0.2rem; white-space: normal; }
+.luw .hc-search { display: flex; align-items: flex-end; gap: 0.6rem; max-width: 47.5rem; }
+.luw .hc-search .f-wrap { flex: 1; min-width: 0; }
+.luw .hc-results { margin: 0; padding: 0; list-style: none; }
+.luw .hc-result {
+  display: grid; grid-template-columns: minmax(0, 1fr) 7rem 4.5rem 8rem auto; align-items: center; gap: 0.9rem;
+  padding: 0.75rem 1rem; border-bottom: 1px solid var(--line-2);
+}
+.luw .hc-result:last-child { border-bottom: 0; }
+.luw .hc-result-main { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.luw .hc-result-title { font-size: 0.97rem; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); overflow-wrap: anywhere; }
+.luw .hc-results.is-quiet .hc-result-title { font-weight: 500; }
+.luw :is(.hc-result-year, .hc-result-ratings) { font-size: 0.8125rem; color: var(--ink-2); }
+.luw .hc-result-act { display: flex; justify-content: flex-end; }
+.luw .hc-tell {
+  display: inline-flex; align-items: center; align-self: flex-start; min-height: 1.75rem; padding: 0 0.7rem;
+  border-radius: var(--r-pill); background: var(--surface-3); font-size: var(--fs-caption); font-weight: 700; color: var(--ink-2);
+}
+
+/* Nothing by the author — said once, with the search worth trying, above the results. */
+.luw .hc-weak {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; padding: 0.9rem 1rem;
+  border-radius: var(--r-lg); background: var(--surface-2);
+}
+.luw .hc-weak-i { display: inline-flex; flex: none; color: var(--ink-3); }
+.luw .hc-weak-text { display: flex; flex-direction: column; gap: 0.1rem; flex: 1; min-width: 12rem; }
+.luw .hc-weak-t { font-size: 0.9rem; font-weight: 700; color: var(--ink); }
+.luw .hc-suggest { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.luw .hc-failed { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; padding: 0.9rem 1rem; border-radius: var(--r-lg); background: var(--surface-2); }
+.luw .hc-failed-t { margin: 0; flex: 1; min-width: 12rem; font-size: 0.9rem; font-weight: 600; color: var(--ink); }
+
+/* Book Detail's panel — the match and where it stands, or Needs a match. */
+.luw .hc-book { display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem; min-width: 0; }
+.luw .hc-book .hc-lede { font-size: 0.875rem; }
+.luw .hc-book-sync { display: flex; align-items: flex-start; gap: 0.45rem; margin-top: 0.4rem; font-size: 0.875rem; font-weight: 600; color: var(--success); }
+.luw .hc-book-sync.is-paused { color: var(--warn); }
+.luw .hc-book-sync-i { display: inline-flex; flex: none; padding-top: 1px; }
+.luw .hc-book-act { margin-top: 0.6rem; }
+
+@media (max-width: 759px) {
+  .luw .hc-search { flex-wrap: wrap; }
+  .luw .hc-search .btn { width: 100%; }
+  /* A phone stacks a result: what it is across the top, then its tells, then Pick at full width. */
+  .luw .hc-result { grid-template-columns: auto auto minmax(0, 1fr); row-gap: 0.4rem; column-gap: 0.75rem; }
+  .luw .hc-result-main { grid-column: 1 / -1; }
+  .luw .hc-result-format:empty { display: none; }
+  .luw .hc-result-act { grid-column: 1 / -1; }
+  .luw .hc-result-act .btn { width: 100%; }
+}

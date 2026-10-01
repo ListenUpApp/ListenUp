@@ -1,6 +1,8 @@
 package com.calypsan.listenup.web.features.bookdetail
 
 import androidx.compose.runtime.Composition
+import com.calypsan.listenup.web.features.hardcover.fixedBookHardcover
+import com.calypsan.listenup.web.features.hardcover.fixedHardcoverMatch
 import com.calypsan.listenup.web.features.licences.fixedLicences
 import com.calypsan.listenup.web.features.licences.OpenLicences
 import com.calypsan.listenup.web.features.licences.LicencesUiState
@@ -175,9 +177,12 @@ class ChaptersPaneTest :
                         openGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
                         openBookReaders = fixedBookReaders(BookReadersUiState.Loading),
                         openBookRatings = fixedBookRatings(BookRatingsUiState.Loading),
+                        openHardcoverMatch = fixedHardcoverMatch(),
+                        openBookHardcover = fixedBookHardcover(),
                         openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
                         openDeadLetters = fixedDeadLetters(),
                         onToast = {},
+                        onActionToast = { _, _, _ -> },
                         openNotificationBell = fixedNotificationBell(),
                         openPlayback = fixedPlayback(),
                         observeIsAdmin = { flowOf(false) },
