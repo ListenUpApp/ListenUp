@@ -23,6 +23,9 @@ interface HomeRepository {
     /**
      * Fetch books the user is currently listening to.
      *
+     * Leaves out books held for review (before [limit]), so the first entry is the most recent
+     * PLAYABLE book; a held book's progress row is kept and returns with its release.
+     *
      * @param limit Maximum number of books to return
      * @return Result containing list of ContinueListeningBook on success
      */
@@ -46,6 +49,8 @@ interface HomeRepository {
      * Items are [ContinueListeningItem.Ready] when the book is hydrated, or
      * [ContinueListeningItem.Loading] when the position row arrived before the
      * corresponding book has synced into Room (brief sync-window placeholder).
+     *
+     * Leaves out books held for review (before [limit]); re-emits when a book is held or released.
      *
      * @param limit Maximum number of books to return
      * @return Flow emitting list of [ContinueListeningItem] whenever positions change

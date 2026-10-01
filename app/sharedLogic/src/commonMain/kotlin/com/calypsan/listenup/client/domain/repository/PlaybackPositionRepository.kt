@@ -132,6 +132,9 @@ interface PlaybackPositionRepository {
      * books have been played. Used by the system UI resumption surface
      * (Android Auto, Wear OS, system notifications after reboot).
      *
+     * Leaves out books held for review: this is the most recent PLAYABLE book, since resumption
+     * would otherwise pick a book the playback choke point refuses.
+     *
      * @return [AppResult.Success] wrapping [LastPlayedInfo] for the most recently
      *   played book, or null if no books have been played;
      *   [AppResult.Failure] if the DAO threw.
