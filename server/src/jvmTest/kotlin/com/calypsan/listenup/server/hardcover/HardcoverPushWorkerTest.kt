@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.hardcover
 
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
+import com.calypsan.listenup.api.dto.hardcover.HardcoverHistory
 import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
@@ -65,18 +66,21 @@ private class WorkerRig(
     val outbox = HardcoverOutbox(sql, clock)
     var identity: BookIdentity? = HAIL_MARY_IDENTITY
     val gate = HardcoverUserGate()
+    val progress = HardcoverHistoryProgress(sql, clock)
+    val sender = HardcoverHistorySender(sql, clock)
     val worker =
         HardcoverPushWorker(
             outbox = outbox,
             links = links,
             matcher = HardcoverBookMatcher(graphQl, NoWaitRateLimiter()),
-            executor = HardcoverPushExecutor(HardcoverUserBooks(graphQl), links, outbox, sql, clock),
+            executor = HardcoverPushExecutor(HardcoverUserBooks(graphQl), links, outbox, sql, clock, NoWaitRateLimiter()),
             tokens = tokens,
             connections = connections,
             linker = linker,
             identities = HardcoverBookIdentities { identity },
             gate = gate,
             clock = clock,
+            history = progress,
         )
 
     init {
@@ -310,6 +314,44 @@ class HardcoverPushWorkerTest :
                 } finally {
                     scope.cancel()
                 }
+            }
+        }
+
+        test("a history send drains through the lane: the book is Read on Hardcover with its dates, and the send is Done") {
+            workerTest {
+                sql.seedListeningEvent(USER, BOOK, "e1", startedAt = T0 - 30 * 86_400_000L)
+                sql.seedOwnRead(USER, BOOK, "r1", finishedAt = T0 - 20 * 86_400_000L)
+                connect()
+                sender.send(USER)
+
+                drain()
+
+                val shelf = hardcover.shelfFor(427_578L)!!
+                shelf.statusId shouldBe HardcoverStatus.READ
+                shelf.reads.map { it.startedAt to it.finishedAt } shouldBe listOf("2026-04-22" to "2026-05-02")
+                sql.hardcoverHistory(USER, connectedAt = T0) shouldBe HardcoverHistory.Done(sentBooks = 1, needsMatchBooks = 0)
+            }
+        }
+
+        test("a book Hardcover can't match parks its history; the send is Done with it waiting, and a manual link sends it") {
+            workerTest {
+                identity = BookIdentity(asin = null, title = "Nothing Like It", primaryAuthor = "Nobody")
+                sql.seedOwnRead(USER, BOOK, "r1", finishedAt = T0 - 20 * 86_400_000L)
+                connect()
+                sender.send(USER)
+
+                drain()
+
+                links.linkFor(USER, BOOK)!!.isLinked shouldBe false
+                hardcover.shelfFor(427_578L) shouldBe null
+                sql.hardcoverHistory(USER, connectedAt = T0) shouldBe HardcoverHistory.Done(sentBooks = 0, needsMatchBooks = 1)
+
+                links.linkManually(USER, BOOK, hcBookId = 427_578L, hcEditionId = 9_001L)
+                outbox.unpark(USER, BOOK)
+                drain()
+
+                hardcover.shelfFor(427_578L)!!.statusId shouldBe HardcoverStatus.READ
+                sql.hardcoverHistory(USER, connectedAt = T0) shouldBe HardcoverHistory.Done(sentBooks = 1, needsMatchBooks = 0)
             }
         }
     })
