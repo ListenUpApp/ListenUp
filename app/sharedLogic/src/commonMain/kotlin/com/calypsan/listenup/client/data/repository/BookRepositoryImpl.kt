@@ -383,9 +383,9 @@ internal class BookRepositoryImpl(
             }
         }
 
-    private companion object {
+    internal companion object {
         /** Cap on book search results — mirrors the server FTS default. */
-        const val SEARCH_LIMIT = 50
+        internal const val SEARCH_LIMIT = 50
     }
 }
 

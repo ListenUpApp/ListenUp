@@ -89,7 +89,7 @@ class BookRepositoryImplHeldTest :
             withHeldBookDb { db ->
                 // A full page of held books that each outrank the one visible book: filtered after the
                 // limit, the page would come back empty and the visible book would never be offered.
-                val heldIds = (1..BOOK_SEARCH_LIMIT).map { "held-$it" }
+                val heldIds = (1..BookRepositoryImpl.SEARCH_LIMIT).map { "held-$it" }
                 heldIds.forEach { id ->
                     HeldBookFixture.seedBook(db, id, title = "Mist")
                     HeldBookFixture.hold(db, id)
@@ -102,7 +102,7 @@ class BookRepositoryImplHeldTest :
                 // The premise: the held books fill the whole page of the unfiltered search.
                 db
                     .searchDao()
-                    .searchBooks("mist*", limit = BOOK_SEARCH_LIMIT)
+                    .searchBooks("mist*", limit = BookRepositoryImpl.SEARCH_LIMIT)
                     .map { it.book.id.value }
                     .toSet() shouldBe
                     heldIds.toSet()
@@ -114,6 +114,3 @@ class BookRepositoryImplHeldTest :
             }
         }
     })
-
-/** [BookRepositoryImpl]'s private book-search cap (`SEARCH_LIMIT`). */
-private const val BOOK_SEARCH_LIMIT = 50
