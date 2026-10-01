@@ -236,6 +236,44 @@ class UserDetailViewModelTest :
             }
         }
 
+        test("a successful save clears the error a failed one left behind") {
+            // Web shows Ready.error inline and has no snackbar to acknowledge it, so nothing ever
+            // called clearError: a failed toggle's alert stayed on screen after the next toggle
+            // saved. The error describes the last save; once a save succeeds it is no longer true.
+            runTest {
+                val adminRepository: AdminRepository = mock()
+                val user = createUser(canEdit = false, canShare = true)
+                everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(user)
+                everySuspend { adminRepository.updateUser(userId = "user-1", canEdit = true) } returns
+                    networkFailure()
+                everySuspend { adminRepository.updateUser(userId = "user-1", canShare = false) } returns
+                    AppResult.Success(user.copy(permissions = UserPermissions(canEdit = false, canShare = false)))
+
+                val viewModel =
+                    UserDetailViewModel(
+                        userId = "user-1",
+                        adminRepository = adminRepository,
+                        errorBus = ErrorBus(),
+                    )
+                advanceUntilIdle()
+
+                viewModel.toggleCanEdit()
+                advanceUntilIdle()
+                (
+                    viewModel.state.value
+                        .shouldBeInstanceOf<UserDetailUiState.Ready>()
+                        .error != null
+                ) shouldBe true
+
+                viewModel.toggleCanShare()
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<UserDetailUiState.Ready>()
+                ready.canShare shouldBe false
+                ready.error shouldBe null
+            }
+        }
+
         test("clearError clears transient Ready error") {
             runTest {
                 // Load succeeds so VM reaches Ready; then a toggle failure surfaces a
