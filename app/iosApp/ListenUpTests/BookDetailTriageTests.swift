@@ -15,9 +15,34 @@ struct BookDetailTriageTests {
         #expect(layout.showsOverflowMenu == false)
     }
 
-    /// Spec §8 and §10: Release, Edit, Match and Edit chapters — and nothing else.
-    @Test func aHeldBookOffersExactlyTheFourTriageActions() {
-        #expect(BookDetailLayout.forBook(isHeld: true).triageActions == [.release, .edit, .match, .editChapters])
+    /// Spec §8 and §10, as the held section draws them: Release prominent, Match and Edit chapters
+    /// secondary — and nothing else. Edit is not here: it is the toolbar's (HIG, Toolbars).
+    @Test func theHeldSectionDrawsReleaseProminentAndTheTwoMetadataFixes() {
+        let arrangement = BookDetailHeldSection.arrange(BookDetailLayout.forBook(isHeld: true).triageActions)
+        #expect(arrangement.prominent == .release)
+        #expect(arrangement.secondary == [.match, .editChapters])
+    }
+
+    @Test func anOrdinaryBookDrawsNoHeldActions() {
+        let arrangement = BookDetailHeldSection.arrange(BookDetailLayout.forBook(isHeld: false).triageActions)
+        #expect(arrangement.prominent == nil)
+        #expect(arrangement.secondary.isEmpty)
+    }
+
+    // MARK: - Toolbar
+
+    /// Until the book has loaded nobody knows whether it is held, so the page offers no toolbar
+    /// item at all — never the full menu (Delete, Share, shelf) that then swaps to Edit.
+    @Test func aLoadingBookOffersNoToolbarItem() {
+        #expect(BookDetailLayout.toolbar(for: nil) == .none)
+    }
+
+    @Test func aHeldBookOffersEditAloneInTheToolbar() {
+        #expect(BookDetailLayout.toolbar(for: .triage) == .edit)
+    }
+
+    @Test func anOrdinaryBookOffersTheFullMenu() {
+        #expect(BookDetailLayout.toolbar(for: .full) == .overflowMenu)
     }
 
     @Test func anOrdinaryBookGetsEverything() {

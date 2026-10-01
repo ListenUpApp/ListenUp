@@ -12,15 +12,23 @@ extension BookDetailView {
     /// The toolbar for the book on screen: the full menu, or — for a held book — Edit alone, in the
     /// top bar of the view it edits (HIG, Toolbars). Delete, shelf, collection, share and the
     /// progress resets are not triage (spec §8).
+    /// While the book loads nothing is offered: whether it is held is not yet known.
     @ToolbarContentBuilder
     var overflowMenu: some ToolbarContent {
-        if observer?.layout.showsOverflowMenu == false {
+        let toolbar = BookDetailLayout.toolbar(for: loadedLayout)
+        if toolbar == .overflowMenu {
+            fullOverflowMenu
+        } else if toolbar == .edit {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(String(localized: "common.edit")) { showEdit = true }
             }
-        } else {
-            fullOverflowMenu
         }
+    }
+
+    /// The layout of the book on screen, or `nil` until it has loaded.
+    private var loadedLayout: BookDetailLayout? {
+        guard let observer, !observer.isLoading else { return nil }
+        return observer.layout
     }
 
     @ToolbarContentBuilder

@@ -4,18 +4,24 @@ import SwiftUI
 /// the same reason `+OverflowMenu` is: that struct sits at SwiftLint's 400-line body cap.
 @MainActor
 extension BookDetailView {
-    /// The held section with Release, Match and Edit chapters; nothing for an ordinary book. Match
-    /// and Edit chapters open the same sheets the overflow menu's items do. The Release alert rides
-    /// the section that asks for it, so the main view's body carries none of the triage.
+    /// The held section, drawing the layout's triage actions (Release, Match, Edit chapters); nothing
+    /// for an ordinary book. Match and Edit chapters open the same sheets the overflow menu's items
+    /// do. The Release alert rides the section that asks for it, so the main view's body carries
+    /// none of the triage.
     @ViewBuilder
     func heldSection(_ observer: BookDetailObserver) -> some View {
         if observer.layout.showsHeldSection {
             BookDetailHeldSection(
-                isReleasing: observer.isReleasingFromInbox,
-                onRelease: { showReleaseConfirmation = true },
-                onMatch: { showMetadataMatch = true },
-                onEditChapters: { showChapterEditor = true }
-            )
+                actions: observer.layout.triageActions,
+                isReleasing: observer.isReleasingFromInbox
+            ) { action in
+                switch action {
+                case .release: showReleaseConfirmation = true
+                case .edit: showEdit = true
+                case .match: showMetadataMatch = true
+                case .editChapters: showChapterEditor = true
+                }
+            }
             .releaseConfirmation(isPresented: $showReleaseConfirmation) { observer.releaseFromInbox() }
         }
     }
@@ -27,7 +33,9 @@ extension View {
     func releaseConfirmation(isPresented: Binding<Bool>, onRelease: @escaping () -> Void) -> some View {
         alert(ReleaseToEveryone.title, isPresented: isPresented) {
             Button(String(localized: "common.cancel"), role: .cancel) {}
+            // The preferred action, so Return confirms it (HIG, Alerts).
             Button(ReleaseToEveryone.confirm, action: onRelease)
+                .keyboardShortcut(.defaultAction)
         } message: {
             Text(ReleaseToEveryone.message(count: 1))
         }
