@@ -636,6 +636,14 @@ internal val settingsPresentationModule =
         }
         // Settings → Account → Hardcover: connect, sync, the books that need a match, disconnect.
         factory { HardcoverSettingsViewModel(repository = get(), bookRepository = get()) }
+        // Find on Hardcover for one book: search, pick, or remove the match.
+        factory { params ->
+            com.calypsan.listenup.client.presentation.hardcover.HardcoverMatchViewModel(
+                bookId = params.get(),
+                repository = get(),
+                bookRepository = get(),
+            )
+        }
         // DevicesViewModel for the Devices (active sessions) screen
         factory { DevicesViewModel(authRepository = get()) }
         // factory (NOT single) — same cancelled-viewModelScope hazard as the Library VMs above.

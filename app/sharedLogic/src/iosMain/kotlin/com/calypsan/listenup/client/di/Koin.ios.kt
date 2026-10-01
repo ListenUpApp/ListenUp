@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.domain.repository.LocalNetworkAccess
 import com.calypsan.listenup.client.data.repository.AppleLocalNetworkAccess
+import com.calypsan.listenup.client.presentation.hardcover.HardcoverMatchViewModel
 import com.calypsan.listenup.core.configureLogging
 import com.calypsan.listenup.api.push.PushPlatform
 import com.calypsan.listenup.client.data.discovery.AppleDiscoveryService
@@ -378,6 +379,9 @@ object KoinHelper {
 
     fun getBookRatingsViewModel(bookId: String): BookRatingsViewModel =
         resolveWithParams(BookRatingsViewModel::class, listOf(bookId))
+
+    fun getHardcoverMatchViewModel(bookId: String): HardcoverMatchViewModel =
+        resolveWithParams(HardcoverMatchViewModel::class, listOf(bookId))
 
     fun getSeriesDetailViewModel(): SeriesDetailViewModel = resolve(SeriesDetailViewModel::class)
 
