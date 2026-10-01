@@ -25,6 +25,11 @@ struct HardcoverConnectedPhase: View {
                     text: String(localized: "hardcover.comes_back_line"),
                     tint: Color.secondary
                 )
+                HardcoverStatementRow(
+                    systemImage: "bookmark",
+                    text: String(localized: "hardcover.comes_back_want_to_read"),
+                    tint: Color.secondary
+                )
             } header: {
                 Text(String(localized: "hardcover.what_comes_back"))
             } footer: {
