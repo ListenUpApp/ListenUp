@@ -76,6 +76,22 @@ class BooksC1ErrorContractTest :
                 BookError.FolderNotExclusive(otherBookId = "b3", otherBookTitle = "y").message
         }
 
+        // ── Held for review (client-side triage gate) ─────────────────────────
+
+        test("should round-trip BookError.HeldForReview through AppError serializer") {
+            val original: AppError = BookError.HeldForReview(correlationId = "c1", debugInfo = "bookId=b1")
+            val json = contractJson.encodeToString(AppError.serializer(), original)
+            json.contains("\"BookError.HeldForReview\"") shouldBe true
+            contractJson.decodeFromString(AppError.serializer(), json) shouldBe original
+        }
+
+        test("BookError.HeldForReview says what unlocks the book, and is not retryable") {
+            BookError.HeldForReview().message shouldBe BookError.HeldForReview(debugInfo = "x").message
+            BookError.HeldForReview().message shouldBe "This book is waiting in the inbox. Release it first."
+            BookError.HeldForReview().code shouldBe "BOOK_HELD_FOR_REVIEW"
+            BookError.HeldForReview().isRetryable shouldBe false
+        }
+
         test("should round-trip LibraryWriteError.ProtectedPath through AppError serializer") {
             val original: AppError = LibraryWriteError.ProtectedPath(debugInfo = "/library is a library folder root")
             val json = contractJson.encodeToString(AppError.serializer(), original)

@@ -20,6 +20,7 @@ import kotlinx.serialization.Serializable
  * - [NotFound] → 404
  * - [InvalidInput] → 400
  * - [FolderNotExclusive] → 409
+ * - [HeldForReview] → 409 (never raised by the server; client-side triage gate)
  */
 @Serializable
 sealed interface BookError : AppError {
@@ -84,6 +85,24 @@ sealed interface BookError : AppError {
     ) : BookError {
         override val message: String = "Another book shares this book's folder, so it can't be deleted."
         override val code: String = "BOOK_FOLDER_NOT_EXCLUSIVE"
+        override val isRetryable: Boolean = false
+    }
+
+    /**
+     * The book is held for review in the admin inbox. A held book is triage-only: it can be opened,
+     * edited and released, but not played, downloaded or put on a shelf until an admin releases it.
+     *
+     * Raised on the client by the playback, download and add-to-shelf gates — the rule is a client
+     * product rule, and the server never raises it. [message] names what unlocks the book.
+     */
+    @Serializable
+    @SerialName("BookError.HeldForReview")
+    data class HeldForReview(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : BookError {
+        override val message: String = "This book is waiting in the inbox. Release it first."
+        override val code: String = "BOOK_HELD_FOR_REVIEW"
         override val isRetryable: Boolean = false
     }
 }

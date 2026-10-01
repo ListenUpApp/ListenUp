@@ -57,4 +57,25 @@ sealed interface PlaybackError : AppError {
         override val code: String = "PLAYBACK_BLOCKED_IN_BACKGROUND"
         override val isRetryable: Boolean = false
     }
+
+    /**
+     * Playback preparation failed for a reason other than the book being held: no server
+     * configured, the book or its audio files missing locally and unfetchable, or the streaming
+     * prepare failing. Raised by the client's playback choke point
+     * (`com.calypsan.listenup.client.playback.PlaybackPreparer.prepare`); [debugInfo] carries the
+     * specific cause.
+     *
+     * Not retryable in the middleware sense: callers decide (Now Playing offers a retry and words
+     * an offline failure differently).
+     */
+    @Serializable
+    @SerialName("PlaybackError.CouldNotStart")
+    data class CouldNotStart(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : PlaybackError {
+        override val message: String = "This book couldn't be started."
+        override val code: String = "PLAYBACK_COULD_NOT_START"
+        override val isRetryable: Boolean = false
+    }
 }

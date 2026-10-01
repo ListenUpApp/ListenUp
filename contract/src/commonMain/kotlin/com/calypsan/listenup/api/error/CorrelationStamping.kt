@@ -253,6 +253,7 @@ private fun PlaybackError.withCorrelationId(id: String?): PlaybackError =
     when (this) {
         is PlaybackError.Stalled -> copy(correlationId = id)
         is PlaybackError.BlockedInBackground -> copy(correlationId = id)
+        is PlaybackError.CouldNotStart -> copy(correlationId = id)
     }
 
 private fun MetadataError.withCorrelationId(id: String?): MetadataError =
@@ -317,6 +318,7 @@ private fun BookError.withCorrelationId(id: String?): BookError =
         is BookError.NotFound -> copy(correlationId = id)
         is BookError.InvalidInput -> copy(correlationId = id)
         is BookError.FolderNotExclusive -> copy(correlationId = id)
+        is BookError.HeldForReview -> copy(correlationId = id)
     }
 
 private fun CoverError.withCorrelationId(id: String?): CoverError =
