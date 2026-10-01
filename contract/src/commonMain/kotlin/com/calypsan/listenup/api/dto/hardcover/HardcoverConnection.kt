@@ -67,12 +67,21 @@ sealed interface HardcoverConnection {
         @SerialName("prompt") val prompt: HardcoverLinkPrompt,
     ) : HardcoverConnection
 
-    /** Connected as [hardcoverUsername] since [since] (epoch ms). */
+    /**
+     * Connected as [hardcoverUsername] since [since] (epoch ms). [lastSyncedAt] (epoch ms) is when
+     * anything last reached Hardcover or came back from it, or null before the first sync.
+     * [isSyncing] is true while a "Sync now" the user asked for is still running. [syncProblem] says
+     * why sync isn't keeping up, or is null when it is. All three default, so a payload from a
+     * server that predates them reads as never synced, idle and healthy.
+     */
     @Serializable
     @SerialName("HardcoverConnection.Connected")
     data class Connected(
         @SerialName("hardcoverUsername") val hardcoverUsername: String,
         @SerialName("since") val since: Long,
+        @SerialName("lastSyncedAt") val lastSyncedAt: Long? = null,
+        @SerialName("isSyncing") val isSyncing: Boolean = false,
+        @SerialName("syncProblem") val syncProblem: HardcoverSyncProblem? = null,
     ) : HardcoverConnection
 
     /**
