@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -159,6 +160,70 @@ class AppNavigationSuiteTest {
         logout.assertIsDisplayed()
         val barTop = composeRule.onNodeWithTag(DOCKED_BAR).getUnclippedBoundsInRoot().top
         logout.getUnclippedBoundsInRoot().bottom shouldBeLessThanOrEqualTo barTop
+    }
+
+    @Test
+    fun bottomBarLibraryCarriesTheHeldCount() {
+        composeRule.setContent {
+            MaterialTheme {
+                AppNavigationSuite(
+                    navType = ShellNavType.BottomBar,
+                    currentDestination = ShellDestination.Home,
+                    onDestinationSelected = {},
+                    onSignOutRequest = {},
+                    libraryBadgeCount = 3,
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription("3 books waiting for review", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun railLibraryCarriesTheHeldCount() {
+        composeRule.setContent {
+            MaterialTheme {
+                AppNavigationSuite(
+                    navType = ShellNavType.RailExpanded,
+                    currentDestination = ShellDestination.Library,
+                    onDestinationSelected = {},
+                    onSignOutRequest = {},
+                    libraryBadgeCount = 1,
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription("1 book waiting for review", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun nothingHeldMeansNoBadge() {
+        composeRule.setContent {
+            MaterialTheme {
+                AppNavigationSuite(
+                    navType = ShellNavType.BottomBar,
+                    currentDestination = ShellDestination.Home,
+                    onDestinationSelected = {},
+                    onSignOutRequest = {},
+                    libraryBadgeCount = 0,
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription("waiting for review", substring = true, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun aLargeCountIsReadInFullEvenWhenDrawnCapped() {
+        composeRule.setContent {
+            MaterialTheme {
+                AppNavigationSuite(
+                    navType = ShellNavType.BottomBar,
+                    currentDestination = ShellDestination.Home,
+                    onDestinationSelected = {},
+                    onSignOutRequest = {},
+                    libraryBadgeCount = 120,
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription("120 books waiting for review", useUnmergedTree = true).assertExists()
     }
 
     private companion object {

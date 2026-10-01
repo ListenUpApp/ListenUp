@@ -3,6 +3,13 @@
 package com.calypsan.listenup.client.features.shell.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.BadgedBox
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import com.calypsan.listenup.client.design.components.CountBadge
+import com.calypsan.listenup.client.features.admin.inbox.heldWaitingDescription
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +50,8 @@ import listenup.composeapp.generated.resources.shell_logout
 
 private val RailWidth = 100.dp
 private val BrandTile = 52.dp
+private val HELD_BADGE_MIN_SIZE = 18.dp
+private const val HELD_BADGE_MAX_COUNT = 99
 
 /**
  * The shell's adaptive navigation surface, styled to the ListenUp M3 Expressive design.
@@ -62,6 +71,7 @@ private val BrandTile = 52.dp
  * @param onDestinationSelected invoked when a destination is tapped
  * @param onSignOutRequest invoked when the rail's Logout is tapped; it asks, it does not sign out
  *   (the shell's [SignOutConfirmation] confirms first)
+ * @param libraryBadgeCount books held for review, shown on Library (admins only; 0 hides it)
  * @param modifier optional modifier
  */
 @Composable
@@ -70,6 +80,7 @@ fun AppNavigationSuite(
     currentDestination: ShellDestination?,
     onDestinationSelected: (ShellDestination) -> Unit,
     onSignOutRequest: () -> Unit,
+    libraryBadgeCount: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
@@ -90,9 +101,10 @@ fun AppNavigationSuite(
                             onDestinationSelected(destination)
                         },
                         icon = {
-                            Icon(
-                                imageVector = if (selected) destination.selectedIcon else destination.icon,
-                                contentDescription = destination.title,
+                            DestinationIcon(
+                                destination = destination,
+                                selected = selected,
+                                badgeCount = if (destination == ShellDestination.Library) libraryBadgeCount else 0,
                             )
                         },
                         label = { Text(destination.title) },
@@ -123,9 +135,10 @@ fun AppNavigationSuite(
                             onDestinationSelected(destination)
                         },
                         icon = {
-                            Icon(
-                                imageVector = if (selected) destination.selectedIcon else destination.icon,
-                                contentDescription = destination.title,
+                            DestinationIcon(
+                                destination = destination,
+                                selected = selected,
+                                badgeCount = if (destination == ShellDestination.Library) libraryBadgeCount else 0,
                             )
                         },
                         label = { Text(destination.title) },
@@ -162,6 +175,47 @@ private fun railItemColors() =
         unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
         unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+
+/** A destination's icon, wearing the held-books badge when [badgeCount] is above zero. */
+@Composable
+private fun DestinationIcon(
+    destination: ShellDestination,
+    selected: Boolean,
+    badgeCount: Int,
+) {
+    val icon: @Composable () -> Unit = {
+        Icon(
+            imageVector = if (selected) destination.selectedIcon else destination.icon,
+            contentDescription = destination.title,
+        )
+    }
+    if (badgeCount > 0) {
+        BadgedBox(badge = { HeldCountBadge(badgeCount) }) { icon() }
+    } else {
+        icon()
+    }
+}
+
+/**
+ * The Library's held count: the house [CountBadge] in amber (tertiary / onTertiary) — "waiting for
+ * you", never coral, which is "act here" and the selected indicator's colour. A 2dp ring in the bar's
+ * own colour separates it from that indicator, against which amber has too little lightness contrast
+ * on its own. Read as "3 books waiting for review", the true count; the drawn "99+" is not read.
+ */
+@Composable
+private fun HeldCountBadge(count: Int) {
+    val description = heldWaitingDescription(count)
+    Box(modifier = Modifier.clearAndSetSemantics { contentDescription = description }) {
+        CountBadge(
+            count = count,
+            containerColor = MaterialTheme.colorScheme.tertiary,
+            contentColor = MaterialTheme.colorScheme.onTertiary,
+            minSize = HELD_BADGE_MIN_SIZE,
+            maxCount = HELD_BADGE_MAX_COUNT,
+            modifier = Modifier.border(2.dp, MaterialTheme.colorScheme.surfaceContainerLow, CircleShape),
+        )
+    }
+}
 
 /** The coral brand tile + wordmark shown at the top of the rail. */
 @Composable
