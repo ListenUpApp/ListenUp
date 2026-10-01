@@ -22,6 +22,7 @@ import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
+import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.localization.SystemStringsHolder
 import dev.mokkery.answering.returns
@@ -206,6 +207,22 @@ class BrowseTreeProviderTest {
     // ──────────────────────────────────────────────────────────────────────────────
     // LIBRARY_SERIES branch
     // ──────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `getChildren LIBRARY_DOWNLOADED leaves out a book held for review`(): Unit =
+        runBlocking {
+            val provider =
+                makeProvider(
+                    downloadedBooks =
+                        listOf(
+                            makeDownloadedBookSummary("book-held", "Held Book"),
+                            makeDownloadedBookSummary("book-public", "Public Book"),
+                        ),
+                    heldBookIds = setOf("book-held"),
+                )
+            val children = provider.getChildren(BrowseTree.LIBRARY_DOWNLOADED)
+            children.map { it.mediaId } shouldBe listOf(BrowseTree.bookId("book-public"))
+        }
 
     @Test
     fun `getChildren LIBRARY_SERIES returns empty list when no series`(): Unit =
@@ -447,6 +464,7 @@ class BrowseTreeProviderTest {
         continueListeningBooks: List<ContinueListeningBook> = emptyList(),
         continueListeningFails: Boolean = false,
         downloadedBooks: List<DownloadedBookSummary> = emptyList(),
+        heldBookIds: Set<String> = emptySet(),
         allSeries: List<Series> = emptyList(),
         seriesWithBooksById: Map<String, SeriesWithBooks> = emptyMap(),
         allContributors: List<Contributor> = emptyList(),
@@ -481,12 +499,16 @@ class BrowseTreeProviderTest {
         val downloadRepository = mock<DownloadRepository>()
         every { downloadRepository.observeDownloadedBooks() } returns flowOf(downloadedBooks)
 
+        val inboxRepository = mock<InboxRepository>()
+        every { inboxRepository.observeHeldBookIds() } returns flowOf(heldBookIds.map { BookId(it) }.toSet())
+
         return BrowseTreeProvider(
             homeRepository = FakeHomeRepository(continueListeningBooks, continueListeningFails),
             bookRepository = bookRepository,
             seriesRepository = seriesRepository,
             contributorRepository = contributorRepository,
             downloadRepository = downloadRepository,
+            inboxRepository = inboxRepository,
             packageName = PACKAGE_NAME,
             strings = SystemStringsHolder(),
         )

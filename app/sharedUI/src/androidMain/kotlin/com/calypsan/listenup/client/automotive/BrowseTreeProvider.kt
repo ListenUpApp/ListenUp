@@ -10,9 +10,11 @@ import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
+import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.localization.SystemStrings
 import com.calypsan.listenup.client.localization.SystemStringsHolder
+import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.first
 
@@ -42,6 +44,7 @@ class BrowseTreeProvider(
     private val seriesRepository: SeriesRepository,
     private val contributorRepository: ContributorRepository,
     private val downloadRepository: DownloadRepository,
+    private val inboxRepository: InboxRepository,
     private val packageName: String,
     private val strings: SystemStringsHolder,
 ) {
@@ -195,12 +198,20 @@ class BrowseTreeProvider(
         return result.data.map { book -> createPlayableBookItem(book) }
     }
 
-    private suspend fun getDownloadedBooks(): List<MediaItem> =
-        downloadRepository
+    /**
+     * Downloaded books the car may offer. A held book stays downloaded but is triage-only (spec §8),
+     * so it is left out here (spec §9); selecting one would be refused at the playback choke point
+     * anyway, and a refused tap at the wheel is worse than an absent row.
+     */
+    private suspend fun getDownloadedBooks(): List<MediaItem> {
+        val heldIds = inboxRepository.observeHeldBookIds().first()
+        return downloadRepository
             .observeDownloadedBooks()
             .first()
+            .filterNot { BookId(it.bookId) in heldIds }
             .take(MAX_ITEMS_PER_LEVEL)
             .map { book -> createBookMediaItem(bookId = book.bookId, title = book.title, subtitle = null) }
+    }
 
     private suspend fun getSeriesList(): List<MediaItem> =
         seriesRepository

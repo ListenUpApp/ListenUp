@@ -701,6 +701,7 @@ class ListenUpSessionCallbackTest {
             seriesRepository = mock<SeriesRepository>(),
             contributorRepository = mock<ContributorRepository>(),
             downloadRepository = mock<DownloadRepository>(),
+            inboxRepository = mock<InboxRepository>(),
             packageName = "com.calypsan.listenup.client",
             strings = SystemStringsHolder(),
         )

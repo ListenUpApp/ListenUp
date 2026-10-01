@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.components.HeldLabel
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
@@ -56,6 +57,7 @@ import com.calypsan.listenup.client.presentation.storage.DeleteConfirmation
 import com.calypsan.listenup.client.presentation.storage.StorageUiState
 import com.calypsan.listenup.client.presentation.storage.StorageViewModel
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.admin_held_release_to_play
 import listenup.composeapp.generated.resources.book_delete_download
 import listenup.composeapp.generated.resources.book_detail_you_can_redownload_anytime_by
 import listenup.composeapp.generated.resources.common_delete
@@ -504,6 +506,22 @@ private fun DownloadedBookItem(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                }
+                // A held book's download stays — bytes on disk are never stranded — but it can't
+                // be played until it is released (spec §9). There is no Play on this row to disable.
+                if (book.isHeld) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        HeldLabel()
+                        Text(
+                            text = stringResource(Res.string.admin_held_release_to_play),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(

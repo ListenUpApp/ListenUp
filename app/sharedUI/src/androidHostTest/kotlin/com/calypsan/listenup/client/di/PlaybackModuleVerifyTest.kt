@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
+import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
@@ -47,6 +48,8 @@ class PlaybackModuleVerifyTest :
                         BookRepository::class,
                         HomeRepository::class,
                         DownloadRepository::class,
+                        // Android Auto's Downloaded node leaves held books out.
+                        InboxRepository::class,
                         PlaybackPositionRepository::class,
                         PlaybackPreferences::class,
                         DeviceContext::class,
