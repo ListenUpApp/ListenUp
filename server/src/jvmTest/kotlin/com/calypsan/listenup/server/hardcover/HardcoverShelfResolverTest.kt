@@ -178,4 +178,23 @@ class HardcoverShelfResolverTest :
                 resolved.keys shouldBe setOf(1L)
             }
         }
+
+        test("a Want to Read entry with no read yet still matches, so it can reach the To Read shelf") {
+            resolverTest { resolver ->
+                sql.seedTestBook("book-1", asin = "B005UR3VFO")
+                resolver.resolve(
+                    USER,
+                    listOf(entry(asin = "B005UR3VFO", finished = emptyList(), statusId = HardcoverStatus.WANT_TO_READ)),
+                ) shouldBe mapOf(1L to ShelfResolution.Matched("book-1", HardcoverMatch(HC_BOOK, 9_001L, HardcoverMatchMethod.ASIN)))
+            }
+        }
+
+        test("a Currently Reading entry with no finished read still isn't matched: there is nothing on it to write") {
+            resolverTest { resolver ->
+                sql.seedTestBook("book-1", asin = "B005UR3VFO")
+                resolver
+                    .resolve(USER, listOf(entry(asin = "B005UR3VFO", finished = emptyList(), statusId = HardcoverStatus.READING)))
+                    .shouldBeEmpty()
+            }
+        }
     })
