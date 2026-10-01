@@ -4,8 +4,10 @@ import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
+import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
+import kotlinx.coroutines.flow.first
 
 /**
  * Resolves voice queries to playback intents.
@@ -21,6 +23,7 @@ class VoiceIntentResolver(
     private val homeRepository: HomeRepository,
     private val seriesRepository: SeriesRepository,
     private val bookRepository: BookRepository,
+    private val inboxRepository: InboxRepository,
 ) {
     companion object {
         // Search configuration
@@ -168,8 +171,12 @@ class VoiceIntentResolver(
         val bookIds = seriesRepository.getBookIdsForSeries(context.seriesId)
         if (bookIds.isEmpty()) return null
 
+        // A held book is triage-only, so navigation skips it: "next book" past a held sequel lands on
+        // the one after, and asking for the held one by number finds nothing to play.
+        val heldIds = inboxRepository.observeHeldBookIds().first()
+
         // Batch-load all books in a single query (avoids N+1 problem)
-        val books = bookRepository.getBookListItems(bookIds)
+        val books = bookRepository.getBookListItems(bookIds).filterNot { it.id in heldIds }
 
         // Map books to their sequence numbers and sort
         val booksWithSequence =

@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
@@ -51,7 +52,7 @@ import org.koin.test.verify.verify
 @OptIn(KoinExperimentalAPI::class)
 class KoinModuleVerifyTest :
     FunSpec({
-        // Verify voiceModule — the voice intent resolver and its four repository dependencies.
+        // Verify voiceModule — the voice intent resolver and its five repository dependencies.
         //
         // Narrow module; the extraTypes list is correspondingly small. Part of the
         // "every leaf module is verified" expansion. All 13 presentation modules now carry
@@ -65,6 +66,7 @@ class KoinModuleVerifyTest :
                         HomeRepository::class,
                         SeriesRepository::class,
                         BookRepository::class,
+                        InboxRepository::class,
                     ),
             )
         }

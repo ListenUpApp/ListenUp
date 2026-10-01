@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.voice
 
+import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
@@ -23,6 +24,7 @@ import com.calypsan.listenup.client.domain.model.TierLabels
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
 import com.calypsan.listenup.client.domain.repository.HomeRepository
+import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import kotlinx.coroutines.flow.Flow
@@ -173,6 +175,33 @@ class FakeBookRepository : BookRepository {
 
     /** Not exercised here — these fakes cover read paths, and a delete is a server-only write. */
     override suspend fun deleteBook(id: BookId): AppResult<Unit> = AppResult.Success(Unit)
+}
+
+// ========== Fake Inbox Repository ==========
+
+/**
+ * Fake [InboxRepository] for voice tests: only the held set matters here — voice must never land on a
+ * held book. The RPC-backed members are never reached by the resolver.
+ */
+class FakeInboxRepository : InboxRepository {
+    val held = MutableStateFlow<Set<BookId>>(emptySet())
+
+    fun hold(vararg ids: String) {
+        held.value = held.value + ids.map { BookId(it) }
+    }
+
+    override fun observeHeldBookIds(): Flow<Set<BookId>> = held
+
+    override suspend fun listInbox(libraryId: String): AppResult<List<String>> = AppResult.Success(emptyList())
+
+    override suspend fun releaseBooks(
+        libraryId: String,
+        assignments: Map<String, List<String>>,
+    ): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun listScanIssues(): AppResult<List<ScanIssue>> = AppResult.Success(emptyList())
+
+    override suspend fun dismissScanIssue(issueId: String): AppResult<Unit> = AppResult.Success(Unit)
 }
 
 // ========== Fake Series Repository ==========
