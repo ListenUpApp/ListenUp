@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import app.cash.turbine.turbineScope
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
+import com.calypsan.listenup.api.dto.hardcover.HardcoverHistory
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
 import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
@@ -27,6 +28,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -507,6 +509,158 @@ class HardcoverSettingsViewModelTest :
                     repo.shareModes shouldBe listOf(HardcoverShareMode.FINISHED_ONLY)
                     cancelAndIgnoreRemainingEvents()
                 }
+            }
+        }
+
+        // ========== Earlier books (#1540) ==========
+
+        test("Connected carries the server's history: none when it says nothing, then whatever it says") {
+            runTest {
+                val repo = FakeHardcoverRepository(HardcoverConnection.Connected("reader", SINCE))
+                val vm = HardcoverSettingsViewModel(repo, books())
+                vm.uiState.test {
+                    (awaitSettled() as HardcoverSettingsUiState.Connected).history shouldBe HardcoverHistory.None
+
+                    repo.connection.value = HardcoverConnection.Connected("reader", SINCE, history = HardcoverHistory.Offer(74))
+                    advanceUntilIdle()
+                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).history shouldBe HardcoverHistory.Offer(74)
+                }
+            }
+        }
+
+        test("Send shows Sending from zero at once, and holds it until the server carries the send back") {
+            runTest {
+                val repo = FakeHardcoverRepository(HardcoverConnection.Connected("reader", SINCE, history = HardcoverHistory.Offer(74)))
+                repo.sendHistoryGate = CompletableDeferred()
+                val vm = HardcoverSettingsViewModel(repo, books())
+                vm.uiState.test {
+                    awaitSettled()
+                    vm.sendHistory()
+                    advanceUntilIdle()
+                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).history shouldBe
+                        HardcoverHistory.Sending(sentBooks = 0, totalBooks = 74)
+
+                    repo.sendHistoryGate!!.complete(Unit)
+                    repo.connection.value = HardcoverConnection.Connected("reader", SINCE, history = HardcoverHistory.Sending(3, 74))
+                    advanceUntilIdle()
+                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).history shouldBe HardcoverHistory.Sending(3, 74)
+                }
+                repo.sendHistoryCalls shouldBe 1
+            }
+        }
+
+        test("a send the server refuses goes back to the offer and shows the error") {
+            runTest {
+                val repo = FakeHardcoverRepository(HardcoverConnection.Connected("reader", SINCE, history = HardcoverHistory.Offer(74)))
+                repo.sendHistoryResult = AppResult.Failure(HardcoverError.Unavailable())
+                val vm = HardcoverSettingsViewModel(repo, books())
+                turbineScope {
+                    val states = vm.uiState.testIn(backgroundScope)
+                    val events = vm.events.testIn(backgroundScope)
+                    states.awaitSettled()
+                    vm.sendHistory()
+                    events.awaitItem() shouldBe HardcoverSettingsEvent.ShowError(HardcoverError.Unavailable())
+                    advanceUntilIdle()
+                    (states.expectMostRecentItem() as HardcoverSettingsUiState.Connected).history shouldBe HardcoverHistory.Offer(74)
+                }
+            }
+        }
+
+        test("Not now hides the card at once, leaving the quiet row; dismissing Done leaves nothing") {
+            runTest {
+                val repo = FakeHardcoverRepository(HardcoverConnection.Connected("reader", SINCE, history = HardcoverHistory.Offer(74)))
+                repo.dismissHistoryGate = CompletableDeferred()
+                val vm = HardcoverSettingsViewModel(repo, books())
+                vm.uiState.test {
+                    awaitSettled()
+                    vm.dismissHistory()
+                    advanceUntilIdle()
+                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).history shouldBe HardcoverHistory.Available(74)
+
+                    repo.dismissHistoryGate!!.complete(Unit)
+                    repo.connection.value = HardcoverConnection.Connected("reader", SINCE, history = HardcoverHistory.Done(70, 4))
+                    advanceUntilIdle()
+                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).history shouldBe HardcoverHistory.Done(70, 4)
+
+                    repo.dismissHistoryGate = CompletableDeferred()
+                    vm.dismissHistory()
+                    advanceUntilIdle()
+                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).history shouldBe HardcoverHistory.None
+                    repo.dismissHistoryGate!!.complete(Unit)
+                    cancelAndIgnoreRemainingEvents()
+                }
+                repo.dismissHistoryCalls shouldBe 2
+            }
+        }
+
+        test("a dismissal the server refuses puts the card back and shows the error") {
+            runTest {
+                val repo = FakeHardcoverRepository(HardcoverConnection.Connected("reader", SINCE, history = HardcoverHistory.Offer(74)))
+                repo.dismissHistoryResult = AppResult.Failure(HardcoverError.Unavailable())
+                val vm = HardcoverSettingsViewModel(repo, books())
+                turbineScope {
+                    val states = vm.uiState.testIn(backgroundScope)
+                    val events = vm.events.testIn(backgroundScope)
+                    states.awaitSettled()
+                    vm.dismissHistory()
+                    events.awaitItem() shouldBe HardcoverSettingsEvent.ShowError(HardcoverError.Unavailable())
+                    advanceUntilIdle()
+                    (states.expectMostRecentItem() as HardcoverSettingsUiState.Connected).history shouldBe HardcoverHistory.Offer(74)
+                }
+            }
+        }
+
+        test("an answer the server is slow to carry back holds on screen until it does, or the handoff passes") {
+            runTest {
+                val repo = FakeHardcoverRepository(HardcoverConnection.Connected("reader", SINCE, history = HardcoverHistory.Offer(74)))
+                val vm = HardcoverSettingsViewModel(repo, books())
+                vm.uiState.test {
+                    awaitSettled()
+                    vm.sendHistory()
+                    advanceTimeBy(1_000L)
+                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).history shouldBe HardcoverHistory.Sending(0, 74)
+                    advanceUntilIdle()
+                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).history shouldBe HardcoverHistory.Offer(74)
+
+                    repo.connection.value = HardcoverConnection.Connected("reader", SINCE, history = HardcoverHistory.Done(74, 0))
+                    advanceUntilIdle()
+                    vm.dismissHistory()
+                    advanceTimeBy(1_000L)
+                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).history shouldBe HardcoverHistory.None
+                    advanceUntilIdle()
+                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).history shouldBe HardcoverHistory.Done(74, 0)
+                }
+            }
+        }
+
+        test("Send from the quiet row sends too, once; and it sends nothing while sending, when done, with no history or outside Connected") {
+            runTest {
+                val repo = FakeHardcoverRepository(HardcoverConnection.Connected("reader", SINCE, history = HardcoverHistory.Available(5)))
+                repo.sendHistoryGate = CompletableDeferred()
+                val vm = HardcoverSettingsViewModel(repo, books())
+                vm.uiState.test {
+                    awaitSettled()
+                    vm.sendHistory()
+                    vm.sendHistory()
+                    advanceUntilIdle()
+                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).history shouldBe HardcoverHistory.Sending(0, 5)
+
+                    repo.sendHistoryGate!!.complete(Unit)
+                    listOf(HardcoverHistory.Sending(1, 5), HardcoverHistory.Done(5, 0), HardcoverHistory.None).forEach { history ->
+                        repo.connection.value = HardcoverConnection.Connected("reader", SINCE, history = history)
+                        advanceUntilIdle()
+                        vm.sendHistory()
+                        advanceUntilIdle()
+                    }
+                    repo.connection.value = HardcoverConnection.NotConnected()
+                    advanceUntilIdle()
+                    vm.sendHistory()
+                    vm.dismissHistory()
+                    advanceUntilIdle()
+                    cancelAndIgnoreRemainingEvents()
+                }
+                repo.sendHistoryCalls shouldBe 1
+                repo.dismissHistoryCalls shouldBe 0
             }
         }
 
