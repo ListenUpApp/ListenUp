@@ -8,10 +8,14 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * Result class for book search that includes denormalized author name.
+ *
+ * [isHeld] is true when the book is held for review in the admin inbox ([HELD_BOOK_IDS_SQL]). Search
+ * keeps held books — it is how an admin reaches one outside the inbox — and marks them.
  */
 internal data class BookSearchResult(
     @Embedded val book: BookEntity,
     val authorName: String?,
+    val isHeld: Boolean,
 )
 
 /**
@@ -51,7 +55,7 @@ internal interface SearchDao {
     @SkipQueryVerification
     @Query(
         """
-        SELECT b.*, fts.author AS authorName
+        SELECT b.*, fts.author AS authorName, (b.id IN ($HELD_BOOK_IDS_SQL)) AS isHeld
         FROM books_fts fts
         INNER JOIN books b ON fts.bookId = b.id
         WHERE books_fts MATCH :query

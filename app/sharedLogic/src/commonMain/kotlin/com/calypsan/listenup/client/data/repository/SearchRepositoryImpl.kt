@@ -164,6 +164,7 @@ private fun BookSearchResult.toSearchHit(imageStorage: ImageStorage): SearchHit 
         coverPath = coverPath,
         coverHash = book.coverHash,
         score = 1.0f, // No scoring in local search
+        isHeld = isHeld,
     )
 }
 

@@ -42,6 +42,7 @@ class SearchRepositoryTest :
             title: String = "Test Book",
             authorName: String? = "Test Author",
             coverHash: String? = null,
+            isHeld: Boolean = false,
         ) = BookSearchResult(
             book =
                 BookEntity(
@@ -58,6 +59,7 @@ class SearchRepositoryTest :
                     updatedAt = Timestamp(0),
                 ),
             authorName = authorName,
+            isHeld = isHeld,
         )
 
         fun contributor(
@@ -129,6 +131,23 @@ class SearchRepositoryTest :
                 val result = repo.search("brandon", types = listOf(SearchHitType.BOOK))
 
                 result.hits.first { it.type == SearchHitType.BOOK }.coverHash shouldBe "abc123"
+            }
+        }
+
+        test("a held book's hit carries the Held marker; an ordinary one does not") {
+            runTest {
+                val repo =
+                    repository {
+                        everySuspend { searchBooks(any(), any()) } returns
+                            listOf(bookResult(id = "held", isHeld = true), bookResult(id = "visible"))
+                        everySuspend { searchContributors(any(), any()) } returns emptyList()
+                        everySuspend { searchSeries(any(), any()) } returns emptyList()
+                        everySuspend { searchTags(any(), any()) } returns emptyList()
+                    }
+
+                val hits = repo.search("mist", types = listOf(SearchHitType.BOOK)).hits
+
+                hits.associate { it.id to it.isHeld } shouldBe mapOf("held" to true, "visible" to false)
             }
         }
 
