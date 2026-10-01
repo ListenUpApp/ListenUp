@@ -15,30 +15,42 @@ import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import java.util.concurrent.atomic.AtomicInteger
+import com.calypsan.listenup.client.data.sync.testing.awaitUntil
+import java.util.concurrent.Executors
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.job
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withContext
 
 class SyncEngineDiscoverRefreshTest :
     FunSpec({
 
         test("start primes the refreshed tier once, and a reconnect re-fires it") {
             runBlocking {
-                val scope =
-                    CoroutineScope(
-                        SupervisorJob() + Dispatchers.Default,
-                    )
+                // The engine runs on one dedicated thread so the test can wait for it to go quiet
+                // deterministically (see settleEngine) instead of sleeping and hoping.
+                val engineThread = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+                val scope = CoroutineScope(SupervisorJob() + engineThread)
+
+                /**
+                 * Returns once every task already queued on the engine thread has run. A
+                 * `StateFlow` write resumes the engine's suspended observers by dispatching onto
+                 * that thread there and then, so after a connection flip this guarantees the
+                 * reconnect observer has seen the new value — no wall-clock guess.
+                 */
+                suspend fun settleEngine() = withContext(engineThread) {}
+
                 val db = createInMemoryTestDatabase()
                 try {
+                    // Counted inside the presence domain's ping itself, so the count is exact the
+                    // moment the router returns — not whenever an async collector gets scheduled.
                     val presencePings = AtomicInteger(0)
                     // The user's synced playback defaults ride this refetch. Nothing else pulls
                     // them — not catch-up, not the digest — so if start doesn't prime them, a book
@@ -66,7 +78,6 @@ class SyncEngineDiscoverRefreshTest :
                         )
 
                     val presence = PresenceRefreshSignal()
-                    scope.launch { presence.signal.collect { presencePings.incrementAndGet() } }
 
                     val queue =
                         PendingOperationQueue(
@@ -98,7 +109,12 @@ class SyncEngineDiscoverRefreshTest :
                             refreshedRouter =
                                 RefreshedDomainRouter(
                                     listOf(
-                                        presenceDomain(ping = { presence.ping() }),
+                                        presenceDomain(
+                                            ping = {
+                                                presencePings.incrementAndGet()
+                                                presence.ping()
+                                            },
+                                        ),
                                         preferencesDomain(
                                             refetch = { preferenceRefetches.incrementAndGet() },
                                         ),
@@ -112,25 +128,30 @@ class SyncEngineDiscoverRefreshTest :
                     // the refreshed tier — the domains no catch-up or digest covers, which would
                     // otherwise sit empty on a cold start with no trigger coming.
                     catchUp.fromZeroInvocations.get() shouldBe 1
-                    // Let the reconnect observer settle on (and drop) the initial Connected — the
-                    // prime is start's, so the connect edge must not add a second ping.
-                    delay(150)
                     presencePings.get() shouldBe 1
                     preferenceRefetches.get() shouldBe 1
 
+                    // The prime is start's, so the initial connect edge must not run a reconnect pass
+                    // of its own. Had the observer taken that edge, its pass would have entered
+                    // catchUpAll by the time the engine thread drains.
+                    settleEngine()
+                    catchUp.catchUpAllInvocations.get() shouldBe 1
+                    presencePings.get() shouldBe 1
+
                     // Drive a real reconnect edge: drop, let the observer see Disconnected, then connect.
+                    // Without the settle, StateFlow conflation can hand the observer Connected → Connected
+                    // and the edge never happens.
                     sse.disconnect()
-                    delay(150)
+                    settleEngine()
                     sse.connect()
 
-                    // The reconnect fires both actions exactly once more.
-                    withTimeout(5_000L) {
-                        while (presencePings.get() < 2 ||
-                            catchUp.fromZeroInvocations.get() < 2
-                        ) {
-                            delay(10)
-                        }
+                    // The reconnect runs one lifecycle pass: catch-up, the drifted re-pull, then the
+                    // refreshed tier in catalog order — preferences last, so it marks the pass done.
+                    awaitUntil(timeout = 10.seconds) {
+                        preferenceRefetches.get() >= 2 && catchUp.fromZeroInvocations.get() >= 2
                     }
+                    settleEngine()
+                    catchUp.catchUpAllInvocations.get() shouldBe 2
                     presencePings.get() shouldBe 2
                     preferenceRefetches.get() shouldBe 2
                     catchUp.fromZeroInvocations.get() shouldBe 2
@@ -138,6 +159,7 @@ class SyncEngineDiscoverRefreshTest :
                     scope.cancel()
                     scope.coroutineContext.job.children
                         .forEach { it.join() }
+                    engineThread.close()
                     db.close()
                 }
             }
@@ -180,6 +202,7 @@ private class FlippingFakeSse(
  */
 private class CountingReconcileCatchUp : CatchUp {
     val fromZeroInvocations = AtomicInteger(0)
+    val catchUpAllInvocations = AtomicInteger(0)
 
     override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
 
@@ -188,7 +211,10 @@ private class CountingReconcileCatchUp : CatchUp {
         return AppResult.Success(Unit)
     }
 
-    override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> = AppResult.Success(Unit)
+    override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> {
+        catchUpAllInvocations.incrementAndGet()
+        return AppResult.Success(Unit)
+    }
 
     override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>> = AppResult.Success(emptySet())
 
