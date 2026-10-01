@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.hardcover
 
+import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.server.services.deriveUserStats
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull

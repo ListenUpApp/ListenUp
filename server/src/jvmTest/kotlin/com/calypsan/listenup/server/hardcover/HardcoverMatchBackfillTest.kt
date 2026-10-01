@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.hardcover
 
+import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.server.testing.MutableClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.hardcover
 
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.server.absimport.normalizeText
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.auth.UserRoleLookup

@@ -34,7 +34,8 @@ insertPlaceholder:
 INSERT OR IGNORE INTO hardcover_book_links (user_id, book_id, match_state, updated_at)
 VALUES (:user_id, :book_id, 'NEEDS_MATCH', :updated_at);
 
--- A manual link. SQLite evaluates every right-hand side against the OLD row, so the CASEs compare the
+-- A link the user made by hand: their pick (MANUAL), or an Undo putting back a match as it was made
+-- (:match_method). SQLite evaluates every right-hand side against the OLD row, so the CASEs compare the
 -- previous hc_book_id: the per-account Hardcover ids survive only when the book did not change.
 linkManually:
 UPDATE hardcover_book_links
@@ -44,7 +45,7 @@ SET hc_user_book_id = CASE WHEN hc_book_id = :hc_book_id THEN hc_user_book_id EL
         CASE WHEN hc_book_id = :hc_book_id THEN open_read_listen_through_started_at ELSE NULL END,
     hc_book_id = :hc_book_id,
     hc_edition_id = :hc_edition_id,
-    match_method = 'MANUAL',
+    match_method = :match_method,
     match_state = 'LINKED',
     updated_at = :updated_at
 WHERE user_id = :user_id AND book_id = :book_id;
@@ -54,6 +55,14 @@ unlink:
 UPDATE hardcover_book_links
 SET hc_book_id = NULL, hc_edition_id = NULL, match_method = NULL, match_state = 'NEEDS_MATCH',
     hc_user_book_id = NULL, open_hc_read_id = NULL, open_read_listen_through_started_at = NULL,
+    updated_at = :updated_at
+WHERE user_id = :user_id AND book_id = :book_id;
+
+-- About to shelve the book for listen-through :open_read_listen_through_started_at, before any Hardcover id
+-- is known: if the answer is lost, the retry finds this mark and knows the shelf entry it sees is its own.
+markShelving:
+UPDATE hardcover_book_links
+SET open_hc_read_id = NULL, open_read_listen_through_started_at = :open_read_listen_through_started_at,
     updated_at = :updated_at
 WHERE user_id = :user_id AND book_id = :book_id;
 

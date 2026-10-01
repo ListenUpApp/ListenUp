@@ -91,6 +91,8 @@ private const val MAX_COLLAPSED_READERS = 5
  *   reads "Rated", with no progress bar and no finished date.
  * @property isOnHardcover `true` for a read logged on Hardcover (#601 B3): the row reads "Read {date}"
  *   beside a "Hardcover" label, never "Finished".
+ * @property finishedAtMs When a finished row's read was finished (epoch ms) — its identity in a list,
+ *   since [finishedWhen] reads the same for two finishes in one month; `null` for other rows.
  */
 data class ReaderRowUi(
     val userId: String,
@@ -102,14 +104,16 @@ data class ReaderRowUi(
     val note: String? = null,
     val isRatedOnly: Boolean = false,
     val isOnHardcover: Boolean = false,
+    val finishedAtMs: Long? = null,
 )
 
 /**
- * The row's identity in a lazy list. A ListenUp finish and a Hardcover read shown with the same date
- * are two rows, so where the read was logged is part of the key — a duplicate key crashes the list.
+ * The row's identity in a lazy list — a duplicate key crashes the list. Two finishes in the same month
+ * read the same, so a finished row is keyed by the instant it was finished, not by what it shows; and
+ * a ListenUp finish and a Hardcover read at the same instant are two rows, so where it was logged counts too.
  */
 internal val ReaderRowUi.listKey: String
-    get() = "$userId:$isReading:$isOnHardcover:$finishedWhen"
+    get() = "$userId:$isReading:$isOnHardcover:${finishedAtMs ?: finishedWhen}"
 
 /**
  * Flattens readers into [ReaderRowUi] rows for both the capped Book Detail section and the full
@@ -143,6 +147,7 @@ internal fun List<Reader>.toReaderRows(nowMs: Long): List<ReaderRowUi> =
                     finishedWhen = relativeOrMonthYear(k.finishedAtMs, nowMs),
                     halfStars = line.rating?.halfStars,
                     note = line.rating?.note,
+                    finishedAtMs = k.finishedAtMs,
                 )
             }
 
@@ -155,6 +160,7 @@ internal fun List<Reader>.toReaderRows(nowMs: Long): List<ReaderRowUi> =
                     finishedWhen = relativeOrMonthYear(k.finishedAtMs, nowMs),
                     halfStars = line.rating?.halfStars,
                     note = line.rating?.note,
+                    finishedAtMs = k.finishedAtMs,
                     isOnHardcover = true,
                 )
             }

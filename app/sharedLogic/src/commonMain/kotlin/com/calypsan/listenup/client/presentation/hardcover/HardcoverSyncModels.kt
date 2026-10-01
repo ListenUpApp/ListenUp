@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.hardcover
 
+import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
 
 /** What the Hardcover screen's sync line says. */
@@ -31,7 +32,8 @@ data class HardcoverBookToMatch(
 /**
  * The Hardcover book a ListenUp book is matched to. [title] is null when Hardcover couldn't be asked
  * for it; [chosenByYou] is true for a match the user picked rather than one ListenUp found.
- * [hcEditionId] is the edition the match names, if any — what an Undo needs to put a replaced match back.
+ * [hcEditionId] is the edition the match names, if any, and [method] how the match was made, when the
+ * server says — together what an Undo needs to put a replaced match back exactly as it was.
  */
 data class HardcoverMatchedBook(
     val hcBookId: Long,
@@ -40,4 +42,5 @@ data class HardcoverMatchedBook(
     val releaseYear: Int?,
     val chosenByYou: Boolean,
     val hcEditionId: Long? = null,
+    val method: HardcoverMatchMethod? = null,
 )

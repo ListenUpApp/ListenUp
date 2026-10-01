@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.hardcover
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
+import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.getOrNull
@@ -229,8 +230,9 @@ class HardcoverMatchViewModel(
     }
 
     /**
-     * Puts back what the last link replaced — the previous book and edition, or no match at all for a book
-     * that had none. It works once, within [UNDO_WINDOW] of the link, and only while that link is still the
+     * Puts back what the last link replaced — the previous book and edition, made the way it was made (an
+     * ASIN match stays one, not the user's pick), or no match at all for a book that had none. A match
+     * from a server that doesn't say how it was made is linked again as a pick. It works once, within [UNDO_WINDOW] of the link, and only while that link is still the
      * last thing this screen did; otherwise it does nothing.
      */
     fun undoLink() {
@@ -238,11 +240,25 @@ class HardcoverMatchViewModel(
         if (clock.now() - link.at > UNDO_WINDOW) return
         appScope.launch {
             val previous = link.replaced
+            val method = previous?.method
             val result =
-                if (previous == null) {
-                    repository.unlinkBook(BookId(bookId))
-                } else {
-                    repository.linkBook(BookId(bookId), previous.hcBookId, previous.hcEditionId)
+                when {
+                    previous == null -> {
+                        repository.unlinkBook(BookId(bookId))
+                    }
+
+                    method != null -> {
+                        repository.restoreMatch(
+                            BookId(bookId),
+                            previous.hcBookId,
+                            previous.hcEditionId,
+                            method,
+                        )
+                    }
+
+                    else -> {
+                        repository.linkBook(BookId(bookId), previous.hcBookId, previous.hcEditionId)
+                    }
                 }
             when (result) {
                 is AppResult.Success -> {
@@ -358,6 +374,7 @@ internal fun HardcoverBookMatch.Linked.toMatchedBook() =
         releaseYear = releaseYear,
         chosenByYou = chosenByYou,
         hcEditionId = hcEditionId,
+        method = method,
     )
 
 /** A search result the user just picked, as the book's match now reads. */
@@ -369,6 +386,7 @@ private fun HardcoverCandidateRow.toMatchedBook() =
         releaseYear = releaseYear,
         chosenByYou = true,
         hcEditionId = hcEditionId,
+        method = HardcoverMatchMethod.MANUAL,
     )
 
 /** The last link this screen made: what it [replaced] (null when the book had no match), and when. */

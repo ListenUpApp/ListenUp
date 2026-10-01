@@ -347,6 +347,7 @@ HardcoverLinkFailure
 HardcoverLinkPrompt
 HardcoverMatchEvent
 HardcoverMatchEvent_SealedType
+HardcoverMatchMethod
 HardcoverMatchUiState
 HardcoverMatchUiState_SealedType
 HardcoverMatchViewModel

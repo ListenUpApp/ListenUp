@@ -51,7 +51,7 @@ class BookHardcoverSectionTest {
         composeRule.onNodeWithText("Project Hail Mary").assertIsDisplayed()
         composeRule.onNodeWithText("Andy Weir · 2021").assertIsDisplayed()
         composeRule.onNodeWithText("Matched by you").assertIsDisplayed()
-        composeRule.onNodeWithText("Waiting to sync").assertIsDisplayed()
+        composeRule.onNodeWithText("Updating…").assertIsDisplayed()
         composeRule.onNodeWithText("Change match").performClick()
         opens shouldBe 1
     }
@@ -66,20 +66,20 @@ class BookHardcoverSectionTest {
     @Test
     fun `up to date says so`() {
         render(BookHardcoverUiState.Linked(MATCH, HardcoverBookSync.UP_TO_DATE))
-        composeRule.onNodeWithText("Up to date on Hardcover").assertIsDisplayed()
+        composeRule.onNodeWithText("Up to date").assertIsDisplayed()
     }
 
     @Test
     fun `nothing sent yet says so`() {
         render(BookHardcoverUiState.Linked(MATCH, HardcoverBookSync.NOTHING_SENT_YET))
-        composeRule.onNodeWithText("Nothing sent yet").assertIsDisplayed()
+        composeRule.onNodeWithText("Not sent yet").assertIsDisplayed()
     }
 
     @Test
-    fun `removed on Hardcover explains the pause and the way out`() {
+    fun `removed on Hardcover says the sync stopped`() {
         render(BookHardcoverUiState.Linked(MATCH, HardcoverBookSync.REMOVED_ON_HARDCOVER))
         composeRule
-            .onNodeWithText("Paused: you removed it on Hardcover. Listening to it again starts a new read.")
+            .onNodeWithText("Stopped — you removed it on Hardcover")
             .assertIsDisplayed()
     }
 
@@ -87,7 +87,7 @@ class BookHardcoverSectionTest {
     fun `a fresh match reads Matched just now in place of where it stands`() {
         render(BookHardcoverUiState.Linked(MATCH, HardcoverBookSync.NOTHING_SENT_YET, justMatched = true))
         composeRule.onNodeWithText("Matched just now").assertIsDisplayed()
-        composeRule.onNodeWithText("Nothing sent yet").assertDoesNotExist()
+        composeRule.onNodeWithText("Not sent yet").assertDoesNotExist()
     }
 
     @Test

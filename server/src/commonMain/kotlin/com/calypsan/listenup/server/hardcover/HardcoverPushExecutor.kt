@@ -129,8 +129,10 @@ class HardcoverPushExecutor(
          * The read this listen-through writes to: the one already recorded for it; else an unfinished
          * read on the shelf (continued); else, for a book not yet on the shelf, it is shelved at the
          * matched edition as Reading and the read Hardcover opens for that is adopted; else a new one
-         * dated [startedAt]. Recorded on the link and in the pushed-read ledger. A recorded read is
-         * always on [shelf]: [deletedOnHardcover] suppressed the row otherwise.
+         * dated [startedAt]. A shelf entry this listen-through created but never heard back about
+         * ([HardcoverBookLink.isShelvingFor]) is treated as just shelved, so its read is redated too.
+         * Recorded on the link and in the pushed-read ledger. A recorded read is always on [shelf]:
+         * [deletedOnHardcover] suppressed the row otherwise.
          */
         private suspend fun openRead(startedAt: Long?): HardcoverCall<OpenRead> {
             val recordedShelf = link.hcUserBookId
@@ -141,16 +143,20 @@ class HardcoverPushExecutor(
             }
             val userBookId =
                 shelf?.id
-                    ?: userBooks
-                        .createUserBook(
-                            token,
-                            hcBookId,
-                            link.hcEditionId,
-                            HardcoverStatus.READING,
-                        ).valueOr { return it }
+                    ?: run {
+                        links.markShelving(row.userId, row.bookId, row.listenThrough)
+                        userBooks
+                            .createUserBook(
+                                token,
+                                hcBookId,
+                                link.hcEditionId,
+                                HardcoverStatus.READING,
+                            ).valueOr { return it }
+                    }
+            val shelvedJustNow = shelf == null || link.isShelvingFor(row.listenThrough)
             val read =
-                shelf?.openRead
-                    ?: (if (shelf == null) adoptReadHardcoverOpened(startedAt).valueOr { return it } else null)
+                (if (shelvedJustNow) adoptReadHardcoverOpened(startedAt).valueOr { return it } else null)
+                    ?: shelf?.openRead
                     ?: run {
                         val startedOn = startedAt?.let(::dateOf)
                         val readId =

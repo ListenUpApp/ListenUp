@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverBookCandidate
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
+import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.result.AppResult
@@ -80,6 +81,16 @@ class HardcoverServiceImpl(
     ): AppResult<Unit> {
         val caller = principal.current() ?: return permissionDenied()
         return linking.link(caller.userId.value, caller.role, bookId.value, hcBookId, hcEditionId)
+    }
+
+    override suspend fun restoreMatch(
+        bookId: BookId,
+        hcBookId: Long,
+        hcEditionId: Long?,
+        method: HardcoverMatchMethod,
+    ): AppResult<Unit> {
+        val caller = principal.current() ?: return permissionDenied()
+        return linking.link(caller.userId.value, caller.role, bookId.value, hcBookId, hcEditionId, method)
     }
 
     override suspend fun unlinkBook(bookId: BookId): AppResult<Unit> {

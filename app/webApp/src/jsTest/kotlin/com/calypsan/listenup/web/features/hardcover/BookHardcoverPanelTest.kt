@@ -60,7 +60,7 @@ class BookHardcoverPanelTest :
             text shouldContain "Project Hail Mary"
             text shouldContain "Andy Weir · Audiobook · 2021"
             text shouldContain "Matched by you"
-            host.querySelector("[role=status]")!!.textContent shouldBe "Up to date on Hardcover"
+            host.querySelector("[role=status]")!!.textContent shouldBe "Up to date"
             host.button("Change match").click()
             host.button("Remove match").click()
             finds shouldBe 1
@@ -69,9 +69,9 @@ class BookHardcoverPanelTest :
 
         test("each sync state has its own words") {
             mapOf(
-                HardcoverBookSync.WAITING to "Waiting to sync",
-                HardcoverBookSync.NOTHING_SENT_YET to "Nothing sent yet",
-                HardcoverBookSync.REMOVED_ON_HARDCOVER to "Paused: you removed it on Hardcover. Listening to it again starts a new read.",
+                HardcoverBookSync.WAITING to "Updating…",
+                HardcoverBookSync.NOTHING_SENT_YET to "Not sent yet",
+                HardcoverBookSync.REMOVED_ON_HARDCOVER to "Stopped — you removed it on Hardcover",
             ).forEach { (sync, words) ->
                 val host = mount(BookHardcoverUiState.Linked(MATCH.copy(chosenByYou = false), sync))
                 awaitFrame()
@@ -85,7 +85,7 @@ class BookHardcoverPanelTest :
             awaitFrame()
 
             host.querySelector("[role=status]")!!.textContent shouldBe "Matched just now"
-            host.textContent.orEmpty() shouldNotContain "Nothing sent yet"
+            host.textContent.orEmpty() shouldNotContain "Not sent yet"
         }
 
         test("a match Hardcover could not name still says it is matched") {

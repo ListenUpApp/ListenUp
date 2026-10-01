@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.hardcover
 
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
+import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.server.testing.MutableClock

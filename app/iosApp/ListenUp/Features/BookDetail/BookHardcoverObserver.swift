@@ -24,9 +24,9 @@ struct BookHardcoverStatus: Equatable {
     enum Tone: Equatable {
         /// Up to date, or matched just now.
         case settled
-        /// Waiting to sync, or nothing sent yet.
+        /// Updating, or not sent yet.
         case quiet
-        /// Paused because it was removed on Hardcover.
+        /// Stopped because it was removed on Hardcover.
         case caution
     }
 
