@@ -113,17 +113,16 @@ suspend fun probeLibrarySync(
         // library list: lists leave out books held for review, so an admin whose whole library is
         // held would read as "nothing synced" when everything did.
         val bookDao = app.koin.get<BookDao>()
-        val books =
+        val bookCount =
             withTimeoutOrNull(SYNC_TIMEOUT) {
-                bookDao.observeIsEmpty().first { isEmpty -> !isEmpty }
-                bookDao.getAllLive()
+                bookDao.observeLiveCount().first { count -> count > 0 }
             }
 
         LibrarySyncProbe(
             reachedAuthenticated = true,
             connectSucceeded = connectSucceeded,
-            localBookCount = books?.size ?: 0,
-            failure = failure ?: if (books == null) "no books reached Room before the timeout" else null,
+            localBookCount = bookCount ?: 0,
+            failure = failure ?: if (bookCount == null) "no books reached Room before the timeout" else null,
         )
     } catch (e: CancellationException) {
         throw e

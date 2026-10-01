@@ -82,6 +82,15 @@ internal interface BookDao {
     fun observeIsEmpty(): Flow<Boolean>
 
     /**
+     * Reactive count of live (non-tombstoned) books — the books table itself, held books included.
+     * Counts in SQL, so a caller that only needs "how many" never loads the rows.
+     *
+     * @return Flow emitting the live book count; re-emits on any write to `books`.
+     */
+    @Query("SELECT COUNT(*) FROM books WHERE deletedAt IS NULL")
+    fun observeLiveCount(): Flow<Int>
+
+    /**
      * Observe all books with their contributors as a reactive Flow.
      *
      * Uses Room Relations to efficiently load books and their contributors

@@ -59,6 +59,26 @@ class BookDaoLiveQueryTest :
             }
         }
 
+        test("observeLiveCount counts live books only, and follows a soft-delete") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val bookDao = db.bookDao()
+                    seedBook(bookDao, "b1")
+                    seedBook(bookDao, "b2")
+
+                    bookDao.observeLiveCount().test {
+                        awaitItem() shouldBe 2
+                        bookDao.softDelete(BookId("b2"), deletedAt = 999L, revision = 1L)
+                        awaitItem() shouldBe 1
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
+            }
+        }
+
         test("getAllLive excludes soft-deleted books") {
             val db = createInMemoryTestDatabase()
             try {
