@@ -63,6 +63,10 @@ fun HomePage(
     onOpenLibrary: () -> Unit,
     onOpenShelf: (String) -> Unit,
     onCreateShelf: () -> Unit,
+    /** Re-runs a failed Home. Offered only on the failed page — web has no page-level refresh. */
+    onRetry: () -> Unit,
+    /** Re-runs failed stats, without touching the rest of the page. */
+    onRetryStats: () -> Unit,
     selection: BookSelection? = null,
 ) {
     Div(attrs = { classes("home") }) {
@@ -77,7 +81,9 @@ fun HomePage(
 
             is HomeUiState.Error -> {
                 PageHeader(title = HOME, documentTitle = null)
-                EmptyState(title = "Home is unavailable", body = state.message)
+                EmptyState(title = "Home is unavailable", body = state.message) {
+                    Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
+                }
             }
 
             is HomeUiState.Ready -> {
@@ -85,7 +91,7 @@ fun HomePage(
                 LibraryStatus(scan = state.scanProgress, isBuilding = state.isBuildingInitialLibrary)
                 ContinueListening(state.continueListening, onOpenBook, onOpenLibrary, selection)
                 MyShelves(state.myShelves, onOpenShelf, onCreateShelf)
-                ThisWeek(stats)
+                ThisWeek(stats, onRetryStats)
             }
         }
     }
@@ -204,7 +210,10 @@ private fun ContinueCard(
 }
 
 @Composable
-private fun ThisWeek(stats: HomeStatsUiState) {
+private fun ThisWeek(
+    stats: HomeStatsUiState,
+    onRetry: () -> Unit,
+) {
     Div(attrs = { classes("home-section") }) {
         H2(attrs = { classes("home-section-h") }) { Text("This week") }
         UnderHeading(level = SECTION_HEADING_LEVEL) {
@@ -218,15 +227,13 @@ private fun ThisWeek(stats: HomeStatsUiState) {
                 }
 
                 is HomeStatsUiState.Error -> {
-                    EmptyState(
-                        title = "Stats are unavailable",
-                        body =
-                            if (stats.isRetryable) {
-                                "This usually fixes itself — check back shortly."
-                            } else {
-                                "Your listening history could not be read."
-                            },
-                    )
+                    if (stats.isRetryable) {
+                        EmptyState(title = "Stats are unavailable", body = "This week could not be read just now.") {
+                            Button(kind = ButtonKind.Secondary, onClick = { onRetry() }) { Text("Try again") }
+                        }
+                    } else {
+                        EmptyState(title = "Stats are unavailable", body = "Your listening history could not be read.")
+                    }
                 }
 
                 is HomeStatsUiState.Data -> {

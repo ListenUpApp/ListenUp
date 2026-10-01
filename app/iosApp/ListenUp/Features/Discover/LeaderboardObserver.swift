@@ -42,6 +42,11 @@ final class LeaderboardObserver {
 
     // MARK: - Actions
 
+    /// Re-runs a failed leaderboard; a healthy one is left alone by the shared VM.
+    func refresh() {
+        viewModel.refresh()
+    }
+
     func selectPeriod(_ selection: LeaderboardSelection) {
         selectedPeriod = selection
         viewModel.selectPeriod(p: selection.kmpPeriod)

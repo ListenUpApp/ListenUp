@@ -43,11 +43,18 @@ class DiscoverSession(
     val onSelectPeriod: (LeaderboardPeriod) -> Unit,
     val onSelectCategory: (LeaderboardCategory) -> Unit,
     /**
-     * A fresh load of the book row and the shared shelves — the two sections [DiscoverViewModel]
-     * can bring back from an error. The page offers it only there, as "Try again"; web has no
-     * page-level refresh.
+     * A fresh load of the four sections [DiscoverViewModel] owns — books, shelves, listeners and
+     * recently added — each restarted only if it failed. The page offers it only on a failed
+     * section, as "Try again"; web has no page-level refresh.
      */
     val onRefresh: () -> Unit,
+    /** Re-runs a failed leaderboard; offered only on the failed section. */
+    val onRefreshLeaderboard: () -> Unit,
+    /**
+     * Re-runs a failed activity feed and reconciles it with the server; offered only on the failed
+     * section.
+     */
+    val onRefreshActivity: () -> Unit,
     val close: () -> Unit,
 )
 
@@ -84,10 +91,9 @@ fun graphDiscover(koin: Koin): OpenDiscover =
             activity = activity.state,
             onSelectPeriod = leaderboard::selectPeriod,
             onSelectCategory = leaderboard::selectCategory,
-            // ⛔ `ActivityFeedViewModel.refresh` is deliberately NOT wired: its state ends on Error,
-            // so a refresh cannot bring the feed back. WebSessionCoversItsViewModelRule matches by
-            // name per file, so this line reads to it as covering that one too — it does not.
             onRefresh = discover::refresh,
+            onRefreshLeaderboard = leaderboard::refresh,
+            onRefreshActivity = activity::refresh,
             close = store::clear,
         )
     }
@@ -103,6 +109,8 @@ fun fixedDiscover(
     onSelectPeriod: (LeaderboardPeriod) -> Unit = {},
     onSelectCategory: (LeaderboardCategory) -> Unit = {},
     onRefresh: () -> Unit = {},
+    onRefreshLeaderboard: () -> Unit = {},
+    onRefreshActivity: () -> Unit = {},
 ): OpenDiscover =
     {
         DiscoverSession(
@@ -115,6 +123,8 @@ fun fixedDiscover(
             onSelectPeriod = onSelectPeriod,
             onSelectCategory = onSelectCategory,
             onRefresh = onRefresh,
+            onRefreshLeaderboard = onRefreshLeaderboard,
+            onRefreshActivity = onRefreshActivity,
             close = {},
         )
     }

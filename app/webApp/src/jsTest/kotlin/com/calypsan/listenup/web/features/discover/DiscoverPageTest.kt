@@ -109,6 +109,8 @@ private fun page(
     onSelectPeriod: (LeaderboardPeriod) -> Unit = {},
     onSelectCategory: (LeaderboardCategory) -> Unit = {},
     onRefresh: () -> Unit = {},
+    onRefreshLeaderboard: () -> Unit = {},
+    onRefreshActivity: () -> Unit = {},
     selection: BookSelection? = null,
 ) {
     DiscoverPage(
@@ -125,6 +127,8 @@ private fun page(
         onSelectPeriod = onSelectPeriod,
         onSelectCategory = onSelectCategory,
         onRefresh = onRefresh,
+        onRefreshLeaderboard = onRefreshLeaderboard,
+        onRefreshActivity = onRefreshActivity,
         selection = selection,
     )
 }
@@ -194,18 +198,65 @@ class DiscoverPageTest :
             refreshes shouldBe 1
         }
 
-        test("a section refresh cannot bring back offers no Try again") {
-            // Listeners, recently added, the leaderboard and the feed end their flow on error;
-            // refresh() never reaches them, so a button there would be a control that does nothing.
+        test("failed listeners and recently added offer Try again, through Discover's refresh") {
+            // Both used to end their flow on error, so they had no button; their ViewModel now
+            // restarts a failed section on refresh, so the way back is the same one the books use.
+            var refreshes = 0
             val root =
                 mounts.mount {
                     page(
                         currentlyListening = CurrentlyListeningUiState.Error("nope"),
                         recentlyAdded = RecentlyAddedUiState.Error("nope"),
-                        leaderboard = LeaderboardUiState.Error(isRetryable = true),
-                        activityState = ActivityFeedUiState.Error("nope"),
+                        onRefresh = { refreshes++ },
                     )
                 }
+
+            val retries = root.querySelectorAll(".disc-retry")
+            retries.length shouldBe 2
+            (retries.item(0) as HTMLElement).click()
+            (retries.item(1) as HTMLElement).click()
+
+            refreshes shouldBe 2
+        }
+
+        test("a failed leaderboard offers Try again, through the leaderboard's own refresh") {
+            var leaderboardRefreshes = 0
+            var discoverRefreshes = 0
+            val root =
+                mounts.mount {
+                    page(
+                        leaderboard = LeaderboardUiState.Error(isRetryable = true),
+                        onRefresh = { discoverRefreshes++ },
+                        onRefreshLeaderboard = { leaderboardRefreshes++ },
+                    )
+                }
+
+            (root.querySelector(".disc-retry") as HTMLElement).click()
+
+            leaderboardRefreshes shouldBe 1
+            discoverRefreshes shouldBe 0
+        }
+
+        test("a failed activity feed offers Try again, through the feed's own refresh") {
+            var activityRefreshes = 0
+            var discoverRefreshes = 0
+            val root =
+                mounts.mount {
+                    page(
+                        activityState = ActivityFeedUiState.Error("nope"),
+                        onRefresh = { discoverRefreshes++ },
+                        onRefreshActivity = { activityRefreshes++ },
+                    )
+                }
+
+            (root.querySelector(".disc-retry") as HTMLElement).click()
+
+            activityRefreshes shouldBe 1
+            discoverRefreshes shouldBe 0
+        }
+
+        test("a leaderboard that cannot be retried says so and offers nothing") {
+            val root = mounts.mount { page(leaderboard = LeaderboardUiState.Error(isRetryable = false)) }
 
             root.querySelectorAll(".disc-retry").length shouldBe 0
         }

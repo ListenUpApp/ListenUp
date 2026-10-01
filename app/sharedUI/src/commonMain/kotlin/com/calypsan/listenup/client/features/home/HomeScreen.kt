@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.features.home.components.ContinueListeningRow
 import com.calypsan.listenup.client.features.home.components.EmptyContinueListening
@@ -43,10 +44,14 @@ import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.presentation.books.SelectionMode
+import com.calypsan.listenup.client.presentation.home.HomeStatsViewModel
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.home.HomeViewModel
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_try_again
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -80,6 +85,8 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = koinViewModel(),
     multiSelect: BookMultiSelectViewModel = koinViewModel(),
+    // The same instance HomeStatsSection resolves: one store owner, one key.
+    statsViewModel: HomeStatsViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -127,10 +134,19 @@ fun HomeScreen(
                             .padding(paddingValues),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        text = s.message,
-                        color = MaterialTheme.colorScheme.error,
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = s.message,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        // The pull-to-refresh lives in the Ready content, so the failed screen
+                        // carries its own way back.
+                        ListenUpButton(
+                            text = stringResource(Res.string.common_try_again),
+                            onClick = { viewModel.refresh() },
+                            modifier = Modifier.padding(top = 16.dp),
+                        )
+                    }
                 }
             }
 
@@ -141,7 +157,10 @@ fun HomeScreen(
                     playingBookId = playingBookId?.value,
                     multiSelect = multiSelect,
                     appHeader = appHeader,
-                    onRefresh = { viewModel.refresh() },
+                    onRefresh = {
+                        viewModel.refresh()
+                        statsViewModel.refresh()
+                    },
                     onBookClick = onBookClick,
                     onNavigateToLibrary = onNavigateToLibrary,
                     onShelfClick = onShelfClick,

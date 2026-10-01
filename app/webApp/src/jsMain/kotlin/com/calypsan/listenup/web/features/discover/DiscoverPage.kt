@@ -108,20 +108,24 @@ fun DiscoverPage(
     onSelectPeriod: (LeaderboardPeriod) -> Unit,
     onSelectCategory: (LeaderboardCategory) -> Unit,
     /**
-     * Asks Discover's ViewModel for a fresh load — offered only on the sections that call can bring
-     * back from an error. Not a page-level refresh: web deliberately has none.
+     * Asks Discover's ViewModel for a fresh load — offered as "Try again" on the four sections it
+     * owns when one has failed. Not a page-level refresh: web deliberately has none.
      */
     onRefresh: () -> Unit,
+    /** Re-runs a failed leaderboard — its own ViewModel's refresh, not Discover's. */
+    onRefreshLeaderboard: () -> Unit,
+    /** Re-runs a failed activity feed — its own ViewModel's refresh, not Discover's. */
+    onRefreshActivity: () -> Unit,
 ) {
     Div(attrs = { classes("disc") }) {
         PageHeader(title = "Discover")
 
-        CurrentlyListeningSection(currentlyListening, nowMs, onOpenBook, onOpenProfile, selection)
+        CurrentlyListeningSection(currentlyListening, nowMs, onOpenBook, onOpenProfile, selection, onRefresh)
         DiscoverBooksSection(books, onOpenBook, selection, onRefresh)
-        RecentlyAddedSection(recentlyAdded, onOpenBook, selection)
+        RecentlyAddedSection(recentlyAdded, onOpenBook, selection, onRefresh)
         SharedShelvesSection(shelves, onOpenShelf, onOpenProfile, onRefresh)
-        LeaderboardSection(leaderboard, onSelectPeriod, onSelectCategory, onOpenProfile)
-        ActivityFeedSection(activity, nowMs, onOpenBook, onOpenProfile)
+        LeaderboardSection(leaderboard, onSelectPeriod, onSelectCategory, onOpenProfile, onRefreshLeaderboard)
+        ActivityFeedSection(activity, nowMs, onOpenBook, onOpenProfile, onRefreshActivity)
     }
 }
 
@@ -139,6 +143,7 @@ private fun CurrentlyListeningSection(
     onOpenBook: (String) -> Unit,
     onOpenProfile: (String) -> Unit,
     selection: BookSelection?,
+    onRefresh: () -> Unit,
 ) {
     Section("What others are listening to") {
         when (state) {
@@ -147,7 +152,7 @@ private fun CurrentlyListeningSection(
             }
 
             is CurrentlyListeningUiState.Error -> {
-                SectionError(state.message)
+                SectionError(state.message, onRetry = onRefresh)
             }
 
             is CurrentlyListeningUiState.Ready -> {
@@ -244,6 +249,7 @@ private fun RecentlyAddedSection(
     state: RecentlyAddedUiState,
     onOpenBook: (String) -> Unit,
     selection: BookSelection?,
+    onRefresh: () -> Unit,
 ) {
     Section("Recently added") {
         when (state) {
@@ -252,7 +258,7 @@ private fun RecentlyAddedSection(
             }
 
             is RecentlyAddedUiState.Error -> {
-                SectionError(state.message)
+                SectionError(state.message, onRetry = onRefresh)
             }
 
             is RecentlyAddedUiState.Ready -> {
@@ -311,6 +317,7 @@ private fun LeaderboardSection(
     onSelectPeriod: (LeaderboardPeriod) -> Unit,
     onSelectCategory: (LeaderboardCategory) -> Unit,
     onOpenProfile: (String) -> Unit,
+    onRefresh: () -> Unit,
 ) {
     Section("Leaderboard") {
         when (state) {
@@ -323,13 +330,11 @@ private fun LeaderboardSection(
             }
 
             is LeaderboardUiState.Error -> {
-                SectionError(
-                    if (state.isRetryable) {
-                        "The leaderboard could not be loaded. It will try again shortly."
-                    } else {
-                        "The leaderboard is unavailable."
-                    },
-                )
+                if (state.isRetryable) {
+                    SectionError("The leaderboard could not be loaded.", onRetry = onRefresh)
+                } else {
+                    SectionError("The leaderboard is unavailable.")
+                }
             }
 
             is LeaderboardUiState.Data -> {
@@ -378,6 +383,7 @@ private fun ActivityFeedSection(
     nowMs: Long,
     onOpenBook: (String) -> Unit,
     onOpenProfile: (String) -> Unit,
+    onRefresh: () -> Unit,
 ) {
     Section("Recent activity") {
         when (state) {
@@ -386,7 +392,7 @@ private fun ActivityFeedSection(
             }
 
             is ActivityFeedUiState.Error -> {
-                SectionError(state.message)
+                SectionError(state.message, onRetry = onRefresh)
             }
 
             is ActivityFeedUiState.Ready -> {

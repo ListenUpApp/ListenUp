@@ -188,12 +188,6 @@ private val EXCUSED =
         // panel — in-flight sync is chrome the reader has nothing to decide about — and wires only
         // the dead-letter half of this ViewModel (see DeadLetterStore).
         "SyncIndicatorViewModel.toggleExpanded",
-        // Pull-to-refresh. Simon's call, 2026-09-30: web has no page-level refresh on Home. Reloading
-        // the tab rebuilds the sessions and re-syncs, and live sync keeps the page fresh while it is
-        // open — a Refresh control would be a third way to do what two already do. (Discover is not
-        // listed: its failed rows offer "Try again", which wires `refresh`. The activity feed is not
-        // listed either, but only because it shares DiscoverStore and this rule matches per file.)
-        "HomeViewModel.refresh",
         // ── FALSE POSITIVE (capability present under another name) ────────────────────────────
         // Reached via onResultClicked, which IS onResultSelected(hit.id, hit.type, hit.name).
         "SearchViewModel.onResultSelected",

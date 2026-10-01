@@ -26,6 +26,13 @@ private fun HTMLElement.textOf(selector: String): String = (querySelector(select
 
 private fun HTMLElement.count(selector: String): Int = querySelectorAll(selector).length
 
+private fun HTMLElement.buttonsLabelled(label: String): List<HTMLElement> {
+    val buttons = querySelectorAll("button")
+    return (0 until buttons.length)
+        .map { buttons.item(it) as HTMLElement }
+        .filter { it.textContent?.trim() == label }
+}
+
 private const val DAYS_IN_WEEK = 7
 
 /** Buckets the [weekStats] fixture leaves at zero: every day but today and the peak. */
@@ -51,6 +58,8 @@ class HomePageTest :
             onOpenLibrary: () -> Unit = {},
             onOpenShelf: (String) -> Unit = {},
             onCreateShelf: () -> Unit = {},
+            onRetry: () -> Unit = {},
+            onRetryStats: () -> Unit = {},
             selection: BookSelection? = null,
         ): HTMLElement =
             mounts.mount {
@@ -62,6 +71,8 @@ class HomePageTest :
                     onOpenLibrary = onOpenLibrary,
                     onOpenShelf = onOpenShelf,
                     onCreateShelf = onCreateShelf,
+                    onRetry = onRetry,
+                    onRetryStats = onRetryStats,
                     selection = selection,
                 )
             }
@@ -263,6 +274,43 @@ class HomePageTest :
             host.textContent.orEmpty() shouldContain "Stats are unavailable"
             // The row someone opened Home for is still there.
             host.textOf(".home-card-t") shouldBe "The Institute"
+        }
+
+        test("failed stats offer Try again, and pressing it retries the stats alone") {
+            // Before this the section promised it would fix itself, and nothing ever re-ran it.
+            var statsRetries = 0
+            var homeRetries = 0
+            val host =
+                homePage(
+                    readyHome(),
+                    stats = HomeStatsUiState.Error(isRetryable = true),
+                    onRetry = { homeRetries++ },
+                    onRetryStats = { statsRetries++ },
+                )
+
+            val retries = host.buttonsLabelled("Try again")
+            retries.size shouldBe 1
+            retries.single().click()
+
+            statsRetries shouldBe 1
+            homeRetries shouldBe 0
+        }
+
+        test("stats that cannot be retried offer nothing to press") {
+            val host = homePage(readyHome(), stats = HomeStatsUiState.Error(isRetryable = false))
+
+            host.textContent.orEmpty() shouldNotContain "Try again"
+        }
+
+        test("a failed Home offers Try again, and pressing it asks Home to reload") {
+            var retries = 0
+            val host = homePage(HomeUiState.Error("Failed to load home screen"), onRetry = { retries++ })
+
+            val retry = host.buttonsLabelled("Try again")
+            retry.size shouldBe 1
+            retry.single().click()
+
+            retries shouldBe 1
         }
 
         // ── the library-still-arriving strip ────────────────────────────────────

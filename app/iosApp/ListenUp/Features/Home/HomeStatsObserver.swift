@@ -25,6 +25,13 @@ final class HomeStatsObserver {
 
     deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
+    // MARK: - Actions
+
+    /// Re-runs a failed stats observation; healthy stats are left alone by the shared VM.
+    func refresh() {
+        viewModel.refresh()
+    }
+
     // MARK: - State mapping
 
     private func apply(_ state: HomeStatsUiState) {

@@ -112,6 +112,7 @@ struct DiscoverView: View {
         }
         .refreshable {
             discover.refresh()
+            leaderboard.refresh()
             activity.refresh()
         }
     }
