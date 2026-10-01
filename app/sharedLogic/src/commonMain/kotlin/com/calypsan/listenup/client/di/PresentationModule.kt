@@ -361,6 +361,12 @@ internal val bookPresentationModule =
                 userRepository = get(),
             )
         }
+        factory { params ->
+            com.calypsan.listenup.client.presentation.hardcover.BookHardcoverViewModel(
+                bookId = params.get(),
+                repository = get(),
+            )
+        }
         factory {
             com.calypsan.listenup.client.presentation.bookedit.BookEditViewModel(
                 loadBookForEditUseCase = get(),

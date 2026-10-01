@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository
+import com.calypsan.listenup.client.domain.repository.HardcoverRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
 import com.calypsan.listenup.client.domain.repository.MoodRepository
@@ -49,6 +50,7 @@ import org.koin.test.verify.verify
  *  - [DocumentRepository] — owned by `mediaModule`.
  *  - [BookReadersRepository] — owned by `socialModule`.
  *  - [BookRatingRepository] — owned by `shelfModule`.
+ *  - [HardcoverRepository] — owned by `hardcoverClientModule` (the Book Detail Hardcover row).
  *  - [Flow] — Koin's verify resolves `BookRatingsViewModel`'s required `currentUserId:
  *    Flow<String?>` constructor param against the erased raw type (no default value to fall
  *    back on). The factory itself passes `get<AuthSession>().authState.signedInUserId()` at
@@ -90,6 +92,7 @@ class BookPresentationModuleVerifyTest :
                         DocumentRepository::class,
                         BookReadersRepository::class,
                         BookRatingRepository::class,
+                        HardcoverRepository::class,
                         Flow::class,
                         LoadBookForEditUseCase::class,
                         UpdateBookUseCase::class,
