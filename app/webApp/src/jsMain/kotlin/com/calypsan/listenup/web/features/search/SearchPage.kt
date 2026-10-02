@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.search
 
+import com.calypsan.listenup.web.design.RestrictedMarker
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
@@ -278,6 +279,7 @@ internal fun SearchRow(
                 size = SEARCH_BADGE_SIZE,
                 radius = SEARCH_BADGE_RADIUS,
                 decorative = true,
+                overlay = { if (!hit.isHeld) RestrictedMarker(hit.id, compact = true) },
             )
         } else {
             Div(attrs = {

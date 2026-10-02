@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.shelf
 
+import com.calypsan.listenup.web.design.RestrictedMarker
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
@@ -186,6 +187,7 @@ private fun ShelfRow(
                 imageUrl = coverUrl(book.idString, book.coverHash, width = SHELF_COVER_WIDTH),
                 size = SHELF_COVER_WIDTH,
                 decorative = true,
+                overlay = { RestrictedMarker(book.idString) },
             )
             // One text block beside the cover, title over author. As two loose flex items they sat
             // side by side and neither could wrap, which pushed a phone row past the screen's edge.

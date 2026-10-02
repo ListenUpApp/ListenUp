@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.contributordetail
 
+import com.calypsan.listenup.web.design.RestrictedMarker
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.ProgressLook
 import com.calypsan.listenup.web.design.ProgressBar
@@ -363,6 +364,7 @@ internal fun RoleTile(
                 size = null,
                 radius = TILE_COVER_RADIUS,
                 decorative = true,
+                overlay = { RestrictedMarker(book.id.value) },
             )
             // Absent, not zero-width: a book [progress] doesn't know about (never started, or
             // finished — `calculateProgressMap` excludes both) draws no bar rather than a false one.

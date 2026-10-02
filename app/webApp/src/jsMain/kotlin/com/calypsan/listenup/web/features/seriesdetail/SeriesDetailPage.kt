@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.seriesdetail
 
+import com.calypsan.listenup.web.design.RestrictedMarker
 import com.calypsan.listenup.web.design.ProgressLook
 import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.ButtonSize
@@ -249,6 +250,7 @@ private fun BookRow(
                 size = ROW_COVER_SIZE,
                 radius = 0,
                 decorative = true,
+                overlay = { RestrictedMarker(book.id.value, compact = true) },
             )
             // `bookProgress` carries in-progress books ONLY — the ViewModel moves anything at or
             // past its finished threshold into `finishedBookIds` instead — so an unstarted book
