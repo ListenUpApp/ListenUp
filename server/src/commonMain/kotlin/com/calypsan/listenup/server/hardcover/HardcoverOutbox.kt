@@ -30,6 +30,19 @@ sealed interface HardcoverPushPayload {
     data class Finish(
         @SerialName("finishedAt") val finishedAt: Long,
     ) : HardcoverPushPayload
+
+    /**
+     * A read finished in ListenUp before the listener connected (#1540): Read on Hardcover, begun at
+     * [startedAt] (epoch ms; null when no listening is recorded for it) and finished at [finishedAt].
+     * [readId] is the `book_reads` row, recorded in the history ledger once Hardcover has it.
+     */
+    @Serializable
+    @SerialName("HISTORY")
+    data class History(
+        @SerialName("startedAt") val startedAt: Long?,
+        @SerialName("finishedAt") val finishedAt: Long,
+        @SerialName("readId") val readId: String,
+    ) : HardcoverPushPayload
 }
 
 /** One queued push. [listenThrough] is the listen-through it belongs to (its `started_at`). */
@@ -45,12 +58,14 @@ data class HardcoverOutboxRow(
 private const val OP_START = "START"
 private const val OP_PROGRESS = "PROGRESS"
 private const val OP_FINISH = "FINISH"
+private const val OP_HISTORY = "HISTORY"
 
 /**
  * `hardcover_outbox`: pushes waiting for Hardcover. One lane per user drains it ([HardcoverPushWorker])
  * in id order, a book's rows strictly in order and different books independently. PROGRESS rows
  * coalesce to the newest position; FINISH supersedes a queued PROGRESS. Nothing here ever drops a row
- * silently — only [complete], [dropListenThrough] (the deletion rule) and a disconnect remove rows.
+ * silently — only [complete], [dropListenThrough] (the deletion rule, which spares HISTORY rows) and a
+ * disconnect remove rows. HISTORY rows ([enqueueHistory]) run after every due live row.
  */
 class HardcoverOutbox(
     private val sql: ListenUpDatabase,
@@ -123,6 +138,15 @@ class HardcoverOutbox(
                 next_attempt_at = at,
             )
         }
+    }
+
+    /** Queues [read] as a HISTORY row (#1540); see [insertHistoryRow]. Internal: [HardcoverHistoryRead] is. */
+    internal suspend fun enqueueHistory(
+        userId: String,
+        read: HardcoverHistoryRead,
+    ) {
+        val at = now()
+        suspendTransaction(sql) { sql.insertHistoryRow(userId, read, at) }
     }
 
     /** The next row [userId]'s lane may run now, or null. */
@@ -228,8 +252,7 @@ class HardcoverOutbox(
 
     private fun now() = clock.now().toEpochMilliseconds()
 
-    private fun encode(payload: HardcoverPushPayload): String =
-        hardcoverJson.encodeToString(HardcoverPushPayload.serializer(), payload)
+    private fun encode(payload: HardcoverPushPayload): String = encodePushPayload(payload)
 
     private fun decode(payload: String): HardcoverPushPayload =
         hardcoverJson.decodeFromString(HardcoverPushPayload.serializer(), payload)
@@ -239,5 +262,31 @@ class HardcoverOutbox(
             is HardcoverPushPayload.Start -> OP_START
             is HardcoverPushPayload.Progress -> OP_PROGRESS
             is HardcoverPushPayload.Finish -> OP_FINISH
+            is HardcoverPushPayload.History -> OP_HISTORY
         }
+}
+
+/** [payload] as the outbox stores it. */
+internal fun encodePushPayload(payload: HardcoverPushPayload): String =
+    hardcoverJson.encodeToString(HardcoverPushPayload.serializer(), payload)
+
+/**
+ * Queues [read] as a HISTORY row inside the caller's transaction, due at [at]. Its listen-through position
+ * is the read's start, or its finish when there is none, so a book's rereads stay distinct and in order.
+ * Never coalesced, and spared by the deletion rule.
+ */
+internal fun ListenUpDatabase.insertHistoryRow(
+    userId: String,
+    read: HardcoverHistoryRead,
+    at: Long,
+) {
+    hardcoverOutboxQueries.insertHistoryOp(
+        user_id = userId,
+        book_id = read.bookId,
+        listen_through_started_at = read.startedAt ?: read.finishedAt,
+        payload = encodePushPayload(HardcoverPushPayload.History(read.startedAt, read.finishedAt, read.readId)),
+        created_at = at,
+        next_attempt_at = at,
+        history_read_id = read.readId,
+    )
 }

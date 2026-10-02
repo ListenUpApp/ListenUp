@@ -37,7 +37,8 @@ private val TOKEN_RETRY: Duration = 5.minutes
  * - 403 `insufficient_scope`: `Broken(MISSING_SCOPE)`.
  * A lane that runs out of work retires; a nudge ([HardcoverPushRecorder], a manual link, a reconnect,
  * boot) starts it again. Lanes run in the scope passed to [start], cancelled at shutdown. Each step
- * holds the user's [HardcoverUserGate], which [HardcoverPullWorker] shares.
+ * holds the user's [HardcoverUserGate], which [HardcoverPullWorker] shares. After each HISTORY row (#1540)
+ * it asks [HardcoverHistoryProgress] whether the listener's send is done.
  */
 class HardcoverPushWorker(
     private val outbox: HardcoverOutbox,
@@ -50,6 +51,7 @@ class HardcoverPushWorker(
     private val identities: HardcoverBookIdentities,
     private val gate: HardcoverUserGate,
     private val clock: Clock = Clock.System,
+    private val history: HardcoverHistoryProgress? = null,
 ) : HardcoverPushNudge {
     private val lock = SynchronizedObject()
     private val refreshedForRow = HashMap<String, Long>()
@@ -89,6 +91,7 @@ class HardcoverPushWorker(
         return when (val outcome = executor.execute(row, link, token)) {
             PushOutcome.Done -> {
                 outbox.complete(row.id)
+                if (row.payload is HardcoverPushPayload.History) history?.settle(userId)
                 connections.markSynced(userId, now())
                 forgetRefresh(userId)
                 LaneStep.Continue
@@ -119,10 +122,12 @@ class HardcoverPushWorker(
                 now() + CAPPED_RETRY_INTERVAL.inWholeMilliseconds,
                 "book not in the library",
             )
-            return LaneStep.Continue
+        } else {
+            val match = matcher.match(token, identity).valueOr { return onFailure(row, token, it) }
+            links.recordAutomaticMatch(row.userId, row.bookId, match)
         }
-        val match = matcher.match(token, identity).valueOr { return onFailure(row, token, it) }
-        links.recordAutomaticMatch(row.userId, row.bookId, match)
+        // A history book that just parked behind a match, or turned out gone, may have been the send's last.
+        if (row.payload is HardcoverPushPayload.History) history?.settle(row.userId)
         return LaneStep.Continue
     }
 

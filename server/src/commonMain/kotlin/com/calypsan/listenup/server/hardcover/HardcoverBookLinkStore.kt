@@ -194,11 +194,15 @@ class HardcoverBookLinkStore(
         ) { queries.markProgressPushed(last_progress_pushed_at = at, user_id = userId, book_id = bookId) }
     }
 
-    /** Remembers that Hardcover read [readId] carries ListenUp's own listening. Idempotent. */
+    /**
+     * Remembers that Hardcover read [readId] carries ListenUp's own listening — written by a HISTORY row when
+     * [historic] (#1540), else by a listen-through. Idempotent: the first record of a read stands.
+     */
     suspend fun recordPushedRead(
         userId: String,
         readId: Long,
         bookId: String,
+        historic: Boolean = false,
     ) {
         suspendTransaction(sql) {
             sql.hardcoverPushedReadsQueries.recordPushedRead(
@@ -206,9 +210,17 @@ class HardcoverBookLinkStore(
                 hc_read_id = readId,
                 book_id = bookId,
                 recorded_at = now(),
+                origin = if (historic) "HISTORY" else "LIVE",
             )
         }
     }
+
+    /** Whether Hardcover read [readId] is one a listen-through pushed (not a HISTORY row). */
+    suspend fun isLivePushedRead(
+        userId: String,
+        readId: Long,
+    ): Boolean =
+        suspendTransaction(sql) { sql.hardcoverPushedReadsQueries.isLivePushedRead(userId, readId).executeAsOne() }
 
     /** Whether Hardcover read [readId] is one ListenUp opened or continued. */
     suspend fun isPushedRead(

@@ -135,6 +135,12 @@ internal class HardcoverRepositoryImpl(
     override suspend fun setShareMode(mode: HardcoverShareMode): AppResult<Unit> =
         channel.call(idempotent = true) { it.setShareMode(mode) }
 
+    // A second send queues only what isn't sent or queued yet, so a blind retry is safe.
+    override suspend fun sendHistory(): AppResult<Unit> = channel.call(idempotent = true) { it.sendHistory() }
+
+    // Dismissing twice leaves it dismissed.
+    override suspend fun dismissHistory(): AppResult<Unit> = channel.call(idempotent = true) { it.dismissHistory() }
+
     // Idempotent server-side (a stale check), so a blind retry is safe.
     override suspend fun syncIfStale(): AppResult<Unit> = channel.call(idempotent = true) { it.syncIfStale() }
 }

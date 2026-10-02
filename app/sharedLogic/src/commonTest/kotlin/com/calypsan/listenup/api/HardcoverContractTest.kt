@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookSync
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
+import com.calypsan.listenup.api.dto.hardcover.HardcoverHistory
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
 import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
@@ -71,6 +72,42 @@ class HardcoverContractTest :
             val future = """{"type":"HardcoverConnection.Connected","hardcoverUsername":"simon","since":1,"shareMode":"AFTER_AN_HOUR"}"""
             val decoded = contractJson.decodeFromString(HardcoverConnection.serializer(), future)
             (decoded as HardcoverConnection.Connected).shareMode shouldBe HardcoverShareMode.AS_I_LISTEN
+        }
+        listOf(
+            HardcoverHistory.None,
+            HardcoverHistory.Offer(bookCount = 74),
+            HardcoverHistory.Available(bookCount = 74),
+            HardcoverHistory.Sending(sentBooks = 23, totalBooks = 74),
+            HardcoverHistory.Done(sentBooks = 70, needsMatchBooks = 4),
+        ).forEach { history ->
+            test("Connected carries $history, and it round-trips") {
+                val state = HardcoverConnection.Connected(hardcoverUsername = "simon", since = 1L, history = history)
+                val json = contractJson.encodeToString(HardcoverConnection.serializer(), state)
+                contractJson.decodeFromString(HardcoverConnection.serializer(), json) shouldBe state
+            }
+        }
+
+        test("the history states are spelled on the wire as pinned names") {
+            contractJson.encodeToString(HardcoverHistory.serializer(), HardcoverHistory.None) shouldBe
+                """{"type":"HardcoverHistory.None"}"""
+            contractJson.encodeToString(HardcoverHistory.serializer(), HardcoverHistory.Offer(74)) shouldBe
+                """{"type":"HardcoverHistory.Offer","bookCount":74}"""
+            contractJson.encodeToString(HardcoverHistory.serializer(), HardcoverHistory.Done(70, 4)) shouldBe
+                """{"type":"HardcoverHistory.Done","sentBooks":70,"needsMatchBooks":4}"""
+        }
+
+        test("a Connected payload from a server that predates history reads as no history") {
+            val legacy = """{"type":"HardcoverConnection.Connected","hardcoverUsername":"simon","since":1}"""
+            val decoded = contractJson.decodeFromString(HardcoverConnection.serializer(), legacy)
+            (decoded as HardcoverConnection.Connected).history shouldBe HardcoverHistory.None
+        }
+
+        test("a history state this build doesn't know reads as no history instead of breaking the stream") {
+            val future =
+                """{"type":"HardcoverConnection.Connected","hardcoverUsername":"simon","since":1,""" +
+                    """"history":{"type":"HardcoverHistory.Paused","bookCount":3}}"""
+            val decoded = contractJson.decodeFromString(HardcoverConnection.serializer(), future)
+            (decoded as HardcoverConnection.Connected).history shouldBe HardcoverHistory.None
         }
 
         listOf<Pair<String, AppError>>(

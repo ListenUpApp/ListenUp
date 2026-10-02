@@ -2456,6 +2456,8 @@ private fun HardcoverRoute(
         onDisconnect = session.onDisconnect,
         onSyncNow = session.onSyncNow,
         onSetShareMode = session.onSetShareMode,
+        onSendHistory = session.onSendHistory,
+        onDismissHistory = session.onDismissHistory,
         onFindMatch = { bookId -> router.navigate(Route(listOf(BOOK_KEY, bookId, HARDCOVER_KEY))) },
         onOpenSettings = { router.navigate(Route(listOf(SETTINGS_KEY))) },
         nowMs = nowMs(),

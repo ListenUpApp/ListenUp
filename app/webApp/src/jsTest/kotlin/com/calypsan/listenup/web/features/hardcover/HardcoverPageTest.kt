@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.hardcover
 
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
+import com.calypsan.listenup.api.dto.hardcover.HardcoverHistory
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
 import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
@@ -21,6 +22,7 @@ import kotlinx.browser.document
 import org.w3c.dom.HTMLAnchorElement
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.Node
 import org.w3c.dom.asList
 
 /** 26 September 2026, midday UTC — far enough from midnight that no timezone moves the day. */
@@ -73,6 +75,8 @@ class HardcoverPageTest :
             onOpenSettings: () -> Unit = {},
             onSyncNow: () -> Unit = {},
             onSetShareMode: (HardcoverShareMode) -> Unit = {},
+            onSendHistory: () -> Unit = {},
+            onDismissHistory: () -> Unit = {},
             onFindMatch: (String) -> Unit = {},
             copyText: (String, (Boolean) -> Unit) -> Unit = { _, onResult -> onResult(true) },
         ): HTMLElement =
@@ -83,6 +87,8 @@ class HardcoverPageTest :
                     onDisconnect = onDisconnect,
                     onSyncNow = onSyncNow,
                     onSetShareMode = onSetShareMode,
+                    onSendHistory = onSendHistory,
+                    onDismissHistory = onDismissHistory,
                     onFindMatch = onFindMatch,
                     onOpenSettings = onOpenSettings,
                     nowMs = NOW_MS,
@@ -514,6 +520,107 @@ class HardcoverPageTest :
             comesBack.querySelectorAll("li").length shouldBe 2
             comesBack.textContent.orEmpty() shouldContain "Your Want to Read list, on your To Read shelf"
         }
+
+        test("the earlier-books offer sits between who you are and Sync, and Send and Not now each ask once") {
+            var sends = 0
+            var dismissals = 0
+            val host =
+                mount(
+                    CONNECTED.copy(history = HardcoverHistory.Offer(74)),
+                    onSendHistory = { sends++ },
+                    onDismissHistory = { dismissals++ },
+                )
+            val card = host.querySelector(".hc-history") as HTMLElement
+            val who = host.querySelector(".hc-who") as HTMLElement
+            val sync = host.querySelector(".hc-sync") as HTMLElement
+
+            who.isBefore(card) shouldBe true
+            card.isBefore(sync) shouldBe true
+            card.querySelector("h2")?.textContent shouldBe "Send your earlier listening?"
+            card.textContent.orEmpty() shouldContain
+                "You finished 74 books in ListenUp before connecting. Send them to Hardcover as read, with when you started and finished."
+            card.button("Send 74 books").click()
+            card.button("Not now").click()
+
+            sends shouldBe 1
+            dismissals shouldBe 1
+        }
+
+        test("one book is said in the singular") {
+            val card = mount(CONNECTED.copy(history = HardcoverHistory.Offer(1))).querySelector(".hc-history") as HTMLElement
+
+            card.button("Send 1 book").shouldNotBeNull()
+            card.textContent.orEmpty() shouldContain "You finished 1 book in ListenUp before connecting. Send it to Hardcover"
+        }
+
+        test("sending is a labelled progress bar read as 23 of 74, with no buttons, and says it keeps going") {
+            val card = mount(CONNECTED.copy(history = HardcoverHistory.Sending(23, 74))).querySelector(".hc-history") as HTMLElement
+            val bar = card.querySelector("[role=progressbar]") as HTMLElement
+
+            bar.getAttribute("aria-label") shouldBe "Sending earlier books"
+            bar.getAttribute("aria-valuetext") shouldBe "23 of 74"
+            card.textContent.orEmpty() shouldContain "Sending 23 of 74 books…"
+            card.textContent.orEmpty() shouldContain "You can leave this screen — it keeps going. Your new listening is sent first."
+            card.querySelectorAll("button").length shouldBe 0
+        }
+
+        test("done says what was sent; 4 need a match is a button to the Needs a match panel; Dismiss asks once") {
+            var dismissals = 0
+            val host =
+                mount(
+                    CONNECTED.copy(history = HardcoverHistory.Done(70, 4), booksToMatch = listOf(HAIL_MARY), isMatchListKnown = true),
+                    onDismissHistory = { dismissals++ },
+                )
+            val card = host.querySelector(".hc-history") as HTMLElement
+
+            card.querySelector("[role=status]")?.textContent.orEmpty() shouldContain "Sent 70 books to Hardcover"
+            host
+                .querySelector("#hc-needs-match")
+                .shouldNotBeNull()
+                .textContent
+                .orEmpty() shouldContain "Needs a match"
+            card.button("4 need a match").click()
+            (card.querySelector("button[aria-label='Dismiss']") as HTMLButtonElement).click()
+
+            dismissals shouldBe 1
+        }
+
+        test("done with every book matched says all were sent, and nothing waits for a match") {
+            val card = mount(CONNECTED.copy(history = HardcoverHistory.Done(74, 0))).querySelector(".hc-history") as HTMLElement
+
+            card.textContent.orEmpty() shouldContain "Sent all 74 books to Hardcover"
+            card.textContent.orEmpty() shouldNotContain "need a match"
+        }
+
+        test("done with nothing sent yet says the books need a match first, never Sent 0") {
+            val card = mount(CONNECTED.copy(history = HardcoverHistory.Done(0, 4))).querySelector(".hc-history") as HTMLElement
+
+            card.textContent.orEmpty() shouldContain "4 books need a match before they can be sent"
+            card.textContent.orEmpty() shouldNotContain "Sent 0"
+            (mount(CONNECTED.copy(history = HardcoverHistory.Done(0, 1))).querySelector(".hc-history") as HTMLElement)
+                .textContent
+                .orEmpty() shouldContain "1 book needs a match before it can be sent"
+        }
+
+        test("after Not now the quiet row in Sync sends in place, and no card shows") {
+            var sends = 0
+            val host = mount(CONNECTED.copy(history = HardcoverHistory.Available(74)), onSendHistory = { sends++ })
+            val sync = host.panel("Sync")
+
+            sync.textContent.orEmpty() shouldContain "Send earlier books"
+            sync.textContent.orEmpty() shouldContain "74 finished before you connected"
+            (sync.querySelector("button[aria-label='Send earlier books to Hardcover']") as HTMLButtonElement).click()
+
+            sends shouldBe 1
+            host.querySelector(".hc-history") shouldBe null
+        }
+
+        test("with no history there is no card and no row") {
+            val host = mount(CONNECTED)
+
+            host.querySelector(".hc-history") shouldBe null
+            host.textContent.orEmpty() shouldNotContain "Send earlier books"
+        }
     })
 
 /** The panel whose heading reads [title]. */
@@ -522,3 +629,7 @@ private fun HTMLElement.panel(title: String): HTMLElement =
         .asList()
         .map { it as HTMLElement }
         .first { it.querySelector("h2")?.textContent == title }
+
+/** Whether [this] comes before [other] in document order. */
+private fun HTMLElement.isBefore(other: HTMLElement): Boolean =
+    compareDocumentPosition(other).toInt() and Node.DOCUMENT_POSITION_FOLLOWING.toInt() != 0

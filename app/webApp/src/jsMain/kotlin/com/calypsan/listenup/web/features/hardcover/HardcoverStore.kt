@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import org.koin.core.Koin
 
 /**
- * An open Hardcover screen: the connection, its one-shot effects, the five gestures, and the
+ * An open Hardcover screen: the connection, its one-shot effects, the seven gestures, and the
  * teardown.
  *
  * [onOpenVerificationPage] is wired for completeness but the page does not call it. On web the
@@ -28,6 +28,8 @@ class HardcoverSession(
     val onDisconnect: () -> Unit,
     val onSyncNow: () -> Unit,
     val onSetShareMode: (HardcoverShareMode) -> Unit,
+    val onSendHistory: () -> Unit,
+    val onDismissHistory: () -> Unit,
     val close: () -> Unit,
 )
 
@@ -47,6 +49,8 @@ fun graphHardcover(koin: Koin): OpenHardcover =
             onDisconnect = viewModel::disconnect,
             onSyncNow = viewModel::syncNow,
             onSetShareMode = viewModel::setShareMode,
+            onSendHistory = viewModel::sendHistory,
+            onDismissHistory = viewModel::dismissHistory,
             close = store::clear,
         )
     }
@@ -65,6 +69,8 @@ fun fixedHardcover(
     onDisconnect: () -> Unit = {},
     onSyncNow: () -> Unit = {},
     onSetShareMode: (HardcoverShareMode) -> Unit = {},
+    onSendHistory: () -> Unit = {},
+    onDismissHistory: () -> Unit = {},
 ): OpenHardcover =
     {
         HardcoverSession(
@@ -75,6 +81,8 @@ fun fixedHardcover(
             onDisconnect = onDisconnect,
             onSyncNow = onSyncNow,
             onSetShareMode = onSetShareMode,
+            onSendHistory = onSendHistory,
+            onDismissHistory = onDismissHistory,
             close = {},
         )
     }

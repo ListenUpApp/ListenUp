@@ -1,6 +1,7 @@
 -- hardcover_outbox: pushes waiting for Hardcover, drained in id order on one lane per user. PROGRESS
 -- rows coalesce: at most one per (user, book), holding the newest position. A row whose book link is
--- NEEDS_MATCH is parked (skipped) until the user links the book.
+-- NEEDS_MATCH is parked (skipped) until the user links the book. A HISTORY row (#1540) sends one read
+-- finished before connecting; history_read_id names that book_reads row (NULL for every live row).
 -- FKs (→ users, → books ON DELETE CASCADE) live in the migration DDL.
 CREATE TABLE hardcover_outbox (
     id                        INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -12,14 +13,22 @@ CREATE TABLE hardcover_outbox (
     created_at                INTEGER NOT NULL,
     attempts                  INTEGER NOT NULL DEFAULT 0,
     next_attempt_at           INTEGER NOT NULL,
-    last_error                TEXT
+    last_error                TEXT,
+    history_read_id           TEXT
 );
 
 CREATE INDEX idx_hardcover_outbox_user_book ON hardcover_outbox(user_id, book_id, op);
 
+CREATE INDEX idx_hardcover_outbox_history_read ON hardcover_outbox(user_id, history_read_id);
+
 insertOp:
 INSERT INTO hardcover_outbox (user_id, book_id, listen_through_started_at, op, payload, created_at, attempts, next_attempt_at, last_error)
 VALUES (:user_id, :book_id, :listen_through_started_at, :op, :payload, :created_at, 0, :next_attempt_at, NULL);
+
+-- A HISTORY row (#1540): one read finished before connecting, named by history_read_id.
+insertHistoryOp:
+INSERT INTO hardcover_outbox (user_id, book_id, listen_through_started_at, op, payload, created_at, attempts, next_attempt_at, last_error, history_read_id)
+VALUES (:user_id, :book_id, :listen_through_started_at, 'HISTORY', :payload, :created_at, 0, :next_attempt_at, NULL, :history_read_id);
 
 -- Folds a new position into the queued PROGRESS row, keeping its place in the queue and its due time.
 coalesceProgress:
@@ -30,7 +39,8 @@ deletePendingProgress:
 DELETE FROM hardcover_outbox WHERE user_id = :user_id AND book_id = :book_id AND op = 'PROGRESS';
 
 -- The next row the user's lane may run: due, not parked behind NEEDS_MATCH, and the oldest row of its
--- book (a book's operations always run in order; other books are not held up by it).
+-- book (a book's operations always run in order; other books are not held up by it). Live rows come
+-- before HISTORY rows (#1540), so a book finished today never waits behind years of earlier ones.
 selectHead:
 SELECT o.id, o.user_id, o.book_id, o.listen_through_started_at, o.op, o.payload, o.attempts
 FROM hardcover_outbox AS o
@@ -42,7 +52,7 @@ WHERE o.user_id = :user_id
       SELECT 1 FROM hardcover_outbox AS e
       WHERE e.user_id = o.user_id AND e.book_id = o.book_id AND e.id < o.id
   )
-ORDER BY o.id
+ORDER BY CASE o.op WHEN 'HISTORY' THEN 1 ELSE 0 END, o.id
 LIMIT 1;
 
 -- When the lane next has something to do: the earliest due time among the rows selectHead could pick.
@@ -66,9 +76,11 @@ reschedule:
 UPDATE hardcover_outbox SET attempts = :attempts, next_attempt_at = :next_attempt_at, last_error = :last_error
 WHERE id = :id;
 
+-- The deletion rule acts on one listen-through; a HISTORY row is a finished read of its own, never part of one.
 deleteListenThrough:
 DELETE FROM hardcover_outbox
-WHERE user_id = :user_id AND book_id = :book_id AND listen_through_started_at = :listen_through_started_at;
+WHERE user_id = :user_id AND book_id = :book_id AND listen_through_started_at = :listen_through_started_at
+  AND op <> 'HISTORY';
 
 -- A manual link makes a parked book's rows due now.
 unpark:

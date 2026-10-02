@@ -8,6 +8,7 @@ import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
@@ -134,6 +135,81 @@ class HardcoverOutboxTest :
                 outbox.pendingFor(USER).size shouldBe 1
                 connectAs(99L)
                 outbox.pendingFor(USER) shouldBe emptyList()
+            }
+        }
+
+        test("a HISTORY row carries its read, and a queued read is no longer unsent history") {
+            outboxTest {
+                sql.seedOwnRead(USER, "book-1", "r1", finishedAt = T0 - 1_000L)
+                val read = HardcoverHistoryRead("r1", "book-1", startedAt = T0 - 5_000L, finishedAt = T0 - 1_000L)
+
+                outbox.enqueueHistory(USER, read)
+
+                outbox.pendingFor(USER).single().let {
+                    it.bookId shouldBe "book-1"
+                    it.listenThrough shouldBe T0 - 5_000L
+                    it.payload shouldBe HardcoverPushPayload.History(startedAt = T0 - 5_000L, finishedAt = T0 - 1_000L, readId = "r1")
+                }
+                sql.unsentHardcoverHistory(USER, connectedAt = T0) shouldBe emptyList()
+            }
+        }
+
+        test("a HISTORY row with no start is ordered by its finish") {
+            outboxTest {
+                outbox.enqueueHistory(USER, HardcoverHistoryRead("r1", "book-1", startedAt = null, finishedAt = T0 - 1_000L))
+
+                outbox.pendingFor(USER).single().listenThrough shouldBe T0 - 1_000L
+            }
+        }
+
+        test("a live FINISH queued after seventy-four HISTORY rows runs first") {
+            outboxTest {
+                (1..74).forEach { n ->
+                    sql.seedTestBook("old-$n")
+                    outbox.enqueueHistory(USER, HardcoverHistoryRead("r$n", "old-$n", startedAt = null, finishedAt = n.toLong()))
+                }
+                outbox.enqueueFinish(USER, "book-1", listenThrough = T0, finishedAt = T0 + 1)
+
+                outbox.head(USER)!!.payload shouldBe HardcoverPushPayload.Finish(T0 + 1)
+                outbox.complete(outbox.head(USER)!!.id)
+                outbox.head(USER)!!.bookId shouldBe "old-1"
+            }
+        }
+
+        test("a book's own rows still run in order: its HISTORY row before a FINISH queued after it") {
+            outboxTest {
+                outbox.enqueueHistory(USER, HardcoverHistoryRead("r1", "book-1", startedAt = null, finishedAt = 1L))
+                outbox.enqueueFinish(USER, "book-1", listenThrough = T0, finishedAt = T0 + 1)
+
+                outbox.head(USER)!!.payload.shouldBeInstanceOf<HardcoverPushPayload.History>()
+            }
+        }
+
+        test("the deletion rule never drops a HISTORY row that shares the listen-through's start") {
+            outboxTest {
+                outbox.enqueueHistory(USER, HardcoverHistoryRead("r1", "book-1", startedAt = T0, finishedAt = T0 + 1))
+                outbox.enqueueFinish(USER, "book-1", listenThrough = T0, finishedAt = T0 + 2)
+
+                outbox.dropListenThrough(USER, "book-1", T0)
+
+                outbox
+                    .pendingFor(USER)
+                    .map { it.payload }
+                    .single()
+                    .shouldBeInstanceOf<HardcoverPushPayload.History>()
+            }
+        }
+
+        test("a HISTORY row for an unmatched book parks until the book is linked") {
+            outboxTest {
+                links.recordAutomaticMatch(USER, "book-1", match = null)
+                outbox.enqueueHistory(USER, HardcoverHistoryRead("r1", "book-1", startedAt = null, finishedAt = 1L))
+                outbox.head(USER).shouldBeNull()
+
+                links.linkManually(USER, "book-1", hcBookId = 1L, hcEditionId = null)
+                outbox.unpark(USER, "book-1")
+
+                outbox.head(USER)!!.bookId shouldBe "book-1"
             }
         }
     })

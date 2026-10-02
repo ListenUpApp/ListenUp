@@ -190,12 +190,16 @@ class HardcoverUserBooks(
             },
         ).map { }
 
-    /** Opens a new read on [userBookId], started on [startedAt] when known. Answers the read's id. */
+    /**
+     * Adds a read to [userBookId], started on [startedAt] when known — finished on [finishedAt] too when
+     * given, which is how a history read arrives whole, in one call. Answers the read's id.
+     */
     suspend fun openRead(
         accessToken: String,
         userBookId: Long,
         startedAt: LocalDate?,
         hcEditionId: Long?,
+        finishedAt: LocalDate? = null,
     ): HardcoverCall<Long> =
         mutate(
             accessToken,
@@ -205,6 +209,7 @@ class HardcoverUserBooks(
                 put("userBookId", userBookId)
                 putJsonObject("read") {
                     startedAt?.let { put("started_at", it.toString()) }
+                    finishedAt?.let { put("finished_at", it.toString()) }
                     hcEditionId?.let { put("edition_id", it) }
                 }
             },
@@ -233,6 +238,21 @@ class HardcoverUserBooks(
                     read.editionId?.let { put("edition_id", it) }
                 }
             },
+        ).map { }
+
+    /**
+     * Removes read [readId] from the user's shelf: how ListenUp takes back a read Hardcover made of its own,
+     * dated today, for a status change ListenUp sent (`delete_user_book_read`, seen working live 2026-10-01).
+     */
+    suspend fun deleteRead(
+        accessToken: String,
+        readId: Long,
+    ): HardcoverCall<Unit> =
+        mutate(
+            accessToken,
+            DELETE_READ,
+            "delete_user_book_read",
+            buildJsonObject { put("id", readId) },
         ).map { }
 
     /** Runs one of Hardcover's `{ id error }` mutations; an `error`, or no id, is [HardcoverCall.Failed]. */
@@ -285,6 +305,7 @@ class HardcoverUserBooks(
         const val INSERT_READ =
             "mutation(\$userBookId:Int!,\$read:DatesReadInput!){ " +
                 "insert_user_book_read(user_book_id:\$userBookId, user_book_read:\$read){ id error } }"
+        const val DELETE_READ = "mutation(\$id:Int!){ delete_user_book_read(id:\$id){ id } }"
         const val UPDATE_READ =
             "mutation(\$id:Int!,\$read:DatesReadInput!){ update_user_book_read(id:\$id, object:\$read){ id error } }"
     }

@@ -12,6 +12,8 @@ import com.calypsan.listenup.server.hardcover.HardcoverBookMatcher
 import com.calypsan.listenup.server.hardcover.HardcoverCatalogCache
 import com.calypsan.listenup.server.hardcover.HardcoverConnectionStore
 import com.calypsan.listenup.server.hardcover.HardcoverGraphQlClient
+import com.calypsan.listenup.server.hardcover.HardcoverHistoryProgress
+import com.calypsan.listenup.server.hardcover.HardcoverHistorySender
 import com.calypsan.listenup.server.hardcover.HardcoverLinker
 import com.calypsan.listenup.server.hardcover.HardcoverMatchBackfill
 import com.calypsan.listenup.server.hardcover.HardcoverOAuthClient
@@ -57,8 +59,9 @@ private val HARDCOVER_HTTP = named("hardcoverHttp")
  * which the application cancels at shutdown), the listener's [HardcoverPreferences], the
  * [HardcoverTokenProvider], the [HardcoverRatingSource]
  * the metadata registry lists, and [HardcoverService]. It also binds Hardcover push and matching: the
- * outbox, the per-user push worker, the recorder `StatsRecorder` calls, the background match pass,
- * manual linking, and the pull (its store, the shelf resolver, the puller and the per-user pull worker).
+ * outbox, the per-user push worker, the recorder `StatsRecorder` calls, the background match pass, the
+ * earlier-books offer ([HardcoverHistorySender], [HardcoverHistoryProgress]), manual linking, and the
+ * pull (its store, the shelf resolver, the puller and the per-user pull worker).
  *
  * [clientId] is null when the operator hasn't set `hardcover.clientId` (resolved once at startup by
  * `Application.resolveHardcoverClientId`). The graph is built either way, so watching and
@@ -127,22 +130,7 @@ fun hardcoverModule(
             val books = get<BookRepository>()
             HardcoverBookIdentities { bookId -> books.findById(BookId(bookId))?.toIdentity() }
         }
-        single { HardcoverPushExecutor(userBooks = get(), links = get(), outbox = get(), sql = get(), clock = get()) }
-        single {
-            HardcoverPushWorker(
-                outbox = get(),
-                links = get(),
-                matcher = get(),
-                executor = get(),
-                tokens = get(),
-                connections = get(),
-                linker = get(),
-                identities = get(),
-                gate = get(),
-                clock = get(),
-            )
-        }
-        single<HardcoverPushNudge> { get<HardcoverPushWorker>() }
+        hardcoverPushLane()
         single {
             HardcoverPushRecorder(
                 sql = get(),
@@ -186,6 +174,7 @@ fun hardcoverModule(
                 linking = get(),
                 pulls = get(),
                 preferences = get(),
+                history = get(),
                 principal =
                     PrincipalProvider {
                         error("Unscoped HardcoverService — call copyWith(PrincipalProvider) at the route")
@@ -194,6 +183,42 @@ fun hardcoverModule(
         }
         single<HardcoverService> { get<HardcoverServiceImpl>() }
     }
+
+/**
+ * The push lane (spec B2): the executor, the per-user push worker — also bound as the [HardcoverPushNudge]
+ * that wakes it — and the earlier-books send it drains (#1540): [HardcoverHistorySender] queues it,
+ * [HardcoverHistoryProgress] settles it.
+ */
+private fun Module.hardcoverPushLane() {
+    single {
+        HardcoverPushExecutor(
+            userBooks = get(),
+            links = get(),
+            outbox = get(),
+            sql = get(),
+            clock = get(),
+            rateLimiter = get(),
+        )
+    }
+    single { HardcoverHistoryProgress(sql = get(), clock = get(), activity = get()) }
+    single { HardcoverHistorySender(sql = get(), clock = get(), nudge = get(), activity = get()) }
+    single {
+        HardcoverPushWorker(
+            outbox = get(),
+            links = get(),
+            matcher = get(),
+            executor = get(),
+            tokens = get(),
+            connections = get(),
+            linker = get(),
+            identities = get(),
+            gate = get(),
+            clock = get(),
+            history = get(),
+        )
+    }
+    single<HardcoverPushNudge> { get<HardcoverPushWorker>() }
+}
 
 /**
  * The pull (spec B3): its store, the shelf resolver, Want to Read (#1539), the puller, and the per-user

@@ -25,7 +25,8 @@ struct HardcoverLinkingModel: Equatable {
 /// `lastSyncedAt` is nil before the first sync, either way; `sync` is the sync line. `booksToMatch`
 /// are the books ListenUp couldn't match, in the server's order; `isMatchListKnown` is false until
 /// the server has answered, so only a known empty list says every book is matched. `shareMode` is when
-/// ListenUp updates Hardcover: the server's, or the one just chosen while `isSavingShareMode`.
+/// ListenUp updates Hardcover: the server's, or the one just chosen while `isSavingShareMode`. `history`
+/// is the earlier-books offer.
 struct HardcoverConnectedModel: Equatable {
     let username: String
     let since: Date
@@ -36,6 +37,7 @@ struct HardcoverConnectedModel: Equatable {
     var isMatchListKnown = false
     var shareMode: HardcoverShareMode = .asIListen
     var isSavingShareMode = false
+    var history: HardcoverHistoryModel = .none
 }
 
 /// One line of "What ListenUp shares", native, for a `ForEach` (iosApp rule 8). A quiet line says what
@@ -127,6 +129,13 @@ final class HardcoverSettingsObserver {
     /// puts the server's back, with an alert, if the server refuses it.
     func setShareMode(_ mode: HardcoverShareMode) { viewModel.setShareMode(mode: mode) }
 
+    /// Send the books finished before connecting — from the section or the quiet row. The ViewModel shows
+    /// Sending at once, and puts the offer back, with an alert, if the server refuses.
+    func sendHistory() { viewModel.sendHistory() }
+
+    /// Not Now on the offer, or Done on what the send came to.
+    func dismissHistory() { viewModel.dismissHistory() }
+
     // MARK: - Event routing
 
     private func apply(_ effect: HardcoverEffect?) {
@@ -182,7 +191,8 @@ final class HardcoverSettingsObserver {
                     },
                     isMatchListKnown: connected.isMatchListKnown,
                     shareMode: connected.shareMode,
-                    isSavingShareMode: connected.isSavingShareMode
+                    isSavingShareMode: connected.isSavingShareMode,
+                    history: HardcoverHistoryModel.from(connected.history)
                 )
             )
         case .broken(let brokenType):

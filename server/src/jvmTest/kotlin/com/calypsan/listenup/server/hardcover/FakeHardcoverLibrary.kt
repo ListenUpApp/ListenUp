@@ -39,6 +39,9 @@ data class FakeReply(
 /** The date the fake Hardcover stamps on the read it opens by itself: "today". */
 const val FAKE_TODAY = "2026-09-30"
 
+/** The position the fake Hardcover fills in on a read it finishes by itself: the whole book. */
+const val FAKE_BOOK_SECONDS = 64_980L
+
 /** A rate limiter that never waits. */
 class NoWaitRateLimiter : HardcoverRateLimiter() {
     override suspend fun await() = Unit
@@ -56,7 +59,12 @@ class NoWaitRateLimiter : HardcoverRateLimiter() {
  * survives the worse answer, [ReadUpdates.REPLACE], which nulls every omitted field.
  *
  * Like the real Hardcover (seen live, 2026-09-30), `insert_user_book` at Currently Reading opens a
- * read of its own, dated [FAKE_TODAY] at the shelved edition.
+ * read of its own, dated [FAKE_TODAY] at the shelved edition. With [finishesOpenReadOnRead] (the
+ * default), `update_user_book` to Read finishes every unfinished read itself, on [FAKE_TODAY], filling
+ * its position — and leaves a read already finished alone: the real Hardcover did exactly that (seen live,
+ * 2026-10-01, ListenUp #1540's history backfill). With [opensReadOnStatusChange], `update_user_book`
+ * first opens a read dated [FAKE_TODAY] when the entry has no open read. That is unverified on the real
+ * Hardcover, so push is tested against both.
  *
  * Every shelf carries an `updated_at` ([Shelf.updatedAt]), stamped from a counter so it only ever
  * grows, and the changed-since query the pull sends pages by `(updated_at, id)`. Stamps are written
@@ -68,6 +76,8 @@ class NoWaitRateLimiter : HardcoverRateLimiter() {
 class FakeHardcoverLibrary(
     private val readUpdates: ReadUpdates = ReadUpdates.PATCH,
     private val readChangesTouchShelf: Boolean = true,
+    private val opensReadOnStatusChange: Boolean = false,
+    private val finishesOpenReadOnRead: Boolean = true,
 ) {
     /** How `update_user_book_read` treats the `DatesReadInput` fields a request omits. */
     enum class ReadUpdates {
@@ -261,6 +271,7 @@ class FakeHardcoverLibrary(
     private fun operationOf(query: String): String =
         when {
             "insert_user_book_read(" in query -> "insert_user_book_read"
+            "delete_user_book_read(" in query -> "delete_user_book_read"
             "update_user_book_read(" in query -> "update_user_book_read"
             "insert_user_book(" in query -> "insert_user_book"
             "update_user_book(" in query -> "update_user_book"
@@ -307,11 +318,7 @@ class FakeHardcoverLibrary(
             }
 
             "update_user_book" -> {
-                shelves.firstOrNull { it.id == variables.long("id") }?.let { shelf ->
-                    shelf.statusId = variables.obj("object").int("status_id")
-                    touch(shelf)
-                    mutation("update_user_book", shelf.id)
-                } ?: mutationError("update_user_book", "User book not found")
+                updateUserBook(variables.long("id"), variables.obj("object").int("status_id"))
             }
 
             "insert_user_book_read" -> {
@@ -329,6 +336,10 @@ class FakeHardcoverLibrary(
                     touchForRead(shelf)
                     mutation("insert_user_book_read", read.id)
                 } ?: mutationError("insert_user_book_read", "User book not found")
+            }
+
+            "delete_user_book_read" -> {
+                deleteReadAnswer(variables.long("id"))
             }
 
             "update_user_book_read" -> {
@@ -373,6 +384,44 @@ class FakeHardcoverLibrary(
                 )
             }
         }
+
+    /**
+     * Moves shelf entry [userBookId] to [statusId], with what the real Hardcover does on its own for the change:
+     * see [opensReadOnStatusChange] and [finishesOpenReadOnRead].
+     */
+    private fun updateUserBook(
+        userBookId: Long,
+        statusId: Int,
+    ): FakeReply {
+        val shelf =
+            shelves.firstOrNull { it.id == userBookId }
+                ?: return mutationError("update_user_book", "User book not found")
+        shelf.statusId = statusId
+        if (opensReadOnStatusChange && shelf.reads.none { it.finishedAt == null }) {
+            shelf.reads +=
+                Read(nextId++, FAKE_TODAY, finishedAt = null, progressSeconds = null, editionId = shelf.editionId)
+        }
+        if (finishesOpenReadOnRead && statusId == HardcoverStatus.READ) {
+            shelf.reads.filter { it.finishedAt == null }.forEach { read ->
+                read.finishedAt = FAKE_TODAY
+                read.progressSeconds = read.progressSeconds ?: FAKE_BOOK_SECONDS
+            }
+        }
+        touch(shelf)
+        return mutation("update_user_book", shelf.id)
+    }
+
+    /** `delete_user_book_read`: answers `{ id }` for a read it removed, and a null result for one it can't find. */
+    private fun deleteReadAnswer(readId: Long): FakeReply {
+        val shelf =
+            shelves.firstOrNull { s -> s.reads.any { it.id == readId } }
+                ?: return ok(
+                    buildJsonObject { putJsonObject("data") { put("delete_user_book_read", null as String?) } },
+                )
+        shelf.reads.removeAll { it.id == readId }
+        touchForRead(shelf)
+        return mutation("delete_user_book_read", readId)
+    }
 
     private fun updateRead(
         read: Read,

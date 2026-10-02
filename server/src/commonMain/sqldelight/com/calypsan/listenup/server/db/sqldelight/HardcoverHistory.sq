@@ -1,0 +1,125 @@
+-- hardcover_history: one row per user — the offer to send the books they finished in ListenUp before
+-- connecting Hardcover (#1540), and how far it has got. See V81__hardcover_history.sql for each column.
+-- hardcover_history_reads: the ledger of history reads handled, SENT or ALREADY_THERE.
+-- Both survive a disconnect. FKs (→ users, → book_reads ON DELETE CASCADE) live in the migration DDL.
+CREATE TABLE hardcover_history (
+    user_id     TEXT    NOT NULL PRIMARY KEY,
+    hc_user_id  INTEGER NOT NULL,
+    state       TEXT    NOT NULL,
+    total_books INTEGER NOT NULL,
+    updated_at  INTEGER NOT NULL
+);
+
+CREATE TABLE hardcover_history_reads (
+    user_id     TEXT    NOT NULL,
+    read_id     TEXT    NOT NULL,
+    outcome     TEXT    NOT NULL,
+    recorded_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, read_id)
+);
+
+CREATE INDEX idx_hardcover_history_reads_read ON hardcover_history_reads(read_id);
+
+-- The user's own reads finished before :connected_at that are neither in the ledger nor queued as HISTORY,
+-- oldest first, each with the start ListenUp can vouch for: the earliest listening on the book after the
+-- previous own read finished (or from the beginning), and no later than this read's finish. NULL when there
+-- is none. Books removed from the library are left out.
+selectUnsentHistory:
+SELECT r.id, r.book_id, r.finished_at,
+    (
+        SELECT MIN(e.started_at) FROM listening_events AS e
+        WHERE e.user_id = r.user_id AND e.book_id = r.book_id AND e.deleted_at IS NULL
+          AND e.started_at <= r.finished_at
+          AND e.started_at > COALESCE(
+              (
+                  SELECT MAX(p.finished_at) FROM book_reads AS p
+                  WHERE p.user_id = r.user_id AND p.book_id = r.book_id AND p.source <> 'hardcover'
+                    AND (p.finished_at < r.finished_at OR (p.finished_at = r.finished_at AND p.id < r.id))
+              ),
+              -1
+          )
+    ) AS derived_started_at
+FROM book_reads AS r
+JOIN books AS b ON b.id = r.book_id AND b.deleted_at IS NULL
+WHERE r.user_id = :user_id AND r.source <> 'hardcover' AND r.finished_at < :connected_at
+  AND NOT EXISTS (SELECT 1 FROM hardcover_history_reads AS h WHERE h.user_id = r.user_id AND h.read_id = r.id)
+  AND NOT EXISTS (SELECT 1 FROM hardcover_outbox AS o WHERE o.user_id = r.user_id AND o.history_read_id = r.id)
+ORDER BY r.finished_at, r.id;
+
+-- How many distinct books selectUnsentHistory would offer: the number on the card and the quiet row.
+countUnsentHistoryBooks:
+SELECT COUNT(DISTINCT r.book_id)
+FROM book_reads AS r
+JOIN books AS b ON b.id = r.book_id AND b.deleted_at IS NULL
+WHERE r.user_id = :user_id AND r.source <> 'hardcover' AND r.finished_at < :connected_at
+  AND NOT EXISTS (SELECT 1 FROM hardcover_history_reads AS h WHERE h.user_id = r.user_id AND h.read_id = r.id)
+  AND NOT EXISTS (SELECT 1 FROM hardcover_outbox AS o WHERE o.user_id = r.user_id AND o.history_read_id = r.id);
+
+-- The user's own reads of one book up to and including one read (ties broken by id): how many reads
+-- Hardcover must already hold for that read to count as there.
+countOwnReadsThrough:
+SELECT COUNT(*) FROM book_reads
+WHERE user_id = :user_id AND book_id = :book_id AND source <> 'hardcover'
+  AND (finished_at < :finished_at OR (finished_at = :finished_at AND id <= :read_id));
+
+-- Whether a book_reads row still exists: the ledger records only reads that do.
+readExists:
+SELECT EXISTS(SELECT 1 FROM book_reads WHERE id = :read_id);
+
+recordRead:
+INSERT OR REPLACE INTO hardcover_history_reads (user_id, read_id, outcome, recorded_at)
+VALUES (:user_id, :read_id, :outcome, :recorded_at);
+
+outcomeOf:
+SELECT outcome FROM hardcover_history_reads WHERE user_id = :user_id AND read_id = :read_id;
+
+-- The own read a live FINISH just sent: the newest of the book finished at or after its listen-through began.
+latestOwnReadSince:
+SELECT id FROM book_reads
+WHERE user_id = :user_id AND book_id = :book_id AND source <> 'hardcover' AND finished_at >= :since
+ORDER BY finished_at DESC, id DESC
+LIMIT 1;
+
+selectHistory:
+SELECT * FROM hardcover_history WHERE user_id = :user_id;
+
+upsertHistory:
+INSERT OR REPLACE INTO hardcover_history (user_id, hc_user_id, state, total_books, updated_at)
+VALUES (:user_id, :hc_user_id, :state, :total_books, :updated_at);
+
+updateHistoryState:
+UPDATE hardcover_history SET state = :state, updated_at = :updated_at WHERE user_id = :user_id;
+
+deleteHistory:
+DELETE FROM hardcover_history WHERE user_id = :user_id;
+
+deleteHistoryReads:
+DELETE FROM hardcover_history_reads WHERE user_id = :user_id;
+
+-- Every HISTORY row of the user, live book or not: whether a send still has anything in the outbox.
+countHistoryRows:
+SELECT COUNT(*) FROM hardcover_outbox WHERE user_id = :user_id AND op = 'HISTORY';
+
+-- Distinct live books with a HISTORY row still queued, parked or not: what Sending has yet to finish.
+countBooksWithHistoryRows:
+SELECT COUNT(DISTINCT o.book_id)
+FROM hardcover_outbox AS o
+JOIN books AS b ON b.id = o.book_id AND b.deleted_at IS NULL
+WHERE o.user_id = :user_id AND o.op = 'HISTORY';
+
+-- Distinct live books whose HISTORY rows are parked behind NEEDS_MATCH: Done's "need a match".
+countParkedHistoryBooks:
+SELECT COUNT(DISTINCT o.book_id)
+FROM hardcover_outbox AS o
+JOIN books AS b ON b.id = o.book_id AND b.deleted_at IS NULL
+JOIN hardcover_book_links AS l ON l.user_id = o.user_id AND l.book_id = o.book_id AND l.match_state = 'NEEDS_MATCH'
+WHERE o.user_id = :user_id AND o.op = 'HISTORY';
+
+-- HISTORY rows of live books that the lane can still run (matched, or never tried): while any remain, a
+-- send is not Done.
+countRunnableHistoryRows:
+SELECT COUNT(*)
+FROM hardcover_outbox AS o
+JOIN books AS b ON b.id = o.book_id AND b.deleted_at IS NULL
+LEFT JOIN hardcover_book_links AS l ON l.user_id = o.user_id AND l.book_id = o.book_id
+WHERE o.user_id = :user_id AND o.op = 'HISTORY' AND (l.match_state IS NULL OR l.match_state = 'LINKED');

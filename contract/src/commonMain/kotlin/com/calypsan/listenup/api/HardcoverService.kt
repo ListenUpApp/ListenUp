@@ -47,6 +47,22 @@ interface HardcoverService {
     suspend fun setShareMode(mode: HardcoverShareMode): AppResult<Unit>
 
     /**
+     * Sends the books the caller finished in ListenUp before connecting (#1540): each read arrives on
+     * Hardcover as Read with when they started and finished, filling in what Hardcover already holds and
+     * never duplicating it. Returns as soon as the reads are queued; [observeConnection] shows the progress.
+     * Sending again queues only what is not yet sent or queued, so it is safe to repeat.
+     * [com.calypsan.listenup.api.error.HardcoverError.NotConnected] without a connection;
+     * [com.calypsan.listenup.api.error.HardcoverError.ConnectionBroken] when it needs a reconnect.
+     */
+    suspend fun sendHistory(): AppResult<Unit>
+
+    /**
+     * "Not now" on the earlier-books offer — the card goes, and a quiet row stays while those books are
+     * unsent — or dismissing the finished send's summary, for good. Idempotent.
+     */
+    suspend fun dismissHistory(): AppResult<Unit>
+
+    /**
      * Searches Hardcover's catalog for [query] — a title, an author, or both — best match first, for
      * the user to pick when linking a book by hand. Costs one Hardcover search.
      * [com.calypsan.listenup.api.error.ValidationError] for a blank query;

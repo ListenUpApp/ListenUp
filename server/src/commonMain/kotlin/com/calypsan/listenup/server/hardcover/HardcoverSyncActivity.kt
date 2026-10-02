@@ -84,6 +84,11 @@ class HardcoverSyncActivity {
         changed.tryEmit(userId)
     }
 
+    /** [userId]'s earlier-books offer (#1540) changed — offered, declined, sent, settled: republish their Connected. */
+    fun historyChanged(userId: String) {
+        changed.tryEmit(userId)
+    }
+
     /** [userId]'s connection ended or broke: nothing is in flight for them any more. */
     fun forget(userId: String) {
         synchronized(lock) {

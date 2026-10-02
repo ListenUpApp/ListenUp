@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
+import com.calypsan.listenup.api.dto.hardcover.HardcoverHistory
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
 import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
@@ -44,6 +45,9 @@ private const val SYNC_HANDOFF_MS = 2_000L
 /** How long a saved share mode holds on screen waiting for the server's stream to carry it back. */
 private const val SHARE_MODE_HANDOFF_MS = 2_000L
 
+/** How long Send's or Not now's answer holds on screen waiting for the server's stream to carry it back. */
+private const val HISTORY_HANDOFF_MS = 2_000L
+
 /** What the Hardcover settings screen shows. */
 sealed interface HardcoverSettingsUiState {
     /** Waiting for the server's first answer. */
@@ -79,6 +83,8 @@ sealed interface HardcoverSettingsUiState {
      * newest first. [isMatchListKnown] is false until the server has answered (and after a failed read):
      * only a known empty list may say "Every book you've started is matched". [shareMode] is when
      * ListenUp updates Hardcover: the server's, or the one just chosen while [isSavingShareMode].
+     * [history] is the offer to send the books finished before connecting: the server's, or what Send or
+     * Not now just showed while it saves.
      */
     data class Connected(
         val username: String,
@@ -90,6 +96,7 @@ sealed interface HardcoverSettingsUiState {
         val isMatchListKnown: Boolean = false,
         val shareMode: HardcoverShareMode = HardcoverShareMode.AS_I_LISTEN,
         val isSavingShareMode: Boolean = false,
+        val history: HardcoverHistory = HardcoverHistory.None,
     ) : HardcoverSettingsUiState
 
     /**
@@ -118,8 +125,8 @@ sealed interface HardcoverSettingsEvent {
 
 /**
  * Backs Settings → Account → Hardcover: connect with Hardcover's device sign-in, watch it
- * complete, see who you're connected as, choose when ListenUp updates Hardcover, disconnect, and
- * reconnect a broken connection.
+ * complete, see who you're connected as, choose when ListenUp updates Hardcover, send the books finished
+ * before connecting, disconnect, and reconnect a broken connection.
  *
  * The server owns the connection — it holds the tokens and does the waiting while the user
  * approves — so [uiState] is a projection of [HardcoverRepository.observeConnection] plus the in-flight
@@ -138,6 +145,9 @@ class HardcoverSettingsViewModel(
 
     /** The share mode just chosen, shown until the server holds it; null when nothing is saving. */
     private val pendingShareMode = MutableStateFlow<HardcoverShareMode?>(null)
+
+    /** What Send or Not now just showed, held until the server carries it back; null when nothing is saving. */
+    private val pendingHistory = MutableStateFlow<HardcoverHistory?>(null)
     private val eventChannel = Channel<HardcoverSettingsEvent>(Channel.BUFFERED)
 
     /** One-shot effects — open the approval page, or show an error. Each is delivered once. */
@@ -184,12 +194,13 @@ class HardcoverSettingsViewModel(
         combine(
             connection,
             starting,
-            combine(disconnecting, requestingSync, pendingShareMode, ::InFlight),
+            combine(disconnecting, requestingSync, pendingShareMode, pendingHistory, ::InFlight),
             booksToMatch,
         ) { connection, isStarting, inFlight, books ->
             connection
                 .toUiState(isStarting, inFlight.isDisconnecting, inFlight.isRequestingSync, books)
                 .withShareModeSaving(inFlight.pendingShareMode)
+                .withHistoryPending(inFlight.pendingHistory)
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
@@ -309,6 +320,72 @@ class HardcoverSettingsViewModel(
         }
     }
 
+    /**
+     * Sends the books finished before connecting — from the offer's card or the quiet row. Sending shows at
+     * once, from zero, and holds until the server's stream carries the send (or [HISTORY_HANDOFF_MS]
+     * passes). If the server refuses, the card or row comes back with the error. Ignored outside Connected,
+     * with nothing to send, and while an answer is saving.
+     */
+    fun sendHistory() {
+        val connected = uiState.value as? HardcoverSettingsUiState.Connected ?: return
+        val books =
+            when (val history = connected.history) {
+                is HardcoverHistory.Offer -> history.bookCount
+                is HardcoverHistory.Available -> history.bookCount
+                else -> return
+            }
+        answerHistory(
+            showing = HardcoverHistory.Sending(sentBooks = 0, totalBooks = books),
+            leaving = { it is HardcoverHistory.Offer || it is HardcoverHistory.Available },
+        ) { repository.sendHistory() }
+    }
+
+    /**
+     * "Not now" on the offer — the card goes at once and the quiet row stays — or dismissing the finished
+     * send's card, which goes for good. If the server refuses, the card comes back with the error. Ignored
+     * for anything else, and while an answer is saving.
+     */
+    fun dismissHistory() {
+        val connected = uiState.value as? HardcoverSettingsUiState.Connected ?: return
+        val showing =
+            when (val history = connected.history) {
+                is HardcoverHistory.Offer -> HardcoverHistory.Available(history.bookCount)
+                is HardcoverHistory.Done -> HardcoverHistory.None
+                else -> return
+            }
+        val leavingKind = connected.history::class
+        answerHistory(showing = showing, leaving = { it::class == leavingKind }) { repository.dismissHistory() }
+    }
+
+    /**
+     * Shows [showing] while [call] runs, then holds it until the server's history is no longer one [leaving]
+     * describes (or [HISTORY_HANDOFF_MS] passes) — or, on a refusal, lets go at once and shows the error.
+     */
+    private fun answerHistory(
+        showing: HardcoverHistory,
+        leaving: (HardcoverHistory) -> Boolean,
+        call: suspend () -> AppResult<Unit>,
+    ) {
+        if (!pendingHistory.compareAndSet(expect = null, update = showing)) return
+        viewModelScope.launch {
+            try {
+                when (val result = call()) {
+                    is AppResult.Success -> {
+                        withTimeoutOrNull(HISTORY_HANDOFF_MS) {
+                            connection.first { it !is HardcoverConnection.Connected || !leaving(it.history) }
+                        }
+                    }
+
+                    is AppResult.Failure -> {
+                        eventChannel.send(HardcoverSettingsEvent.ShowError(result.error))
+                    }
+                }
+            } finally {
+                pendingHistory.value = null
+            }
+        }
+    }
+
     private fun booksNamed(ids: List<String>): Flow<List<HardcoverBookToMatch>> =
         if (ids.isEmpty()) {
             flowOf(emptyList())
@@ -363,6 +440,7 @@ private fun HardcoverConnection.toUiState(
                 booksToMatch = booksToMatch.orEmpty(),
                 isMatchListKnown = booksToMatch != null,
                 shareMode = shareMode,
+                history = history,
             )
         }
 
@@ -390,6 +468,7 @@ private data class InFlight(
     val isDisconnecting: Boolean,
     val isRequestingSync: Boolean,
     val pendingShareMode: HardcoverShareMode?,
+    val pendingHistory: HardcoverHistory?,
 )
 
 /** [this] showing [pending] as the share mode, saving — when it is Connected and a choice is in flight. */
@@ -399,3 +478,7 @@ private fun HardcoverSettingsUiState.withShareModeSaving(pending: HardcoverShare
     } else {
         this
     }
+
+/** [this] showing [pending] as the history — when it is Connected and Send or Not now is in flight. */
+private fun HardcoverSettingsUiState.withHistoryPending(pending: HardcoverHistory?): HardcoverSettingsUiState =
+    if (this is HardcoverSettingsUiState.Connected && pending != null) copy(history = pending) else this

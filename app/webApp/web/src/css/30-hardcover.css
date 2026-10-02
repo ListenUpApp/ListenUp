@@ -127,6 +127,30 @@
 .luw .hc-quiet { color: var(--ink-2); }
 .luw .hc-share-mode { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; margin: 0 0 1.2rem; }
 
+/* Earlier books (#1540): the offer card above Sync, and the quiet row inside it. */
+.luw .hc-history { display: flex; flex-direction: column; gap: 0.75rem; }
+.luw .hc-history-done { flex-direction: row; align-items: flex-start; gap: 0.9rem; }
+.luw .hc-history-h { display: flex; align-items: center; gap: 0.9rem; }
+.luw .hc-history-i {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 40px; height: 40px; border-radius: var(--r-md); background: var(--coral-soft); color: var(--coral-text);
+}
+.luw .hc-history-i.is-done { background: var(--success-soft); color: var(--success); }
+.luw .hc-history-t { margin: 0; font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.luw .hc-history-p { margin: 0; font-size: 0.95rem; line-height: 1.5; color: var(--ink-2); text-wrap: pretty; }
+.luw .hc-history-note { font-size: 0.8125rem; }
+.luw .hc-history-text { display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; flex: 1; min-width: 0; padding-top: 0.5rem; }
+.luw .hc-history-link { padding-inline: 0; text-decoration: underline; text-underline-offset: 3px; color: var(--coral-text); }
+.luw .hc-history-acts { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.25rem; }
+.luw .hc-earlier { margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px solid var(--line-2); }
+.luw .hc-earlier-t { display: flex; flex-direction: column; gap: 0.1rem; flex: 1; min-width: 9rem; font-size: 0.95rem; font-weight: 700; color: var(--ink); }
+.luw .hc-earlier-d { font-size: 0.8125rem; font-weight: 400; color: var(--ink-2); }
+.luw .hc-anchor:empty { display: none; }
+@media (max-width: 759px) {
+  .luw .hc-history-acts { flex-direction: column; }
+  .luw .hc-history-acts .btn { width: 100%; }
+}
+
 @media (max-width: 759px) {
   .luw .hc-match-row { flex-wrap: wrap; }
   .luw .hc-match-row .btn { margin-left: calc(48px + 0.9rem); }

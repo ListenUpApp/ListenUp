@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
@@ -30,6 +32,8 @@ import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -61,6 +65,7 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.util.rememberCopyToClipboard
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsUiState
 import com.calypsan.listenup.client.util.formatDateLong
+import kotlinx.coroutines.launch
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.hardcover_broken_cannot_decrypt
 import listenup.composeapp.generated.resources.hardcover_broken_missing_scope
@@ -105,6 +110,8 @@ internal fun hardcoverPhase(
     onRequestDisconnect: () -> Unit,
     onSyncNow: () -> Unit,
     onSetShareMode: (HardcoverShareMode) -> Unit,
+    onSendHistory: () -> Unit,
+    onDismissHistory: () -> Unit,
     onFindMatch: (bookId: String) -> Unit,
 ): HardcoverPhase =
     when (state) {
@@ -144,13 +151,29 @@ internal fun hardcoverPhase(
         is HardcoverSettingsUiState.Connected -> {
             HardcoverPhase(
                 lead = { ConnectedHero(username = state.username, since = state.since, bleeds = !isWide) },
-                // Canvas order: sync, then Needs a match (the one part that asks you to act), then sharing.
+                // Canvas order: the earlier-books card, sync, then Needs a match (the one part that asks
+                // you to act), then sharing.
                 detail = {
-                    HardcoverSyncBlock(lastSyncedAt = state.lastSyncedAt, sync = state.sync, onSyncNow = onSyncNow)
+                    val needsMatch = remember { BringIntoViewRequester() }
+                    val scope = rememberCoroutineScope()
+                    HardcoverHistoryCard(
+                        history = state.history,
+                        onSend = onSendHistory,
+                        onDismiss = onDismissHistory,
+                        onShowNeedsMatch = { scope.launch { needsMatch.bringIntoView() } },
+                    )
+                    HardcoverSyncBlock(
+                        lastSyncedAt = state.lastSyncedAt,
+                        sync = state.sync,
+                        history = state.history,
+                        onSyncNow = onSyncNow,
+                        onSendHistory = onSendHistory,
+                    )
                     HardcoverNeedsMatch(
                         books = state.booksToMatch,
                         isKnown = state.isMatchListKnown,
                         onFindMatch = onFindMatch,
+                        modifier = Modifier.bringIntoViewRequester(needsMatch),
                     )
                     HardcoverWhatIsShared(
                         shareMode = state.shareMode,

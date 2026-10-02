@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.design
 
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookSync
+import com.calypsan.listenup.api.dto.hardcover.HardcoverHistory
 import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
 import com.calypsan.listenup.api.error.HardcoverError
@@ -2629,12 +2630,17 @@ private fun hardcoverSettingsShapes(): List<@Composable () -> Unit> {
                 onDisconnect = {},
                 onSyncNow = {},
                 onSetShareMode = {},
+                onSendHistory = {},
+                onDismissHistory = {},
                 onFindMatch = {},
                 onOpenSettings = {},
                 nowMs = 0L,
                 copyText = { _, done -> done(true) },
             )
         }
+
+    fun connectedWith(history: HardcoverHistory) =
+        HardcoverSettingsUiState.Connected(username = "simon", since = 0L, isDisconnecting = false, history = history)
     return listOf(
         page(HardcoverSettingsUiState.Loading),
         page(HardcoverSettingsUiState.NotOffered),
@@ -2648,6 +2654,19 @@ private fun hardcoverSettingsShapes(): List<@Composable () -> Unit> {
             ),
         ),
         page(HardcoverSettingsUiState.Connected(username = "simon", since = 0L, isDisconnecting = false)),
+        page(connectedWith(HardcoverHistory.Offer(74))),
+        page(connectedWith(HardcoverHistory.Sending(23, 74))),
+        page(
+            HardcoverSettingsUiState.Connected(
+                username = "simon",
+                since = 0L,
+                isDisconnecting = false,
+                history = HardcoverHistory.Done(70, 4),
+                booksToMatch = listOf(HardcoverBookToMatch("b1", "Book", "Author", null, null)),
+                isMatchListKnown = true,
+            ),
+        ),
+        page(connectedWith(HardcoverHistory.Available(74))),
         page(
             HardcoverSettingsUiState.Connected(
                 username = "simon",

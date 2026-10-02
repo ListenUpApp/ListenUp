@@ -270,6 +270,32 @@ class HardcoverRepositoryImplTest :
                 dispatch.lastIdempotent shouldBe true
             }
         }
+
+        test("sending the earlier books reaches the server and is a safe blind retry") {
+            runTest {
+                val service = FakeHardcoverService()
+                val dispatch = IdempotenceRecordingDispatch<HardcoverService>(service)
+                val repository = HardcoverRepositoryImpl(RpcChannel(dispatch, RpcPolicy.Authed))
+
+                repository.sendHistory() shouldBe AppResult.Success(Unit)
+
+                service.sendHistoryCount shouldBe 1
+                dispatch.lastIdempotent shouldBe true
+            }
+        }
+
+        test("Not now, or dismissing the finished send, reaches the server and is a safe blind retry") {
+            runTest {
+                val service = FakeHardcoverService()
+                val dispatch = IdempotenceRecordingDispatch<HardcoverService>(service)
+                val repository = HardcoverRepositoryImpl(RpcChannel(dispatch, RpcPolicy.Authed))
+
+                repository.dismissHistory() shouldBe AppResult.Success(Unit)
+
+                service.dismissHistoryCount shouldBe 1
+                dispatch.lastIdempotent shouldBe true
+            }
+        }
     })
 
 /** In-memory [HardcoverService]: each subscribe pops the next scripted stream; unary calls return what they were given. */
@@ -300,6 +326,21 @@ private class FakeHardcoverService(
 
     override suspend fun setShareMode(mode: HardcoverShareMode): AppResult<Unit> {
         shareModes += mode
+        return AppResult.Success(Unit)
+    }
+
+    var sendHistoryCount = 0
+        private set
+    var dismissHistoryCount = 0
+        private set
+
+    override suspend fun sendHistory(): AppResult<Unit> {
+        sendHistoryCount++
+        return AppResult.Success(Unit)
+    }
+
+    override suspend fun dismissHistory(): AppResult<Unit> {
+        dismissHistoryCount++
         return AppResult.Success(Unit)
     }
 
