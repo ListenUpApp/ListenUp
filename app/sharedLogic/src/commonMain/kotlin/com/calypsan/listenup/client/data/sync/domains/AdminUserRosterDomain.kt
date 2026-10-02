@@ -38,7 +38,6 @@ internal class AdminUserRosterMirrorApply(
                 displayName = payload.displayName,
                 role = payload.role,
                 status = payload.status,
-                canShare = payload.canShare,
                 canEdit = payload.canEdit,
                 accountCreatedAt = payload.accountCreatedAt,
                 revision = payload.revision,

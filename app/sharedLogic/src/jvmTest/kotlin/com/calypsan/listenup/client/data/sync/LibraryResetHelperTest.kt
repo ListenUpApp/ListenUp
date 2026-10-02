@@ -468,7 +468,7 @@ class LibraryResetHelperTest :
                                         displayName = "n",
                                         role = "user",
                                         status = "active",
-                                        canShare = false,
+                                        canEdit = false,
                                         accountCreatedAt = 0L,
                                     ),
                                 )

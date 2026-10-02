@@ -12,8 +12,8 @@ import com.calypsan.listenup.api.dto.auth.UserPermissions as ContractUserPermiss
  * Pins that the contract user survives the trip into the domain model intact (#1270).
  *
  * The bug this exists to prevent is a silent one. The mapper used to reduce the contract user to
- * `isAdmin`, so `canEdit` and `canShare` never reached the domain model at all — while the server
- * went on enforcing both on every metadata mutation. Nothing threw, nothing logged, and no screen
+ * `isAdmin`, so `canEdit` never reached the domain model at all — while the server
+ * went on enforcing it on every metadata mutation. Nothing threw, nothing logged, and no screen
  * looked wrong; a member simply could not be given edit rights, and there was no way to tell from
  * the client that the flag existed.
  */
@@ -23,7 +23,6 @@ class ContractUserMapperTest :
         fun contractUser(
             role: UserRole = UserRole.MEMBER,
             canEdit: Boolean = true,
-            canShare: Boolean = true,
         ) = ContractUser(
             id = UserId("user-1"),
             email = "Reader@Example.com",
@@ -31,27 +30,26 @@ class ContractUserMapperTest :
             role = role,
             status = UserStatus.ACTIVE,
             createdAt = 1_000L,
-            permissions = ContractUserPermissions(canEdit = canEdit, canShare = canShare),
+            permissions = ContractUserPermissions(canEdit = canEdit),
         )
 
-        test("carries both permission flags across") {
-            val domain = contractUser(canEdit = false, canShare = true).toDomain()
+        test("carries the canEdit flag across") {
+            val domain = contractUser(canEdit = false).toDomain()
 
             domain.permissions.canEdit shouldBe false
-            domain.permissions.canShare shouldBe true
         }
 
         test("permissions are independent of the admin bit") {
-            // A member with edit rights and an admin without share rights are both representable.
+            // A member with edit rights and an admin without them are both representable.
             // Collapsing permissions into `isAdmin` — which is what the mapper used to do — makes
             // neither expressible.
             val editingMember = contractUser(role = UserRole.MEMBER, canEdit = true).toDomain()
             editingMember.isAdmin shouldBe false
             editingMember.permissions.canEdit shouldBe true
 
-            val restrictedAdmin = contractUser(role = UserRole.ADMIN, canShare = false).toDomain()
+            val restrictedAdmin = contractUser(role = UserRole.ADMIN, canEdit = false).toDomain()
             restrictedAdmin.isAdmin shouldBe true
-            restrictedAdmin.permissions.canShare shouldBe false
+            restrictedAdmin.permissions.canEdit shouldBe false
         }
 
         test("ROOT and ADMIN both map to isAdmin") {

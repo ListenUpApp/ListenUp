@@ -288,7 +288,6 @@ private fun rosterRowFixture(id: String): AdminUserRosterSyncPayload =
         displayName = "Newly Claimed",
         role = "MEMBER",
         status = "ACTIVE",
-        canShare = true,
         accountCreatedAt = 1_000L,
         revision = 0L,
         updatedAt = 0L,

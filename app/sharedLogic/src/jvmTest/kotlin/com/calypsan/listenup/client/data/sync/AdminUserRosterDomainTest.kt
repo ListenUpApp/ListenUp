@@ -35,7 +35,7 @@ class AdminUserRosterDomainTest :
                 row.displayName shouldBe "Test User"
                 row.role shouldBe "user"
                 row.status shouldBe "active"
-                row.canShare shouldBe true
+                row.canEdit shouldBe true
                 row.accountCreatedAt shouldBe 50L
                 row.revision shouldBe 1L
             }
@@ -47,7 +47,7 @@ class AdminUserRosterDomainTest :
 
                 handler
                     .onEvent(
-                        updated(payload("user-1", role = "admin", canShare = false, revision = 2L)),
+                        updated(payload("user-1", role = "admin", canEdit = false, revision = 2L)),
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 val row =
@@ -57,7 +57,7 @@ class AdminUserRosterDomainTest :
                         .first()
                         .first { it.id == "user-1" }
                 row.role shouldBe "admin"
-                row.canShare shouldBe false
+                row.canEdit shouldBe false
                 row.revision shouldBe 2L
             }
         }
@@ -195,7 +195,7 @@ private fun payload(
     id: String,
     role: String = "user",
     status: String = "active",
-    canShare: Boolean = true,
+    canEdit: Boolean = true,
     revision: Long = 1L,
     deletedAt: Long? = null,
 ) = AdminUserRosterSyncPayload(
@@ -204,7 +204,7 @@ private fun payload(
     displayName = "Test User",
     role = role,
     status = status,
-    canShare = canShare,
+    canEdit = canEdit,
     accountCreatedAt = 50L,
     revision = revision,
     updatedAt = 200L,

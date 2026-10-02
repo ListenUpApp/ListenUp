@@ -59,8 +59,6 @@ internal data class UserEntity(
      * `UserPermissions`, so a row written before the flags existed reads as it always behaved.
      */
     val canEdit: Boolean = true,
-    /** Whether this user may share a collection. Mirrors the contract `UserPermissions.canShare`. */
-    val canShare: Boolean = true,
 )
 
 /**

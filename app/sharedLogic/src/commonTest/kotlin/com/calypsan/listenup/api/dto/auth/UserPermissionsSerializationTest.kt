@@ -7,7 +7,7 @@ import io.kotest.matchers.shouldBe
 class UserPermissionsSerializationTest :
     FunSpec({
         test("UserPermissions defaults to all-true") {
-            UserPermissions() shouldBe UserPermissions(canEdit = true, canShare = true)
+            UserPermissions() shouldBe UserPermissions(canEdit = true)
         }
         test("User round-trips with permissions") {
             val user =
@@ -18,7 +18,7 @@ class UserPermissionsSerializationTest :
                     role = UserRole.MEMBER,
                     status = UserStatus.ACTIVE,
                     createdAt = 0L,
-                    permissions = UserPermissions(canEdit = false, canShare = true),
+                    permissions = UserPermissions(canEdit = false),
                 )
             val decoded = contractJson.decodeFromString<User>(contractJson.encodeToString(user))
             decoded shouldBe user

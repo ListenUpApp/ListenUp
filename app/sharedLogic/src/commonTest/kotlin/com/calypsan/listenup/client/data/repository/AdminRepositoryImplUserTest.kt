@@ -37,7 +37,7 @@ private fun testUser(
     role = role,
     status = status,
     createdAt = 1_000_000L,
-    permissions = UserPermissions(canEdit = true, canShare = true),
+    permissions = UserPermissions(canEdit = true),
 )
 
 private class FakeAdminUserService : AdminUserService {
@@ -222,12 +222,11 @@ class AdminRepositoryImplUserTest :
             service.deletedIds shouldBe listOf("u3")
         }
 
-        test("updateUser sets role + canShare, preserves canEdit, never sends displayName") {
+        test("updateUser sets role + canEdit, never sends displayName") {
             val service = FakeAdminUserService()
-            // Seed canEdit = false to prove it is preserved, not reset to the default true.
             service.seedUser(
                 testUser("u4", role = UserRole.MEMBER).copy(
-                    permissions = UserPermissions(canEdit = false, canShare = true),
+                    permissions = UserPermissions(canEdit = true),
                 ),
             )
             val repo = buildRepo(service)
@@ -238,7 +237,7 @@ class AdminRepositoryImplUserTest :
                     firstName = "Alice",
                     lastName = "Smith",
                     role = "ADMIN",
-                    canShare = false,
+                    canEdit = false,
                 )
 
             (result is AppResult.Success) shouldBe true
@@ -246,13 +245,28 @@ class AdminRepositoryImplUserTest :
             // displayName must NOT be sent — no contract field for first/last name
             patch?.displayName shouldBe null
             patch?.role shouldBe UserRole.ADMIN
-            patch?.permissions?.canShare shouldBe false
-            // canEdit preserved via read-before-write (server applies permissions wholesale)
             patch?.permissions?.canEdit shouldBe false
 
             val info = (result as AppResult.Success).data
             info.role shouldBe "ADMIN"
-            info.permissions.canShare shouldBe false
+            info.permissions.canEdit shouldBe false
+        }
+
+        test("updateUser without canEdit sends no permissions, so the server keeps canEdit as it is") {
+            val service = FakeAdminUserService()
+            // Seed canEdit = false to prove a role-only update never resets it to the default true.
+            service.seedUser(
+                testUser("u5", role = UserRole.MEMBER).copy(
+                    permissions = UserPermissions(canEdit = false),
+                ),
+            )
+            val repo = buildRepo(service)
+
+            val result = repo.updateUser(userId = "u5", role = "ADMIN")
+
+            (result is AppResult.Success) shouldBe true
+            service.lastPatch?.permissions shouldBe null
+            (result as AppResult.Success).data.permissions.canEdit shouldBe false
         }
 
         test("getRegistrationPolicy returns the full policy from the service") {
