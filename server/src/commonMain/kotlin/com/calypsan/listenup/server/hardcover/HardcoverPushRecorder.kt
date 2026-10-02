@@ -81,7 +81,8 @@ fun interface HardcoverPushNudge {
  *   listen-throughs) and hasn't finished; due no sooner than a sitting gap after the last progress
  *   push, and coalesced with any PROGRESS already queued.
  * - FINISH when a completion appended a read.
- * Nothing is queued for a user with no Hardcover connection row, or for a suppressed listen-through.
+ * Nothing is queued for a user with no Hardcover connection row, or for a suppressed listen-through — or for a
+ * book the listener keeps off Hardcover (#1541).
  *
  * The listener's [HardcoverShareMode] is enforced here, where a push is queued, so nothing private is
  * ever queued to leak out after a switch: Only when I finish queues no START and no PROGRESS, and FINISH
@@ -93,6 +94,7 @@ class HardcoverPushRecorder(
     private val connections: HardcoverConnectionStore,
     private val outbox: HardcoverOutbox,
     private val links: HardcoverBookLinkStore,
+    private val exclusions: HardcoverExclusions,
     private val nudge: HardcoverPushNudge,
     private val clock: Clock = Clock.System,
 ) : HardcoverPushHook {
@@ -103,6 +105,8 @@ class HardcoverPushRecorder(
         isReread: Boolean,
     ) {
         if (!connections.hasConnection(userId)) return
+        // Kept off Hardcover (#1541): nothing about this book is queued — not even a lifted suppression.
+        if (exclusions.isExcluded(userId, bookId)) return
         links.clearSuppressionUnlessFor(userId, bookId, startedAt)
         if (sql.hardcoverShareMode(userId) == HardcoverShareMode.FINISHED_ONLY) return
         if (links.linkFor(userId, bookId)?.suppressedListenThrough == startedAt) return
@@ -116,6 +120,8 @@ class HardcoverPushRecorder(
         positionMs: Long,
     ) {
         if (!connections.hasConnection(userId)) return
+        // Kept off Hardcover (#1541): nothing about this book is queued — not even a lifted suppression.
+        if (exclusions.isExcluded(userId, bookId)) return
         if (sql.hardcoverShareMode(userId) == HardcoverShareMode.FINISHED_ONLY) return
         val listenThrough = listenThroughTakingProgress(userId, bookId) ?: return
         val link = links.linkFor(userId, bookId)
@@ -132,6 +138,8 @@ class HardcoverPushRecorder(
         finishedAt: Long,
     ) {
         if (!connections.hasConnection(userId)) return
+        // Kept off Hardcover (#1541): nothing about this book is queued — not even a lifted suppression.
+        if (exclusions.isExcluded(userId, bookId)) return
         val listenThrough =
             suspendTransaction(
                 sql,

@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.hardcover
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverHistory
 import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.server.testing.MutableClock
@@ -79,6 +80,7 @@ private class WorkerRig(
             linker = linker,
             identities = HardcoverBookIdentities { identity },
             gate = gate,
+            exclusions = HardcoverExclusions(sql),
             clock = clock,
             history = progress,
         )
@@ -137,6 +139,38 @@ class HardcoverPushWorkerTest :
                 hardcover.operations shouldBe
                     listOf("edition_by_asin", "user_books", "insert_user_book", "user_books", "update_user_book_read")
                 connections.pushHealth(USER) shouldBe HardcoverPushHealth(lastSyncedAt = T0, pushError = null)
+            }
+        }
+
+        test("a row whose book was kept off after it was queued completes without a word to Hardcover, matching included") {
+            workerTest {
+                connect()
+                queueStart()
+                outbox.enqueueFinish(USER, BOOK, listenThrough = T0, finishedAt = T0 + 1_000L)
+                sql.seedExclusion(USER, BOOK, at = T0)
+
+                drain() shouldBe LaneStep.Stop
+
+                outbox.pendingFor(USER) shouldBe emptyList()
+                hardcover.operations shouldBe emptyList()
+                links.linkFor(USER, BOOK) shouldBe null
+                refreshes.get() shouldBe 0
+            }
+        }
+
+        test("a kept-off book's HISTORY row completes untouched and still settles the send") {
+            workerTest {
+                connect()
+                linkBook()
+                sql.seedOwnRead(USER, BOOK, "r1", finishedAt = T0 - 1_000L)
+                sender.send(USER) shouldBe AppResult.Success(Unit)
+                sql.seedExclusion(USER, BOOK, at = T0)
+
+                drain() shouldBe LaneStep.Stop
+
+                outbox.pendingFor(USER) shouldBe emptyList()
+                hardcover.operations shouldBe emptyList()
+                sql.hardcoverHistoryQueries.selectHistory(USER).executeAsOne().state shouldBe "DONE"
             }
         }
 

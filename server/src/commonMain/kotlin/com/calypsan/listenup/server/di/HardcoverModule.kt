@@ -11,6 +11,7 @@ import com.calypsan.listenup.server.hardcover.HardcoverBookLinking
 import com.calypsan.listenup.server.hardcover.HardcoverBookMatcher
 import com.calypsan.listenup.server.hardcover.HardcoverCatalogCache
 import com.calypsan.listenup.server.hardcover.HardcoverConnectionStore
+import com.calypsan.listenup.server.hardcover.HardcoverExclusions
 import com.calypsan.listenup.server.hardcover.HardcoverGraphQlClient
 import com.calypsan.listenup.server.hardcover.HardcoverHistoryProgress
 import com.calypsan.listenup.server.hardcover.HardcoverHistorySender
@@ -126,6 +127,7 @@ fun hardcoverModule(
         single { HardcoverBookMatcher(graphQl = get(), rateLimiter = get()) }
         single { HardcoverBookLinkStore(sql = get(), clock = get()) }
         single { HardcoverOutbox(sql = get(), clock = get()) }
+        single { HardcoverExclusions(sql = get()) }
         single<HardcoverBookIdentities> {
             val books = get<BookRepository>()
             HardcoverBookIdentities { bookId -> books.findById(BookId(bookId))?.toIdentity() }
@@ -137,6 +139,7 @@ fun hardcoverModule(
                 connections = get(),
                 outbox = get(),
                 links = get(),
+                exclusions = get(),
                 nudge = get(),
                 clock = get(),
             )
@@ -213,6 +216,7 @@ private fun Module.hardcoverPushLane() {
             linker = get(),
             identities = get(),
             gate = get(),
+            exclusions = get(),
             clock = get(),
             history = get(),
         )

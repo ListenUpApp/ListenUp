@@ -38,7 +38,8 @@ private val TOKEN_RETRY: Duration = 5.minutes
  * A lane that runs out of work retires; a nudge ([HardcoverPushRecorder], a manual link, a reconnect,
  * boot) starts it again. Lanes run in the scope passed to [start], cancelled at shutdown. Each step
  * holds the user's [HardcoverUserGate], which [HardcoverPullWorker] shares. After each HISTORY row (#1540)
- * it asks [HardcoverHistoryProgress] whether the listener's send is done.
+ * it asks [HardcoverHistoryProgress] whether the listener's send is done. A row whose book is kept off
+ * Hardcover (#1541) completes untouched.
  */
 class HardcoverPushWorker(
     private val outbox: HardcoverOutbox,
@@ -50,6 +51,7 @@ class HardcoverPushWorker(
     private val linker: HardcoverLinker,
     private val identities: HardcoverBookIdentities,
     private val gate: HardcoverUserGate,
+    private val exclusions: HardcoverExclusions,
     private val clock: Clock = Clock.System,
     private val history: HardcoverHistoryProgress? = null,
 ) : HardcoverPushNudge {
@@ -79,6 +81,7 @@ class HardcoverPushWorker(
         val now = now()
         gate.pausedUntil(userId)?.takeIf { it > now }?.let { return LaneStep.Sleep(it) }
         val row = outbox.head(userId) ?: return outbox.nextWakeAt(userId)?.let { LaneStep.Sleep(it) } ?: LaneStep.Stop
+        if (exclusions.isExcluded(userId, row.bookId)) return completeUntouched(row)
         val token =
             when (val lookup = tokens.accessToken(userId)) {
                 is TokenLookup.Valid -> lookup.accessToken
@@ -106,6 +109,17 @@ class HardcoverPushWorker(
                 onFailure(row, token, outcome.failure)
             }
         }
+    }
+
+    /**
+     * [row]'s book was kept off Hardcover after the row was queued (#1541). Keeping it off already drops its
+     * rows, so this is belt and braces: the row completes before any token, match or call — nothing reached
+     * Hardcover, so the connection is not marked synced. A HISTORY row may have been its send's last.
+     */
+    private suspend fun completeUntouched(row: HardcoverOutboxRow): LaneStep {
+        outbox.complete(row.id)
+        if (row.payload is HardcoverPushPayload.History) history?.settle(row.userId)
+        return LaneStep.Continue
     }
 
     /** The row's book has never been matched: match it now; the next step pushes (or parks) it. */
