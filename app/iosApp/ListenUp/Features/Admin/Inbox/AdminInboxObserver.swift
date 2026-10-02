@@ -125,6 +125,18 @@ struct AdminInboxReadyModel: Equatable {
             ? String(format: String(localized: "admin.inbox_released_count"), released)
             : String(format: String(localized: "admin.inbox_released_count_plural"), released)
     }
+
+    /// The confirmation to show on screen, or `nil` when the books leaving the list say it already.
+    /// A partial release is reported nowhere else — the shared error bus stays quiet so it is said
+    /// once — and the books that stayed held look like any other row, so it must be shown.
+    var partialReleaseNotice: String? {
+        lastUnreleasedCount > 0 ? releaseConfirmation : nil
+    }
+
+    /// The haptic a landed release plays: success when every book left, a warning when some stayed.
+    var releaseHaptic: Haptic {
+        lastUnreleasedCount > 0 ? .warning : .commit
+    }
 }
 
 // MARK: - Row model

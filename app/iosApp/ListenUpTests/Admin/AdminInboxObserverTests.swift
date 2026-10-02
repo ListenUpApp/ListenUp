@@ -123,6 +123,21 @@ struct AdminInboxReleaseConfirmationTests {
         let confirmation = model(released: 2, unreleased: 1).releaseConfirmation
         #expect(confirmation == "Released 2 of 3 books. 1 couldn't be released.")
     }
+
+    // The error bus stays quiet on a partial release, so the screen itself must show it to sighted
+    // users — the books that stayed held are otherwise indistinguishable from untouched ones.
+    @Test func aPartialReleaseIsShownOnScreenWithAWarning() {
+        let partial = model(released: 2, unreleased: 1)
+        #expect(partial.partialReleaseNotice == "Released 2 of 3 books. 1 couldn't be released.")
+        #expect(partial.releaseHaptic == .warning)
+    }
+
+    @Test func aFullReleaseNeedsNoNoticeAndFeelsLikeSuccess() {
+        let full = model(released: 3, unreleased: 0)
+        #expect(full.partialReleaseNotice == nil)
+        #expect(full.releaseHaptic == .commit)
+        #expect(model(released: nil, unreleased: 0).partialReleaseNotice == nil)
+    }
 }
 
 // MARK: - Row mapping
