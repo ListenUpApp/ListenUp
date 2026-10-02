@@ -31,7 +31,12 @@ import kotlin.uuid.Uuid
  *    skips anything strictly older, so a replayed frame or in-flight catch-up page carrying the
  *    tombstone the device last saw (at `R`) cannot hide the book again. The server's own write lands
  *    at a fresh global revision, strictly above `R`, so at least `R + 1`, and an equal revision
- *    applies — the echo always converges it.
+ *    applies — the echo always converges it. The cost: a row revived at `R + 1` can stay ahead of a
+ *    server that never rewrites it — an offline add that dead-letters after a remove, say. What the
+ *    device shows is still right, but its `collection_books` digest differs from the server's on
+ *    every connect and triggers a transient re-pull, until the server next writes that row. Keeping
+ *    `R` on revive would avoid that, but a replayed tombstone at `R` would then apply and bring back
+ *    the Stranded flicker this exists to prevent; the re-pull is the cheaper wrong.
  *  - a tombstoned All Books row **keeps** its revision `R`. Nothing reads All Books to call a book
  *    Restricted (that is decided by its normal membership), so getting ahead buys nothing — and it
  *    would cost everything if the server never makes the matching flip (a dead-lettered op, or a

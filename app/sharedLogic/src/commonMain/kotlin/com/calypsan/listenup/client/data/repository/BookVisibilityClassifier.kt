@@ -29,7 +29,10 @@ private const val ACTIVE = "ACTIVE"
  * book's collection set, the collection screen's add, remove and delete, an inbox release — ends with
  * [SystemMembershipReconciler], so a book left in no normal collection is re-homed into All Books in
  * the same transaction. It is left only for a book whose library's All Books has not
- * synced, or one the server itself left in no collection. Restricted is decided by "has a normal
+ * synced, one whose only membership is in a collection that has not synced yet (the holding read
+ * joins live collection rows, so an unknown collection holds nothing — privacy-safe by design: an
+ * admin is told the book is hidden rather than that everyone can see it), or one the server itself
+ * left in no collection. Restricted is decided by "has a normal
  * membership", never by "not in All Books", so the classification holds whatever order the server's
  * echo frames land in.
  */

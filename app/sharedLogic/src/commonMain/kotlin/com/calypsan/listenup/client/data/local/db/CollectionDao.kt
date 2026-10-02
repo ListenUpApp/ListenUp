@@ -275,6 +275,11 @@ internal interface CollectionBookDao {
      * [liveNormalCollectionIdsForBook], a membership whose collection row has not synced counts as
      * normal — nothing says it is a system one — so the reconcile errs towards keeping a book out of
      * All Books, never towards showing it to everyone.
+     *
+     * Unlike [liveNormalCollectionIdsForBook] this also filters `c.deletedAt IS NULL`. The difference
+     * is harmless: deleting a collection tombstones its memberships in the same transaction
+     * ([tombstoneAllForCollection]), so a live membership of a tombstoned collection is never
+     * observable to either read.
      */
     @Query(
         """
