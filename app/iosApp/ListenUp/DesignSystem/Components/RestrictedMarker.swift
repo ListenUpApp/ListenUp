@@ -16,7 +16,7 @@ struct RestrictedMarker: ViewModifier {
 
     func body(content: Content) -> some View {
         content.overlay(alignment: .topLeading) {
-            if !isHeld, restrictedBooks?.isRestricted(bookId) == true {
+            if Self.shows(isHeld: isHeld, isRestricted: restrictedBooks?.isRestricted(bookId) == true) {
                 Image(systemName: "lock.fill")
                     .font(.system(size: compact ? 9 : 11, weight: .semibold)) // decorative fixed size
                     .foregroundStyle(.primary)
@@ -27,6 +27,11 @@ struct RestrictedMarker: ViewModifier {
                     .accessibilityLabel(String(localized: "library.restricted_a11y"))
             }
         }
+    }
+
+    /// Held wins the corner: a held book never wears the lock, whatever its collections.
+    nonisolated static func shows(isHeld: Bool, isRestricted: Bool) -> Bool {
+        !isHeld && isRestricted
     }
 
     /// Clear of the 22pt selection circle and its padding (8 + 22 + 6).

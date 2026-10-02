@@ -9,6 +9,8 @@ struct SearchBookRow: View {
     let row: SearchRow
     let onTap: () -> Void
 
+    @Environment(\.restrictedBooks) private var restrictedBooks
+
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
@@ -23,6 +25,12 @@ struct SearchBookRow: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(
+            row.bookAccessibilityLabel(
+                byline: row.subtitle,
+                isRestricted: restrictedBooks?.isRestricted(row.id) == true
+            )
+        )
     }
 }
 

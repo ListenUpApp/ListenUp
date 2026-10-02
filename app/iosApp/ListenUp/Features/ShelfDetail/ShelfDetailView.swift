@@ -132,6 +132,8 @@ struct ShelfDetailView: View {
 private struct ShelfBookCoverCard: View {
     let book: ShelfBookRow
 
+    @Environment(\.restrictedBooks) private var restrictedBooks
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             BookCoverImage(bookId: book.id, coverPath: book.coverPath, coverHash: book.coverHash)
@@ -158,6 +160,16 @@ private struct ShelfBookCoverCard: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        // The lock sits on the cover, ahead of the title, so the card reads as one label that ends
+        // with why the lock is there (HIG, VoiceOver).
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            RestrictedMarker.label(
+                CoverAccessibility.label(title: book.title, author: book.authorNames.joined(separator: ", "))
+                    ?? book.title,
+                isRestricted: restrictedBooks?.isRestricted(book.id) == true
+            )
+        )
     }
 }
 

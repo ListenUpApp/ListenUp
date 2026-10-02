@@ -116,6 +116,8 @@ private struct SeeAllBookGrid: View {
 private struct SeeAllBookCard: View {
     let row: SearchRow
 
+    @Environment(\.restrictedBooks) private var restrictedBooks
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             BookCoverImage(bookId: row.id, coverPath: row.coverPath, coverHash: row.coverHash)
@@ -139,6 +141,10 @@ private struct SeeAllBookCard: View {
                     .lineLimit(1)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            row.bookAccessibilityLabel(byline: row.author, isRestricted: restrictedBooks?.isRestricted(row.id) == true)
+        )
     }
 }
 

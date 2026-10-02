@@ -50,7 +50,9 @@ struct RecentlyAddedCard: View {
             .contentShape(Rectangle())
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(RestrictedMarker.label(book.title, isRestricted: restrictedBooks?.isRestricted(book.id) == true))
+        .accessibilityLabel(
+            RestrictedMarker.label(book.title, isRestricted: restrictedBooks?.isRestricted(book.id) == true)
+        )
         .accessibilityValue(addedLabel)
     }
 }

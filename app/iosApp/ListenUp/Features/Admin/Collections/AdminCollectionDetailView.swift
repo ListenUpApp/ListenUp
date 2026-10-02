@@ -235,6 +235,12 @@ struct AdminCollectionDetailView: View {
                 .clipShape(RoundedRectangle(cornerRadius: Radius.s, style: .continuous))
                 .restrictedMarker(bookId: book.id)
                 .opacity(isRemoving ? 0.5 : 1)
+                // One element for cover + lock, its label already ending with why the lock is there,
+                // so VoiceOver never reads the lock a second time; the remove button stays its own.
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(
+                    RestrictedMarker.label(book.title, isRestricted: restrictedBooks?.isRestricted(book.id) == true)
+                )
 
             if isRemoving {
                 ProgressView()
@@ -253,7 +259,6 @@ struct AdminCollectionDetailView: View {
                 .padding(2)
             }
         }
-        .accessibilityLabel(RestrictedMarker.label(book.title, isRestricted: restrictedBooks?.isRestricted(book.id) == true))
     }
 
     // MARK: - Members section

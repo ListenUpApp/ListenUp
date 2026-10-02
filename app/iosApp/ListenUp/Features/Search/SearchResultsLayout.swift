@@ -140,6 +140,8 @@ struct SearchResultsPad: View {
 private struct SearchBookCard: View {
     let row: SearchRow
 
+    @Environment(\.restrictedBooks) private var restrictedBooks
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             BookCoverImage(bookId: row.id, coverPath: row.coverPath, coverHash: row.coverHash)
@@ -163,6 +165,10 @@ private struct SearchBookCard: View {
                     .lineLimit(1)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            row.bookAccessibilityLabel(byline: row.author, isRestricted: restrictedBooks?.isRestricted(row.id) == true)
+        )
     }
 }
 

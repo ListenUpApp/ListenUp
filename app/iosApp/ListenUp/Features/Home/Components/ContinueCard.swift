@@ -27,7 +27,10 @@ struct ContinueCard: View {
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel(
-                RestrictedMarker.label("\(item.title), \(item.author)", isRestricted: restrictedBooks?.isRestricted(item.id) == true)
+                RestrictedMarker.label(
+                    "\(item.title), \(item.author)",
+                    isRestricted: restrictedBooks?.isRestricted(item.id) == true
+                )
             )
             .accessibilityValue(String(format: String(localized: "home.progress_percent"), item.progressPercent))
             .accessibilityHint(String(localized: "home.opens_book"))
