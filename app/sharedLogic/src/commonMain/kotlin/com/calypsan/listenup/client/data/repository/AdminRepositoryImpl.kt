@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
+import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
 import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
@@ -237,6 +238,18 @@ internal class AdminRepositoryImpl(
         source: ExternalRatingSource,
         enabled: Boolean,
     ): AppResult<List<RatingSourceStatus>> = adminSettingsChannel.call { it.setRatingSourceEnabled(source, enabled) }
+
+    override suspend fun getHardcoverSource(): AppResult<HardcoverSourceStatus> =
+        adminSettingsChannel.call(idempotent = true) { it.getHardcoverSource() }
+
+    override suspend fun setHardcoverApiToken(token: String): AppResult<HardcoverSourceStatus> =
+        adminSettingsChannel.call { it.setHardcoverApiToken(token) }
+
+    override suspend fun clearHardcoverApiToken(): AppResult<HardcoverSourceStatus> =
+        adminSettingsChannel.call(idempotent = true) { it.clearHardcoverApiToken() }
+
+    override suspend fun setHardcoverMetadataEnabled(enabled: Boolean): AppResult<HardcoverSourceStatus> =
+        adminSettingsChannel.call(idempotent = true) { it.setHardcoverMetadataEnabled(enabled) }
 
     // ═══════════════════════════════════════════════════════════════════════
     // LIBRARY MANAGEMENT

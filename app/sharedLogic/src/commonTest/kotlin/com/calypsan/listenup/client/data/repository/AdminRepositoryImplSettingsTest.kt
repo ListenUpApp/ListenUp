@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.admin.AdminServerSettings
 import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
+import com.calypsan.listenup.api.dto.admin.HardcoverApiTokenStatus
 import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.error.TransportError
@@ -163,5 +164,26 @@ class AdminRepositoryImplSettingsTest :
             val result = repo(svc).setRatingSourceEnabled(ExternalRatingSource.AUDIBLE, false) as AppResult.Success
             result.data.single().enabled shouldBe false
             svc.ratingSources.single().enabled shouldBe false
+        }
+
+        test("the Hardcover source is read, and a token is sent exactly once and never comes back") {
+            val svc = FakeAdminSettingsService()
+            val repo = repo(svc)
+
+            (repo.getHardcoverSource() as AppResult.Success).data shouldBe HardcoverSourceStatus()
+            val saved = (repo.setHardcoverApiToken("hc_client_test_token") as AppResult.Success).data
+
+            svc.tokensSent shouldBe listOf("hc_client_test_token")
+            saved.apiToken shouldBe HardcoverApiTokenStatus.Saved("simon", 1L)
+            saved.toString().contains("hc_client_test_token") shouldBe false
+        }
+
+        test("removing the token and switching Hardcover metadata go to the server") {
+            val svc = FakeAdminSettingsService()
+            val repo = repo(svc)
+            repo.setHardcoverApiToken("hc_client_test_token")
+
+            (repo.clearHardcoverApiToken() as AppResult.Success).data.apiToken shouldBe HardcoverApiTokenStatus.NotSet
+            (repo.setHardcoverMetadataEnabled(false) as AppResult.Success).data.metadataEnabled shouldBe false
         }
     })

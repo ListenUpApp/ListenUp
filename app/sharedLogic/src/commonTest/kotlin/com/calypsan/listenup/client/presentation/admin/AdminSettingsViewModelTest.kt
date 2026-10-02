@@ -1,17 +1,24 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.api.dto.admin.HardcoverApiTokenStatus
+import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
+import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.ServerSettings
 import com.calypsan.listenup.client.domain.usecase.admin.LoadServerSettingsUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.UpdateServerSettingsUseCase
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
+import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
+import io.kotest.matchers.string.shouldNotContain
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -73,10 +80,12 @@ class AdminSettingsViewModelTest :
         fun createFixture(
             settings: ServerSettings = createServerSettings(),
             ratingSources: List<RatingSourceStatus> = emptyList(),
+            hardcoverSource: HardcoverSourceStatus = HardcoverSourceStatus(),
         ): TestFixture {
             val fixture = TestFixture()
             everySuspend { fixture.loadServerSettingsUseCase() } returns AppResult.Success(settings)
             everySuspend { fixture.loadServerSettingsUseCase.ratingSources() } returns AppResult.Success(ratingSources)
+            everySuspend { fixture.loadServerSettingsUseCase.hardcoverSource() } returns AppResult.Success(hardcoverSource)
             return fixture
         }
 
@@ -397,6 +406,126 @@ class AdminSettingsViewModelTest :
                 // The optimistic flip reverts to the server-confirmed list on failure.
                 ready.ratingSources shouldBe listOf(before)
                 (ready.error?.message?.contains("Forbidden") == true) shouldBe true
+            }
+        }
+
+        // ========== Admin → Hardcover (#1542) ==========
+
+        val savedToken = HardcoverSourceStatus(apiToken = HardcoverApiTokenStatus.Saved("simon", 1L))
+
+        test("the Hardcover section loads alongside the settings") {
+            runTest {
+                val fixture = createFixture(hardcoverSource = savedToken)
+
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                ready.hardcoverSource shouldBe savedToken
+                ready.hardcoverTokenSave shouldBe HardcoverTokenSave.Idle
+            }
+        }
+
+        test("saving a token is Busy while Hardcover checks it, then shows its owner — and the token is kept nowhere") {
+            runTest {
+                val fixture = createFixture()
+                val answer = CompletableDeferred<AppResult<HardcoverSourceStatus>>()
+                everySuspend { fixture.updateServerSettingsUseCase.setHardcoverApiToken("hc_vm_test_token") } calls { answer.await() }
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.saveHardcoverApiToken("hc_vm_test_token")
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>().hardcoverTokenSave shouldBe HardcoverTokenSave.Busy
+
+                answer.complete(AppResult.Success(savedToken))
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                ready.hardcoverSource shouldBe savedToken
+                ready.hardcoverTokenSave shouldBe HardcoverTokenSave.Idle
+                ready.toString() shouldNotContain "hc_vm_test_token"
+            }
+        }
+
+        test("a token Hardcover refuses is shown beside the field, and the section is unchanged") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.updateServerSettingsUseCase.setHardcoverApiToken(any()) } returns
+                    AppResult.Failure(HardcoverError.TokenRejected())
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.saveHardcoverApiToken("hc_wrong_test_token")
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                ready.hardcoverTokenSave shouldBe HardcoverTokenSave.Refused(HardcoverError.TokenRejected())
+                ready.hardcoverSource shouldBe HardcoverSourceStatus()
+                ready.error shouldBe null
+            }
+        }
+
+        test("editing the field again clears the refusal") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.updateServerSettingsUseCase.setHardcoverApiToken(any()) } returns
+                    AppResult.Failure(HardcoverError.TokenRejected())
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+                viewModel.saveHardcoverApiToken("hc_wrong_test_token")
+                advanceUntilIdle()
+
+                viewModel.clearHardcoverTokenError()
+
+                viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>().hardcoverTokenSave shouldBe HardcoverTokenSave.Idle
+            }
+        }
+
+        test("a blank token is never sent") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.saveHardcoverApiToken("   ")
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.not) { fixture.updateServerSettingsUseCase.setHardcoverApiToken(any()) }
+            }
+        }
+
+        test("Remove clears the token") {
+            runTest {
+                val fixture = createFixture(hardcoverSource = savedToken)
+                everySuspend { fixture.updateServerSettingsUseCase.clearHardcoverApiToken() } returns AppResult.Success(HardcoverSourceStatus())
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.removeHardcoverApiToken()
+                advanceUntilIdle()
+
+                viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>().hardcoverSource shouldBe HardcoverSourceStatus()
+            }
+        }
+
+        test("the metadata switch flips at once, and flips back when the server refuses") {
+            runTest {
+                val fixture = createFixture()
+                val answer = CompletableDeferred<AppResult<HardcoverSourceStatus>>()
+                everySuspend { fixture.updateServerSettingsUseCase.setHardcoverMetadataEnabled(false) } calls { answer.await() }
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.setHardcoverMetadataEnabled(false)
+                viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>().hardcoverSource?.metadataEnabled shouldBe false
+
+                answer.complete(AppResult.Failure(HardcoverError.Unavailable()))
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                ready.hardcoverSource?.metadataEnabled shouldBe true
+                ready.error shouldBe HardcoverError.Unavailable()
             }
         }
     })
