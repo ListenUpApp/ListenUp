@@ -18,6 +18,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
@@ -32,7 +33,6 @@ internal fun adminUser(
     role: String = "member",
     status: String = "active",
     canEdit: Boolean = true,
-    canShare: Boolean = true,
 ) = AdminUserInfo(
     id = id,
     email = email,
@@ -42,7 +42,7 @@ internal fun adminUser(
     isRoot = isRoot,
     role = role,
     status = status,
-    permissions = UserPermissions(canEdit = canEdit, canShare = canShare),
+    permissions = UserPermissions(canEdit = canEdit),
     createdAt = "2026-01-01T00:00:00Z",
 )
 
@@ -53,7 +53,6 @@ internal fun readyUser(
 ) = UserDetailUiState.Ready(
     user = user,
     canEdit = user.permissions.canEdit,
-    canShare = user.permissions.canShare,
     isProtected = user.isProtected,
     isSaving = isSaving,
     error = error,
@@ -130,14 +129,12 @@ class PeopleTest :
         fun userPage(
             state: UserDetailUiState,
             onToggleCanEdit: () -> Unit = {},
-            onToggleCanShare: () -> Unit = {},
             onOpenAdmin: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
                 UserDetailPage(
                     state = state,
                     onToggleCanEdit = onToggleCanEdit,
-                    onToggleCanShare = onToggleCanShare,
                     onOpenAdmin = onOpenAdmin,
                 )
             }
@@ -304,27 +301,26 @@ class PeopleTest :
             roleLabel(adminUser(role = "member")) shouldBe "Member"
         }
 
-        test("both permissions are switches, and each reports its own toggle") {
+        test("editing book details is the one permission switch, and there is no sharing control") {
+            // ⛔ "Can share" gated nothing once only admins could write collections, so it was
+            // removed: a switch that changes nothing is a lie on an admin page.
             var edits = 0
-            var shares = 0
             val host =
                 userPage(
-                    readyUser(adminUser(canEdit = true, canShare = false)),
+                    readyUser(adminUser(canEdit = false)),
                     onToggleCanEdit = { edits++ },
-                    onToggleCanShare = { shares++ },
                 )
 
             val switches = host.querySelectorAll(".sw-in").asList().filterIsInstance<HTMLInputElement>()
-            switches.size shouldBe 2
-            switches[0].hasAttribute("checked") shouldBe true
-            switches[1].hasAttribute("checked") shouldBe false
+            switches.size shouldBe 1
+            switches[0].hasAttribute("checked") shouldBe false
+            host.textContent.orEmpty() shouldContain "Can edit book details"
+            host.textContent.orEmpty() shouldNotContain "Can share"
 
             switches[0].click()
-            switches[1].click()
             awaitFrame()
 
             edits shouldBe 1
-            shares shouldBe 1
         }
 
         test("the owner's switches are genuinely disabled, and the page says why") {

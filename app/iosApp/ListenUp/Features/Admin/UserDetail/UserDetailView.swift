@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Admin → a user's detail: read-only identity plus the editable **Can Share** permission — the
-/// counterpart to Android's `UserDetailScreen`, and the only place an admin can grant/revoke a
-/// user's sharing right. Protected (root/self) users show the toggle disabled with an explanation.
+/// Admin → a user's detail: read-only identity plus the editable permissions (`UserDetailPermission`)
+/// — the counterpart to Android's `UserDetailScreen`, and the only place an admin can grant/revoke a
+/// user's right to edit book metadata. Protected (root/self) users show the toggles disabled with an
+/// explanation.
 struct UserDetailView: View {
     let userId: String
 
@@ -48,14 +49,18 @@ struct UserDetailView: View {
             }
 
             Section {
-                Toggle(
-                    String(localized: "admin.can_share"),
-                    isOn: Binding(
-                        get: { ready.canShare },
-                        set: { _ in observer?.toggleCanShare() }
-                    )
-                )
-                .disabled(ready.isProtected || ready.isSaving)
+                ForEach(UserDetailPermission.allCases) { permission in
+                    Toggle(
+                        isOn: Binding(
+                            get: { permission.isGranted(in: ready) },
+                            set: { _ in observer?.toggle(permission) }
+                        )
+                    ) {
+                        Text(permission.title)
+                        Text(permission.detail)
+                    }
+                    .disabled(ready.isProtected || ready.isSaving)
+                }
             } footer: {
                 if ready.isProtected {
                     Text(String(localized: "admin.this_users_permissions_cannot_be"))

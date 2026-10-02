@@ -1802,8 +1802,7 @@ private fun peopleShapes(): List<@Composable () -> Unit> {
             )
         }
 
-    fun member(state: UserDetailUiState): @Composable () -> Unit =
-        { UserDetailPage(state = state, onToggleCanEdit = {}, onToggleCanShare = {}, onOpenAdmin = {}) }
+    fun member(state: UserDetailUiState): @Composable () -> Unit = { UserDetailPage(state = state, onToggleCanEdit = {}, onOpenAdmin = {}) }
 
     return listOf(
         form(CreateInviteUiState.Ready()),

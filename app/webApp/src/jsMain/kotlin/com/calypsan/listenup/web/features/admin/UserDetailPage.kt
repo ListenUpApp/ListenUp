@@ -18,7 +18,7 @@ import org.jetbrains.compose.web.dom.Text
 /**
  * One member, and what they are allowed to do.
  *
- * ⛔ The permission switches are optimistic — the ViewModel flips them locally, saves, then
+ * ⛔ The permission switch is optimistic — the ViewModel flips it locally, saves, then
  * reconciles against what the server actually stored. So the switch answering instantly is
  * correct, and a switch that snaps back a moment later is the server disagreeing, not a glitch.
  */
@@ -26,7 +26,6 @@ import org.jetbrains.compose.web.dom.Text
 fun UserDetailPage(
     state: UserDetailUiState,
     onToggleCanEdit: () -> Unit,
-    onToggleCanShare: () -> Unit,
     onOpenAdmin: () -> Unit,
 ) {
     Div(attrs = { classes("usr") }) {
@@ -44,7 +43,7 @@ fun UserDetailPage(
             }
 
             is UserDetailUiState.Ready -> {
-                ReadyUser(state, onToggleCanEdit, onToggleCanShare)
+                ReadyUser(state, onToggleCanEdit)
             }
         }
     }
@@ -54,7 +53,6 @@ fun UserDetailPage(
 private fun ReadyUser(
     state: UserDetailUiState.Ready,
     onToggleCanEdit: () -> Unit,
-    onToggleCanShare: () -> Unit,
 ) {
     val user = state.user
     Div(attrs = { classes("usr-head") }) {
@@ -80,20 +78,12 @@ private fun ReadyUser(
                 Text("This is the server's owner. Their permissions can't be changed from here.")
             }
         }
-        // One enablement for both switches: they are the same permission round-trip, and the two
-        // reasons a switch is held still — the server will refuse it, or a save is already in
-        // flight — apply to each of them identically.
+        // Two reasons hold the switch still: the server will refuse it, or a save is already in flight.
         val live = !state.isProtected && !state.isSaving
         SwitchField(
             label = "Can edit book details",
             checked = state.canEdit,
             onChange = { onToggleCanEdit() },
-            enabled = live,
-        )
-        SwitchField(
-            label = "Can share with others",
-            checked = state.canShare,
-            onChange = { onToggleCanShare() },
             enabled = live,
         )
         state.error?.let { failure ->

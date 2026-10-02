@@ -57,7 +57,6 @@ fun fixedCreateInvite(
 class UserDetailSession(
     val state: StateFlow<UserDetailUiState>,
     val onToggleCanEdit: () -> Unit,
-    val onToggleCanShare: () -> Unit,
     val close: () -> Unit,
 )
 
@@ -77,7 +76,6 @@ fun graphUserDetail(koin: Koin): OpenUserDetail =
         UserDetailSession(
             state = viewModel.state,
             onToggleCanEdit = viewModel::toggleCanEdit,
-            onToggleCanShare = viewModel::toggleCanShare,
             close = store::clear,
         )
     }
@@ -86,7 +84,6 @@ fun graphUserDetail(koin: Koin): OpenUserDetail =
 fun fixedUserDetail(
     state: UserDetailUiState,
     onToggleCanEdit: () -> Unit = {},
-    onToggleCanShare: () -> Unit = {},
     onOpen: (String) -> Unit = {},
 ): OpenUserDetail =
     { userId ->
@@ -94,7 +91,6 @@ fun fixedUserDetail(
         UserDetailSession(
             state = MutableStateFlow(state),
             onToggleCanEdit = onToggleCanEdit,
-            onToggleCanShare = onToggleCanShare,
             close = {},
         )
     }

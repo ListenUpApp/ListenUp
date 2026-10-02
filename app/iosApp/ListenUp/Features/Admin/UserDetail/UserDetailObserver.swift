@@ -20,7 +20,11 @@ final class UserDetailObserver {
 
     // MARK: - Actions
 
-    func toggleCanShare() { viewModel.toggleCanShare() }
+    func toggle(_ permission: UserDetailPermission) {
+        switch permission {
+        case .canEdit: viewModel.toggleCanEdit()
+        }
+    }
     func clearError() { viewModel.clearError() }
 
     // MARK: - State mapping
@@ -46,13 +50,13 @@ enum UserDetailPhase {
     case error(String)
 }
 
-/// Native snapshot of the ready state — the user's display fields plus the editable Can Share
+/// Native snapshot of the ready state — the user's display fields plus the editable Can Edit
 /// permission and the `isProtected` guard that disables it for protected users.
 struct UserDetailReadyModel {
     let displayName: String
     let email: String
     let role: String
-    let canShare: Bool
+    let canEdit: Bool
     let isProtected: Bool
     let isSaving: Bool
     let error: String?
@@ -61,9 +65,36 @@ struct UserDetailReadyModel {
         self.displayName = ready.user.displayName ?? ready.user.email
         self.email = ready.user.email
         self.role = ready.user.role
-        self.canShare = ready.canShare
+        self.canEdit = ready.canEdit
         self.isProtected = ready.isProtected
         self.isSaving = ready.isSaving
         self.error = ready.error?.message
+    }
+}
+
+/// The permissions an admin can grant from a user's detail, in display order — the same set
+/// Android's `UserDetailScreen` and the web `UserDetailPage` offer. "Can share" is not here: it gated
+/// nothing once only admins could write collections, so it was removed on every platform.
+enum UserDetailPermission: CaseIterable, Identifiable {
+    case canEdit
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .canEdit: String(localized: "admin.can_edit")
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .canEdit: String(localized: "admin.allow_editing_content_metadata")
+        }
+    }
+
+    func isGranted(in ready: UserDetailReadyModel) -> Bool {
+        switch self {
+        case .canEdit: ready.canEdit
+        }
     }
 }

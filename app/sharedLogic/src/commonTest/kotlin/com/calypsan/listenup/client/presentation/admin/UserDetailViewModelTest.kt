@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.UserPermissions
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import dev.mokkery.answering.returns
+import dev.mokkery.answering.sequentiallyReturns
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode
@@ -31,7 +32,6 @@ class UserDetailViewModelTest :
             id: String = "user-1",
             email: String = "test@example.com",
             canEdit: Boolean = true,
-            canShare: Boolean = true,
         ) = AdminUserInfo(
             id = id,
             email = email,
@@ -41,7 +41,7 @@ class UserDetailViewModelTest :
             isRoot = false,
             role = "member",
             status = "active",
-            permissions = UserPermissions(canEdit = canEdit, canShare = canShare),
+            permissions = UserPermissions(canEdit = canEdit),
             createdAt = "2024-01-01T00:00:00Z",
         )
 
@@ -74,7 +74,7 @@ class UserDetailViewModelTest :
         test("loadUser transitions to Ready with user details") {
             runTest {
                 val adminRepository: AdminRepository = mock()
-                val user = createUser(canShare = false)
+                val user = createUser(canEdit = false)
                 everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(user)
 
                 val viewModel =
@@ -87,7 +87,7 @@ class UserDetailViewModelTest :
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<UserDetailUiState.Ready>()
                 ready.user shouldBe user
-                ready.canShare shouldBe false
+                ready.canEdit shouldBe false
             }
         }
 
@@ -108,41 +108,6 @@ class UserDetailViewModelTest :
             }
         }
 
-        test("toggleCanShare updates state and saves") {
-            runTest {
-                val adminRepository: AdminRepository = mock()
-                val user = createUser(canShare = true)
-                val updatedUser =
-                    user.copy(
-                        permissions = UserPermissions(canShare = false),
-                    )
-                everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(user)
-                everySuspend {
-                    adminRepository.updateUser(
-                        userId = "user-1",
-                        canShare = false,
-                    )
-                } returns AppResult.Success(updatedUser)
-
-                val viewModel =
-                    UserDetailViewModel(
-                        userId = "user-1",
-                        adminRepository = adminRepository,
-                        errorBus = ErrorBus(),
-                    )
-                advanceUntilIdle()
-
-                viewModel.toggleCanShare()
-                advanceUntilIdle()
-
-                val ready = viewModel.state.value.shouldBeInstanceOf<UserDetailUiState.Ready>()
-                ready.canShare shouldBe false
-                verifySuspend(VerifyMode.atLeast(1)) {
-                    adminRepository.updateUser(userId = "user-1", canShare = false)
-                }
-            }
-        }
-
         test("toggleCanEdit updates state and saves") {
             // The permission that had no UI at all until #1270: UserPermissionPolicy has gated
             // every metadata mutation on canEdit since V26, but ContractUserMapper dropped the flag
@@ -150,7 +115,7 @@ class UserDetailViewModelTest :
             runTest {
                 val adminRepository: AdminRepository = mock()
                 val user = createUser(canEdit = false)
-                val updatedUser = user.copy(permissions = UserPermissions(canEdit = true, canShare = true))
+                val updatedUser = user.copy(permissions = UserPermissions(canEdit = true))
                 everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(user)
                 everySuspend {
                     adminRepository.updateUser(userId = "user-1", canEdit = true)
@@ -208,46 +173,19 @@ class UserDetailViewModelTest :
             }
         }
 
-        test("toggling one permission leaves the other untouched") {
-            // The server applies AdminUserPatch.permissions wholesale, so the repository reads the
-            // user back to carry the flag that is not moving. This pins the ViewModel half of that
-            // contract: a canShare toggle must not disturb the canEdit the screen is showing.
-            runTest {
-                val adminRepository: AdminRepository = mock()
-                val user = createUser(canEdit = false, canShare = true)
-                everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(user)
-                everySuspend { adminRepository.updateUser(userId = "user-1", canShare = false) } returns
-                    AppResult.Success(user.copy(permissions = UserPermissions(canEdit = false, canShare = false)))
-
-                val viewModel =
-                    UserDetailViewModel(
-                        userId = "user-1",
-                        adminRepository = adminRepository,
-                        errorBus = ErrorBus(),
-                    )
-                advanceUntilIdle()
-
-                viewModel.toggleCanShare()
-                advanceUntilIdle()
-
-                val ready = viewModel.state.value.shouldBeInstanceOf<UserDetailUiState.Ready>()
-                ready.canShare shouldBe false
-                ready.canEdit shouldBe false
-            }
-        }
-
         test("a successful save clears the error a failed one left behind") {
             // Web shows Ready.error inline and has no snackbar to acknowledge it, so nothing ever
             // called clearError: a failed toggle's alert stayed on screen after the next toggle
             // saved. The error describes the last save; once a save succeeds it is no longer true.
             runTest {
                 val adminRepository: AdminRepository = mock()
-                val user = createUser(canEdit = false, canShare = true)
+                val user = createUser(canEdit = false)
                 everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(user)
-                everySuspend { adminRepository.updateUser(userId = "user-1", canEdit = true) } returns
-                    networkFailure()
-                everySuspend { adminRepository.updateUser(userId = "user-1", canShare = false) } returns
-                    AppResult.Success(user.copy(permissions = UserPermissions(canEdit = false, canShare = false)))
+                everySuspend { adminRepository.updateUser(userId = "user-1", canEdit = true) } sequentiallyReturns
+                    listOf(
+                        networkFailure(),
+                        AppResult.Success(user.copy(permissions = UserPermissions(canEdit = true))),
+                    )
 
                 val viewModel =
                     UserDetailViewModel(
@@ -265,11 +203,11 @@ class UserDetailViewModelTest :
                         .error != null
                 ) shouldBe true
 
-                viewModel.toggleCanShare()
+                viewModel.toggleCanEdit()
                 advanceUntilIdle()
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<UserDetailUiState.Ready>()
-                ready.canShare shouldBe false
+                ready.canEdit shouldBe true
                 ready.error shouldBe null
             }
         }
@@ -279,12 +217,12 @@ class UserDetailViewModelTest :
                 // Load succeeds so VM reaches Ready; then a toggle failure surfaces a
                 // transient error on Ready that clearError resets.
                 val adminRepository: AdminRepository = mock()
-                val user = createUser(canShare = true)
+                val user = createUser(canEdit = true)
                 everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(user)
                 everySuspend {
                     adminRepository.updateUser(
                         userId = "user-1",
-                        canShare = false,
+                        canEdit = false,
                     )
                 } returns networkFailure()
 
@@ -296,7 +234,7 @@ class UserDetailViewModelTest :
                     )
                 advanceUntilIdle()
 
-                viewModel.toggleCanShare()
+                viewModel.toggleCanEdit()
                 advanceUntilIdle()
 
                 val readyWithError = viewModel.state.value.shouldBeInstanceOf<UserDetailUiState.Ready>()
@@ -322,7 +260,7 @@ class UserDetailViewModelTest :
                         isRoot = true,
                         role = "admin",
                         status = "active",
-                        permissions = UserPermissions(canShare = true),
+                        permissions = UserPermissions(canEdit = true),
                         createdAt = "2024-01-01T00:00:00Z",
                     )
                 everySuspend { adminRepository.getUser("root-1") } returns AppResult.Success(rootUser)

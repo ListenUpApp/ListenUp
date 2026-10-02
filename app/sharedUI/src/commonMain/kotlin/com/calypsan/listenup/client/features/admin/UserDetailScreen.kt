@@ -21,7 +21,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Card
@@ -55,10 +54,8 @@ import com.calypsan.listenup.client.presentation.admin.UserDetailViewModel
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.error.localizedString
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.admin_allow_sharing_collections_with_other
 import listenup.composeapp.generated.resources.admin_allow_editing_content_metadata
 import listenup.composeapp.generated.resources.admin_can_edit
-import listenup.composeapp.generated.resources.admin_can_share
 import listenup.composeapp.generated.resources.admin_protected_user
 import listenup.composeapp.generated.resources.admin_this_users_permissions_cannot_be
 import listenup.composeapp.generated.resources.common_display_name
@@ -74,7 +71,7 @@ import com.calypsan.listenup.client.design.theme.HeroInk
  *
  * Features:
  * - View user information (name, email, role)
- * - Toggle the canEdit and canShare permissions
+ * - Toggle the canEdit permission
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -110,7 +107,6 @@ fun UserDetailScreen(
             state = state,
             innerPadding = innerPadding,
             onToggleCanEdit = viewModel::toggleCanEdit,
-            onToggleCanShare = viewModel::toggleCanShare,
         )
     }
 }
@@ -120,7 +116,6 @@ private fun UserDetailBody(
     state: UserDetailUiState,
     innerPadding: PaddingValues,
     onToggleCanEdit: () -> Unit,
-    onToggleCanShare: () -> Unit,
 ) {
     when (state) {
         is UserDetailUiState.Loading -> {
@@ -147,7 +142,6 @@ private fun UserDetailBody(
             UserDetailContent(
                 state = state,
                 onToggleCanEdit = onToggleCanEdit,
-                onToggleCanShare = onToggleCanShare,
                 modifier = Modifier.padding(innerPadding),
             )
         }
@@ -163,7 +157,6 @@ private fun UserDetailBody(
 internal fun UserDetailContent(
     state: UserDetailUiState.Ready,
     onToggleCanEdit: () -> Unit,
-    onToggleCanShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val isWide =
@@ -190,7 +183,6 @@ internal fun UserDetailContent(
                     PermissionsSection(
                         state = state,
                         onToggleCanEdit = onToggleCanEdit,
-                        onToggleCanShare = onToggleCanShare,
                     )
                 }
             }
@@ -224,7 +216,6 @@ internal fun UserDetailContent(
                 PermissionsSection(
                     state = state,
                     onToggleCanEdit = onToggleCanEdit,
-                    onToggleCanShare = onToggleCanShare,
                 )
             }
 
@@ -253,16 +244,13 @@ private fun SectionHeading(
 private fun PermissionsSection(
     state: UserDetailUiState.Ready,
     onToggleCanEdit: () -> Unit,
-    onToggleCanShare: () -> Unit,
 ) {
     Column {
         PermissionsCard(
             canEdit = state.canEdit,
-            canShare = state.canShare,
             isProtected = state.isProtected,
             isSaving = state.isSaving,
             onToggleCanEdit = onToggleCanEdit,
-            onToggleCanShare = onToggleCanShare,
         )
         if (state.isProtected) {
             Spacer(modifier = Modifier.height(16.dp))
@@ -390,11 +378,9 @@ private fun UserInfoCard(
 @Composable
 private fun PermissionsCard(
     canEdit: Boolean,
-    canShare: Boolean,
     isProtected: Boolean,
     isSaving: Boolean,
     onToggleCanEdit: () -> Unit,
-    onToggleCanShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     SegmentedGroup(modifier = modifier) {
@@ -409,21 +395,12 @@ private fun PermissionsCard(
             isSaving = isSaving,
             onToggle = onToggleCanEdit,
         )
-        PermissionRow(
-            icon = Icons.Outlined.Share,
-            title = stringResource(Res.string.admin_can_share),
-            subtitle = stringResource(Res.string.admin_allow_sharing_collections_with_other),
-            checked = canShare,
-            isProtected = isProtected,
-            isSaving = isSaving,
-            onToggle = onToggleCanShare,
-        )
     }
 }
 
 /**
- * One permission switch. Both flags present identically, and #1270 added the second — a copied row
- * would be a second place for the protected-user guard and the saving overlay to drift.
+ * One permission switch: the protected-user guard and the saving overlay live here, not at the call
+ * site.
  */
 @Composable
 private fun PermissionRow(
