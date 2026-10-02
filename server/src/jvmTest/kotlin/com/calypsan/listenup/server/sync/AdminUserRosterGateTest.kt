@@ -74,7 +74,6 @@ private fun rosterRowFixture(id: String): AdminUserRosterSyncPayload =
         displayName = "Roster Fixture",
         role = "MEMBER",
         status = "ACTIVE",
-        canShare = true,
         accountCreatedAt = 1_000L,
         revision = 0L,
         updatedAt = 0L,

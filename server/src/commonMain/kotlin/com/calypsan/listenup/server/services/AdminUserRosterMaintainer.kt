@@ -39,7 +39,6 @@ class AdminUserRosterMaintainer(
                 displayName = row.display_name,
                 role = row.role,
                 status = row.status,
-                canShare = row.can_share == 1L,
                 canEdit = row.can_edit == 1L,
                 accountCreatedAt = row.created_at,
                 revision = 0,

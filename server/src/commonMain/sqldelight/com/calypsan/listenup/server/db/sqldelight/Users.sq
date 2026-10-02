@@ -10,6 +10,7 @@
 --   V29__user_profile_fields.sql     (tagline, avatar_type DEFAULT 'auto')
 --   V37__users_timezone.sql          (timezone DEFAULT 'UTC')
 --   V80__hardcover_want_to_read.sql  (starter_shelf_id, hardcover_shelf_id — where Hardcover's Want to Read lands)
+--   V82__drop_can_share.sql          (drops V26's can_share — the inert "Can share" permission)
 --
 -- SECURITY-RELEVANT CONSTRAINTS preserved verbatim:
 --   * email_normalized UNIQUE — the single structural guarantee that one email maps to one
@@ -20,7 +21,7 @@
 --   * password_hash holds the Argon2id PHC string verbatim — read and written as an opaque
 --     TEXT blob, never re-derived.
 --
--- can_edit / can_share are INTEGER 0/1 (SQLite BOOLEAN affinity); the Exposed table mapped
+-- can_edit is INTEGER 0/1 (SQLite BOOLEAN affinity); the Exposed table mapped
 -- them to `bool`. The repo maps 0/1 ↔ Boolean at the boundary, the same place the Exposed
 -- bool adapter sat. FK declarations are not applicable (users is the root identity table).
 CREATE TABLE users (
@@ -35,7 +36,6 @@ CREATE TABLE users (
     updated_at       INTEGER NOT NULL,
     last_login_at    INTEGER,
     can_edit         INTEGER NOT NULL DEFAULT 1,
-    can_share        INTEGER NOT NULL DEFAULT 1,
     approved_by      TEXT,
     approved_at      INTEGER,
     deleted_at       INTEGER,
@@ -90,10 +90,10 @@ SELECT role FROM users WHERE id = :id AND deleted_at IS NULL;
 selectFirstByRole:
 SELECT id FROM users WHERE role = :role LIMIT 1;
 
--- Permission flags for a LIVE (non-tombstoned) user — the per-operation canEdit/canShare gate
+-- Permission flags for a LIVE (non-tombstoned) user — the per-operation canEdit gate
 -- (UserPermissionPolicy). A tombstoned or absent user yields no row → denied.
 selectPermissionsLiveById:
-SELECT can_edit, can_share FROM users WHERE id = :id AND deleted_at IS NULL;
+SELECT can_edit FROM users WHERE id = :id AND deleted_at IS NULL;
 
 -- IANA timezone name for stats day-boundary math (homeTimeZone). Absent row → caller defaults UTC.
 selectTimezoneById:
@@ -123,12 +123,12 @@ SELECT id FROM users WHERE id IN :ids AND deleted_at IS NULL;
 insert:
 INSERT INTO users (
     id, email, email_normalized, password_hash, role, display_name, status,
-    created_at, updated_at, last_login_at, can_edit, can_share, approved_by, approved_at,
+    created_at, updated_at, last_login_at, can_edit, approved_by, approved_at,
     deleted_at, invited_by, tagline, avatar_type, timezone
 )
 VALUES (
     :id, :email, :email_normalized, :password_hash, :role, :display_name, :status,
-    :created_at, :updated_at, :last_login_at, :can_edit, :can_share, :approved_by, :approved_at,
+    :created_at, :updated_at, :last_login_at, :can_edit, :approved_by, :approved_at,
     :deleted_at, :invited_by, :tagline, :avatar_type, :timezone
 );
 
@@ -187,7 +187,7 @@ SELECT * FROM users WHERE deleted_at IS NULL AND status = 'PENDING_APPROVAL';
 -- any status, since the roster covers ACTIVE and PENDING_APPROVAL alike. A tombstoned or
 -- absent user yields no row and the projection refresh no-ops, matching selectIdentityLiveById.
 selectRosterRowById:
-SELECT email, display_name, role, status, can_share, can_edit, created_at FROM users WHERE id = :id AND deleted_at IS NULL;
+SELECT email, display_name, role, status, can_edit, created_at FROM users WHERE id = :id AND deleted_at IS NULL;
 
 -- Ids of every LIVE (non-tombstoned) ACTIVE or PENDING_APPROVAL user — drives the one-time
 -- admin_user_roster backfill (AdminUserRosterMaintainer.backfillAll).
@@ -210,7 +210,7 @@ WHERE deleted_at IS NULL AND status = 'ACTIVE' AND role IN ('ROOT', 'ADMIN');
 -- The service reads the row, validates the safety rails, then writes the merged values.
 updateAdminFields:
 UPDATE users
-SET display_name = :display_name, role = :role, can_edit = :can_edit, can_share = :can_share,
+SET display_name = :display_name, role = :role, can_edit = :can_edit,
     updated_at = :updated_at
 WHERE id = :id;
 
@@ -220,10 +220,10 @@ UPDATE users
 SET status = :status, updated_at = :updated_at, approved_by = :approved_by, approved_at = :approved_at
 WHERE id = :id;
 
--- Minimal permission revocation: flips only can_edit and can_share without touching other fields.
+-- Minimal permission revocation: flips only can_edit without touching other fields.
 -- Used by UserDomainSeeder to establish the restricted-member demo account.
 updatePermissions:
-UPDATE users SET can_edit = :can_edit, can_share = :can_share WHERE id = :id;
+UPDATE users SET can_edit = :can_edit WHERE id = :id;
 
 -- Flip avatar_type to 'image', stamp avatar_updated_at + updated_at after a successful avatar upload (ProfileRoutes).
 updateAvatarType:

@@ -444,13 +444,13 @@ class CollectionServiceImplTest :
             }
         }
 
-        test("shareCollection by a member who owns a legacy collection is Forbidden, canShare notwithstanding") {
+        test("shareCollection by a member who owns a legacy collection is Forbidden") {
             withSqlDatabase {
                 val db = this
                 sql.seedTestLibraryAndFolder()
-                // u1 is a member who still holds canShare and owns a collection from before the
+                // u1 is a member who owns a collection from before the
                 // admin-only rule. Only admins write collections, so sharing is refused outright.
-                sql.seedTestUser("u1", UserRoleColumn.MEMBER, canShare = true)
+                sql.seedTestUser("u1", UserRoleColumn.MEMBER)
                 sql.seedTestUser("u2")
                 runTest {
                     db.newCollectionRepo(ChangeBus(), SyncRegistry()).upsert(

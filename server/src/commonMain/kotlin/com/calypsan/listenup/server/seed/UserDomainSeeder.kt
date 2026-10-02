@@ -13,9 +13,9 @@ private val logger = loggerFor<UserDomainSeeder>()
  * Seeds the demo profile's users — known accounts so a developer running the demo
  * server can log straight in and exercise the multi-user surface:
  *  - a ROOT user via [AuthServiceImpl.setupRoot] (the real auth write-path);
- *  - a normal MEMBER via [AuthServiceImpl.register] (full `canEdit`/`canShare`);
- *  - a permission-restricted MEMBER with `canEdit`/`canShare` revoked, so the gated
- *    surfaces (book edits, collection sharing) have an obvious deny case to demo.
+ *  - a normal MEMBER via [AuthServiceImpl.register] (full `canEdit`);
+ *  - a permission-restricted MEMBER with `canEdit` revoked, so the gated
+ *    surface (book edits) has an obvious deny case to demo.
  *
  * Members register under the OPEN policy the demo profile runs with, so they land
  * ACTIVE. The restricted member's flags are revoked with a direct [updatePermissions]
@@ -81,7 +81,7 @@ class UserDomainSeeder(
             }
         val id = idOrNull ?: return
         suspendTransaction(sql) {
-            sql.usersQueries.updatePermissions(can_edit = 0L, can_share = 0L, id = id)
+            sql.usersQueries.updatePermissions(can_edit = 0L, id = id)
         }
     }
 

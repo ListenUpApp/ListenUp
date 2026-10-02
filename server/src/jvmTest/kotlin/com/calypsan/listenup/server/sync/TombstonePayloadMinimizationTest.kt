@@ -308,7 +308,6 @@ class TombstonePayloadMinimizationTest :
                             displayName = "Secret Person",
                             role = "MEMBER",
                             status = "ACTIVE",
-                            canShare = true,
                             accountCreatedAt = 123L,
                             revision = 0L,
                             updatedAt = 0L,

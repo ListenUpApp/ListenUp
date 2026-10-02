@@ -9,10 +9,8 @@ import kotlinx.serialization.Serializable
  * field (defaulting to the permissive value) plus a column to extend the permission set.
  *
  * @property canEdit may edit book content metadata (title, genres, contributors, series).
- * @property canShare may create collection shares.
  */
 @Serializable
 data class UserPermissions(
     @SerialName("canEdit") val canEdit: Boolean = true,
-    @SerialName("canShare") val canShare: Boolean = true,
 )

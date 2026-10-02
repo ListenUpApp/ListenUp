@@ -14,7 +14,6 @@ private fun row(id: String) =
         displayName = "Alice",
         role = "MEMBER",
         status = "ACTIVE",
-        canShare = true,
         accountCreatedAt = 1_000L,
         revision = 0,
         updatedAt = 0,

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.api.sync
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -7,7 +9,14 @@ import kotlinx.serialization.Serializable
  * Wire payload for the admin-only `admin_user_roster` sync domain — one row per ACTIVE or
  * PENDING_APPROVAL user, carrying exactly the fields the admin Users/pending lists render.
  * Delivery is gated to admins on the firehose (see SyncRoutes); non-admins never receive it.
+ *
+ * @property canShare **Deprecated compat shim — always `true`, ignored by every client.** The
+ *   "Can share" permission was removed; this field survives only because admin apps built before
+ *   the removal decode it as required, and a payload missing it would freeze their roster sync.
+ *   It is always encoded (`contractJson` skips defaults otherwise). Remove it in a later release,
+ *   once un-updated admin clients have aged out.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @SerialName("AdminUserRosterSyncPayload")
 data class AdminUserRosterSyncPayload(
@@ -16,7 +25,7 @@ data class AdminUserRosterSyncPayload(
     val displayName: String,
     val role: String,
     val status: String,
-    val canShare: Boolean,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS) val canShare: Boolean = true,
     val canEdit: Boolean = true,
     val accountCreatedAt: Long,
     override val revision: Long,

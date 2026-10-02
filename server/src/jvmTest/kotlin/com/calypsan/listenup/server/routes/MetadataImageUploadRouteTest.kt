@@ -162,7 +162,7 @@ class MetadataImageUploadRouteTest :
                     val rootToken = mintRootToken()
                     val (memberToken, memberId) = registerMember("member@x")
                     authedService<AdminUserService>(rootToken)
-                        .updateUser(UserId(memberId), AdminUserPatch(permissions = UserPermissions(canEdit = false, canShare = true)))
+                        .updateUser(UserId(memberId), AdminUserPatch(permissions = UserPermissions(canEdit = false)))
 
                     val contributorRepo by application.inject<ContributorRepository>()
                     val id = contributorRepo.resolveOrCreate("Denied Author", sortName = null)
@@ -299,7 +299,7 @@ class MetadataImageUploadRouteTest :
                     val rootToken = mintRootToken()
                     val (memberToken, memberId) = registerMember("orphan-member@x")
                     authedService<AdminUserService>(rootToken)
-                        .updateUser(UserId(memberId), AdminUserPatch(permissions = UserPermissions(canEdit = false, canShare = true)))
+                        .updateUser(UserId(memberId), AdminUserPatch(permissions = UserPermissions(canEdit = false)))
 
                     val contributorRepo by application.inject<ContributorRepository>()
                     val id = contributorRepo.resolveOrCreate("Orphan Author", sortName = null)

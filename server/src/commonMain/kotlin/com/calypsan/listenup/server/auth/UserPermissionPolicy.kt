@@ -5,15 +5,14 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import com.calypsan.listenup.server.db.sqldelight.SelectPermissionsLiveById
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 
 /**
- * Per-operation permission gate for the per-user `canEdit`/`canShare` flags.
+ * Per-operation permission gate for the per-user `canEdit` flag.
  *
  * ROOT and ADMIN implicitly hold every permission — they pass without a DB hit, so an
- * admin can never be locked out of a metadata edit or a share. A MEMBER passes iff the
- * specific flag is set on a *live* (non-soft-deleted) row; a missing or tombstoned user
+ * admin can never be locked out of a metadata edit. A MEMBER passes iff the
+ * flag is set on a *live* (non-soft-deleted) row; a missing or tombstoned user
  * is denied.
  *
  * The check is a fresh DB lookup per call rather than reading the flags off the cached
@@ -33,18 +32,6 @@ class UserPermissionPolicy(
     suspend fun requireCanEdit(
         userId: UserId,
         role: UserRole,
-    ): AppError? = require(userId, role) { it.can_edit != 0L }
-
-    /** Null when [userId]/[role] may share a collection; [AuthError.PermissionDenied] otherwise. */
-    suspend fun requireCanShare(
-        userId: UserId,
-        role: UserRole,
-    ): AppError? = require(userId, role) { it.can_share != 0L }
-
-    private suspend fun require(
-        userId: UserId,
-        role: UserRole,
-        flag: (SelectPermissionsLiveById) -> Boolean,
     ): AppError? {
         if (role == UserRole.ROOT || role == UserRole.ADMIN) return null
         // selectPermissionsLiveById already filters deleted_at IS NULL, so a tombstoned or absent
@@ -54,7 +41,7 @@ class UserPermissionPolicy(
                 db.usersQueries
                     .selectPermissionsLiveById(id = userId.value)
                     .executeAsOneOrNull()
-                    ?.let(flag) ?: false
+                    ?.let { canEdit -> canEdit != 0L } ?: false
             }
         return if (granted) null else AuthError.PermissionDenied()
     }
