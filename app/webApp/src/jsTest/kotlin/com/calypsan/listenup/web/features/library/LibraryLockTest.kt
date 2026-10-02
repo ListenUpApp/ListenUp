@@ -3,8 +3,11 @@ package com.calypsan.listenup.web.features.library
 import androidx.compose.runtime.CompositionLocalProvider
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.design.LocalRestrictedBookIds
+import com.calypsan.listenup.web.design.shouldSitInsideTopLeftOf
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import kotlinx.browser.document
+import kotlinx.browser.window
 import org.w3c.dom.HTMLElement
 
 /**
@@ -36,11 +39,17 @@ class LibraryLockTest :
             (card(emptySet()).querySelector(".lu-lock") == null) shouldBe true
         }
 
-        test("the lock does not change the card's height") {
-            card(setOf("b1")).offsetHeight shouldBe card(emptySet()).offsetHeight
+        // Absolute is what keeps the card's height: the virtualised grid's row arithmetic assumes
+        // every card is the same height, and an in-flow lock would add its own to one of them.
+        test("the lock is absolute, inside the cover at its top-left corner") {
+            val card = card(setOf("b1"))
+            val lock = card.querySelector(".lu-lock") as HTMLElement
+            window.getComputedStyle(lock).position shouldBe "absolute"
+            lock.shouldSitInsideTopLeftOf(card.querySelector(".lib-cover") as HTMLElement)
         }
 
         test("while selecting, the lock steps clear of the tick") {
             (card(setOf("b1"), selecting = true).querySelector(".lu-lock.shifted") != null) shouldBe true
         }
+
     })

@@ -13,6 +13,7 @@ import io.kotest.matchers.string.shouldContain
 import org.w3c.dom.EventInit
 import kotlinx.browser.window
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.asList
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.EventTarget
@@ -397,6 +398,10 @@ class SearchPageTest :
                         SearchRow(hit = bookHit("b2", "Ubik").copy(isHeld = true), isOpenable = true, onOpen = {})
                     }
                 }
-            host.querySelectorAll(".cover > .lu-lock.sm").length shouldBe 1
+            val rows = host.querySelectorAll(".search-row").asList().map { it as HTMLElement }
+            val dune = rows.single { it.textContent!!.contains("Dune") }
+            val ubik = rows.single { it.textContent!!.contains("Ubik") }
+            (dune.querySelector(".cover > .lu-lock.sm") != null) shouldBe true
+            (ubik.querySelector(".lu-lock") == null) shouldBe true
         }
     })
