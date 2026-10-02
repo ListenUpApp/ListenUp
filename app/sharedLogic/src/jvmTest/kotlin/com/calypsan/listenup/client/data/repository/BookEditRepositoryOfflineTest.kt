@@ -303,8 +303,18 @@ class BookEditRepositoryOfflineTest :
                 repo.setBookCollections(BookId("book1"), listOf("c1")).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 db.collectionBookDao().heldBookIds() shouldContainExactly listOf("book1")
-                db.collectionBookDao().findByKey(HeldBookFixture.INBOX, "book1").shouldNotBeNull().deletedAt.shouldBeNull()
-                db.collectionBookDao().findByKey("c1", "book1").shouldNotBeNull().deletedAt.shouldBeNull()
+                db
+                    .collectionBookDao()
+                    .findByKey(HeldBookFixture.INBOX, "book1")
+                    .shouldNotBeNull()
+                    .deletedAt
+                    .shouldBeNull()
+                db
+                    .collectionBookDao()
+                    .findByKey("c1", "book1")
+                    .shouldNotBeNull()
+                    .deletedAt
+                    .shouldBeNull()
             }
         }
 
