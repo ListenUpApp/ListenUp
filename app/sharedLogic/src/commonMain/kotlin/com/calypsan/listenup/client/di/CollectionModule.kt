@@ -2,8 +2,10 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.client.data.remote.rpcChannel
+import com.calypsan.listenup.client.data.repository.BookVisibilityRepositoryImpl
 import com.calypsan.listenup.client.data.repository.CollectionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.InboxRepositoryImpl
+import com.calypsan.listenup.client.domain.repository.BookVisibilityRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.usecase.collection.AddBooksToCollectionUseCase
@@ -21,6 +23,8 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.local.db.CollectionDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.CollectionBookDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.CollectionShareDao] — `persistenceModule`
+ *  - [com.calypsan.listenup.client.data.local.db.AdminUserRosterDao] — `persistenceModule`
+ *  - [com.calypsan.listenup.client.domain.repository.UserRepository] — `socialModule`
  */
 internal val collectionModule: Module =
     module {
@@ -42,6 +46,17 @@ internal val collectionModule: Module =
         // InboxRepository — admin inbox: Room held set + CollectionService/ScannerService RPC
         single<InboxRepository> {
             InboxRepositoryImpl(channel = rpcChannel(), scannerChannel = rpcChannel(), collectionBookDao = get())
+        }
+
+        // BookVisibilityRepository — who cannot see a book, derived from the Room mirror; admin-gated
+        single<BookVisibilityRepository> {
+            BookVisibilityRepositoryImpl(
+                collectionDao = get(),
+                collectionBookDao = get(),
+                collectionShareDao = get(),
+                adminUserRosterDao = get(),
+                userRepository = get(),
+            )
         }
 
         // AddBooksToCollectionUseCase — bulk add for multi-select flows

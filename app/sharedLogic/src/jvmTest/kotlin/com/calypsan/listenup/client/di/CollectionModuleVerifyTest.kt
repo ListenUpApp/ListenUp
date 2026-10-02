@@ -1,11 +1,13 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.data.local.db.AdminUserRosterDao
 import com.calypsan.listenup.client.data.local.db.CollectionBookDao
 import com.calypsan.listenup.client.data.local.db.CollectionDao
 import com.calypsan.listenup.client.data.local.db.CollectionShareDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.domain.repository.LibraryRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.repository.UserRepository
 import io.kotest.core.spec.style.FunSpec
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.test.verify.verify
@@ -21,6 +23,8 @@ import org.koin.test.verify.verify
  *  - [CollectionBookDao] — owned by `persistenceModule`.
  *  - [CollectionShareDao] — owned by `persistenceModule`.
  *  - [LibraryRepository] — owned by `libraryModule` (CreateCollectionUseCase resolves the library id).
+ *  - [AdminUserRosterDao] — owned by `persistenceModule`.
+ *  - [UserRepository] — owned by `socialModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class CollectionModuleVerifyTest :
@@ -36,6 +40,8 @@ class CollectionModuleVerifyTest :
                         ApiClientFactory::class,
                         ServerConfig::class,
                         LibraryRepository::class,
+                        AdminUserRosterDao::class,
+                        UserRepository::class,
                         com.calypsan.listenup.client.data.remote.RpcAuthRecovery::class,
                     ),
             )
