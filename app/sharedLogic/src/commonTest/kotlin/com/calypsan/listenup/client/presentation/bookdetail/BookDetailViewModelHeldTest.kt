@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.test.fake.FakeBookVisibilityRepository
 import com.calypsan.listenup.client.test.fake.FakeInboxRepository
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
@@ -108,6 +109,8 @@ class BookDetailViewModelHeldTest :
                         },
                     documentRepository = documentRepository,
                     inboxRepository = inboxRepository,
+                    bookVisibilityRepository = FakeBookVisibilityRepository(),
+                    bookEditRepository = mock(),
                 )
         }
 

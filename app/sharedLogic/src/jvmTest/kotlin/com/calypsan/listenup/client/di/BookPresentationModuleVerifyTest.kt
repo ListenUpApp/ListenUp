@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.domain.repository.BookReadersRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.BookVisibilityRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
@@ -50,6 +51,7 @@ import org.koin.test.verify.verify
  *  - [ServerReachability] — owned by `clientSyncModule`.
  *  - [DocumentRepository] — owned by `mediaModule`.
  *  - [InboxRepository] — owned by `collectionModule`.
+ *  - [BookVisibilityRepository] — owned by `collectionModule`.
  *  - [BookReadersRepository] — owned by `socialModule`.
  *  - [BookRatingRepository] — owned by `shelfModule`.
  *  - [HardcoverRepository] — owned by `hardcoverClientModule` (the Book Detail Hardcover row).
@@ -93,6 +95,7 @@ class BookPresentationModuleVerifyTest :
                         ServerReachability::class,
                         DocumentRepository::class,
                         InboxRepository::class,
+                        BookVisibilityRepository::class,
                         BookReadersRepository::class,
                         BookRatingRepository::class,
                         HardcoverRepository::class,
