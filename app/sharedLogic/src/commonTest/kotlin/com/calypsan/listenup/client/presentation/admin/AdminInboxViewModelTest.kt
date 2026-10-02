@@ -316,7 +316,7 @@ class AdminInboxViewModelTest :
             }
         }
 
-        test("a partial release confirms what left, keeps the books that stayed selected, and reports once") {
+        test("a partial release says it once, in the confirmation, and keeps the books that stayed selected") {
             runTest(dispatcher) {
                 val f = Fixture()
                 f.inbox.hold("b1", "b2", "b3", "b4")
@@ -334,7 +334,6 @@ class AdminInboxViewModelTest :
                     vm.releaseSelected()
                     advanceUntilIdle()
 
-                    errors.awaitItem() shouldBe incomplete
                     val ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
                     // b1 and b3 left; b2 is still held, and still selected so Release retries it.
                     ready.bookIds shouldBe listOf("b2", "b4")
@@ -342,10 +341,10 @@ class AdminInboxViewModelTest :
                     ready.lastReleasedCount shouldBe 2
                     ready.lastUnreleasedCount shouldBe 1
                     ready.isReleasing shouldBe false
-                    withClue("the bus already carries the error; a screen-level copy would say it twice") {
-                        ready.error shouldBe null
+                    ready.error shouldBe null
+                    withClue("the confirmation already says how many couldn't be released; the bus would say it twice") {
+                        errors.expectNoEvents()
                     }
-                    errors.expectNoEvents()
                     errors.cancel()
                 }
 
@@ -373,7 +372,9 @@ class AdminInboxViewModelTest :
                     vm.releaseSelected()
                     advanceUntilIdle()
 
+                    // Nothing left, so there is no confirmation: the bus is the one place it is said.
                     errors.awaitItem() shouldBe incomplete
+                    errors.expectNoEvents()
                     val ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
                     ready.bookIds shouldBe listOf("b1", "b2")
                     ready.selectedBookIds shouldBe setOf("b1", "b2")

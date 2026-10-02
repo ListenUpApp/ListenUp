@@ -96,9 +96,10 @@ private data class InboxOverlay(
  * moves the book into ALL_BOOKS; per-book collection assignment is book-edit's job. The book leaves
  * the list when its INBOX membership leaves Room, which [InboxRepository.releaseBooks] writes through
  * on success. A refused release goes to the [ErrorBus] — which every platform already shows — and
- * nowhere else, so it is said once. A partial release ([CollectionError.ReleaseIncomplete]) goes there
- * too; the books that did leave are confirmed as usual, with the count that stayed held beside them,
- * and the books that stayed keep their selection so Release retries exactly them.
+ * nowhere else, so it is said once. A partial release ([CollectionError.ReleaseIncomplete]) is said
+ * once too, but in the confirmation instead: the books that left are confirmed with the count that
+ * stayed held beside them, and the bus stays quiet. The books that stayed keep their selection so
+ * Release retries exactly them. A release in which nothing left has no confirmation, so the bus says it.
  *
  * Scan issues are not mirrored and stay on their RPC. The admin event stream is kept for exactly one
  * reason: [AdminEvent.InboxBookAdded] means a scan just ran, which may have raised or cleared an issue.
@@ -287,17 +288,14 @@ class AdminInboxViewModel internal constructor(
 
                 is AppResult.Failure -> {
                     val error = result.error
-                    if (error is CollectionError.ReleaseIncomplete) {
-                        overlay.update {
-                            it.released(
-                                releasing,
-                                stayed = releasing.intersect(error.failedBookIds.toSet()),
-                            )
-                        }
-                    } else {
-                        overlay.update { it.copy(isReleasing = false) }
-                    }
-                    errorBus.emit(error)
+                    val stayed =
+                        (error as? CollectionError.ReleaseIncomplete)
+                            ?.let { releasing.intersect(it.failedBookIds.toSet()) }
+                            ?: releasing
+                    overlay.update { it.released(releasing, stayed) }
+                    // Said once: when some books left, the confirmation names how many couldn't be,
+                    // so the bus speaks only when nothing left and there is no confirmation to say it.
+                    if (stayed == releasing) errorBus.emit(error)
                 }
             }
         }
@@ -386,8 +384,8 @@ sealed interface AdminInboxUiState {
         /**
          * How many books of the release [lastReleasedCount] confirms could not be released and are
          * still held — `0` when every book left. Set only alongside [lastReleasedCount], so a screen
-         * says "released 2 of 3" in the same breath; a release in which nothing left confirms nothing
-         * and says so through the `ErrorBus` alone.
+         * says "released 2 of 3" in the same breath — the only place a partial release is reported. A
+         * release in which nothing left confirms nothing and says so through the `ErrorBus` alone.
          */
         val lastUnreleasedCount: Int = 0,
         val error: String? = null,

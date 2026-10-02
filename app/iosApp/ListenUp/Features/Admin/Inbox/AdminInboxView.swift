@@ -10,8 +10,8 @@ import Shared
 /// selection, where a row toggles instead; select-all and release then appear (`InboxMode`).
 /// Release confirmation is a native alert. Transient errors surface as an alert.
 /// A release confirms itself: the books leave the inbox, with a success haptic and the count
-/// spoken to VoiceOver. A partial release speaks both counts and keeps the books that stayed held
-/// selected; the reason arrives through the shared error bus.
+/// spoken to VoiceOver. A partial release speaks both counts — the only place it is reported — and
+/// keeps the books that stayed held selected; a release in which nothing left reaches the error bus.
 ///
 /// SSE updates flow through the shared VM into the observer — no extra wiring here.
 struct AdminInboxView: View {
