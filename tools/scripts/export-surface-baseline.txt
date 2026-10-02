@@ -343,6 +343,8 @@ HardcoverConnection
 HardcoverConnection_SealedType
 HardcoverError
 HardcoverError_SealedType
+HardcoverHistory
+HardcoverHistory_SealedType
 HardcoverLinkFailure
 HardcoverLinkPrompt
 HardcoverMatchEvent
