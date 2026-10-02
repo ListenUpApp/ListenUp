@@ -25,7 +25,12 @@ data class AdminUserRosterSyncPayload(
     val displayName: String,
     val role: String,
     val status: String,
-    @EncodeDefault(EncodeDefault.Mode.ALWAYS) val canShare: Boolean = true,
+    @Deprecated(
+        "Compat shim for un-updated admin apps; always true, read by nothing. Remove in a later release.",
+        level = DeprecationLevel.WARNING,
+    )
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    val canShare: Boolean = true,
     val canEdit: Boolean = true,
     val accountCreatedAt: Long,
     override val revision: Long,
