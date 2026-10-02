@@ -77,6 +77,35 @@ class BookVisibilityClassifierTest :
                 )
         }
 
+        test("names are sorted case-insensitively whatever order the roster arrives in") {
+            val outOfOrder = listOf(rosterUser("zed", "zed"), rosterUser("amy", "Amy"), rosterUser("ben", "ben"))
+            classify(listOf(kids), users = outOfOrder) shouldBe
+                BookVisibility.Restricted(listOf(CollectionRef("c1", "Kids")), HiddenFrom.Everyone)
+            classify(listOf(kids), shares = listOf(collectionShare("c1", "amy")), users = outOfOrder) shouldBe
+                BookVisibility.Restricted(listOf(CollectionRef("c1", "Kids")), HiddenFrom.Members(listOf("ben", "zed")))
+        }
+
+        test("two hidden members with the same name are told apart by their email") {
+            val users =
+                listOf(
+                    rosterUser("alex2", "Alex", email = "alex@b.com"),
+                    rosterUser("ben", "Ben"),
+                    rosterUser("alex1", "Alex", email = "alex@a.com"),
+                    rosterUser("carol", "Carol"),
+                )
+            classify(listOf(kids), shares = listOf(collectionShare("c1", "carol")), users = users) shouldBe
+                BookVisibility.Restricted(
+                    listOf(CollectionRef("c1", "Kids")),
+                    HiddenFrom.Members(listOf("Alex (alex@a.com)", "Alex (alex@b.com)", "Ben")),
+                )
+        }
+
+        test("a name shared only with a member who can see the book needs no email") {
+            val users = listOf(rosterUser("alex1", "Alex"), rosterUser("alex2", "Alex"), rosterUser("ben", "Ben"))
+            classify(listOf(kids), shares = listOf(collectionShare("c1", "alex2")), users = users) shouldBe
+                BookVisibility.Restricted(listOf(CollectionRef("c1", "Kids")), HiddenFrom.Members(listOf("Alex", "Ben")))
+        }
+
         test("multiple collections are listed by name, and a share in any one of them is enough") {
             classify(
                 holding = listOf(kids, adults),

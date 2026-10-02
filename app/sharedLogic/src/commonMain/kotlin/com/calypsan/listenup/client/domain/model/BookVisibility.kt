@@ -52,7 +52,8 @@ sealed interface HiddenFrom {
     /**
      * Some members cannot see it.
      *
-     * @property names Their display names, sorted case-insensitively.
+     * @property names Their display names (email when blank), sorted case-insensitively. A name two
+     *   hidden members share carries each one's email, "Alex (alex@a.com)", so they stay distinguishable.
      */
     data class Members(
         val names: List<String>,

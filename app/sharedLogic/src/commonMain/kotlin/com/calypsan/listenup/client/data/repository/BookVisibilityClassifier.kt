@@ -85,12 +85,17 @@ private fun hiddenFrom(
         }
 
         else -> {
-            HiddenFrom.Members(
-                hidden
-                    .map { user ->
-                        user.displayName.ifBlank { user.email }
-                    }.sortedWith(String.CASE_INSENSITIVE_ORDER),
-            )
+            HiddenFrom.Members(distinguishableNames(hidden).sortedWith(String.CASE_INSENSITIVE_ORDER))
         }
     }
+}
+
+/**
+ * Each user's display name (email when blank). A name more than one of [users] shares gets the
+ * email appended — "Alex (alex@a.com)" — or two hidden Alexes would read as one.
+ */
+private fun distinguishableNames(users: List<AdminUserRosterEntity>): List<String> {
+    val names = users.map { user -> user.displayName.ifBlank { user.email } }
+    val repeated = names.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+    return users.zip(names) { user, name -> if (name in repeated) "$name (${user.email})" else name }
 }
