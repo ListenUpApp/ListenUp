@@ -56,16 +56,26 @@ enum MetadataMatchMapping {
     /// the direction that bridges. Same trap that crashed search on `Set<SearchHitType>`; see
     /// `NoBridgedEnumCollectionsInUiStateRule`.
     static func preview(from ready: PreviewLoadStateReady, match: MetadataBook) -> MetadataPreview {
-        preview(from: ready, match: match, sourceFor: { ready.fallbackSourceFor(field: $0) })
+        preview(
+            from: ready,
+            match: match,
+            sourceFor: { ready.fallbackSourceFor(field: $0) },
+            genreSourceFor: { ready.genreSourceFor(label: $0) },
+            moodSourceFor: { ready.moodSourceFor(label: $0) }
+        )
     }
 
     /// Provenance-injecting seam. Production passes the Kotlin accessor above; tests pass a native
     /// closure, because a `[BookField: String]` built in Swift and handed to the Kotlin initializer
     /// is not the map production sees — its keys are Swift-boxed, so a Kotlin-side lookup misses.
+    /// `genreSourceFor`/`moodSourceFor` name where each genre or mood came from (#1542); one that names
+    /// nothing falls back to the field's own source.
     static func preview(
         from ready: PreviewLoadStateReady,
         match: MetadataBook,
-        sourceFor: (BookField) -> String?
+        sourceFor: (BookField) -> String?,
+        genreSourceFor: (String) -> String? = { _ in nil },
+        moodSourceFor: (String) -> String? = { _ in nil }
     ) -> MetadataPreview {
         let book = ready.preview
         let sel = ready.selections
@@ -77,9 +87,13 @@ enum MetadataMatchMapping {
             book.narrators, selected: sel.selectedNarrators, sourceLabel: sourceFor(.narrators)
         )
         let seriesItems = series(book.series, selected: sel.selectedSeries, sourceLabel: sourceFor(.series))
-        let genres = genreSelections(book.genres, selected: sel.selectedGenres, sourceLabel: sourceFor(.genres))
-        let moods = genreSelections(book.moods, selected: sel.selectedMoods, sourceLabel: sourceFor(.moods))
-        let tags = genreSelections(book.tags, selected: sel.selectedTags, sourceLabel: sourceFor(.tags))
+        let genres = genreSelections(
+            book.genres, selected: sel.selectedGenres, sourceFor: genreSourceFor, fieldSource: sourceFor(.genres)
+        )
+        let moods = genreSelections(
+            book.moods, selected: sel.selectedMoods, sourceFor: moodSourceFor, fieldSource: sourceFor(.moods)
+        )
+        let tags = genreSelections(book.tags, selected: sel.selectedTags, fieldSource: sourceFor(.tags))
         let description = descriptionField(book: book, selections: sel, sourceLabel: sourceFor(.description))
 
         let scalarFields = identity + details + (description.map { [$0] } ?? [])
@@ -220,14 +234,31 @@ enum MetadataMatchMapping {
         }
     }
 
+    /// Each value carries its own source (#1542): one Hardcover added beside the match's own says so, and
+    /// a value its lookup names nothing for falls back to the field's own source.
     private static func genreSelections(
         _ genres: [String],
         selected: Set<String>,
-        sourceLabel: String?
+        sourceFor: (String) -> String? = { _ in nil },
+        fieldSource: String?
     ) -> [MetadataGenreSelection] {
         genres.map {
-            MetadataGenreSelection(id: $0, label: $0, isSelected: selected.contains($0), sourceLabel: sourceLabel)
+            MetadataGenreSelection(
+                id: $0, label: $0, isSelected: selected.contains($0), sourceLabel: sourceFor($0) ?? fieldSource
+            )
         }
+    }
+
+    /// Genres or moods grouped by where they came from, in first-seen order: the match's own, then each
+    /// source's additions, so each group shows its source chip once (#1542).
+    nonisolated static func sourceRuns(_ values: [MetadataGenreSelection]) -> [MetadataSourceRun] {
+        var order: [String?] = []
+        var bySource: [String?: [MetadataGenreSelection]] = [:]
+        for value in values {
+            if bySource[value.sourceLabel] == nil { order.append(value.sourceLabel) }
+            bySource[value.sourceLabel, default: []].append(value)
+        }
+        return order.map { MetadataSourceRun(source: $0, items: bySource[$0] ?? []) }
     }
 
     // MARK: - Chapters
@@ -291,4 +322,11 @@ enum MetadataMatchMapping {
     static func joinedNames(_ refs: [MetadataContributorRef]) -> String {
         refs.map(\.name).joined(separator: ", ")
     }
+}
+
+/// One group of genres or moods from one source, for the preview's chip rows.
+struct MetadataSourceRun: Identifiable, Equatable {
+    let source: String?
+    let items: [MetadataGenreSelection]
+    var id: String { source ?? "" }
 }

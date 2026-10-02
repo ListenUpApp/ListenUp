@@ -96,6 +96,15 @@ struct AdminView: View {
             if let model = settingsModel(settings), !model.ratingSources.isEmpty {
                 ratingSourcesSection(model: model, settings: settings)
             }
+            if let hardcover = settingsModel(settings)?.hardcover {
+                HardcoverSourceSection(
+                    model: hardcover,
+                    onSave: { settings.saveHardcoverApiToken($0) },
+                    onRemove: { settings.removeHardcoverApiToken() },
+                    onMetadataEnabledChange: { settings.setHardcoverMetadataEnabled($0) },
+                    onClearError: { settings.clearHardcoverTokenError() }
+                )
+            }
             usersSection(admin: admin, ready: ready)
             if ready.registrationPolicy == .approvalQueue {
                 pendingRegistrationsSection(admin: admin, ready: ready)
