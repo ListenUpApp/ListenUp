@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
 import app.cash.turbine.turbineScope
+import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.TestData
@@ -200,6 +201,34 @@ class BookDetailViewModelHeldTest :
                     advanceUntilIdle()
 
                     errors.awaitItem() shouldBe refusal
+                    val ready = vm.state.value.shouldBeInstanceOf<BookDetailUiState.Ready>()
+                    ready.isHeld shouldBe true
+                    ready.isReleasingFromInbox shouldBe false
+                    errors.cancel()
+                }
+            }
+        }
+
+        test("a release that leaves this book held reports it in words, and the book stays held") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.heldIds.value = setOf(BookId("book-1"))
+                val incomplete = CollectionError.ReleaseIncomplete(failedBookIds = listOf("book-1"))
+                f.inboxRepository.releaseResult = AppResult.Failure(incomplete)
+                val vm = f.build()
+                vm.loadBook("book-1")
+                advanceUntilIdle()
+
+                turbineScope {
+                    val errors = f.errorBus.errors.testIn(backgroundScope)
+
+                    vm.releaseFromInbox()
+                    advanceUntilIdle()
+
+                    val reported = errors.awaitItem()
+                    reported shouldBe incomplete
+                    // Every platform shows the bus's message as-is, so it must read as a sentence.
+                    reported.message shouldBe "Some books couldn't be released. They're still in the inbox."
                     val ready = vm.state.value.shouldBeInstanceOf<BookDetailUiState.Ready>()
                     ready.isHeld shouldBe true
                     ready.isReleasingFromInbox shouldBe false

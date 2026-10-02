@@ -11,6 +11,8 @@ enum Haptic {
     case longPress
     case thresholdActivate
     case commit
+    /// A task that only partly completed — some of it needs the person's attention again.
+    case warning
 
     /// The SwiftUI feedback for this verb.
     var feedback: SensoryFeedback {
@@ -23,6 +25,8 @@ enum Haptic {
         // Apple's notification family means "a task completed" — that is exactly this verb.
         // Android maps the same verb to Confirm; the platforms are meant to differ here.
         case .commit: .success
+        // The same notification family at its warning step: done, but not all of it.
+        case .warning: .warning
         }
     }
 

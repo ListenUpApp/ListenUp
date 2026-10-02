@@ -9,6 +9,8 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import app.cash.sqldelight.db.SqlDriver
 import kotlin.time.Clock
+import kotlin.uuid.Uuid
+import kotlinx.coroutines.currentCoroutineContext
 
 /**
  * Natural-pair identity for `collection_books` junction rows — the server-internal type the
@@ -57,8 +59,9 @@ data class CollectionBookId(
  *  - [findCollectionIdsForBook] — live collection IDs for a book
  *  - [countLiveForCollection] — count of live junction rows for a collection
  *
- * `open` so `jvmTest`'s `FaultInjectingCollectionBookRepository` can override [upsert] to simulate
- * a membership-write DB fault (#1226) without a real transaction seam of its own.
+ * `open` so `jvmTest`'s `FaultInjectingCollectionBookRepository` can fault membership writes (#1226):
+ * it overrides [upsert] to return a `Failure`, and [writePayload] to throw from inside the open
+ * transaction the way a real SQLite fault does.
  */
 open class CollectionBookRepository(
     db: ListenUpDatabase,
@@ -284,6 +287,64 @@ open class CollectionBookRepository(
             }
             live.size
         }
+
+    /**
+     * Releases one held book out of [inboxId] into [targetIds] as ONE transaction, the per-book step
+     * of [com.calypsan.listenup.server.api.CollectionServiceImpl.releaseBooks]. Returns `true` when the
+     * book was held and is now released, `false` when it was no longer held and nothing was written.
+     *
+     * The INBOX row is read first, inside the transaction: a book another release already took out
+     * gets no targets, so two admins releasing the same book never union their target sets. Otherwise
+     * every target membership is written (or revived) and the INBOX row tombstoned in the same
+     * transaction, so the book leaves the inbox for all its targets at once or does not move at all:
+     * any write fault throws and rolls the whole book back — no target row, the INBOX row still live,
+     * a membership the book already had untouched. Every emit is registered after-commit, so a
+     * rolled-back release publishes nothing; and those hooks only release reserved publish slots
+     * (`ChangeBus.release` — map bookkeeping and a non-suspending `tryEmit`), so once the commit has
+     * happened nothing after it throws: a throw out of here always means the book did not move.
+     */
+    suspend fun releaseFromInbox(
+        bookId: String,
+        inboxId: String,
+        targetIds: List<String>,
+        createdAt: Long,
+    ): Boolean {
+        val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
+        return suspendTransaction(db) {
+            val inboxRowId =
+                db.collectionBooksQueries.selectLiveIdByNaturalPair(inboxId, bookId).executeAsOneOrNull()
+                    ?: return@suspendTransaction false
+            for (targetId in targetIds) {
+                upsertInOpenTransaction(
+                    value =
+                        CollectionBookSyncPayload(
+                            id = Uuid.random().toString(),
+                            collectionId = targetId,
+                            bookId = bookId,
+                            createdAt = createdAt,
+                            revision = 0L,
+                            deletedAt = null,
+                        ),
+                    suppressed = suppressed,
+                )
+            }
+            val rev = nextRevision()
+            val now = clock.now().toEpochMilliseconds()
+            db.collectionBooksQueries.softDeleteById(
+                revision = rev,
+                updated_at = now,
+                deleted_at = now,
+                client_op_id = null,
+                id = inboxRowId,
+            )
+            if (!suppressed) {
+                emitAfterCommit(
+                    event = SyncEvent.Deleted(id = inboxRowId, revision = rev, occurredAt = now, clientOpId = null),
+                )
+            }
+            true
+        }
+    }
 
     /**
      * Bulk soft-deletes all junction rows for [bookId] — the book-removal cascade counterpart to

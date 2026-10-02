@@ -1218,6 +1218,7 @@
     "inbox_release_count": "Release %1$d",
     "inbox_released_count": "Released %1$d book",
     "inbox_released_count_plural": "Released %1$d books",
+    "inbox_released_partial": "Released %1$d of %2$d books. %3$d couldn't be released.",
     "release_to_everyone": "Release to everyone?",
     "release_to_everyone_body": "Every member will be able to find and play it.",
     "release_to_everyone_body_plural": "Every member will be able to find and play them.",

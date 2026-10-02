@@ -4,6 +4,7 @@ import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ScannerService
+import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
@@ -357,6 +358,41 @@ class SystemMembershipLocalReconcileTest :
             }
         }
 
+        test("a partial release writes through only the books that left — a failed book stays held, with no target membership") {
+            withHeldBookDb { db ->
+                seedBook(db, "b1")
+                seedBook(db, "b2")
+                seedKidsSharedWithAlice(db)
+                hold(db, "b1")
+                hold(db, "b2")
+                val incomplete = CollectionError.ReleaseIncomplete(failedBookIds = listOf("b2"))
+
+                inbox(db, result = AppResult.Failure(incomplete))
+                    .releaseBooks("lib1", mapOf("b1" to emptyList(), "b2" to listOf("c1"))) shouldBe
+                    AppResult.Failure(incomplete)
+
+                // b1 left the inbox on the server: Public at once, through its All Books stub.
+                visibilityOf(db).observeBookVisibility(BookId("b1")).first() shouldBe BookVisibility.Public
+                db
+                    .collectionBookDao()
+                    .findByKey(ALL_BOOKS, "b1")
+                    .shouldNotBeNull()
+                    .deletedAt
+                    .shouldBeNull()
+                // b2 stayed held on the server, so it stays held here: no INBOX tombstone, no Kids stub,
+                // and no reconcile into All Books.
+                visibilityOf(db).observeBookVisibility(BookId("b2")).first() shouldBe BookVisibility.Held
+                db
+                    .collectionBookDao()
+                    .findByKey(INBOX, "b2")
+                    .shouldNotBeNull()
+                    .deletedAt
+                    .shouldBeNull()
+                db.collectionBookDao().findByKey("c1", "b2").shouldBeNull()
+                db.collectionBookDao().findByKey(ALL_BOOKS, "b2").shouldBeNull()
+            }
+        }
+
         test("a membership of a not-yet-synced collection counts as normal, so the book is never widened to All Books") {
             withHeldBookDb { db ->
                 seedBook(db, "b1")
@@ -454,9 +490,10 @@ private fun visibilityOf(db: ListenUpDatabase) =
 private fun inbox(
     db: ListenUpDatabase,
     collectionBookDao: CollectionBookDao = db.collectionBookDao(),
+    result: AppResult<Unit> = AppResult.Success(Unit),
 ): InboxRepositoryImpl {
     val service = mock<CollectionService>()
-    everySuspend { service.releaseBooks(any(), any()) } returns AppResult.Success(Unit)
+    everySuspend { service.releaseBooks(any(), any()) } returns result
     return InboxRepositoryImpl(
         channel = RpcChannel.forTest(service),
         scannerChannel = RpcChannel.forTest(mock<ScannerService>()),

@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ScannerService
+import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.CollectionBookDao
@@ -147,6 +148,39 @@ class InboxRepositoryImplTest :
 
                 buildRepo(service, dao)
                     .releaseBooks("lib1", mapOf("b1" to emptyList()))
+                    .shouldBeInstanceOf<AppResult.Failure>()
+
+                verifySuspend(VerifyMode.not) { dao.tombstoneHeldRows(any(), any()) }
+            }
+        }
+
+        test("a partly failed release takes out only the books that left, and still reports the failure") {
+            runTest {
+                val service = mock<CollectionService>()
+                val incomplete = CollectionError.ReleaseIncomplete(failedBookIds = listOf("b2"))
+                everySuspend { service.releaseBooks(any(), any()) } returns AppResult.Failure(incomplete)
+                val dao = mock<CollectionBookDao>(MockMode.autoUnit)
+
+                val result =
+                    buildRepo(service, dao)
+                        .releaseBooks("lib1", mapOf("b1" to emptyList(), "b2" to emptyList(), "b3" to emptyList()))
+
+                result shouldBe AppResult.Failure(incomplete)
+                // b2 stayed held on the server; taking it out locally would hide it until the echo.
+                verifySuspend(VerifyMode.exactly(1)) { dao.tombstoneHeldRows(listOf("b1", "b3"), any()) }
+                verifySuspend(VerifyMode.not) { dao.tombstoneHeldRows(listOf("b1", "b2", "b3"), any()) }
+            }
+        }
+
+        test("a release in which every book stayed held leaves the local inbox untouched") {
+            runTest {
+                val service = mock<CollectionService>()
+                everySuspend { service.releaseBooks(any(), any()) } returns
+                    AppResult.Failure(CollectionError.ReleaseIncomplete(failedBookIds = listOf("b1", "b2")))
+                val dao = mock<CollectionBookDao>(MockMode.autoUnit)
+
+                buildRepo(service, dao)
+                    .releaseBooks("lib1", mapOf("b1" to emptyList(), "b2" to emptyList()))
                     .shouldBeInstanceOf<AppResult.Failure>()
 
                 verifySuspend(VerifyMode.not) { dao.tombstoneHeldRows(any(), any()) }

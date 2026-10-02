@@ -76,6 +76,8 @@ struct AdminInboxReadyModel: Equatable {
     let selectedBookIds: Set<String>
     let isReleasing: Bool
     let lastReleasedCount: Int?
+    /// How many books of the release `lastReleasedCount` confirms stayed held — 0 when every book left.
+    let lastUnreleasedCount: Int
     let error: String?
     let bookCount: Int
     let hasBooks: Bool
@@ -94,6 +96,7 @@ struct AdminInboxReadyModel: Equatable {
         self.selectedBookIds = Set(ready.selectedBookIds)
         self.isReleasing = ready.isReleasing
         self.lastReleasedCount = ready.lastReleasedCount.map { Int($0) }
+        self.lastUnreleasedCount = Int(ready.lastUnreleasedCount)
         self.error = ready.error
         self.bookCount = Int(ready.bookIds.count)
         self.hasBooks = ready.hasBooks
@@ -102,6 +105,37 @@ struct AdminInboxReadyModel: Equatable {
         self.hasSelection = ready.hasSelection
         self.selectedCount = Int(ready.selectedCount)
         self.allSelected = ready.allSelected
+    }
+
+    /// What the last release confirms, or `nil` when there is nothing to confirm: the count that
+    /// released, and — when some books could not be released and stayed held — that count too, so a
+    /// partial release never reads as a complete one. Mirrors `releaseConfirmation` in
+    /// `AdminInboxScreen.kt`.
+    var releaseConfirmation: String? {
+        guard let released = lastReleasedCount else { return nil }
+        if lastUnreleasedCount > 0 {
+            return String(
+                format: String(localized: "admin.inbox_released_partial"),
+                released,
+                released + lastUnreleasedCount,
+                lastUnreleasedCount
+            )
+        }
+        return released == 1
+            ? String(format: String(localized: "admin.inbox_released_count"), released)
+            : String(format: String(localized: "admin.inbox_released_count_plural"), released)
+    }
+
+    /// The confirmation to show on screen, or `nil` when the books leaving the list say it already.
+    /// A partial release is reported nowhere else — the shared error bus stays quiet so it is said
+    /// once — and the books that stayed held look like any other row, so it must be shown.
+    var partialReleaseNotice: String? {
+        lastUnreleasedCount > 0 ? releaseConfirmation : nil
+    }
+
+    /// The haptic a landed release plays: success when every book left, a warning when some stayed.
+    var releaseHaptic: Haptic {
+        lastUnreleasedCount > 0 ? .warning : .commit
     }
 }
 

@@ -237,6 +237,11 @@ interface CollectionService {
      * to every member under the pure-union visibility rule — releasing into no collection at
      * all would otherwise silently hide it.
      *
+     * Each book releases on its own. A book whose release fails **stays held** — still in the
+     * inbox, in no other collection — while the rest release normally, and the call returns
+     * [com.calypsan.listenup.api.error.CollectionError.ReleaseIncomplete] naming the books that
+     * stayed. `Success` therefore means every book in [assignments] left the inbox.
+     *
      * **Admin-only** — gated to ROOT/ADMIN; everyone else gets
      * [com.calypsan.listenup.api.error.CollectionError.Forbidden].
      */

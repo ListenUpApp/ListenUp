@@ -1151,6 +1151,16 @@
         }
       }
     },
+    "admin.inbox_released_partial": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Released %1$d of %2$d books. %3$d couldn't be released."
+          }
+        }
+      }
+    },
     "admin.inbox_review_edit": {
       "localizations": {
         "en": {

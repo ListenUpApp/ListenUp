@@ -38,6 +38,11 @@ SELECT EXISTS(SELECT 1 FROM collection_books WHERE collection_id = :collection_i
 selectIdByNaturalPair:
 SELECT id FROM collection_books WHERE collection_id = :collection_id AND book_id = :book_id;
 
+-- The pair's row id only while it is live — the one-read "is this book still held?" check a
+-- release makes before writing anything (CollectionBookRepository.releaseFromInbox).
+selectLiveIdByNaturalPair:
+SELECT id FROM collection_books WHERE collection_id = :collection_id AND book_id = :book_id AND deleted_at IS NULL;
+
 -- Inbox membership insert. The synthetic `id` is the canonical "$collectionId:$bookId" key
 -- (see CollectionBookId.asString); used by BookRepository's atomic quarantine write path.
 insertMembership:

@@ -14,6 +14,8 @@ import Testing
         // Apple's notification family is what "a task completed" means on iOS; Android uses
         // Confirm. The divergence is the point — do not "fix" it into parity.
         #expect(Haptic.commit.feedback == .success)
+        // A task that only partly completed — Apple's notification family again, at its warning step.
+        #expect(Haptic.warning.feedback == .warning)
     }
 
     @Test func gateReturnsNilWhenDisabled() {
@@ -23,7 +25,7 @@ import Testing
 
     @Test func theGateSilencesEveryVerb() {
         let verbs: [Haptic] = [
-            .selectionTick, .press, .toggleOn, .toggleOff, .longPress, .thresholdActivate, .commit
+            .selectionTick, .press, .toggleOn, .toggleOff, .longPress, .thresholdActivate, .commit, .warning
         ]
         for haptic in verbs {
             #expect(haptic.feedback(enabled: false) == nil)

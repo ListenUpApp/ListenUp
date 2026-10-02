@@ -10,7 +10,8 @@ import Shared
 /// selection, where a row toggles instead; select-all and release then appear (`InboxMode`).
 /// Release confirmation is a native alert. Transient errors surface as an alert.
 /// A release confirms itself: the books leave the inbox, with a success haptic and the count
-/// spoken to VoiceOver.
+/// spoken to VoiceOver. A partial release speaks both counts — the only place it is reported — and
+/// keeps the books that stayed held selected; a release in which nothing left reaches the error bus.
 ///
 /// SSE updates flow through the shared VM into the observer — no extra wiring here.
 struct AdminInboxView: View {
@@ -19,8 +20,12 @@ struct AdminInboxView: View {
 
     @State private var observer: AdminInboxObserver?
     @State private var showingReleaseConfirm = false
-    /// Bumped once per landed release, to fire the success haptic.
+    /// Bumped once per landed release, to fire the release haptic.
     @State private var releases = 0
+    /// The haptic the next landed release plays — a warning when some books stayed held.
+    @State private var releaseHaptic: Haptic = .commit
+    /// A partial release's confirmation, shown as an alert until acknowledged.
+    @State private var partialReleaseNotice: String?
     /// The inbox book currently being edited in the BookEdit sheet (metadata + admin collections),
     /// so an admin can review and assign collections before releasing. `nil` when no sheet is open.
     @State private var editingBook: InboxEditTarget?
@@ -83,15 +88,25 @@ struct AdminInboxView: View {
                 .releaseConfirmation(isPresented: $showingReleaseConfirm, count: ready.selectedCount) {
                     observer.releaseSelected()
                 }
-                // The released books leaving the list is the visible confirmation; the haptic and the
-                // announcement carry it to people not looking at the list (HIG, Feedback).
-                .haptic(.commit, trigger: releases)
+                // A partial release leaves rows that look untouched, so it is shown, not just felt: an
+                // alert, because books the admin chose to release did not go (HIG, Alerts; Feedback).
+                .alert(
+                    partialReleaseNotice ?? "",
+                    isPresented: partialReleasePresented,
+                    actions: { Button(String(localized: "common.ok"), role: .cancel) {} }
+                )
+                // A full release's visible confirmation is the books leaving the list; the haptic and
+                // the announcement carry it to people not looking at the list (HIG, Feedback).
+                .haptic(releaseHaptic, trigger: releases)
                 .onChange(of: ready.lastReleasedCount) { _, count in
-                    guard let count else { return }
+                    guard count != nil, let confirmation = ready.releaseConfirmation else { return }
+                    releaseHaptic = ready.releaseHaptic
                     releases += 1
-                    // The released books have left; so has the selection, and with it the mode.
-                    isSelectRequested = false
-                    VoiceOverAnnouncement.post(releasedAnnouncement(count: count))
+                    // The released books have left; so has their selection. Books that stayed held
+                    // are still selected, so the mode stays for Release to retry exactly them.
+                    if ready.lastUnreleasedCount == 0 { isSelectRequested = false }
+                    partialReleaseNotice = ready.partialReleaseNotice
+                    VoiceOverAnnouncement.post(confirmation)
                     observer.clearReleaseResult()
                 }
         case .error(let message):
@@ -365,12 +380,11 @@ struct AdminInboxView: View {
         )
     }
 
-    /// "Released 3 books" — what VoiceOver hears after a release lands. A result, never a prompt:
-    /// the prompt is `ReleaseToEveryone`.
-    private func releasedAnnouncement(count: Int) -> String {
-        count == 1
-            ? String(format: String(localized: "admin.inbox_released_count"), count)
-            : String(format: String(localized: "admin.inbox_released_count_plural"), count)
+    private var partialReleasePresented: Binding<Bool> {
+        Binding(
+            get: { partialReleaseNotice != nil },
+            set: { presenting in if !presenting { partialReleaseNotice = nil } }
+        )
     }
 }
 

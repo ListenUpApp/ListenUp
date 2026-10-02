@@ -56,6 +56,7 @@ internal fun readyInbox(
     error: String? = null,
     scanIssues: List<ScanIssue> = emptyList(),
     bookIds: List<String>? = null,
+    lastUnreleasedCount: Int = 0,
 ): AdminInboxUiState.Ready =
     AdminInboxUiState.Ready(
         bookIds = bookIds ?: books.map { it.id },
@@ -63,6 +64,7 @@ internal fun readyInbox(
         selectedBookIds = selectedBookIds,
         isReleasing = isReleasing,
         lastReleasedCount = lastReleasedCount,
+        lastUnreleasedCount = lastUnreleasedCount,
         error = error,
         scanIssues = scanIssues,
     )
@@ -470,6 +472,13 @@ class AdminInboxPageTest :
 
             one.querySelector(".inbox-notice-t")?.textContent shouldBe "Released 1 book"
             many.querySelector(".inbox-notice-t")?.textContent shouldBe "Released 4 books"
+        }
+
+        // A partial release must never read as a complete one: the receipt names both counts.
+        test("a partial release receipt says how many released and how many couldn't be") {
+            val host = page(readyInbox(lastReleasedCount = 2, lastUnreleasedCount = 1))
+
+            host.querySelector(".inbox-notice-t")?.textContent shouldBe "Released 2 of 3 books. 1 couldn't be released."
         }
 
         // The two notices are the same component with different wiring, so proving one dismisses
