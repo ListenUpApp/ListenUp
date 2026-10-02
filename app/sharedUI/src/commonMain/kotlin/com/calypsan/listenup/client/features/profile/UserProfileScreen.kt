@@ -93,6 +93,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.calypsan.listenup.client.design.theme.HeroInk
 import androidx.compose.ui.platform.LocalDensity
+import com.calypsan.listenup.client.design.components.RestrictedBookMarker
 
 /**
  * Screen displaying a user's full profile — a color-blocked hero with the scallop avatar,
@@ -854,6 +855,10 @@ private fun RecentBookCard(
                 contentDescription = book.title,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
+            )
+            RestrictedBookMarker(
+                bookId = book.bookId,
+                modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
             )
         }
         Spacer(modifier = Modifier.height(8.dp))

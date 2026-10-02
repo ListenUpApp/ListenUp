@@ -109,6 +109,7 @@ import listenup.composeapp.generated.resources.search_see_all
 import listenup.composeapp.generated.resources.search_tab_all
 import listenup.composeapp.generated.resources.search_try_a_different_search_term
 import listenup.composeapp.generated.resources.shell_close_search
+import com.calypsan.listenup.client.design.components.RestrictedBookMarker
 
 // Stable lazy-list item keys, shared across the compact list, the wide rail, and the See-all page
 // so a single hit keeps the same identity wherever it renders.
@@ -850,17 +851,25 @@ internal fun BookResultRow(
     modifier: Modifier = Modifier,
 ) {
     ContentRow(onClick = onClick, modifier = modifier) {
-        BookCoverImage(
-            bookId = hit.id,
-            coverPath = hit.coverPath,
-            coverHash = hit.coverHash,
-            contentDescription = stringResource(Res.string.search_cover_for, hit.name),
-            contentScale = ContentScale.Crop,
-            modifier =
-                Modifier
-                    .size(60.dp)
-                    .clip(MaterialTheme.shapes.small),
-        )
+        Box {
+            BookCoverImage(
+                bookId = hit.id,
+                coverPath = hit.coverPath,
+                coverHash = hit.coverHash,
+                contentDescription = stringResource(Res.string.search_cover_for, hit.name),
+                contentScale = ContentScale.Crop,
+                modifier =
+                    Modifier
+                        .size(60.dp)
+                        .clip(MaterialTheme.shapes.small),
+            )
+            // A held hit says so inline at the row's end; it is never in the restricted set.
+            RestrictedBookMarker(
+                bookId = hit.id,
+                compact = true,
+                modifier = Modifier.align(Alignment.TopStart).padding(4.dp),
+            )
+        }
         Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
