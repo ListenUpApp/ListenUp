@@ -47,6 +47,7 @@ private class RecorderRig(
     val links = HardcoverBookLinkStore(sql, clock)
     val connections = HardcoverConnectionStore(sql, HardcoverTokenCipher(HardcoverTokenCipher.deriveKey("secret")), clock)
     val preferences = HardcoverPreferences(sql, clock)
+    val exclusions = HardcoverExclusions(sql)
     val nudged = CopyOnWriteArrayList<String>()
     private val events = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
     val reads = BookReadsRepository(db = sql)
@@ -80,6 +81,7 @@ private class RecorderRig(
                         connections = connections,
                         outbox = outbox,
                         links = links,
+                        exclusions = exclusions,
                         nudge = HardcoverPushNudge { nudged += it },
                         clock = clock,
                     ),
@@ -275,6 +277,20 @@ class HardcoverPushRecorderTest :
                 restart(T0)
                 listen("e1", endedAtMs = T0 + 90_000L, wallMs = 90_000L, endPositionMs = 90_000L)
                 finish(T0 + 100_000L)
+                queued().shouldBeEmpty()
+                nudged.shouldBeEmpty()
+            }
+        }
+
+        test("a book kept off Hardcover queues nothing: no START, no PROGRESS, no FINISH, and wakes no lane") {
+            recorderTest {
+                connect()
+                sql.seedExclusion(USER, BOOK, at = T0)
+                restart(T0)
+                listen("e1", endedAtMs = T0 + 90_000L, wallMs = 90_000L, endPositionMs = 90_000L)
+                listen("e2", endedAtMs = T0 + 600_000L, wallMs = 300_000L, endPositionMs = 390_000L)
+                finish(T0 + 700_000L)
+
                 queued().shouldBeEmpty()
                 nudged.shouldBeEmpty()
             }

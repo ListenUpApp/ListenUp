@@ -61,6 +61,7 @@ class HardcoverShareModeTest {
                     onSendHistory = {},
                     onDismissHistory = {},
                     onFindMatch = {},
+                    onOpenKeptOff = {},
                 )
             }
         }

@@ -84,7 +84,8 @@ sealed interface HardcoverSettingsUiState {
      * only a known empty list may say "Every book you've started is matched". [shareMode] is when
      * ListenUp updates Hardcover: the server's, or the one just chosen while [isSavingShareMode].
      * [history] is the offer to send the books finished before connecting: the server's, or what Send or
-     * Not now just showed while it saves.
+     * Not now just showed while it saves. [keptOffBookCount] is how many books the listener keeps off Hardcover
+     * (#1541): the quiet row in Sync shows while it is above zero.
      */
     data class Connected(
         val username: String,
@@ -97,6 +98,7 @@ sealed interface HardcoverSettingsUiState {
         val shareMode: HardcoverShareMode = HardcoverShareMode.AS_I_LISTEN,
         val isSavingShareMode: Boolean = false,
         val history: HardcoverHistory = HardcoverHistory.None,
+        val keptOffBookCount: Int = 0,
     ) : HardcoverSettingsUiState
 
     /**
@@ -441,6 +443,7 @@ private fun HardcoverConnection.toUiState(
                 isMatchListKnown = booksToMatch != null,
                 shareMode = shareMode,
                 history = history,
+                keptOffBookCount = keptOffBookCount,
             )
         }
 

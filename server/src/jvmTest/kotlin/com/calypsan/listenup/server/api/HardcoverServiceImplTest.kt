@@ -11,6 +11,8 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.hardcover.HARDCOVER_SCOPES
@@ -18,8 +20,11 @@ import com.calypsan.listenup.server.hardcover.HardcoverBookLinkStore
 import com.calypsan.listenup.server.hardcover.HardcoverBookLinking
 import com.calypsan.listenup.server.hardcover.HardcoverCatalogCache
 import com.calypsan.listenup.server.hardcover.HardcoverConnectionStore
+import com.calypsan.listenup.server.hardcover.HardcoverExclusions
 import com.calypsan.listenup.server.hardcover.HardcoverGraphQlClient
+import com.calypsan.listenup.server.hardcover.HardcoverHistoryProgress
 import com.calypsan.listenup.server.hardcover.HardcoverHistorySender
+import com.calypsan.listenup.server.hardcover.HardcoverKeepOff
 import com.calypsan.listenup.server.hardcover.HardcoverLinker
 import com.calypsan.listenup.server.hardcover.HardcoverMe
 import com.calypsan.listenup.server.hardcover.HardcoverOAuthClient
@@ -32,8 +37,11 @@ import com.calypsan.listenup.server.hardcover.RecordingPullRequests
 import com.calypsan.listenup.server.hardcover.HardcoverTokenCipher
 import com.calypsan.listenup.server.hardcover.HardcoverTokenProvider
 import com.calypsan.listenup.server.hardcover.HardcoverTokens
+import com.calypsan.listenup.server.hardcover.HardcoverUserGate
 import com.calypsan.listenup.server.hardcover.hardcoverShareMode
 import com.calypsan.listenup.server.hardcover.seedOwnRead
+import com.calypsan.listenup.server.hardcover.testWantToRead
+import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -54,6 +62,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.time.Clock
 
 private const val USER = "u1"
 private const val OTHER_USER = "u2"
@@ -100,7 +109,7 @@ private class Rig(
 ) {
     val hardcover = ScriptedHardcover()
     val sql = dbs.sql
-    private val activity = HardcoverSyncActivity()
+    val activity = HardcoverSyncActivity()
     val store =
         HardcoverConnectionStore(
             dbs.sql,
@@ -120,6 +129,19 @@ private class Rig(
     private val tokenProvider =
         HardcoverTokenProvider(HardcoverOAuthClient(hardcover.client, "listenup-test", "https://hc.test"), store, linker)
     val pulls = RecordingPullRequests()
+    val keepOff =
+        HardcoverKeepOff(
+            sql = dbs.sql,
+            access = BookAccessPolicy(dbs.sql, dbs.driver),
+            connections = store,
+            wantToRead = testWantToRead(dbs, Clock.System),
+            pulls = pulls,
+            nudge = HardcoverPushNudge { },
+            gate = HardcoverUserGate(),
+            bus = ChangeBus(),
+            history = HardcoverHistoryProgress(dbs.sql),
+            activity = activity,
+        )
     val unscoped =
         HardcoverServiceImpl(
             linker,
@@ -136,10 +158,12 @@ private class Rig(
                 pulls = pulls,
                 catalog =
                     HardcoverCatalogCache(HardcoverGraphQlClient(hardcover.client, "https://hc.test"), HardcoverRateLimiter()),
+                exclusions = HardcoverExclusions(dbs.sql),
             ),
             pulls = pulls,
             preferences = preferences,
             history = history,
+            keepOff = keepOff,
         )
 
     fun serviceFor(userId: String) = unscoped.copyWith(principalOf(userId))
@@ -416,6 +440,69 @@ class HardcoverServiceImplTest :
                     .shouldBeInstanceOf<AuthError.PermissionDenied>()
                 unscoped
                     .dismissHistory()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.PermissionDenied>()
+            }
+        }
+
+        test("setBookSynced keeps the caller's book off Hardcover and syncs it again; keptOffBooks lists it") {
+            serviceTest {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-1")
+                val root = unscoped.copyWith(PrincipalProvider { UserPrincipal(UserId(USER), SessionId("s"), UserRole.ROOT) })
+                val other = unscoped.copyWith(PrincipalProvider { UserPrincipal(UserId(OTHER_USER), SessionId("t"), UserRole.ROOT) })
+
+                root.setBookSynced(BookId("book-1"), synced = false) shouldBe AppResult.Success(Unit)
+                root.keptOffBooks() shouldBe AppResult.Success(listOf(BookId("book-1")))
+                other.keptOffBooks() shouldBe AppResult.Success(emptyList())
+
+                root.setBookSynced(BookId("book-1"), synced = true) shouldBe AppResult.Success(Unit)
+                root.keptOffBooks() shouldBe AppResult.Success(emptyList())
+                hardcover.paths shouldBe emptyList()
+            }
+        }
+
+        test("the caller's Connected carries the kept-off count live") {
+            serviceTest {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-1")
+                seedConnected(USER)
+                val root = unscoped.copyWith(PrincipalProvider { UserPrincipal(UserId(USER), SessionId("s"), UserRole.ROOT) })
+                root.observeConnection().test {
+                    awaitItem()
+                        .shouldBeInstanceOf<RpcEvent.Data<HardcoverConnection>>()
+                        .value
+                        .shouldBeInstanceOf<HardcoverConnection.Connected>()
+                        .keptOffBookCount shouldBe 0
+
+                    root.setBookSynced(BookId("book-1"), synced = false) shouldBe AppResult.Success(Unit)
+
+                    awaitItem()
+                        .shouldBeInstanceOf<RpcEvent.Data<HardcoverConnection>>()
+                        .value
+                        .shouldBeInstanceOf<HardcoverConnection.Connected>()
+                        .keptOffBookCount shouldBe 1
+                }
+            }
+        }
+
+        test("a book the caller can't see is not found; without a principal both are PermissionDenied") {
+            serviceTest {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-1")
+                serviceFor(USER)
+                    .setBookSynced(BookId("book-1"), synced = false)
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<com.calypsan.listenup.api.error.BookError.NotFound>()
+                unscoped
+                    .setBookSynced(BookId("book-1"), synced = false)
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                unscoped
+                    .keptOffBooks()
                     .shouldBeInstanceOf<AppResult.Failure>()
                     .error
                     .shouldBeInstanceOf<AuthError.PermissionDenied>()

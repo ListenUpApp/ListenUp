@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api
 
+import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverHistory
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.UnknownError
@@ -60,6 +61,9 @@ public val contractJson: Json =
                 // The same tolerance for the Hardcover history offer (#1540): a state a newer server adds
                 // reads as no offer, rather than failing the whole Connected stream on an older client.
                 polymorphicDefaultDeserializer(HardcoverHistory::class) { HardcoverHistory.None.serializer() }
+                // And for a book's Hardcover match (#1541): a state a newer server adds reads as unmatched — no
+                // row — rather than failing the read.
+                polymorphicDefaultDeserializer(HardcoverBookMatch::class) { HardcoverBookMatch.Unmatched.serializer() }
             }
     }
 

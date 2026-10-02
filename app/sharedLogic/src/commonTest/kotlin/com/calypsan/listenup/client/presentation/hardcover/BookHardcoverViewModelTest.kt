@@ -12,6 +12,8 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -43,7 +45,7 @@ private fun TestScope.bookViewModel(
     errorBus: ErrorBus = ErrorBus(),
 ) = BookHardcoverViewModel(BOOK, repo, errorBus, StoppedClock)
 
-/** Spec B5's Book Detail row: hidden unless connected and matched (or needing a match), live as sync moves. */
+/** Spec B5's Book Detail row: hidden unless connected, live as sync moves; with #1541's Sync with Hardcover switch. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class BookHardcoverViewModelTest :
     FunSpec({
@@ -65,10 +67,10 @@ class BookHardcoverViewModelTest :
             }
         }
 
-        test("each answer maps to its row; a never-matched book and a failure show nothing") {
+        test("each answer maps to its row; a never-matched book is the switch alone, and a failure shows nothing") {
             runTest {
                 listOf(
-                    AppResult.Success(HardcoverBookMatch.Unmatched) to BookHardcoverUiState.Hidden,
+                    AppResult.Success(HardcoverBookMatch.Unmatched) to BookHardcoverUiState.Unmatched,
                     AppResult.Success(HardcoverBookMatch.NeedsMatch) to BookHardcoverUiState.NeedsMatch,
                     AppResult.Success(LINKED) to
                         BookHardcoverUiState.Linked(
@@ -161,6 +163,155 @@ class BookHardcoverViewModelTest :
                     }
                     awaitItem() shouldBe HardcoverError.Unavailable()
                 }
+            }
+        }
+
+        test("connected, a book never matched still has a row: just the switch, on (decision 1)") {
+            runTest {
+                val repo = FakeHardcoverRepository(CONNECTED).apply { bookMatchResult = AppResult.Success(HardcoverBookMatch.Unmatched) }
+                bookViewModel(repo).uiState.test {
+                    advanceUntilIdle()
+                    expectMostRecentItem() shouldBe BookHardcoverUiState.Unmatched
+                }
+            }
+        }
+
+        test("switching off a book never matched keeps it off at once, with nothing to ask about (decision 1)") {
+            runTest {
+                val repo = FakeHardcoverRepository(CONNECTED).apply { bookMatchResult = AppResult.Success(HardcoverBookMatch.Unmatched) }
+                val gate = CompletableDeferred<Unit>().also { repo.setBookSyncedGate = it }
+                val vm = bookViewModel(repo)
+                vm.uiState.test {
+                    advanceUntilIdle()
+                    vm.setSynced(false)
+                    runCurrent()
+                    expectMostRecentItem() shouldBe BookHardcoverUiState.KeptOff()
+                    repo.syncedChoices shouldBe listOf(BookId(BOOK) to false)
+                    gate.complete(Unit)
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a kept-off book is KeptOff") {
+            runTest {
+                val repo = FakeHardcoverRepository(CONNECTED).apply { bookMatchResult = AppResult.Success(HardcoverBookMatch.KeptOff) }
+                bookViewModel(repo).uiState.test {
+                    advanceUntilIdle()
+                    expectMostRecentItem() shouldBe BookHardcoverUiState.KeptOff()
+                }
+            }
+        }
+
+        test("a linked book says what keeping it off would remove — and only then is the listener asked first") {
+            runTest {
+                mapOf(
+                    LINKED to null,
+                    LINKED.copy(readsInReaders = true) to KeepOffRemoves.READS,
+                    LINKED.copy(onToReadFromHardcover = true) to KeepOffRemoves.TO_READ,
+                    LINKED.copy(readsInReaders = true, onToReadFromHardcover = true) to KeepOffRemoves.READS_AND_TO_READ,
+                ).forEach { (match, removes) ->
+                    val repo = FakeHardcoverRepository(CONNECTED).apply { bookMatchResult = AppResult.Success(match) }
+                    bookViewModel(repo).uiState.test {
+                        advanceUntilIdle()
+                        expectMostRecentItem().shouldBeInstanceOf<BookHardcoverUiState.Linked>().keepOffRemoves shouldBe removes
+                    }
+                }
+            }
+        }
+
+        test("switching it off shows it kept off at once, and the server's answer holds it there") {
+            runTest {
+                val repo = FakeHardcoverRepository(CONNECTED).apply { bookMatchResult = AppResult.Success(LINKED) }
+                val gate = CompletableDeferred<Unit>().also { repo.setBookSyncedGate = it }
+                val vm = bookViewModel(repo)
+                vm.uiState.test {
+                    advanceUntilIdle()
+                    vm.setSynced(false)
+                    runCurrent()
+                    expectMostRecentItem() shouldBe BookHardcoverUiState.KeptOff()
+                    repo.syncedChoices shouldBe listOf(BookId(BOOK) to false)
+
+                    repo.bookMatchResult = AppResult.Success(HardcoverBookMatch.KeptOff)
+                    gate.complete(Unit)
+                    advanceUntilIdle()
+                    // The server's KeptOff equals what is shown, so nothing new is emitted: no flicker back.
+                    expectNoEvents()
+                    vm.uiState.value shouldBe BookHardcoverUiState.KeptOff()
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a refused switch goes back to what the server holds, and the refusal reaches the error bus") {
+            runTest {
+                val repo =
+                    FakeHardcoverRepository(CONNECTED).apply {
+                        bookMatchResult = AppResult.Success(LINKED)
+                        setBookSyncedResult = AppResult.Failure(HardcoverError.Unavailable())
+                    }
+                val errorBus = ErrorBus()
+                val vm = bookViewModel(repo, errorBus)
+                errorBus.errors.test {
+                    vm.uiState.test {
+                        advanceUntilIdle()
+                        vm.setSynced(false)
+                        advanceUntilIdle()
+                        expectMostRecentItem().shouldBeInstanceOf<BookHardcoverUiState.Linked>()
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                    awaitItem() shouldBe HardcoverError.Unavailable()
+                }
+            }
+        }
+
+        test("switching it back on reads on at once, then shows the row the server answers") {
+            runTest {
+                val repo = FakeHardcoverRepository(CONNECTED).apply { bookMatchResult = AppResult.Success(HardcoverBookMatch.KeptOff) }
+                val gate = CompletableDeferred<Unit>().also { repo.setBookSyncedGate = it }
+                val vm = bookViewModel(repo)
+                vm.uiState.test {
+                    advanceUntilIdle()
+                    vm.setSynced(true)
+                    runCurrent()
+                    expectMostRecentItem() shouldBe BookHardcoverUiState.KeptOff(isResuming = true)
+
+                    repo.bookMatchResult = AppResult.Success(LINKED)
+                    gate.complete(Unit)
+                    advanceUntilIdle()
+                    expectMostRecentItem().shouldBeInstanceOf<BookHardcoverUiState.Linked>()
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("the switch is ignored when it already says so, while a flip saves, and with no row") {
+            runTest {
+                val repo = FakeHardcoverRepository(CONNECTED).apply { bookMatchResult = AppResult.Success(LINKED) }
+                val gate = CompletableDeferred<Unit>().also { repo.setBookSyncedGate = it }
+                val vm = bookViewModel(repo)
+                vm.uiState.test {
+                    advanceUntilIdle()
+                    vm.setSynced(true)
+                    vm.setSynced(false)
+                    runCurrent()
+                    vm.setSynced(false)
+                    vm.setSynced(true)
+                    runCurrent()
+                    repo.syncedChoices shouldBe listOf(BookId(BOOK) to false)
+                    gate.complete(Unit)
+                    cancelAndIgnoreRemainingEvents()
+                }
+
+                val notConnected = FakeHardcoverRepository(HardcoverConnection.NotConnected())
+                val hidden = bookViewModel(notConnected)
+                hidden.uiState.test {
+                    advanceUntilIdle()
+                    hidden.setSynced(false)
+                    advanceUntilIdle()
+                    cancelAndIgnoreRemainingEvents()
+                }
+                notConnected.syncedChoices shouldBe emptyList()
             }
         }
     })

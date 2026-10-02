@@ -200,6 +200,7 @@ class HardcoverContractTest :
         listOf<HardcoverBookMatch>(
             HardcoverBookMatch.Unmatched,
             HardcoverBookMatch.NeedsMatch,
+            HardcoverBookMatch.KeptOff,
             HardcoverBookMatch.Linked(
                 hcBookId = 427_578L,
                 hcEditionId = 9_001L,
@@ -210,10 +211,37 @@ class HardcoverContractTest :
                 sync = HardcoverBookSync.WAITING,
             ),
             HardcoverBookMatch.Linked(hcBookId = 1L),
+            HardcoverBookMatch.Linked(hcBookId = 1L, readsInReaders = true, onToReadFromHardcover = true),
         ).forEach { match ->
             test("$match round-trips") {
                 val json = contractJson.encodeToString(HardcoverBookMatch.serializer(), match)
                 contractJson.decodeFromString(HardcoverBookMatch.serializer(), json) shouldBe match
             }
+        }
+
+        test("a kept-off book is spelled on the wire by a pinned name") {
+            contractJson.encodeToString(HardcoverBookMatch.serializer(), HardcoverBookMatch.KeptOff) shouldBe
+                """{"type":"HardcoverBookMatch.KeptOff"}"""
+        }
+
+        test("a Linked payload from a server that predates keeping books off says nothing would leave") {
+            val legacy = """{"type":"HardcoverBookMatch.Linked","hcBookId":1}"""
+            val decoded = contractJson.decodeFromString(HardcoverBookMatch.serializer(), legacy) as HardcoverBookMatch.Linked
+            decoded.readsInReaders shouldBe false
+            decoded.onToReadFromHardcover shouldBe false
+        }
+
+        test("a match state this build doesn't know reads as unmatched instead of failing the call") {
+            val future = """{"type":"HardcoverBookMatch.Paused","until":5}"""
+            contractJson.decodeFromString(HardcoverBookMatch.serializer(), future) shouldBe HardcoverBookMatch.Unmatched
+        }
+
+        test("Connected carries how many books are kept off, and an older payload reads as none") {
+            val state = HardcoverConnection.Connected(hardcoverUsername = "simon", since = 1L, keptOffBookCount = 3)
+            val json = contractJson.encodeToString(HardcoverConnection.serializer(), state)
+            contractJson.decodeFromString(HardcoverConnection.serializer(), json) shouldBe state
+            val legacy = """{"type":"HardcoverConnection.Connected","hardcoverUsername":"simon","since":1}"""
+            (contractJson.decodeFromString(HardcoverConnection.serializer(), legacy) as HardcoverConnection.Connected)
+                .keptOffBookCount shouldBe 0
         }
     })

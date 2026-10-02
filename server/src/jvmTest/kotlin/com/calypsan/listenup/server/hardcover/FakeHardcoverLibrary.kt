@@ -668,4 +668,10 @@ class RecordingPullRequests : HardcoverPullRequests {
     ) {
         matchChanges += userId to bookId
     }
+
+    val fullPulls = CopyOnWriteArrayList<String>()
+
+    override suspend fun fullPullNow(userId: String) {
+        fullPulls += userId
+    }
 }

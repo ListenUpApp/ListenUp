@@ -101,13 +101,15 @@ deleteForUser:
 DELETE FROM hardcover_book_links WHERE user_id = :user_id;
 
 -- The background match pass's work list: live books the user has started that have no link row
--- yet, in id order after :after (a keyset cursor, so one pass always ends).
+-- yet and are not kept off Hardcover (#1541), in id order after :after (a keyset cursor, so one pass
+-- always ends).
 unlinkedStartedBooks:
 SELECT p.book_id
 FROM playback_positions AS p
 JOIN books AS b ON b.id = p.book_id
 WHERE p.user_id = :user_id AND p.deleted_at IS NULL AND b.deleted_at IS NULL AND p.book_id > :after
   AND NOT EXISTS (SELECT 1 FROM hardcover_book_links AS l WHERE l.user_id = p.user_id AND l.book_id = p.book_id)
+  AND NOT EXISTS (SELECT 1 FROM hardcover_book_exclusions AS x WHERE x.user_id = p.user_id AND x.book_id = p.book_id)
 ORDER BY p.book_id
 LIMIT :limit;
 
@@ -124,10 +126,12 @@ SELECT EXISTS(SELECT 1 FROM hardcover_book_links WHERE user_id = :user_id AND bo
 markPullSeen:
 UPDATE hardcover_book_links SET pull_seen_at = :pull_seen_at WHERE user_id = :user_id AND book_id = :book_id;
 
--- The user's books that need a match, newest first. Live books only: a removed book has nothing to sync.
+-- The user's books that need a match, newest first. Live books only, and none kept off Hardcover (#1541):
+-- a removed book has nothing to sync, and a kept-off one never syncs.
 needsMatchBooks:
 SELECT l.book_id
 FROM hardcover_book_links AS l
 JOIN books AS b ON b.id = l.book_id
 WHERE l.user_id = :user_id AND l.match_state = 'NEEDS_MATCH' AND b.deleted_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM hardcover_book_exclusions AS x WHERE x.user_id = l.user_id AND x.book_id = l.book_id)
 ORDER BY l.updated_at DESC, l.book_id;

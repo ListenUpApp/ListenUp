@@ -45,6 +45,23 @@ internal fun pulledReadRowId(
 ): String = "hardcover:$userId:$hcReadId"
 
 /**
+ * Deletes [userId]'s pulled reads of [bookId] inside the caller's transaction — the pull's own deletion,
+ * used when the match changes and when the book is kept off Hardcover (#1541).
+ */
+internal fun ListenUpDatabase.forgetPulledReadsOf(
+    userId: String,
+    bookId: String,
+) {
+    bookReadsQueries.deletePulledForUserBook(userId, bookId)
+}
+
+/** Whether any of [userId]'s Hardcover reads of [bookId] are mirrored here, inside the caller's transaction. */
+internal fun ListenUpDatabase.hasPulledReadsOf(
+    userId: String,
+    bookId: String,
+): Boolean = bookReadsQueries.hasPulledForUserBook(userId, bookId).executeAsOne()
+
+/**
  * The pull's persistence (spec B3): its cursor and full-pull state, and the `book_reads` rows with
  * `source = 'hardcover'`. A page is written and the cursor moved in ONE transaction, so a crash between
  * the two can't happen: the cursor advances only after a page commits. Only pulled rows are ever
@@ -161,7 +178,7 @@ class HardcoverPullStore(
         userId: String,
         bookId: String,
     ) {
-        suspendTransaction(sql) { sql.bookReadsQueries.deletePulledForUserBook(userId, bookId) }
+        suspendTransaction(sql) { sql.forgetPulledReadsOf(userId, bookId) }
     }
 
     /** Every pulled row of [userId], by book then Hardcover id. */

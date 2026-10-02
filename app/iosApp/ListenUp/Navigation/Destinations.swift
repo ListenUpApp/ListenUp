@@ -135,6 +135,9 @@ struct NotificationPrefsDestination: Hashable, Codable {}
 /// The Hardcover connection screen, reached from Settings › Account.
 struct HardcoverDestination: Hashable, Codable {}
 
+/// The books kept off Hardcover (#1541), each with Sync Again.
+struct HardcoverKeptOffDestination: Hashable, Codable {}
+
 /// The Open Source Licenses screen — curated list of all bundled open-source libraries.
 struct LicensesDestination: Hashable, Codable {}
 

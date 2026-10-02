@@ -9,20 +9,35 @@ import SwiftUI
 /// single thing to do, so Find on Hardcover is prominent. HIG, Buttons: "use a more prominent button
 /// style for that option and a less prominent style for the remaining ones". Remove Match confirms
 /// first (the caller's dialog): it parks the book's syncing until a new match is picked.
+///
+/// Sync with Hardcover (#1541) heads the card in every state; kept off, the card holds only it, with a
+/// footer saying what that means. A book never matched gets the card with only the Toggle, on.
 struct BookHardcoverSection: View {
     let phase: BookHardcoverPhase
     let onFindMatch: () -> Void
     let onRemoveMatch: () -> Void
+    /// Sync with Hardcover flipped: off keeps the book off Hardcover, on syncs it again.
+    let onSetSynced: (Bool) -> Void
+    /// Switching it off would take something visible out of ListenUp: the caller asks first, with this message.
+    let onConfirmKeepOff: (String) -> Void
 
     var body: some View {
         switch phase {
         case .hidden:
             EmptyView()
+        case .unmatched:
+            VStack(alignment: .leading, spacing: Spacing.s) {
+                header(String(localized: "hardcover.book_row_title"))
+                card { syncToggle(keepOffMessage: nil) }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         case .needsMatch:
             VStack(alignment: .leading, spacing: Spacing.s) {
                 header(String(localized: "hardcover.book_row_title"))
                 card {
                     VStack(alignment: .leading, spacing: Spacing.s) {
+                        syncToggle(keepOffMessage: nil)
+                        Divider()
                         VStack(alignment: .leading, spacing: 2) {
                             Text(String(localized: "hardcover.book_row_needs_match"))
                                 .font(.body.weight(.semibold))
@@ -44,6 +59,8 @@ struct BookHardcoverSection: View {
                 header(String(localized: "hardcover.book_row_on_hardcover"))
                 card {
                     VStack(alignment: .leading, spacing: Spacing.s) {
+                        syncToggle(keepOffMessage: model.keepOffMessage)
+                        Divider()
                         linkedSummary(model)
                         Divider()
                         // Side by side while they fit; stacked at the large accessibility sizes, so
@@ -56,7 +73,40 @@ struct BookHardcoverSection: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        case .keptOff(let isResuming):
+            VStack(alignment: .leading, spacing: Spacing.s) {
+                header(String(localized: "hardcover.book_row_title"))
+                card { syncToggle(keepOffMessage: nil) }
+                // A footer under the toggle, as the HIG places explanatory text for one.
+                if !isResuming {
+                    Text(String(localized: "hardcover.kept_off_line"))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, Spacing.m)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    /// Sync with Hardcover, the section's first row (#1541). HIG, Toggles: a toggle "lets people choose between a pair
+    /// of opposing states". Switching off goes to the caller's confirmation when `keepOffMessage` says something
+    /// visible would leave; the binding still reads the phase, so the Toggle stays on behind the dialog.
+    private func syncToggle(keepOffMessage: String?) -> some View {
+        Toggle(
+            String(localized: "hardcover.keep_off_switch"),
+            isOn: Binding(
+                get: { phase.isSyncOn },
+                set: { isOn in
+                    if !isOn, let keepOffMessage {
+                        onConfirmKeepOff(keepOffMessage)
+                    } else {
+                        onSetSynced(isOn)
+                    }
+                }
+            )
+        )
+        .font(.body.weight(.semibold))
     }
 
     /// Change Match and Remove Match. `fitted` holds each label on one line, so the side-by-side
@@ -135,9 +185,21 @@ struct BookHardcoverSection: View {
                     status: BookHardcoverObserver.status(for: .removedOnHardcover)
                 )),
                 onFindMatch: {},
-                onRemoveMatch: {}
+                onRemoveMatch: {},
+                onSetSynced: { _ in },
+                onConfirmKeepOff: { _ in }
             )
-            BookHardcoverSection(phase: .needsMatch, onFindMatch: {}, onRemoveMatch: {})
+            BookHardcoverSection(
+                phase: .needsMatch,
+                onFindMatch: {}, onRemoveMatch: {}, onSetSynced: { _ in }, onConfirmKeepOff: { _ in }
+            )
+            BookHardcoverSection(
+                phase: .keptOff(isResuming: false),
+                onFindMatch: {}, onRemoveMatch: {}, onSetSynced: { _ in }, onConfirmKeepOff: { _ in }
+            )
+            BookHardcoverSection(
+                phase: .unmatched, onFindMatch: {}, onRemoveMatch: {}, onSetSynced: { _ in }, onConfirmKeepOff: { _ in }
+            )
         }
         .padding()
     }

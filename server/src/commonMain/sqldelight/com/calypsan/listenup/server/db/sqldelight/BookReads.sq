@@ -106,6 +106,11 @@ WHERE user_id = :user_id AND source = 'hardcover'
 deletePulledForUser:
 DELETE FROM book_reads WHERE user_id = :user_id AND source = 'hardcover';
 
+-- Whether any of the user's Hardcover reads of one book are mirrored here: what keeping the book off
+-- Hardcover would take out of Readers (#1541).
+hasPulledForUserBook:
+SELECT EXISTS(SELECT 1 FROM book_reads WHERE user_id = :user_id AND book_id = :book_id AND source = 'hardcover');
+
 pulledForUser:
 SELECT book_id, finished_at, hc_read_id FROM book_reads
 WHERE user_id = :user_id AND source = 'hardcover'

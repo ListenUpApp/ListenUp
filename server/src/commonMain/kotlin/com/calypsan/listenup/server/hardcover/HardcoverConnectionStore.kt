@@ -78,7 +78,8 @@ data class HardcoverPushHealth(
  * It also owns push and pull health, and forgets a user's book links, pending pushes, pulled reads and
  * Hardcover's Want to Read shelf books when the connection ends or changes account. The listener's share
  * mode is not sync state: it lives in [HardcoverPreferences] and survives both. Nor is the earlier-books
- * offer ([offerHardcoverHistory]): it survives a disconnect and is replaced only by another account. Every
+ * offer ([offerHardcoverHistory]): it survives a disconnect and is replaced only by another account. Nor are
+ * the books the listener keeps off Hardcover (#1541): they belong to the listener, and survive both. Every
  * change to sync health ([markSynced], [recordPushError], [markPulled], [recordPullError]) is announced on
  * [HardcoverSyncActivity.healthChanged], so a watching client sees it.
  */
@@ -115,6 +116,7 @@ class HardcoverConnectionStore(
                         },
                     shareMode = sql.hardcoverShareMode(userId),
                     history = sql.hardcoverHistory(userId, stored.connectedAt),
+                    keptOffBookCount = sql.keptOffBookCount(userId),
                 )
             }
 
@@ -164,6 +166,7 @@ class HardcoverConnectionStore(
             now,
             shareMode = sql.hardcoverShareMode(userId),
             history = sql.hardcoverHistory(userId, now),
+            keptOffBookCount = sql.keptOffBookCount(userId),
         )
     }
 

@@ -95,6 +95,17 @@ internal class HardcoverRepositoryImpl(
     override suspend fun bookMatch(bookId: BookId): AppResult<HardcoverBookMatch> =
         channel.call(idempotent = true) { it.bookMatch(bookId) }
 
+    // Keeping a book off twice leaves it off; syncing it again twice leaves it synced.
+    override suspend fun setBookSynced(
+        bookId: BookId,
+        synced: Boolean,
+    ): AppResult<Unit> =
+        channel
+            .call(idempotent = true) { it.setBookSynced(bookId, synced) }
+            .onSuccess { matchChangesFlow.tryEmit(bookId) }
+
+    override suspend fun keptOffBooks(): AppResult<List<BookId>> = channel.call(idempotent = true) { it.keptOffBooks() }
+
     override fun observeConnection(): Flow<HardcoverConnection> =
         flow {
             var backoffMs = INITIAL_RESUBSCRIBE_DELAY_MS

@@ -81,6 +81,11 @@ enum class WebIcon(
     // the standard "a set of things" shape; reconcile if the design project grows one.
     Layers("M12 3l8 4.5-8 4.5-8-4.5z M4 12l8 4.5 8-4.5 M4 16.5l8 4.5 8-4.5"),
 
+    // From the keep-off canvas (#1541): a book kept off Hardcover.
+    LinkOff(
+        "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1 M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1 M4 4l16 16",
+    ),
+
     // Not mirrored from the design project, which has no list glyph. A numbered list is what
     // Android's Edit chapters carries (FormatListNumbered) and iOS's is a list too, so the held
     // panel's Edit chapters no longer wears Edit's pencil.

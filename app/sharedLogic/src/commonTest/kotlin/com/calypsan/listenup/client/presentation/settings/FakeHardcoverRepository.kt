@@ -169,6 +169,28 @@ internal class FakeHardcoverRepository(
         return bookMatchResult
     }
 
+    var setBookSyncedResult: AppResult<Unit> = AppResult.Success(Unit)
+    var setBookSyncedGate: CompletableDeferred<Unit>? = null
+    val syncedChoices = mutableListOf<Pair<BookId, Boolean>>()
+
+    override suspend fun setBookSynced(
+        bookId: BookId,
+        synced: Boolean,
+    ): AppResult<Unit> {
+        syncedChoices += bookId to synced
+        setBookSyncedGate?.await()
+        return setBookSyncedResult.also { if (it is AppResult.Success) matchChangesFlow.tryEmit(bookId) }
+    }
+
+    var keptOffBooksResult: AppResult<List<BookId>> = AppResult.Success(emptyList())
+    var keptOffBooksCalls = 0
+        private set
+
+    override suspend fun keptOffBooks(): AppResult<List<BookId>> {
+        keptOffBooksCalls++
+        return keptOffBooksResult
+    }
+
     companion object {
         val SAMPLE_PROMPT =
             HardcoverLinkPrompt(

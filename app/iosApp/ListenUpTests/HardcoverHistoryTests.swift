@@ -19,7 +19,8 @@ struct HardcoverHistoryTests {
             isMatchListKnown: true,
             shareMode: .asIListen,
             isSavingShareMode: false,
-            history: history
+            history: history,
+            keptOffBookCount: 0
         )
     }
 

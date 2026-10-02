@@ -45,6 +45,17 @@ class HardcoverHistoryStoreTest :
             }
         }
 
+        test("a book kept off Hardcover is not history: not offered, not counted") {
+            selectionTest {
+                sql.seedOwnRead(USER, "book-1", "kept", finishedAt = T0 - 20 * DAY)
+                sql.seedOwnRead(USER, "book-2", "shared", finishedAt = T0 - 10 * DAY)
+                sql.seedExclusion(USER, "book-1", at = T0 - DAY)
+
+                unsent().map { it.readId } shouldBe listOf("shared")
+                sql.unsentHardcoverHistoryBooks(USER, connectedAt = T0) shouldBe 1
+            }
+        }
+
         test("each read starts at the earliest listening after the previous own read finished — rereads included") {
             selectionTest {
                 sql.seedListeningEvent(USER, "book-1", "e1", startedAt = T0 - 40 * DAY)

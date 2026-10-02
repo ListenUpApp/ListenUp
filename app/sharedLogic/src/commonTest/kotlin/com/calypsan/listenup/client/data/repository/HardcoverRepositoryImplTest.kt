@@ -296,6 +296,34 @@ class HardcoverRepositoryImplTest :
                 dispatch.lastIdempotent shouldBe true
             }
         }
+
+        test("keeping a book off, or syncing it again, reaches the server, is a safe blind retry, and announces the book") {
+            runTest {
+                val service = FakeHardcoverService()
+                val dispatch = IdempotenceRecordingDispatch<HardcoverService>(service)
+                val repository = HardcoverRepositoryImpl(RpcChannel(dispatch, RpcPolicy.Authed))
+                repository.matchChanges.test {
+                    repository.setBookSynced(BookId("b1"), synced = false) shouldBe AppResult.Success(Unit)
+                    awaitItem() shouldBe BookId("b1")
+                    dispatch.lastIdempotent shouldBe true
+                    service.setBookSyncedResult = AppResult.Failure(HardcoverError.Unavailable())
+                    repository.setBookSynced(BookId("b2"), synced = true)
+                    expectNoEvents()
+                }
+                service.syncedChoices shouldBe listOf(BookId("b1") to false, BookId("b2") to true)
+            }
+        }
+
+        test("the kept-off books are read from the server, a safe blind retry") {
+            runTest {
+                val service = FakeHardcoverService().apply { keptOffBooksResult = AppResult.Success(listOf(BookId("b1"))) }
+                val dispatch = IdempotenceRecordingDispatch<HardcoverService>(service)
+                val repository = HardcoverRepositoryImpl(RpcChannel(dispatch, RpcPolicy.Authed))
+
+                repository.keptOffBooks() shouldBe AppResult.Success(listOf(BookId("b1")))
+                dispatch.lastIdempotent shouldBe true
+            }
+        }
     })
 
 /** In-memory [HardcoverService]: each subscribe pops the next scripted stream; unary calls return what they were given. */
@@ -386,6 +414,20 @@ private class FakeHardcoverService(
     override suspend fun booksNeedingMatch(): AppResult<List<BookId>> = booksNeedingMatchResult
 
     override suspend fun bookMatch(bookId: BookId): AppResult<HardcoverBookMatch> = bookMatchResult
+
+    val syncedChoices = mutableListOf<Pair<BookId, Boolean>>()
+    var setBookSyncedResult: AppResult<Unit> = AppResult.Success(Unit)
+    var keptOffBooksResult: AppResult<List<BookId>> = AppResult.Success(emptyList())
+
+    override suspend fun setBookSynced(
+        bookId: BookId,
+        synced: Boolean,
+    ): AppResult<Unit> {
+        syncedChoices += bookId to synced
+        return setBookSyncedResult
+    }
+
+    override suspend fun keptOffBooks(): AppResult<List<BookId>> = keptOffBooksResult
 
     var syncIfStaleCount = 0
         private set

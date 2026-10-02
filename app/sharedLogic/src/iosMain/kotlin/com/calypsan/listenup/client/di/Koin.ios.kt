@@ -97,6 +97,7 @@ import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditViewModel
 import com.calypsan.listenup.client.presentation.settings.DevicesViewModel
 import com.calypsan.listenup.client.presentation.hardcover.BookHardcoverViewModel
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverMatchViewModel
+import com.calypsan.listenup.client.presentation.hardcover.KeptOffBooksViewModel
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsViewModel
 import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel
@@ -320,6 +321,8 @@ object KoinHelper {
     fun getDevicesViewModel(): DevicesViewModel = resolve(DevicesViewModel::class)
 
     fun getHardcoverSettingsViewModel(): HardcoverSettingsViewModel = resolve(HardcoverSettingsViewModel::class)
+
+    fun getKeptOffBooksViewModel(): KeptOffBooksViewModel = resolve(KeptOffBooksViewModel::class)
 
     fun getNotificationBellViewModel(): NotificationBellViewModel = resolve(NotificationBellViewModel::class)
 

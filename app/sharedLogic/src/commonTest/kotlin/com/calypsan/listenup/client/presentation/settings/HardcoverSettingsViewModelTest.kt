@@ -136,6 +136,19 @@ class HardcoverSettingsViewModelTest :
 
         // ========== Connect ==========
 
+        test("Connected carries how many books are kept off Hardcover, live") {
+            runTest {
+                val repo = FakeHardcoverRepository(HardcoverConnection.Connected("reader", SINCE, keptOffBookCount = 2))
+                val vm = HardcoverSettingsViewModel(repo, books())
+                vm.uiState.test {
+                    (awaitSettled() as HardcoverSettingsUiState.Connected).keptOffBookCount shouldBe 2
+                    repo.connection.value = HardcoverConnection.Connected("reader", SINCE, keptOffBookCount = 3)
+                    advanceUntilIdle()
+                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).keptOffBookCount shouldBe 3
+                }
+            }
+        }
+
         test("connect opens the pre-filled approval page") {
             runTest {
                 val repo = FakeHardcoverRepository(HardcoverConnection.NotConnected())

@@ -78,7 +78,7 @@ private class PullWorkerRig(
                 HardcoverPuller(
                     userBooks = HardcoverUserBooks(graphQl),
                     store = store,
-                    resolver = HardcoverShelfResolver(sql, BookAccessPolicy(sql, dbs.driver)),
+                    resolver = HardcoverShelfResolver(sql, BookAccessPolicy(sql, dbs.driver), HardcoverExclusions(sql)),
                     links = links,
                     wantToRead = testWantToRead(dbs, clock),
                     rateLimiter = NoWaitRateLimiter(),
@@ -369,6 +369,28 @@ class HardcoverPullWorkerTest :
                 store.pulledReads(USER) shouldBe emptyList()
                 worker.step(USER).shouldBeInstanceOf<LaneStep.Sleep>()
                 lastAfter() shouldBe PULL_EPOCH
+            }
+        }
+
+        test("a book synced again pulls the whole shelf at once") {
+            pullWorkerTest {
+                connect()
+                worker.step(USER)
+                store.commitPage(USER, emptyList(), "c", 1L, T0)
+                at(T0 + 60_000L)
+
+                worker.fullPullNow(USER)
+
+                worker.step(USER).shouldBeInstanceOf<LaneStep.Sleep>()
+                lastAfter() shouldBe PULL_EPOCH
+            }
+        }
+
+        test("without a working connection a full pull now pulls nothing") {
+            pullWorkerTest {
+                worker.fullPullNow(USER)
+                worker.step(USER) shouldBe LaneStep.Stop
+                pulls() shouldBe 0
             }
         }
 

@@ -418,6 +418,12 @@ data class HardcoverMatch(
 ) : Route
 
 /**
+ * The books kept off Hardcover (#1541), each with Sync again.
+ */
+@Serializable
+data object HardcoverKeptOff : Route
+
+/**
  * Settings screen - app preferences and configuration.
  */
 @Serializable

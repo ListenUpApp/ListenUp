@@ -101,6 +101,21 @@ class HardcoverWantToRead(
         entries.forgetAll(userId)
     }
 
+    /**
+     * [bookId] is being kept off Hardcover (#1541). If Hardcover's Want to Read put it on a shelf and it is still
+     * Hardcover's there, it comes off — through the shelf repositories, so every device sees it — and the
+     * record goes. A book the user took off by hand keeps its record, so syncing again never puts it back; a
+     * book they shelved themselves has no record and is never touched.
+     */
+    suspend fun release(
+        userId: String,
+        bookId: String,
+    ): AppResult<Unit> {
+        val record = entries.recordFor(userId, bookId) ?: return AppResult.Success(Unit)
+        if (record.state != HardcoverShelfEntryState.ON_SHELF) return AppResult.Success(Unit)
+        return leave(userId, record)
+    }
+
     private suspend fun place(
         userId: String,
         book: WantedBook,

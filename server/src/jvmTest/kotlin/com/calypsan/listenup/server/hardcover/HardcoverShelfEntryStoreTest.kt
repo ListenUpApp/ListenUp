@@ -87,6 +87,18 @@ class HardcoverShelfEntryStoreTest :
             }
         }
 
+        test("the sweep leaves a kept-off book's record alone: its entry is never seen while it is kept off") {
+            shelfEntryTest {
+                val toRead = shelves.createPublicShelf(USER, "To Read").shouldSucceed().id
+                store.putOnShelf(USER, "b1", toRead, hcUserBookId = 7L, seenAt = 100L)
+                store.putOnShelf(USER, "b2", toRead, hcUserBookId = 8L, seenAt = 100L)
+                store.markRemovedByHand(USER, toRead, "b1")
+                sql.seedExclusion(USER, "b1", at = 150L)
+
+                store.notSeenSince(USER, since = 200L).map { it.bookId } shouldBe listOf("b2")
+            }
+        }
+
         test("the targets are the remembered starter shelf and Hardcover's own, and forgetting drops every record") {
             shelfEntryTest {
                 val starter = shelves.createStarterShelf(USER).shouldSucceed().id

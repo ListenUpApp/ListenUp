@@ -30,6 +30,7 @@ class HardcoverBookLinking(
     private val rateLimiter: HardcoverRateLimiter,
     private val pulls: HardcoverPullRequests,
     private val catalog: HardcoverCatalogCache,
+    private val exclusions: HardcoverExclusions,
 ) {
     /** Catalog candidates for [query], best first, through [userId]'s connection. */
     suspend fun searchCatalog(
@@ -139,7 +140,10 @@ class HardcoverBookLinking(
         return AppResult.Success(links.booksNeedingMatch(userId).filter { access.canAccess(userId, role, it) })
     }
 
-    /** How [bookId] is matched for [userId]; a linked book is named from [catalog] when Hardcover can be asked. */
+    /**
+     * How [bookId] is matched for [userId] — or [HardcoverBookMatch.KeptOff] (#1541); a linked book is named from
+     * [catalog] when Hardcover can be asked, and says what keeping it off would take out of ListenUp.
+     */
     suspend fun bookMatch(
         userId: String,
         role: UserRole,
@@ -149,6 +153,8 @@ class HardcoverBookLinking(
             return AppResult.Failure(BookError.NotFound(debugInfo = "bookId=$bookId"))
         }
         if (!connections.hasConnection(userId)) return AppResult.Failure(HardcoverError.NotConnected())
+        // Kept off Hardcover (#1541), whatever its link: the link waits for when it syncs again.
+        if (exclusions.isExcluded(userId, bookId)) return AppResult.Success(HardcoverBookMatch.KeptOff)
         val link = links.linkFor(userId, bookId) ?: return AppResult.Success(HardcoverBookMatch.Unmatched)
         val hcBookId = link.hcBookId
         if (!link.isLinked || hcBookId == null) return AppResult.Success(HardcoverBookMatch.NeedsMatch)
@@ -159,6 +165,7 @@ class HardcoverBookLinking(
                         userId,
                     ) as? TokenLookup.Valid
                 )?.let { catalog.describe(it.accessToken, hcBookId) }
+        val removals = exclusions.keepOffRemovals(userId, bookId)
         return AppResult.Success(
             HardcoverBookMatch.Linked(
                 hcBookId = hcBookId,
@@ -169,6 +176,8 @@ class HardcoverBookLinking(
                 chosenByYou = link.method == HardcoverMatchMethod.MANUAL,
                 sync = bookSyncOf(link, outbox.pendingCountFor(userId, bookId)),
                 method = link.method,
+                readsInReaders = removals.readsInReaders,
+                onToReadFromHardcover = removals.onToReadFromHardcover,
             ),
         )
     }

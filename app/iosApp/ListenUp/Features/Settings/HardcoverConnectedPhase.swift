@@ -99,7 +99,8 @@ struct HardcoverConnectedPhase: View {
 
     /// When it last synced, with Sync Now; a sync in progress; or a stuck push or pull in words, with
     /// Try Again. A Sync Now that didn't finish leaves the row as it was — pressing it again is the
-    /// retry — and says so in the footer.
+    /// retry — and says so in the footer. While any book is kept off Hardcover, Kept Off Hardcover follows,
+    /// opening the list.
     @ViewBuilder
     private var syncSection: some View {
         Section {
@@ -116,6 +117,14 @@ struct HardcoverConnectedPhase: View {
                 syncNowButton(isEnabled: false)
             case .stalled(let words):
                 stalledRow(words)
+            }
+            if model.keptOffBookCount > 0 {
+                NavigationLink(value: HardcoverKeptOffDestination()) {
+                    LabeledContent(
+                        String(localized: "hardcover.kept_off_title").titleStyled,
+                        value: model.keptOffBookCount.formatted()
+                    )
+                }
             }
             if case .available(let books) = model.history {
                 HardcoverEarlierBooksRow(books: books, onSend: onSendHistory)

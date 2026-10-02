@@ -48,8 +48,8 @@ interface HardcoverRepository {
     suspend fun syncIfStale(): AppResult<Unit>
 
     /**
-     * Each book this client links or unlinks, as it lands, so a list or a row showing it re-reads at
-     * once instead of waiting for the next sync. A failed link or unlink announces nothing.
+     * Each book this client links, unlinks, keeps off Hardcover or syncs again, as it lands, so a list or a row
+     * showing it re-reads at once instead of waiting for the next sync. A failed link or unlink announces nothing.
      */
     val matchChanges: Flow<BookId>
 
@@ -92,4 +92,16 @@ interface HardcoverRepository {
 
     /** How [bookId] is matched; see [com.calypsan.listenup.api.HardcoverService.bookMatch]. */
     suspend fun bookMatch(bookId: BookId): AppResult<HardcoverBookMatch>
+
+    /**
+     * Keeps [bookId] off Hardcover ([synced] false) or syncs it again (true), announced on [matchChanges] when it
+     * lands; see [com.calypsan.listenup.api.HardcoverService.setBookSynced].
+     */
+    suspend fun setBookSynced(
+        bookId: BookId,
+        synced: Boolean,
+    ): AppResult<Unit>
+
+    /** The books kept off Hardcover; see [com.calypsan.listenup.api.HardcoverService.keptOffBooks]. */
+    suspend fun keptOffBooks(): AppResult<List<BookId>>
 }

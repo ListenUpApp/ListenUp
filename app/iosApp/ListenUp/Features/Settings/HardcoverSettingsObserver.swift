@@ -38,6 +38,8 @@ struct HardcoverConnectedModel: Equatable {
     var shareMode: HardcoverShareMode = .asIListen
     var isSavingShareMode = false
     var history: HardcoverHistoryModel = .none
+    /// How many books are kept off Hardcover (#1541): the Kept Off Hardcover row shows while it is above zero.
+    var keptOffBookCount = 0
 }
 
 /// One line of "What ListenUp shares", native, for a `ForEach` (iosApp rule 8). A quiet line says what
@@ -192,7 +194,8 @@ final class HardcoverSettingsObserver {
                     isMatchListKnown: connected.isMatchListKnown,
                     shareMode: connected.shareMode,
                     isSavingShareMode: connected.isSavingShareMode,
-                    history: HardcoverHistoryModel.from(connected.history)
+                    history: HardcoverHistoryModel.from(connected.history),
+                    keptOffBookCount: Int(connected.keptOffBookCount)
                 )
             )
         case .broken(let brokenType):

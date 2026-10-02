@@ -10981,6 +10981,136 @@
         }
       }
     },
+    "hardcover.keep_off_confirm_action": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep off"
+          }
+        }
+      }
+    },
+    "hardcover.keep_off_confirm_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its Hardcover reads leave Readers here and it comes off your To Read shelf. Nothing on Hardcover changes."
+          }
+        }
+      }
+    },
+    "hardcover.keep_off_confirm_body_reads": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its Hardcover reads leave Readers here. Nothing on Hardcover changes."
+          }
+        }
+      }
+    },
+    "hardcover.keep_off_confirm_body_to_read": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It comes off your To Read shelf. Nothing on Hardcover changes."
+          }
+        }
+      }
+    },
+    "hardcover.keep_off_confirm_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep this book off Hardcover?"
+          }
+        }
+      }
+    },
+    "hardcover.keep_off_switch": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sync with Hardcover"
+          }
+        }
+      }
+    },
+    "hardcover.kept_off_books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books"
+          }
+        }
+      }
+    },
+    "hardcover.kept_off_intro": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing about these books is shared with Hardcover or brought in from it."
+          }
+        }
+      }
+    },
+    "hardcover.kept_off_line": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kept off Hardcover — nothing about this book is shared or brought in."
+          }
+        }
+      }
+    },
+    "hardcover.kept_off_row_detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books"
+          }
+        }
+      }
+    },
+    "hardcover.kept_off_row_detail_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 book"
+          }
+        }
+      }
+    },
+    "hardcover.kept_off_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kept off Hardcover"
+          }
+        }
+      }
+    },
+    "hardcover.kept_off_unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load these books. Try again in a moment."
+          }
+        }
+      }
+    },
     "hardcover.last_synced": {
       "localizations": {
         "en": {
@@ -11601,6 +11731,26 @@
         }
       }
     },
+    "hardcover.sync_again": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sync again"
+          }
+        }
+      }
+    },
+    "hardcover.sync_again_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sync %1$@ with Hardcover again"
+          }
+        }
+      }
+    },
     "hardcover.sync_now": {
       "localizations": {
         "en": {
@@ -11637,6 +11787,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Syncing…"
+          }
+        }
+      }
+    },
+    "hardcover.syncing_again": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Syncing %1$@ with Hardcover again"
           }
         }
       }

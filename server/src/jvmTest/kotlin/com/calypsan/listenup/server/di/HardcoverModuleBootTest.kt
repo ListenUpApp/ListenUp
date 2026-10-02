@@ -6,8 +6,10 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.server.hardcover.HardcoverBookLinking
+import com.calypsan.listenup.server.hardcover.HardcoverExclusions
 import com.calypsan.listenup.server.hardcover.HardcoverHistoryProgress
 import com.calypsan.listenup.server.hardcover.HardcoverHistorySender
+import com.calypsan.listenup.server.hardcover.HardcoverKeepOff
 import com.calypsan.listenup.server.hardcover.HardcoverPreferences
 import com.calypsan.listenup.server.hardcover.HardcoverPullRequests
 import com.calypsan.listenup.server.hardcover.HardcoverPullWorker
@@ -78,6 +80,8 @@ class HardcoverModuleBootTest :
                     koinGet<HardcoverWantToRead>().shouldNotBeNull()
                     koinGet<HardcoverHistorySender>().shouldNotBeNull()
                     koinGet<HardcoverHistoryProgress>().shouldNotBeNull()
+                    koinGet<HardcoverKeepOff>().shouldNotBeNull()
+                    koinGet<HardcoverExclusions>().shouldNotBeNull()
                 }
 
                 val service = authedService<HardcoverService>(rootToken())
@@ -86,6 +90,7 @@ class HardcoverModuleBootTest :
                 // Over the real RPC mount: a foreground nudge with no connection is quietly fine,
                 // and Sync now says there is nothing to sync with.
                 service.syncIfStale().shouldSucceed()
+                service.keptOffBooks().shouldSucceed() shouldBe emptyList()
                 service.syncNow().shouldFailWith<HardcoverError.NotConnected>()
                 service.disconnect().shouldSucceed()
             }

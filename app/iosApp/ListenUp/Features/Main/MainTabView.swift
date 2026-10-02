@@ -422,6 +422,9 @@ private extension View {
             .navigationDestination(for: HardcoverDestination.self) { _ in
                 HardcoverSettingsView()
             }
+            .navigationDestination(for: HardcoverKeptOffDestination.self) { _ in
+                HardcoverKeptOffView()
+            }
             .navigationDestination(for: LicensesDestination.self) { _ in
                 LicensesView()
             }

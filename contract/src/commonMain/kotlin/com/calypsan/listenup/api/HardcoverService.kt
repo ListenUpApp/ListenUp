@@ -135,4 +135,20 @@ interface HardcoverService {
      * [com.calypsan.listenup.api.error.HardcoverError.NotConnected] without a connection.
      */
     suspend fun bookMatch(bookId: BookId): AppResult<HardcoverBookMatch>
+
+    /**
+     * Keeps [bookId] off Hardcover ([synced] false), or syncs it again (true), for the caller (#1541). Kept off,
+     * nothing about the book is sent to Hardcover or brought in from it. Nothing on Hardcover changes, but in
+     * ListenUp its queued sends go, its Hardcover reads leave Readers, and a To Read entry Hardcover added comes
+     * off. Synced again, what was finished meanwhile is sent as history, and the next pull brings its Hardcover
+     * reads and Want to Read back. Idempotent, and works without a connection: the choice is the listener's.
+     * [com.calypsan.listenup.api.error.BookError.NotFound] for a book the caller can't see.
+     */
+    suspend fun setBookSynced(
+        bookId: BookId,
+        synced: Boolean,
+    ): AppResult<Unit>
+
+    /** The caller's books kept off Hardcover that they can still see, by title (#1541). Works without a connection. */
+    suspend fun keptOffBooks(): AppResult<List<BookId>>
 }

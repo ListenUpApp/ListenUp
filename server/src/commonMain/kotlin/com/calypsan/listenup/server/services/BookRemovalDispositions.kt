@@ -102,4 +102,8 @@ internal val bookIdTableDispositions: Map<String, RemovalDisposition> =
         // Inert under a tombstoned parent — the access gate keeps a removed book off the shelf and the full
         // pull's sweep takes its record away — and a hard delete removes it via the FK.
         "hardcover_shelf_entries" to RemovalDisposition.HARD_CHILD,
+        // The books a listener keeps off Hardcover (#1541): their choice, so it survives a removal and comes
+        // back with the book, like a rating. Every query joins to live books, so a removed book is never
+        // listed or counted; a hard delete removes the row via the FK.
+        "hardcover_book_exclusions" to RemovalDisposition.USER_DATA,
     )

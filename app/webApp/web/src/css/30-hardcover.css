@@ -199,6 +199,22 @@
 .luw .hc-book-sync-i { display: inline-flex; flex: none; padding-top: 1px; }
 .luw .hc-book-act { margin-top: 0.6rem; }
 
+/* Keep one book off Hardcover (#1541). Sync with Hardcover heads Book Detail's panel: its label on the
+   left and the switch on the right, the whole row the control, with a hairline above the match when
+   one follows. Kept off, the switch is followed by one calm line. */
+.luw .hc-book-switch { align-self: stretch; }
+.luw .hc-book-switch.is-divided { padding-bottom: 0.75rem; margin-bottom: 0.45rem; border-bottom: 1px solid var(--line-2); }
+.luw .hc-book-switch .sw { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 0.75rem; width: 100%; min-height: 26px; }
+.luw .hc-book-switch .sw-lb { font-size: 0.875rem; font-weight: 600; letter-spacing: normal; text-transform: none; color: var(--ink); }
+.luw .hc-book-switch .sw-in { inset: 0; height: 100%; }
+.luw .hc-kept-off { margin: 0.6rem 0 0; font-size: 0.85rem; line-height: 1.5; color: var(--ink-2); text-wrap: pretty; }
+/* The Hardcover page's quiet row under the sync line, and the list it opens. */
+.luw .hc-kept-row { width: 100%; padding-inline: 0; padding-bottom: 0; border-right: 0; border-bottom: 0; border-left: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.luw .hc-kept-row:focus-visible { outline: 2px solid var(--coral); outline-offset: 4px; border-radius: 4px; }
+.luw .hc-kept-chev { display: inline-flex; flex: none; color: var(--ink-3); }
+.luw .hc-kept-intro { max-width: 45rem; margin-top: -0.6rem; }
+.luw .hc-kept-list { max-width: 45rem; }
+
 @media (max-width: 759px) {
   .luw .hc-search { flex-wrap: wrap; }
   .luw .hc-search .btn { width: 100%; }

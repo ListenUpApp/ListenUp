@@ -89,6 +89,11 @@ class HardcoverSyncActivity {
         changed.tryEmit(userId)
     }
 
+    /** [userId] kept a book off Hardcover, or synced one again (#1541): republish their Connected, whose count moved. */
+    fun keptOffChanged(userId: String) {
+        changed.tryEmit(userId)
+    }
+
     /** [userId]'s connection ended or broke: nothing is in flight for them any more. */
     fun forget(userId: String) {
         synchronized(lock) {

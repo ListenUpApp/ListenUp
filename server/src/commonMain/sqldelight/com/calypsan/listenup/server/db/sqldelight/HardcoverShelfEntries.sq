@@ -25,9 +25,13 @@ SELECT * FROM hardcover_shelf_entries
 WHERE user_id = :user_id AND hc_user_book_id IN :hc_user_book_ids
 ORDER BY book_id;
 
--- What a full pull that started at :since never saw on Want to Read.
+-- What a full pull that started at :since never saw on Want to Read. A book kept off Hardcover (#1541) is
+-- never seen, so its record — only ever a hand removal by then — is left alone until it syncs again.
 selectNotSeenSince:
-SELECT * FROM hardcover_shelf_entries WHERE user_id = :user_id AND seen_at < :since ORDER BY book_id;
+SELECT * FROM hardcover_shelf_entries
+WHERE user_id = :user_id AND seen_at < :since
+  AND book_id NOT IN (SELECT book_id FROM hardcover_book_exclusions WHERE user_id = :user_id)
+ORDER BY book_id;
 
 selectForUser:
 SELECT * FROM hardcover_shelf_entries WHERE user_id = :user_id ORDER BY book_id;
@@ -50,3 +54,12 @@ DELETE FROM hardcover_shelf_entries WHERE user_id = :user_id AND book_id = :book
 
 deleteForUser:
 DELETE FROM hardcover_shelf_entries WHERE user_id = :user_id;
+
+-- Whether Hardcover's Want to Read put the book on a shelf and it is still there: what keeping the book off
+-- Hardcover would take off To Read (#1541). A hand removal, or a book shelved by hand, is never Hardcover's.
+isOnShelfFromHardcover:
+SELECT EXISTS(
+    SELECT 1 FROM hardcover_shelf_entries AS e
+    JOIN shelf_books AS s ON s.shelf_id = e.shelf_id AND s.book_id = e.book_id AND s.deleted_at IS NULL
+    WHERE e.user_id = :user_id AND e.book_id = :book_id AND e.state = 'ON_SHELF'
+);

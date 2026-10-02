@@ -64,8 +64,8 @@ private const val OP_HISTORY = "HISTORY"
  * `hardcover_outbox`: pushes waiting for Hardcover. One lane per user drains it ([HardcoverPushWorker])
  * in id order, a book's rows strictly in order and different books independently. PROGRESS rows
  * coalesce to the newest position; FINISH supersedes a queued PROGRESS. Nothing here ever drops a row
- * silently — only [complete], [dropListenThrough] (the deletion rule, which spares HISTORY rows) and a
- * disconnect remove rows. HISTORY rows ([enqueueHistory]) run after every due live row.
+ * silently — only [complete], [dropListenThrough] (the deletion rule, which spares HISTORY rows), a
+ * disconnect, and keeping a book off Hardcover ([HardcoverKeepOff], #1541) remove rows. HISTORY rows ([enqueueHistory]) run after every due live row.
  */
 class HardcoverOutbox(
     private val sql: ListenUpDatabase,

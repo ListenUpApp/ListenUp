@@ -135,6 +135,9 @@ internal object ControlChannelDetector {
             "AdminUserServiceImpl.kt" to setOf("UserDeleted"),
             "ActiveSessionCleanupTask.kt" to setOf("ActiveSessionsChanged"),
             "ActiveSessionRepository.kt" to setOf("ActiveSessionsChanged"),
+            // Keeping a book off Hardcover (#1541) deletes its pulled reads; Readers is fetched over RPC, so
+            // the frame only makes every client re-read it sooner (a broadcast Simon accepted, 2026-10-02).
+            "HardcoverKeepOff.kt" to setOf("ActiveSessionsChanged"),
         )
 
     /**
