@@ -66,6 +66,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
+import com.calypsan.listenup.client.design.components.LocalRestrictedBookIds
 import com.calypsan.listenup.client.features.bulkedit.PendingSelectionExit
 import com.calypsan.listenup.client.design.components.ProvideNowPlayingInsets
 import com.calypsan.listenup.client.design.components.latchFootprint
@@ -91,6 +92,7 @@ import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
 import com.calypsan.listenup.client.presentation.startup.LibraryReadiness
+import com.calypsan.listenup.client.presentation.visibility.RestrictedBooksViewModel
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.api.result.AppResult
@@ -740,10 +742,15 @@ private fun AuthenticatedNavigation(
     // ProvideNowPlayingInsets publishes the mini-player clearance to every detail screen below,
     // so NavDisplay content can pad itself clear of the floating bar (the bar measures itself inside
     // AuthenticatedNavOverlays and latches its footprint back up here).
+    // The lock on every book card: one admin-gated set for the whole app (empty for members).
+    val restrictedBooksViewModel: RestrictedBooksViewModel = koinViewModel()
+    val restrictedBookIds by restrictedBooksViewModel.restrictedBookIds.collectAsStateWithLifecycle()
+
     ProvideNowPlayingInsets(barVisible = barVisible, latchedFootprint = latchedFootprint) {
         CompositionLocalProvider(
             LocalSnackbarHostState provides snackbarHostState,
             LocalDeviceContext provides koinInject<DeviceContext>(),
+            LocalRestrictedBookIds provides restrictedBookIds,
         ) {
             AppKeyboardShortcuts(nowPlayingViewModel, backStack) {
                 // Hero transitions: the layout must enclose BOTH halves of every shared pair, so it
