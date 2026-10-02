@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.BackupRepository
+import com.calypsan.listenup.client.domain.repository.BookVisibilityRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.EventStreamRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository
@@ -64,6 +65,7 @@ import org.koin.test.verify.verify
  *  - [SyncRepository] — owned by `clientSyncModule`.
  *  - [ImportRepository] — owned by `adminModule`.
  *  - [OrganizeRepository] — owned by `adminModule`.
+ *  - [BookVisibilityRepository] — owned by `collectionModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class AdminPresentationModuleVerifyTest :
@@ -101,6 +103,7 @@ class AdminPresentationModuleVerifyTest :
                         ImportRepository::class,
                         UploadRepository::class,
                         OrganizeRepository::class,
+                        BookVisibilityRepository::class,
                     ),
             )
         }

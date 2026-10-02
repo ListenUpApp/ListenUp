@@ -183,6 +183,13 @@ internal val adminPresentationModule =
                 inboxRepository = get(),
             )
         }
+        // The lock on every book card: one admin-gated set, published once at each platform's root
+        // beside InboxBadgeViewModel. factory (NOT single), scoped to the shell's ViewModelStore.
+        factory {
+            com.calypsan.listenup.client.presentation.visibility.RestrictedBooksViewModel(
+                bookVisibilityRepository = get(),
+            )
+        }
         factory {
             com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel(
                 collectionRepository = get(),
