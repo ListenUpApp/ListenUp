@@ -134,7 +134,14 @@ fun BookDetailPage(
     /** Release this held book (the triage layout's primary action; the page confirms first). */
     onReleaseFromInbox: () -> Unit = {},
 ) {
-    Div(attrs = { classes("bd") }) {
+    val root = remember { PageRoot() }
+    Div(attrs = {
+        classes("bd")
+        ref { element ->
+            root.element = element
+            onDispose { root.element = null }
+        }
+    }) {
         // The breadcrumb renders in every state, including the ones with no book: a page that
         // cannot show what you asked for must still show the way out of it.
         Breadcrumb(listOf("Library", crumb(state)), onNavigate = { onOpenLibrary() })
@@ -180,6 +187,7 @@ fun BookDetailPage(
 
             is BookDetailUiState.Ready -> {
                 ServerOfflineBanner(state.showServerWarning, onRetryConnection)
+                FocusHeadingOnRelease(state.book.id.value, state.isHeld) { root.element }
 
                 // A held book is triage-only (spec §8). The panel stands above the tabs so it stays in
                 // view whichever pane is open; Release asks first (§7).

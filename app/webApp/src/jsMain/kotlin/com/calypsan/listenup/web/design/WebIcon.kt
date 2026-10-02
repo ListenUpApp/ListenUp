@@ -80,6 +80,11 @@ enum class WebIcon(
     // Not mirrored from the design project — it carries no stack glyph. Three offset rectangles is
     // the standard "a set of things" shape; reconcile if the design project grows one.
     Layers("M12 3l8 4.5-8 4.5-8-4.5z M4 12l8 4.5 8-4.5 M4 16.5l8 4.5 8-4.5"),
+
+    // Not mirrored from the design project, which has no list glyph. A numbered list is what
+    // Android's Edit chapters carries (FormatListNumbered) and iOS's is a list too, so the held
+    // panel's Edit chapters no longer wears Edit's pencil.
+    ListOrdered("M10 6h10 M10 12h10 M10 18h10 M4 5l1.5-1v5 M3.5 15.5a1.5 1.5 0 0 1 3 .5L3.5 19h3"),
     Lock("M6 10.5h12v9.5H6z M8.75 10.5V7.5a3.25 3.25 0 0 1 6.5 0v3"),
 
     // Not mirrored from the design project — it carries a lock but no open one. This is

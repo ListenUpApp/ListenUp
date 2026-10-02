@@ -102,14 +102,14 @@ private fun dialogIsOpen(): Boolean = document.querySelector("dialog[open]") != 
  * `preventScroll`, because the shell already restores the page's own scroll position and a focus
  * jump would fight it.
  */
-private fun focusWithoutScroll(element: HTMLElement) {
+internal fun focusWithoutScroll(element: HTMLElement) {
     if (!element.hasAttribute("tabindex")) element.setAttribute("tabindex", "-1")
     val options = js("{}")
     options.preventScroll = true
     element.asDynamic().focus(options)
 }
 
-private suspend fun awaitAnimationFrame() {
+internal suspend fun awaitAnimationFrame() {
     suspendCancellableCoroutine { continuation ->
         window.requestAnimationFrame { continuation.resume(Unit) }
     }
