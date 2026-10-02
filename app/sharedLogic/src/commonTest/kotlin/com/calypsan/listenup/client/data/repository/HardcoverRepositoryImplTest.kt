@@ -296,6 +296,34 @@ class HardcoverRepositoryImplTest :
                 dispatch.lastIdempotent shouldBe true
             }
         }
+
+        test("keeping a book off, or syncing it again, reaches the server, is a safe blind retry, and announces the book") {
+            runTest {
+                val service = FakeHardcoverService()
+                val dispatch = IdempotenceRecordingDispatch<HardcoverService>(service)
+                val repository = HardcoverRepositoryImpl(RpcChannel(dispatch, RpcPolicy.Authed))
+                repository.matchChanges.test {
+                    repository.setBookSynced(BookId("b1"), synced = false) shouldBe AppResult.Success(Unit)
+                    awaitItem() shouldBe BookId("b1")
+                    dispatch.lastIdempotent shouldBe true
+                    service.setBookSyncedResult = AppResult.Failure(HardcoverError.Unavailable())
+                    repository.setBookSynced(BookId("b2"), synced = true)
+                    expectNoEvents()
+                }
+                service.syncedChoices shouldBe listOf(BookId("b1") to false, BookId("b2") to true)
+            }
+        }
+
+        test("the kept-off books are read from the server, a safe blind retry") {
+            runTest {
+                val service = FakeHardcoverService().apply { keptOffBooksResult = AppResult.Success(listOf(BookId("b1"))) }
+                val dispatch = IdempotenceRecordingDispatch<HardcoverService>(service)
+                val repository = HardcoverRepositoryImpl(RpcChannel(dispatch, RpcPolicy.Authed))
+
+                repository.keptOffBooks() shouldBe AppResult.Success(listOf(BookId("b1")))
+                dispatch.lastIdempotent shouldBe true
+            }
+        }
     })
 
 /** In-memory [HardcoverService]: each subscribe pops the next scripted stream; unary calls return what they were given. */
