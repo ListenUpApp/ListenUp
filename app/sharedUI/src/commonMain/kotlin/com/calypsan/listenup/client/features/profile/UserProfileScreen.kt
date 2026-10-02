@@ -181,7 +181,7 @@ fun UserProfileScreen(
 }
 
 @Composable
-private fun ProfileContent(
+internal fun ProfileContent(
     state: UserProfileUiState.Ready,
     onBack: () -> Unit,
     onEditClick: () -> Unit,
@@ -247,7 +247,7 @@ private fun ProfileContent(
  * columns flow with the width.
  */
 @Composable
-private fun WideProfileContent(
+internal fun WideProfileContent(
     state: UserProfileUiState.Ready,
     onBack: () -> Unit,
     onEditClick: () -> Unit,

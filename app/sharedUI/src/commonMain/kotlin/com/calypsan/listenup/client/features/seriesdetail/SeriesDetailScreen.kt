@@ -181,7 +181,7 @@ fun SeriesDetailScreen(
 // region layouts
 
 @Composable
-private fun NarrowSeriesDetailContent(
+internal fun NarrowSeriesDetailContent(
     state: SeriesDetailUiState.Ready,
     onBackClick: () -> Unit,
     onBookClick: (String) -> Unit,
@@ -229,7 +229,7 @@ private fun NarrowSeriesDetailContent(
 }
 
 @Composable
-private fun WideSeriesDetailContent(
+internal fun WideSeriesDetailContent(
     state: SeriesDetailUiState.Ready,
     onBackClick: () -> Unit,
     onBookClick: (String) -> Unit,

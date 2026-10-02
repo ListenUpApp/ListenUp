@@ -268,7 +268,7 @@ fun AdminCollectionDetailScreen(
 }
 
 @Composable
-private fun DetailBody(
+internal fun DetailBody(
     state: AdminCollectionDetailUiState,
     isWide: Boolean,
     innerPadding: PaddingValues,
