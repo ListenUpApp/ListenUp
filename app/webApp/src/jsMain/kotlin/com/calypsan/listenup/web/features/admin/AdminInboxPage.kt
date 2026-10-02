@@ -125,7 +125,7 @@ private fun ReadyContent(
     state.lastReleasedCount?.let { count ->
         Notice(
             classes = "inbox-note",
-            text = if (count == 1) "Released 1 book" else "Released $count books",
+            text = releaseReceipt(released = count, unreleased = state.lastUnreleasedCount),
             onDismiss = onClearReleaseResult,
         )
     }
@@ -387,3 +387,18 @@ private const val COVER_RUNG = 112
 private const val COVER_RADIUS = 8
 
 private const val TICK_ICON_SIZE = 16
+
+/**
+ * The receipt for a release in which [released] books left the inbox and [unreleased] stayed held:
+ * the plain count when every book left, both counts when some could not be released — so a partial
+ * release never reads as a complete one. Mirrors `admin.inbox_released_partial` in the shared catalog.
+ */
+private fun releaseReceipt(
+    released: Int,
+    unreleased: Int,
+): String =
+    when {
+        unreleased > 0 -> "Released $released of ${released + unreleased} books. $unreleased couldn't be released."
+        released == 1 -> "Released 1 book"
+        else -> "Released $released books"
+    }
