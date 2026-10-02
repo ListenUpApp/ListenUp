@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.SyncControl
+import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.server.testing.CollectionAccessHarness
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
@@ -167,7 +168,7 @@ class CollectionMembershipWriteFailureTest :
             }
         }
 
-        test("releaseBooks: a book whose second target fails is withdrawn from its first, so held means hidden") {
+        test("releaseBooks: a book whose second target fails never joins its first, so held means hidden") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestUser("admin", UserRoleColumn.ADMIN)
@@ -195,19 +196,82 @@ class CollectionMembershipWriteFailureTest :
                         }
                     val admin = h.service.actAs("admin", UserRole.ADMIN)
 
+                    val published = mutableListOf<SyncEvent<*>>()
+                    val subscriber =
+                        launch(start = CoroutineStart.UNDISPATCHED) { h.bus.subscribe().collect { published += it.event } }
                     val result =
                         admin.releaseBooks(
                             LibraryId("test-library"),
                             mapOf(BookId("book1") to listOf(CollectionId(okId), CollectionId(failId))),
                         )
+                    runCurrent()
+                    subscriber.cancel()
+                    // A rolled-back release publishes nothing — not even the OK row's Created frame.
+                    published shouldBe emptyList()
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error
                         .shouldBeInstanceOf<CollectionError.ReleaseIncomplete>()
                         .failedBookIds shouldBe listOf("book1")
 
-                    // The OK write landed, but a held book in a members' collection would be visible
-                    // while the inbox says it is waiting for review — the release takes it back out.
+                    // The book's targets and its INBOX exit are one transaction, so the failed second
+                    // write rolls the first back with it: a held book in a members' collection would be
+                    // visible while the inbox says it is waiting for review.
                     h.junctionDiagnostic("book1") shouldBe setOf(inboxIdOf(admin))
+                    // Not even a tombstone: the OK row never existed.
+                    h.db.collectionBooksQueries
+                        .selectIdByNaturalPair(okId, "book1")
+                        .executeAsOneOrNull() shouldBe null
+                }
+            }
+        }
+
+        test("releaseBooks: a book that is no longer held is left alone — no targets, no nudge") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestUser("s1")
+                sql.seedTestBook("book1")
+                runTest {
+                    val h = collectionAccessHarness()
+                    val admin = h.service.actAs("admin", UserRole.ADMIN)
+                    val first = admin.createCollection("test-library", "First")
+                    val second = admin.createCollection("test-library", "Second")
+                    require(first is AppResult.Success)
+                    require(second is AppResult.Success)
+                    val firstId = first.data.id.value
+                    val secondId = second.data.id.value
+                    h.readGrant(secondId, "s1")
+                    admin.addToInbox("book1", "test-library") shouldBe AppResult.Success(Unit)
+                    // Another admin released it first.
+                    admin.releaseBooks(
+                        LibraryId("test-library"),
+                        mapOf(BookId("book1") to listOf(CollectionId(firstId))),
+                    ) shouldBe AppResult.Success(Unit)
+                    h.revisionTouch.touched.clear()
+
+                    val recipients = mutableListOf<String>()
+                    val collector =
+                        launch(start = CoroutineStart.UNDISPATCHED) {
+                            h.bus.subscribeControl().collect { frame ->
+                                if (frame.control is SyncControl.AccessChanged) recipients += frame.userId
+                            }
+                        }
+                    // A second, stale release of the same book must not union its targets in.
+                    val result =
+                        admin.releaseBooks(
+                            LibraryId("test-library"),
+                            mapOf(BookId("book1") to listOf(CollectionId(secondId))),
+                        )
+                    runCurrent()
+                    collector.cancel()
+
+                    result shouldBe AppResult.Success(Unit)
+                    h.junctionDiagnostic("book1") shouldBe setOf(firstId)
+                    h.db.collectionBooksQueries
+                        .selectIdByNaturalPair(secondId, "book1")
+                        .executeAsOneOrNull() shouldBe null
+                    h.revisionTouch.touched shouldNotContain "book1"
+                    recipients shouldNotContain "s1"
                 }
             }
         }

@@ -128,12 +128,24 @@ private suspend fun CollectionBookRepository.upsertOrLog(
     return true
 }
 
+/** What releasing one book out of the inbox did. */
+private enum class BookRelease {
+    /** It was held and has left the inbox for its targets. */
+    RELEASED,
+
+    /** It was no longer held — another release took it first — so nothing was written. */
+    NOT_HELD,
+
+    /** A write faulted and the book was rolled back whole: still held, exactly as before. */
+    FAILED,
+}
+
 /**
- * Releases one held book via [CollectionBookRepository.releaseFromInbox] under its book [lock],
- * returning whether it left the inbox. The lock keeps a concurrent single-book mutation
- * (`setBookCollections`, a reconcile) from moving the INBOX row mid-release. A fault has already
- * rolled the book back whole; it is logged and reported as `false`, never propagated, so the books
- * released before it in the same call are still announced and reconciled.
+ * Releases one held book via [CollectionBookRepository.releaseFromInbox] under its book [lock].
+ * The lock keeps a concurrent single-book mutation (`setBookCollections`, a reconcile) from moving
+ * the INBOX row mid-release. A fault has already rolled the book back whole; it is logged and
+ * answered as [BookRelease.FAILED], never propagated, so the books released before it in the same
+ * call are still announced and reconciled.
  */
 private suspend fun CollectionBookRepository.releaseHeldBook(
     lock: Mutex,
@@ -141,15 +153,15 @@ private suspend fun CollectionBookRepository.releaseHeldBook(
     inboxId: String,
     targetIds: List<String>,
     createdAt: Long,
-): Boolean =
+): BookRelease =
     try {
-        lock.withLock { releaseFromInbox(bookId, inboxId, targetIds, createdAt) }
-        true
+        val released = lock.withLock { releaseFromInbox(bookId, inboxId, targetIds, createdAt) }
+        if (released) BookRelease.RELEASED else BookRelease.NOT_HELD
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
         log.error(e) { "releaseBooks: book=$bookId stayed held after a failed release" }
-        false
+        BookRelease.FAILED
     }
 
 /** What a release of [requested] books answers: `Success` only when none of them stayed held. */
@@ -918,16 +930,17 @@ internal class CollectionServiceImpl(
             }
         }
 
-        // Sequential suspend repo writes — each opens its own SQLDelight transaction, so they
-        // cannot nest inside a non-suspend SQLDelight transaction body. Each book is released in its
-        // own single transaction — see [CollectionBookRepository.releaseFromInbox].
+        // One transaction per book, never one for the whole release — see
+        // [CollectionBookRepository.releaseFromInbox]. A book that is no longer held (another release
+        // took it first) is neither released nor failed here: nothing was written, so it is neither
+        // announced nor reported.
         val releasedBookIds = mutableListOf<String>()
         val releasedTargetIds = mutableSetOf<String>()
         val failedBookIds = mutableListOf<String>()
         for ((bookId, targetCollectionIds) in assignments) {
             // Empty target → release to ALL_BOOKS so the book stays publicly visible.
             val resolvedTargets = targetCollectionIds.ifEmpty { listOfNotNull(allBooksId) }
-            val released =
+            val step =
                 collectionBookRepo.releaseHeldBook(
                     lock = bookLock(bookId),
                     bookId = bookId,
@@ -935,11 +948,17 @@ internal class CollectionServiceImpl(
                     targetIds = resolvedTargets,
                     createdAt = clock.now().toEpochMilliseconds(),
                 )
-            if (released) {
-                releasedBookIds += bookId
-                releasedTargetIds += resolvedTargets
-            } else {
-                failedBookIds += bookId
+            when (step) {
+                BookRelease.RELEASED -> {
+                    releasedBookIds += bookId
+                    releasedTargetIds += resolvedTargets
+                }
+
+                BookRelease.FAILED -> {
+                    failedBookIds += bookId
+                }
+
+                BookRelease.NOT_HELD -> {}
             }
         }
 
