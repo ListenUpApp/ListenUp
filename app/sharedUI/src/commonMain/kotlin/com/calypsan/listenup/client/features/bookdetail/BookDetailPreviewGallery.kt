@@ -428,14 +428,24 @@ private fun OfflineSection() {
 private fun VisibilitySectionGallery() {
     val sciFi = listOf(CollectionRef("c1", "Sci-Fi Club"))
     val three =
-        listOf(CollectionRef("c1", "Bedtime Stories"), CollectionRef("c2", "Classics Shelf"), CollectionRef("c3", "Family"))
+        listOf(
+            CollectionRef("c1", "Bedtime Stories"),
+            CollectionRef("c2", "Classics Shelf"),
+            CollectionRef("c3", "Family"),
+        )
     val states =
         listOf(
-            "Visibility — named members" to BookVisibility.Restricted(sciFi, HiddenFrom.Members(listOf("Alice", "Ben"))),
+            "Visibility — named members" to
+                BookVisibility.Restricted(
+                    sciFi,
+                    HiddenFrom.Members(listOf("Alice", "Ben")),
+                ),
             "Visibility — three collections, five names" to
                 BookVisibility.Restricted(three, HiddenFrom.Members(listOf("Alice", "Dev", "Hana", "Lee", "Zoe"))),
-            "Visibility — every member" to BookVisibility.Restricted(listOf(CollectionRef("c3", "Family")), HiddenFrom.Nobody),
-            "Visibility — all members" to BookVisibility.Restricted(listOf(CollectionRef("c4", "Drafts")), HiddenFrom.Everyone),
+            "Visibility — every member" to
+                BookVisibility.Restricted(listOf(CollectionRef("c3", "Family")), HiddenFrom.Nobody),
+            "Visibility — all members" to
+                BookVisibility.Restricted(listOf(CollectionRef("c4", "Drafts")), HiddenFrom.Everyone),
             "Visibility — stranded" to BookVisibility.Stranded,
         )
     states.forEach { (label, visibility) ->

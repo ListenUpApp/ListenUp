@@ -96,6 +96,11 @@ private fun hiddenFrom(
  */
 private fun distinguishableNames(users: List<AdminUserRosterEntity>): List<String> {
     val names = users.map { user -> user.displayName.ifBlank { user.email } }
-    val repeated = names.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+    val repeated =
+        names
+            .groupingBy { it }
+            .eachCount()
+            .filterValues { it > 1 }
+            .keys
     return users.zip(names) { user, name -> if (name in repeated) "$name (${user.email})" else name }
 }

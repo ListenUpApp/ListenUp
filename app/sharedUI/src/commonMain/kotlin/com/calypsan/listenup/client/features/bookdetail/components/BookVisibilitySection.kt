@@ -109,7 +109,9 @@ fun BookVisibilitySection(
             }
         }
 
-        BookVisibility.Public, BookVisibility.Held -> Unit
+        BookVisibility.Public, BookVisibility.Held -> {
+            Unit
+        }
     }
 }
 
@@ -253,9 +255,20 @@ private fun headline(
     expanded: Boolean,
 ): String =
     when (hiddenFrom) {
-        HiddenFrom.Nobody -> stringResource(Res.string.book_visibility_every_member)
-        HiddenFrom.Everyone -> stringResource(Res.string.book_visibility_hidden_from_all)
-        is HiddenFrom.Members -> stringResource(Res.string.book_visibility_hidden_from, nameList(hiddenFrom.names, expanded))
+        HiddenFrom.Nobody -> {
+            stringResource(Res.string.book_visibility_every_member)
+        }
+
+        HiddenFrom.Everyone -> {
+            stringResource(Res.string.book_visibility_hidden_from_all)
+        }
+
+        is HiddenFrom.Members -> {
+            stringResource(
+                Res.string.book_visibility_hidden_from,
+                nameList(hiddenFrom.names, expanded),
+            )
+        }
     }
 
 /** "Alice", "Alice and Ben", "Alice, Ben and Cy", or "Alice, Dev, Hana and 2 others". */
@@ -267,11 +280,21 @@ private fun nameList(
     val summary = HiddenFromNames.summarize(names, expanded)
     val shown = summary.shown
     return when {
-        summary.othersCount == 1 -> stringResource(Res.string.book_visibility_names_one_other, shown.joinToString(", "))
-        summary.othersCount > 1 ->
+        summary.othersCount == 1 -> {
+            stringResource(Res.string.book_visibility_names_one_other, shown.joinToString(", "))
+        }
+
+        summary.othersCount > 1 -> {
             stringResource(Res.string.book_visibility_names_others, shown.joinToString(", "), summary.othersCount)
-        shown.size == 1 -> shown.single()
-        else -> stringResource(Res.string.book_visibility_names_two, shown.dropLast(1).joinToString(", "), shown.last())
+        }
+
+        shown.size == 1 -> {
+            shown.single()
+        }
+
+        else -> {
+            stringResource(Res.string.book_visibility_names_two, shown.dropLast(1).joinToString(", "), shown.last())
+        }
     }
 }
 
@@ -283,14 +306,19 @@ private fun reason(
 ): String {
     val only = collections.singleOrNull()?.name
     return when (hiddenFrom) {
-        is HiddenFrom.Members ->
+        is HiddenFrom.Members -> {
             only?.let { stringResource(Res.string.book_visibility_reason_members_one, it) }
                 ?: stringResource(Res.string.book_visibility_reason_members_many)
-        HiddenFrom.Nobody ->
+        }
+
+        HiddenFrom.Nobody -> {
             only?.let { stringResource(Res.string.book_visibility_reason_nobody_one, it) }
                 ?: stringResource(Res.string.book_visibility_reason_nobody_many)
-        HiddenFrom.Everyone ->
+        }
+
+        HiddenFrom.Everyone -> {
             only?.let { stringResource(Res.string.book_visibility_reason_everyone_one, it) }
                 ?: stringResource(Res.string.book_visibility_reason_everyone_many)
+        }
     }
 }
