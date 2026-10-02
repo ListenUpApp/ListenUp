@@ -77,11 +77,11 @@ struct AdminSettingsObserverTests {
             holdNewBooksForReview: false,
             pushNotificationsEnabled: true,
             ratingSources: [
-            hardcoverSource: nil,
-            hardcoverTokenSave: HardcoverTokenSaveIdle.shared,
                 status(.audible, enabled: true),
                 status(.hardcover, enabled: false)
             ],
+            hardcoverSource: nil,
+            hardcoverTokenSave: HardcoverTokenSaveIdle.shared,
             isDirty: false,
             isSaving: false,
             error: nil
