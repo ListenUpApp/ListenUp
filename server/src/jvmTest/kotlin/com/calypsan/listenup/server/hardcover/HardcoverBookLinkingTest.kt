@@ -22,6 +22,7 @@ import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.server.testing.shouldSucceed
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
@@ -85,6 +86,7 @@ private class LinkingRig(
             rateLimiter = NoWaitRateLimiter(),
             pulls = pulls,
             catalog = catalog,
+            exclusions = HardcoverExclusions(sql),
         )
     val service =
         HardcoverServiceImpl(
@@ -414,6 +416,35 @@ class HardcoverBookLinkingTest :
                 serviceAs(UserRole.ROOT).bookMatch(BookId(BOOK)) shouldBe AppResult.Success(HardcoverBookMatch.Unmatched)
                 links.recordAutomaticMatch(USER, BOOK, null)
                 serviceAs(UserRole.ROOT).bookMatch(BookId(BOOK)) shouldBe AppResult.Success(HardcoverBookMatch.NeedsMatch)
+            }
+        }
+
+        test("a book kept off Hardcover is KeptOff, whatever its link") {
+            linkingTest {
+                connect()
+                serviceAs(UserRole.ROOT).linkBook(BookId(BOOK), 427_578L, 9_001L)
+                sql.seedExclusion(USER, BOOK, at = T0)
+
+                // Unwrapped on purpose: Kotest's data-class diff passes `Success(<data class>) shouldBe Success(<data object>)`.
+                serviceAs(UserRole.ROOT).bookMatch(BookId(BOOK)).shouldSucceed() shouldBe HardcoverBookMatch.KeptOff
+                links.linkFor(USER, BOOK)!!.hcBookId shouldBe 427_578L
+            }
+        }
+
+        test("a linked book says what keeping it off would take out of ListenUp") {
+            linkingTest {
+                connect()
+                links.recordAutomaticMatch(USER, BOOK, HardcoverMatch(427_578L, 9_001L, HardcoverMatchMethod.ASIN))
+                sql.seedPulledRead(USER, BOOK, hcReadId = 7L, finishedAt = T0)
+
+                val match =
+                    serviceAs(UserRole.ROOT)
+                        .bookMatch(BookId(BOOK))
+                        .shouldBeInstanceOf<AppResult.Success<HardcoverBookMatch>>()
+                        .data
+                        .shouldBeInstanceOf<HardcoverBookMatch.Linked>()
+                match.readsInReaders shouldBe true
+                match.onToReadFromHardcover shouldBe false
             }
         }
 

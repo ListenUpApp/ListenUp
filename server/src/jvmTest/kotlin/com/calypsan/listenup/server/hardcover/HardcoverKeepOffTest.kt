@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.hardcover
 
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
@@ -298,6 +299,18 @@ class HardcoverKeepOffTest :
                 pulls.fullPulls shouldBe emptyList()
                 rig.connect()
                 rig.sql.unsentHardcoverHistory(USER, connectedAt = T0 + 2 * DAY).map { it.readId } shouldBe listOf("while")
+            }
+        }
+
+        test("Connected says how many books are kept off, as it moves") {
+            keepOffTest {
+                rig.connect().keptOffBookCount shouldBe 0
+                keepOff() shouldBe AppResult.Success(Unit)
+                rig.connections.connectionState(USER).shouldBeInstanceOf<HardcoverConnection.Connected>().keptOffBookCount shouldBe 1
+                syncAgain() shouldBe AppResult.Success(Unit)
+                rig.connections.connectionState(USER).shouldBeInstanceOf<HardcoverConnection.Connected>().keptOffBookCount shouldBe 0
+                keepOff() shouldBe AppResult.Success(Unit)
+                rig.connect().keptOffBookCount shouldBe 1
             }
         }
     })

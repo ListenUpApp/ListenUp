@@ -168,6 +168,7 @@ fun hardcoverModule(
                 rateLimiter = get(),
                 pulls = get(),
                 catalog = get(),
+                exclusions = get(),
             )
         }
         single {

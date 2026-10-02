@@ -18,6 +18,7 @@ import com.calypsan.listenup.server.hardcover.HardcoverBookLinkStore
 import com.calypsan.listenup.server.hardcover.HardcoverBookLinking
 import com.calypsan.listenup.server.hardcover.HardcoverCatalogCache
 import com.calypsan.listenup.server.hardcover.HardcoverConnectionStore
+import com.calypsan.listenup.server.hardcover.HardcoverExclusions
 import com.calypsan.listenup.server.hardcover.HardcoverGraphQlClient
 import com.calypsan.listenup.server.hardcover.HardcoverHistorySender
 import com.calypsan.listenup.server.hardcover.HardcoverLinker
@@ -136,6 +137,7 @@ private class Rig(
                 pulls = pulls,
                 catalog =
                     HardcoverCatalogCache(HardcoverGraphQlClient(hardcover.client, "https://hc.test"), HardcoverRateLimiter()),
+                exclusions = HardcoverExclusions(dbs.sql),
             ),
             pulls = pulls,
             preferences = preferences,
