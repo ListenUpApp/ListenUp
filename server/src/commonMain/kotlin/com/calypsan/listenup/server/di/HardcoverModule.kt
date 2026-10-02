@@ -20,6 +20,7 @@ import com.calypsan.listenup.server.hardcover.HardcoverHistorySender
 import com.calypsan.listenup.server.hardcover.HardcoverKeepOff
 import com.calypsan.listenup.server.hardcover.HardcoverLinker
 import com.calypsan.listenup.server.hardcover.HardcoverMatchBackfill
+import com.calypsan.listenup.server.hardcover.HardcoverMetadataSource
 import com.calypsan.listenup.server.hardcover.HardcoverOAuthClient
 import com.calypsan.listenup.server.hardcover.HardcoverOutbox
 import com.calypsan.listenup.server.hardcover.HardcoverPreferences
@@ -210,6 +211,17 @@ private fun Module.hardcoverCatalog(clientConfigured: Boolean) {
             graphQl = get(),
             rateLimiter = get(),
             settings = get(),
+        )
+    }
+    single {
+        HardcoverMetadataSource(
+            graphQl = get(),
+            catalogToken = get(),
+            matcher = get(),
+            rateLimiter = get(),
+            links = get(),
+            identities = get(),
+            sourceSettings = get(),
         )
     }
 }

@@ -16,6 +16,7 @@ import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleClient
+import com.calypsan.listenup.server.hardcover.HardcoverMetadataSource
 import com.calypsan.listenup.server.hardcover.HardcoverRatingSource
 import com.calypsan.listenup.server.metadata.audible.AudibleRateLimiter
 import com.calypsan.listenup.server.metadata.audnexus.AudnexusApi
@@ -167,7 +168,7 @@ fun metadataModule(imageHome: Path): Module =
             MetadataProviderRegistry(
                 providers =
                     listOf(get<AudibleProvider>(), get<AudnexusProvider>(), get<ITunesProvider>()) +
-                        get<HardcoverRatingSource>() + customProviders(),
+                        get<HardcoverRatingSource>() + get<HardcoverMetadataSource>() + customProviders(),
             )
         }
 
