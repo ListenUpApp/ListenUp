@@ -36,6 +36,15 @@ struct AppTextFieldTests {
 /// case by case: what each content kind types on, what the system may autofill, how it
 /// capitalizes, and whether the keyboard is allowed to correct it.
 struct TextEntryTests {
+    /// An API token is a secret but not a password: masked by the field, typed on ASCII, never corrected
+    /// or capitalised, and with no content type, so iOS never offers to save it as a site password.
+    @Test func aSecretIsNeverCorrectedCapitalizedOrOfferedToPasswordAutoFill() {
+        #expect(TextEntry.secret.keyboardType == .asciiCapable)
+        #expect(TextEntry.secret.contentType == nil)
+        #expect(TextEntry.secret.capitalization == .never)
+        #expect(TextEntry.secret.autocorrects == false)
+    }
+
     @Test func proseAndNamesOfThingsAreCorrectedAndCapitalized() {
         #expect(TextEntry.sentences.capitalization == .sentences)
         #expect(TextEntry.sentences.autocorrects == true)
