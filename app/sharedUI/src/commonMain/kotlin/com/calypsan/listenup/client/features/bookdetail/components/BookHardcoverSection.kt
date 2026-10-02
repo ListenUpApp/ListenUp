@@ -11,54 +11,70 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.LinkOff
 import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookSync
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.TonalLabel
+import com.calypsan.listenup.client.design.components.switchRow
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.theme.extendedColors
 import com.calypsan.listenup.client.features.settings.byline
 import com.calypsan.listenup.client.presentation.hardcover.BookHardcoverUiState
 import com.calypsan.listenup.client.presentation.hardcover.BookHardcoverViewModel
+import com.calypsan.listenup.client.presentation.hardcover.KeepOffRemoves
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.hardcover_book_row_change_match
 import listenup.composeapp.generated.resources.hardcover_book_row_chosen_by_you
 import listenup.composeapp.generated.resources.hardcover_book_row_just_matched
 import listenup.composeapp.generated.resources.hardcover_book_row_matched_unnamed
 import listenup.composeapp.generated.resources.hardcover_book_row_needs_match
 import listenup.composeapp.generated.resources.hardcover_book_row_needs_match_detail
-import listenup.composeapp.generated.resources.hardcover_book_row_on_hardcover
-import listenup.composeapp.generated.resources.hardcover_book_row_title
 import listenup.composeapp.generated.resources.hardcover_book_sync_nothing_yet
 import listenup.composeapp.generated.resources.hardcover_book_sync_removed
 import listenup.composeapp.generated.resources.hardcover_book_sync_up_to_date
 import listenup.composeapp.generated.resources.hardcover_book_sync_waiting
 import listenup.composeapp.generated.resources.hardcover_find_on_hardcover
+import listenup.composeapp.generated.resources.hardcover_keep_off_confirm_action
+import listenup.composeapp.generated.resources.hardcover_keep_off_confirm_body
+import listenup.composeapp.generated.resources.hardcover_keep_off_confirm_body_reads
+import listenup.composeapp.generated.resources.hardcover_keep_off_confirm_body_to_read
+import listenup.composeapp.generated.resources.hardcover_keep_off_confirm_title
+import listenup.composeapp.generated.resources.hardcover_keep_off_switch
+import listenup.composeapp.generated.resources.hardcover_kept_off_line
 import listenup.composeapp.generated.resources.hardcover_match_remove
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -67,11 +83,13 @@ import org.koin.core.parameter.parametersOf
 
 private val CardCorner = 20.dp
 private val StatusIconSize = 18.dp
+private val SwitchGlyphSize = 20.dp
 private val ActionMinHeight = 48.dp
 
 /**
- * Book Detail's Hardcover card (spec B5). Draws nothing unless the user is connected and the book is
- * matched or needs a match. A null [onFindMatch] hides it entirely, without asking Koin for its
+ * Book Detail's Hardcover card (spec B5). Draws nothing unless the user is connected. A book never matched is
+ * the Sync with Hardcover switch alone (decision 1); one that needs a match, is matched, or is kept off adds its
+ * own block. A null [onFindMatch] hides it entirely, without asking Koin for its
  * ViewModel — desktop is frozen and has no Find on Hardcover.
  */
 @Composable
@@ -97,67 +115,147 @@ private fun BoundBookHardcoverSection(
         state = state,
         onFindMatch = { onFindMatch(bookId) },
         onRemoveMatch = viewModel::removeMatch,
+        onSetSynced = viewModel::setSynced,
         modifier = modifier,
     )
 }
 
-/** The card for [state], without its ViewModel. A tonal card on every width, as the canvas draws it. */
+/**
+ * The card for [state], without its ViewModel. A tonal card on every width, headed by Sync with Hardcover
+ * (#1541) as the canvas draws it. Switching off asks first only when [BookHardcoverUiState.Linked.keepOffRemoves]
+ * says something visible would leave; the switch stays on behind the dialog until Keep off.
+ */
 @Composable
 internal fun BookHardcoverContent(
     state: BookHardcoverUiState,
     onFindMatch: () -> Unit,
     onRemoveMatch: () -> Unit,
+    onSetSynced: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (state == BookHardcoverUiState.Hidden) return
+    var asking by rememberSaveable { mutableStateOf(false) }
+    val removes = (state as? BookHardcoverUiState.Linked)?.keepOffRemoves
+    if (asking && removes != null) {
+        ListenUpAlertDialog(
+            onDismissRequest = { asking = false },
+            title = stringResource(Res.string.hardcover_keep_off_confirm_title),
+            text = stringResource(removes.confirmBody()),
+            confirmText = stringResource(Res.string.hardcover_keep_off_confirm_action),
+            onConfirm = {
+                asking = false
+                onSetSynced(false)
+            },
+            dismissText = stringResource(Res.string.common_cancel),
+            onDismiss = { asking = false },
+        )
+    }
+    val isOn = state !is BookHardcoverUiState.KeptOff || state.isResuming
     Surface(
         shape = RoundedCornerShape(CardCorner),
         color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+            SyncSwitchRow(
+                isOn = isOn,
+                onCheckedChange = { on -> if (!on && removes != null) asking = true else onSetSynced(on) },
+            )
             when (state) {
                 BookHardcoverUiState.Hidden -> {
                     Unit
                 }
 
+                // Decision 1: a book never matched is the switch row alone.
+                BookHardcoverUiState.Unmatched -> {
+                    Unit
+                }
+
                 BookHardcoverUiState.NeedsMatch -> {
+                    HorizontalDivider()
                     NeedsMatchBody(onFindMatch)
                 }
 
                 is BookHardcoverUiState.Linked -> {
+                    HorizontalDivider()
                     LinkedBody(state, onFindMatch, onRemoveMatch)
                 }
 
-                // Task 16 draws the kept-off row, and the switch alone for a book never matched.
-                is BookHardcoverUiState.KeptOff, BookHardcoverUiState.Unmatched -> {
-                    Unit
+                is BookHardcoverUiState.KeptOff -> {
+                    if (!state.isResuming) {
+                        Text(
+                            stringResource(Res.string.hardcover_kept_off_line),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+/**
+ * Sync with Hardcover: the whole row is the switch — one TalkBack node named by its label, announced on or off,
+ * with the toggle haptic ([switchRow]). The [Switch] is drawn with `onCheckedChange = null`, so it is only the
+ * visual, carrying a check while on.
+ */
 @Composable
-private fun CardHeader(text: String) {
+private fun SyncSwitchRow(
+    isOn: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    val haptics = LocalHaptics.current
     Row(
-        modifier = Modifier.semantics(mergeDescendants = true) { heading() },
-        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = ActionMinHeight)
+                .switchRow(checked = isOn, haptics = haptics, onCheckedChange = onCheckedChange),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            Icons.Outlined.Link,
+            if (isOn) Icons.Outlined.Link else Icons.Outlined.LinkOff,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(StatusIconSize),
+            modifier = Modifier.size(SwitchGlyphSize),
         )
-        Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+        Text(
+            stringResource(Res.string.hardcover_keep_off_switch),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f),
+        )
+        Switch(
+            checked = isOn,
+            onCheckedChange = null,
+            thumbContent =
+                if (isOn) {
+                    {
+                        Icon(
+                            Icons.Filled.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(SwitchDefaults.IconSize),
+                        )
+                    }
+                } else {
+                    null
+                },
+        )
     }
 }
 
+/** The confirmation names exactly what leaves: deviation 5's three bodies. No `else`: a new kind must pick its words. */
+private fun KeepOffRemoves.confirmBody(): StringResource =
+    when (this) {
+        KeepOffRemoves.READS -> Res.string.hardcover_keep_off_confirm_body_reads
+        KeepOffRemoves.TO_READ -> Res.string.hardcover_keep_off_confirm_body_to_read
+        KeepOffRemoves.READS_AND_TO_READ -> Res.string.hardcover_keep_off_confirm_body
+    }
+
 @Composable
 private fun NeedsMatchBody(onFindMatch: () -> Unit) {
-    CardHeader(stringResource(Res.string.hardcover_book_row_title))
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text(
             stringResource(Res.string.hardcover_book_row_needs_match),
@@ -184,7 +282,6 @@ private fun LinkedBody(
     onRemoveMatch: () -> Unit,
 ) {
     val haptics = LocalHaptics.current
-    CardHeader(stringResource(Res.string.hardcover_book_row_on_hardcover))
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(
             state.match.title ?: stringResource(Res.string.hardcover_book_row_matched_unnamed),
