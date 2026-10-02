@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.scan.ScanIssueReason
 import com.calypsan.listenup.client.domain.model.InboxBookItem
 import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
 import com.calypsan.listenup.web.awaitFrame
+import com.calypsan.listenup.web.design.WebAppSurface
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
@@ -18,6 +19,9 @@ import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.asList
 
 private val hosts = mutableListOf<HTMLElement>()
+
+/** The row's touch-target floor: comfortably over WCAG 2.5.8's 24px, matching the row's own rhythm. */
+private const val MIN_TARGET_PX = 44.0
 
 private const val TWO_HOURS_MS = 2L * 3_600_000
 
@@ -82,22 +86,25 @@ private fun page(
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
     hosts += host
+    // On the real surface, so the `.luw`-scoped page rules apply and a spec can measure layout.
     renderComposable(root = host) {
-        AdminInboxPage(
-            state = state,
-            onToggleBook = onToggleBook,
-            onSelectAll = onSelectAll,
-            onClearSelection = onClearSelection,
-            onRelease = onRelease,
-            onDismissIssue = onDismissIssue,
-            onClearError = onClearError,
-            onClearReleaseResult = onClearReleaseResult,
-            onRetry = onRetry,
-            onOpenAdmin = onOpenAdmin,
-            onOpenBookEdit = onOpenBookEdit,
-            onOpenMatch = onOpenMatch,
-            onOpenBook = onOpenBook,
-        )
+        WebAppSurface {
+            AdminInboxPage(
+                state = state,
+                onToggleBook = onToggleBook,
+                onSelectAll = onSelectAll,
+                onClearSelection = onClearSelection,
+                onRelease = onRelease,
+                onDismissIssue = onDismissIssue,
+                onClearError = onClearError,
+                onClearReleaseResult = onClearReleaseResult,
+                onRetry = onRetry,
+                onOpenAdmin = onOpenAdmin,
+                onOpenBookEdit = onOpenBookEdit,
+                onOpenMatch = onOpenMatch,
+                onOpenBook = onOpenBook,
+            )
+        }
     }
     return host
 }
@@ -217,6 +224,17 @@ class AdminInboxPageTest :
 
             toggled shouldContainExactly listOf("b7")
             opened.shouldBeNull()
+        }
+
+        // WCAG 2.5.8: the drawn box is 17px, but the input over it is what takes the tap, and it
+        // spans the row's full height so a thumb aimed at the box cannot land on nothing.
+        test("a row's checkbox takes taps across a target at least 44px square") {
+            val host = page(readyInbox(books = listOf(inboxBook(id = "b7"))))
+            awaitFrame()
+
+            val target = rowCheckboxes(host).single().getBoundingClientRect()
+            (target.width >= MIN_TARGET_PX) shouldBe true
+            (target.height >= MIN_TARGET_PX) shouldBe true
         }
 
         test("a selected row says so, to the screen reader as well as the eye") {
@@ -496,7 +514,7 @@ class AdminInboxPageTest :
         test("a book's actions live beside the selection target, never nested inside it") {
             val host = page(readyInbox(books = listOf(inboxBook(id = "b7"))))
 
-            host.querySelectorAll(".inbox-book button").length shouldBe 0
+            host.querySelectorAll(".inbox-book :is(button, input, a, [tabindex])").length shouldBe 0
             host.querySelectorAll(".inbox-book-row > .menu-anchor").length shouldBe 1
         }
 

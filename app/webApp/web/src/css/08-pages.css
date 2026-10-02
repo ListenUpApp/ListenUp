@@ -656,12 +656,16 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 /* Checkbox, book, actions menu — side by side, never nested: the book is a <button>, which cannot
    contain another control. The row draws the card so the three read as one book. */
 .luw .inbox-book-row {
-  display: flex; align-items: stretch; gap: var(--sp-4); padding-left: 0.7rem;
+  display: flex; align-items: stretch; gap: var(--sp-4);
   border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2);
   transition: border-color var(--dur), background var(--dur);
 }
 .luw .inbox-book-row.is-sel { border-color: var(--coral); background: var(--coral-soft); }
-.luw .inbox-book-sel { flex: none; display: flex; align-items: center; }
+.luw .inbox-book-sel { flex: none; display: flex; align-items: stretch; }
+/* The drawn box is 17px; the input over it is what takes the tap. Stretching the label to the
+   row's full height at 44px wide makes the whole left edge of the row the target (WCAG 2.5.8),
+   and centring the box in it keeps it where the row's old padding put it. */
+.luw .inbox-book-sel .cbx-hit { width: 44px; align-items: center; justify-content: center; }
 .luw .inbox-book-row > .inbox-book { flex: 1; min-width: 0; }
 .luw .inbox-book-row > .menu-anchor { display: flex; align-items: center; padding-right: 0.35rem; }
 .luw .inbox-book {
