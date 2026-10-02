@@ -134,6 +134,9 @@ BookSeriesInput
 BookSummaryFields
 BookUpdate
 BookUpdateRequest
+BookVisibility
+BookVisibilityRepository
+BookVisibility_SealedType
 BookWithContributorRole
 BrowseFacetUiState
 BrowseFacetUiState_SealedType
@@ -173,6 +176,7 @@ CollectionBookItem
 CollectionEditDelegate
 CollectionError
 CollectionError_SealedType
+CollectionRef
 CollectionRepository
 CollectionShare
 CollectionShareItem
@@ -373,6 +377,10 @@ HardcoverSyncStatus
 HardcoverSyncStatus_SealedType
 HardcoverTokenSave
 HardcoverTokenSave_SealedType
+HiddenFrom
+HiddenFromNames
+HiddenFromSummary
+HiddenFrom_SealedType
 HomeRepository
 HomeStatsUiState
 HomeStatsUiState_SealedType
@@ -638,6 +646,7 @@ RestoreFromFileUiState
 RestoreFromFileUiState_SealedType
 RestoreFromFileViewModel
 RestoreResult
+RestrictedBooksViewModel
 ResumePhraseDetector
 RoleSection
 RoleWithBookCount
