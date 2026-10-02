@@ -52,4 +52,14 @@ class LibraryLockTest :
             (card(setOf("b1"), selecting = true).querySelector(".lu-lock.shifted") != null) shouldBe true
         }
 
+        // The tick comes first in the card and the cover after it, both positioned: without a
+        // stacking order of its own the cover would paint over the tick it is meant to wear.
+        test("while selecting, the tick is the topmost thing at its own centre") {
+            val card = card(emptySet(), selecting = true)
+            val tick = card.querySelector(".lib-tick") as HTMLElement
+            tick.scrollIntoView()
+            val box = tick.getBoundingClientRect()
+            val hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+            (hit != null && (hit == tick || tick.contains(hit))) shouldBe true
+        }
     })

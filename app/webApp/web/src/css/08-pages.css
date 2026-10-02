@@ -1136,7 +1136,9 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .home-card.is-sel,
 .luw .disc-card.is-sel,
 .luw .disc-listener.is-sel { outline: 2px solid var(--coral); outline-offset: 2px; }
-.lib-tick { position: absolute; top: 6px; left: 6px; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; background: rgba(0, 0, 0, .35); display: flex; align-items: center; justify-content: center; color: #fff; box-shadow: var(--shadow-card); }
+/* `z-index` because the tick precedes the cover in the card and both are positioned: without it the
+   cover, later in tree order, paints over the tick. The lock sits clear of it (`.lu-lock.shifted`). */
+.lib-tick { position: absolute; z-index: 1; top: 6px; left: 6px; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; background: rgba(0, 0, 0, .35); display: flex; align-items: center; justify-content: center; color: #fff; box-shadow: var(--shadow-card); }
 .lib-tick.on { background: var(--coral-fill); border-color: var(--coral-fill); }
 
 .luw .sel-targets { display: flex; flex-direction: column; gap: 3px; max-height: 15rem; overflow-y: auto; margin: 10px 0; }
