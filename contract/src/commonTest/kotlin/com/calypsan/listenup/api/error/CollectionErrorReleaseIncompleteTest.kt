@@ -7,7 +7,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldEndWith
 import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlinx.serialization.PolymorphicSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.encodeToString
 
 /**
@@ -56,17 +56,23 @@ class CollectionErrorReleaseIncompleteTest :
             stamped.failedBookIds shouldBe listOf("b1")
         }
 
-        // Wire compatibility: a client built before this subtype existed knows no
-        // "CollectionError.ReleaseIncomplete". Decoding through the open polymorphic serializer — which
-        // knows no AppError subtype at all — exercises exactly the fallback such a client takes: the
-        // polymorphic default contractJson registers. It must decode, never throw, and say what arrived.
-        test("a build that does not know ReleaseIncomplete decodes it as UnknownError instead of throwing") {
-            val wire = contractJson.encodeToString<AppError>(CollectionError.ReleaseIncomplete(listOf("b1"), "corr-9"))
+        // Wire compatibility: a client built before ReleaseIncomplete existed meets it inside the
+        // AppResult that releaseBooks returns. That shape — not a bare AppError — is the one that must
+        // not throw, so this decodes a hand-written Failure carrying a CollectionError subtype this build
+        // has never heard of, through the AppResult serializer itself.
+        test("a CollectionError subtype this build does not know decodes inside an AppResult as UnknownError") {
+            val wire =
+                """
+                {"type":"Failure","error":{"type":"CollectionError.SomethingNewer","failedBookIds":["b1"],
+                 "correlationId":"corr-9","code":"COLLECTION_SOMETHING_NEWER","isRetryable":true}}
+                """.trimIndent()
 
-            val decoded = contractJson.decodeFromString(PolymorphicSerializer(AppError::class), wire)
+            val decoded = contractJson.decodeFromString(AppResult.serializer(Unit.serializer()), wire)
 
-            decoded.shouldBeInstanceOf<UnknownError>()
-            decoded.correlationId shouldBe "corr-9"
-            decoded.debugInfo shouldContain "CollectionError.ReleaseIncomplete"
+            val error = decoded.shouldBeInstanceOf<AppResult.Failure>().error
+            error.shouldBeInstanceOf<UnknownError>()
+            error.correlationId shouldBe "corr-9"
+            error.code shouldBe "COLLECTION_SOMETHING_NEWER"
+            error.debugInfo shouldContain "CollectionError.SomethingNewer"
         }
     })

@@ -14,7 +14,7 @@ import kotlinx.serialization.Serializable
  *
  * [isRetryable] is `false` for every subtype but [ReleaseIncomplete] — those failures require
  * user action (correct input, choose a different target user, etc.). A [ReleaseIncomplete]
- * names books that are still held exactly as they were, so asking again is safe.
+ * names books that are still held exactly as they were, so retrying the books it names is safe.
  *
  * HTTP status mapping (wired in `AppErrorStatusPages.kt`):
  * - [NotFound] / [BookNotFound] / [UserNotFound] → 404
@@ -154,8 +154,8 @@ sealed interface CollectionError : AppError {
      * Every book in [failedBookIds] is still held — back in the inbox exactly as it was before the
      * release, in no other collection — so nothing is hidden from members and nothing is half-public.
      * Every other book in the request was released normally. A client writes through only the books
-     * that left, keeps the failed ones held, and may ask again: retrying re-sends the same release of
-     * books that are unchanged, which is why this is retryable.
+     * that left, keeps the failed ones held, and may ask again: retrying the books it names is safe,
+     * which is why this is retryable.
      */
     @Serializable
     @SerialName("CollectionError.ReleaseIncomplete")
