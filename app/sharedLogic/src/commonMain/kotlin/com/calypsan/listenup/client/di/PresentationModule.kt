@@ -653,6 +653,13 @@ internal val settingsPresentationModule =
         }
         // Settings → Account → Hardcover: connect, sync, the books that need a match, disconnect.
         factory { HardcoverSettingsViewModel(repository = get(), bookRepository = get()) }
+        // Settings → Account → Hardcover → Kept off Hardcover: the books kept off, each with Sync again (#1541).
+        factory {
+            com.calypsan.listenup.client.presentation.hardcover.KeptOffBooksViewModel(
+                repository = get(),
+                bookRepository = get(),
+            )
+        }
         // Find on Hardcover for one book: search, pick, or remove the match.
         factory { params ->
             com.calypsan.listenup.client.presentation.hardcover.HardcoverMatchViewModel(

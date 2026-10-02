@@ -2,6 +2,9 @@ package com.calypsan.listenup.web.features.hardcover
 
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
+import com.calypsan.listenup.client.presentation.hardcover.KeptOffBooksEvent
+import com.calypsan.listenup.client.presentation.hardcover.KeptOffBooksUiState
+import com.calypsan.listenup.client.presentation.hardcover.KeptOffBooksViewModel
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsEvent
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsUiState
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsViewModel
@@ -12,8 +15,8 @@ import kotlinx.coroutines.flow.emptyFlow
 import org.koin.core.Koin
 
 /**
- * An open Hardcover screen: the connection, its one-shot effects, the seven gestures, and the
- * teardown.
+ * An open Hardcover screen: the connection, its one-shot effects, the seven gestures, the kept-off list
+ * (#1541), and the teardown.
  *
  * [onOpenVerificationPage] is wired for completeness but the page does not call it. On web the
  * Linking phase carries a real `<a target="_blank">` to the same pre-filled URL, and a click on an
@@ -30,6 +33,9 @@ class HardcoverSession(
     val onSetShareMode: (HardcoverShareMode) -> Unit,
     val onSendHistory: () -> Unit,
     val onDismissHistory: () -> Unit,
+    val keptOff: StateFlow<KeptOffBooksUiState>,
+    val keptOffEvents: Flow<KeptOffBooksEvent>,
+    val onSyncAgain: (bookId: String) -> Unit,
     val close: () -> Unit,
 )
 
@@ -40,7 +46,12 @@ typealias OpenHardcover = () -> HardcoverSession
 fun graphHardcover(koin: Koin): OpenHardcover =
     {
         val viewModel = koin.get<HardcoverSettingsViewModel>()
-        val store = ViewModelStore().apply { put(HARDCOVER_STORE_KEY, viewModel) }
+        val keptOff = koin.get<KeptOffBooksViewModel>()
+        val store =
+            ViewModelStore().apply {
+                put(HARDCOVER_STORE_KEY, viewModel)
+                put(KEPT_OFF_STORE_KEY, keptOff)
+            }
         HardcoverSession(
             state = viewModel.uiState,
             events = viewModel.events,
@@ -51,6 +62,9 @@ fun graphHardcover(koin: Koin): OpenHardcover =
             onSetShareMode = viewModel::setShareMode,
             onSendHistory = viewModel::sendHistory,
             onDismissHistory = viewModel::dismissHistory,
+            keptOff = keptOff.uiState,
+            keptOffEvents = keptOff.events,
+            onSyncAgain = keptOff::syncAgain,
             close = store::clear,
         )
     }
@@ -71,6 +85,9 @@ fun fixedHardcover(
     onSetShareMode: (HardcoverShareMode) -> Unit = {},
     onSendHistory: () -> Unit = {},
     onDismissHistory: () -> Unit = {},
+    keptOff: KeptOffBooksUiState = KeptOffBooksUiState.Loading,
+    keptOffEvents: Flow<KeptOffBooksEvent> = emptyFlow(),
+    onSyncAgain: (bookId: String) -> Unit = {},
 ): OpenHardcover =
     {
         HardcoverSession(
@@ -83,8 +100,12 @@ fun fixedHardcover(
             onSetShareMode = onSetShareMode,
             onSendHistory = onSendHistory,
             onDismissHistory = onDismissHistory,
+            keptOff = MutableStateFlow(keptOff),
+            keptOffEvents = keptOffEvents,
+            onSyncAgain = onSyncAgain,
             close = {},
         )
     }
 
 private const val HARDCOVER_STORE_KEY = "hardcover"
+private const val KEPT_OFF_STORE_KEY = "hardcover-kept-off"
