@@ -20,11 +20,7 @@ final class UserDetailObserver {
 
     // MARK: - Actions
 
-    func toggle(_ permission: UserDetailPermission) {
-        switch permission {
-        case .canEdit: viewModel.toggleCanEdit()
-        }
-    }
+    func toggleCanEdit() { viewModel.toggleCanEdit() }
     func clearError() { viewModel.clearError() }
 
     // MARK: - State mapping
@@ -69,32 +65,5 @@ struct UserDetailReadyModel {
         self.isProtected = ready.isProtected
         self.isSaving = ready.isSaving
         self.error = ready.error?.message
-    }
-}
-
-/// The permissions an admin can grant from a user's detail, in display order — the same set
-/// Android's `UserDetailScreen` and the web `UserDetailPage` offer. "Can share" is not here: it gated
-/// nothing once only admins could write collections, so it was removed on every platform.
-enum UserDetailPermission: CaseIterable, Identifiable {
-    case canEdit
-
-    var id: Self { self }
-
-    var title: String {
-        switch self {
-        case .canEdit: String(localized: "admin.can_edit")
-        }
-    }
-
-    var detail: String {
-        switch self {
-        case .canEdit: String(localized: "admin.allow_editing_content_metadata")
-        }
-    }
-
-    func isGranted(in ready: UserDetailReadyModel) -> Bool {
-        switch self {
-        case .canEdit: ready.canEdit
-        }
     }
 }
