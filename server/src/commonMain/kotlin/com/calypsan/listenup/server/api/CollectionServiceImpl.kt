@@ -820,14 +820,17 @@ internal class CollectionServiceImpl(
      * collection would silently hide it; releasing into `ALL_BOOKS` is how a book becomes
      * public.)
      *
-     * **Not atomic.** Each junction write opens its own SQLDelight transaction — a suspend repo
-     * call cannot nest inside a non-suspend transaction body — so the release is a sequence of
-     * independent commits, not one. A crash or DB fault between the inbox tombstone and a target
-     * upsert leaves that book with no live membership: invisible to members under pure-union, and
-     * absent from [listInbox], with nothing that re-homes it until its memberships are next
-     * mutated. Targets are validated up front to keep the common failure typed and pre-flight, but
-     * that narrows the window rather than closing it. (This KDoc previously claimed a single
-     * transaction; it never had one — the implementation comment below always said so.)
+     * **Each book releases on its own, and a failed one stays held.** Each junction write opens
+     * its own SQLDelight transaction — a suspend repo call cannot nest inside a non-suspend
+     * transaction body — so the release is a sequence of independent commits, not one. The order
+     * makes that safe: a book's target memberships are written FIRST, and its inbox junction is
+     * tombstoned only once every one of them has landed. A book whose target write fails is never
+     * tombstoned, and any target it did join in this call is withdrawn again, so it stays exactly
+     * as held as it was — in the inbox, in no members' collection, retryable — and is reported in
+     * [CollectionError.ReleaseIncomplete] while the other books release normally. A crash between a
+     * book's target write and its inbox tombstone leaves it held and in its target at once, which
+     * reads as still waiting for review and resolves on the next release; it is never stranded in
+     * no collection.
      *
      * Admin-only ([CollectionError.Forbidden] otherwise); requires a caller principal.
      */
@@ -863,8 +866,8 @@ internal class CollectionServiceImpl(
 
         // Validate every distinct target collection up front — exists, live, same library —
         // before mutating anything: a bad id otherwise surfaces as an opaque FK violation, and
-        // a tombstoned target would be silently resurrected by upsert. Validating before the
-        // transaction keeps the whole release atomic and the error typed.
+        // a tombstoned target would be silently resurrected by upsert. Validating before any write
+        // keeps the common failure typed and leaves every book held when it fires.
         val explicitTargetIds = assignments.values.flatten().toSet()
         for (targetId in explicitTargetIds) {
             val target =
@@ -878,57 +881,99 @@ internal class CollectionServiceImpl(
         }
 
         // Sequential suspend repo writes — each opens its own SQLDelight transaction, so they
-        // cannot nest inside a non-suspend SQLDelight transaction body. The pre-flight validation
-        // above kept the release typed; a partial failure here is the same risk the prior outer
-        // Exposed transaction carried, since it never took the SQLite write lock anyway.
-        //
-        // A book whose target write FAILS is recorded in [failedBookIds] and excluded from the
-        // reconcile pass below: the inbox tombstone can still have committed for that book, so
-        // reconcile would otherwise read back zero real memberships and re-home it into the
-        // everyone-visible ALL_BOOKS substrate — silently publishing a book meant for a private
-        // collection. Staying held/unchanged until the next mutation is the acceptable outcome.
-        val failedBookIds = mutableSetOf<String>()
+        // cannot nest inside a non-suspend SQLDelight transaction body. Each book is released on its
+        // own and only once all its target writes have landed — see [releaseOneBook].
+        val releasedBookIds = mutableListOf<String>()
+        val releasedTargetIds = mutableSetOf<String>()
+        val failedBookIds = mutableListOf<String>()
         for ((bookId, targetCollectionIds) in assignments) {
-            collectionBookRepo.softDelete(collectionId = inboxId, bookId = bookId)
             // Empty target → release to ALL_BOOKS so the book stays publicly visible.
             val resolvedTargets = targetCollectionIds.ifEmpty { listOfNotNull(allBooksId) }
-            for (targetId in resolvedTargets) {
-                val payload =
-                    CollectionBookSyncPayload(
-                        id = Uuid.random().toString(),
-                        collectionId = targetId,
-                        bookId = bookId,
-                        createdAt = clock.now().toEpochMilliseconds(),
-                        revision = 0L,
-                        deletedAt = null,
-                    )
-                if (!collectionBookRepo.upsertOrLog("releaseBooks", payload)) failedBookIds += bookId
+            if (releaseOneBook(bookId, inboxId, resolvedTargets)) {
+                releasedBookIds += bookId
+                releasedTargetIds += resolvedTargets
+            } else {
+                failedBookIds += bookId
             }
         }
 
-        // Every user who can see a target collection just gained access to the released books —
-        // nudge each once to re-derive. ALL_BOOKS is included so its grant recipients re-derive.
-        notifyAccessChanged(explicitTargetIds + listOfNotNull(allBooksId), assignments.keys)
-        // Bump each released book's revision so members' incremental `revision > cursor` pull
-        // re-evaluates its now-changed visibility — the access nudge alone never carries the row.
-        // One transaction, per-book revisions (never one shared revision — see touchRevisions).
-        bookRevisionTouch.touchRevisions(assignments.keys.map(::BookId))
+        if (releasedBookIds.isNotEmpty()) {
+            // Every user who can see a target collection just gained access to the released books —
+            // nudge each once to re-derive. ALL_BOOKS is among the targets when a book went public, so
+            // its grant recipients re-derive too.
+            notifyAccessChanged(releasedTargetIds, releasedBookIds)
+            // Bump each released book's revision so members' incremental `revision > cursor` pull
+            // re-evaluates its now-changed visibility — the access nudge alone never carries the row.
+            // One transaction, per-book revisions (never one shared revision — see touchRevisions).
+            bookRevisionTouch.touchRevisions(releasedBookIds.map(::BookId))
+        }
         // Maintain exclusivity from the post-release set: a book released into explicit targets must
         // not linger in ALL_BOOKS (defensive tombstone of any stale junction); one released unsorted
         // stays in ALL_BOOKS (the fallback added above). reconcile derives both. One memo hoists the
         // loop-invariant system-collection lookups across the whole release.
         // One book lock at a time — never two at once — so a bulk reconcile serialises against a
         // concurrent single-book mutation without any lock-ordering deadlock. See [bookLocks].
-        // Books with a failed membership write above are excluded — see [failedBookIds].
+        // A book that stayed held changed nothing, so it has nothing to reconcile.
         val lookups = SystemMembershipLookups()
-        for (bookId in assignments.keys) {
-            if (bookId in failedBookIds) {
-                logSkippedReconcile("releaseBooks", bookId)
-                continue
-            }
+        for (bookId in releasedBookIds) {
             bookLock(bookId).withLock { reconcileSystemMembership(bookId, lookups) }
         }
-        return AppResult.Success(Unit)
+        for (bookId in failedBookIds) logSkippedReconcile("releaseBooks", bookId)
+
+        return if (failedBookIds.isEmpty()) {
+            AppResult.Success(Unit)
+        } else {
+            AppResult.Failure(
+                CollectionError.ReleaseIncomplete(
+                    failedBookIds = failedBookIds,
+                    debugInfo = "${failedBookIds.size} of ${assignments.size} books stayed held",
+                ),
+            )
+        }
+    }
+
+    /**
+     * Releases one held book into [targetIds], returning whether it left the inbox.
+     *
+     * The targets are written first and the inbox junction is tombstoned only after every one has
+     * landed, so a failed write can never leave the book in no collection at all — invisible to
+     * members and absent from the inbox, with nothing that re-homes it. On a failure the targets
+     * this call newly joined are withdrawn again, so the book stays held exactly as it was: a held
+     * book sitting in a members' collection would be visible while the inbox says it is waiting
+     * for review. A target the book was already in before the release is left alone.
+     */
+    private suspend fun releaseOneBook(
+        bookId: String,
+        inboxId: String,
+        targetIds: List<String>,
+    ): Boolean {
+        val alreadyIn = collectionBookRepo.findCollectionIdsForBook(bookId).toSet()
+        val joined = mutableListOf<String>()
+        var allLanded = true
+        for (targetId in targetIds) {
+            val payload =
+                CollectionBookSyncPayload(
+                    id = Uuid.random().toString(),
+                    collectionId = targetId,
+                    bookId = bookId,
+                    createdAt = clock.now().toEpochMilliseconds(),
+                    revision = 0L,
+                    deletedAt = null,
+                )
+            if (collectionBookRepo.upsertOrLog("releaseBooks", payload)) {
+                if (targetId !in alreadyIn) joined += targetId
+            } else {
+                allLanded = false
+            }
+        }
+        if (!allLanded) {
+            for (targetId in joined) collectionBookRepo.softDelete(collectionId = targetId, bookId = bookId)
+            return false
+        }
+        // softDelete is idempotent: a Failure(NotFound) means the book was no longer held, which is
+        // exactly the state a release asks for.
+        collectionBookRepo.softDelete(collectionId = inboxId, bookId = bookId)
+        return true
     }
 
     /**

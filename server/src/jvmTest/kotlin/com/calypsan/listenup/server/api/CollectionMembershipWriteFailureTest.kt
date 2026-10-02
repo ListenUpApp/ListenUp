@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
@@ -17,9 +18,11 @@ import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.booleans.shouldBeFalse
+import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -32,7 +35,8 @@ import kotlinx.coroutines.test.runTest
  * membership write fails (a DB fault) — the inbox tombstone still commits, so the end-of-release
  * reconcile reads back zero real memberships and re-homes the book into the everyone-visible
  * `ALL_BOOKS` substrate, silently widening a private book to every member while the call still
- * reports [AppResult.Success]. These tests drive the real [CollectionServiceImpl] over a real
+ * reported [AppResult.Success]. Now a book whose release fails stays held instead — still in
+ * the inbox, in no other collection — and the call answers [CollectionError.ReleaseIncomplete]. These tests drive the real [CollectionServiceImpl] over a real
  * Flyway-migrated in-memory SQLite db, with [FaultInjectingCollectionBookRepository] standing in
  * for the real [com.calypsan.listenup.server.sync.CollectionBookRepository] to make one chosen
  * `(collectionId, bookId)` write fail exactly like a real fault would — no row is written.
@@ -76,22 +80,123 @@ class CollectionMembershipWriteFailureTest :
                         }
                     val admin = h.service.actAs("admin", UserRole.ADMIN)
 
-                    // The release still reports Success — the point of the bug: a swallowed write
-                    // failure never surfaces to the caller.
-                    admin.releaseBooks(
-                        LibraryId("test-library"),
-                        mapOf(BookId("book1") to listOf(CollectionId(privateId))),
-                    ) shouldBe AppResult.Success(Unit)
+                    // The failure is reported, typed, naming the book that stayed held — never a
+                    // Success the caller would announce as "Released 1 book".
+                    val result =
+                        admin.releaseBooks(
+                            LibraryId("test-library"),
+                            mapOf(BookId("book1") to listOf(CollectionId(privateId))),
+                        )
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+                    result.error.shouldBeInstanceOf<CollectionError.ReleaseIncomplete>()
+                        .failedBookIds shouldBe listOf("book1")
 
                     // The dangerous outcome this test guards: the book must NOT have been re-homed
                     // into ALL_BOOKS (which would make it visible to every member) despite its
                     // intended private-collection write failing.
                     h.bookAccessPolicy.canAccess("member", UserRole.MEMBER, "book1").shouldBeFalse()
-                    h.junctionDiagnostic("book1").let {
-                        it shouldNotContain allBooksId
-                        // The private write genuinely failed — no row for it either.
-                        it shouldNotContain privateId
-                    }
+                    // And it is still held: back in the inbox, retryable, not stranded in no collection.
+                    h.junctionDiagnostic("book1") shouldBe setOf(inboxIdOf(admin))
+                    admin.listInbox(LibraryId("test-library")) shouldBe AppResult.Success(listOf(BookId("book1")))
+                    // Nothing about the held book changed, so nothing is announced for it.
+                    h.revisionTouch.touched shouldNotContain "book1"
+                }
+            }
+        }
+
+        test("releaseBooks: the books that can be released are, and only the failed one stays held") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestUser("member")
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
+                runTest {
+                    val setup = collectionAccessHarness()
+                    val setupAdmin = setup.service.actAs("admin", UserRole.ADMIN)
+                    val allBooks = setupAdmin.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
+                    require(allBooks is AppResult.Success)
+                    val allBooksId = allBooks.data.id.value
+                    setup.grantAllBooks(allBooksId, "member")
+                    setupAdmin.addToInbox("book1", "test-library") shouldBe AppResult.Success(Unit)
+                    setupAdmin.addToInbox("book2", "test-library") shouldBe AppResult.Success(Unit)
+
+                    // A public release of both, where book1's ALL_BOOKS write fails.
+                    val h =
+                        collectionAccessHarness { bus, registry ->
+                            FaultInjectingCollectionBookRepository(
+                                db = sql,
+                                bus = bus,
+                                registry = registry,
+                                driver = driver,
+                                failingPairs = setOf(allBooksId to "book1"),
+                            )
+                        }
+                    val admin = h.service.actAs("admin", UserRole.ADMIN)
+
+                    val result =
+                        admin.releaseBooks(
+                            LibraryId("test-library"),
+                            mapOf(BookId("book1") to emptyList(), BookId("book2") to emptyList()),
+                        )
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+                    result.error.shouldBeInstanceOf<CollectionError.ReleaseIncomplete>()
+                        .failedBookIds shouldBe listOf("book1")
+
+                    // book2 released normally: public, out of the inbox, and announced.
+                    h.junctionDiagnostic("book2") shouldBe setOf(allBooksId)
+                    h.bookAccessPolicy.canAccess("member", UserRole.MEMBER, "book2").shouldBeTrue()
+                    h.revisionTouch.touched shouldContain "book2"
+
+                    // book1 stayed held — in the inbox and nowhere else.
+                    h.junctionDiagnostic("book1") shouldBe setOf(inboxIdOf(admin))
+                    h.bookAccessPolicy.canAccess("member", UserRole.MEMBER, "book1").shouldBeFalse()
+                    h.revisionTouch.touched shouldNotContain "book1"
+                    admin.listInbox(LibraryId("test-library")) shouldBe AppResult.Success(listOf(BookId("book1")))
+                }
+            }
+        }
+
+        test("releaseBooks: a book whose second target fails is withdrawn from its first, so held means hidden") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestBook("book1")
+                runTest {
+                    val setup = collectionAccessHarness()
+                    val setupAdmin = setup.service.actAs("admin", UserRole.ADMIN)
+                    val okCollection = setupAdmin.createCollection("test-library", "OK")
+                    val failCollection = setupAdmin.createCollection("test-library", "FAIL")
+                    require(okCollection is AppResult.Success)
+                    require(failCollection is AppResult.Success)
+                    val okId = okCollection.data.id.value
+                    val failId = failCollection.data.id.value
+                    setupAdmin.addToInbox("book1", "test-library") shouldBe AppResult.Success(Unit)
+
+                    val h =
+                        collectionAccessHarness { bus, registry ->
+                            FaultInjectingCollectionBookRepository(
+                                db = sql,
+                                bus = bus,
+                                registry = registry,
+                                driver = driver,
+                                failingPairs = setOf(failId to "book1"),
+                            )
+                        }
+                    val admin = h.service.actAs("admin", UserRole.ADMIN)
+
+                    val result =
+                        admin.releaseBooks(
+                            LibraryId("test-library"),
+                            mapOf(BookId("book1") to listOf(CollectionId(okId), CollectionId(failId))),
+                        )
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+                    result.error.shouldBeInstanceOf<CollectionError.ReleaseIncomplete>()
+                        .failedBookIds shouldBe listOf("book1")
+
+                    // The OK write landed, but a held book in a members' collection would be visible
+                    // while the inbox says it is waiting for review — the release takes it back out.
+                    h.junctionDiagnostic("book1") shouldBe setOf(inboxIdOf(admin))
                 }
             }
         }
@@ -187,3 +292,10 @@ class CollectionMembershipWriteFailureTest :
             }
         }
     })
+
+/** The test library's live INBOX id, resolved the way the release itself resolves it. */
+private suspend fun inboxIdOf(service: CollectionServiceImpl): String {
+    val inbox = service.getOrCreateInbox("test-library")
+    require(inbox is AppResult.Success)
+    return inbox.data.id.value
+}

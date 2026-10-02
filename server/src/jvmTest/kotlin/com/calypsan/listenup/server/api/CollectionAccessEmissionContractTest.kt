@@ -322,8 +322,10 @@ class CollectionAccessEmissionContractTest :
          * Functions that touch the mutation tokens but legitimately emit nothing here:
          *  - `reconcileSystemMembership` — the private flip helper, exercised through the add/remove cases.
          *  - `addToInbox` — quarantine by placement; hidden via delivery-time `canAccess`, no proactive nudge.
+         *  - `releaseOneBook` — `releaseBooks`'s per-book write helper; its caller emits once for every
+         *    book that released, exercised through the `releaseBooks` case.
          */
-        val EMISSION_ALLOWLIST = setOf("reconcileSystemMembership", "addToInbox")
+        val EMISSION_ALLOWLIST = setOf("reconcileSystemMembership", "addToInbox", "releaseOneBook")
     }
 }
 
