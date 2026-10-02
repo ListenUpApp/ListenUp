@@ -31,7 +31,9 @@ struct BookHardcoverObserverTests {
     }
 
     @Test func aMatchMadeJustNowSaysSoInPlaceOfTheSync() {
-        let state = BookHardcoverUiStateLinked(match: match, sync: .nothingSentYet, justMatched: true, keepOffRemoves: nil)
+        let state = BookHardcoverUiStateLinked(
+            match: match, sync: .nothingSentYet, justMatched: true, keepOffRemoves: nil
+        )
         guard case .linked(let model) = BookHardcoverObserver.phase(from: state) else {
             Issue.record("expected .linked")
             return
@@ -70,7 +72,9 @@ struct BookHardcoverObserverTests {
 
     @Test func keepingABookOffAsksFirstOnlyWhenSomethingVisibleLeaves() {
         func message(_ removes: KeepOffRemoves?) -> String? {
-            let state = BookHardcoverUiStateLinked(match: match, sync: .upToDate, justMatched: false, keepOffRemoves: removes)
+            let state = BookHardcoverUiStateLinked(
+                match: match, sync: .upToDate, justMatched: false, keepOffRemoves: removes
+            )
             guard case .linked(let model) = BookHardcoverObserver.phase(from: state) else { return "not linked" }
             return model.keepOffMessage
         }

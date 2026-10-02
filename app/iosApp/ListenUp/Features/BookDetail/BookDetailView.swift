@@ -17,12 +17,12 @@ struct BookDetailView: View {
     @State var observer: BookDetailObserver?
     @State private var readersObserver: BookReadersObserver?
     @State private var ratingsObserver: BookRatingsObserver?
-    @State private var hardcoverObserver: BookHardcoverObserver?
+    @State var hardcoverObserver: BookHardcoverObserver?
     /// Find on Hardcover, opened from the Hardcover section (Change Match, or Find on Hardcover).
-    @State private var hardcoverMatchTarget: HardcoverMatchTarget?
-    @State private var confirmingHardcoverRemoval = false
+    @State var hardcoverMatchTarget: HardcoverMatchTarget?
+    @State var confirmingHardcoverRemoval = false
     /// The confirmation's message while switching Sync with Hardcover off asks first (#1541).
-    @State private var keepOffMessage: String?
+    @State var keepOffMessage: String?
     @State private var showRateSheet = false
     @State private var showRatingBreakdown = false
     /// Counts completed book actions (download, delete download, mark finished) so `commit`
@@ -106,31 +106,6 @@ struct BookDetailView: View {
             }
         }
         .sheet(item: $hardcoverMatchTarget) { HardcoverMatchSheet(bookId: $0.bookId) }
-        .confirmationDialog(
-            String(localized: "hardcover.match_remove").titleStyled,
-            isPresented: $confirmingHardcoverRemoval,
-            titleVisibility: .hidden
-        ) {
-            Button(String(localized: "hardcover.match_remove").titleStyled, role: .destructive) {
-                hardcoverObserver?.removeMatch()
-            }
-            Button(String(localized: "common.cancel"), role: .cancel) {}
-        } message: {
-            Text(String(localized: "hardcover.match_remove_detail"))
-        }
-        .confirmationDialog(
-            String(localized: "hardcover.keep_off_confirm_title"),
-            isPresented: Binding(get: { keepOffMessage != nil }, set: { if !$0 { keepOffMessage = nil } }),
-            titleVisibility: .visible
-        ) {
-            // Not destructive: Sync Again undoes it.
-            Button(String(localized: "hardcover.keep_off_confirm_action").titleStyled) {
-                hardcoverObserver?.setSynced(false)
-            }
-            Button(String(localized: "common.cancel"), role: .cancel) {}
-        } message: {
-            Text(keepOffMessage ?? "")
-        }
         .sheet(isPresented: $showCast) {
             if let observer, let book = observer.book {
                 CastCreditsSheet(book: book) { showCast = false }
@@ -404,23 +379,6 @@ struct BookDetailView: View {
         if case .data(let rows) = readersObserver?.phase {
             Divider()
             BookReadersSection(readers: rows)
-        }
-    }
-
-    /// The Hardcover match, under Readers. Renders only for a connected user, whatever the book's match:
-    /// matched, needs a match, never matched, or kept off Hardcover; otherwise it stays out of the layout,
-    /// divider and all.
-    @ViewBuilder
-    private var hardcoverSection: some View {
-        if let phase = hardcoverObserver?.phase, phase != .hidden {
-            Divider()
-            BookHardcoverSection(
-                phase: phase,
-                onFindMatch: { hardcoverMatchTarget = HardcoverMatchTarget(bookId: bookId) },
-                onRemoveMatch: { confirmingHardcoverRemoval = true },
-                onSetSynced: { hardcoverObserver?.setSynced($0) },
-                onConfirmKeepOff: { keepOffMessage = $0 }
-            )
         }
     }
 

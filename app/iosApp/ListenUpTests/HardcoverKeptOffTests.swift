@@ -16,11 +16,15 @@ struct HardcoverKeptOffTests {
     @Test func theBooksArriveAsNativeRowsInTheirOrder() {
         let state = KeptOffBooksUiStateLoaded(books: [
             KeptOffBook(bookId: "b2", title: "Educated", authorNames: "Tara Westover", coverPath: nil, coverHash: nil),
-            KeptOffBook(bookId: "b1", title: "Mistborn", authorNames: "Brandon Sanderson", coverPath: "p", coverHash: "h")
+            KeptOffBook(
+                bookId: "b1", title: "Mistborn", authorNames: "Brandon Sanderson", coverPath: "p", coverHash: "h"
+            )
         ])
         #expect(HardcoverKeptOffObserver.phase(from: state) == .books([
             KeptOffBookRow(id: "b2", title: "Educated", authorNames: "Tara Westover", coverPath: nil, coverHash: nil),
-            KeptOffBookRow(id: "b1", title: "Mistborn", authorNames: "Brandon Sanderson", coverPath: "p", coverHash: "h")
+            KeptOffBookRow(
+                id: "b1", title: "Mistborn", authorNames: "Brandon Sanderson", coverPath: "p", coverHash: "h"
+            )
         ]))
     }
 

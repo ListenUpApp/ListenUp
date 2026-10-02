@@ -190,7 +190,8 @@ struct BookHardcoverSection: View {
                 onConfirmKeepOff: { _ in }
             )
             BookHardcoverSection(
-                phase: .needsMatch, onFindMatch: {}, onRemoveMatch: {}, onSetSynced: { _ in }, onConfirmKeepOff: { _ in }
+                phase: .needsMatch,
+                onFindMatch: {}, onRemoveMatch: {}, onSetSynced: { _ in }, onConfirmKeepOff: { _ in }
             )
             BookHardcoverSection(
                 phase: .keptOff(isResuming: false),

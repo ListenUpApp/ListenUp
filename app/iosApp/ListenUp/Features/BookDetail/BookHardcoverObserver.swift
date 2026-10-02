@@ -26,7 +26,8 @@ struct BookHardcoverLinkedModel: Equatable {
     let byline: String?
     let chosenByYou: Bool
     let status: BookHardcoverStatus
-    /// What the confirmation says before keeping it off; nil when nothing visible would leave, so it switches off at once.
+    /// What the confirmation says before keeping it off; nil when nothing visible would leave, so it
+    /// switches off at once.
     var keepOffMessage: String?
 }
 
