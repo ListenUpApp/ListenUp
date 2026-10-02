@@ -5,11 +5,13 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.api.HardcoverServiceImpl
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.hardcover.HardcoverApiTokenStore
 import com.calypsan.listenup.server.hardcover.HardcoverBookIdentities
 import com.calypsan.listenup.server.hardcover.HardcoverBookLinkStore
 import com.calypsan.listenup.server.hardcover.HardcoverBookLinking
 import com.calypsan.listenup.server.hardcover.HardcoverBookMatcher
 import com.calypsan.listenup.server.hardcover.HardcoverCatalogCache
+import com.calypsan.listenup.server.hardcover.HardcoverCatalogToken
 import com.calypsan.listenup.server.hardcover.HardcoverConnectionStore
 import com.calypsan.listenup.server.hardcover.HardcoverExclusions
 import com.calypsan.listenup.server.hardcover.HardcoverGraphQlClient
@@ -117,14 +119,7 @@ fun hardcoverModule(
         single { HardcoverRateLimiter() }
         single { HardcoverUserGate() }
         single { HardcoverRatingConnection(store = get(), tokens = get()) }
-        single {
-            HardcoverRatingSource(
-                graphQl = get(),
-                connection = get(),
-                rateLimiter = get(),
-                clientConfigured = clientId != null,
-            )
-        }
+        hardcoverCatalog(clientConfigured = clientId != null)
         single { HardcoverUserBooks(graphQl = get()) }
         single { HardcoverBookMatcher(graphQl = get(), rateLimiter = get()) }
         single { HardcoverBookLinkStore(sql = get(), clock = get()) }
@@ -191,6 +186,23 @@ fun hardcoverModule(
         }
         single<HardcoverService> { get<HardcoverServiceImpl>() }
     }
+
+/**
+ * Reading Hardcover's catalogue (#1542): the admin's sealed API token, the seam that picks it or a
+ * borrowed connection ([HardcoverCatalogToken]), and the [HardcoverRatingSource] the metadata registry lists.
+ */
+private fun Module.hardcoverCatalog(clientConfigured: Boolean) {
+    single { HardcoverApiTokenStore(sql = get(), cipher = get(), clock = get()) }
+    single { HardcoverCatalogToken(apiTokens = get(), connections = get()) }
+    single {
+        HardcoverRatingSource(
+            graphQl = get(),
+            catalogToken = get(),
+            rateLimiter = get(),
+            clientConfigured = clientConfigured,
+        )
+    }
+}
 
 /**
  * The push lane (spec B2): the executor, the per-user push worker — also bound as the [HardcoverPushNudge]
