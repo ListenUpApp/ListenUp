@@ -115,6 +115,7 @@
     <string name="admin_inbox_release_count">Release %1$d</string>
     <string name="admin_inbox_released_count">Released %1$d book</string>
     <string name="admin_inbox_released_count_plural">Released %1$d books</string>
+    <string name="admin_inbox_released_partial">Released %1$d of %2$d books. %3$d couldn't be released.</string>
     <string name="admin_inbox_review_edit">Review &amp; edit</string>
     <string name="admin_inbox_select_all">Select all</string>
     <string name="admin_inbox_setting_subtitle">Healthy new books wait here too, not just the ones with problems.</string>

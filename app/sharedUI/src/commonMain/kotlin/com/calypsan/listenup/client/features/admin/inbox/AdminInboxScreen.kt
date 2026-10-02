@@ -83,6 +83,7 @@ import listenup.composeapp.generated.resources.admin_inbox_empty
 import listenup.composeapp.generated.resources.admin_inbox_release_count
 import listenup.composeapp.generated.resources.admin_inbox_released_count
 import listenup.composeapp.generated.resources.admin_inbox_released_count_plural
+import listenup.composeapp.generated.resources.admin_inbox_released_partial
 import listenup.composeapp.generated.resources.admin_inbox_review_edit
 import listenup.composeapp.generated.resources.metadata_match_on_audible
 import listenup.composeapp.generated.resources.admin_inbox_select_all
@@ -145,11 +146,11 @@ fun AdminInboxScreen(
 
     // Release success confirmation (only meaningful in Ready).
     val readyReleasedCount = (state as? AdminInboxUiState.Ready)?.lastReleasedCount
-    val releasedSingular = stringResource(Res.string.admin_inbox_released_count, readyReleasedCount ?: 0)
-    val releasedPlural = stringResource(Res.string.admin_inbox_released_count_plural, readyReleasedCount ?: 0)
+    val readyUnreleasedCount = (state as? AdminInboxUiState.Ready)?.lastUnreleasedCount ?: 0
+    val confirmation = releaseConfirmation(released = readyReleasedCount ?: 0, unreleased = readyUnreleasedCount)
     LaunchedEffect(readyReleasedCount) {
-        readyReleasedCount?.let { count ->
-            snackbarHostState.showSnackbar(if (count == 1) releasedSingular else releasedPlural)
+        readyReleasedCount?.let {
+            snackbarHostState.showSnackbar(confirmation)
             viewModel.clearReleaseResult()
         }
     }
@@ -957,3 +958,27 @@ private fun EmptyInbox(
         )
     }
 }
+
+/**
+ * The confirmation for a release in which [released] books left the inbox and [unreleased] stayed
+ * held: the plain count when every book left, and both counts when some could not be released, so a
+ * partial release never reads as a complete one.
+ */
+@Composable
+internal fun releaseConfirmation(
+    released: Int,
+    unreleased: Int,
+): String =
+    when {
+        unreleased > 0 -> {
+            stringResource(Res.string.admin_inbox_released_partial, released, released + unreleased, unreleased)
+        }
+
+        released == 1 -> {
+            stringResource(Res.string.admin_inbox_released_count, released)
+        }
+
+        else -> {
+            stringResource(Res.string.admin_inbox_released_count_plural, released)
+        }
+    }
