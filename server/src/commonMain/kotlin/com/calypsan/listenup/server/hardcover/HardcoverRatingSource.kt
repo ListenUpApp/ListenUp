@@ -137,6 +137,7 @@ class HardcoverRatingSource(
 
     /** One lookup's outcome with one token: an answer, or Hardcover refusing the token. */
     private sealed interface RatingAttempt {
+        /** The lookup finished with [result], found or not. */
         data class Done(
             val result: AppResult<ExternalRatingMeta?>,
         ) : RatingAttempt

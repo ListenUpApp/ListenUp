@@ -14,6 +14,7 @@ private val RESOLUTION_TTL = 10.minutes
 
 /** Which Hardcover book a book being matched is, or that Hardcover has none it's confident of. */
 internal sealed interface HardcoverResolution {
+    /** Hardcover book [hcBookId]. */
     data class Book(
         val hcBookId: Long,
     ) : HardcoverResolution

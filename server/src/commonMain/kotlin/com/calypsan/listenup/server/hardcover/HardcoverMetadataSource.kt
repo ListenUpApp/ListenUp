@@ -263,12 +263,14 @@ class HardcoverMetadataSource(
 
     /** One resolution's outcome for [details]: the book, none, or a failure to report. */
     private sealed interface Resolved {
+        /** The book is Hardcover book [hcBookId]. */
         data class Found(
             val hcBookId: Long,
         ) : Resolved
 
         data object NoBook : Resolved
 
+        /** Hardcover failed with [call]; reported as a provider failure. */
         data class Failed(
             val call: HardcoverCall<*>,
         ) : Resolved
