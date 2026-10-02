@@ -695,11 +695,11 @@ class BookDetailViewModel(
      * All Books ("Show to all members"; spec §7: no confirmation, it restores what was meant to be
      * public). Admin-only by construction: only an admin's device ever computes a visibility.
      *
-     * Sends an empty collection set through the book-edit outbox (offline-first). The server's
-     * `setBookCollections` finds no normal membership and no inbox hold, so its system-membership
-     * reconcile re-homes the book into All Books; that echo moves [BookDetailUiState.Ready.visibility]
-     * to Public and ends [BookDetailUiState.Ready.isRestoringToAllBooks]. Does nothing unless the
-     * book is stranded, not held, and no restore is already waiting.
+     * Sends an empty collection set through the book-edit outbox (offline-first). Its local apply
+     * runs the same system-membership reconcile as the server, so the book is re-homed into All Books
+     * in Room at once, even offline. That moves [BookDetailUiState.Ready.visibility] to Public and
+     * ends [BookDetailUiState.Ready.isRestoringToAllBooks]; the server's echo then confirms it. Does
+     * nothing unless the book is stranded, not held, and no restore is already waiting.
      */
     fun restoreToAllBooks() {
         val ready = state.value as? BookDetailUiState.Ready ?: return
@@ -842,8 +842,9 @@ sealed interface BookDetailUiState {
         val visibility: BookVisibility? = null,
         /**
          * True from [BookDetailViewModel.restoreToAllBooks] until the book stops being
-         * [BookVisibility.Stranded] — the server's echo putting it in All Books. Offline, the intent
-         * waits in the outbox and this stays true, which is the honest thing to show.
+         * [BookVisibility.Stranded]. Usually that is at once, because the local write puts the book
+         * in All Books. When the book's library's All Books has not synced, the local write cannot,
+         * so this stays true until the server's echo does. That is the honest thing to show.
          */
         val isRestoringToAllBooks: Boolean = false,
         val downloadStatus: BookDownloadStatus = BookDownloadStatus.NotDownloaded(""), // overwritten before emit; "" id never observed

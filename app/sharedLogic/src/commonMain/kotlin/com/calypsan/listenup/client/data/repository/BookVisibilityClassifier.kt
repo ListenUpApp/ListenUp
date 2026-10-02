@@ -25,8 +25,12 @@ private const val ACTIVE = "ACTIVE"
  *  3. no normal collection (All Books only) → [BookVisibility.Public];
  *  4. otherwise → [BookVisibility.Restricted], naming who cannot see it.
  *
- * Restricted is decided by "has a normal membership", never by "not in All Books": after a local
- * curation the All Books row only leaves with the server's echo.
+ * Stranded is the only state no ordinary flow passes through: every local membership write ends
+ * with [SystemMembershipReconciler], so a release or an emptied collection set re-homes the book into
+ * All Books in the same transaction. It is left only for a book whose library's All Books has not
+ * synced, or one the server itself left in no collection. Restricted is decided by "has a normal
+ * membership", never by "not in All Books", so the classification holds whatever order the server's
+ * echo frames land in.
  */
 internal fun classifyBookVisibility(
     isHeld: Boolean,

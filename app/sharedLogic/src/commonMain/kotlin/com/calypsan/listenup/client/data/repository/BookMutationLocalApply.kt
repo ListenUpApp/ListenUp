@@ -61,6 +61,8 @@ internal class BookMutationLocalApply(
     private val chapterDao: ChapterDao,
     private val collectionBookDao: CollectionBookDao,
 ) {
+    private val systemMembership = SystemMembershipReconciler(collectionBookDao)
+
     /** Apply [mutation]'s optimistic Room merge for the book [bookId]. */
     suspend fun apply(
         bookId: BookId,
@@ -228,10 +230,14 @@ internal class BookMutationLocalApply(
     }
 
     /**
-     * Set the book's collection membership to exactly [collectionIds] — mirrors the server's diff
-     * (`CollectionService.setBookCollections`): normal memberships not in the set are tombstoned,
-     * missing ones are added, and system memberships (INBOX, ALL_BOOKS) are left to the server. New rows are written as `revision = 0` stubs; the membership domain's own echo
-     * supersedes them with the authoritative revision.
+     * Set the book's **normal** collection membership to exactly [collectionIds] — mirrors the
+     * server's diff (`CollectionService.setBookCollections`): the system memberships (All Books,
+     * Inbox) are left out of the diff, normal memberships not in the set are tombstoned, missing ones
+     * are added, and then — like the server — the system memberships are re-derived from the result
+     * ([SystemMembershipReconciler]). So emptying a book's last collection puts it in All Books
+     * locally at once, curating it takes it out, and curating a held book releases it. New rows are
+     * written as `revision = 0` stubs; the membership domain's own echo supersedes them with the
+     * authoritative revision.
      */
     private suspend fun applyCollections(
         bookId: BookId,
@@ -260,6 +266,7 @@ internal class BookMutationLocalApply(
                 ),
             )
         }
+        systemMembership.reconcileLocally(listOf(bookId.value), now)
     }
 
     /**

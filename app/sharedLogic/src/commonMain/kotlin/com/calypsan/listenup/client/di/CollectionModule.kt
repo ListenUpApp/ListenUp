@@ -45,7 +45,12 @@ internal val collectionModule: Module =
 
         // InboxRepository — admin inbox: Room held set + CollectionService/ScannerService RPC
         single<InboxRepository> {
-            InboxRepositoryImpl(channel = rpcChannel(), scannerChannel = rpcChannel(), collectionBookDao = get())
+            InboxRepositoryImpl(
+                channel = rpcChannel(),
+                scannerChannel = rpcChannel(),
+                collectionBookDao = get(),
+                transactionRunner = get(),
+            )
         }
 
         // BookVisibilityRepository — who cannot see a book, derived from the Room mirror; admin-gated
