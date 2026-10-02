@@ -747,7 +747,7 @@ private fun AuthenticatedNavigation(
             CompositionLocalProvider(
                 LocalSnackbarHostState provides snackbarHostState,
                 LocalDeviceContext provides koinInject<DeviceContext>(),
-                ) {
+            ) {
                 AppKeyboardShortcuts(nowPlayingViewModel, backStack) {
                     // Hero transitions: the layout must enclose BOTH halves of every shared pair, so it
                     // wraps NavDisplay only. AuthenticatedNavOverlays stays outside deliberately — the

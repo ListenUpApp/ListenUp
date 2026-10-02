@@ -150,7 +150,8 @@ private fun RestrictedBody(
     var expanded by rememberSaveable { mutableStateOf(false) }
     val collections = visibility.collections
     // An empty Members list breaks HiddenFrom's invariant; read it as the Nobody it means.
-    val hiddenFrom = visibility.hiddenFrom.takeUnless { it is HiddenFrom.Members && it.names.isEmpty() } ?: HiddenFrom.Nobody
+    val hiddenFrom =
+        visibility.hiddenFrom.takeUnless { it is HiddenFrom.Members && it.names.isEmpty() } ?: HiddenFrom.Nobody
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text(
             text = headline(hiddenFrom, expanded),

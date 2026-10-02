@@ -180,25 +180,24 @@ class BookDetailVisibilityPlacementTest {
     private fun ready(
         visibility: BookVisibility?,
         publisher: String? = null,
-    ) =
-        BookDetailUiState.Ready(
-            book =
-                BookDetail(
-                    id = BookId("b1"),
-                    libraryId = LibraryId("lib"),
-                    folderId = FolderId("folder"),
-                    title = "Dune",
-                    authors = emptyList(),
-                    narrators = emptyList(),
-                    duration = 1_200_000L,
-                    coverPath = "/tmp/cover-b1.webp",
-                    addedAt = Timestamp(0L),
-                    updatedAt = Timestamp(0L),
-                    publisher = publisher,
-                ),
-            isAdmin = true,
-            visibility = visibility,
-        )
+    ) = BookDetailUiState.Ready(
+        book =
+            BookDetail(
+                id = BookId("b1"),
+                libraryId = LibraryId("lib"),
+                folderId = FolderId("folder"),
+                title = "Dune",
+                authors = emptyList(),
+                narrators = emptyList(),
+                duration = 1_200_000L,
+                coverPath = "/tmp/cover-b1.webp",
+                addedAt = Timestamp(0L),
+                updatedAt = Timestamp(0L),
+                publisher = publisher,
+            ),
+        isAdmin = true,
+        visibility = visibility,
+    )
 
     private fun show(state: BookDetailUiState.Ready) {
         val readers =
