@@ -12,6 +12,7 @@ struct AdminCollectionDetailView: View {
     let collectionId: String
 
     @Environment(\.dependencies) private var deps
+    @Environment(\.restrictedBooks) private var restrictedBooks
 
     @State private var observer: AdminCollectionDetailObserver?
     @State private var pendingRemoveBookId: String?
@@ -232,6 +233,7 @@ struct AdminCollectionDetailView: View {
             BookCoverImage(bookId: book.id, coverPath: book.coverPath, coverHash: book.coverHash)
                 .frame(width: 80, height: 80)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.s, style: .continuous))
+                .restrictedMarker(bookId: book.id)
                 .opacity(isRemoving ? 0.5 : 1)
 
             if isRemoving {
@@ -251,7 +253,7 @@ struct AdminCollectionDetailView: View {
                 .padding(2)
             }
         }
-        .accessibilityLabel(book.title)
+        .accessibilityLabel(RestrictedMarker.label(book.title, isRestricted: restrictedBooks?.isRestricted(book.id) == true))
     }
 
     // MARK: - Members section

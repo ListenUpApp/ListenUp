@@ -12,12 +12,15 @@ struct CurrentlyListeningCard: View {
     let width: CGFloat
     var selection: BookSelectionObserver?
 
+    @Environment(\.restrictedBooks) private var restrictedBooks
+
     var body: some View {
         SelectableBookCard(bookId: row.bookId, selection: selection) {
             VStack(alignment: .leading, spacing: 8) {
                 BookCoverImage(bookId: row.bookId, coverPath: row.coverPath, coverHash: row.coverHash)
                     .frame(width: width, height: width)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.l))
+                    .restrictedMarker(bookId: row.bookId, isSelecting: selection?.isSelecting ?? false)
                     .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 3)
                     .bookSelectionCircle(bookId: row.bookId, selection: selection)
 
@@ -35,10 +38,13 @@ struct CurrentlyListeningCard: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
-            String(
-                format: String(localized: "discover.x_is_listening_to_y"),
-                row.displayName,
-                row.title
+            RestrictedMarker.label(
+                String(
+                    format: String(localized: "discover.x_is_listening_to_y"),
+                    row.displayName,
+                    row.title
+                ),
+                isRestricted: restrictedBooks?.isRestricted(row.bookId) == true
             )
         )
     }

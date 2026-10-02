@@ -126,6 +126,7 @@ private struct SeeAllBookCard: View {
                 .overlay(alignment: .topLeading) {
                     if row.isHeld { HeldBadge(onCover: true).padding(Spacing.xs) }
                 }
+                .restrictedMarker(bookId: row.id, isHeld: row.isHeld)
                 .coverHoverEffect(cornerRadius: Radius.m)
             Text(row.name)
                 .font(.subheadline)

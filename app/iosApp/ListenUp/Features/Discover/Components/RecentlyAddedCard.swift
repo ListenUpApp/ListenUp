@@ -12,6 +12,8 @@ struct RecentlyAddedCard: View {
     let width: CGFloat
     var selection: BookSelectionObserver?
 
+    @Environment(\.restrictedBooks) private var restrictedBooks
+
     private static let relativeFormatter: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
@@ -28,6 +30,7 @@ struct RecentlyAddedCard: View {
                 BookCoverImage(bookId: book.id, coverPath: book.coverPath, coverHash: book.coverHash)
                     .frame(width: width, height: width)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.l))
+                    .restrictedMarker(bookId: book.id, isSelecting: selection?.isSelecting ?? false)
                     .coverHoverEffect(cornerRadius: Radius.l)
                     .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 3)
                     .bookSelectionCircle(bookId: book.id, selection: selection)
@@ -47,7 +50,7 @@ struct RecentlyAddedCard: View {
             .contentShape(Rectangle())
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(book.title)
+        .accessibilityLabel(RestrictedMarker.label(book.title, isRestricted: restrictedBooks?.isRestricted(book.id) == true))
         .accessibilityValue(addedLabel)
     }
 }

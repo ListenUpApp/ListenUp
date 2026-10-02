@@ -137,6 +137,7 @@ private struct ShelfBookCoverCard: View {
             BookCoverImage(bookId: book.id, coverPath: book.coverPath, coverHash: book.coverHash)
                 .aspectRatio(1, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.s))
+                .restrictedMarker(bookId: book.id)
                 .coverHoverEffect(cornerRadius: Radius.s)
                 .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
 

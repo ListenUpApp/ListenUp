@@ -40,6 +40,7 @@ struct SeriesBookRow: View {
             .accessibilityHidden(true)
             .frame(width: 54, height: 54)
             .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
+            .restrictedMarker(bookId: book.id, compact: true)
             .overlay(alignment: .bottomTrailing) {
                 if isFinished {
                     Image(systemName: "checkmark")

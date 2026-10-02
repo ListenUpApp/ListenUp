@@ -16,6 +16,8 @@ struct ContinueCard: View {
     let width: CGFloat
     var selection: BookSelectionObserver?
 
+    @Environment(\.restrictedBooks) private var restrictedBooks
+
     var body: some View {
         if item.isLoading {
             skeleton
@@ -24,7 +26,9 @@ struct ContinueCard: View {
                 content
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(item.title), \(item.author)")
+            .accessibilityLabel(
+                RestrictedMarker.label("\(item.title), \(item.author)", isRestricted: restrictedBooks?.isRestricted(item.id) == true)
+            )
             .accessibilityValue(String(format: String(localized: "home.progress_percent"), item.progressPercent))
             .accessibilityHint(String(localized: "home.opens_book"))
         }
@@ -37,6 +41,7 @@ struct ContinueCard: View {
             BookCoverImage(bookId: item.id, coverPath: item.coverPath, coverHash: item.coverHash)
                 .frame(width: width, height: width)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.l))
+                .restrictedMarker(bookId: item.id, isSelecting: selection?.isSelecting ?? false)
                 .coverHoverEffect(cornerRadius: Radius.l)
                 .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
                 .overlay(alignment: .bottomTrailing) {

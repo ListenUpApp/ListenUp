@@ -15,6 +15,7 @@ struct WrittenCard: View {
                 .clipShape(RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
                 .coverHoverEffect(cornerRadius: Radius.l)
                 .accessibilityHidden(true)
+                .restrictedMarker(bookId: book.id)
                 .overlay(alignment: .bottom) {
                     if let progress, progress > 0 {
                         ProgressBar(progress: progress, style: .overlay)
