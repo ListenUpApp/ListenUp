@@ -19,10 +19,12 @@ import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import kotlinx.coroutines.flow.flowOf
+import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.compose.KoinApplication
+import org.koin.core.context.stopKoin
 import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -44,6 +46,16 @@ import org.robolectric.annotation.Config
 class CurrentlyListeningSectionTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    /**
+     * The composable KoinApplication registers its container as the global Koin context and never
+     * stops it. Left running, the next spec in this sdk-34 Robolectric sandbox to start its own
+     * (RecentlyListenedTest) fails with KoinApplicationAlreadyStartedException.
+     */
+    @After
+    fun stopGlobalKoin() {
+        stopKoin()
+    }
 
     private val nowMs = 1_000_000_000L
 

@@ -6,10 +6,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.calypsan.listenup.client.testing.FakeNavViewModel
 import com.calypsan.listenup.client.testing.NavDisplayTestHarness
+import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.context.stopKoin
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
@@ -28,6 +30,17 @@ import java.util.concurrent.atomic.AtomicReference
 @RunWith(RobolectricTestRunner::class)
 class PhaseABoundarySuiteTest {
     @get:Rule val composeRule = createComposeRule()
+
+    /**
+     * The composable KoinApplication registers its container as the global Koin context and never
+     * stops it. Left running, a later spec in the same Robolectric sandbox that starts its own
+     * (BookDetailReleaseConfirmationTest, CoverContentProviderTest, ApplicationBootTest) fails with
+     * KoinApplicationAlreadyStartedException.
+     */
+    @After
+    fun stopGlobalKoin() {
+        stopKoin()
+    }
 
     @Test
     fun `back stack survives process death via SavedStateRegistry round-trip`() {
