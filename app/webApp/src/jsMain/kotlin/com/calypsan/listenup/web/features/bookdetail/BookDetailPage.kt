@@ -198,23 +198,7 @@ fun BookDetailPage(
                 // A held book is triage-only (spec §8). The panel stands above the tabs so it stays in
                 // view whichever pane is open; Release asks first (§7).
                 if (state.isHeld) {
-                    var confirmingRelease by remember(state.book.id) { mutableStateOf(false) }
-                    HeldPanel(
-                        isReleasing = state.isReleasingFromInbox,
-                        onEdit = onEdit,
-                        onRelease = { confirmingRelease = true },
-                        onMatch = onMatchMetadata,
-                        onEditChapters = onEditChapters,
-                    )
-                    ReleaseToEveryoneDialog(
-                        open = confirmingRelease,
-                        bookCount = 1,
-                        onConfirm = {
-                            confirmingRelease = false
-                            onReleaseFromInbox()
-                        },
-                        onDismiss = { confirmingRelease = false },
-                    )
+                    HeldTriage(state, onEdit, onMatchMetadata, onEditChapters, onReleaseFromInbox)
                 }
 
                 // An unknown `?tab=` shows Overview, so it is Overview the strip and the panel name.
@@ -829,6 +813,34 @@ private fun ServerOfflineBanner(
             },
         ) { Text("Retry") }
     }
+}
+
+/** The held panel and the Release confirmation it opens. */
+@Composable
+private fun HeldTriage(
+    state: BookDetailUiState.Ready,
+    onEdit: () -> Unit,
+    onMatchMetadata: () -> Unit,
+    onEditChapters: () -> Unit,
+    onReleaseFromInbox: () -> Unit,
+) {
+    var confirmingRelease by remember(state.book.id) { mutableStateOf(false) }
+    HeldPanel(
+        isReleasing = state.isReleasingFromInbox,
+        onEdit = onEdit,
+        onRelease = { confirmingRelease = true },
+        onMatch = onMatchMetadata,
+        onEditChapters = onEditChapters,
+    )
+    ReleaseToEveryoneDialog(
+        open = confirmingRelease,
+        bookCount = 1,
+        onConfirm = {
+            confirmingRelease = false
+            onReleaseFromInbox()
+        },
+        onDismiss = { confirmingRelease = false },
+    )
 }
 
 /** The id stem Book Detail's tab strip and its panel share. */
