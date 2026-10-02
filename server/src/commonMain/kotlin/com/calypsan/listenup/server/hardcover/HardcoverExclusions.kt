@@ -26,7 +26,8 @@ class HardcoverExclusions(
     suspend fun isExcluded(
         userId: String,
         bookId: String,
-    ): Boolean = suspendTransaction(sql) { sql.hardcoverBookExclusionsQueries.isExcluded(userId, bookId).executeAsOne() }
+    ): Boolean =
+        suspendTransaction(sql) { sql.hardcoverBookExclusionsQueries.isExcluded(userId, bookId).executeAsOne() }
 
     /** What keeping [bookId] off Hardcover would take out of [userId]'s ListenUp, read together. */
     suspend fun keepOffRemovals(
@@ -36,7 +37,12 @@ class HardcoverExclusions(
         suspendTransaction(sql) {
             HardcoverKeepOffRemovals(
                 readsInReaders = sql.hasPulledReadsOf(userId, bookId),
-                onToReadFromHardcover = sql.hardcoverShelfEntriesQueries.isOnShelfFromHardcover(userId, bookId).executeAsOne(),
+                onToReadFromHardcover =
+                    sql.hardcoverShelfEntriesQueries
+                        .isOnShelfFromHardcover(
+                            userId,
+                            bookId,
+                        ).executeAsOne(),
             )
         }
 }

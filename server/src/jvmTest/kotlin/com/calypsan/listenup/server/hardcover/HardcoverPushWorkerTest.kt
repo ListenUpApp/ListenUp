@@ -170,7 +170,10 @@ class HardcoverPushWorkerTest :
 
                 outbox.pendingFor(USER) shouldBe emptyList()
                 hardcover.operations shouldBe emptyList()
-                sql.hardcoverHistoryQueries.selectHistory(USER).executeAsOne().state shouldBe "DONE"
+                sql.hardcoverHistoryQueries
+                    .selectHistory(USER)
+                    .executeAsOne()
+                    .state shouldBe "DONE"
             }
         }
 

@@ -214,11 +214,29 @@ private fun BookHardcoverUiState.showingSynced(pending: Boolean?): BookHardcover
 
 private fun HardcoverBookMatch?.toUiState(): BookHardcoverUiState =
     when (this) {
-        null -> BookHardcoverUiState.Hidden
-        HardcoverBookMatch.Unmatched -> BookHardcoverUiState.Unmatched
-        HardcoverBookMatch.NeedsMatch -> BookHardcoverUiState.NeedsMatch
-        HardcoverBookMatch.KeptOff -> BookHardcoverUiState.KeptOff()
-        is HardcoverBookMatch.Linked -> BookHardcoverUiState.Linked(toMatchedBook(), sync, keepOffRemoves = keepOffRemoves())
+        null -> {
+            BookHardcoverUiState.Hidden
+        }
+
+        HardcoverBookMatch.Unmatched -> {
+            BookHardcoverUiState.Unmatched
+        }
+
+        HardcoverBookMatch.NeedsMatch -> {
+            BookHardcoverUiState.NeedsMatch
+        }
+
+        HardcoverBookMatch.KeptOff -> {
+            BookHardcoverUiState.KeptOff()
+        }
+
+        is HardcoverBookMatch.Linked -> {
+            BookHardcoverUiState.Linked(
+                toMatchedBook(),
+                sync,
+                keepOffRemoves = keepOffRemoves(),
+            )
+        }
     }
 
 private fun HardcoverBookMatch.Linked.keepOffRemoves(): KeepOffRemoves? =

@@ -51,7 +51,12 @@ private const val PIRANESI = 312_460L
 private const val DAY = 86_400_000L
 
 /** [epochMs] as the date Hardcover is sent for it, in UTC — the test listener's home zone. */
-private fun utcDate(epochMs: Long): String = Instant.fromEpochMilliseconds(epochMs).toLocalDateTime(TimeZone.UTC).date.toString()
+private fun utcDate(epochMs: Long): String =
+    Instant
+        .fromEpochMilliseconds(epochMs)
+        .toLocalDateTime(TimeZone.UTC)
+        .date
+        .toString()
 
 /**
  * Keeping a book off Hardcover end to end, with only Hardcover faked:

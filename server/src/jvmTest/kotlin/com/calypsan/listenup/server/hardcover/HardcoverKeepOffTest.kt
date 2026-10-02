@@ -102,7 +102,11 @@ class HardcoverKeepOffTest :
 
         test("a To Read entry Hardcover added comes off; a book shelved by hand stays") {
             keepOffTest {
-                val starter = rig.shelves.createStarterShelf(USER).shouldSucceed().id
+                val starter =
+                    rig.shelves
+                        .createStarterShelf(USER)
+                        .shouldSucceed()
+                        .id
                 rig.connect()
                 rig.hardcover.seedShelf(HC_BOOK, HardcoverStatus.WANT_TO_READ, editionId = 9_001L)
                 rig.pullAll()
@@ -120,7 +124,11 @@ class HardcoverKeepOffTest :
 
         test("a To Read entry the listener took off by hand keeps its record") {
             keepOffTest {
-                val starter = rig.shelves.createStarterShelf(USER).shouldSucceed().id
+                val starter =
+                    rig.shelves
+                        .createStarterShelf(USER)
+                        .shouldSucceed()
+                        .id
                 rig.connect()
                 rig.hardcover.seedShelf(HC_BOOK, HardcoverStatus.WANT_TO_READ, editionId = 9_001L)
                 rig.pullAll()
@@ -149,7 +157,10 @@ class HardcoverKeepOffTest :
 
                 changed shouldBe USER
                 rig.outbox.pendingFor(USER) shouldBe emptyList()
-                rig.sql.hardcoverHistoryQueries.selectHistory(USER).executeAsOne().state shouldBe "DONE"
+                rig.sql.hardcoverHistoryQueries
+                    .selectHistory(USER)
+                    .executeAsOne()
+                    .state shouldBe "DONE"
             }
         }
 
@@ -158,7 +169,9 @@ class HardcoverKeepOffTest :
                 keepOff() shouldBe AppResult.Success(Unit)
                 rig.clock.instant = Instant.fromEpochMilliseconds(T0 + DAY)
                 keepOff() shouldBe AppResult.Success(Unit)
-                rig.sql.hardcoverBookExclusionsQueries.selectExclusion(USER, BOOK).executeAsOne() shouldBe T0
+                rig.sql.hardcoverBookExclusionsQueries
+                    .selectExclusion(USER, BOOK)
+                    .executeAsOne() shouldBe T0
 
                 rig.sql.seedTestBook("book-2")
                 keepOff
@@ -256,7 +269,11 @@ class HardcoverKeepOffTest :
 
         test("a To Read entry the listener took off by hand stays off through a full pull and after syncing again") {
             keepOffTest {
-                val starter = rig.shelves.createStarterShelf(USER).shouldSucceed().id
+                val starter =
+                    rig.shelves
+                        .createStarterShelf(USER)
+                        .shouldSucceed()
+                        .id
                 rig.connect()
                 rig.hardcover.seedShelf(HC_BOOK, HardcoverStatus.WANT_TO_READ, editionId = 9_001L)
                 rig.pullAll()
@@ -306,9 +323,15 @@ class HardcoverKeepOffTest :
             keepOffTest {
                 rig.connect().keptOffBookCount shouldBe 0
                 keepOff() shouldBe AppResult.Success(Unit)
-                rig.connections.connectionState(USER).shouldBeInstanceOf<HardcoverConnection.Connected>().keptOffBookCount shouldBe 1
+                rig.connections
+                    .connectionState(USER)
+                    .shouldBeInstanceOf<HardcoverConnection.Connected>()
+                    .keptOffBookCount shouldBe 1
                 syncAgain() shouldBe AppResult.Success(Unit)
-                rig.connections.connectionState(USER).shouldBeInstanceOf<HardcoverConnection.Connected>().keptOffBookCount shouldBe 0
+                rig.connections
+                    .connectionState(USER)
+                    .shouldBeInstanceOf<HardcoverConnection.Connected>()
+                    .keptOffBookCount shouldBe 0
                 keepOff() shouldBe AppResult.Success(Unit)
                 rig.connect().keptOffBookCount shouldBe 1
             }

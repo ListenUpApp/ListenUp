@@ -100,7 +100,9 @@ internal class HardcoverRepositoryImpl(
         bookId: BookId,
         synced: Boolean,
     ): AppResult<Unit> =
-        channel.call(idempotent = true) { it.setBookSynced(bookId, synced) }.onSuccess { matchChangesFlow.tryEmit(bookId) }
+        channel
+            .call(idempotent = true) { it.setBookSynced(bookId, synced) }
+            .onSuccess { matchChangesFlow.tryEmit(bookId) }
 
     override suspend fun keptOffBooks(): AppResult<List<BookId>> = channel.call(idempotent = true) { it.keptOffBooks() }
 

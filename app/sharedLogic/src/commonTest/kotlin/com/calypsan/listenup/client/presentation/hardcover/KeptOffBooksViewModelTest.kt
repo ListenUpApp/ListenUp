@@ -111,7 +111,11 @@ class KeptOffBooksViewModelTest :
 
                     vm.syncAgain("b1")
                     runCurrent()
-                    states.expectMostRecentItem().shouldBeInstanceOf<KeptOffBooksUiState.Loaded>().books.map { it.bookId } shouldBe
+                    states
+                        .expectMostRecentItem()
+                        .shouldBeInstanceOf<KeptOffBooksUiState.Loaded>()
+                        .books
+                        .map { it.bookId } shouldBe
                         listOf("b2")
                     repo.syncedChoices shouldBe listOf(BookId("b1") to true)
 
@@ -121,7 +125,10 @@ class KeptOffBooksViewModelTest :
                     events.awaitItem() shouldBe KeptOffBooksEvent.SyncingAgain(title = "Zeta", wasLast = false)
                     // The server's list now equals what is shown, so nothing new is emitted: b1 never comes back.
                     states.expectNoEvents()
-                    vm.uiState.value.shouldBeInstanceOf<KeptOffBooksUiState.Loaded>().books.map { it.bookId } shouldBe listOf("b2")
+                    vm.uiState.value
+                        .shouldBeInstanceOf<KeptOffBooksUiState.Loaded>()
+                        .books
+                        .map { it.bookId } shouldBe listOf("b2")
                 }
             }
         }
@@ -157,7 +164,11 @@ class KeptOffBooksViewModelTest :
 
                     repo.syncedChoices shouldBe listOf(BookId("b1") to true)
                     events.awaitItem() shouldBe KeptOffBooksEvent.ShowError(HardcoverError.Unavailable())
-                    states.expectMostRecentItem().shouldBeInstanceOf<KeptOffBooksUiState.Loaded>().books.map { it.bookId } shouldBe
+                    states
+                        .expectMostRecentItem()
+                        .shouldBeInstanceOf<KeptOffBooksUiState.Loaded>()
+                        .books
+                        .map { it.bookId } shouldBe
                         listOf("b2", "b1")
                 }
             }

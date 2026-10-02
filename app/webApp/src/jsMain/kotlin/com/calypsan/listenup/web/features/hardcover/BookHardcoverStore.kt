@@ -41,4 +41,11 @@ fun fixedBookHardcover(
     onRemoveMatch: () -> Unit = {},
     onSetSynced: (Boolean) -> Unit = {},
 ): OpenBookHardcover =
-    { BookHardcoverSession(MutableStateFlow(state), onRemoveMatch = onRemoveMatch, onSetSynced = onSetSynced, close = {}) }
+    {
+        BookHardcoverSession(
+            MutableStateFlow(state),
+            onRemoveMatch = onRemoveMatch,
+            onSetSynced = onSetSynced,
+            close = {},
+        )
+    }
