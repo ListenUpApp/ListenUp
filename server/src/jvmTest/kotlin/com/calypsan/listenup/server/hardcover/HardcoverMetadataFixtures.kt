@@ -153,7 +153,8 @@ internal class LookupRig(
     private val bookMoods: BookMoodRepository,
 ) {
     /** The live moods on [bookId], by name. */
-    suspend fun moodNames(bookId: String): List<String> = bookMoods.findAllForBook(bookId).mapNotNull { moods.findById(it.moodId)?.name }
+    suspend fun moodNames(bookId: String): List<String> =
+        bookMoods.findAllForBook(bookId).mapNotNull { moods.findById(it.moodId)?.name }
 }
 
 /**
@@ -172,21 +173,29 @@ internal fun lookupRig(
     val series = SeriesRepository(dbs.sql, bus, registry)
     val genres = GenreRepository(dbs.sql, bus, registry)
     val books = BookRepository(dbs.sql, bus, registry, dbs.driver, contributors, series, genres)
-    val metadataService = MetadataService(audible = audible, itunes = NoCoversITunes(), cache = MetadataCacheRepository(dbs.sql))
+    val metadataService =
+        MetadataService(audible = audible, itunes = NoCoversITunes(), cache = MetadataCacheRepository(dbs.sql))
     val tempDir = Files.createTempDirectory("hc-lookup-").also { it.toFile().deleteOnExit() }
     val service =
         MetadataLookupServiceImpl(
             metadataService = metadataService,
             coordinator = testCoordinator(metadataService, extraProviders = extraProviders),
             coverSearchService =
-                CoverSearchService(readBook = { null }, registry = MetadataProviderRegistry(emptyList()), probeDimensions = { null }),
+                CoverSearchService(
+                    readBook = { null },
+                    registry = MetadataProviderRegistry(emptyList()),
+                    probeDimensions = { null },
+                ),
             bookRepository = books,
             contributorRepository = contributors,
             seriesRepository = series,
             imageDeps =
                 MetadataImageDeps(
                     imageStorage = ImageStorage(HttpClient(MockEngine { respond("", HttpStatusCode.NotFound) })),
-                    coverImageStore = CoverImageStore(ImageStore(Path(tempDir.resolve("covers").toString()), MAX_COVER_BYTES)),
+                    coverImageStore =
+                        CoverImageStore(
+                            ImageStore(Path(tempDir.resolve("covers").toString()), MAX_COVER_BYTES),
+                        ),
                     imageHome = Path(tempDir.toString()),
                 ),
             enrichmentDeps = testEnrichmentDeps(dbs.sql, dbs.driver, bus, registry),
@@ -199,5 +208,10 @@ internal fun lookupRig(
     // The read-back repositories register on a registry of their own: the enrichment deps above already
     // hold the moods domains on [registry], and a registry is 1:1 per domain.
     val readBack = SyncRegistry()
-    return LookupRig(service, books, MoodRepository(dbs.sql, bus, readBack), BookMoodRepository(dbs.sql, bus, readBack, driver = dbs.driver))
+    return LookupRig(
+        service,
+        books,
+        MoodRepository(dbs.sql, bus, readBack),
+        BookMoodRepository(dbs.sql, bus, readBack, driver = dbs.driver),
+    )
 }

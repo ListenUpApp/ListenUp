@@ -304,7 +304,11 @@ internal class EnrichmentCoordinator(
         locale: MetadataLocale,
     ): ContributorMeta {
         val routed = contributorOrder()
-        val fillers = registry.capable<ContributorSource>().filter { it.id in MetadataProviderId.gapFillers && it.id in routed }
+        val fillers =
+            registry.capable<ContributorSource>().filter {
+                it.id in MetadataProviderId.gapFillers &&
+                    it.id in routed
+            }
         for (filler in fillers) {
             val hit =
                 contained(filler.id, "contributor-fill") {
@@ -313,7 +317,9 @@ internal class EnrichmentCoordinator(
                     }
                 }.valueOrNull() ?: continue
             if (hit.key == profile.key) continue
-            val found = contained(filler.id, "contributor-fill") { filler.getContributor(hit.key, locale) }.valueOrNull() ?: continue
+            val found =
+                contained(filler.id, "contributor-fill") { filler.getContributor(hit.key, locale) }.valueOrNull()
+                    ?: continue
             return profile.copy(
                 description = profile.description?.takeIf { it.isNotBlank() } ?: found.description,
                 imageUrl = profile.imageUrl?.takeIf { it.isNotBlank() } ?: found.imageUrl,

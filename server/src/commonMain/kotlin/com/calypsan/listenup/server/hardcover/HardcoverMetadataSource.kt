@@ -69,15 +69,21 @@ class HardcoverMetadataSource(
         book: BookIdentity,
         locale: MetadataLocale,
         refresh: Boolean,
-    ): AppResult<BookCoreMeta?> = details(book, refresh).map { found -> found?.description?.let { BookCoreMeta(description = it) } }
+    ): AppResult<BookCoreMeta?> =
+        details(book, refresh).map { found ->
+            found?.description?.let { BookCoreMeta(description = it) }
+        }
 
     override suspend fun getSeries(
         book: BookIdentity,
         locale: MetadataLocale,
     ): AppResult<List<SeriesMeta>?> =
         details(book).map { found ->
-            found?.series?.map { SeriesMeta(key = HARDCOVER_SERIES_KEY_PREFIX + it.seriesId, title = it.name, sequence = it.sequence) }
-                ?.ifEmpty { null }
+            found
+                ?.series
+                ?.map {
+                    SeriesMeta(key = HARDCOVER_SERIES_KEY_PREFIX + it.seriesId, title = it.name, sequence = it.sequence)
+                }?.ifEmpty { null }
         }
 
     override suspend fun getGenres(
@@ -96,7 +102,10 @@ class HardcoverMetadataSource(
     override suspend fun getMoods(
         book: BookIdentity,
         locale: MetadataLocale,
-    ): AppResult<List<String>?> = details(book).map { found -> found?.let { wellSupportedMoods(it.moods) }?.ifEmpty { null } }
+    ): AppResult<List<String>?> =
+        details(book).map { found ->
+            found?.let { wellSupportedMoods(it.moods) }?.ifEmpty { null }
+        }
 
     override suspend fun searchContributors(
         name: String,
@@ -109,9 +118,21 @@ class HardcoverMetadataSource(
                 graphQl.authorsNamed(token, name.trim())
             }
         return when (answer) {
-            null -> AppResult.Success(emptyList())
-            is HardcoverCall.Ok -> AppResult.Success(answer.value.map { ContributorHitMeta(HARDCOVER_AUTHOR_KEY_PREFIX + it.id, it.name) })
-            else -> failure(answer)
+            null -> {
+                AppResult.Success(emptyList())
+            }
+
+            is HardcoverCall.Ok -> {
+                AppResult.Success(
+                    answer.value.map {
+                        ContributorHitMeta(HARDCOVER_AUTHOR_KEY_PREFIX + it.id, it.name)
+                    },
+                )
+            }
+
+            else -> {
+                failure(answer)
+            }
         }
     }
 
@@ -120,7 +141,12 @@ class HardcoverMetadataSource(
         locale: MetadataLocale,
         refresh: Boolean,
     ): AppResult<ContributorMeta?> {
-        val authorId = key.takeIf { it.startsWith(HARDCOVER_AUTHOR_KEY_PREFIX) }?.removePrefix(HARDCOVER_AUTHOR_KEY_PREFIX)?.toLongOrNull()
+        val authorId =
+            key
+                .takeIf {
+                    it.startsWith(HARDCOVER_AUTHOR_KEY_PREFIX)
+                }?.removePrefix(HARDCOVER_AUTHOR_KEY_PREFIX)
+                ?.toLongOrNull()
         if (authorId == null || !canRun()) return AppResult.Success(null)
         val answer =
             catalogToken.read { token ->
@@ -128,9 +154,19 @@ class HardcoverMetadataSource(
                 graphQl.authorById(token, authorId)
             }
         return when (answer) {
-            null -> AppResult.Success(null)
-            is HardcoverCall.Ok -> AppResult.Success(answer.value?.let { ContributorMeta(key, it.name, it.bio, it.imageUrl) })
-            else -> failure(answer)
+            null -> {
+                AppResult.Success(null)
+            }
+
+            is HardcoverCall.Ok -> {
+                AppResult.Success(
+                    answer.value?.let { ContributorMeta(key, it.name, it.bio, it.imageUrl) },
+                )
+            }
+
+            else -> {
+                failure(answer)
+            }
         }
     }
 
@@ -186,7 +222,8 @@ class HardcoverMetadataSource(
             }
 
             is HardcoverCall.Ok -> {
-                val resolution = answer.value?.let { HardcoverResolution.Book(it.hcBookId) } ?: HardcoverResolution.NoMatch
+                val resolution =
+                    answer.value?.let { HardcoverResolution.Book(it.hcBookId) } ?: HardcoverResolution.NoMatch
                 cache.rememberResolution(key, resolution)
                 if (resolution is HardcoverResolution.Book) Resolved.Found(resolution.hcBookId) else Resolved.NoBook
             }

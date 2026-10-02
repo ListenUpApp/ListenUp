@@ -436,7 +436,9 @@ class AdminSettingsViewModelTest :
 
                 viewModel.saveHardcoverApiToken("hc_vm_test_token")
                 advanceUntilIdle()
-                viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>().hardcoverTokenSave shouldBe HardcoverTokenSave.Busy
+                viewModel.state.value
+                    .shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                    .hardcoverTokenSave shouldBe HardcoverTokenSave.Busy
 
                 answer.complete(AppResult.Success(savedToken))
                 advanceUntilIdle()
@@ -478,7 +480,9 @@ class AdminSettingsViewModelTest :
 
                 viewModel.clearHardcoverTokenError()
 
-                viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>().hardcoverTokenSave shouldBe HardcoverTokenSave.Idle
+                viewModel.state.value
+                    .shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                    .hardcoverTokenSave shouldBe HardcoverTokenSave.Idle
             }
         }
 
@@ -498,14 +502,17 @@ class AdminSettingsViewModelTest :
         test("Remove clears the token") {
             runTest {
                 val fixture = createFixture(hardcoverSource = savedToken)
-                everySuspend { fixture.updateServerSettingsUseCase.clearHardcoverApiToken() } returns AppResult.Success(HardcoverSourceStatus())
+                everySuspend { fixture.updateServerSettingsUseCase.clearHardcoverApiToken() } returns
+                    AppResult.Success(HardcoverSourceStatus())
                 val viewModel = fixture.build()
                 advanceUntilIdle()
 
                 viewModel.removeHardcoverApiToken()
                 advanceUntilIdle()
 
-                viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>().hardcoverSource shouldBe HardcoverSourceStatus()
+                viewModel.state.value
+                    .shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                    .hardcoverSource shouldBe HardcoverSourceStatus()
             }
         }
 
@@ -518,7 +525,10 @@ class AdminSettingsViewModelTest :
                 advanceUntilIdle()
 
                 viewModel.setHardcoverMetadataEnabled(false)
-                viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>().hardcoverSource?.metadataEnabled shouldBe false
+                viewModel.state.value
+                    .shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                    .hardcoverSource
+                    ?.metadataEnabled shouldBe false
 
                 answer.complete(AppResult.Failure(HardcoverError.Unavailable()))
                 advanceUntilIdle()

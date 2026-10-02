@@ -22,7 +22,9 @@ class HardcoverCatalogToken(
     /** Hardcover answered 401 for [token]: mark it, so reads fall back until the admin replaces it. */
     suspend fun markApiTokenRejected(token: String) {
         if (apiTokens.markRejected(token)) {
-            logger.warn { "Hardcover rejected the admin API token; catalogue reads use connected accounts until it is replaced" }
+            logger.warn {
+                "Hardcover rejected the admin API token; catalogue reads use connected accounts until it is replaced"
+            }
         }
     }
 

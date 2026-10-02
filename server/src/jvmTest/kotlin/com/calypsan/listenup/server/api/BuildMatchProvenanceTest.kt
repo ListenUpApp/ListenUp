@@ -100,7 +100,11 @@ class BuildMatchProvenanceTest :
             val prov =
                 buildMatchProvenance(
                     composed(
-                        fieldProviders = mapOf(BookField.TITLE to MetadataProviderId.AUDIBLE, BookField.GENRES to MetadataProviderId.AUDIBLE),
+                        fieldProviders =
+                            mapOf(
+                                BookField.TITLE to MetadataProviderId.AUDIBLE,
+                                BookField.GENRES to MetadataProviderId.AUDIBLE,
+                            ),
                         coverMax = null,
                         genreProviders = mapOf("Space Opera" to MetadataProviderId.HARDCOVER),
                     ),

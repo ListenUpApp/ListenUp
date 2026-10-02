@@ -60,7 +60,9 @@ private class FakeAdminSettingsService : AdminSettingsService {
         tokensSent += token
         hardcoverSource =
             hardcoverSource.copy(
-                apiToken = com.calypsan.listenup.api.dto.admin.HardcoverApiTokenStatus.Saved("simon", 1L),
+                apiToken =
+                    com.calypsan.listenup.api.dto.admin.HardcoverApiTokenStatus
+                        .Saved("simon", 1L),
             )
         return AppResult.Success(hardcoverSource)
     }

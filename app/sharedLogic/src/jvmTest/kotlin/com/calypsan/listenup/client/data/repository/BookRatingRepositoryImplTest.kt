@@ -361,12 +361,22 @@ class BookRatingRepositoryImplTest :
             runTest {
                 val db = createInMemoryTestDatabase()
                 val service = mock<BookRatingService>()
-                everySuspend { service.ensureExternalRatings(com.calypsan.listenup.core.BookId("b1")) } returns AppResult.Success(Unit)
+                everySuspend {
+                    service.ensureExternalRatings(
+                        com.calypsan.listenup.core
+                            .BookId("b1"),
+                    )
+                } returns AppResult.Success(Unit)
                 val repo = repo(db, ratingChannel = RpcChannel.forTest(service))
 
                 repo.ensureExternal("b1").shouldBeInstanceOf<AppResult.Success<*>>()
 
-                verifySuspend { service.ensureExternalRatings(com.calypsan.listenup.core.BookId("b1")) }
+                verifySuspend {
+                    service.ensureExternalRatings(
+                        com.calypsan.listenup.core
+                            .BookId("b1"),
+                    )
+                }
                 db.close()
             }
         }

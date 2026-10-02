@@ -292,7 +292,13 @@ class AdminSettingsViewModel(
     /** The admin is editing the token again, so the last refusal no longer applies. */
     fun clearHardcoverTokenError() {
         updateReady { ready ->
-            if (ready.hardcoverTokenSave is HardcoverTokenSave.Refused) ready.copy(hardcoverTokenSave = HardcoverTokenSave.Idle) else ready
+            if (ready.hardcoverTokenSave is HardcoverTokenSave.Refused) {
+                ready.copy(
+                    hardcoverTokenSave = HardcoverTokenSave.Idle,
+                )
+            } else {
+                ready
+            }
         }
     }
 

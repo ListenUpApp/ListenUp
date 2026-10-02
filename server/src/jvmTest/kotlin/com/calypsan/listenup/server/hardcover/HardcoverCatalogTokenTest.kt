@@ -10,8 +10,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
-private fun catalogTest(block: suspend HardcoverCatalogRig.() -> Unit) =
-    withSqlDatabase { runTest { HardcoverCatalogRig(sql).block() } }
+private fun catalogTest(block: suspend HardcoverCatalogRig.() -> Unit) = withSqlDatabase { runTest { HardcoverCatalogRig(sql).block() } }
 
 /** Which token reads Hardcover's catalogue (#1542): the admin's API token, then a borrowed connected account. */
 class HardcoverCatalogTokenTest :

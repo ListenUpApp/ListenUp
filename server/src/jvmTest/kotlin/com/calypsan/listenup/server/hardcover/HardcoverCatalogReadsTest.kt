@@ -12,10 +12,16 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
+
+private val WEIR = FakeHardcoverCatalog.Author(7L, "Andy Weir", bio = "Writes.", imageUrl = "https://hc.test/weir.jpg")
+private val WEIR_PROFILE = HardcoverAuthorProfile(7L, "Andy Weir", "Writes.", "https://hc.test/weir.jpg")
+private val JSON_HEADERS = headersOf(HttpHeaders.ContentType, "application/json")
 
 private fun liveAnswer(): String =
     checkNotNull(HardcoverCatalogReadsTest::class.java.getResource("/hardcover/book-details.json")) {
@@ -58,15 +64,20 @@ class HardcoverCatalogReadsTest :
                             FakeHardcoverCatalog.Book(
                                 id = 1L,
                                 title = "Project Hail Mary",
-                                authors = listOf(FakeHardcoverCatalog.Author(7L, "Andy Weir", bio = "Writes.", imageUrl = "https://hc.test/weir.jpg")),
+                                authors = listOf(WEIR),
                                 narrators = listOf(FakeHardcoverCatalog.Author(8L, "Ray Porter")),
                             ),
                         )
                     }
 
-                val details = hardcover.client().bookDetails("t", 1L).shouldBeInstanceOf<HardcoverCall.Ok<HardcoverBookDetails?>>().value!!
+                val details =
+                    hardcover
+                        .client()
+                        .bookDetails("t", 1L)
+                        .shouldBeInstanceOf<HardcoverCall.Ok<HardcoverBookDetails?>>()
+                        .value!!
 
-                details.authors shouldBe listOf(HardcoverAuthorProfile(7L, "Andy Weir", "Writes.", "https://hc.test/weir.jpg"))
+                details.authors shouldBe listOf(WEIR_PROFILE)
             }
         }
 
@@ -77,7 +88,7 @@ class HardcoverCatalogReadsTest :
         }
 
         test("cached_tags read the same whether Hardcover sends an object or a string holding one") {
-            val asObject = kotlinx.serialization.json.Json.parseToJsonElement("""{"Mood":[{"tag":"hopeful","count":12}]}""")
+            val asObject = Json.parseToJsonElement("""{"Mood":[{"tag":"hopeful","count":12}]}""")
             val asString = JsonPrimitive("""{"Mood":[{"tag":"hopeful","count":12}]}""")
 
             cachedTagsIn(asObject, MOOD_CATEGORY) shouldBe listOf(HardcoverTag("hopeful", 12))
@@ -86,7 +97,7 @@ class HardcoverCatalogReadsTest :
         }
 
         test("a tag with no label is skipped, and a tag with no count counts zero") {
-            val tags = kotlinx.serialization.json.Json.parseToJsonElement("""{"Genre":[{"count":3},{"tag":" Fantasy "}]}""")
+            val tags = Json.parseToJsonElement("""{"Genre":[{"count":3},{"tag":" Fantasy "}]}""")
 
             cachedTagsIn(tags, GENRE_CATEGORY) shouldBe listOf(HardcoverTag("Fantasy", 0))
         }
@@ -99,16 +110,15 @@ class HardcoverCatalogReadsTest :
 
         test("authors are found by exact name and by id") {
             runTest {
-                val weir = FakeHardcoverCatalog.Author(7L, "Andy Weir", bio = "Writes.", imageUrl = "https://hc.test/weir.jpg")
                 val client =
                     FakeHardcoverCatalog()
-                        .apply { add(FakeHardcoverCatalog.Book(1L, "Project Hail Mary", listOf(weir))) }
+                        .apply { add(FakeHardcoverCatalog.Book(1L, "Project Hail Mary", listOf(WEIR))) }
                         .client()
 
                 client.authorsNamed("t", "Andy Weir") shouldBe
-                    HardcoverCall.Ok(listOf(HardcoverAuthorProfile(7L, "Andy Weir", "Writes.", "https://hc.test/weir.jpg")))
+                    HardcoverCall.Ok(listOf(WEIR_PROFILE))
                 client.authorsNamed("t", "Andy Weird") shouldBe HardcoverCall.Ok(emptyList())
-                client.authorById("t", 7L) shouldBe HardcoverCall.Ok(HardcoverAuthorProfile(7L, "Andy Weir", "Writes.", "https://hc.test/weir.jpg"))
+                client.authorById("t", 7L) shouldBe HardcoverCall.Ok(WEIR_PROFILE)
             }
         }
 
@@ -126,9 +136,14 @@ class HardcoverCatalogReadsTest :
                     HardcoverGraphQlClient(
                         HttpClient(
                             MockEngine { request ->
-                                val body = (request.body as io.ktor.http.content.OutgoingContent.ByteArrayContent).bytes().decodeToString()
-                                query = kotlinx.serialization.json.Json.parseToJsonElement(body).jsonObject.getValue("query").toString()
-                                respond("""{"data":{"books":[]}}""", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+                                val body = (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+                                query =
+                                    Json
+                                        .parseToJsonElement(body)
+                                        .jsonObject
+                                        .getValue("query")
+                                        .toString()
+                                respond("""{"data":{"books":[]}}""", HttpStatusCode.OK, JSON_HEADERS)
                             },
                         ),
                         apiBaseUrl = "https://hc.test",

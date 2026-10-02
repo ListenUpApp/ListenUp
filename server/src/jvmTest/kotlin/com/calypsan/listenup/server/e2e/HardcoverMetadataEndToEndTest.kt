@@ -118,7 +118,8 @@ class HardcoverMetadataEndToEndTest :
                             seriesAsins = setOf("hardcover:series:5"),
                             moods = setOf("Adventurous", "Hopeful"),
                         )
-                    rig.service.applyBookMetadata(BookId("book-1"), PHM_ASIN, MetadataLocale("us"), chosen)
+                    rig.service
+                        .applyBookMetadata(BookId("book-1"), PHM_ASIN, MetadataLocale("us"), chosen)
                         .shouldBeInstanceOf<AppResult.Success<*>>()
 
                     rig.moodNames("book-1") shouldContainExactlyInAnyOrder listOf("Adventurous", "Hopeful")

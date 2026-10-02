@@ -54,7 +54,10 @@ class HardcoverApiTokenSecrecyTest :
                 embeddedServer(CIO, port = 0, host = "127.0.0.1") {
                     routing {
                         post("/v1/graphql") {
-                            val bearer = call.request.headers[HttpHeaders.Authorization].orEmpty().removePrefix("Bearer ")
+                            val bearer =
+                                call.request.headers[HttpHeaders.Authorization]
+                                    .orEmpty()
+                                    .removePrefix("Bearer ")
                             val (status, body) = hardcover.handle(call.receiveText(), bearer)
                             call.respondText(body, ContentType.Application.Json, status)
                         }
@@ -77,7 +80,11 @@ class HardcoverApiTokenSecrecyTest :
                     val admin = authedService<AdminSettingsService>(session.accessToken.value)
 
                     admin.setHardcoverApiToken(WRONG).shouldFailWith<HardcoverError.TokenRejected>()
-                    admin.setHardcoverApiToken(GOOD).shouldSucceed().apiToken.shouldBeInstanceOf<HardcoverApiTokenStatus.Saved>()
+                    admin
+                        .setHardcoverApiToken(GOOD)
+                        .shouldSucceed()
+                        .apiToken
+                        .shouldBeInstanceOf<HardcoverApiTokenStatus.Saved>()
                     admin.getHardcoverSource().shouldSucceed().toString() shouldNotContain GOOD
 
                     hardcover.rejected = setOf(WRONG, GOOD)

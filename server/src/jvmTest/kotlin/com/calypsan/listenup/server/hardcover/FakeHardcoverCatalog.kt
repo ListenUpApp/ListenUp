@@ -149,11 +149,15 @@ class FakeHardcoverCatalog {
                     }
 
                     "edition_by_asin" -> {
-                        putJsonArray("editions") { books.firstOrNull { it.asin == variables.text("asin") }?.let { add(editionJson(it)) } }
+                        putJsonArray(
+                            "editions",
+                        ) { books.firstOrNull { it.asin == variables.text("asin") }?.let { add(editionJson(it)) } }
                     }
 
                     "edition_by_isbn" -> {
-                        putJsonArray("editions") { books.firstOrNull { it.isbn13 == variables.text("isbn") }?.let { add(editionJson(it)) } }
+                        putJsonArray(
+                            "editions",
+                        ) { books.firstOrNull { it.isbn13 == variables.text("isbn") }?.let { add(editionJson(it)) } }
                     }
 
                     "books_by_title" -> {
@@ -166,15 +170,21 @@ class FakeHardcoverCatalog {
                     }
 
                     "book_details" -> {
-                        putJsonArray("books") { books.firstOrNull { it.id == variables.number("id") }?.let { add(detailsJson(it)) } }
+                        putJsonArray(
+                            "books",
+                        ) { books.firstOrNull { it.id == variables.number("id") }?.let { add(detailsJson(it)) } }
                     }
 
                     "authors_named" -> {
-                        putJsonArray("authors") { allAuthors().filter { it.name == variables.text("name") }.forEach { add(authorJson(it)) } }
+                        putJsonArray(
+                            "authors",
+                        ) { allAuthors().filter { it.name == variables.text("name") }.forEach { add(authorJson(it)) } }
                     }
 
                     "author_by_id" -> {
-                        putJsonArray("authors") { allAuthors().firstOrNull { it.id == variables.number("id") }?.let { add(authorJson(it)) } }
+                        putJsonArray(
+                            "authors",
+                        ) { allAuthors().firstOrNull { it.id == variables.number("id") }?.let { add(authorJson(it)) } }
                     }
                 }
             }
@@ -197,7 +207,11 @@ class FakeHardcoverCatalog {
             put("ratings_count", book.ratingsCount)
             put("release_year", JsonNull)
             put("default_audio_edition_id", book.id * 10)
-            putJsonArray("contributions") { book.authors.forEach { a -> addJsonObject { putJsonObject("author") { put("name", a.name) } } } }
+            putJsonArray("contributions") {
+                book.authors.forEach { a ->
+                    addJsonObject { putJsonObject("author") { put("name", a.name) } }
+                }
+            }
         }
 
     private fun detailsJson(book: Book) =
@@ -250,7 +264,13 @@ class FakeHardcoverCatalog {
             put("id", author.id)
             put("name", author.name)
             put("bio", author.bio)
-            if (author.imageUrl == null) put("image", JsonNull) else putJsonObject("image") { put("url", author.imageUrl) }
+            if (author.imageUrl ==
+                null
+            ) {
+                put("image", JsonNull)
+            } else {
+                putJsonObject("image") { put("url", author.imageUrl) }
+            }
         }
 
     private fun JsonObject.text(key: String): String = getValue(key).jsonPrimitive.content

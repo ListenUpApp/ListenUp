@@ -562,7 +562,10 @@ class AdminSettingsServiceImplTest :
                     svc.setHardcoverApiToken(ADMIN_TOKEN).shouldFailWith<AuthError.PermissionDenied>()
                     svc.clearHardcoverApiToken().shouldFailWith<AuthError.PermissionDenied>()
                     svc.setHardcoverMetadataEnabled(false).shouldFailWith<AuthError.PermissionDenied>()
-                    hardcoverSource.status() shouldBe HardcoverSourceStatus(metadataUnavailable = com.calypsan.listenup.api.dto.admin.RatingSourceUnavailable.NO_CONNECTION)
+                    hardcoverSource.status() shouldBe
+                        HardcoverSourceStatus(
+                            metadataUnavailable = com.calypsan.listenup.api.dto.admin.RatingSourceUnavailable.NO_CONNECTION,
+                        )
                 }
             }
         }

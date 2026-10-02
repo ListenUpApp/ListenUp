@@ -186,7 +186,11 @@ class EnrichmentCoordinatorGapFillTest :
             runTest {
                 val hardcover = Catalog(HARDCOVER, series = listOf(SeriesMeta("hardcover:series:5", "Project Hail Mary", "1")))
 
-                coordinator(Catalog(AUDIBLE, core = BookCoreMeta(title = "PHM")), hardcover).compose()!!.series.single().key shouldBe
+                coordinator(Catalog(AUDIBLE, core = BookCoreMeta(title = "PHM")), hardcover)
+                    .compose()!!
+                    .series
+                    .single()
+                    .key shouldBe
                     "hardcover:series:5"
                 coordinator(
                     Catalog(AUDIBLE, core = BookCoreMeta(title = "PHM"), series = listOf(SeriesMeta("S1", "Audible Series", "2"))),
@@ -199,7 +203,11 @@ class EnrichmentCoordinatorGapFillTest :
             runTest {
                 val composed =
                     coordinator(
-                        Catalog(AUDIBLE, core = BookCoreMeta(title = "PHM", description = "From Audible."), genres = listOf("Science Fiction")),
+                        Catalog(
+                            AUDIBLE,
+                            core = BookCoreMeta(title = "PHM", description = "From Audible."),
+                            genres = listOf("Science Fiction"),
+                        ),
                         Catalog(HARDCOVER, fails = true),
                     ).compose()!!
 
@@ -214,7 +222,11 @@ class EnrichmentCoordinatorGapFillTest :
         test("a contributor profile missing its photo takes Hardcover's, found by the person's exact name") {
             runTest {
                 val audnexus =
-                    Catalog(AUDNEXUS, profiles = mapOf("B00G0WYW92" to ContributorMeta("B00G0WYW92", "Andy Weir", description = "Audnexus bio.")))
+                    Catalog(
+                        AUDNEXUS,
+                        profiles =
+                            mapOf("B00G0WYW92" to ContributorMeta("B00G0WYW92", "Andy Weir", description = "Audnexus bio.")),
+                    )
                 val hardcover =
                     Catalog(
                         HARDCOVER,
@@ -239,7 +251,8 @@ class EnrichmentCoordinatorGapFillTest :
                 val audnexus =
                     Catalog(
                         AUDNEXUS,
-                        profiles = mapOf("B00G0WYW92" to ContributorMeta("B00G0WYW92", "Andy Weir", "Bio.", "https://audnexus.test/weir.jpg")),
+                        profiles =
+                            mapOf("B00G0WYW92" to ContributorMeta("B00G0WYW92", "Andy Weir", "Bio.", "https://audnexus.test/weir.jpg")),
                     )
                 val hardcover = Catalog(HARDCOVER, hits = listOf(ContributorHitMeta("hardcover:author:7", "Andy Weir")))
 

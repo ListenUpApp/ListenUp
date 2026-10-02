@@ -114,7 +114,11 @@ class HardcoverSourceSettingsTest :
 
         test("a blank or absurdly long token is refused before Hardcover is asked") {
             settingsTest {
-                settings.setApiToken("   ").shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<AdminError.InvalidInput>()
+                settings
+                    .setApiToken("   ")
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AdminError.InvalidInput>()
                 settings.setApiToken("x".repeat(5_000)).shouldBeInstanceOf<AppResult.Failure>()
                 hardcover.asked shouldBe emptyList()
             }

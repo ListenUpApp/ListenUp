@@ -297,7 +297,10 @@ class BookExternalRatingRepository(
     suspend fun attemptedAt(
         bookId: String,
         source: ExternalRatingSource,
-    ): Long? = suspendTransaction(db) { db.externalRatingAttemptsQueries.selectAttemptedAt(bookId, source.name).executeAsOneOrNull() }
+    ): Long? =
+        suspendTransaction(db) {
+            db.externalRatingAttemptsQueries.selectAttemptedAt(bookId, source.name).executeAsOneOrNull()
+        }
 
     /**
      * Up to [limit] live books, after [after] in id order, that at least one of [sources] has never

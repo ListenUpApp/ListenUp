@@ -113,7 +113,10 @@ class HardcoverApiTokenStoreTest :
                     store.clear()
 
                     store.status() shouldBe HardcoverApiTokenStatus.NotSet
-                    sql.hardcoverApiTokenQueries.selectToken().executeAsOneOrNull().shouldBeNull()
+                    sql.hardcoverApiTokenQueries
+                        .selectToken()
+                        .executeAsOneOrNull()
+                        .shouldBeNull()
                 }
             }
         }

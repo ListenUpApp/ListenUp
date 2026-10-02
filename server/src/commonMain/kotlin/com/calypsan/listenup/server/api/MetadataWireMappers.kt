@@ -74,8 +74,10 @@ internal fun buildMatchProvenance(
     // so the badge and probed dimensions aren't dropped for the common Audible-only-cover case.
     val coverWinner = composed.coverMaxSizeWinner ?: fieldProviders[BookField.COVER]
     val contributing =
-        (BookField.entries.mapNotNull { fieldProviders[it] } + composed.genreProviders.values + listOfNotNull(coverWinner))
-            .map { it.displayLabel() }
+        (
+            BookField.entries.mapNotNull { fieldProviders[it] } + composed.genreProviders.values +
+                listOfNotNull(coverWinner)
+        ).map { it.displayLabel() }
             .distinct()
     return MatchProvenance(
         contributingSources = contributing,

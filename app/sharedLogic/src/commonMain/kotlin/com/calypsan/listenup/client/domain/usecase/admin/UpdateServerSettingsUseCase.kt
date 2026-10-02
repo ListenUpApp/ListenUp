@@ -39,10 +39,12 @@ open class UpdateServerSettingsUseCase(
     ): AppResult<List<RatingSourceStatus>> = adminRepository.setRatingSourceEnabled(source, enabled)
 
     /** Sends a Hardcover API token to be checked and stored on the server. */
-    open suspend fun setHardcoverApiToken(token: String): AppResult<HardcoverSourceStatus> = adminRepository.setHardcoverApiToken(token)
+    open suspend fun setHardcoverApiToken(token: String): AppResult<HardcoverSourceStatus> =
+        adminRepository.setHardcoverApiToken(token)
 
     /** Removes the server's Hardcover API token. */
-    open suspend fun clearHardcoverApiToken(): AppResult<HardcoverSourceStatus> = adminRepository.clearHardcoverApiToken()
+    open suspend fun clearHardcoverApiToken(): AppResult<HardcoverSourceStatus> =
+        adminRepository.clearHardcoverApiToken()
 
     /** Switches Hardcover metadata on or off. */
     open suspend fun setHardcoverMetadataEnabled(enabled: Boolean): AppResult<HardcoverSourceStatus> =

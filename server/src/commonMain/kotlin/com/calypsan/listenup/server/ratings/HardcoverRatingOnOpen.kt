@@ -42,7 +42,11 @@ class HardcoverRatingOnOpen(
         return scope.launch {
             try {
                 runCatchingCancellable { fetch(bookId) }
-                    .onFailure { log.warn(it) { "Hardcover rating on open failed for ${bookId.value}; the nightly sweep will retry" } }
+                    .onFailure {
+                        log.warn(
+                            it,
+                        ) { "Hardcover rating on open failed for ${bookId.value}; the nightly sweep will retry" }
+                    }
             } finally {
                 synchronized(lock) { inFlight.remove(bookId.value) }
             }

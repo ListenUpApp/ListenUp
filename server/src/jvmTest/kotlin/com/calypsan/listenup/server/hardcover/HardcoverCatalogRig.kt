@@ -25,7 +25,15 @@ class HardcoverCatalogRig(
     val apiTokens = HardcoverApiTokenStore(sql, cipher)
     val connections = HardcoverConnectionStore(sql, cipher)
     private val oauth =
-        HardcoverOAuthClient(HttpClient(MockEngine { respond("{}", HttpStatusCode.InternalServerError) }), "id", "https://hc.test")
+        HardcoverOAuthClient(
+            HttpClient(
+                MockEngine {
+                    respond("{}", HttpStatusCode.InternalServerError)
+                },
+            ),
+            "id",
+            "https://hc.test",
+        )
     private val linker =
         HardcoverLinker(
             oauth,
@@ -42,7 +50,11 @@ class HardcoverCatalogRig(
         role: UserRoleColumn = UserRoleColumn.MEMBER,
     ) {
         sql.seedTestUser(userId, role)
-        connections.save(userId, HardcoverMe(1, "hc-$userId"), HardcoverTokens("at-$userId", "rt-$userId", 604_800, "scope"))
+        connections.save(
+            userId,
+            HardcoverMe(1, "hc-$userId"),
+            HardcoverTokens("at-$userId", "rt-$userId", 604_800, "scope"),
+        )
     }
 
     /** Stores [ADMIN_TOKEN] as `simon`'s, as Admin → Hardcover does once `me` accepts it. */

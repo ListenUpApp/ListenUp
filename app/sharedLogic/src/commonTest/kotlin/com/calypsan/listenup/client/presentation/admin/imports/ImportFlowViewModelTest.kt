@@ -1184,8 +1184,7 @@ private class FakeAdminRepository(
 
     override suspend fun getHardcoverSource(): AppResult<HardcoverSourceStatus> = AppResult.Success(HardcoverSourceStatus())
 
-    override suspend fun setHardcoverApiToken(token: String): AppResult<HardcoverSourceStatus> =
-        AppResult.Success(HardcoverSourceStatus())
+    override suspend fun setHardcoverApiToken(token: String): AppResult<HardcoverSourceStatus> = AppResult.Success(HardcoverSourceStatus())
 
     override suspend fun clearHardcoverApiToken(): AppResult<HardcoverSourceStatus> = AppResult.Success(HardcoverSourceStatus())
 

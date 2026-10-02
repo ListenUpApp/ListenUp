@@ -203,7 +203,11 @@ class BookRatingServiceImplTest :
                 makeBookAccessible(sql, driver, bookId = "b1", viewerId = "u1")
                 val asked = mutableListOf<String>()
                 val onOpen =
-                    HardcoverRatingOnOpen(lastTried = { null }, fetch = { asked += it.value }, scope = CoroutineScope(Dispatchers.Unconfined))
+                    HardcoverRatingOnOpen(
+                        lastTried = { null },
+                        fetch = { asked += it.value },
+                        scope = CoroutineScope(Dispatchers.Unconfined),
+                    )
                 val repo = BookRatingRepository(sql, ChangeBus(), SyncRegistry(), driver = driver)
                 val service = BookRatingServiceImpl(repo, BookAccessPolicy(sql, driver), principal("u1"), onOpen = onOpen)
                 runTest {
@@ -221,11 +225,18 @@ class BookRatingServiceImplTest :
                 sql.seedTestUser("u1")
                 val asked = mutableListOf<String>()
                 val onOpen =
-                    HardcoverRatingOnOpen(lastTried = { null }, fetch = { asked += it.value }, scope = CoroutineScope(Dispatchers.Unconfined))
+                    HardcoverRatingOnOpen(
+                        lastTried = { null },
+                        fetch = { asked += it.value },
+                        scope = CoroutineScope(Dispatchers.Unconfined),
+                    )
                 val repo = BookRatingRepository(sql, ChangeBus(), SyncRegistry(), driver = driver)
                 val service = BookRatingServiceImpl(repo, BookAccessPolicy(sql, driver), principal("u1"), onOpen = onOpen)
                 runTest {
-                    service.ensureExternalRatings(BookId("b1")).shouldBeInstanceOf<AppResult.Failure>().error
+                    service
+                        .ensureExternalRatings(BookId("b1"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
                         .shouldBeInstanceOf<SyncError.NotFound>()
 
                     asked shouldBe emptyList()

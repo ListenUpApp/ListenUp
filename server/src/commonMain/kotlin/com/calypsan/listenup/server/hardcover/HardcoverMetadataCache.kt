@@ -47,7 +47,10 @@ class HardcoverMetadataCache(
     /** Keeps [found] under its Hardcover id. */
     fun rememberDetails(found: HardcoverBookDetails) = synchronized(lock) { details.keep(found.hcBookId, found) }
 
-    internal fun resolution(key: String): HardcoverResolution? = synchronized(lock) { resolutions.fresh(key, RESOLUTION_TTL) }
+    internal fun resolution(key: String): HardcoverResolution? =
+        synchronized(lock) {
+            resolutions.fresh(key, RESOLUTION_TTL)
+        }
 
     internal fun rememberResolution(
         key: String,

@@ -328,7 +328,9 @@ class HardcoverRatingSourceTest :
 
                 result.shouldBeInstanceOf<AppResult.Success<ExternalRatingMeta?>>().data!!.count shouldBe 8107
                 graphQl.asked.map { it.token } shouldBe listOf(ADMIN_TOKEN, "at-admin")
-                apiTokens.status() shouldBe com.calypsan.listenup.api.dto.admin.HardcoverApiTokenStatus.Rejected("simon")
+                apiTokens.status() shouldBe
+                    com.calypsan.listenup.api.dto.admin.HardcoverApiTokenStatus
+                        .Rejected("simon")
             }
         }
 

@@ -33,8 +33,26 @@ private val PHM =
         asin = "B08G9RZBTT",
         isbn13 = "9780593135204",
         description = "A lone astronaut must save the earth.",
-        genres = listOf("Science Fiction" to 900, "Space Opera" to 300, "Fiction" to 800, "Humor" to 40, "Adventure" to 60, "Thriller" to 10),
-        moods = listOf("adventurous" to 400, "funny" to 250, "hopeful" to 60, "dark" to 3, "tense" to 41, "inspiring" to 5, "emotional" to 39, "reflective" to 7),
+        genres =
+            listOf(
+                "Science Fiction" to 900,
+                "Space Opera" to 300,
+                "Fiction" to 800,
+                "Humor" to 40,
+                "Adventure" to 60,
+                "Thriller" to 10,
+            ),
+        moods =
+            listOf(
+                "adventurous" to 400,
+                "funny" to 250,
+                "hopeful" to 60,
+                "dark" to 3,
+                "tense" to 41,
+                "inspiring" to 5,
+                "emotional" to 39,
+                "reflective" to 7,
+            ),
         series = listOf(FakeHardcoverCatalog.Series(5L, "Project Hail Mary", 1.0)),
     )
 
@@ -129,7 +147,13 @@ class HardcoverMetadataSourceTest :
             sourceTest {
                 identities["book-1"] = BookIdentity(title = "Project Hail Mary", primaryAuthor = "Andy Weir")
 
-                (source.getMoods(BookIdentity(asin = "B000NOPE00", title = "", bookId = "book-1"), LOCALE) as AppResult.Success).data!!.size shouldBe 4
+                (
+                    source.getMoods(
+                        BookIdentity(asin = "B000NOPE00", title = "", bookId = "book-1"),
+                        LOCALE,
+                    ) as AppResult.Success
+                ).data!!.size shouldBe
+                    4
                 hardcover.operations shouldBe listOf("edition_by_asin", "books_by_title", "book_details")
             }
         }
@@ -219,7 +243,13 @@ class HardcoverMetadataSourceTest :
             sourceTest {
                 hardcover.unavailable = true
 
-                source.getMoods(byAsin(), LOCALE).shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<HardcoverError.Unavailable>()
+                source
+                    .getMoods(
+                        byAsin(),
+                        LOCALE,
+                    ).shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<HardcoverError.Unavailable>()
 
                 hardcover.unavailable = false
                 (source.getMoods(byAsin(), LOCALE) as AppResult.Success).data!!.size shouldBe 4
