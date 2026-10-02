@@ -95,6 +95,8 @@ class CollectionVisibilityDaoTest :
                 seedCollections(db)
                 db.collectionDao().upsert(normalCollection("c2", "Other"))
                 db.collectionBookDao().upsert(membership("c1", "b1"))
+                // The book left c2: c2's live share must not count for it.
+                db.collectionBookDao().upsert(membership("c2", "b1", deletedAt = 5L))
                 val shares = db.collectionShareDao()
                 shares.upsert(collectionShare("c1", "alice"))
                 shares.upsert(collectionShare("c1", "bob", deletedAt = 5L))

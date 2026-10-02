@@ -7,7 +7,9 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -45,6 +47,23 @@ class RestrictedBooksViewModelTest :
 
                     cancelAndIgnoreRemainingEvents()
                 }
+            }
+        }
+
+        test("after close the value stops following the repository — the iOS deinit path") {
+            runTest(testDispatcher) {
+                val visibility = FakeBookVisibilityRepository()
+                val viewModel = RestrictedBooksViewModel(visibility)
+                backgroundScope.launch { viewModel.restrictedBookIds.collect {} }
+                visibility.restrictedBookIds.value = setOf(BookId("b1"))
+                advanceUntilIdle()
+                viewModel.restrictedBookIds.value shouldBe setOf("b1")
+
+                viewModel.close()
+                visibility.restrictedBookIds.value = setOf(BookId("b2"))
+                advanceUntilIdle()
+
+                viewModel.restrictedBookIds.value shouldBe setOf("b1")
             }
         }
     })

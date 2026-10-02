@@ -99,6 +99,29 @@ class BookVisibilityRepositoryImplTest :
             }
         }
 
+        test("a demoted admin stops seeing members' names and the restricted set, live") {
+            withHeldBookDb { db ->
+                seed(db)
+                val users = FakeUserRepository(initialIsAdmin = true)
+                val repo = repo(db, users)
+                db.collectionBookDao().upsert(membership("c1", "b1"))
+
+                repo.observeBookVisibility(BookId("b1")).test {
+                    awaitItemMatching { it == kids(HiddenFrom.Everyone) }
+                    users.isAdmin.value = false
+                    awaitItemMatching { it == null }
+                    cancelAndIgnoreRemainingEvents()
+                }
+                repo.observeRestrictedBookIds().test {
+                    users.isAdmin.value = true
+                    awaitItemMatching { it == setOf(BookId("b1")) }
+                    users.isAdmin.value = false
+                    awaitItemMatching { it.isEmpty() }
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
         test("a release echo turns Held into Public, live") {
             withHeldBookDb { db ->
                 seed(db)
