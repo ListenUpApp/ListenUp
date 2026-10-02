@@ -51,6 +51,10 @@ fun ServerSettingsPage(
     onHoldNewBooks: (Boolean) -> Unit,
     onPushNotifications: (Boolean) -> Unit,
     onSetRatingSourceEnabled: (ExternalRatingSource, Boolean) -> Unit = { _, _ -> },
+    onSaveHardcoverToken: (String) -> Unit = {},
+    onRemoveHardcoverToken: () -> Unit = {},
+    onHardcoverMetadata: (Boolean) -> Unit = {},
+    onClearHardcoverTokenError: () -> Unit = {},
     onSave: () -> Unit,
     onClearError: () -> Unit,
     onRetry: () -> Unit,
@@ -81,6 +85,10 @@ fun ServerSettingsPage(
                     onHoldNewBooks = onHoldNewBooks,
                     onPushNotifications = onPushNotifications,
                     onSetRatingSourceEnabled = onSetRatingSourceEnabled,
+                    onSaveHardcoverToken = onSaveHardcoverToken,
+                    onRemoveHardcoverToken = onRemoveHardcoverToken,
+                    onHardcoverMetadata = onHardcoverMetadata,
+                    onClearHardcoverTokenError = onClearHardcoverTokenError,
                     onSave = onSave,
                     onClearError = onClearError,
                     nowMs = nowMs,
@@ -98,6 +106,10 @@ private fun ReadyContent(
     onHoldNewBooks: (Boolean) -> Unit,
     onPushNotifications: (Boolean) -> Unit,
     onSetRatingSourceEnabled: (ExternalRatingSource, Boolean) -> Unit,
+    onSaveHardcoverToken: (String) -> Unit,
+    onRemoveHardcoverToken: () -> Unit,
+    onHardcoverMetadata: (Boolean) -> Unit,
+    onClearHardcoverTokenError: () -> Unit,
     onSave: () -> Unit,
     onClearError: () -> Unit,
     nowMs: Long,
@@ -197,6 +209,18 @@ private fun ReadyContent(
             }
         }
     }
+
+    // #1542: directly under Rating sources, outside the identity form — each action saves on its own.
+    state.hardcoverSource?.let { source ->
+        HardcoverSourceSection(
+            status = source,
+            tokenSave = state.hardcoverTokenSave,
+            onSaveToken = onSaveHardcoverToken,
+            onRemoveToken = onRemoveHardcoverToken,
+            onMetadata = onHardcoverMetadata,
+            onClearTokenError = onClearHardcoverTokenError,
+        )
+    }
 }
 
 /**
@@ -255,7 +279,7 @@ private fun ratingSourceHealth(
         unavailable != null -> {
             when (unavailable) {
                 RatingSourceUnavailable.NOT_CONFIGURED -> "Not set up on this server"
-                RatingSourceUnavailable.NO_CONNECTION -> "Connect a Hardcover account to enable"
+                RatingSourceUnavailable.NO_CONNECTION -> "Add a Hardcover API token or connect an account to enable"
                 RatingSourceUnavailable.UNKNOWN -> "Unavailable on this server"
             }
         }

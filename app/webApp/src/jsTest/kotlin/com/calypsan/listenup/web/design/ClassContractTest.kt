@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.api.dto.admin.HardcoverApiTokenStatus
+import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookSync
 import com.calypsan.listenup.api.dto.hardcover.HardcoverHistory
 import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
@@ -67,6 +69,7 @@ import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailUiSt
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionsUiState
 import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
+import com.calypsan.listenup.client.presentation.admin.HardcoverTokenSave
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
@@ -1642,13 +1645,31 @@ private fun inboxShapes(): List<@Composable () -> Unit> {
 private fun serverSettingsShapes(): List<@Composable () -> Unit> {
     fun page(state: AdminSettingsUiState): @Composable () -> Unit =
         {
-            ServerSettingsPage(state, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, {})
+            ServerSettingsPage(
+                state = state,
+                onServerName = {},
+                onRemoteUrl = {},
+                onHoldNewBooks = {},
+                onPushNotifications = {},
+                onSave = {},
+                onClearError = {},
+                onRetry = {},
+                onOpenAdmin = {},
+            )
         }
 
     return listOf(
         // Dirty and wearing a failed write — `.srv-err` renders nowhere else.
         page(readyServerSettings(isDirty = true, error = InternalError(debugInfo = "boom"))),
         page(readyServerSettings(isSaving = true, isDirty = true)),
+        // The Hardcover panel (#1542): a saved token, and a refused one beside an empty field.
+        page(readyServerSettings().copy(hardcoverSource = HardcoverSourceStatus(apiToken = HardcoverApiTokenStatus.Saved("simon", 1L)))),
+        page(
+            readyServerSettings().copy(
+                hardcoverSource = HardcoverSourceStatus(apiToken = HardcoverApiTokenStatus.Rejected("simon")),
+                hardcoverTokenSave = HardcoverTokenSave.Refused(HardcoverError.TokenRejected()),
+            ),
+        ),
         page(AdminSettingsUiState.Error(InternalError(debugInfo = "boom"))),
         page(AdminSettingsUiState.Loading),
     )
