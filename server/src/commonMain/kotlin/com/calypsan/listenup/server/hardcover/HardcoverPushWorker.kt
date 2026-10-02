@@ -82,6 +82,15 @@ class HardcoverPushWorker(
         gate.pausedUntil(userId)?.takeIf { it > now }?.let { return LaneStep.Sleep(it) }
         val row = outbox.head(userId) ?: return outbox.nextWakeAt(userId)?.let { LaneStep.Sleep(it) } ?: LaneStep.Stop
         if (exclusions.isExcluded(userId, row.bookId)) return completeUntouched(row)
+        return pushRow(row, now)
+    }
+
+    /** Pushes [row], the lane's head: its token, its match (made lazily), then the executor. */
+    private suspend fun pushRow(
+        row: HardcoverOutboxRow,
+        now: Long,
+    ): LaneStep {
+        val userId = row.userId
         val token =
             when (val lookup = tokens.accessToken(userId)) {
                 is TokenLookup.Valid -> lookup.accessToken
