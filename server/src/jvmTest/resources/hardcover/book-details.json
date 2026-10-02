@@ -1,0 +1,142 @@
+{
+  "data": {
+    "books": [
+      {
+        "id": 427578,
+        "description": "Ryland Grace is the sole survivor on a desperate, last-chance mission—and if he fails, humanity and the earth itself will perish.\n\nExcept that right now, he doe",
+        "cached_tags": {
+          "Genre": [
+            {
+              "tag": "Science Fiction",
+              "count": 62,
+              "tagSlug": "science-fiction",
+              "category": "Genre",
+              "categorySlug": "genre",
+              "spoilerRatio": 0.0
+            },
+            {
+              "tag": "Space",
+              "count": 13,
+              "tagSlug": "space",
+              "category": "Genre",
+              "categorySlug": "genre",
+              "spoilerRatio": 0.0
+            },
+            {
+              "tag": "Adventure",
+              "count": 9,
+              "tagSlug": "adventure",
+              "category": "Genre",
+              "categorySlug": "genre",
+              "spoilerRatio": 0.0
+            },
+            {
+              "tag": "Hard Science Fiction",
+              "count": 11,
+              "tagSlug": "hard-science-fiction-c7a768a4-925e-4396-a0f3-dc1918f4cfc9",
+              "category": "Genre",
+              "categorySlug": "genre",
+              "spoilerRatio": 0.0
+            },
+            {
+              "tag": "Sci-fi",
+              "count": 9,
+              "tagSlug": "sci-fi",
+              "category": "Genre",
+              "categorySlug": "genre",
+              "spoilerRatio": 0.0
+            }
+          ],
+          "Mood": [
+            {
+              "tag": "Adventurous",
+              "count": 380,
+              "tagSlug": "adventurous",
+              "category": "Mood",
+              "categorySlug": "mood",
+              "spoilerRatio": 0.0
+            },
+            {
+              "tag": "funny",
+              "count": 295,
+              "tagSlug": "funny",
+              "category": "Mood",
+              "categorySlug": "mood",
+              "spoilerRatio": 0.0
+            },
+            {
+              "tag": "hopeful",
+              "count": 217,
+              "tagSlug": "hopeful",
+              "category": "Mood",
+              "categorySlug": "mood",
+              "spoilerRatio": 0.0
+            },
+            {
+              "tag": "emotional",
+              "count": 208,
+              "tagSlug": "emotional",
+              "category": "Mood",
+              "categorySlug": "mood",
+              "spoilerRatio": 0.0
+            },
+            {
+              "tag": "tense",
+              "count": 151,
+              "tagSlug": "tense",
+              "category": "Mood",
+              "categorySlug": "mood",
+              "spoilerRatio": 0.0
+            },
+            {
+              "tag": "inspiring",
+              "count": 137,
+              "tagSlug": "inspiring",
+              "category": "Mood",
+              "categorySlug": "mood",
+              "spoilerRatio": 0.0
+            },
+            {
+              "tag": "informative",
+              "count": 117,
+              "tagSlug": "informative",
+              "category": "Mood",
+              "categorySlug": "mood",
+              "spoilerRatio": 0.0
+            },
+            {
+              "tag": "lighthearted",
+              "count": 80,
+              "tagSlug": "lighthearted",
+              "category": "Mood",
+              "categorySlug": "mood",
+              "spoilerRatio": 0.0
+            },
+            {
+              "tag": "mysterious",
+              "count": 76,
+              "tagSlug": "mysterious",
+              "category": "Mood",
+              "categorySlug": "mood",
+              "spoilerRatio": 0.0
+            }
+          ]
+        },
+        "book_series": [],
+        "contributions": [
+          {
+            "contribution": "Author",
+            "author": {
+              "id": 123645,
+              "name": "Andy Weir",
+              "bio": "Andy Weir built a two-decade career as a software engineer until the success of his first published novel, The Martian, allowed him to live out his dream of writing full-time. He is a lifelong space nerd and a devoted hobbyist of such subjects as relativistic physics, orbital mechanics, and the history of manned spaceflight. He also mixes a mean cocktail. He lives in California.",
+              "image": {
+                "url": "https://assets.hardcover.app/author/123645/179054cb-312e-4ff3-876d-e6eea15cbe2a.jpg"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
