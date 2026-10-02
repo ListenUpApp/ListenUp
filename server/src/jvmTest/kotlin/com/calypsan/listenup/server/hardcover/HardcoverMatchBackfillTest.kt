@@ -88,6 +88,25 @@ class HardcoverMatchBackfillTest :
             }
         }
 
+        test("a started book kept off Hardcover is never matched, and Hardcover is never asked") {
+            withSqlDatabase {
+                seedStarted(this, "book-a")
+                sql.seedExclusion(USER, "book-a", at = 1L)
+                val hardcover = FakeHardcoverLibrary()
+                hardcover.addEdition(
+                    FakeHardcoverLibrary.Edition(9_001L, 427_578L, "Project Hail Mary", listOf("Andy Weir"), asin = "B08G9RZBTT"),
+                )
+                val (backfill, connections) =
+                    backfillFor(this, hardcover) { BookIdentity(asin = "B08G9RZBTT", title = "Project Hail Mary") }
+                runTest {
+                    connections.save(USER, HardcoverMe(42, "reader"), HardcoverTokens("hc_at_1", "hc_rt_1", 604_800, HARDCOVER_SCOPES))
+                    backfill.run(USER)
+                    HardcoverBookLinkStore(sql).linkFor(USER, "book-a").shouldBeNull()
+                }
+                hardcover.operations shouldBe emptyList()
+            }
+        }
+
         test("a book whose identity is gone is skipped, and the pass still reaches the books after it") {
             withSqlDatabase {
                 seedStarted(this, "book-a", "book-b")

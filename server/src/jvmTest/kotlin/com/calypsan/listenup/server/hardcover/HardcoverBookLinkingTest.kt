@@ -378,6 +378,18 @@ class HardcoverBookLinkingTest :
             }
         }
 
+        test("a book kept off Hardcover leaves Needs a match") {
+            linkingTest {
+                connect()
+                sql.seedTestBook("book-2")
+                links.recordAutomaticMatch(USER, BOOK, null)
+                links.recordAutomaticMatch(USER, "book-2", null)
+                sql.seedExclusion(USER, BOOK, at = T0)
+
+                serviceAs(UserRole.ROOT).booksNeedingMatch() shouldBe AppResult.Success(listOf(BookId("book-2")))
+            }
+        }
+
         test("a book the caller can't see isn't listed") {
             linkingTest {
                 connect()

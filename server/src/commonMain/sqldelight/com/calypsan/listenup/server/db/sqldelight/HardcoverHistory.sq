@@ -23,7 +23,7 @@ CREATE INDEX idx_hardcover_history_reads_read ON hardcover_history_reads(read_id
 -- The user's own reads finished before :connected_at that are neither in the ledger nor queued as HISTORY,
 -- oldest first, each with the start ListenUp can vouch for: the earliest listening on the book after the
 -- previous own read finished (or from the beginning), and no later than this read's finish. NULL when there
--- is none. Books removed from the library are left out.
+-- is none. Books removed from the library, and books kept off Hardcover (#1541), are left out.
 selectUnsentHistory:
 SELECT r.id, r.book_id, r.finished_at,
     (
@@ -44,6 +44,7 @@ JOIN books AS b ON b.id = r.book_id AND b.deleted_at IS NULL
 WHERE r.user_id = :user_id AND r.source <> 'hardcover' AND r.finished_at < :connected_at
   AND NOT EXISTS (SELECT 1 FROM hardcover_history_reads AS h WHERE h.user_id = r.user_id AND h.read_id = r.id)
   AND NOT EXISTS (SELECT 1 FROM hardcover_outbox AS o WHERE o.user_id = r.user_id AND o.history_read_id = r.id)
+  AND NOT EXISTS (SELECT 1 FROM hardcover_book_exclusions AS x WHERE x.user_id = r.user_id AND x.book_id = r.book_id)
 ORDER BY r.finished_at, r.id;
 
 -- How many distinct books selectUnsentHistory would offer: the number on the card and the quiet row.
@@ -53,7 +54,8 @@ FROM book_reads AS r
 JOIN books AS b ON b.id = r.book_id AND b.deleted_at IS NULL
 WHERE r.user_id = :user_id AND r.source <> 'hardcover' AND r.finished_at < :connected_at
   AND NOT EXISTS (SELECT 1 FROM hardcover_history_reads AS h WHERE h.user_id = r.user_id AND h.read_id = r.id)
-  AND NOT EXISTS (SELECT 1 FROM hardcover_outbox AS o WHERE o.user_id = r.user_id AND o.history_read_id = r.id);
+  AND NOT EXISTS (SELECT 1 FROM hardcover_outbox AS o WHERE o.user_id = r.user_id AND o.history_read_id = r.id)
+  AND NOT EXISTS (SELECT 1 FROM hardcover_book_exclusions AS x WHERE x.user_id = r.user_id AND x.book_id = r.book_id);
 
 -- The user's own reads of one book up to and including one read (ties broken by id): how many reads
 -- Hardcover must already hold for that read to count as there.
