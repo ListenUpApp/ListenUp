@@ -128,6 +128,11 @@ internal fun BookHardcoverContent(
                 is BookHardcoverUiState.Linked -> {
                     LinkedBody(state, onFindMatch, onRemoveMatch)
                 }
+
+                // Task 16 draws the kept-off row, and the switch alone for a book never matched.
+                is BookHardcoverUiState.KeptOff, BookHardcoverUiState.Unmatched -> {
+                    Unit
+                }
             }
         }
     }

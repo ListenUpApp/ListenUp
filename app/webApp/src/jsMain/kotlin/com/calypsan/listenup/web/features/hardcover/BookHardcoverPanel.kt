@@ -59,6 +59,11 @@ fun BookHardcoverPanel(
                 }
             }
         }
+
+        // Task 18 draws the kept-off panel, and the switch alone for a book never matched.
+        is BookHardcoverUiState.KeptOff, BookHardcoverUiState.Unmatched -> {
+            Unit
+        }
     }
 }
 
