@@ -16301,12 +16301,22 @@
         }
       }
     },
-    "profile.recently_finished": {
+    "profile.recently_listened": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Recently finished"
+            "value": "Recently listened"
+          }
+        }
+      }
+    },
+    "profile.recently_listened_own": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What you've been listening to"
           }
         }
       }

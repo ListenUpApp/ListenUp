@@ -3,6 +3,7 @@
 package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.client.domain.model.Activity
+import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -23,4 +24,16 @@ interface ActivityRepository {
      * @return Flow emitting list of activities, newest first
      */
     fun observeRecent(limit: Int): Flow<List<Activity>>
+
+    /**
+     * Observe the books [userId] most recently listened to — started, finished, or had a listening
+     * session on — newest first, one entry per book, at most [limit].
+     *
+     * Used for the "Recently listened" strip on a profile. Only books the viewer can open appear: the
+     * activity mirror is access-gated, and deleted books are left out.
+     */
+    fun observeRecentlyListened(
+        userId: String,
+        limit: Int,
+    ): Flow<List<ProfileRecentBook>>
 }

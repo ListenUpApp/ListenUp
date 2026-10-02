@@ -5,8 +5,8 @@ import Shared
 ///
 /// Identity (avatar, name, email, tagline) comes from the live `CurrentUserObserver`;
 /// the real listening stats (hours listened, books finished, streaks) come from
-/// `UserProfileViewModel` via `UserProfileObserver`. An Edit Profile affordance
-/// presents the edit sheet; Settings and Downloads remain as action rows.
+/// `UserProfileViewModel` via `UserProfileObserver`, as does the "Recently listened" cover strip.
+/// An Edit Profile affordance presents the edit sheet; Settings and Downloads remain as action rows.
 struct UserProfileView: View {
     @Environment(CurrentUserObserver.self) private var userObserver
     @Environment(\.dependencies) private var deps
@@ -63,7 +63,7 @@ struct UserProfileView: View {
             HStack(alignment: .top, spacing: DetailColumns.gutter) {
                 VStack(spacing: 22) { header; statStrip; editButton }
                     .frame(width: railWidth)
-                actionsSection
+                VStack(spacing: 22) { recentlyListened; actionsSection }
                     .frame(maxWidth: .infinity, alignment: .top)
             }
         } else {
@@ -71,6 +71,7 @@ struct UserProfileView: View {
                 header
                 statStrip
                 editButton
+                recentlyListened
                 actionsSection
                     .padding(.top, Spacing.xs)
             }
@@ -131,6 +132,15 @@ struct UserProfileView: View {
             ProgressView()
                 .frame(maxWidth: .infinity, minHeight: 72)
                 .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
+        }
+    }
+
+    // MARK: - Recently listened
+
+    /// The books you recently listened to, each opening its detail; absent until there are any.
+    @ViewBuilder private var recentlyListened: some View {
+        if let stats = statsObserver, stats.phase == .ready {
+            RecentlyListenedStrip(books: stats.recentBooks, isOwnProfile: true)
         }
     }
 

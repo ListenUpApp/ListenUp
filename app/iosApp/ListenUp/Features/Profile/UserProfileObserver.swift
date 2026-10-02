@@ -42,6 +42,8 @@ final class UserProfileObserver {
     private(set) var booksFinished: Int = 0
     private(set) var currentStreak: Int = 0
     private(set) var longestStreak: Int = 0
+    /// The "Recently listened" strip, newest first — native rows, never bridged objects (rule 8).
+    private(set) var recentBooks: [ProfileRecentBookRow] = []
 
     private let viewModel: UserProfileViewModel
     private let bridge = FlowBridge()
@@ -71,6 +73,7 @@ final class UserProfileObserver {
             booksFinished = Int(r.booksFinished)
             currentStreak = Int(r.currentStreak)
             longestStreak = Int(r.longestStreak)
+            recentBooks = ProfileRecentBookRow.rows(from: r.recentBooks)
         case .error(let errorStateType):
             let errorState = errorStateType.value
             phase = .error(errorState.message)

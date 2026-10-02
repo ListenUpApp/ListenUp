@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.local.db.PublicProfileDao
+import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
@@ -19,6 +20,7 @@ import org.koin.test.verify.verify
  *  - [UserRepository] — owned by `socialModule`.
  *  - [ProfileEditRepository] — owned by `socialModule`.
  *  - [UserProfileRepository] — owned by `socialModule`.
+ *  - [ActivityRepository] — owned by `socialModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class ProfilePresentationModuleVerifyTest :
@@ -33,6 +35,7 @@ class ProfilePresentationModuleVerifyTest :
                         UserRepository::class,
                         ProfileEditRepository::class,
                         UserProfileRepository::class,
+                        ActivityRepository::class,
                     ),
             )
         }

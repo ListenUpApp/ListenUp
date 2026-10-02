@@ -4,9 +4,10 @@ import SwiftUI
 /// Another user's profile, viewed read-only — reached by tapping a user's avatar in the book
 /// Readers section, the Leaderboard, or the Activity feed.
 ///
-/// A deliberately lean, read-only counterpart to `UserProfileView`: the same header + stat strip,
-/// but no Edit / Settings / account chrome. Everything shown (name, tagline, avatar, listening stats)
-/// resolves from the synced `public_profiles` Room row, so it renders offline (Never-Stranded) — the
+/// A deliberately lean, read-only counterpart to `UserProfileView`: the same header, stat strip and
+/// "Recently listened" covers, but no Edit / Settings / account chrome. Everything shown (name,
+/// tagline, avatar, listening stats) resolves from the synced `public_profiles` Room row, and the
+/// covers from the synced activity feed, so it renders offline (Never-Stranded) — the
 /// shared `UserProfileViewModel.loadProfile(userId:)` needs no network for this surface. Public shelves
 /// are intentionally out of scope for now (they'd need a live RPC + shelf-detail wiring).
 ///
@@ -45,6 +46,9 @@ struct ForeignProfileView: View {
             VStack(spacing: 22) {
                 header
                 statStrip
+                if let observer {
+                    RecentlyListenedStrip(books: observer.recentBooks, isOwnProfile: observer.isOwnProfile)
+                }
             }
         case .error(let message):
             ContentUnavailableView(

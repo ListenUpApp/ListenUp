@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.User
+import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -23,7 +24,6 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 private val logger = KotlinLogging.logger {}
@@ -75,6 +75,8 @@ sealed interface UserProfileUiState {
  * Room row ([PublicProfileDao.observeById]). Shelves split by path: own profiles read the
  * locally-mirrored synced shelves ([ShelfRepository.observeMyShelves]); other profiles
  * fetch the caller-accessible public shelves once over RPC ([ShelfRepository.getUserShelves]).
+ * Both paths carry the same "Recently listened" strip, live from the synced activity feed
+ * ([ActivityRepository.observeRecentlyListened]).
  *
  * The header never blocks on shelves: a shelf failure renders an empty shelf list, not an error.
  */
@@ -83,6 +85,7 @@ class UserProfileViewModel internal constructor(
     private val publicProfileDao: PublicProfileDao,
     private val shelfRepository: ShelfRepository,
     private val userRepository: UserRepository,
+    private val activityRepository: ActivityRepository,
 ) : ViewModel() {
     private val requestFlow = MutableStateFlow<LoadRequest?>(null)
 
@@ -141,10 +144,11 @@ class UserProfileViewModel internal constructor(
             publicProfileDao.observeById(userId),
             userRepository.observeCurrentUser(),
             shelfRepository.observeMyShelves(userId),
-        ) { row, currentUser, shelves ->
+            recentBooksFlow(userId),
+        ) { row, currentUser, shelves, recentBooks ->
             when {
-                row != null -> readyFromRow(userId, isOwn = true, row, shelves.toSummaries())
-                currentUser != null -> readyFromUser(userId, currentUser, shelves.toSummaries())
+                row != null -> readyFromRow(userId, isOwn = true, row, shelves.toSummaries(), recentBooks)
+                currentUser != null -> readyFromUser(userId, currentUser, shelves.toSummaries(), recentBooks)
                 else -> UserProfileUiState.Error("No user data available")
             }
         }
@@ -168,22 +172,27 @@ class UserProfileViewModel internal constructor(
                     }
                 }
             emitAll(
-                publicProfileDao.observeById(userId).map { row ->
+                combine(publicProfileDao.observeById(userId), recentBooksFlow(userId)) { row, recentBooks ->
                     if (row == null) {
                         logger.error { "No public profile row for user: $userId" }
                         UserProfileUiState.Error("Failed to load profile")
                     } else {
-                        readyFromRow(userId, isOwn = false, row, shelves)
+                        readyFromRow(userId, isOwn = false, row, shelves, recentBooks)
                     }
                 },
             )
         }
+
+    /** The "Recently listened" strip: books [userId] listened to, live from the synced activity feed. */
+    private fun recentBooksFlow(userId: String): Flow<List<ProfileRecentBook>> =
+        activityRepository.observeRecentlyListened(userId, RECENT_BOOKS_LIMIT)
 
     private fun readyFromRow(
         userId: String,
         isOwn: Boolean,
         row: PublicProfileEntity,
         shelves: List<ProfileShelfSummary>,
+        recentBooks: List<ProfileRecentBook>,
     ): UserProfileUiState.Ready =
         UserProfileUiState.Ready(
             userId = userId,
@@ -195,7 +204,7 @@ class UserProfileViewModel internal constructor(
             booksFinished = row.booksFinished,
             currentStreak = row.currentStreakDays,
             longestStreak = row.longestStreakDays,
-            recentBooks = emptyList(),
+            recentBooks = recentBooks,
             publicShelves = shelves,
         )
 
@@ -203,6 +212,7 @@ class UserProfileViewModel internal constructor(
         userId: String,
         user: User,
         shelves: List<ProfileShelfSummary>,
+        recentBooks: List<ProfileRecentBook>,
     ): UserProfileUiState.Ready =
         UserProfileUiState.Ready(
             userId = userId,
@@ -214,7 +224,7 @@ class UserProfileViewModel internal constructor(
             booksFinished = 0,
             currentStreak = 0,
             longestStreak = 0,
-            recentBooks = emptyList(),
+            recentBooks = recentBooks,
             publicShelves = shelves,
         )
 
@@ -228,6 +238,9 @@ class UserProfileViewModel internal constructor(
 
     companion object {
         private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
+
+        /** How many books the "Recently listened" strip shows. */
+        internal const val RECENT_BOOKS_LIMIT = 10
         private const val MS_PER_SECOND = 1_000L
     }
 }

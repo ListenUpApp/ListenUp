@@ -68,7 +68,7 @@ import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.HeroNavRow
-import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
+import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.rememberUserAvatarImage
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.cookieScallopShape
@@ -85,7 +85,8 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_displayname_avatar
 import listenup.composeapp.generated.resources.profile_create_shelf
 import listenup.composeapp.generated.resources.profile_edit_profile
-import listenup.composeapp.generated.resources.profile_recently_finished
+import listenup.composeapp.generated.resources.profile_recently_listened
+import listenup.composeapp.generated.resources.profile_recently_listened_own
 import listenup.composeapp.generated.resources.profile_shelf_books_count
 import listenup.composeapp.generated.resources.profile_shelves
 import com.calypsan.listenup.client.design.theme.ContentShapes
@@ -96,7 +97,7 @@ import androidx.compose.ui.platform.LocalDensity
 
 /**
  * Screen displaying a user's full profile — a color-blocked hero with the scallop avatar,
- * colored stat tiles, recent finished books, and a shelves grid.
+ * colored stat tiles, the books they recently listened to, and a shelves grid.
  *
  * @param userId The ID of the user to display
  * @param onBack Callback when back button is clicked
@@ -213,11 +214,11 @@ private fun ProfileContent(
             )
         }
 
-        // Recent finished
+        // Recently listened
         if (state.recentBooks.isNotEmpty()) {
             item {
                 Spacer(modifier = Modifier.height(28.dp))
-                SectionHeader(title = stringResource(Res.string.profile_recently_finished))
+                RecentlyListenedHeader(isOwnProfile = state.isOwnProfile)
                 Spacer(modifier = Modifier.height(14.dp))
                 RecentBooksRow(books = state.recentBooks, onBookClick = onBookClick)
             }
@@ -341,8 +342,8 @@ private fun WideProfileGrid(
 
         if (state.recentBooks.isNotEmpty()) {
             item(key = "recent-header", span = { GridItemSpan(maxLineSpan) }) {
-                SectionHeader(
-                    title = stringResource(Res.string.profile_recently_finished),
+                RecentlyListenedHeader(
+                    isOwnProfile = state.isOwnProfile,
                     horizontalPadding = 0.dp,
                     modifier = Modifier.padding(top = 12.dp),
                 )
@@ -809,8 +810,25 @@ private fun SectionHeader(
     )
 }
 
+/** Heading of the "Recently listened" strip — first person on your own profile. */
 @Composable
-private fun RecentBooksRow(
+internal fun RecentlyListenedHeader(
+    isOwnProfile: Boolean,
+    modifier: Modifier = Modifier,
+    horizontalPadding: Dp = 16.dp,
+) {
+    SectionHeader(
+        title =
+            stringResource(
+                if (isOwnProfile) Res.string.profile_recently_listened_own else Res.string.profile_recently_listened,
+            ),
+        horizontalPadding = horizontalPadding,
+        modifier = modifier,
+    )
+}
+
+@Composable
+internal fun RecentBooksRow(
     books: List<ProfileRecentBook>,
     onBookClick: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -849,11 +867,15 @@ private fun RecentBookCard(
                     .clip(ContentShapes.card)
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest),
         ) {
-            ListenUpAsyncImage(
-                path = book.coverPath,
+            // The strip's books come from the activity feed, which knows only the book id — so the
+            // cover resolves from it (local file, else the server), never from a path.
+            BookCoverImage(
+                bookId = book.bookId,
+                coverPath = null,
+                coverHash = book.coverHash,
                 contentDescription = book.title,
+                title = book.title,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
             )
         }
         Spacer(modifier = Modifier.height(8.dp))

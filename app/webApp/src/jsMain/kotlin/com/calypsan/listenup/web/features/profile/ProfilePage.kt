@@ -75,6 +75,7 @@ private fun ReadyContent(
 ) {
     Hero(state, onEditProfile)
 
+    // en.json's `profile.recently_listened_own` / `profile.recently_listened`.
     if (state.recentBooks.isNotEmpty()) {
         Panel(title = if (state.isOwnProfile) "What you've been listening to" else "Recently listened") {
             Div(attrs = { classes("prof-books") }) {
@@ -196,12 +197,10 @@ private fun RecentBook(
         attr("aria-label", book.title)
         onClick { onOpenBook(book.bookId) }
     }) {
-        // No cover hash on `ProfileRecentBook`, so this URL cannot be cache-busted. Acceptable
-        // here and nowhere that matters more: a re-covered book shows its old art on someone's
-        // profile until the cache expires, which is a cosmetic staleness on a secondary surface.
+        // The cover hash busts the cache, so a re-covered book shows its new art here too.
         Cover(
             title = book.title,
-            imageUrl = coverUrl(book.bookId, null, BOOK_RUNG),
+            imageUrl = coverUrl(book.bookId, book.coverHash, BOOK_RUNG),
             size = BOOK_SIZE,
             radius = BOOK_RADIUS,
             decorative = true,
