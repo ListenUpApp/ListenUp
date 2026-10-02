@@ -1,0 +1,11 @@
+-- hardcover_book_exclusions: the books each listener keeps off Hardcover (#1541). See
+-- V83__hardcover_book_exclusions.sql for each column. FKs (→ users, → books ON DELETE CASCADE) live in the
+-- migration DDL.
+CREATE TABLE hardcover_book_exclusions (
+    user_id     TEXT    NOT NULL,
+    book_id     TEXT    NOT NULL,
+    excluded_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, book_id)
+);
+
+CREATE INDEX idx_hardcover_book_exclusions_book ON hardcover_book_exclusions(book_id);
