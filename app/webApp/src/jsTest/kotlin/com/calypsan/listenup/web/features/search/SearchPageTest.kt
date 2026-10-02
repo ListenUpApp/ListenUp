@@ -3,7 +3,9 @@ package com.calypsan.listenup.web.features.search
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.presentation.search.SearchUiState
+import androidx.compose.runtime.CompositionLocalProvider
 import com.calypsan.listenup.web.MountRegistry
+import com.calypsan.listenup.web.design.LocalRestrictedBookIds
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -11,6 +13,7 @@ import io.kotest.matchers.string.shouldContain
 import org.w3c.dom.EventInit
 import kotlinx.browser.window
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.asList
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.EventTarget
@@ -384,5 +387,21 @@ class SearchPageTest :
             (host.querySelector(".search-row") as HTMLElement).click()
 
             opened shouldBe 1
+        }
+
+        // Held wins: even if both facts ever met on one hit, the inline Held pill owns the row.
+        test("a restricted book's search row wears the compact lock on its cover; a held one never does") {
+            val host =
+                mounts.mount {
+                    CompositionLocalProvider(LocalRestrictedBookIds provides setOf("b1", "b2")) {
+                        SearchRow(hit = bookHit("b1", "Dune"), isOpenable = true, onOpen = {})
+                        SearchRow(hit = bookHit("b2", "Ubik").copy(isHeld = true), isOpenable = true, onOpen = {})
+                    }
+                }
+            val rows = host.querySelectorAll(".search-row").asList().map { it as HTMLElement }
+            val dune = rows.single { it.textContent!!.contains("Dune") }
+            val ubik = rows.single { it.textContent!!.contains("Ubik") }
+            (dune.querySelector(".cover > .lu-lock.sm") != null) shouldBe true
+            (ubik.querySelector(".lu-lock") == null) shouldBe true
         }
     })

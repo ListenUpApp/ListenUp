@@ -6,6 +6,8 @@ import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.onSuccess
 import com.calypsan.listenup.client.data.local.db.CollectionBookDao
+import com.calypsan.listenup.client.data.local.db.CollectionBookEntity
+import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.core.BookId
@@ -17,6 +19,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
 
@@ -26,8 +29,9 @@ private val logger = KotlinLogging.logger {}
  *
  * The held set is read from Room, which the collection sync stream keeps current. A release is the
  * RPC; once the server has committed it, [releaseBooks] tombstones the local INBOX memberships so
- * every held surface converges at once. The ALL_BOOKS membership still arrives through the echo —
- * for that moment the book is in neither, which reads as "not held", the truth.
+ * every held surface converges at once, writes each book's new memberships — All Books for a book
+ * released to everyone, the named collections otherwise — as the server just did, so the book never
+ * reads as in no collection at all.
  */
 internal class InboxRepositoryImpl(
     private val channel: RpcChannel<CollectionService>,
@@ -35,7 +39,10 @@ internal class InboxRepositoryImpl(
     // channel rather than being bolted onto the collection surface for proximity's sake.
     private val scannerChannel: RpcChannel<ScannerService>,
     private val collectionBookDao: CollectionBookDao,
+    private val transactionRunner: TransactionRunner,
 ) : InboxRepository {
+    private val systemMembership = SystemMembershipReconciler(collectionBookDao)
+
     // Room re-runs the held query on every collection_books / collections write, held or not. The
     // list (not the set) is compared, so a reorder still counts as a change: order is the contract.
     override fun observeHeldBookIds(): Flow<Set<BookId>> =
@@ -56,21 +63,57 @@ internal class InboxRepositoryImpl(
                         BookId(bookId) to targets.map(::CollectionId)
                     },
                 )
-            }.onSuccess { tombstoneReleasedLocally(assignments.keys.toList()) }
+            }.onSuccess { writeReleaseThrough(assignments) }
 
     /**
+     * Write the committed release through to Room in one transaction: the INBOX memberships end, each
+     * book released into named collections gains a membership of each, and then every released book
+     * is reconciled as the server did ([SystemMembershipReconciler]) — so Book Detail reads Public
+     * (released to everyone) or Restricted (released into collections) the moment Release succeeds,
+     * never a passing *Stranded*, and never a moment of Public for a book bound for a collection.
+     *
+     * The named memberships are `revision = 0` stubs under client-minted sync ids, as
+     * `setBookCollections` writes its adds: the server's rows arrive under their own ids, which the
+     * revision guard has never seen, and replace the stubs by their `(collectionId, bookId)` key.
+     *
      * The release has already committed on the server, so a failed local write must not turn it into
-     * an error: the caller would report a release that happened. The server's tombstone echo still
-     * converges Room; until it lands the books simply stay in the inbox a moment longer.
+     * an error: the caller would report a release that happened. The server's echo still converges
+     * Room; until it lands the books simply stay in the inbox a moment longer.
      */
-    private suspend fun tombstoneReleasedLocally(bookIds: List<String>) {
+    private suspend fun writeReleaseThrough(assignments: Map<String, List<String>>) {
         try {
-            collectionBookDao.tombstoneHeldRows(bookIds, currentEpochMilliseconds())
+            val now = currentEpochMilliseconds()
+            transactionRunner.atomically {
+                collectionBookDao.tombstoneHeldRows(assignments.keys.toList(), now)
+                for ((bookId, targets) in assignments) {
+                    for (collectionId in targets) writeMembershipStub(collectionId, bookId, now)
+                }
+                systemMembership.reconcileLocally(assignments.keys, now)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             logger.warn(e) { "Release committed, but the local inbox write-through failed; awaiting the sync echo" }
         }
+    }
+
+    private suspend fun writeMembershipStub(
+        collectionId: String,
+        bookId: String,
+        now: Long,
+    ) {
+        val existing = collectionBookDao.findByKey(collectionId, bookId)
+        if (existing != null && existing.deletedAt == null) return
+        collectionBookDao.upsert(
+            CollectionBookEntity(
+                collectionId = collectionId,
+                bookId = bookId,
+                syncId = Uuid.random().toString(),
+                createdAt = now,
+                revision = 0,
+                deletedAt = null,
+            ),
+        )
     }
 
     override suspend fun listScanIssues(): AppResult<List<ScanIssue>> =

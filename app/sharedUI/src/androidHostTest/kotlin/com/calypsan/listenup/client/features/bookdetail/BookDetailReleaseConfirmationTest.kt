@@ -14,7 +14,9 @@ import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookAvailability
+import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.BookVisibilityRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
@@ -224,6 +226,9 @@ class BookDetailReleaseConfirmationTest {
             documentRepository =
                 mock<DocumentRepository> { every { observeDocuments(any()) } returns flowOf(emptyList()) },
             inboxRepository = inbox,
+            bookVisibilityRepository =
+                mock<BookVisibilityRepository> { every { observeBookVisibility(any()) } returns flowOf(null) },
+            bookEditRepository = mock<BookEditRepository>(),
         )
     }
 

@@ -46,6 +46,9 @@ import kotlinx.coroutines.flow.map
  *   junction edits on the `collection_books` channel keyed by the `"$collectionId:$bookId"` pair —
  *   so an edit made offline persists and replays on reconnect. The entity-level in-flight shield
  *   defers each row's own echo until its op drains.
+ * - Every membership write ends with the local All Books reconcile ([SystemMembershipReconciler]),
+ *   as the server's does, so a book whose last collection is removed or deleted reads Public at once
+ *   and a held book added to a collection is released at once — never a passing *Stranded*.
  * - `create` stays online (the server mints the collection's id); `share`/`revokeShare`
  *   stay online (ACL changes are genuinely server-required).
  *
@@ -59,6 +62,8 @@ internal class CollectionRepositoryImpl(
     private val channel: RpcChannel<CollectionService>,
     private val offlineEditor: OfflineEditor,
 ) : CollectionRepository {
+    private val systemMembership = SystemMembershipReconciler(collectionBookDao)
+
     // ── Observation ───────────────────────────────────────────────────────────
 
     override fun observeCollections(): Flow<List<Collection>> =
@@ -106,7 +111,8 @@ internal class CollectionRepositoryImpl(
      * Offline-first: soft-delete the collection and cascade-tombstone its `collection_books` junctions
      * (mirroring the server's `deleteCollection` cascade), then enqueue a durable op on the `collections`
      * channel keyed by the collection id. The collection's revision is preserved so its own echo
-     * (deferred by the in-flight shield) re-applies the authoritative tombstone on drain.
+     * (deferred by the in-flight shield) re-applies the authoritative tombstone on drain. Its books
+     * are then reconciled, as the server's cascade does: one left in no collection returns to All Books.
      */
     override suspend fun delete(id: String): AppResult<Unit> {
         val now = currentEpochMilliseconds()
@@ -115,7 +121,9 @@ internal class CollectionRepositoryImpl(
                 .getById(
                     id,
                 )?.let { collectionDao.softDelete(id = id, deletedAt = now, revision = it.revision) }
+            val affectedBookIds = collectionBookDao.liveBookIdsFor(id)
             collectionBookDao.tombstoneAllForCollection(collectionId = id, deletedAt = now)
+            systemMembership.reconcileLocally(affectedBookIds, now)
         }
     }
 
@@ -128,6 +136,10 @@ internal class CollectionRepositoryImpl(
      * syncId and reset the revision of a row the server already knows, and enqueue an op with
      * nothing to say. Returning `false` for that case is also what lets the caller confirm the
      * write honestly: five books selected, two of them new, is "2 books added", not five.
+     *
+     * Adding to a normal collection is reconciled like the server's: the book leaves All Books, and a
+     * held book is released. Adding straight to a system collection is a managed placement the server
+     * leaves unreconciled, so it is left alone here too.
      */
     override suspend fun addBook(
         collectionId: String,
@@ -142,23 +154,28 @@ internal class CollectionRepositoryImpl(
                 CollectionBookMutation.Add(collectionId = collectionId, bookId = bookId),
                 op = OpKind.Create,
             ) {
+                val now = currentEpochMilliseconds()
                 collectionBookDao.upsert(
                     CollectionBookEntity(
                         collectionId = collectionId,
                         bookId = bookId,
                         syncId = Uuid.random().toString(),
-                        createdAt = currentEpochMilliseconds(),
+                        createdAt = now,
                         revision = 0,
                         deletedAt = null,
                     ),
                 )
+                if (collectionDao.getById(collectionId)?.isSystem != true) {
+                    systemMembership.reconcileLocally(listOf(bookId), now)
+                }
             }.map { true }
     }
 
     /**
      * Offline-first: tombstone the junction optimistically and enqueue a durable op on the `collection_books`
      * channel keyed by the `"$collectionId:$bookId"` pair — not the row's wire id; the domain's `OutboxKeying`
-     * maps echoes and drained ops onto it. Idempotent server-side.
+     * maps echoes and drained ops onto it. Idempotent server-side. The book is then reconciled, as
+     * the server's removal is: one left in no collection returns to All Books.
      */
     override suspend fun removeBook(
         collectionId: String,
@@ -170,12 +187,14 @@ internal class CollectionRepositoryImpl(
             CollectionBookMutation.Remove(collectionId = collectionId, bookId = bookId),
             op = OpKind.Delete,
         ) {
+            val now = currentEpochMilliseconds()
             collectionBookDao.tombstone(
                 collectionId = collectionId,
                 bookId = bookId,
-                deletedAt = currentEpochMilliseconds(),
+                deletedAt = now,
                 revision = 0,
             )
+            systemMembership.reconcileLocally(listOf(bookId), now)
         }
 
     override suspend fun share(

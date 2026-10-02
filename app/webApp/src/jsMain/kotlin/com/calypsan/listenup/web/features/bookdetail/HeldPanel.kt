@@ -1,22 +1,16 @@
 package com.calypsan.listenup.web.features.bookdetail
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
-import com.calypsan.listenup.web.nav.awaitAnimationFrame
-import com.calypsan.listenup.web.nav.focusWithoutScroll
-import kotlinx.browser.document
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Section
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
-import org.w3c.dom.HTMLElement
 
 private const val HELD_HEADING_ID = "bd-held-h"
 private const val HELD_TILE_ICON_SIZE = 22
@@ -77,46 +71,4 @@ internal fun HeldPanel(
             }
         }
     }
-}
-
-/**
- * Hands focus to the page's H1 when a release lands.
- *
- * The held panel holds the Release button, so a successful release unmounts the very control that
- * had focus, and the browser drops focus to `<body>`: a screen reader says nothing, and the next
- * Tab starts from the top of the document. Landing on the heading is the house pattern for "the
- * page under you changed" (see `FocusPageOnNavigation`), and the heading is the one thing on the
- * page that names what you are now looking at — the same book, now ordinary.
- *
- * It acts only on the held → released edge, a frame later (the confirmation dialog hands focus back
- * as it closes), and only when focus really was lost: a reader who has already moved on keeps
- * their place.
- */
-@Composable
-internal fun FocusHeadingOnRelease(
-    bookId: String,
-    isHeld: Boolean,
-    page: () -> HTMLElement?,
-) {
-    val memory = remember(bookId) { HeldMemory(wasHeld = isHeld) }
-    LaunchedEffect(bookId, isHeld) {
-        val released = memory.wasHeld && !isHeld
-        memory.wasHeld = isHeld
-        if (!released) return@LaunchedEffect
-        awaitAnimationFrame()
-        val active = document.activeElement
-        if (active != null && active != document.body) return@LaunchedEffect
-        val heading = page()?.querySelector(".bd-head h1") as? HTMLElement ?: return@LaunchedEffect
-        focusWithoutScroll(heading)
-    }
-}
-
-/** Plain holder rather than state: remembering the last value must not itself recompose. */
-private class HeldMemory(
-    var wasHeld: Boolean,
-)
-
-/** The page's own root, read lazily by [FocusHeadingOnRelease] — never a document-wide query. */
-internal class PageRoot {
-    var element: HTMLElement? = null
 }

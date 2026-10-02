@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.auth
 
 import com.calypsan.listenup.web.features.admin.fixedInboxBadge
+import com.calypsan.listenup.web.features.admin.fixedRestrictedBooks
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.remember
@@ -221,6 +222,7 @@ private fun Gate(
                 upload = fixedUpload(UploadBooksUiState.Idle),
                 organize = fixedOrganize(OrganizeSettingsUiState.Loading),
                 inboxBadge = fixedInboxBadge(),
+                restrictedBooks = fixedRestrictedBooks(),
             ),
         openShelfDetail = fixedShelfDetail(),
         openShelfEdit = fixedShelfEdit(),

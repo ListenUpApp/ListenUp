@@ -2,6 +2,9 @@ package com.calypsan.listenup.web
 
 import com.calypsan.listenup.web.shell.NavBadgeKind
 import com.calypsan.listenup.web.features.admin.OpenInboxBadge
+import com.calypsan.listenup.web.features.admin.OpenRestrictedBooks
+import com.calypsan.listenup.web.design.LocalRestrictedBookIds
+import androidx.compose.runtime.CompositionLocalProvider
 import com.calypsan.listenup.web.features.admin.InboxBadgeState
 import com.calypsan.listenup.web.features.bookdetail.ShareOutcome
 import androidx.compose.runtime.Composable
@@ -319,6 +322,8 @@ fun WebAppRoot(
     // Shell-lifetime, like the unread count: the held count rides Library in the sidebar, and the
     // Library page's inbox strip reads the same session.
     val inbox = inboxBadge(admin.inboxBadge)
+    // Shell-lifetime too: the lock on every book card, on every page, reads this one set.
+    val restrictedBookIds = restrictedBooks(admin.restrictedBooks)
     val playback = playbackState(openPlayback)
     val route = router.current
     val page = route.segments.firstOrNull() ?: HOME_KEY
@@ -328,115 +333,117 @@ fun WebAppRoot(
 
     FadeOnPageChange(page)
 
-    Shell(
-        sections = listOf(primaryNav(heldCount = inbox.heldCount)),
-        active = active,
-        // The whole path, not just the first segment the fade keys on: `/book/42` → `/book/42/edit`
-        // is a new page with a new heading, even though it does not fade.
-        pageKey = route.segments.joinToString("/"),
-        collapsed = collapsed,
-        footer = footerNav(isAdmin = isAdmin, unreadCount = unreadCount),
-        onToggleCollapse = { collapsed = !collapsed },
-        onNavigate = { key ->
-            val segments = if (key == HOME_KEY) emptyList() else listOf(key)
-            router.navigate(Route(segments))
-        },
-    ) {
-        LocalCompositionProbe.current(SHELL_CONTENT_PROBE)
-        AccountMenu(
-            onSignOut = onSignOut,
-            onOpenProfile =
-                currentUserId?.let { id ->
-                    { router.navigate(Route(listOf(PROFILE_KEY, id))) }
-                },
-        )
-        // Opened once for the shell's lifetime rather than per visit. Closing it on the way to a
-        // book meant coming back rebuilt the ViewModel and re-queried all 1,204 rows — measured at
-        // **478 ms** of "Loading…" every single time, for a list the reader had just been looking
-        // at. A Room-backed flow costs almost nothing to keep subscribed, and keeping it is what
-        // makes going back instant instead of merely fast.
-        val librarySession = libraryState(openLibrary)
-        RouteContent(
-            router = router,
-            route = route,
-            page = page,
+    CompositionLocalProvider(LocalRestrictedBookIds provides restrictedBookIds) {
+        Shell(
+            sections = listOf(primaryNav(heldCount = inbox.heldCount)),
             active = active,
-            openBookDetail = openBookDetail,
-            openBookEdit = openBookEdit,
-            openChapterEditor = openChapterEditor,
-            openMetadata = openMetadata,
-            openContributorDetail = openContributorDetail,
-            openContributorBooks = openContributorBooks,
-            openContributorEdit = openContributorEdit,
-            openContributorMetadata = openContributorMetadata,
-            openSeriesDetail = openSeriesDetail,
-            openSeriesEdit = openSeriesEdit,
-            openNotifications = openNotifications,
-            openNotificationPrefs = openNotificationPrefs,
-            openLicences = openLicences,
-            openProfile = openProfile,
-            openEditProfile = openEditProfile,
-            currentUserId = currentUserId,
-            openHome = openHome,
-            openDiscover = openDiscover,
-            openSettings = openSettings,
-            openDevices = openDevices,
-            openHardcover = openHardcover,
-            openAdmin = openAdmin,
-            admin = admin,
-            openShelfDetail = openShelfDetail,
-            openShelfEdit = openShelfEdit,
-            openSearch = openSearch,
-            openMultiSelect = openMultiSelect,
-            openBulkEdit = openBulkEdit,
-            openBrowseFacet = openBrowseFacet,
-            openGenreDestination = openGenreDestination,
-            openBookReaders = openBookReaders,
-            openBookRatings = openBookRatings,
-            openHardcoverMatch = openHardcoverMatch,
-            openBookHardcover = openBookHardcover,
-            openSeeAll = openSeeAll,
-            onToast = onToast,
-            onActionToast = onActionToast,
-            librarySession = librarySession,
-            inbox = inbox,
-            playback = playback,
-            heroBookId = heroBookId,
-            onHeroBookIdChange = { heroBookId = it },
-        )
+            // The whole path, not just the first segment the fade keys on: `/book/42` → `/book/42/edit`
+            // is a new page with a new heading, even though it does not fade.
+            pageKey = route.segments.joinToString("/"),
+            collapsed = collapsed,
+            footer = footerNav(isAdmin = isAdmin, unreadCount = unreadCount),
+            onToggleCollapse = { collapsed = !collapsed },
+            onNavigate = { key ->
+                val segments = if (key == HOME_KEY) emptyList() else listOf(key)
+                router.navigate(Route(segments))
+            },
+        ) {
+            LocalCompositionProbe.current(SHELL_CONTENT_PROBE)
+            AccountMenu(
+                onSignOut = onSignOut,
+                onOpenProfile =
+                    currentUserId?.let { id ->
+                        { router.navigate(Route(listOf(PROFILE_KEY, id))) }
+                    },
+            )
+            // Opened once for the shell's lifetime rather than per visit. Closing it on the way to a
+            // book meant coming back rebuilt the ViewModel and re-queried all 1,204 rows — measured at
+            // **478 ms** of "Loading…" every single time, for a list the reader had just been looking
+            // at. A Room-backed flow costs almost nothing to keep subscribed, and keeping it is what
+            // makes going back instant instead of merely fast.
+            val librarySession = libraryState(openLibrary)
+            RouteContent(
+                router = router,
+                route = route,
+                page = page,
+                active = active,
+                openBookDetail = openBookDetail,
+                openBookEdit = openBookEdit,
+                openChapterEditor = openChapterEditor,
+                openMetadata = openMetadata,
+                openContributorDetail = openContributorDetail,
+                openContributorBooks = openContributorBooks,
+                openContributorEdit = openContributorEdit,
+                openContributorMetadata = openContributorMetadata,
+                openSeriesDetail = openSeriesDetail,
+                openSeriesEdit = openSeriesEdit,
+                openNotifications = openNotifications,
+                openNotificationPrefs = openNotificationPrefs,
+                openLicences = openLicences,
+                openProfile = openProfile,
+                openEditProfile = openEditProfile,
+                currentUserId = currentUserId,
+                openHome = openHome,
+                openDiscover = openDiscover,
+                openSettings = openSettings,
+                openDevices = openDevices,
+                openHardcover = openHardcover,
+                openAdmin = openAdmin,
+                admin = admin,
+                openShelfDetail = openShelfDetail,
+                openShelfEdit = openShelfEdit,
+                openSearch = openSearch,
+                openMultiSelect = openMultiSelect,
+                openBulkEdit = openBulkEdit,
+                openBrowseFacet = openBrowseFacet,
+                openGenreDestination = openGenreDestination,
+                openBookReaders = openBookReaders,
+                openBookRatings = openBookRatings,
+                openHardcoverMatch = openHardcoverMatch,
+                openBookHardcover = openBookHardcover,
+                openSeeAll = openSeeAll,
+                onToast = onToast,
+                onActionToast = onActionToast,
+                librarySession = librarySession,
+                inbox = inbox,
+                playback = playback,
+                heroBookId = heroBookId,
+                onHeroBookIdChange = { heroBookId = it },
+            )
 
-        // Above the playback notices, and unlike them it is not dismissible: a failed edit stays
-        // until the reader retries or accepts the server's version. See [DeadLetterNotice].
-        val deadLetters = remember { openDeadLetters() }
-        DisposableEffect(deadLetters) { onDispose { deadLetters.close() } }
-        DeadLetterNotice(
-            failed = deadLetters.failed.collectAsState().value,
-            onRetry = deadLetters.onRetry,
-            onDismiss = deadLetters.onDismiss,
-            onRetryAll = deadLetters.onRetryAll,
-            onDismissAll = deadLetters.onDismissAll,
-        )
+            // Above the playback notices, and unlike them it is not dismissible: a failed edit stays
+            // until the reader retries or accepts the server's version. See [DeadLetterNotice].
+            val deadLetters = remember { openDeadLetters() }
+            DisposableEffect(deadLetters) { onDispose { deadLetters.close() } }
+            DeadLetterNotice(
+                failed = deadLetters.failed.collectAsState().value,
+                onRetry = deadLetters.onRetry,
+                onDismiss = deadLetters.onDismiss,
+                onRetryAll = deadLetters.onRetryAll,
+                onDismissAll = deadLetters.onDismissAll,
+            )
 
-        // Both last inside the content region, so they sit under whatever page is showing and
-        // stay put as the reader moves between them. The notice comes first because it is often
-        // the only one of the two rendering: the failures it reports are exactly the ones that
-        // leave nothing playing, and therefore no bar.
-        PlaybackNotice(
-            message = playback.error.collectAsState().value,
-            onDismiss = playback.onDismissError,
-        )
-        // Its own scope: the playback tick recomposes the bar, not this lambda. See the host.
-        TransportBarHost(
-            playback = playback,
-            // The expanded player's three destinations. `navigate`, not `replace`: leaving the
-            // player for a book is a page change, and Back should return to where you were.
-            onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
-            onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
-            onOpenContributor = { id -> router.navigate(Route(listOf(CONTRIBUTOR_KEY, id))) },
-        )
+            // Both last inside the content region, so they sit under whatever page is showing and
+            // stay put as the reader moves between them. The notice comes first because it is often
+            // the only one of the two rendering: the failures it reports are exactly the ones that
+            // leave nothing playing, and therefore no bar.
+            PlaybackNotice(
+                message = playback.error.collectAsState().value,
+                onDismiss = playback.onDismissError,
+            )
+            // Its own scope: the playback tick recomposes the bar, not this lambda. See the host.
+            TransportBarHost(
+                playback = playback,
+                // The expanded player's three destinations. `navigate`, not `replace`: leaving the
+                // player for a book is a page change, and Back should return to where you were.
+                onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
+                onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
+                onOpenContributor = { id -> router.navigate(Route(listOf(CONTRIBUTOR_KEY, id))) },
+            )
 
-        // Last of all: the palette overlays everything above it, including the transport bar.
-        CommandPaletteHost(router = router, openSearch = openSearch)
+            // Last of all: the palette overlays everything above it, including the transport bar.
+            CommandPaletteHost(router = router, openSearch = openSearch)
+        }
     }
 }
 
@@ -1820,6 +1827,8 @@ private fun BookDetailRoute(
         onDeleteBook = detailSession.onDeleteBook,
         onClearDeleteError = detailSession.onClearDeleteError,
         onReleaseFromInbox = detailSession.onReleaseFromInbox,
+        onRestoreToAllBooks = detailSession.onRestoreToAllBooks,
+        onOpenCollection = { id -> router.navigate(Route(listOf(ADMIN_KEY, COLLECTIONS_KEY, id))) },
         pickers = bookPickersFor(detailSession),
         onEdit = { router.navigate(Route(listOf(BOOK_KEY, bookId, EDIT_KEY))) },
         onEditChapters = { router.navigate(Route(listOf(BOOK_KEY, bookId, CHAPTERS_KEY))) },
@@ -3077,6 +3086,17 @@ private fun inboxBadge(openInboxBadge: OpenInboxBadge): InboxBadgeState {
         heldCount = session.heldCount.collectAsState().value,
         previewBookIds = session.previewBookIds.collectAsState().value,
     )
+}
+
+/**
+ * The restricted-book ids behind every card's lock, open for as long as the app is, for the reason
+ * [inboxBadge] is. Empty for anyone who is not an admin (the repository's own gate).
+ */
+@Composable
+private fun restrictedBooks(openRestrictedBooks: OpenRestrictedBooks): Set<String> {
+    val session = remember { openRestrictedBooks() }
+    DisposableEffect(session) { onDispose { session.close() } }
+    return session.restrictedBookIds.collectAsState().value
 }
 
 /**

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.profile
 
+import com.calypsan.listenup.web.design.RestrictedMarker
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
@@ -204,6 +205,7 @@ private fun RecentBook(
             size = BOOK_SIZE,
             radius = BOOK_RADIUS,
             decorative = true,
+            overlay = { RestrictedMarker(book.bookId) },
         )
         Span(attrs = { classes("prof-book-t") }) { Text(book.title) }
     }

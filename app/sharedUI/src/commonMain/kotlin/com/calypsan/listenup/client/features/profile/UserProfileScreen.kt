@@ -94,6 +94,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.calypsan.listenup.client.design.theme.HeroInk
 import androidx.compose.ui.platform.LocalDensity
+import com.calypsan.listenup.client.design.components.RestrictedBookMarker
 
 /**
  * Screen displaying a user's full profile — a color-blocked hero with the scallop avatar,
@@ -181,7 +182,7 @@ fun UserProfileScreen(
 }
 
 @Composable
-private fun ProfileContent(
+internal fun ProfileContent(
     state: UserProfileUiState.Ready,
     onBack: () -> Unit,
     onEditClick: () -> Unit,
@@ -247,7 +248,7 @@ private fun ProfileContent(
  * columns flow with the width.
  */
 @Composable
-private fun WideProfileContent(
+internal fun WideProfileContent(
     state: UserProfileUiState.Ready,
     onBack: () -> Unit,
     onEditClick: () -> Unit,
@@ -876,6 +877,10 @@ private fun RecentBookCard(
                 contentDescription = book.title,
                 title = book.title,
                 modifier = Modifier.fillMaxSize(),
+            )
+            RestrictedBookMarker(
+                bookId = book.bookId,
+                modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
             )
         }
         Spacer(modifier = Modifier.height(8.dp))

@@ -9,6 +9,7 @@ import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
+import com.calypsan.listenup.client.domain.model.BookVisibility
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.Genre
@@ -17,7 +18,9 @@ import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookAvailability
+import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.BookVisibilityRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.InboxRepository
@@ -77,6 +80,8 @@ class BookDetailViewModel(
     private val serverReachability: ServerReachability,
     private val documentRepository: DocumentRepository,
     private val inboxRepository: InboxRepository,
+    private val bookVisibilityRepository: BookVisibilityRepository,
+    private val bookEditRepository: BookEditRepository,
 ) : ViewModel() {
     val state: StateFlow<BookDetailUiState>
         field = MutableStateFlow<BookDetailUiState>(BookDetailUiState.Loading)
@@ -162,6 +167,9 @@ class BookDetailViewModel(
             isDeletingBook = previous.isDeletingBook,
             deleteError = previous.deleteError,
             isReleasingFromInbox = previous.isReleasingFromInbox,
+            // Survives rebuilds only while the book is still stranded: the echo that re-homes it
+            // into All Books is exactly what ends the "restoring" state.
+            isRestoringToAllBooks = previous.isRestoringToAllBooks && visibility is BookVisibility.Stranded,
         )
     }
 
@@ -280,7 +288,9 @@ class BookDetailViewModel(
                     bookRepository.observeBookDetail(bookId),
                     bookAvailability.observe(BookId(bookId)),
                     inboxRepository.observeHeldBookIds(),
-                ) { detail, availability, heldIds ->
+                    // Null on a member's device; live for an admin (share/membership/hold/roster changes).
+                    bookVisibilityRepository.observeBookVisibility(BookId(bookId)),
+                ) { detail, availability, heldIds, visibility ->
                     if (detail == null) {
                         BookDetailUiState.Error(BookError.NotFound())
                     } else {
@@ -297,6 +307,7 @@ class BookDetailViewModel(
                             showServerWarning = availability.showServerWarning && !held,
                             isWaitingForWifi = availability.isWaitingForWifi,
                             isHeld = held,
+                            visibility = visibility,
                         )
                     }
                 },
@@ -680,6 +691,38 @@ class BookDetailViewModel(
     }
 
     /**
+     * Puts a **stranded** book — in no collection at all, so hidden from every member — back into
+     * All Books ("Show to all members"; spec §7: no confirmation, it restores what was meant to be
+     * public). Admin-only by construction: only an admin's device ever computes a visibility.
+     *
+     * Sends an empty collection set through the book-edit outbox (offline-first). Its local apply
+     * runs the same system-membership reconcile as the server, so the book is re-homed into All Books
+     * in Room at once, even offline. That moves [BookDetailUiState.Ready.visibility] to Public and
+     * ends [BookDetailUiState.Ready.isRestoringToAllBooks]; the server's echo then confirms it. Does
+     * nothing unless the book is stranded, not held, and no restore is already waiting.
+     */
+    fun restoreToAllBooks() {
+        val ready = state.value as? BookDetailUiState.Ready ?: return
+        if (ready.isHeld || ready.visibility !is BookVisibility.Stranded || ready.isRestoringToAllBooks) return
+        val bookId = ready.book.id
+        // Busy BEFORE the launch: a second tap in the same frame must already see it.
+        updateReady { it.copy(isRestoringToAllBooks = true) }
+        viewModelScope.launch {
+            when (val result = bookEditRepository.setBookCollections(bookId, emptyList())) {
+                is AppResult.Success -> {
+                    logger.info { "Queued stranded book ${bookId.value} to return to All Books" }
+                }
+
+                is AppResult.Failure -> {
+                    updateReady { it.copy(isRestoringToAllBooks = false) }
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to queue ${bookId.value} back to All Books: ${result.error.code}" }
+                }
+            }
+        }
+    }
+
+    /**
      * Handle a tap on a supplementary document row.
      *
      * For PDF documents: downloads (if not already cached) then emits
@@ -789,6 +832,21 @@ sealed interface BookDetailUiState {
         val isHeld: Boolean = false,
         /** True while [BookDetailViewModel.releaseFromInbox] is in flight — the Release button goes busy. */
         val isReleasingFromInbox: Boolean = false,
+        /**
+         * Who cannot see this book — an admin's view only; null on a member's device, which cannot
+         * know. Live: a share added or revoked updates it with no refresh. The visibility section
+         * renders only [BookVisibility.Restricted] and [BookVisibility.Stranded]; for a held book
+         * ([isHeld], [BookVisibility.Held]) the inbox's held section already says "Hidden from all
+         * members", so the visibility section stays out of the triage layout.
+         */
+        val visibility: BookVisibility? = null,
+        /**
+         * True from [BookDetailViewModel.restoreToAllBooks] until the book stops being
+         * [BookVisibility.Stranded]. Usually that is at once, because the local write puts the book
+         * in All Books. When the book's library's All Books has not synced, the local write cannot,
+         * so this stays true until the server's echo does. That is the honest thing to show.
+         */
+        val isRestoringToAllBooks: Boolean = false,
         val downloadStatus: BookDownloadStatus = BookDownloadStatus.NotDownloaded(""), // overwritten before emit; "" id never observed
         val isPlaybackAvailable: Boolean = true,
         val canPlay: Boolean = true,

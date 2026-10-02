@@ -30,4 +30,6 @@ data class AdminSessions(
     val organize: OpenOrganize,
     /** The held-for-review count behind the Library nav badge and the Library's inbox strip. */
     val inboxBadge: OpenInboxBadge,
+    /** The restricted-book set behind the lock on every book card. */
+    val restrictedBooks: OpenRestrictedBooks,
 )

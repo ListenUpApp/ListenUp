@@ -129,6 +129,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.calypsan.listenup.client.design.theme.HeroInk
 import androidx.compose.foundation.shape.CircleShape
+import com.calypsan.listenup.client.design.components.RestrictedBookMarker
 
 private const val HERO_BADGE_SIZE_DP = 64
 private const val HERO_BADGE_ICON_RATIO = 0.5f
@@ -267,7 +268,7 @@ fun AdminCollectionDetailScreen(
 }
 
 @Composable
-private fun DetailBody(
+internal fun DetailBody(
     state: AdminCollectionDetailUiState,
     isWide: Boolean,
     innerPadding: PaddingValues,
@@ -676,6 +677,12 @@ private fun BookCoverTile(
             coverHash = book.coverHash,
             contentDescription = book.title,
             modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.small),
+        )
+        // Every book in a normal collection is restricted, so the lock is uniform here — and absent
+        // in All Books' list, which is exactly the point.
+        RestrictedBookMarker(
+            bookId = book.id,
+            modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
         )
         if (isRemoving) {
             Surface(

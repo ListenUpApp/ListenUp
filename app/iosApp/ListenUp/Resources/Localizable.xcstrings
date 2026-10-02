@@ -5961,6 +5961,266 @@
         }
       }
     },
+    "book.visibility_add_to_collection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to a collection"
+          }
+        }
+      }
+    },
+    "book.visibility_add_to_collection_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to a Collection"
+          }
+        }
+      }
+    },
+    "book.visibility_admins_only": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only admins see this"
+          }
+        }
+      }
+    },
+    "book.visibility_admins_only_footer_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only admins see this section."
+          }
+        }
+      }
+    },
+    "book.visibility_every_member": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every member can see it"
+          }
+        }
+      }
+    },
+    "book.visibility_hidden_from": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hidden from %1$@"
+          }
+        }
+      }
+    },
+    "book.visibility_hidden_from_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hidden from all members"
+          }
+        }
+      }
+    },
+    "book.visibility_in_collections_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In 1 collection"
+          }
+        }
+      }
+    },
+    "book.visibility_in_collections_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In %1$d collections"
+          }
+        }
+      }
+    },
+    "book.visibility_names_one_other": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ and 1 other"
+          }
+        }
+      }
+    },
+    "book.visibility_names_others": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ and %2$d others"
+          }
+        }
+      }
+    },
+    "book.visibility_names_two": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ and %2$@"
+          }
+        }
+      }
+    },
+    "book.visibility_reason_everyone_many": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No member is in any of these collections yet, so only admins can see it."
+          }
+        }
+      }
+    },
+    "book.visibility_reason_everyone_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No member is in %1$@ yet, so only admins can see it."
+          }
+        }
+      }
+    },
+    "book.visibility_reason_members_many": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anyone in at least one of these collections can see it."
+          }
+        }
+      }
+    },
+    "book.visibility_reason_members_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only people in %1$@ can see it."
+          }
+        }
+      }
+    },
+    "book.visibility_reason_nobody_many": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every member is in at least one of these collections."
+          }
+        }
+      }
+    },
+    "book.visibility_reason_nobody_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every member is in %1$@."
+          }
+        }
+      }
+    },
+    "book.visibility_reason_stranded": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It isn’t in any collection, so only admins can see it."
+          }
+        }
+      }
+    },
+    "book.visibility_restoring": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Showing to all members…"
+          }
+        }
+      }
+    },
+    "book.visibility_restoring_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Showing to All Members…"
+          }
+        }
+      }
+    },
+    "book.visibility_show_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show all %1$d"
+          }
+        }
+      }
+    },
+    "book.visibility_show_all_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show All %1$d Members"
+          }
+        }
+      }
+    },
+    "book.visibility_show_to_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show to all members"
+          }
+        }
+      }
+    },
+    "book.visibility_show_to_all_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show to All Members"
+          }
+        }
+      }
+    },
+    "book.visibility_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visibility"
+          }
+        }
+      }
+    },
     "browse_facet.books_label": {
       "localizations": {
         "en": {
@@ -13647,6 +13907,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Narrators"
+          }
+        }
+      }
+    },
+    "library.restricted_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In a collection, so only people it is shared with can see it."
           }
         }
       }

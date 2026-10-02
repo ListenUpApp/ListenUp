@@ -122,3 +122,14 @@ internal data class CollectionWithBookCount(
     @Embedded val collection: CollectionEntity,
     val bookCount: Int,
 )
+
+/**
+ * One row of [CollectionDao.observeHoldingCollections]: a live collection the book's live
+ * membership points at, plus whether that book is held for review — computed by the inbox's own
+ * `HELD_BOOK_IDS_SQL` in the same statement, so the hold and the memberships are one snapshot. Every
+ * row of one result carries the same [isBookHeld].
+ */
+internal data class HoldingCollection(
+    @Embedded val collection: CollectionEntity,
+    val isBookHeld: Boolean,
+)

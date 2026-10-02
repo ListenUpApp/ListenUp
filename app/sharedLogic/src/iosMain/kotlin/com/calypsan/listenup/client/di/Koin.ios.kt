@@ -59,6 +59,7 @@ import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
 import com.calypsan.listenup.client.presentation.admin.imports.ImportFlowViewModel
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksViewModel
+import com.calypsan.listenup.client.presentation.visibility.RestrictedBooksViewModel
 import com.calypsan.listenup.client.presentation.auth.ForgotPasswordViewModel
 import com.calypsan.listenup.client.presentation.auth.LoginViewModel
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
@@ -356,6 +357,8 @@ object KoinHelper {
     fun getAdminInboxViewModel(): AdminInboxViewModel = resolve(AdminInboxViewModel::class)
 
     fun getInboxBadgeViewModel(): InboxBadgeViewModel = resolve(InboxBadgeViewModel::class)
+
+    fun getRestrictedBooksViewModel(): RestrictedBooksViewModel = resolve(RestrictedBooksViewModel::class)
 
     fun getAdminCollectionsViewModel(): AdminCollectionsViewModel = resolve(AdminCollectionsViewModel::class)
 

@@ -103,6 +103,8 @@ fun WideBookDetail(
     onSeeAllReaders: (bookId: String) -> Unit = {},
     onFindHardcoverMatch: ((bookId: String) -> Unit)? = null,
     onReleaseFromInboxClick: () -> Unit = {},
+    onRestoreToAllBooksClick: () -> Unit = {},
+    onCollectionClick: ((collectionId: String) -> Unit)? = null,
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var isChaptersExpanded by rememberSaveable { mutableStateOf(false) }
@@ -219,6 +221,9 @@ fun WideBookDetail(
                     onFindMetadataClick = onFindMetadataClick,
                     onEditChaptersClick = onEditChaptersClick,
                     onReleaseFromInboxClick = onReleaseFromInboxClick,
+                    onRestoreToAllBooksClick = onRestoreToAllBooksClick,
+                    onCollectionClick = onCollectionClick,
+                    onAddToCollectionClick = onAddToCollectionClick,
                     chapterPaneMaxHeight = viewportHeight,
                     modifier = screenPadding.fillMaxWidth().padding(top = 24.dp),
                 )
@@ -276,6 +281,9 @@ private fun WideBodyColumns(
     onFindMetadataClick: () -> Unit,
     onEditChaptersClick: () -> Unit,
     onReleaseFromInboxClick: () -> Unit,
+    onRestoreToAllBooksClick: () -> Unit,
+    onCollectionClick: ((collectionId: String) -> Unit)?,
+    onAddToCollectionClick: () -> Unit,
     chapterPaneMaxHeight: Dp,
     modifier: Modifier = Modifier,
 ) {
@@ -307,6 +315,9 @@ private fun WideBodyColumns(
             onFindMetadataClick = onFindMetadataClick,
             onEditChaptersClick = onEditChaptersClick,
             onReleaseFromInboxClick = onReleaseFromInboxClick,
+            onRestoreToAllBooksClick = onRestoreToAllBooksClick,
+            onCollectionClick = onCollectionClick,
+            onAddToCollectionClick = onAddToCollectionClick,
             modifier = Modifier.weight(1f),
         )
 
@@ -328,8 +339,8 @@ private fun WideBodyColumns(
 }
 
 /**
- * Left column of the wide body: the grouped About card (description + Genres + Tags), a
- * [DetailsSection] (publisher / published / language / format + credits), and the connected
+ * Left column of the wide body: the grouped About card (description + Genres + Tags), the
+ * admins-only [BookVisibilitySection], a [DetailsSection] (publisher / published / language / format + credits), and the connected
  * Play + Download action group.
  */
 @Suppress("LongParameterList")
@@ -358,6 +369,9 @@ private fun WideLeftColumn(
     onFindMetadataClick: () -> Unit,
     onEditChaptersClick: () -> Unit,
     onReleaseFromInboxClick: () -> Unit,
+    onRestoreToAllBooksClick: () -> Unit,
+    onCollectionClick: ((collectionId: String) -> Unit)?,
+    onAddToCollectionClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val book = state.book
@@ -408,6 +422,21 @@ private fun WideLeftColumn(
             modifier = Modifier.fillMaxWidth(),
             creditsSlot = null,
         )
+
+        // Who can't see it — straight after About (canvas). Admins only: a member's visibility is
+        // null. Never in the triage layout: the held section above says it.
+        if (!state.isHeld) {
+            state.visibility?.let { visibility ->
+                BookVisibilitySection(
+                    visibility = visibility,
+                    isRestoring = state.isRestoringToAllBooks,
+                    onCollectionClick = onCollectionClick,
+                    onShowToAllMembers = onRestoreToAllBooksClick,
+                    onAddToCollection = onAddToCollectionClick,
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+            }
+        }
 
         // Details — publisher / published / language / format, then contributor credits.
         DetailsSection(

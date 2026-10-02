@@ -9,12 +9,15 @@ struct SearchBookRow: View {
     let row: SearchRow
     let onTap: () -> Void
 
+    @Environment(\.restrictedBooks) private var restrictedBooks
+
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
                 BookCoverImage(bookId: row.id, coverPath: row.coverPath, coverHash: row.coverHash)
                     .frame(width: 52, height: 52)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.s))
+                    .restrictedMarker(bookId: row.id, compact: true, isHeld: row.isHeld)
                 SearchRowText(title: row.name, subtitle: row.subtitle)
                 if row.isHeld {
                     HeldBadge()
@@ -22,6 +25,12 @@ struct SearchBookRow: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(
+            row.bookAccessibilityLabel(
+                byline: row.subtitle,
+                isRestricted: restrictedBooks?.isRestricted(row.id) == true
+            )
+        )
     }
 }
 

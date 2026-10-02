@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.HeldLabel
+import com.calypsan.listenup.client.design.components.RestrictedBookMarker
 import com.calypsan.listenup.client.design.transitions.bookCoverHeroKey
 import com.calypsan.listenup.client.design.components.BookCoverModel
 import com.calypsan.listenup.client.design.components.cookieScallopShape
@@ -271,9 +272,16 @@ fun BookCard(
                 DocumentsBadge(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp))
             }
 
-            // Held for review sits at the top-leading corner (spec §7), clear of every TopEnd badge.
+            // The top-start corner belongs to who-can-see-it, clear of every TopEnd listening badge.
+            // Held (the inbox) and the collection lock never mark the same book — the restricted set
+            // excludes held books — and the else makes that true even for a frame of disagreement.
             if (isHeld) {
                 HeldLabel(modifier = Modifier.align(Alignment.TopStart).padding(8.dp))
+            } else {
+                RestrictedBookMarker(
+                    bookId = cover.bookId,
+                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
+                )
             }
         }
 

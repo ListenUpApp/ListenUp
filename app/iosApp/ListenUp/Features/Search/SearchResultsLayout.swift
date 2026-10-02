@@ -140,6 +140,8 @@ struct SearchResultsPad: View {
 private struct SearchBookCard: View {
     let row: SearchRow
 
+    @Environment(\.restrictedBooks) private var restrictedBooks
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             BookCoverImage(bookId: row.id, coverPath: row.coverPath, coverHash: row.coverHash)
@@ -150,6 +152,7 @@ private struct SearchBookCard: View {
                 .overlay(alignment: .topLeading) {
                     if row.isHeld { HeldBadge(onCover: true).padding(Spacing.xs) }
                 }
+                .restrictedMarker(bookId: row.id, isHeld: row.isHeld)
                 .coverHoverEffect(cornerRadius: Radius.m)
             Text(row.name)
                 .font(.subheadline)
@@ -162,6 +165,10 @@ private struct SearchBookCard: View {
                     .lineLimit(1)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            row.bookAccessibilityLabel(byline: row.author, isRestricted: restrictedBooks?.isRestricted(row.id) == true)
+        )
     }
 }
 

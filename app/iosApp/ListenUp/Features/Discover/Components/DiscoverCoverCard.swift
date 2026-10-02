@@ -11,12 +11,15 @@ struct DiscoverCoverCard: View {
     let width: CGFloat
     var selection: BookSelectionObserver?
 
+    @Environment(\.restrictedBooks) private var restrictedBooks
+
     var body: some View {
         SelectableBookCard(bookId: book.id, selection: selection) {
             VStack(alignment: .leading, spacing: 8) {
                 BookCoverImage(bookId: book.id, coverPath: book.coverPath, coverHash: book.coverHash)
                     .frame(width: width, height: width)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.l))
+                    .restrictedMarker(bookId: book.id, isSelecting: selection?.isSelecting ?? false)
                     .coverHoverEffect(cornerRadius: Radius.l)
                     .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 3)
                     .bookSelectionCircle(bookId: book.id, selection: selection)
@@ -39,6 +42,11 @@ struct DiscoverCoverCard: View {
             .contentShape(Rectangle())
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(book.author.map { "\(book.title), \($0)" } ?? book.title)
+        .accessibilityLabel(
+            RestrictedMarker.label(
+                book.author.map { "\(book.title), \($0)" } ?? book.title,
+                isRestricted: restrictedBooks?.isRestricted(book.id) == true
+            )
+        )
     }
 }

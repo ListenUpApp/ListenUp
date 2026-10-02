@@ -12,6 +12,8 @@ struct SeriesBookRow: View {
     let isPlaying: Bool
     let onPlayTapped: () -> Void
 
+    @Environment(\.restrictedBooks) private var restrictedBooks
+
     var body: some View {
         HStack(spacing: 14) {
             cover
@@ -27,6 +29,11 @@ struct SeriesBookRow: View {
                     .font(.body)
                     .foregroundStyle(.primary)
                     .lineLimit(2)
+                    // The lock is silent on the cover; its reason follows the title instead, so
+                    // VoiceOver reads the book first (HIG, VoiceOver).
+                    .accessibilityLabel(
+                        RestrictedMarker.label(book.title, isRestricted: restrictedBooks?.isRestricted(book.id) == true)
+                    )
                 detail
             }
             Spacer(minLength: 8)
@@ -40,6 +47,8 @@ struct SeriesBookRow: View {
             .accessibilityHidden(true)
             .frame(width: 54, height: 54)
             .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
+            .restrictedMarker(bookId: book.id, compact: true)
+            .accessibilityHidden(true)
             .overlay(alignment: .bottomTrailing) {
                 if isFinished {
                     Image(systemName: "checkmark")

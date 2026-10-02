@@ -42,6 +42,26 @@ internal interface CollectionDao {
     fun observeById(id: String): Flow<CollectionEntity?>
 
     /**
+     * Observe the live collections [bookId] is a live member of — system ones included, so the
+     * visibility classifier can tell Public (All Books) and Restricted apart — each row also saying
+     * whether the book is held ([HELD_BOOK_IDS_SQL], the inbox's own definition).
+     *
+     * One statement, so one write is one coherent emission: a release from the inbox into a
+     * collection tombstones the INBOX row and adds the new one in a single transaction, and the
+     * classifier sees both at once rather than a hold that has lifted over a list that has not yet
+     * changed (which read as Public for a frame). No rows means not held: a held book's INBOX
+     * membership is itself a live membership of a live collection, so it is always among the rows.
+     */
+    @Query(
+        """
+        SELECT c.*, (:bookId IN ($HELD_BOOK_IDS_SQL)) AS isBookHeld FROM collections c
+        JOIN collection_books cb ON cb.collectionId = c.id
+        WHERE cb.bookId = :bookId AND cb.deletedAt IS NULL AND c.deletedAt IS NULL
+    """,
+    )
+    fun observeHoldingCollections(bookId: String): Flow<List<HoldingCollection>>
+
+    /**
      * Observe all non-tombstoned collections with their live book counts, ordered by name.
      *
      * `bookCount` counts live (non-tombstoned) [CollectionBookEntity] rows per collection
@@ -157,6 +177,10 @@ internal interface CollectionBookDao {
         deletedAt: Long,
     )
 
+    /** The live (non-tombstoned) book ids of a collection, one-shot — the books a cascade delete touches. */
+    @Query("SELECT bookId FROM collection_books WHERE collectionId = :collectionId AND deletedAt IS NULL")
+    suspend fun liveBookIdsFor(collectionId: String): List<String>
+
     /** Live (non-tombstoned) book count for a single collection — used by the offline-first rename's optimistic return. */
     @Query("SELECT COUNT(*) FROM collection_books WHERE collectionId = :collectionId AND deletedAt IS NULL")
     suspend fun liveBookCountFor(collectionId: String): Int
@@ -174,24 +198,6 @@ internal interface CollectionBookDao {
     fun observeCollectionIdsForBook(bookId: String): Flow<List<String>>
 
     /**
-     * One-shot live (non-tombstoned) NORMAL collection ids a book currently belongs to — system
-     * memberships (INBOX, ALL_BOOKS) excluded.
-     *
-     * Used by the offline-first `setBookCollections` optimistic write to diff the book's current
-     * membership against the requested set. The server's diff touches normal memberships only and
-     * derives the system ones itself, so the local diff must never see them: tombstoning a held
-     * book's INBOX row would drop it out of the inbox, and no echo would ever restore it. A
-     * membership whose collection row has not synced yet counts as normal.
-     */
-    @Query(
-        "SELECT cb.collectionId FROM collection_books cb " +
-            "LEFT JOIN collections c ON c.id = cb.collectionId " +
-            "WHERE cb.bookId = :bookId AND cb.deletedAt IS NULL AND COALESCE(c.isSystem, 0) = 0 " +
-            "ORDER BY cb.createdAt ASC",
-    )
-    suspend fun liveNormalCollectionIdsForBook(bookId: String): List<String>
-
-    /**
      * Observe the books held for review, oldest hold first — see [HELD_BOOK_IDS_SQL].
      *
      * The single source the inbox page, the Library entry, the navigation badge and the Book Detail
@@ -204,6 +210,23 @@ internal interface CollectionBookDao {
     /** One-shot counterpart to [observeHeldBookIds], for reads that are themselves one-shot (shelf detail). */
     @Query(HELD_BOOK_IDS_SQL)
     suspend fun heldBookIds(): List<String>
+
+    /**
+     * Observe the ids of restricted books: a live membership in a live **normal** collection
+     * (neither system nor inbox), excluding every held book ([HELD_BOOK_IDS_SQL]) — so this set is
+     * exactly the books the visibility classifier calls Restricted, and the lock never meets the
+     * *Held* marker on a card. Drives the admin-only lock on every book card; the repository gates
+     * it to admins.
+     */
+    @Query(
+        """
+        SELECT DISTINCT cb.bookId FROM collection_books cb
+        JOIN collections c ON c.id = cb.collectionId
+        WHERE cb.deletedAt IS NULL AND c.deletedAt IS NULL AND c.isSystem = 0 AND c.isInbox = 0
+          AND cb.bookId NOT IN ($HELD_BOOK_IDS_SQL)
+    """,
+    )
+    fun observeRestrictedBookIds(): Flow<List<String>>
 
     /**
      * Tombstone the INBOX memberships of [bookIds] — the write-through after the server has
@@ -225,6 +248,93 @@ internal interface CollectionBookDao {
     )
     suspend fun tombstoneHeldRows(
         bookIds: List<String>,
+        now: Long,
+    )
+
+    /**
+     * The live collection ids [bookId] is a live **normal** member of — every membership except the
+     * system ones (All Books, Inbox), which the server manages and a client never names. A membership
+     * whose collection row has not synced counts as normal: nothing says it is a system one.
+     *
+     * The diff base of the offline-first `setBookCollections`, mirroring the server's diff, which
+     * also subtracts the system ids before comparing.
+     */
+    @Query(
+        """
+        SELECT cb.collectionId FROM collection_books cb
+        LEFT JOIN collections c ON c.id = cb.collectionId
+        WHERE cb.bookId = :bookId AND cb.deletedAt IS NULL
+          AND COALESCE(c.isSystem, 0) = 0 AND COALESCE(c.isInbox, 0) = 0
+        ORDER BY cb.createdAt ASC
+    """,
+    )
+    suspend fun liveNormalCollectionIdsForBook(bookId: String): List<String>
+
+    /**
+     * Whether [bookId] has a live membership in a live **normal** collection. As in
+     * [liveNormalCollectionIdsForBook], a membership whose collection row has not synced counts as
+     * normal — nothing says it is a system one — so the reconcile errs towards keeping a book out of
+     * All Books, never towards showing it to everyone.
+     *
+     * Unlike [liveNormalCollectionIdsForBook] this also filters `c.deletedAt IS NULL`. The difference
+     * is harmless: deleting a collection tombstones its memberships in the same transaction
+     * ([tombstoneAllForCollection]), so a live membership of a tombstoned collection is never
+     * observable to either read.
+     */
+    @Query(
+        """
+        SELECT EXISTS(
+            SELECT 1 FROM collection_books cb
+            LEFT JOIN collections c ON c.id = cb.collectionId
+            WHERE cb.bookId = :bookId AND cb.deletedAt IS NULL AND c.deletedAt IS NULL
+              AND COALESCE(c.isSystem, 0) = 0 AND COALESCE(c.isInbox, 0) = 0
+        )
+    """,
+    )
+    suspend fun hasLiveNormalMembership(bookId: String): Boolean
+
+    /** Whether [bookId] is held for review, once — [HELD_BOOK_IDS_SQL], the inbox's own definition. */
+    @Query("SELECT :bookId IN ($HELD_BOOK_IDS_SQL)")
+    suspend fun isHeld(bookId: String): Boolean
+
+    /**
+     * The id of the live All Books collection of [bookId]'s own library, or null when the book or
+     * that collection has not synced. All Books is the system collection that is not the inbox.
+     */
+    @Query(
+        """
+        SELECT c.id FROM collections c
+        JOIN books b ON b.libraryId = c.libraryId
+        WHERE b.id = :bookId AND c.isSystem = 1 AND c.isInbox = 0 AND c.deletedAt IS NULL
+        LIMIT 1
+    """,
+    )
+    suspend fun allBooksCollectionIdForBook(bookId: String): String?
+
+    /**
+     * Bring back a tombstoned junction row as live, one revision ahead of the tombstone it replaces —
+     * see `SystemMembershipReconciler` for why one ahead. A live or absent row is left alone.
+     */
+    @Query(
+        "UPDATE collection_books SET deletedAt = NULL, revision = revision + 1 " +
+            "WHERE collectionId = :collectionId AND bookId = :bookId AND deletedAt IS NOT NULL",
+    )
+    suspend fun reviveLocally(
+        collectionId: String,
+        bookId: String,
+    )
+
+    /**
+     * Tombstone [bookId]'s live All Books memberships, keeping each row's revision — see
+     * `SystemMembershipReconciler` for why this one, unlike [reviveLocally], does not move ahead.
+     */
+    @Query(
+        "UPDATE collection_books SET deletedAt = :now " +
+            "WHERE bookId = :bookId AND deletedAt IS NULL AND collectionId IN " +
+            "(SELECT id FROM collections WHERE isSystem = 1 AND isInbox = 0)",
+    )
+    suspend fun tombstoneAllBooksRowsLocally(
+        bookId: String,
         now: Long,
     )
 
@@ -329,6 +439,15 @@ internal interface CollectionShareDao {
         "SELECT * FROM collection_shares WHERE collectionId = :collectionId AND deletedAt IS NULL ORDER BY sharedWithUserId ASC",
     )
     fun observeForCollection(collectionId: String): Flow<List<CollectionShareEntity>>
+
+    /**
+     * Observe every live share. Deliberately not narrowed to one book: a query that joined
+     * `collection_books` would re-run on a membership write separately from the book's membership
+     * read, and their combine could pair the new memberships with the old shares for a frame. The
+     * classifier keeps only shares of the book's live normal collections.
+     */
+    @Query("SELECT * FROM collection_shares WHERE deletedAt IS NULL")
+    fun observeLive(): Flow<List<CollectionShareEntity>>
 
     /** Live (non-tombstoned) share ids — used by the access-change reconcile. */
     @Query("SELECT id FROM collection_shares WHERE deletedAt IS NULL")

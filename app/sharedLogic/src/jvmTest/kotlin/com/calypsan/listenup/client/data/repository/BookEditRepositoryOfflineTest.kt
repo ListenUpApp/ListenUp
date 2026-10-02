@@ -47,6 +47,7 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -290,10 +291,11 @@ class BookEditRepositoryOfflineTest :
             }
         }
 
-        // The server's setBookCollections diffs NORMAL memberships only — system rows (INBOX,
-        // ALL_BOOKS) are server-managed — so the optimistic write must leave them alone too. A
-        // tombstoned INBOX row would drop a held book out of the inbox, and no echo would repair it.
-        test("setBookCollections on a held book keeps its INBOX membership live") {
+        // The diff itself touches NORMAL memberships only; the system ones are re-derived afterwards,
+        // as the server does (`CollectionServiceImpl.reconcileSystemMembership`). Curating a held book
+        // IS releasing it there, so the optimistic write releases it too — keeping the INBOX row live
+        // would show a held badge the echo then takes away.
+        test("setBookCollections curating a held book releases it, as the server does") {
             withHeldBookDb { db ->
                 HeldBookFixture.seedBook(db, "book1")
                 HeldBookFixture.hold(db, "book1")
@@ -302,13 +304,13 @@ class BookEditRepositoryOfflineTest :
 
                 repo.setBookCollections(BookId("book1"), listOf("c1")).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                db.collectionBookDao().heldBookIds() shouldContainExactly listOf("book1")
+                db.collectionBookDao().heldBookIds().shouldBeEmpty()
                 db
                     .collectionBookDao()
                     .findByKey(HeldBookFixture.INBOX, "book1")
                     .shouldNotBeNull()
                     .deletedAt
-                    .shouldBeNull()
+                    .shouldNotBeNull()
                 db
                     .collectionBookDao()
                     .findByKey("c1", "book1")

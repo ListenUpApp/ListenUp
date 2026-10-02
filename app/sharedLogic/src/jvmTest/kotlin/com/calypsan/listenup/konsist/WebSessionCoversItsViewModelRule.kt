@@ -267,6 +267,7 @@ private val EXCUSED =
         "LibraryViewModel.close",
         "LibrarySetupViewModel.close",
         "NotificationBellViewModel.close",
+        "RestrictedBooksViewModel.close",
         // Reached via onResultClicked, which IS onResultSelected(hit.id, hit.type, hit.name).
         "SearchViewModel.onResultSelected",
         "SeeAllSearchViewModel.onResultSelected",

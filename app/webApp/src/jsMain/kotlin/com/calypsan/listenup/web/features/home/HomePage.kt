@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.home
 
+import com.calypsan.listenup.web.design.RestrictedMarker
 import com.calypsan.listenup.web.design.paletteShortcutLabel
 import com.calypsan.listenup.web.design.ProgressLook
 import com.calypsan.listenup.web.design.ProgressBar
@@ -194,6 +195,7 @@ private fun ContinueCard(
                     imageUrl = coverUrl(book.bookId, book.coverHash, width = CONTINUE_COVER_WIDTH),
                     size = CONTINUE_COVER_WIDTH,
                     decorative = true,
+                    overlay = { RestrictedMarker(book.bookId) },
                 )
                 // The time left under the title says it in words; the rail is its picture.
                 ProgressBar(

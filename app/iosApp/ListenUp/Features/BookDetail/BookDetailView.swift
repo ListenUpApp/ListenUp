@@ -202,12 +202,7 @@ struct BookDetailView: View {
 
                 Divider()
 
-                BookDescriptionSection(
-                    description: observer.bookDescription,
-                    genres: observer.genres,
-                    tags: observer.tags,
-                    moods: observer.moods
-                )
+                descriptionAndVisibility(observer)
 
                 Divider()
 
@@ -270,12 +265,7 @@ struct BookDetailView: View {
             .frame(width: railWidth)
 
             VStack(alignment: .leading, spacing: 28) {
-                BookDescriptionSection(
-                    description: observer.bookDescription,
-                    genres: observer.genres,
-                    tags: observer.tags,
-                    moods: observer.moods
-                )
+                descriptionAndVisibility(observer)
 
                 Divider()
 

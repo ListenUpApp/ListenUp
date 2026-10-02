@@ -15,6 +15,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDocument
+import com.calypsan.listenup.client.domain.model.BookVisibility
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
@@ -134,6 +135,10 @@ fun BookDetailPage(
     onClearDeleteError: () -> Unit = {},
     /** Release this held book (the triage layout's primary action; the page confirms first). */
     onReleaseFromInbox: () -> Unit = {},
+    /** Put a stranded book back in All Books ("Show to all members"; no confirmation, spec §7). */
+    onRestoreToAllBooks: () -> Unit = {},
+    /** Open an admin collection from the Visibility panel. */
+    onOpenCollection: (String) -> Unit = {},
 ) {
     val root = remember { PageRoot() }
     Div(attrs = {
@@ -188,28 +193,12 @@ fun BookDetailPage(
 
             is BookDetailUiState.Ready -> {
                 ServerOfflineBanner(state.showServerWarning, onRetryConnection)
-                FocusHeadingOnRelease(state.book.id.value, state.isHeld) { root.element }
+                FocusHeadingWhenBlocksLeave(state, root)
 
                 // A held book is triage-only (spec §8). The panel stands above the tabs so it stays in
                 // view whichever pane is open; Release asks first (§7).
                 if (state.isHeld) {
-                    var confirmingRelease by remember(state.book.id) { mutableStateOf(false) }
-                    HeldPanel(
-                        isReleasing = state.isReleasingFromInbox,
-                        onEdit = onEdit,
-                        onRelease = { confirmingRelease = true },
-                        onMatch = onMatchMetadata,
-                        onEditChapters = onEditChapters,
-                    )
-                    ReleaseToEveryoneDialog(
-                        open = confirmingRelease,
-                        bookCount = 1,
-                        onConfirm = {
-                            confirmingRelease = false
-                            onReleaseFromInbox()
-                        },
-                        onDismiss = { confirmingRelease = false },
-                    )
+                    HeldTriage(state, onEdit, onMatchMetadata, onEditChapters, onReleaseFromInbox)
                 }
 
                 // An unknown `?tab=` shows Overview, so it is Overview the strip and the panel name.
@@ -266,6 +255,9 @@ fun BookDetailPage(
                                 onFindHardcoverMatch = onFindHardcoverMatch,
                                 onRemoveHardcoverMatch = onRemoveHardcoverMatch,
                                 onSetHardcoverSynced = onSetHardcoverSynced,
+                                onRestoreToAllBooks = onRestoreToAllBooks,
+                                onOpenCollection = onOpenCollection,
+                                onAddToCollection = pickers.onShowCollectionPicker,
                             )
                         }
                     }
@@ -490,6 +482,9 @@ private fun OverviewPane(
     onFindHardcoverMatch: () -> Unit,
     onRemoveHardcoverMatch: () -> Unit,
     onSetHardcoverSynced: (Boolean) -> Unit,
+    onRestoreToAllBooks: () -> Unit,
+    onOpenCollection: (String) -> Unit,
+    onAddToCollection: () -> Unit,
 ) {
     Div(attrs = { classes("bd-cols") }) {
         Div(attrs = { classes("bd-main") }) {
@@ -510,6 +505,19 @@ private fun OverviewPane(
             }
         }
         Div(attrs = { classes("bd-side") }) {
+            // First in the side column (canvas). Admins only — a member's visibility is null — and
+            // never for a held book: the held panel above the tabs already says who can't see it.
+            val visibility = state.visibility
+            if (!state.isHeld && visibility != null) {
+                VisibilityPanel(
+                    bookId = state.book.id.value,
+                    visibility = visibility,
+                    isRestoring = state.isRestoringToAllBooks,
+                    onOpenCollection = onOpenCollection,
+                    onRestoreToAllBooks = onRestoreToAllBooks,
+                    onAddToCollection = onAddToCollection,
+                )
+            }
             Panel(title = "Details") {
                 MetaList(details(state))
             }
@@ -807,5 +815,46 @@ private fun ServerOfflineBanner(
     }
 }
 
+/** The held panel and the Release confirmation it opens. */
+@Composable
+private fun HeldTriage(
+    state: BookDetailUiState.Ready,
+    onEdit: () -> Unit,
+    onMatchMetadata: () -> Unit,
+    onEditChapters: () -> Unit,
+    onReleaseFromInbox: () -> Unit,
+) {
+    var confirmingRelease by remember(state.book.id) { mutableStateOf(false) }
+    HeldPanel(
+        isReleasing = state.isReleasingFromInbox,
+        onEdit = onEdit,
+        onRelease = { confirmingRelease = true },
+        onMatch = onMatchMetadata,
+        onEditChapters = onEditChapters,
+    )
+    ReleaseToEveryoneDialog(
+        open = confirmingRelease,
+        bookCount = 1,
+        onConfirm = {
+            confirmingRelease = false
+            onReleaseFromInbox()
+        },
+        onDismiss = { confirmingRelease = false },
+    )
+}
+
 /** The id stem Book Detail's tab strip and its panel share. */
 private const val TABS_ID = "bd"
+
+/**
+ * Release (the held panel) and both stranded fixes succeed by unmounting the control that had focus;
+ * the page's H1 takes it rather than `<body>`.
+ */
+@Composable
+private fun FocusHeadingWhenBlocksLeave(
+    state: BookDetailUiState.Ready,
+    root: PageRoot,
+) {
+    FocusHeadingWhenLeft(state.book.id.value, state.isHeld) { root.element }
+    FocusHeadingWhenLeft(state.book.id.value, state.visibility == BookVisibility.Stranded) { root.element }
+}

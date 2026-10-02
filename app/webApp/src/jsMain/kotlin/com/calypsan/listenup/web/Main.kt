@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web
 
 import com.calypsan.listenup.web.features.admin.graphInboxBadge
+import com.calypsan.listenup.web.features.admin.graphRestrictedBooks
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.WebAppSurface
@@ -232,6 +233,7 @@ fun main() {
                         upload = graphUpload(koin),
                         organize = graphOrganize(koin),
                         inboxBadge = graphInboxBadge(koin),
+                        restrictedBooks = graphRestrictedBooks(koin),
                     ),
                 openShelfDetail = graphShelfDetail(koin),
                 openShelfEdit = graphShelfEdit(koin),

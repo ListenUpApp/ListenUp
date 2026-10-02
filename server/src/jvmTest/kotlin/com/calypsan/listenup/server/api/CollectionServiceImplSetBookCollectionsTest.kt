@@ -326,6 +326,31 @@ class CollectionServiceImplSetBookCollectionsTest :
             }
         }
 
+        test("setBookCollections with an empty set re-homes a stranded book — no membership at all — into ALL_BOOKS") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestBook("book1")
+                runTest {
+                    val (service, _) = makeHarness(db)
+                    val admin = service.actAs("admin", UserRole.ADMIN)
+
+                    // Stranded: the book has never had (or has lost every) junction row — the residue
+                    // of an inbox release that failed between the inbox tombstone and the target write.
+                    // ALL_BOOKS does not exist yet either, so the reconcile must lazily create it.
+                    admin.setBookCollections(BookId("book1"), emptyList()) shouldBe AppResult.Success(Unit)
+
+                    val allBooks = admin.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
+                    require(allBooks is AppResult.Success)
+                    admin.listCollectionBooks(allBooks.data.id).let {
+                        require(it is AppResult.Success)
+                        it.data shouldBe listOf(BookId("book1"))
+                    }
+                }
+            }
+        }
+
         test("setBookCollections emits AccessChanged to members of added AND removed collections") {
             withSqlDatabase {
                 val db = this

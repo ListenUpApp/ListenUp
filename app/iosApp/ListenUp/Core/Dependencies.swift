@@ -173,6 +173,9 @@ final class Dependencies {
     func createInboxBadgeViewModel() -> InboxBadgeViewModel {
         KoinHelper.shared.getInboxBadgeViewModel()
     }
+    func createRestrictedBooksViewModel() -> RestrictedBooksViewModel {
+        KoinHelper.shared.getRestrictedBooksViewModel()
+    }
     func createNotificationsViewModel() -> NotificationsViewModel {
         KoinHelper.shared.getNotificationsViewModel()
     }

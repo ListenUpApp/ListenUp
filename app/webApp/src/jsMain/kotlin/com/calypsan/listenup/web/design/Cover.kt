@@ -50,7 +50,8 @@ import org.w3c.dom.HTMLDivElement
  * [size] `null` is a fluid cover: square, as wide as its container — a grid tile whose column the
  * grid decides. Its fallback title scales with its own width. [srcset] lets the browser pick a rung by
  * pixel density, which it knows and the page does not. [attrs] is for the caller's placement class
- * and hooks (the library tile's hero-flight origin) on the cover's own box.
+ * and hooks (the library tile's hero-flight origin) on the cover's own box. [overlay] draws on top of
+ * the art, inside the box.
  *
  * This is the only cover on web. Library, a contributor's tiles and a series' rows each used to draw
  * their own `<img>` with their own coverless tile — three fallbacks, so the same book with no artwork
@@ -68,6 +69,12 @@ fun Cover(
     eager: Boolean = false,
     srcset: String? = null,
     attrs: (AttrsScope<HTMLDivElement>.() -> Unit)? = null,
+    /**
+     * Drawn inside the cover's own positioned box, above the art — for a marker that must move with
+     * the cover (a card's hover lift) and must never change the box's size (the virtualised grid's
+     * row arithmetic). The collection lock is the one user.
+     */
+    overlay: (@Composable () -> Unit)? = null,
 ) {
     var failed by remember(imageUrl) { mutableStateOf(false) }
     val showImage = imageUrl != null && !failed
@@ -96,6 +103,7 @@ fun Cover(
         } else if (size == null || size >= MIN_SIZE_FOR_FALLBACK_TITLE) {
             FallbackTitle(title, size, radius, decorative)
         }
+        overlay?.invoke()
     }
 }
 

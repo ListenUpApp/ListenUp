@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
+import com.calypsan.listenup.client.test.fake.FakeBookVisibilityRepository
 import com.calypsan.listenup.client.test.fake.FakeInboxRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.Reachability
@@ -117,6 +118,8 @@ class BookDetailViewModelCollectionTest :
                     serverReachability = serverReachability,
                     documentRepository = documentRepository,
                     inboxRepository = inboxRepository,
+                    bookVisibilityRepository = FakeBookVisibilityRepository(),
+                    bookEditRepository = mock(),
                 )
         }
 

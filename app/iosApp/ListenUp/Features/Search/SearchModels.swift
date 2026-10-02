@@ -107,6 +107,15 @@ struct SearchRow: Identifiable, Equatable, Hashable {
         self.isHeld = isHeld
     }
 
+    /// A book hit's VoiceOver label: title and `byline` first, then why a cover badge is there — Held,
+    /// or the lock's reason. The badges sit on the cover, ahead of the title in reading order, so a
+    /// merged label would otherwise lead with them (HIG, VoiceOver: the most important thing first).
+    func bookAccessibilityLabel(byline: String?, isRestricted: Bool) -> String {
+        let base = CoverAccessibility.label(title: name, author: byline) ?? name
+        if isHeld { return "\(base). \(String(localized: "admin.held_a11y"))" }
+        return RestrictedMarker.label(base, isRestricted: isRestricted)
+    }
+
     /// Snapshot a Kotlin `SearchHit` into native values once — reads each bridged property (and the
     /// `formatDuration()`/`bookCount` calls) exactly once; SwiftUI never reads them again.
     init(_ hit: SearchHit) {

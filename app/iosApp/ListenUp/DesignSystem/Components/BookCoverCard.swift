@@ -17,6 +17,8 @@ struct BookCoverCard: View {
     /// Whether this book is currently selected (filled vs. empty circle).
     let isSelected: Bool
 
+    @Environment(\.restrictedBooks) private var restrictedBooks
+
     init(book: BookRow, progress: Float? = nil, isSelecting: Bool = false, isSelected: Bool = false) {
         self.book = book
         self.progress = progress
@@ -31,7 +33,12 @@ struct BookCoverCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(CoverAccessibility.label(title: book.title, author: book.authorNames) ?? book.title)
+        .accessibilityLabel(
+            RestrictedMarker.label(
+                CoverAccessibility.label(title: book.title, author: book.authorNames) ?? book.title,
+                isRestricted: restrictedBooks?.isRestricted(book.id) == true
+            )
+        )
     }
 
     // MARK: - Cover Image
@@ -55,6 +62,7 @@ struct BookCoverCard: View {
                             .accessibilityLabel(String(localized: "library.has_documents_badge"))
                     }
                 }
+                .restrictedMarker(bookId: book.id, isSelecting: isSelecting)
                 // Selection circle — top-leading so it never clashes with the top-trailing
                 // documents badge. Shown only while the grid is in multi-select mode.
                 .overlay(alignment: .topLeading) {

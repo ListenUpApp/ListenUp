@@ -91,6 +91,7 @@ import com.calypsan.listenup.client.design.theme.ContentShapes
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.calypsan.listenup.client.design.theme.HeroInk
+import com.calypsan.listenup.client.design.components.RestrictedBookMarker
 
 /**
  * Series detail — a color-blocked hero with the expressive fanned cover deck, a "Continue"
@@ -180,7 +181,7 @@ fun SeriesDetailScreen(
 // region layouts
 
 @Composable
-private fun NarrowSeriesDetailContent(
+internal fun NarrowSeriesDetailContent(
     state: SeriesDetailUiState.Ready,
     onBackClick: () -> Unit,
     onBookClick: (String) -> Unit,
@@ -228,7 +229,7 @@ private fun NarrowSeriesDetailContent(
 }
 
 @Composable
-private fun WideSeriesDetailContent(
+internal fun WideSeriesDetailContent(
     state: SeriesDetailUiState.Ready,
     onBackClick: () -> Unit,
     onBookClick: (String) -> Unit,
@@ -612,6 +613,11 @@ private fun SeriesBookRow(
                 author = book.authors.firstOrNull()?.name,
                 modifier = Modifier.size(68.dp).clip(MaterialTheme.shapes.small),
             )
+            RestrictedBookMarker(
+                bookId = book.id.value,
+                compact = true,
+                modifier = Modifier.align(Alignment.TopStart).padding(4.dp),
+            )
             if (finished) {
                 Box(
                     modifier =
@@ -774,6 +780,10 @@ private fun SeriesBookCardCover(
             title = book.title,
             author = book.authors.firstOrNull()?.name,
             modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(MaterialTheme.shapes.small),
+        )
+        RestrictedBookMarker(
+            bookId = book.id.value,
+            modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
         )
         if (finished || highlighted) {
             val badgeBg =

@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.CollectionBookDao
+import com.calypsan.listenup.client.data.local.db.PassThroughTransactionRunner
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.core.BookId
@@ -47,6 +48,7 @@ class InboxRepositoryImplTest :
                 channel = RpcChannel.forTest(service),
                 scannerChannel = RpcChannel.forTest(mock<ScannerService>()),
                 collectionBookDao = collectionBookDao,
+                transactionRunner = PassThroughTransactionRunner,
             )
 
         test("releaseBooks forwards the per-book assignment map verbatim") {

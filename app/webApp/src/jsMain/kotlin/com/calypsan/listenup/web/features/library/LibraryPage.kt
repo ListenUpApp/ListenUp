@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.library
 
+import com.calypsan.listenup.web.design.RestrictedMarker
 import com.calypsan.listenup.web.features.admin.InboxBadgeState
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.ProgressLook
@@ -277,7 +278,7 @@ internal fun BookCard(
                 }
             }
         }
-        CardCover(book, flyBack)
+        CardCover(book, flyBack, selecting)
         Div(attrs = { classes("lib-title") }) { Text(book.title) }
         // Rendered even when empty, and likewise the progress rail below: the grid is virtualised,
         // and that only works because every card is exactly the same height. A card that dropped
@@ -326,6 +327,7 @@ private fun SelectionTick(isSelected: Boolean) {
 private fun CardCover(
     book: BookListItem,
     flyBack: (org.jetbrains.compose.web.attributes.AttrsScope<*>) -> Unit,
+    selecting: Boolean,
 ) {
     Cover(
         title = book.title,
@@ -338,6 +340,8 @@ private fun CardCover(
             classes("lib-cover")
             flyBack(this)
         },
+        // Inside the cover, so it lifts with it on hover; clear of the selection tick while selecting.
+        overlay = { RestrictedMarker(book.id.value, shifted = selecting) },
     )
 }
 

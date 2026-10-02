@@ -24,6 +24,8 @@ struct MainTabView: View {
     @State private var libraryObserver: LibraryObserver?
     /// The held-for-review count for the Library badge and the Books entry, one per window.
     @State private var inboxBadge: InboxBadgeObserver?
+    /// The books an admin sees locked on every cover card, one set per window.
+    @State private var restrictedBooks: RestrictedBooksObserver?
     /// Whether the tab bar lists the Library sections (sidebar shown) or collapses them into one
     /// item (sidebar hidden); reported by every tab's stack through `TabBarSectionsProbe`.
     @State private var isTabBarShowingSections = true
@@ -109,6 +111,7 @@ struct MainTabView: View {
             .customizationID("listenup.search")
         }
         .environment(\.bookShareLinks, shareLinks)
+        .environment(\.restrictedBooks, restrictedBooks)
         .task { await shareLinks.load() }
         .tabViewStyle(.sidebarAdaptable)
         .tabViewCustomization($sidebarCustomization)
@@ -156,6 +159,9 @@ struct MainTabView: View {
             }
             if inboxBadge == nil {
                 inboxBadge = InboxBadgeObserver(viewModel: deps.createInboxBadgeViewModel())
+            }
+            if restrictedBooks == nil {
+                restrictedBooks = RestrictedBooksObserver(viewModel: deps.createRestrictedBooksViewModel())
             }
             restoreNavigationOnce()
         }

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.RestrictedMarker
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Breadcrumb
@@ -255,6 +256,7 @@ private fun BookRow(
             size = COVER_SIZE,
             radius = COVER_RADIUS,
             decorative = true,
+            overlay = { RestrictedMarker(book.id, compact = true) },
         )
         Div(attrs = { classes("cdet-book-t") }) {
             Span(attrs = { classes("cdet-book-title") }) { Text(book.title) }

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.discover
 
+import com.calypsan.listenup.web.design.RestrictedMarker
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
@@ -192,6 +193,7 @@ private fun ListenerCard(
             imageUrl = coverUrl(session.bookId, session.coverHash, width = LISTENER_COVER_WIDTH),
             size = LISTENER_COVER_WIDTH,
             decorative = true,
+            overlay = { RestrictedMarker(session.bookId, compact = true) },
         )
         Div(attrs = { classes("disc-listener-text") }) {
             // ⛔ The name, not the card: the card opens the book, and a second click target inside
@@ -298,6 +300,7 @@ private fun BookCard(
             imageUrl = coverUrl(bookId, coverHash, width = CARD_COVER_WIDTH),
             size = CARD_COVER_WIDTH,
             decorative = true,
+            overlay = { RestrictedMarker(bookId) },
         )
         Span(attrs = { classes("disc-card-t") }) { Text(title) }
         authorName?.let { Span(attrs = { classes("disc-card-sub") }) { Text(it) } }
