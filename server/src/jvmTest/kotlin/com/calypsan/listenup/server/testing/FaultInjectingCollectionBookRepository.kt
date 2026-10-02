@@ -10,18 +10,22 @@ import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 
 /**
- * A [CollectionBookRepository] whose [upsert] fails for chosen `(collectionId, bookId)` pairs,
- * delegating every other pair to the real write untouched. Simulates the DB fault #1226 describes
- * — a membership write into a private collection failing mid `releaseBooks` / `setBookCollections`
- * — without a fake transaction seam of its own: a failing pair never reaches the database, so the
- * junction row is genuinely absent afterward, exactly as a real fault would leave it.
+ * A [CollectionBookRepository] that faults membership writes for chosen `(collectionId, bookId)`
+ * pairs, delegating every other pair to the real write untouched. Two fault shapes:
+ *
+ * - [failingPairs]: [upsert] returns `Failure` without reaching the database — the shape #1226
+ *   describes for `setBookCollections`.
+ * - [throwingPairs]: the row write itself THROWS from inside the open transaction, which is how a
+ *   real SQLite fault surfaces — the transaction rolls back and the exception propagates. Every
+ *   write path that reaches [writePayload] sees it, including in-transaction batch writes.
  */
 class FaultInjectingCollectionBookRepository(
     db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
     driver: SqlDriver,
-    private val failingPairs: Set<Pair<String, String>>,
+    private val failingPairs: Set<Pair<String, String>> = emptySet(),
+    private val throwingPairs: Set<Pair<String, String>> = emptySet(),
 ) : CollectionBookRepository(db = db, bus = bus, registry = registry, driver = driver) {
     override suspend fun upsert(
         value: CollectionBookSyncPayload,
@@ -33,4 +37,18 @@ class FaultInjectingCollectionBookRepository(
         } else {
             super.upsert(value, clientOpId, userId)
         }
+
+    override fun writePayload(
+        value: CollectionBookSyncPayload,
+        rev: Long,
+        now: Long,
+        clientOpId: String?,
+        userId: String?,
+        existed: Boolean,
+    ) {
+        if (value.collectionId to value.bookId in throwingPairs) {
+            throw IllegalStateException("injected write fault for ${value.collectionId}:${value.bookId}")
+        }
+        super.writePayload(value, rev, now, clientOpId, userId, existed)
+    }
 }

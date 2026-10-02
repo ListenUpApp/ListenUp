@@ -34,6 +34,7 @@ import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import kotlin.uuid.Uuid
 import kotlin.time.Clock
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -128,50 +129,44 @@ private suspend fun CollectionBookRepository.upsertOrLog(
 }
 
 /**
- * Releases one held book into [targetIds], returning whether it left the inbox [inboxId] — the
- * per-book step of [CollectionServiceImpl.releaseBooks].
- *
- * The targets are written first and the inbox junction is tombstoned only after every one has
- * landed, so a failed write can never leave the book in no collection at all — invisible to members
- * and absent from the inbox, with nothing that re-homes it. On a failure the targets this call newly
- * joined are withdrawn again, so the book stays held exactly as it was: a held book sitting in a
- * members' collection would be visible while the inbox says it is waiting for review. A target the
- * book was already in before the release is left alone.
+ * Releases one held book via [CollectionBookRepository.releaseFromInbox] under its book [lock],
+ * returning whether it left the inbox. The lock keeps a concurrent single-book mutation
+ * (`setBookCollections`, a reconcile) from moving the INBOX row mid-release. A fault has already
+ * rolled the book back whole; it is logged and reported as `false`, never propagated, so the books
+ * released before it in the same call are still announced and reconciled.
  */
-private suspend fun CollectionBookRepository.releaseOneBook(
+private suspend fun CollectionBookRepository.releaseHeldBook(
+    lock: Mutex,
     bookId: String,
     inboxId: String,
     targetIds: List<String>,
     createdAt: Long,
-): Boolean {
-    val alreadyIn = findCollectionIdsForBook(bookId).toSet()
-    val joined = mutableListOf<String>()
-    var allLanded = true
-    for (targetId in targetIds) {
-        val payload =
-            CollectionBookSyncPayload(
-                id = Uuid.random().toString(),
-                collectionId = targetId,
-                bookId = bookId,
-                createdAt = createdAt,
-                revision = 0L,
-                deletedAt = null,
-            )
-        if (upsertOrLog("releaseBooks", payload)) {
-            if (targetId !in alreadyIn) joined += targetId
-        } else {
-            allLanded = false
-        }
+): Boolean =
+    try {
+        lock.withLock { releaseFromInbox(bookId, inboxId, targetIds, createdAt) }
+        true
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        log.error(e) { "releaseBooks: book=$bookId stayed held after a failed release" }
+        false
     }
-    if (!allLanded) {
-        for (targetId in joined) softDelete(collectionId = targetId, bookId = bookId)
-        return false
+
+/** What a release of [requested] books answers: `Success` only when none of them stayed held. */
+private fun releaseOutcome(
+    failedBookIds: List<String>,
+    requested: Int,
+): AppResult<Unit> =
+    if (failedBookIds.isEmpty()) {
+        AppResult.Success(Unit)
+    } else {
+        AppResult.Failure(
+            CollectionError.ReleaseIncomplete(
+                failedBookIds = failedBookIds,
+                debugInfo = "${failedBookIds.size} of $requested books stayed held",
+            ),
+        )
     }
-    // softDelete is idempotent: a Failure(NotFound) means the book was no longer held, which is
-    // exactly the state a release asks for.
-    softDelete(collectionId = inboxId, bookId = bookId)
-    return true
-}
 
 /**
  * Builds the recipient-agnostic [AccessScope] naming the entities an access change touched, or
@@ -866,17 +861,14 @@ internal class CollectionServiceImpl(
      * collection would silently hide it; releasing into `ALL_BOOKS` is how a book becomes
      * public.)
      *
-     * **Each book releases on its own, and a failed one stays held.** Each junction write opens
-     * its own SQLDelight transaction — a suspend repo call cannot nest inside a non-suspend
-     * transaction body — so the release is a sequence of independent commits, not one. The order
-     * makes that safe: a book's target memberships are written FIRST, and its inbox junction is
-     * tombstoned only once every one of them has landed. A book whose target write fails is never
-     * tombstoned, and any target it did join in this call is withdrawn again, so it stays exactly
-     * as held as it was — in the inbox, in no members' collection, retryable — and is reported in
-     * [CollectionError.ReleaseIncomplete] while the other books release normally. A crash between a
-     * book's target write and its inbox tombstone leaves it held and in its target at once, which
-     * reads as still waiting for review and resolves on the next release; it is never stranded in
-     * no collection.
+     * **Each book releases in one transaction, and a failed one stays held.** A book's target
+     * memberships and its INBOX tombstone commit together
+     * ([com.calypsan.listenup.server.sync.CollectionBookRepository.releaseFromInbox]), under that
+     * book's lock. A fault rolls that one book back whole — still in the inbox, in no new collection,
+     * nothing published — and it is reported in [CollectionError.ReleaseIncomplete], while every other
+     * book releases normally and is still announced and reconciled. The release as a whole is a
+     * sequence of per-book commits, not one: a crash part-way leaves the books before it released and
+     * the rest held, never a book in no collection.
      *
      * Admin-only ([CollectionError.Forbidden] otherwise); requires a caller principal.
      */
@@ -927,16 +919,23 @@ internal class CollectionServiceImpl(
         }
 
         // Sequential suspend repo writes — each opens its own SQLDelight transaction, so they
-        // cannot nest inside a non-suspend SQLDelight transaction body. Each book is released on its
-        // own and only once all its target writes have landed — see [CollectionBookRepository.releaseOneBook].
+        // cannot nest inside a non-suspend SQLDelight transaction body. Each book is released in its
+        // own single transaction — see [CollectionBookRepository.releaseFromInbox].
         val releasedBookIds = mutableListOf<String>()
         val releasedTargetIds = mutableSetOf<String>()
         val failedBookIds = mutableListOf<String>()
         for ((bookId, targetCollectionIds) in assignments) {
             // Empty target → release to ALL_BOOKS so the book stays publicly visible.
             val resolvedTargets = targetCollectionIds.ifEmpty { listOfNotNull(allBooksId) }
-            val now = clock.now().toEpochMilliseconds()
-            if (collectionBookRepo.releaseOneBook(bookId, inboxId, resolvedTargets, now)) {
+            val released =
+                collectionBookRepo.releaseHeldBook(
+                    lock = bookLock(bookId),
+                    bookId = bookId,
+                    inboxId = inboxId,
+                    targetIds = resolvedTargets,
+                    createdAt = clock.now().toEpochMilliseconds(),
+                )
+            if (released) {
                 releasedBookIds += bookId
                 releasedTargetIds += resolvedTargets
             } else {
@@ -967,16 +966,7 @@ internal class CollectionServiceImpl(
         }
         for (bookId in failedBookIds) logSkippedReconcile("releaseBooks", bookId)
 
-        return if (failedBookIds.isEmpty()) {
-            AppResult.Success(Unit)
-        } else {
-            AppResult.Failure(
-                CollectionError.ReleaseIncomplete(
-                    failedBookIds = failedBookIds,
-                    debugInfo = "${failedBookIds.size} of ${assignments.size} books stayed held",
-                ),
-            )
-        }
+        return releaseOutcome(failedBookIds, requested = assignments.size)
     }
 
     /**

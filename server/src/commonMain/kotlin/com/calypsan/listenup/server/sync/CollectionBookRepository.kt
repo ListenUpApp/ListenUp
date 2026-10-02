@@ -9,6 +9,8 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import app.cash.sqldelight.db.SqlDriver
 import kotlin.time.Clock
+import kotlin.uuid.Uuid
+import kotlinx.coroutines.currentCoroutineContext
 
 /**
  * Natural-pair identity for `collection_books` junction rows — the server-internal type the
@@ -284,6 +286,60 @@ open class CollectionBookRepository(
             }
             live.size
         }
+
+    /**
+     * Releases one held book out of [inboxId] into [targetIds] as ONE transaction, the per-book step
+     * of [com.calypsan.listenup.server.api.CollectionServiceImpl.releaseBooks].
+     *
+     * Every target membership is written (or revived) and the book's live INBOX row is tombstoned in
+     * the same transaction, so the book either leaves the inbox for all its targets at once or does
+     * not move at all: any write fault throws, rolls the whole book back — no target row, the INBOX row
+     * still live, a membership the book already had untouched — and, since the per-row emits are
+     * registered after-commit, a rolled-back release publishes nothing. The caller decides what a throw
+     * means for the rest of the release.
+     */
+    suspend fun releaseFromInbox(
+        bookId: String,
+        inboxId: String,
+        targetIds: List<String>,
+        createdAt: Long,
+    ) {
+        val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
+        suspendTransaction(db) {
+            for (targetId in targetIds) {
+                upsertInOpenTransaction(
+                    value =
+                        CollectionBookSyncPayload(
+                            id = Uuid.random().toString(),
+                            collectionId = targetId,
+                            bookId = bookId,
+                            createdAt = createdAt,
+                            revision = 0L,
+                            deletedAt = null,
+                        ),
+                    suppressed = suppressed,
+                )
+            }
+            val inboxRowId = db.collectionBooksQueries.selectIdByNaturalPair(inboxId, bookId).executeAsOneOrNull()
+            val stillHeld = inboxId in db.collectionBooksQueries.liveCollectionIdsForBook(bookId).executeAsList()
+            if (inboxRowId != null && stillHeld) {
+                val rev = nextRevision()
+                val now = clock.now().toEpochMilliseconds()
+                db.collectionBooksQueries.softDeleteById(
+                    revision = rev,
+                    updated_at = now,
+                    deleted_at = now,
+                    client_op_id = null,
+                    id = inboxRowId,
+                )
+                if (!suppressed) {
+                    emitAfterCommit(
+                        event = SyncEvent.Deleted(id = inboxRowId, revision = rev, occurredAt = now, clientOpId = null),
+                    )
+                }
+            }
+        }
+    }
 
     /**
      * Bulk soft-deletes all junction rows for [bookId] — the book-removal cascade counterpart to
