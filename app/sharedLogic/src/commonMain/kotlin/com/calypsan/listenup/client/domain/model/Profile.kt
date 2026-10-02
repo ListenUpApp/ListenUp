@@ -1,16 +1,19 @@
 package com.calypsan.listenup.client.domain.model
 
 /**
- * A recently listened book shown on a user's profile.
+ * A book someone recently listened to, shown in their profile's "Recently listened" strip.
  *
- * @property bookId Book's unique identifier
+ * Drawn from the synced activity feed, so it only ever names a book the viewer can open.
+ *
+ * @property bookId Book's unique identifier; covers resolve from it on every platform
  * @property title Book title
- * @property coverPath Local path to cover image (optional)
+ * @property coverHash Content hash of the book's current cover, so a re-covered book busts its
+ *   cached art; null when the book has no cover
  */
 data class ProfileRecentBook(
     val bookId: String,
     val title: String,
-    val coverPath: String?,
+    val coverHash: String?,
 )
 
 /**

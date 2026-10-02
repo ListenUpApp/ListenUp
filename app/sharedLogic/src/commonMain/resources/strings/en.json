@@ -810,6 +810,8 @@
     "new_password": "New",
     "password_description": "Set a new password for your account",
     "recently_finished": "Recently finished",
+    "recently_listened": "Recently listened",
+    "recently_listened_own": "What you've been listening to",
     "remove_photo": "Remove photo",
     "shelf_books_count": "%1$d books",
     "shelves": "Shelves",

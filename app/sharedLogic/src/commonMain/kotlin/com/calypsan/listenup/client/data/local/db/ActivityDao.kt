@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.local.db
 import androidx.room3.Dao
 import androidx.room3.Query
 import androidx.room3.Upsert
+import com.calypsan.listenup.api.dto.activity.ActivityType
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -41,6 +42,38 @@ internal interface ActivityDao {
     """,
     )
     fun observeRecent(limit: Int): Flow<List<ActivityWithProfile>>
+
+    /**
+     * Observe the books [userId] most recently listened to — the profile's "Recently listened" strip.
+     *
+     * Only the three activities that mean "listened" count (started, finished, a listening session);
+     * each book appears once, ranked by its newest such activity, at most [limit]. The INNER JOIN on a
+     * live `books` row drops a deleted book and one this device never mirrored; the activity mirror is
+     * itself access-gated (a revoked share tombstones its activities), so the viewer only ever sees
+     * books they can open. Re-emits when `activities` or `books` change.
+     */
+    @Query(
+        """
+        SELECT a.bookId AS bookId, b.title AS title, b.coverHash AS coverHash,
+               MAX(a.occurredAt) AS lastListenedAt
+        FROM activities a
+        INNER JOIN books b ON b.id = a.bookId AND b.deletedAt IS NULL
+        WHERE a.userId = :userId
+          AND a.deletedAt IS NULL
+          AND a.type IN (
+              '${ActivityType.STARTED_BOOK}',
+              '${ActivityType.FINISHED_BOOK}',
+              '${ActivityType.LISTENING_SESSION}'
+          )
+        GROUP BY a.bookId
+        ORDER BY lastListenedAt DESC, a.bookId
+        LIMIT :limit
+    """,
+    )
+    fun observeRecentlyListened(
+        userId: String,
+        limit: Int,
+    ): Flow<List<RecentlyListenedBook>>
 
     /** Read a single activity row (tombstone-inclusive) — the mirror's insert-if-absent probe. */
     @Query("SELECT * FROM activities WHERE id = :id")
@@ -159,4 +192,15 @@ internal data class ActivityWithProfile(
     val bookTitle: String?,
     val bookCoverPath: String?,
     val bookAuthorName: String?,
+)
+
+/**
+ * One row of [ActivityDao.observeRecentlyListened]: a book, its display fields from the joined
+ * `books` row, and when its owner last listened to it.
+ */
+internal data class RecentlyListenedBook(
+    val bookId: String,
+    val title: String,
+    val coverHash: String?,
+    val lastListenedAt: Long,
 )

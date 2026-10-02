@@ -6,8 +6,10 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.stableAvatarColorHex
 import com.calypsan.listenup.client.data.local.db.PublicProfileDao
 import com.calypsan.listenup.client.data.local.db.PublicProfileEntity
+import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.User
+import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.core.ShelfId
@@ -105,14 +107,28 @@ class UserProfileViewModelTest :
             val userRepository: UserRepository = mock()
             val publicProfileDao: PublicProfileDao = mock()
             val shelfRepository: ShelfRepository = mock()
+            val activityRepository: ActivityRepository = mock()
+
+            /** The strip's source, per user — a hot flow a test can push a newly-synced listen into. */
+            fun recentlyListened(
+                userId: String,
+                vararg books: ProfileRecentBook,
+            ): MutableStateFlow<List<ProfileRecentBook>> =
+                MutableStateFlow(books.toList()).also { flow ->
+                    every { activityRepository.observeRecentlyListened(userId, UserProfileViewModel.RECENT_BOOKS_LIMIT) } returns flow
+                }
 
             fun build(): UserProfileViewModel =
                 UserProfileViewModel(
                     publicProfileDao = publicProfileDao,
                     shelfRepository = shelfRepository,
                     userRepository = userRepository,
+                    activityRepository = activityRepository,
                 )
         }
+
+        val wayOfKings = ProfileRecentBook(bookId = "b1", title = "The Way of Kings", coverHash = "h1")
+        val elantris = ProfileRecentBook(bookId = "b2", title = "Elantris", coverHash = null)
 
         fun TestScope.keepHot(viewModel: UserProfileViewModel) {
             backgroundScope.launch { viewModel.state.collect { } }
@@ -142,6 +158,7 @@ class UserProfileViewModelTest :
                             shelf("s2", ownerId = ownId),
                         ),
                     )
+                fixture.recentlyListened(ownId, wayOfKings, elantris)
 
                 val viewModel = fixture.build()
                 keepHot(viewModel)
@@ -158,7 +175,7 @@ class UserProfileViewModelTest :
                 ready.currentStreak shouldBe 5
                 ready.longestStreak shouldBe 14
                 ready.publicShelves.size shouldBe 2
-                ready.recentBooks shouldBe emptyList()
+                ready.recentBooks shouldBe listOf(wayOfKings, elantris)
             }
         }
 
@@ -184,6 +201,7 @@ class UserProfileViewModelTest :
                             shelf("s2", ownerId = otherId),
                         ),
                     )
+                fixture.recentlyListened(otherId, elantris)
 
                 val viewModel = fixture.build()
                 keepHot(viewModel)
@@ -200,7 +218,58 @@ class UserProfileViewModelTest :
                 ready.currentStreak shouldBe 2
                 ready.longestStreak shouldBe 7
                 ready.publicShelves.size shouldBe 2
-                ready.recentBooks shouldBe emptyList()
+                ready.recentBooks shouldBe listOf(elantris)
+            }
+        }
+
+        test("own profile's strip follows a newly-synced listen without a refresh") {
+            runTest {
+                val ownId = "me"
+                val fixture = Fixture()
+                val ownUser = user(id = ownId)
+                everySuspend { fixture.userRepository.getCurrentUser() } returns ownUser
+                every { fixture.userRepository.observeCurrentUser() } returns MutableStateFlow(ownUser)
+                every { fixture.publicProfileDao.observeById(ownId) } returns MutableStateFlow(publicProfile(id = ownId))
+                every { fixture.shelfRepository.observeMyShelves(ownId) } returns MutableStateFlow(emptyList())
+                val recent = fixture.recentlyListened(ownId, elantris)
+
+                val viewModel = fixture.build()
+                keepHot(viewModel)
+                viewModel.loadProfile(ownId)
+                advanceUntilIdle()
+
+                recent.value = listOf(wayOfKings, elantris)
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<UserProfileUiState.Ready>()
+                    .recentBooks shouldBe listOf(wayOfKings, elantris)
+            }
+        }
+
+        test("other profile's strip follows a newly-synced listen without a refresh") {
+            runTest {
+                val otherId = "other"
+                val fixture = Fixture()
+                everySuspend { fixture.userRepository.getCurrentUser() } returns user(id = "me")
+                every { fixture.publicProfileDao.observeById(otherId) } returns MutableStateFlow(publicProfile(id = otherId))
+                everySuspend { fixture.shelfRepository.getUserShelves(otherId) } returns AppResult.Success(emptyList())
+                val recent = fixture.recentlyListened(otherId)
+
+                val viewModel = fixture.build()
+                keepHot(viewModel)
+                viewModel.loadProfile(otherId)
+                advanceUntilIdle()
+                viewModel.state.value
+                    .shouldBeInstanceOf<UserProfileUiState.Ready>()
+                    .recentBooks shouldBe emptyList()
+
+                recent.value = listOf(elantris)
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<UserProfileUiState.Ready>()
+                    .recentBooks shouldBe listOf(elantris)
             }
         }
 
@@ -213,6 +282,7 @@ class UserProfileViewModelTest :
                 every { fixture.publicProfileDao.observeById(otherId) } returns MutableStateFlow(row)
                 everySuspend { fixture.shelfRepository.getUserShelves(otherId) } returns
                     AppResult.Failure(InternalError(debugInfo = "boom"))
+                fixture.recentlyListened(otherId)
 
                 val viewModel = fixture.build()
                 keepHot(viewModel)

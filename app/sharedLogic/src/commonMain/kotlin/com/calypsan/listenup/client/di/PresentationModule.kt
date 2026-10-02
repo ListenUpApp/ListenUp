@@ -594,6 +594,7 @@ internal val profilePresentationModule =
                 publicProfileDao = get(),
                 shelfRepository = get(),
                 userRepository = get(),
+                activityRepository = get(),
             )
         }
         // EditProfileViewModel for editing own profile

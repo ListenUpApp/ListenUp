@@ -850,7 +850,7 @@ private fun RecentBookCard(
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest),
         ) {
             ListenUpAsyncImage(
-                path = book.coverPath,
+                path = null,
                 contentDescription = book.title,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,

@@ -4,6 +4,7 @@ import com.calypsan.listenup.client.core.stableAvatarColorHex
 import com.calypsan.listenup.client.data.local.db.ActivityDao
 import com.calypsan.listenup.client.data.local.db.ActivityWithProfile
 import com.calypsan.listenup.client.domain.model.Activity
+import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -24,6 +25,14 @@ internal class ActivityRepositoryImpl(
 ) : ActivityRepository {
     override fun observeRecent(limit: Int): Flow<List<Activity>> =
         dao.observeRecent(limit).map { rows -> rows.map { it.toDomain() } }
+
+    override fun observeRecentlyListened(
+        userId: String,
+        limit: Int,
+    ): Flow<List<ProfileRecentBook>> =
+        dao.observeRecentlyListened(userId, limit).map { rows ->
+            rows.map { ProfileRecentBook(bookId = it.bookId, title = it.title, coverHash = it.coverHash) }
+        }
 }
 
 /**

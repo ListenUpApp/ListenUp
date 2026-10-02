@@ -16171,6 +16171,26 @@
         }
       }
     },
+    "profile.recently_listened": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recently listened"
+          }
+        }
+      }
+    },
+    "profile.recently_listened_own": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What you've been listening to"
+          }
+        }
+      }
+    },
     "profile.remove_photo": {
       "localizations": {
         "en": {
