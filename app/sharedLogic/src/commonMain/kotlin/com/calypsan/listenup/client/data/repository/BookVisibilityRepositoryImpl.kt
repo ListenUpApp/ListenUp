@@ -25,6 +25,9 @@ import kotlinx.coroutines.flow.map
  * The book's memberships and its hold are one statement ([CollectionDao.observeHoldingCollections]),
  * and the other two flows read tables a membership write never touches — so a release from the inbox
  * into a collection is one emission, straight from Held to Restricted, never a frame of Public.
+ * That guarantee covers membership and hold writes only: shares are a separate flow, so a single
+ * transaction that writes both a membership and a share can still pair the new memberships with
+ * the old shares for one frame, until the share flow emits.
  *
  * @property collectionDao A book's live collections, with its hold, in one read.
  * @property collectionBookDao The restricted-id set.
