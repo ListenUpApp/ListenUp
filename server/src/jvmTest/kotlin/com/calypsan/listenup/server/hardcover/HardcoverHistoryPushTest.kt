@@ -158,7 +158,48 @@ class HardcoverHistoryPushTest :
             }
         }
 
-        test("a Hardcover that opens a read when a book becomes Read gets that read dated — never a second one") {
+        // The live run of 2026-10-01 (DCC 4): Hardcover finishes an open read itself, on today, when a book becomes
+        // Read, so a read left open until after the status change came back finished — and a second read was added.
+        test("live: a book not on the shelf ends as Read with exactly one read, the history's — none dated today") {
+            historyTest {
+                queueHistory("r1", STARTED, FINISHED)
+
+                runHead() shouldBe PushOutcome.Done
+
+                val shelf = shelf()!!
+                shelf.statusId shouldBe HardcoverStatus.READ
+                dates() shouldBe listOf("2026-04-22" to "2026-05-02")
+                links.isPushedRead(USER, shelf.reads.single().id) shouldBe true
+                outcomeOf("r1") shouldBe "SENT"
+            }
+        }
+
+        test("live: Currently Reading with an open read — that read is finished with the history's dates, and it is the only one") {
+            historyTest {
+                val open = hardcover.seedShelf(HC_BOOK, HardcoverStatus.READING, "2026-05-10" to null).reads.single()
+                queueHistory("r1", STARTED, FINISHED)
+
+                runHead() shouldBe PushOutcome.Done
+
+                shelf()!!.statusId shouldBe HardcoverStatus.READ
+                shelf()!!.reads.single().id shouldBe open.id
+                dates() shouldBe listOf("2026-04-22" to "2026-05-02")
+            }
+        }
+
+        test("live: Want to Read with no read ends as Read with exactly one read, the history's") {
+            historyTest {
+                hardcover.seedShelf(HC_BOOK, HardcoverStatus.WANT_TO_READ)
+                queueHistory("r1", STARTED, FINISHED)
+
+                runHead() shouldBe PushOutcome.Done
+
+                shelf()!!.statusId shouldBe HardcoverStatus.READ
+                dates() shouldBe listOf("2026-04-22" to "2026-05-02")
+            }
+        }
+
+        test("a Hardcover that opens and finishes a read of its own when a book becomes Read: that read is removed, one remains") {
             historyTest(opensReadOnStatusChange = true) {
                 hardcover.seedShelf(HC_BOOK, HardcoverStatus.WANT_TO_READ)
                 queueHistory("r1", STARTED, FINISHED)
@@ -167,7 +208,18 @@ class HardcoverHistoryPushTest :
 
                 shelf()!!.statusId shouldBe HardcoverStatus.READ
                 dates() shouldBe listOf("2026-04-22" to "2026-05-02")
-                hardcover.operations.count { it == "insert_user_book_read" } shouldBe 0
+                outcomeOf("r1") shouldBe "SENT"
+            }
+        }
+
+        test("a Hardcover that opens a read on a status change, for a book not on the shelf: one read, the history's") {
+            historyTest(opensReadOnStatusChange = true) {
+                queueHistory("r1", STARTED, FINISHED)
+
+                runHead() shouldBe PushOutcome.Done
+
+                shelf()!!.statusId shouldBe HardcoverStatus.READ
+                dates() shouldBe listOf("2026-04-22" to "2026-05-02")
             }
         }
 
@@ -261,6 +313,20 @@ class HardcoverHistoryPushTest :
 
         test("a retry after the answer to dating the read was lost adds nothing: the finished read is recognised as ListenUp's") {
             historyTest {
+                hardcover.loseNextReplyTo("update_user_book_read")
+                queueHistory("r1", STARTED, FINISHED)
+
+                runHead().shouldBeInstanceOf<PushOutcome.Failed>()
+                runHead() shouldBe PushOutcome.Done
+
+                dates() shouldBe listOf("2026-04-22" to "2026-05-02")
+                shelf()!!.statusId shouldBe HardcoverStatus.READ
+                outcomeOf("r1") shouldBe "SENT"
+            }
+        }
+
+        test("a retry after the answer to dating the read was lost, under a Hardcover that opens a read on Read: still one read") {
+            historyTest(opensReadOnStatusChange = true) {
                 hardcover.loseNextReplyTo("update_user_book_read")
                 queueHistory("r1", STARTED, FINISHED)
 

@@ -22,9 +22,11 @@ private val SENDABLE_STATUSES = setOf(HardcoverStatus.WANT_TO_READ, HardcoverSta
  * Hardcover as Read with its own dates — filling in what Hardcover holds, never duplicating it.
  *
  * - Not on the shelf: shelved as Currently Reading (Hardcover opens a read for that), then handled as below.
- * - Currently Reading or Want to Read: set to Read, read back, and the open read — the one there before, or
- *   one Hardcover opened for the change — is finished and redated when Hardcover's start is later or empty;
- *   with none open, one is added whole.
+ * - Currently Reading or Want to Read: the open read — the one there before, or the one Hardcover opened
+ *   for shelving — is finished and redated when Hardcover's start is later or empty; with none open, one is
+ *   added whole. Only then is the book set to Read, because Hardcover finishes any read still open on that
+ *   change itself, dated today (seen live, 2026-10-01); a read Hardcover makes of its own for the change is
+ *   removed.
  * - Read: skipped when Hardcover holds as many reads as ListenUp has of the book up to and including this
  *   one — not counting reads ListenUp pushed live, and counting a Read entry with no read at all as one;
  *   otherwise one read is added.
@@ -63,7 +65,7 @@ internal class HardcoverHistoryPush(
 
                 hardcoverReads(row, shelf) >=
                     sql.ownReadsThrough(row.userId, row.bookId, payload.finishedAt, payload.readId) -> {
-                    alreadyThere(row, shelf, dates.finished, token)
+                    alreadyThere(row, hcBookId, shelf, dates.finished, token)
                 }
 
                 else -> {
@@ -104,23 +106,24 @@ internal class HardcoverHistoryPush(
      */
     private suspend fun alreadyThere(
         row: HardcoverOutboxRow,
+        hcBookId: Long,
         shelf: HardcoverUserBook,
         finishedOn: LocalDate,
         token: String,
     ): HardcoverCall<HardcoverHistoryOutcome> {
         val ours =
-            shelf.reads.any { it.finishedAt == finishedOn.toString() && links.isPushedRead(row.userId, it.id) }
-        if (!ours) return HardcoverCall.Ok(HardcoverHistoryOutcome.ALREADY_THERE)
-        if (shelf.statusId != HardcoverStatus.READ) {
-            paced { userBooks.setStatus(token, shelf.id, HardcoverStatus.READ) }.valueOr { return it }
-        }
+            shelf.reads.firstOrNull { it.finishedAt == finishedOn.toString() && links.isPushedRead(row.userId, it.id) }
+                ?: return HardcoverCall.Ok(HardcoverHistoryOutcome.ALREADY_THERE)
+        if (shelf.statusId != HardcoverStatus.READ) markRead(token, hcBookId, shelf, ours.id).valueOr { return it }
         return HardcoverCall.Ok(HardcoverHistoryOutcome.SENT)
     }
 
     /**
-     * Makes the book Read first, then reads it back: Hardcover may open a read of its own on a status change,
-     * and one it opened is adopted, never doubled. The open read is finished with this read's dates; with
-     * none open, the read is added whole.
+     * Writes the read first, then makes the book Read. Hardcover finishes any unfinished read by itself, on
+     * today, when a book becomes Read (seen live, 2026-10-01), so a read still open at the status change would
+     * come back finished on the wrong day. The open read — the one there before, or the one Hardcover opened
+     * for shelving — is finished with this read's dates; with none open, the read is added whole. Only then
+     * does the status change, and any read Hardcover made of its own for it is removed: one read remains.
      */
     private suspend fun addRead(
         row: HardcoverOutboxRow,
@@ -130,31 +133,56 @@ internal class HardcoverHistoryPush(
         dates: ReadDates,
         token: String,
     ): HardcoverCall<HardcoverHistoryOutcome> {
-        val current =
-            if (shelf.statusId == HardcoverStatus.READ) {
-                shelf
+        val open = shelf.openRead
+        val ours =
+            if (open != null) {
+                links.recordPushedRead(row.userId, open.id, row.bookId, historic = true)
+                val finishedRead =
+                    open.copy(
+                        startedAt = startFor(open.startedAt, dates),
+                        finishedAt = dates.finished.toString(),
+                        editionId = open.editionId ?: link.hcEditionId,
+                    )
+                paced { userBooks.updateRead(token, finishedRead) }.valueOr { return it }
+                open.id
             } else {
-                paced { userBooks.setStatus(token, shelf.id, HardcoverStatus.READ) }.valueOr { return it }
-                readBack(token, hcBookId).valueOr { return it }
+                val readId =
+                    paced {
+                        userBooks.openRead(
+                            token,
+                            shelf.id,
+                            dates.started,
+                            link.hcEditionId,
+                            finishedAt = dates.finished,
+                        )
+                    }.valueOr { return it }
+                links.recordPushedRead(row.userId, readId, row.bookId, historic = true)
+                readId
             }
-        val open = current.openRead
-        if (open != null) {
-            links.recordPushedRead(row.userId, open.id, row.bookId, historic = true)
-            val finishedRead =
-                open.copy(
-                    startedAt = startFor(open.startedAt, dates),
-                    finishedAt = dates.finished.toString(),
-                    editionId = open.editionId ?: link.hcEditionId,
-                )
-            paced { userBooks.updateRead(token, finishedRead) }.valueOr { return it }
-        } else {
-            val readId =
-                paced {
-                    userBooks.openRead(token, current.id, dates.started, link.hcEditionId, finishedAt = dates.finished)
-                }.valueOr { return it }
-            links.recordPushedRead(row.userId, readId, row.bookId, historic = true)
+        if (shelf.statusId != HardcoverStatus.READ) {
+            markRead(token, hcBookId, shelf, ours).valueOr { return it }
         }
         return HardcoverCall.Ok(HardcoverHistoryOutcome.SENT)
+    }
+
+    /**
+     * Makes [shelf] Read, then reads it back and removes every read Hardcover made of its own for the change —
+     * one that was neither on [shelf] before nor [ours], ListenUp's read — so this send adds one read alone.
+     */
+    private suspend fun markRead(
+        token: String,
+        hcBookId: Long,
+        shelf: HardcoverUserBook,
+        ours: Long,
+    ): HardcoverCall<Unit> {
+        val before = shelf.reads.mapTo(mutableSetOf(ours)) { it.id }
+        paced { userBooks.setStatus(token, shelf.id, HardcoverStatus.READ) }.valueOr { return it }
+        readBack(token, hcBookId)
+            .valueOr { return it }
+            .reads
+            .filter { it.id !in before }
+            .forEach { stray -> paced { userBooks.deleteRead(token, stray.id) }.valueOr { return it } }
+        return HardcoverCall.Ok(Unit)
     }
 
     private suspend fun readBack(

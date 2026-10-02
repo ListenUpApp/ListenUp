@@ -349,6 +349,19 @@ class HardcoverPushExecutorTest :
             }
         }
 
+        test("Only when I finish: Hardcover finishing an open read itself on Read finds nothing open — the read is dated first, one read") {
+            executorTest {
+                outbox.enqueueFinish(USER, BOOK, listenThrough = T0, finishedAt = T0 + 3 * DAY)
+                runHead() shouldBe PushOutcome.Done
+
+                hardcover.operations.last { it == "update_user_book_read" || it == "update_user_book" } shouldBe "update_user_book"
+                val read = shelf()!!.reads.single()
+                read.startedAt shouldBe "2026-05-22"
+                read.finishedAt shouldBe "2026-05-25"
+                shelf()!!.statusId shouldBe HardcoverStatus.READ
+            }
+        }
+
         test("a FINISH from before listen-throughs knows no start, so the read keeps the date Hardcover gave it") {
             executorTest(FakeHardcoverLibrary.ReadUpdates.REPLACE) {
                 outbox.enqueueFinish(USER, BOOK, listenThrough = LEGACY_LISTEN_THROUGH, finishedAt = T0 + 3 * DAY)

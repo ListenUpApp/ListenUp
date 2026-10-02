@@ -126,6 +126,33 @@ class HardcoverUserBooksTest :
             }
         }
 
+        test("deleting a read removes that read alone, and a read already gone is Failed") {
+            runTest {
+                val hardcover = FakeHardcoverLibrary()
+                val shelf = hardcover.seedShelf(HC_BOOK, HardcoverStatus.READ, "2026-04-22" to "2026-05-02", FAKE_TODAY to null)
+                val (kept, stray) = shelf.reads.map { it.id }
+                val userBooks = HardcoverUserBooks(hardcover.client())
+
+                userBooks.deleteRead("hc_at_1", stray) shouldBe HardcoverCall.Ok(Unit)
+                hardcover.shelfFor(HC_BOOK)!!.reads.map { it.id } shouldBe listOf(kept)
+                val sent = hardcover.requests.single { it.operation == "delete_user_book_read" }.variables
+                sent.getValue("id").jsonPrimitive.content shouldBe stray.toString()
+
+                userBooks.deleteRead("hc_at_1", stray) shouldBe HardcoverCall.Failed("delete_user_book_read: no result")
+            }
+        }
+
+        test("a book becoming Read on Hardcover finishes its open read itself, dated today, and leaves a finished one alone") {
+            runTest {
+                val hardcover = FakeHardcoverLibrary()
+                val shelf =
+                    hardcover.seedShelf(HC_BOOK, HardcoverStatus.READING, "2026-01-01" to "2026-02-01", "2026-05-10" to null)
+                HardcoverUserBooks(hardcover.client()).setStatus("hc_at_1", shelf.id, HardcoverStatus.READ)
+                hardcover.shelfFor(HC_BOOK)!!.reads.map { it.startedAt to it.finishedAt } shouldBe
+                    listOf("2026-01-01" to "2026-02-01", "2026-05-10" to FAKE_TODAY)
+            }
+        }
+
         test("a read opened without a start date sends none") {
             runTest {
                 val hardcover = FakeHardcoverLibrary()

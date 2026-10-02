@@ -240,6 +240,21 @@ class HardcoverUserBooks(
             },
         ).map { }
 
+    /**
+     * Removes read [readId] from the user's shelf: how ListenUp takes back a read Hardcover made of its own,
+     * dated today, for a status change ListenUp sent (`delete_user_book_read`, seen working live 2026-10-01).
+     */
+    suspend fun deleteRead(
+        accessToken: String,
+        readId: Long,
+    ): HardcoverCall<Unit> =
+        mutate(
+            accessToken,
+            DELETE_READ,
+            "delete_user_book_read",
+            buildJsonObject { put("id", readId) },
+        ).map { }
+
     /** Runs one of Hardcover's `{ id error }` mutations; an `error`, or no id, is [HardcoverCall.Failed]. */
     private suspend fun mutate(
         accessToken: String,
@@ -290,6 +305,7 @@ class HardcoverUserBooks(
         const val INSERT_READ =
             "mutation(\$userBookId:Int!,\$read:DatesReadInput!){ " +
                 "insert_user_book_read(user_book_id:\$userBookId, user_book_read:\$read){ id error } }"
+        const val DELETE_READ = "mutation(\$id:Int!){ delete_user_book_read(id:\$id){ id } }"
         const val UPDATE_READ =
             "mutation(\$id:Int!,\$read:DatesReadInput!){ update_user_book_read(id:\$id, object:\$read){ id error } }"
     }
