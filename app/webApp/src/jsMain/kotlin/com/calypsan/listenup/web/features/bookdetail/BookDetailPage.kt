@@ -116,12 +116,13 @@ fun BookDetailPage(
     onOpenProfile: (String) -> Unit = {},
     onSeeAllReaders: () -> Unit = {},
     /**
-     * The Hardcover panel's state and its three ways out. Defaulted to Hidden, which draws no panel
+     * The Hardcover panel's state, its two ways out, and Sync with Hardcover (#1541). Defaulted to Hidden, which draws no panel
      * at all, so the no-op actions are unreachable until a caller supplies a state.
      */
     hardcover: BookHardcoverUiState = BookHardcoverUiState.Hidden,
     onFindHardcoverMatch: () -> Unit = {},
     onRemoveHardcoverMatch: () -> Unit = {},
+    onSetHardcoverSynced: (Boolean) -> Unit = {},
     selection: Set<Int> = emptySet(),
     onSelectionChange: (Set<Int>) -> Unit = {},
     bookId: String? = null,
@@ -264,6 +265,7 @@ fun BookDetailPage(
                                 hardcover = hardcover,
                                 onFindHardcoverMatch = onFindHardcoverMatch,
                                 onRemoveHardcoverMatch = onRemoveHardcoverMatch,
+                                onSetHardcoverSynced = onSetHardcoverSynced,
                             )
                         }
                     }
@@ -487,6 +489,7 @@ private fun OverviewPane(
     hardcover: BookHardcoverUiState,
     onFindHardcoverMatch: () -> Unit,
     onRemoveHardcoverMatch: () -> Unit,
+    onSetHardcoverSynced: (Boolean) -> Unit,
 ) {
     Div(attrs = { classes("bd-cols") }) {
         Div(attrs = { classes("bd-main") }) {
@@ -513,11 +516,12 @@ private fun OverviewPane(
             // Hidden for a held book (spec §9: hidden, not refused).
             if (!state.isHeld) {
                 // Between Details and Readers, as the sync canvas draws it, and silent unless connected
-                // and matched or needing a match — see [BookHardcoverPanel].
+                // — see [BookHardcoverPanel].
                 BookHardcoverPanel(
                     state = hardcover,
                     onFindMatch = onFindHardcoverMatch,
                     onRemoveMatch = onRemoveHardcoverMatch,
+                    onSetSynced = onSetHardcoverSynced,
                 )
                 // Directly above Readers, as on Android and iOS; silent while loading — see [RatingsPanel].
                 RatingsPanel(

@@ -34,6 +34,7 @@ import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import kotlinx.browser.document
 import org.jetbrains.compose.web.dom.B
+import org.jetbrains.compose.web.dom.Button as DomButton
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.H3
@@ -70,6 +71,7 @@ import org.jetbrains.compose.web.dom.Ul
  * @param onSendHistory Sends the books finished before connecting.
  * @param onDismissHistory "Not now" on the earlier-books offer, or dismissing what the send came to.
  * @param onFindMatch Opens Find on Hardcover for one book of the Needs a match list.
+ * @param onOpenKeptOff Opens the books kept off Hardcover (#1541).
  * @param nowMs What "Last synced …" measures against — read once per composition by the caller.
  * @param copyText Puts text on the clipboard and reports whether it got there. Specs replace it,
  *   because a headless browser's clipboard answers depend on permissions this page does not own.
@@ -84,6 +86,7 @@ fun HardcoverPage(
     onSendHistory: () -> Unit,
     onDismissHistory: () -> Unit,
     onFindMatch: (bookId: String) -> Unit,
+    onOpenKeptOff: () -> Unit,
     onOpenSettings: () -> Unit,
     nowMs: Long,
     copyText: (String, (Boolean) -> Unit) -> Unit = ::copyToClipboard,
@@ -113,7 +116,17 @@ fun HardcoverPage(
             }
 
             is HardcoverSettingsUiState.Connected -> {
-                Connected(state, nowMs, onDisconnect, onSyncNow, onSetShareMode, onSendHistory, onDismissHistory, onFindMatch)
+                Connected(
+                    state,
+                    nowMs,
+                    onDisconnect,
+                    onSyncNow,
+                    onSetShareMode,
+                    onSendHistory,
+                    onDismissHistory,
+                    onFindMatch,
+                    onOpenKeptOff,
+                )
             }
 
             is HardcoverSettingsUiState.Broken -> {
@@ -328,6 +341,7 @@ private fun Connected(
     onSendHistory: () -> Unit,
     onDismissHistory: () -> Unit,
     onFindMatch: (bookId: String) -> Unit,
+    onOpenKeptOff: () -> Unit,
 ) {
     var confirming by remember { mutableStateOf(false) }
 
@@ -359,6 +373,7 @@ private fun Connected(
                 SyncBlock(lastSyncedAt = state.lastSyncedAt, sync = state.sync, nowMs = nowMs, onSyncNow = onSyncNow)
                 val history = state.history
                 if (history is HardcoverHistory.Available) EarlierBooksRow(books = history.bookCount, onSend = onSendHistory)
+                if (state.keptOffBookCount > 0) KeptOffRow(books = state.keptOffBookCount, onOpen = onOpenKeptOff)
             }
             Div(attrs = {
                 id(NEEDS_MATCH_ID)
@@ -477,6 +492,36 @@ private fun SyncBlock(
             Icon(WebIcon.Refresh, size = BUTTON_ICON)
             Text("Sync now")
         }
+    }
+}
+
+/**
+ * "Kept off Hardcover · N books" (#1541): the quiet row under the sync line while any book is kept
+ * off. A whole-row button, chevron and all, because it opens another page; en.json's
+ * `hardcover.kept_off_title` and `kept_off_row_detail*`.
+ */
+@Composable
+private fun KeptOffRow(
+    books: Int,
+    onOpen: () -> Unit,
+) {
+    DomButton(attrs = {
+        classes("hc-sync", "hc-earlier", "hc-kept-row")
+        attr("type", "button")
+        onClick { onOpen() }
+    }) {
+        Span(attrs = {
+            classes("hc-sync-i")
+            attr(ARIA_HIDDEN, "true")
+        }) { Icon(WebIcon.LinkOff, size = SYNC_ICON) }
+        Span(attrs = { classes("hc-earlier-t") }) {
+            Text("Kept off Hardcover")
+            Span(attrs = { classes("hc-earlier-d") }) { Text(if (books == 1) "1 book" else "$books books") }
+        }
+        Span(attrs = {
+            classes("hc-kept-chev")
+            attr(ARIA_HIDDEN, "true")
+        }) { Icon(WebIcon.ChevronRight, size = ITEM_ICON) }
     }
 }
 

@@ -65,6 +65,7 @@ class HardcoverOnAPhoneTest :
                                 onSendHistory = {},
                                 onDismissHistory = {},
                                 onFindMatch = {},
+                                onOpenKeptOff = {},
                                 onOpenSettings = {},
                                 nowMs = 1L,
                             )
@@ -100,6 +101,7 @@ class HardcoverOnAPhoneTest :
                                 onSendHistory = {},
                                 onDismissHistory = {},
                                 onFindMatch = {},
+                                onOpenKeptOff = {},
                                 onOpenSettings = {},
                                 nowMs = 1L,
                             )
@@ -133,6 +135,7 @@ class HardcoverOnAPhoneTest :
                                 onSendHistory = {},
                                 onDismissHistory = {},
                                 onFindMatch = {},
+                                onOpenKeptOff = {},
                                 onOpenSettings = {},
                                 nowMs = 1L,
                             )

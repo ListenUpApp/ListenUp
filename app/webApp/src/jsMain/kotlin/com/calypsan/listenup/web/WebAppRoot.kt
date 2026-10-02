@@ -19,6 +19,8 @@ import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverMatchEvent
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverSyncStatus
+import com.calypsan.listenup.client.presentation.hardcover.KeptOffBooksEvent
+import com.calypsan.listenup.client.presentation.hardcover.KeptOffBooksUiState
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsEvent
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsUiState
 import com.calypsan.listenup.web.design.ShowActionToast
@@ -126,6 +128,8 @@ import com.calypsan.listenup.web.features.devices.DevicesPage
 import com.calypsan.listenup.web.features.devices.OpenDevices
 import com.calypsan.listenup.web.features.hardcover.HardcoverMatchPage
 import com.calypsan.listenup.web.features.hardcover.HardcoverPage
+import com.calypsan.listenup.web.features.hardcover.HardcoverSession
+import com.calypsan.listenup.web.features.hardcover.KeptOffBooksPage
 import com.calypsan.listenup.web.features.hardcover.OpenBookHardcover
 import com.calypsan.listenup.web.features.hardcover.OpenHardcover
 import com.calypsan.listenup.web.features.hardcover.OpenHardcoverMatch
@@ -452,6 +456,11 @@ private fun List<String>.isSection(vararg sections: String): Boolean = size == 1
 /** `/{key}/{id}`, or `/{key}/{id}/{sub}` for one of [subs]. */
 private fun List<String>.isIdWith(vararg subs: String): Boolean = size == 2 || (size == 3 && this[2] in subs)
 
+/** `/settings`, `/settings/{section}`, and `/settings/hardcover/kept-off` — the one page under a section. */
+private fun List<String>.isSettingsShape(): Boolean =
+    isSection(DEVICES_KEY, NOTIFICATIONS_KEY, HARDCOVER_KEY, LICENCES_KEY) ||
+        (size == 3 && this[1] == HARDCOVER_KEY && this[2] == KEPT_OFF_KEY)
+
 /**
  * `/admin`, `/admin/{page}`, and the three families under it that name one thing by id — plus
  * `/admin/imports/new`, whose third segment is a literal rather than an id.
@@ -468,7 +477,7 @@ private val ROUTE_SHAPES: Map<String, (List<String>) -> Boolean> =
         NOTIFICATIONS_KEY to { it.size == 1 },
         LIBRARY_KEY to { it.isSection(CONTRIBUTORS_KEY, SERIES_KEY) },
         SEARCH_KEY to { it.size <= 2 },
-        SETTINGS_KEY to { it.isSection(DEVICES_KEY, NOTIFICATIONS_KEY, HARDCOVER_KEY, LICENCES_KEY) },
+        SETTINGS_KEY to { it.isSettingsShape() },
         BOOK_KEY to { it.isIdWith(EDIT_KEY, CHAPTERS_KEY, MATCH_KEY, READERS_KEY, HARDCOVER_KEY) },
         BOOKS_KEY to { it.size == 2 && it[1] == EDIT_KEY },
         CONTRIBUTOR_KEY to { it.isIdWith(EDIT_KEY, BOOKS_KEY, MATCH_KEY) },
@@ -1831,6 +1840,7 @@ private fun BookDetailRoute(
         hardcover = hardcoverSession.state.collectAsState().value,
         onFindHardcoverMatch = { router.navigate(Route(listOf(BOOK_KEY, bookId, HARDCOVER_KEY))) },
         onRemoveHardcoverMatch = hardcoverSession.onRemoveMatch,
+        onSetHardcoverSynced = hardcoverSession.onSetSynced,
     )
 }
 
@@ -2410,7 +2420,8 @@ private fun NotificationPrefsRoute(
 }
 
 /**
- * `/settings/hardcover` — connecting a Hardcover account.
+ * `/settings/hardcover` — connecting a Hardcover account; and `/settings/hardcover/kept-off`, the books
+ * kept off Hardcover (#1541), served by the same session.
  *
  * A sub-route of Settings for the reason [NotificationPrefsRoute] is: the connection is a live
  * server stream with its own phases, and the Settings page stays a page of instant local choices.
@@ -2425,6 +2436,7 @@ private fun HardcoverRoute(
     openHardcover: OpenHardcover,
     onToast: (String) -> Unit,
     onActionToast: ShowActionToast,
+    subPage: String?,
 ) {
     val session = remember { openHardcover() }
     DisposableEffect(session) { onDispose { session.close() } }
@@ -2450,6 +2462,11 @@ private fun HardcoverRoute(
         }
     }
 
+    if (subPage == KEPT_OFF_KEY) {
+        KeptOffRoute(router = router, session = session, onToast = onToast)
+        return
+    }
+
     HardcoverPage(
         state = state,
         onConnect = session.onConnect,
@@ -2459,8 +2476,49 @@ private fun HardcoverRoute(
         onSendHistory = session.onSendHistory,
         onDismissHistory = session.onDismissHistory,
         onFindMatch = { bookId -> router.navigate(Route(listOf(BOOK_KEY, bookId, HARDCOVER_KEY))) },
+        onOpenKeptOff = { router.navigate(Route(listOf(SETTINGS_KEY, HARDCOVER_KEY, KEPT_OFF_KEY))) },
         onOpenSettings = { router.navigate(Route(listOf(SETTINGS_KEY))) },
         nowMs = nowMs(),
+    )
+}
+
+/**
+ * `/settings/hardcover/kept-off` — the books kept off Hardcover (#1541), over the Hardcover screen's own
+ * session. Each Sync again is said in a toast; after the last, or when reached with nothing kept off (a
+ * stale link, or the last synced again on another device), it returns to the Hardcover page in place.
+ */
+@Composable
+private fun KeptOffRoute(
+    router: Router,
+    session: HardcoverSession,
+    onToast: (String) -> Unit,
+) {
+    val keptOff = session.keptOff.collectAsState().value
+    val toHardcover = { router.replace(Route(listOf(SETTINGS_KEY, HARDCOVER_KEY))) }
+    LaunchedEffect(session) {
+        session.keptOffEvents.collect { event ->
+            when (event) {
+                // en.json's `hardcover.syncing_again`.
+                is KeptOffBooksEvent.SyncingAgain -> {
+                    onToast("Syncing ${event.title} with Hardcover again")
+                    if (event.wasLast) toHardcover()
+                }
+
+                // `AppError.message` is a user-facing constant per subtype — printed, not reworded.
+                is KeptOffBooksEvent.ShowError -> {
+                    onToast(event.error.message)
+                }
+            }
+        }
+    }
+    LaunchedEffect(keptOff) {
+        if (keptOff is KeptOffBooksUiState.Loaded && keptOff.books.isEmpty()) toHardcover()
+    }
+    KeptOffBooksPage(
+        state = keptOff,
+        onSyncAgain = session.onSyncAgain,
+        onOpenSettings = { router.navigate(Route(listOf(SETTINGS_KEY))) },
+        onOpenHardcover = { router.navigate(Route(listOf(SETTINGS_KEY, HARDCOVER_KEY))) },
     )
 }
 
@@ -3304,6 +3362,9 @@ private const val DEVICES_KEY = "devices"
 /** `/settings/hardcover` — connecting a Hardcover account. */
 private const val HARDCOVER_KEY = "hardcover"
 
+/** `/settings/hardcover/kept-off` — the books kept off Hardcover (#1541). */
+private const val KEPT_OFF_KEY = "kept-off"
+
 /** The path segment that opens a listener's own page — `/profile/{userId}`. */
 private const val PROFILE_KEY = "profile"
 
@@ -3870,6 +3931,7 @@ private fun AccountRouteContent(
                 openHardcover = openHardcover,
                 onToast = onToast,
                 onActionToast = onActionToast,
+                subPage = segments.getOrNull(2),
             )
         }
 

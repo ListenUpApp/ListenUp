@@ -78,6 +78,7 @@ class HardcoverPageTest :
             onSendHistory: () -> Unit = {},
             onDismissHistory: () -> Unit = {},
             onFindMatch: (String) -> Unit = {},
+            onOpenKeptOff: () -> Unit = {},
             copyText: (String, (Boolean) -> Unit) -> Unit = { _, onResult -> onResult(true) },
         ): HTMLElement =
             mounts.mount {
@@ -90,11 +91,35 @@ class HardcoverPageTest :
                     onSendHistory = onSendHistory,
                     onDismissHistory = onDismissHistory,
                     onFindMatch = onFindMatch,
+                    onOpenKeptOff = onOpenKeptOff,
                     onOpenSettings = onOpenSettings,
                     nowMs = NOW_MS,
                     copyText = copyText,
                 )
             }
+
+        test("with books kept off, a quiet row in Sync says how many and opens the list") {
+            var keptOffOpens = 0
+            val host = mount(CONNECTED.copy(keptOffBookCount = 3), onOpenKeptOff = { keptOffOpens++ })
+            awaitFrame()
+
+            val row = host.querySelector(".hc-kept-row") as HTMLElement
+            row.textContent.orEmpty() shouldContain "Kept off Hardcover"
+            row.textContent.orEmpty() shouldContain "3 books"
+            row.click()
+            keptOffOpens shouldBe 1
+        }
+
+        test("one book kept off reads in the singular, and none shows no row") {
+            val one = mount(CONNECTED.copy(keptOffBookCount = 1))
+            awaitFrame()
+            (one.querySelector(".hc-kept-row") as HTMLElement).textContent.orEmpty() shouldContain "1 book"
+            (one.querySelector(".hc-kept-row") as HTMLElement).textContent.orEmpty() shouldNotContain "1 books"
+
+            val none = mount(CONNECTED.copy(keptOffBookCount = 0))
+            awaitFrame()
+            none.querySelector(".hc-kept-row") shouldBe null
+        }
 
         test("every phase has a real top-level heading") {
             listOf(

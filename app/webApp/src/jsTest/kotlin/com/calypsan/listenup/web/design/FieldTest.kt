@@ -1,6 +1,9 @@
 package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -115,6 +118,25 @@ class FieldTest :
 
             window.getComputedStyle(wrapper).backgroundColor shouldBe "rgba(0, 0, 0, 0)"
             window.getComputedStyle(wrapper).height shouldNotBe "27px"
+        }
+
+        test("a switch is fully controlled: a click asks, and only its state moves the box") {
+            val asked = mutableListOf<Boolean>()
+            var checked by mutableStateOf(true)
+            val host = mount { SwitchField(label = "Sync", checked = checked, onChange = { asked += it }) }
+            val box = host.querySelector(".sw-in") as HTMLInputElement
+
+            box.click()
+            awaitFrame()
+            asked shouldBe listOf(false)
+            box.checked shouldBe true
+
+            checked = false
+            awaitFrame()
+            box.checked shouldBe false
+            checked = true
+            awaitFrame()
+            box.checked shouldBe true
         }
 
         test("the eye is a named toggle that says whether the password is showing") {

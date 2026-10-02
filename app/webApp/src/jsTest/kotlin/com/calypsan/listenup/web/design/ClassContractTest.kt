@@ -15,7 +15,11 @@ import com.calypsan.listenup.client.presentation.hardcover.HardcoverMatchUiState
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverMatchedBook
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverSearchState
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverSyncStatus
+import com.calypsan.listenup.client.presentation.hardcover.KeepOffRemoves
+import com.calypsan.listenup.client.presentation.hardcover.KeptOffBook
+import com.calypsan.listenup.client.presentation.hardcover.KeptOffBooksUiState
 import com.calypsan.listenup.web.features.hardcover.BookHardcoverPanel
+import com.calypsan.listenup.web.features.hardcover.KeptOffBooksPage
 import com.calypsan.listenup.web.features.hardcover.HardcoverMatchPage
 import com.calypsan.listenup.web.features.ratings.RateBookDialog
 import com.calypsan.listenup.web.features.ratings.RatingsPanel
@@ -2615,8 +2619,19 @@ private fun hardcoverMatchShapes(): List<@Composable () -> Unit> {
         find(HardcoverSearchState.Results(listOf(quiet))),
         find(HardcoverSearchState.NoResults),
         find(HardcoverSearchState.Failed(HardcoverError.Unavailable())),
-        { BookHardcoverPanel(BookHardcoverUiState.NeedsMatch, {}, {}) },
-        { BookHardcoverPanel(BookHardcoverUiState.Linked(match, HardcoverBookSync.REMOVED_ON_HARDCOVER), {}, {}) },
+        { BookHardcoverPanel(BookHardcoverUiState.NeedsMatch, {}, {}, {}) },
+        { BookHardcoverPanel(BookHardcoverUiState.Linked(match, HardcoverBookSync.REMOVED_ON_HARDCOVER), {}, {}, {}) },
+        { BookHardcoverPanel(BookHardcoverUiState.Unmatched, {}, {}, {}) },
+        { BookHardcoverPanel(BookHardcoverUiState.KeptOff(), {}, {}, {}) },
+        {
+            BookHardcoverPanel(
+                BookHardcoverUiState.Linked(match, HardcoverBookSync.UP_TO_DATE, keepOffRemoves = KeepOffRemoves.READS),
+                {},
+                {},
+                {},
+            )
+        },
+        { KeptOffBooksPage(KeptOffBooksUiState.Loaded(listOf(KeptOffBook("b1", "Educated", "Tara Westover", null, null))), {}, {}, {}) },
     )
 }
 
@@ -2632,6 +2647,7 @@ private fun hardcoverSettingsShapes(): List<@Composable () -> Unit> {
                 onSendHistory = {},
                 onDismissHistory = {},
                 onFindMatch = {},
+                onOpenKeptOff = {},
                 onOpenSettings = {},
                 nowMs = 0L,
                 copyText = { _, done -> done(true) },
@@ -2653,6 +2669,7 @@ private fun hardcoverSettingsShapes(): List<@Composable () -> Unit> {
             ),
         ),
         page(HardcoverSettingsUiState.Connected(username = "simon", since = 0L, isDisconnecting = false)),
+        page(HardcoverSettingsUiState.Connected(username = "simon", since = 0L, isDisconnecting = false, keptOffBookCount = 3)),
         page(connectedWith(HardcoverHistory.Offer(74))),
         page(connectedWith(HardcoverHistory.Sending(23, 74))),
         page(
