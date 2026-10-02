@@ -193,10 +193,7 @@ fun BookDetailPage(
 
             is BookDetailUiState.Ready -> {
                 ServerOfflineBanner(state.showServerWarning, onRetryConnection)
-                // Release, Show to all members and Add to a collection each unmount the control
-                // that had focus; the page's H1 takes it rather than <body>.
-                FocusHeadingWhenLeft(state.book.id.value, state.isHeld) { root.element }
-                FocusHeadingWhenLeft(state.book.id.value, state.visibility == BookVisibility.Stranded) { root.element }
+                FocusHeadingWhenBlocksLeave(state, root)
 
                 // A held book is triage-only (spec §8). The panel stands above the tabs so it stays in
                 // view whichever pane is open; Release asks first (§7).
@@ -836,3 +833,16 @@ private fun ServerOfflineBanner(
 
 /** The id stem Book Detail's tab strip and its panel share. */
 private const val TABS_ID = "bd"
+
+/**
+ * Release (the held panel) and both stranded fixes succeed by unmounting the control that had focus;
+ * the page's H1 takes it rather than `<body>`.
+ */
+@Composable
+private fun FocusHeadingWhenBlocksLeave(
+    state: BookDetailUiState.Ready,
+    root: PageRoot,
+) {
+    FocusHeadingWhenLeft(state.book.id.value, state.isHeld) { root.element }
+    FocusHeadingWhenLeft(state.book.id.value, state.visibility == BookVisibility.Stranded) { root.element }
+}
