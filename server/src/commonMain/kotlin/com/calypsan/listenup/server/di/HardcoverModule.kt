@@ -15,6 +15,7 @@ import com.calypsan.listenup.server.hardcover.HardcoverExclusions
 import com.calypsan.listenup.server.hardcover.HardcoverGraphQlClient
 import com.calypsan.listenup.server.hardcover.HardcoverHistoryProgress
 import com.calypsan.listenup.server.hardcover.HardcoverHistorySender
+import com.calypsan.listenup.server.hardcover.HardcoverKeepOff
 import com.calypsan.listenup.server.hardcover.HardcoverLinker
 import com.calypsan.listenup.server.hardcover.HardcoverMatchBackfill
 import com.calypsan.listenup.server.hardcover.HardcoverOAuthClient
@@ -62,7 +63,8 @@ private val HARDCOVER_HTTP = named("hardcoverHttp")
  * the metadata registry lists, and [HardcoverService]. It also binds Hardcover push and matching: the
  * outbox, the per-user push worker, the recorder `StatsRecorder` calls, the background match pass, the
  * earlier-books offer ([HardcoverHistorySender], [HardcoverHistoryProgress]), manual linking, and the
- * pull (its store, the shelf resolver, the puller and the per-user pull worker).
+ * pull (its store, the shelf resolver, the puller and the per-user pull worker), and keeping a book off
+ * Hardcover.
  *
  * [clientId] is null when the operator hasn't set `hardcover.clientId` (resolved once at startup by
  * `Application.resolveHardcoverClientId`). The graph is built either way, so watching and
@@ -155,6 +157,7 @@ fun hardcoverModule(
             )
         }
         hardcoverPull()
+        hardcoverKeepOff()
         single { HardcoverCatalogCache(graphQl = get(), rateLimiter = get()) }
         single {
             HardcoverBookLinking(
@@ -179,6 +182,7 @@ fun hardcoverModule(
                 pulls = get(),
                 preferences = get(),
                 history = get(),
+                keepOff = get(),
                 principal =
                     PrincipalProvider {
                         error("Unscoped HardcoverService — call copyWith(PrincipalProvider) at the route")
@@ -269,6 +273,28 @@ private fun Module.hardcoverPull() {
         )
     }
     single<HardcoverPullRequests> { get<HardcoverPullWorker>() }
+}
+
+/**
+ * Keeping one book off Hardcover (#1541): [HardcoverKeepOff], over the shelves Want to Read writes, the pull it
+ * asks to catch up, the push lane it wakes, and the bus that tells every client to re-read Readers.
+ */
+private fun Module.hardcoverKeepOff() {
+    single {
+        HardcoverKeepOff(
+            sql = get(),
+            access = get(),
+            connections = get(),
+            wantToRead = get(),
+            pulls = get(),
+            nudge = get(),
+            gate = get(),
+            bus = get(),
+            history = get(),
+            activity = get(),
+            clock = get(),
+        )
+    }
 }
 
 /**

@@ -16,6 +16,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.hardcover.HardcoverBookLinking
 import com.calypsan.listenup.server.hardcover.HardcoverHistorySender
+import com.calypsan.listenup.server.hardcover.HardcoverKeepOff
 import com.calypsan.listenup.server.hardcover.HardcoverLinker
 import com.calypsan.listenup.server.hardcover.HardcoverPreferences
 import com.calypsan.listenup.server.hardcover.HardcoverPullRequests
@@ -34,7 +35,8 @@ import kotlinx.coroutines.flow.map
  * A caller with no connection then watches [HardcoverConnection.NotOffered], so clients hide the
  * entry instead of offering a dead end. Watching and disconnecting still work, so a connection made
  * before the id was cleared can still be seen and ended. Manual linking delegates to [HardcoverBookLinking];
- * syncing to [HardcoverPullRequests]; the share mode to [HardcoverPreferences]; the earlier-books offer to [HardcoverHistorySender].
+ * syncing to [HardcoverPullRequests]; the share mode to [HardcoverPreferences]; the earlier-books offer to [HardcoverHistorySender];
+ * keeping a book off Hardcover to [HardcoverKeepOff].
  *
  * Route handlers call [copyWith] to bind each connection to the authenticated principal. Without
  * one, every method fails closed with [AuthError.PermissionDenied].
@@ -46,11 +48,12 @@ class HardcoverServiceImpl(
     private val pulls: HardcoverPullRequests,
     private val preferences: HardcoverPreferences,
     private val history: HardcoverHistorySender,
+    private val keepOff: HardcoverKeepOff,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : HardcoverService {
     /** Returns a copy scoped to [provider]. The RPC mount calls this per connection. */
     fun copyWith(provider: PrincipalProvider): HardcoverServiceImpl =
-        HardcoverServiceImpl(linker, clientIdConfigured, linking, pulls, preferences, history, provider)
+        HardcoverServiceImpl(linker, clientIdConfigured, linking, pulls, preferences, history, keepOff, provider)
 
     override suspend fun startLink(): AppResult<HardcoverLinkPrompt> {
         val userId = callerId() ?: return permissionDenied()
@@ -138,6 +141,19 @@ class HardcoverServiceImpl(
     override suspend fun bookMatch(bookId: BookId): AppResult<HardcoverBookMatch> {
         val caller = principal.current() ?: return permissionDenied()
         return linking.bookMatch(caller.userId.value, caller.role, bookId.value)
+    }
+
+    override suspend fun setBookSynced(
+        bookId: BookId,
+        synced: Boolean,
+    ): AppResult<Unit> {
+        val caller = principal.current() ?: return permissionDenied()
+        return keepOff.setSynced(caller.userId.value, caller.role, bookId.value, synced)
+    }
+
+    override suspend fun keptOffBooks(): AppResult<List<BookId>> {
+        val caller = principal.current() ?: return permissionDenied()
+        return AppResult.Success(keepOff.keptOffBooks(caller.userId.value, caller.role).map(::BookId))
     }
 
     private fun HardcoverConnection.offeredOrNot(): HardcoverConnection =

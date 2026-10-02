@@ -387,6 +387,20 @@ private class FakeHardcoverService(
 
     override suspend fun bookMatch(bookId: BookId): AppResult<HardcoverBookMatch> = bookMatchResult
 
+    val syncedChoices = mutableListOf<Pair<BookId, Boolean>>()
+    var setBookSyncedResult: AppResult<Unit> = AppResult.Success(Unit)
+    var keptOffBooksResult: AppResult<List<BookId>> = AppResult.Success(emptyList())
+
+    override suspend fun setBookSynced(
+        bookId: BookId,
+        synced: Boolean,
+    ): AppResult<Unit> {
+        syncedChoices += bookId to synced
+        return setBookSyncedResult
+    }
+
+    override suspend fun keptOffBooks(): AppResult<List<BookId>> = keptOffBooksResult
+
     var syncIfStaleCount = 0
         private set
 

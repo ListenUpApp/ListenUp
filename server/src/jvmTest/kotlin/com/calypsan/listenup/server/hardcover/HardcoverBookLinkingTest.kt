@@ -17,6 +17,7 @@ import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.HardcoverServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.testing.MutableClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -96,6 +97,20 @@ private class LinkingRig(
             pulls = pulls,
             preferences = HardcoverPreferences(sql),
             history = HardcoverHistorySender(sql),
+            keepOff =
+                HardcoverKeepOff(
+                    sql = sql,
+                    access = BookAccessPolicy(dbs.sql, dbs.driver),
+                    connections = connections,
+                    wantToRead = testWantToRead(dbs, clock),
+                    pulls = pulls,
+                    nudge = HardcoverPushNudge { nudged += it },
+                    gate = HardcoverUserGate(),
+                    bus = ChangeBus(),
+                    history = HardcoverHistoryProgress(sql, clock),
+                    activity = HardcoverSyncActivity(),
+                    clock = clock,
+                ),
         )
 
     init {
@@ -428,6 +443,22 @@ class HardcoverBookLinkingTest :
                 // Unwrapped on purpose: Kotest's data-class diff passes `Success(<data class>) shouldBe Success(<data object>)`.
                 serviceAs(UserRole.ROOT).bookMatch(BookId(BOOK)).shouldSucceed() shouldBe HardcoverBookMatch.KeptOff
                 links.linkFor(USER, BOOK)!!.hcBookId shouldBe 427_578L
+            }
+        }
+
+        // Decision 1: a book never matched can be kept off from Book Detail before its first listen.
+        test("a book never matched is Unmatched; kept off it is KeptOff; synced again it is Unmatched again") {
+            linkingTest {
+                connect()
+                val service = serviceAs(UserRole.ROOT)
+                service.bookMatch(BookId(BOOK)).shouldSucceed() shouldBe HardcoverBookMatch.Unmatched
+
+                service.setBookSynced(BookId(BOOK), synced = false) shouldBe AppResult.Success(Unit)
+                service.bookMatch(BookId(BOOK)).shouldSucceed() shouldBe HardcoverBookMatch.KeptOff
+
+                service.setBookSynced(BookId(BOOK), synced = true) shouldBe AppResult.Success(Unit)
+                service.bookMatch(BookId(BOOK)).shouldSucceed() shouldBe HardcoverBookMatch.Unmatched
+                links.linkFor(USER, BOOK) shouldBe null
             }
         }
 
