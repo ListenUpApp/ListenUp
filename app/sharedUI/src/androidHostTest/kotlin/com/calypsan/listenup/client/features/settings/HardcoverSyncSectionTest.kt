@@ -32,6 +32,7 @@ class HardcoverSyncSectionTest {
 
     private var syncs = 0
     private val opened = mutableListOf<String>()
+    private var keptOffOpens = 0
 
     private fun render(state: HardcoverSettingsUiState.Connected) {
         composeRule.setContent {
@@ -48,6 +49,7 @@ class HardcoverSyncSectionTest {
                     onSendHistory = {},
                     onDismissHistory = {},
                     onFindMatch = { opened += it },
+                    onOpenKeptOff = { keptOffOpens++ },
                 )
             }
         }
@@ -58,7 +60,17 @@ class HardcoverSyncSectionTest {
         sync: HardcoverSyncStatus = HardcoverSyncStatus.Idle,
         books: List<HardcoverBookToMatch> = emptyList(),
         known: Boolean = true,
-    ) = HardcoverSettingsUiState.Connected("simon", 1_790_424_000_000L, false, lastSyncedAt, sync, books, known)
+        keptOff: Int = 0,
+    ) = HardcoverSettingsUiState.Connected(
+        "simon",
+        1_790_424_000_000L,
+        false,
+        lastSyncedAt,
+        sync,
+        books,
+        known,
+        keptOffBookCount = keptOff,
+    )
 
     @Test
     fun `a sync this minute reads just now, and Sync now asks for one`() {
@@ -173,5 +185,26 @@ class HardcoverSyncSectionTest {
             .onNodeWithText("Your Want to Read list, on your To Read shelf")
             .performScrollTo()
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun `with books kept off, a quiet row in Sync says how many and opens the list`() {
+        render(connected(keptOff = 3))
+        composeRule.onNodeWithText("Kept off Hardcover").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("3 books").assertIsDisplayed()
+        composeRule.onNodeWithText("Kept off Hardcover").performClick()
+        keptOffOpens shouldBe 1
+    }
+
+    @Test
+    fun `one book kept off reads in the singular`() {
+        render(connected(keptOff = 1))
+        composeRule.onNodeWithText("1 book").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `no book kept off, no row`() {
+        render(connected(keptOff = 0))
+        composeRule.onNodeWithText("Kept off Hardcover").assertDoesNotExist()
     }
 }

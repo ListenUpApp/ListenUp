@@ -110,6 +110,7 @@ internal fun sampleRoutes(): List<Route> =
         add(Storage)
         add(HardcoverSettings)
         add(HardcoverMatch(bookId = "test-book-id"))
+        add(HardcoverKeptOff)
 
         // Shelf
         add(ShelfDetail(shelfId = "test-shelf-id"))

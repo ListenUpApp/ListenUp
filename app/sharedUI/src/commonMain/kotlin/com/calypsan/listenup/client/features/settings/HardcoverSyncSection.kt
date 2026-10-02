@@ -94,14 +94,18 @@ private val HardcoverSyncStatus.isSyncNowFailure: Boolean
  * [HardcoverSyncNowFailedNotice] says it once.
  *
  * After "Not now" on the earlier-books offer, its quiet row follows the sync line ([HardcoverEarlierBooksRow]).
+ *
+ * While any book is kept off Hardcover, the quiet "Kept off Hardcover" row follows the sync line ([HardcoverKeptOffRow]).
  */
 @Composable
 internal fun HardcoverSyncBlock(
     lastSyncedAt: Long?,
     sync: HardcoverSyncStatus,
     history: HardcoverHistory,
+    keptOffBookCount: Int,
     onSyncNow: () -> Unit,
     onSendHistory: () -> Unit,
+    onOpenKeptOff: () -> Unit,
 ) {
     SectionGroup(label = stringResource(Res.string.hardcover_sync_section)) {
         if (sync is HardcoverSyncStatus.Problem && !sync.isSyncNowFailure) {
@@ -113,6 +117,8 @@ internal fun HardcoverSyncBlock(
                 onSyncNow = onSyncNow,
             )
         }
+        // Canvas: under the last-synced row, and only while a book is kept off (#1541).
+        if (keptOffBookCount > 0) HardcoverKeptOffRow(books = keptOffBookCount, onOpen = onOpenKeptOff)
         if (history is HardcoverHistory.Available) {
             HardcoverEarlierBooksRow(books = history.bookCount, onSend = onSendHistory)
         }

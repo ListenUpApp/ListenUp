@@ -6,11 +6,13 @@ import androidx.navigation3.runtime.NavKey
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import com.calypsan.listenup.client.features.settings.HardcoverKeptOffScreen
 import com.calypsan.listenup.client.features.settings.HardcoverMatchScreen
 import com.calypsan.listenup.client.features.settings.HardcoverSettingsScreen
 import com.calypsan.listenup.client.features.settings.NotificationSettingsScreen
 import com.calypsan.listenup.client.features.settings.SettingsScreen
 import com.calypsan.listenup.client.navigation.Devices
+import com.calypsan.listenup.client.navigation.HardcoverKeptOff
 import com.calypsan.listenup.client.navigation.HardcoverMatch
 import com.calypsan.listenup.client.navigation.HardcoverSettings
 import com.calypsan.listenup.client.navigation.LicenseDetail
@@ -56,6 +58,7 @@ internal fun EntryProviderScope<NavKey>.settingsEntries(
                 backStack.removeAt(backStack.lastIndex)
             },
             onFindMatch = { bookId -> backStack.add(HardcoverMatch(bookId)) },
+            onOpenKeptOff = { backStack.add(HardcoverKeptOff) },
         )
     }
     entry<HardcoverMatch> { args ->
@@ -76,6 +79,18 @@ internal fun EntryProviderScope<NavKey>.settingsEntries(
                         )
                     if (result == SnackbarResult.ActionPerformed) undo()
                 }
+            },
+        )
+    }
+    entry<HardcoverKeptOff> {
+        HardcoverKeptOffScreen(
+            onNavigateBack = {
+                backStack.removeAt(backStack.lastIndex)
+            },
+            // The shell's snackbar: when the last book syncs again this screen closes, and the message still shows.
+            onSyncedAgain = { message, close ->
+                if (close) backStack.removeAt(backStack.lastIndex)
+                scope.launch { snackbarHostState.showSnackbar(message) }
             },
         )
     }

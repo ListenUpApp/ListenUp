@@ -39,6 +39,7 @@ class HardcoverSettingsWideLayoutTest {
                     onSendHistory = {},
                     onDismissHistory = {},
                     onFindMatch = {},
+                    onOpenKeptOff = {},
                 )
             }
         }

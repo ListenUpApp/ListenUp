@@ -65,6 +65,7 @@ import org.koin.compose.viewmodel.koinViewModel
  *
  * @param onNavigateBack Navigate back to Settings.
  * @param onFindMatch Open Find on Hardcover for a book that needs a match.
+ * @param onOpenKeptOff Open the books kept off Hardcover.
  * @param modifier Modifier for the screen scaffold.
  * @param viewModel The Hardcover settings ViewModel, provided via Koin.
  */
@@ -72,6 +73,7 @@ import org.koin.compose.viewmodel.koinViewModel
 fun HardcoverSettingsScreen(
     onNavigateBack: () -> Unit,
     onFindMatch: (bookId: String) -> Unit,
+    onOpenKeptOff: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HardcoverSettingsViewModel = koinViewModel(),
 ) {
@@ -138,6 +140,7 @@ fun HardcoverSettingsScreen(
             onSendHistory = viewModel::sendHistory,
             onDismissHistory = viewModel::dismissHistory,
             onFindMatch = onFindMatch,
+            onOpenKeptOff = onOpenKeptOff,
             modifier = Modifier.padding(padding),
         )
     }
@@ -164,6 +167,7 @@ internal fun HardcoverSettingsContent(
     onSendHistory: () -> Unit,
     onDismissHistory: () -> Unit,
     onFindMatch: (bookId: String) -> Unit,
+    onOpenKeptOff: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var confirmingDisconnect by rememberSaveable { mutableStateOf(false) }
@@ -211,6 +215,7 @@ internal fun HardcoverSettingsContent(
                     onSendHistory = onSendHistory,
                     onDismissHistory = onDismissHistory,
                     onFindMatch = onFindMatch,
+                    onOpenKeptOff = onOpenKeptOff,
                 )
             PhaseLayout(phase = phase, isWide = isWide, modifier = modifier)
         }

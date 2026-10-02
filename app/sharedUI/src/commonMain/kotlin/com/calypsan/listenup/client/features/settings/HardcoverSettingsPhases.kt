@@ -113,6 +113,7 @@ internal fun hardcoverPhase(
     onSendHistory: () -> Unit,
     onDismissHistory: () -> Unit,
     onFindMatch: (bookId: String) -> Unit,
+    onOpenKeptOff: () -> Unit,
 ): HardcoverPhase =
     when (state) {
         is HardcoverSettingsUiState.NotConnected -> {
@@ -166,8 +167,10 @@ internal fun hardcoverPhase(
                         lastSyncedAt = state.lastSyncedAt,
                         sync = state.sync,
                         history = state.history,
+                        keptOffBookCount = state.keptOffBookCount,
                         onSyncNow = onSyncNow,
                         onSendHistory = onSendHistory,
+                        onOpenKeptOff = onOpenKeptOff,
                     )
                     HardcoverNeedsMatch(
                         books = state.booksToMatch,

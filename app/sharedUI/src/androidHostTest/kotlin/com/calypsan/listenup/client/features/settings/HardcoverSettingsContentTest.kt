@@ -57,6 +57,7 @@ class HardcoverSettingsContentTest {
                     onSendHistory = {},
                     onDismissHistory = {},
                     onFindMatch = {},
+                    onOpenKeptOff = {},
                 )
             }
         }

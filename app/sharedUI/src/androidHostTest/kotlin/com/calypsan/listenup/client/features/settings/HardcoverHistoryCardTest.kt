@@ -73,6 +73,7 @@ class HardcoverHistoryCardTest {
                     onSendHistory = { sends++ },
                     onDismissHistory = { dismissals++ },
                     onFindMatch = {},
+                    onOpenKeptOff = {},
                 )
             }
         }
