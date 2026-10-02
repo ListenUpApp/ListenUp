@@ -66,7 +66,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
-import com.calypsan.listenup.client.design.components.LocalRestrictedBookIds
+import com.calypsan.listenup.client.design.components.ProvideRestrictedBookIds
 import com.calypsan.listenup.client.features.bulkedit.PendingSelectionExit
 import com.calypsan.listenup.client.design.components.ProvideNowPlayingInsets
 import com.calypsan.listenup.client.design.components.latchFootprint
@@ -92,7 +92,6 @@ import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
 import com.calypsan.listenup.client.presentation.startup.LibraryReadiness
-import com.calypsan.listenup.client.presentation.visibility.RestrictedBooksViewModel
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.api.result.AppResult
@@ -738,78 +737,76 @@ private fun AuthenticatedNavigation(
         onSelectShellDestination = { currentShellDestination = it },
     )
 
-    // Wrap navigation with NowPlayingHost for persistent mini player.
-    // ProvideNowPlayingInsets publishes the mini-player clearance to every detail screen below,
-    // so NavDisplay content can pad itself clear of the floating bar (the bar measures itself inside
-    // AuthenticatedNavOverlays and latches its footprint back up here).
     // The lock on every book card: one admin-gated set for the whole app (empty for members).
-    val restrictedBooksViewModel: RestrictedBooksViewModel = koinViewModel()
-    val restrictedBookIds by restrictedBooksViewModel.restrictedBookIds.collectAsStateWithLifecycle()
-
-    ProvideNowPlayingInsets(barVisible = barVisible, latchedFootprint = latchedFootprint) {
-        CompositionLocalProvider(
-            LocalSnackbarHostState provides snackbarHostState,
-            LocalDeviceContext provides koinInject<DeviceContext>(),
-            LocalRestrictedBookIds provides restrictedBookIds,
-        ) {
-            AppKeyboardShortcuts(nowPlayingViewModel, backStack) {
-                // Hero transitions: the layout must enclose BOTH halves of every shared pair, so it
-                // wraps NavDisplay only. AuthenticatedNavOverlays stays outside deliberately — the
-                // now-playing bar is not an entry, and a cover flying past it should pass under it.
-                val transitions = rememberScreenTransitions()
-                SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
-                    CompositionLocalProvider(LocalHeroTransitionScope provides this) {
-                        NavDisplay(
-                            backStack = backStack,
-                            sharedTransitionScope = this@SharedTransitionLayout,
-                            entryDecorators =
-                                listOf(
-                                    rememberSaveableStateHolderNavEntryDecorator(),
-                                    rememberViewModelStoreNavEntryDecorator(),
-                                ),
-                            // From the two-pane width a book opened from a series or contributor sits
-                            // beside it; below that (and for every other stack) the single pane.
-                            sceneStrategies = listOf(rememberListDetailSceneStrategy()),
-                            // Only handle back if we're not at root - at size 1 the system's back-to-home
-                            // animation takes over.
-                            onBack = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
-                            transitionSpec = { transitions.push() },
-                            popTransitionSpec = { transitions.pop() },
-                            predictivePopTransitionSpec = { edge -> transitions.predictivePop(edge) },
-                            entryProvider =
-                                authenticatedNavEntries(
-                                    backStack = backStack,
-                                    // Deferred reads: the entry content reads these inside the Shell composable so
-                                    // tab/readiness changes recompose it (NavDisplay won't re-invoke the builder).
-                                    currentShellDestination = { currentShellDestination },
-                                    onShellDestinationChange = { currentShellDestination = it },
-                                    nowPlayingViewModel = nowPlayingViewModel,
-                                    readiness = { readiness },
-                                    onSignOut = onSignOut,
-                                    startupViewModel = startupViewModel,
-                                    scope = scope,
-                                    syncRepository = syncRepository,
-                                    serverConfig = serverConfig,
-                                    profileRefreshKey = profileRefreshKey,
-                                    onProfileRefreshed = { profileRefreshKey++ },
-                                    homeRepository = homeRepository,
-                                    snackbarHostState = snackbarHostState,
-                                    pendingSelectionExit = pendingSelectionExit,
-                                ),
-                        )
+    ProvideRestrictedBookIds {
+        // Wrap navigation with NowPlayingHost for persistent mini player.
+        // ProvideNowPlayingInsets publishes the mini-player clearance to every detail screen below,
+        // so NavDisplay content can pad itself clear of the floating bar (the bar measures itself inside
+        // AuthenticatedNavOverlays and latches its footprint back up here).
+        ProvideNowPlayingInsets(barVisible = barVisible, latchedFootprint = latchedFootprint) {
+            CompositionLocalProvider(
+                LocalSnackbarHostState provides snackbarHostState,
+                LocalDeviceContext provides koinInject<DeviceContext>(),
+                ) {
+                AppKeyboardShortcuts(nowPlayingViewModel, backStack) {
+                    // Hero transitions: the layout must enclose BOTH halves of every shared pair, so it
+                    // wraps NavDisplay only. AuthenticatedNavOverlays stays outside deliberately — the
+                    // now-playing bar is not an entry, and a cover flying past it should pass under it.
+                    val transitions = rememberScreenTransitions()
+                    SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
+                        CompositionLocalProvider(LocalHeroTransitionScope provides this) {
+                            NavDisplay(
+                                backStack = backStack,
+                                sharedTransitionScope = this@SharedTransitionLayout,
+                                entryDecorators =
+                                    listOf(
+                                        rememberSaveableStateHolderNavEntryDecorator(),
+                                        rememberViewModelStoreNavEntryDecorator(),
+                                    ),
+                                // From the two-pane width a book opened from a series or contributor sits
+                                // beside it; below that (and for every other stack) the single pane.
+                                sceneStrategies = listOf(rememberListDetailSceneStrategy()),
+                                // Only handle back if we're not at root - at size 1 the system's back-to-home
+                                // animation takes over.
+                                onBack = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
+                                transitionSpec = { transitions.push() },
+                                popTransitionSpec = { transitions.pop() },
+                                predictivePopTransitionSpec = { edge -> transitions.predictivePop(edge) },
+                                entryProvider =
+                                    authenticatedNavEntries(
+                                        backStack = backStack,
+                                        // Deferred reads: the entry content reads these inside the Shell composable so
+                                        // tab/readiness changes recompose it (NavDisplay won't re-invoke the builder).
+                                        currentShellDestination = { currentShellDestination },
+                                        onShellDestinationChange = { currentShellDestination = it },
+                                        nowPlayingViewModel = nowPlayingViewModel,
+                                        readiness = { readiness },
+                                        onSignOut = onSignOut,
+                                        startupViewModel = startupViewModel,
+                                        scope = scope,
+                                        syncRepository = syncRepository,
+                                        serverConfig = serverConfig,
+                                        profileRefreshKey = profileRefreshKey,
+                                        onProfileRefreshed = { profileRefreshKey++ },
+                                        homeRepository = homeRepository,
+                                        snackbarHostState = snackbarHostState,
+                                        pendingSelectionExit = pendingSelectionExit,
+                                    ),
+                            )
+                        }
                     }
-                }
 
-                AuthenticatedNavOverlays(
-                    backStack = backStack,
-                    snackbarHostState = snackbarHostState,
-                    nowPlayingViewModel = nowPlayingViewModel,
-                    readiness = readiness,
-                    onRetryLibrarySetupCheck = { startupViewModel.retryLibrarySetupCheck() },
-                    onBarFootprintChanged = { measured ->
-                        latchedFootprint = latchFootprint(latchedFootprint, measured, barVisible)
-                    },
-                )
+                    AuthenticatedNavOverlays(
+                        backStack = backStack,
+                        snackbarHostState = snackbarHostState,
+                        nowPlayingViewModel = nowPlayingViewModel,
+                        readiness = readiness,
+                        onRetryLibrarySetupCheck = { startupViewModel.retryLibrarySetupCheck() },
+                        onBarFootprintChanged = { measured ->
+                            latchedFootprint = latchFootprint(latchedFootprint, measured, barVisible)
+                        },
+                    )
+                }
             }
         }
     }
