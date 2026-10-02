@@ -158,6 +158,35 @@ class ProfilePageTest :
             opened shouldBe listOf("b9")
         }
 
+        test("the Recently listened panel lists every book, newest first, under its heading") {
+            val host =
+                page(
+                    readyProfile(
+                        recentBooks =
+                            listOf(
+                                ProfileRecentBook("b1", "The Way of Kings", null),
+                                ProfileRecentBook("b2", "Elantris", null),
+                            ),
+                    ),
+                )
+
+            val panel = host.querySelector(".prof-books")!!.closest("section").shouldNotBeNull()
+            (panel.querySelector("h2") as HTMLElement).textContent shouldBe "Recently listened"
+            val titles = panel.querySelectorAll(".prof-book-t")
+            titles.length shouldBe 2
+            (titles.item(0) as HTMLElement).textContent shouldBe "The Way of Kings"
+            (titles.item(1) as HTMLElement).textContent shouldBe "Elantris"
+        }
+
+        // A re-covered book must not keep its old art on someone's profile.
+        test("a recent book's cover is addressed by its book and busted by its cover hash") {
+            val host = page(readyProfile(recentBooks = listOf(ProfileRecentBook("b9", "Elantris", "h42"))))
+
+            val src = (host.querySelector(".prof-book img") as HTMLImageElement).src
+            src shouldContain "/api/v1/books/b9/cover"
+            src shouldContain "v=h42"
+        }
+
         test("a shelf names its size and opens that shelf") {
             val opened = mutableListOf<String>()
             val host =
