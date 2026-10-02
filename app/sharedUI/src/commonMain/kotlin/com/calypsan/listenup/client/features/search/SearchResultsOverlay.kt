@@ -70,6 +70,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.BookCoverImage
+import com.calypsan.listenup.client.design.components.HeldLabel
 import com.calypsan.listenup.client.design.components.ContentRow
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.EmptyState
@@ -594,6 +595,7 @@ private fun BooksGrid(
                 onClick = { onResultClick(hit) },
                 subtitle = hit.seriesName,
                 duration = hit.formatDuration(),
+                isHeld = hit.isHeld,
             )
         }
     }
@@ -841,7 +843,7 @@ private fun seeAllTitle(type: SearchHitType): String =
     }
 
 @Composable
-private fun BookResultRow(
+internal fun BookResultRow(
     hit: SearchHit,
     query: String,
     onClick: () -> Unit,
@@ -885,6 +887,11 @@ private fun BookResultRow(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+        // The never-stranded path: a held book is found, marked, and opens into its triage page.
+        if (hit.isHeld) {
+            Spacer(modifier = Modifier.width(8.dp))
+            HeldLabel()
         }
     }
 }

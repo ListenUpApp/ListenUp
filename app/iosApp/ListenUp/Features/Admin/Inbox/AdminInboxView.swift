@@ -6,7 +6,8 @@ import Shared
 /// Layout is width-responsive (iosApp rule 12): compact width = a system inset-grouped `List`
 /// (scan issues, then the held books — each a lazily built row); regular width (iPad, wide Split
 /// View) = an adaptive multi-column grid of book cards.
-/// Selection mode: tap a row to toggle; select-all / release actions appear in the header.
+/// A row opens its book's triage page (spec §8), pushed onto this stack. Select (the toolbar) enters
+/// selection, where a row toggles instead; select-all and release then appear (`InboxMode`).
 /// Release confirmation is a native alert. Transient errors surface as an alert.
 /// A release confirms itself: the books leave the inbox, with a success haptic and the count
 /// spoken to VoiceOver.
@@ -25,6 +26,10 @@ struct AdminInboxView: View {
     @State private var editingBook: InboxEditTarget?
     /// The inbox book currently being matched against Audible metadata. `nil` when no sheet is open.
     @State private var metadataBook: InboxMetadataTarget?
+    /// Select is on: rows toggle instead of opening (`InboxMode`).
+    @State private var isSelectRequested = false
+    /// The held book whose triage page is pushed onto this stack. `nil` when none is.
+    @State private var openedBook: BookDestination?
 
     private var isRegularWidth: Bool { horizontalSizeClass == .regular }
 
@@ -39,7 +44,10 @@ struct AdminInboxView: View {
         .background(Color.luSurface)
         .navigationTitle(String(localized: "common.inbox"))
         .navigationBarTitleDisplayMode(.large)
-        .toolbar { selectToolbarItem }
+        .toolbar { selectToolbarItems }
+        // Selecting replaces Back with Select all, as Done is the way out (HIG, Lists and tables).
+        .navigationBarBackButtonHidden(isSelecting)
+        .navigationDestination(item: $openedBook) { BookDetailView(bookId: $0.id) }
         .sheet(item: $editingBook) { target in
             BookEditView(bookId: target.id)
         }
@@ -72,29 +80,18 @@ struct AdminInboxView: View {
                         if let message = ready.error { Text(message) }
                     }
                 )
-                .alert(
-                    String(format: String(localized: "admin.inbox_release_count"), ready.selectedCount),
-                    isPresented: $showingReleaseConfirm,
-                    actions: {
-                        Button(
-                            String(format: String(localized: "admin.inbox_release_count"), ready.selectedCount),
-                            role: .destructive
-                        ) {
-                            observer.releaseSelected()
-                        }
-                        Button(String(localized: "common.cancel"), role: .cancel) {}
-                    },
-                    message: {
-                        Text(releaseConfirmMessage(count: ready.selectedCount))
-                    }
-                )
+                .releaseConfirmation(isPresented: $showingReleaseConfirm, count: ready.selectedCount) {
+                    observer.releaseSelected()
+                }
                 // The released books leaving the list is the visible confirmation; the haptic and the
                 // announcement carry it to people not looking at the list (HIG, Feedback).
                 .haptic(.commit, trigger: releases)
                 .onChange(of: ready.lastReleasedCount) { _, count in
                     guard let count else { return }
                     releases += 1
-                    VoiceOverAnnouncement.post(releaseConfirmMessage(count: count))
+                    // The released books have left; so has the selection, and with it the mode.
+                    isSelectRequested = false
+                    VoiceOverAnnouncement.post(releasedAnnouncement(count: count))
                     observer.clearReleaseResult()
                 }
         case .error(let message):
@@ -146,8 +143,8 @@ struct AdminInboxView: View {
                         InboxBookRow(
                             book: book,
                             isSelected: isSelected,
-                            isSelecting: ready.hasSelection,
-                            onTap: { observer.toggleBookSelection(bookId: book.id) },
+                            isSelecting: mode(ready) == .selecting,
+                            onTap: { tap(book, in: ready, observer: observer) },
                             onEdit: { editingBook = InboxEditTarget(id: book.id) },
                             onFindMetadata: { metadataBook = InboxMetadataTarget(book: book) }
                         )
@@ -182,8 +179,8 @@ struct AdminInboxView: View {
                     InboxBookRow(
                         book: book,
                         isSelected: isSelected,
-                        isSelecting: ready.hasSelection,
-                        onTap: { observer.toggleBookSelection(bookId: book.id) },
+                        isSelecting: mode(ready) == .selecting,
+                        onTap: { tap(book, in: ready, observer: observer) },
                         onEdit: { editingBook = InboxEditTarget(id: book.id) },
                         onFindMetadata: { metadataBook = InboxMetadataTarget(book: book) }
                     )
@@ -203,16 +200,7 @@ struct AdminInboxView: View {
 
     @ViewBuilder
     private func subtitleRow(ready: AdminInboxReadyModel) -> some View {
-        let text: String = {
-            if ready.hasSelection {
-                let count = ready.selectedCount
-                return count == 1
-                    ? String(localized: "admin.inbox_release_count")
-                    : String(format: String(localized: "admin.inbox_released_count_plural"), count)
-            } else {
-                return "\(ready.bookCount) \(String(localized: "admin.inbox_workflow"))"
-            }
-        }()
+        let text = ReleaseToEveryone.subtitle(bookCount: ready.bookCount, selectedCount: ready.selectedCount)
         Text(text)
             .font(.subheadline)
             .foregroundStyle(.secondary)
@@ -324,25 +312,51 @@ struct AdminInboxView: View {
 
     // MARK: - Toolbar
 
+    /// Browsing: Select. Selecting: Select all (or Deselect all) leading, Done trailing — Done leaves
+    /// the mode and drops the selection.
     @ToolbarContentBuilder
-    private var selectToolbarItem: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            if case .ready(let ready) = observer?.phase, ready.hasBooks {
-                Button {
-                    if ready.hasSelection { observer?.clearSelection() } else { observer?.selectAll() }
-                } label: {
-                    Text(ready.hasSelection
-                         ? String(localized: "admin.inbox_deselect_all")
-                         : String(localized: "admin.inbox_select_all"))
-                        .font(.body)
-                        .fontWeight(ready.hasSelection ? .semibold : .regular)
-                        .foregroundStyle(Color.luTint)
+    private var selectToolbarItems: some ToolbarContent {
+        if case .ready(let ready) = observer?.phase, ready.hasBooks {
+            if mode(ready) == .selecting {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(ready.allSelected
+                           ? String(localized: "admin.inbox_deselect_all")
+                           : String(localized: "admin.inbox_select_all")) {
+                        if ready.allSelected { observer?.clearSelection() } else { observer?.selectAll() }
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(String(localized: "common.done")) {
+                        isSelectRequested = false
+                        observer?.clearSelection()
+                    }
+                    .fontWeight(.semibold)
+                }
+            } else {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(String(localized: "common.select")) { isSelectRequested = true }
                 }
             }
         }
     }
 
     // MARK: - Helpers
+
+    private var isSelecting: Bool {
+        guard case .ready(let ready) = observer?.phase else { return false }
+        return mode(ready) == .selecting
+    }
+
+    private func mode(_ ready: AdminInboxReadyModel) -> InboxMode {
+        InboxMode.resolve(selectRequested: isSelectRequested, hasSelection: ready.hasSelection)
+    }
+
+    private func tap(_ book: InboxBookRowModel, in ready: AdminInboxReadyModel, observer: AdminInboxObserver) {
+        switch mode(ready).rowTap {
+        case .openDetail: openedBook = BookDestination(id: book.id)
+        case .toggleSelection: observer.toggleBookSelection(bookId: book.id)
+        }
+    }
 
     private func errorPresented(ready: AdminInboxReadyModel) -> Binding<Bool> {
         Binding(
@@ -351,9 +365,11 @@ struct AdminInboxView: View {
         )
     }
 
-    private func releaseConfirmMessage(count: Int) -> String {
+    /// "Released 3 books" — what VoiceOver hears after a release lands. A result, never a prompt:
+    /// the prompt is `ReleaseToEveryone`.
+    private func releasedAnnouncement(count: Int) -> String {
         count == 1
-            ? String(localized: "admin.inbox_released_count")
+            ? String(format: String(localized: "admin.inbox_released_count"), count)
             : String(format: String(localized: "admin.inbox_released_count_plural"), count)
     }
 }
@@ -387,10 +403,10 @@ private struct InboxBookRow: View {
     let onFindMetadata: () -> Void
 
     var body: some View {
-        // Two independent hit targets: the main content toggles select-for-release, the trailing
-        // ellipsis menu hosts the per-book actions (edit, find metadata). A single row-spanning
-        // Button can't host a nested control, so the two sit side by side. A long-press context menu
-        // mirrors the same actions for discoverability.
+        // Two independent hit targets: the main content opens the book's triage page (or, selecting,
+        // toggles it), the trailing ellipsis menu hosts the per-book actions (edit, find metadata). A
+        // single row-spanning Button can't host a nested control, so the two sit side by side. A
+        // long-press context menu mirrors the same actions for discoverability.
         HStack(spacing: 8) {
             Button(action: onTap) {
                 HStack(spacing: 13) {

@@ -69,11 +69,12 @@ import com.calypsan.listenup.client.design.theme.HeroInk
 import androidx.compose.foundation.shape.CircleShape
 
 private const val SCAN_PROGRESS_WIDTH_FRACTION = 0.6f
+private const val INBOX_ENTRY_KEY = "library-inbox-entry"
 
 /**
  * Represents an item in the book grid - either a section header or a book.
  */
-private sealed class BookGridItem {
+internal sealed class BookGridItem {
     /** Section divider showing the [letter] heading above the books that follow it. */
     data class Header(
         val letter: Char,
@@ -93,7 +94,7 @@ private sealed class BookGridItem {
  *                       sorting (A, An, The ignored), affecting which letter
  *                       each book groups under.
  */
-private fun groupBooksWithHeaders(
+internal fun groupBooksWithHeaders(
     books: List<BookListItem>,
     sortState: SortState,
     ignoreArticles: Boolean,
@@ -207,6 +208,8 @@ private fun SectionHeader(
  * @param onBookClick Callback when a book is clicked (navigates or toggles selection)
  * @param onBookLongPress Callback when a book is long-pressed (enters selection mode)
  * @param onRetry Callback when retry is clicked in error state
+ * @param header Content drawn as the grid's first, full-width item — the Library's inbox entry. Scrolls
+ *   with the books.
  * @param modifier Optional modifier
  */
 @Suppress("LongParameterList")
@@ -229,6 +232,7 @@ fun BooksContent(
     onBookClick: (String) -> Unit,
     onBookLongPress: ((String) -> Unit)? = null,
     onRetry: () -> Unit,
+    header: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -256,9 +260,15 @@ fun BooksContent(
                 BooksScanningState(scanProgress = scanProgress)
             }
 
-            // Loaded AND truly empty - show empty state
+            // Loaded AND truly empty - show empty state, under the header if there is one: an admin
+            // whose every new book is held has an empty grid, and the inbox entry is the way in.
             books.isEmpty() -> {
-                BooksEmptyState()
+                Column(modifier = Modifier.fillMaxSize()) {
+                    header?.let { slot ->
+                        Box(modifier = Modifier.padding(horizontal = Spacing.gridMargin, vertical = 12.dp)) { slot() }
+                    }
+                    Box(modifier = Modifier.weight(1f)) { BooksEmptyState() }
+                }
             }
 
             // Loaded with books - show grid
@@ -290,6 +300,7 @@ fun BooksContent(
                         selectedBookIds = selectedBookIds,
                         onBookClick = onBookClick,
                         onBookLongPress = onBookLongPress,
+                        header = header,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -313,6 +324,7 @@ private fun BookGrid(
     selectedBookIds: Set<String>,
     onBookClick: (String) -> Unit,
     onBookLongPress: ((String) -> Unit)?,
+    header: (@Composable () -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val gridState = rememberLazyGridState()
@@ -324,33 +336,10 @@ private fun BookGrid(
             groupBooksWithHeaders(books, sortState, ignoreTitleArticles)
         }
 
-    // Build alphabet index based on current sort category, accounting for headers
+    val hasHeader = header != null
     val alphabetIndex =
-        remember(gridItems, sortState) {
-            when (sortState.category) {
-                SortCategory.TITLE, SortCategory.AUTHOR, SortCategory.SERIES -> {
-                    // Map letters to their header positions in the grid
-                    val letterPositions = mutableMapOf<Char, Int>()
-                    gridItems.forEachIndexed { index, item ->
-                        if (item is BookGridItem.Header) {
-                            letterPositions[item.letter] = index
-                        }
-                    }
-                    if (letterPositions.isNotEmpty()) {
-                        // Sort: non-letters (#) first, then alphabetically
-                        val letters =
-                            letterPositions.keys
-                                .sortedWith(compareBy({ it.isLetter() }, { it }))
-                        AlphabetIndex(letters, letterPositions)
-                    } else {
-                        null
-                    }
-                }
-
-                else -> {
-                    null
-                } // Numeric sorts don't benefit from alphabet navigation
-            }
+        remember(gridItems, sortState, hasHeader) {
+            bookGridAlphabetIndex(gridItems, sortState.category, hasHeader)
         }
 
     val isScrolling by remember {
@@ -372,6 +361,11 @@ private fun BookGrid(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
+            if (header != null) {
+                item(key = INBOX_ENTRY_KEY, span = { GridItemSpan(maxLineSpan) }, contentType = "header-slot") {
+                    header()
+                }
+            }
             items(
                 items = gridItems,
                 key = { gridItem ->
@@ -440,6 +434,32 @@ private fun BookGrid(
             )
         }
     }
+}
+
+/**
+ * The alphabet scrollbar's letters and the grid position each one jumps to, or null for a sort with
+ * no letters (numeric and date sorts) or nothing to index.
+ *
+ * [hasHeader]: the grid's item 0 is then the header slot (the Library's inbox entry), so every
+ * letter's section sits one item further on than its place in [gridItems].
+ */
+internal fun bookGridAlphabetIndex(
+    gridItems: List<BookGridItem>,
+    sortCategory: SortCategory,
+    hasHeader: Boolean,
+): AlphabetIndex? {
+    if (sortCategory !in setOf(SortCategory.TITLE, SortCategory.AUTHOR, SortCategory.SERIES)) return null
+    val headerOffset = if (hasHeader) 1 else 0
+    val letterPositions = mutableMapOf<Char, Int>()
+    gridItems.forEachIndexed { index, item ->
+        if (item is BookGridItem.Header) {
+            letterPositions[item.letter] = index + headerOffset
+        }
+    }
+    if (letterPositions.isEmpty()) return null
+    // Non-letters (#) first, then alphabetically.
+    val letters = letterPositions.keys.sortedWith(compareBy({ it.isLetter() }, { it }))
+    return AlphabetIndex(letters, letterPositions)
 }
 
 @Composable

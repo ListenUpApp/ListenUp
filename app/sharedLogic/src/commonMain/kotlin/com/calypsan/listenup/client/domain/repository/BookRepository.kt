@@ -103,6 +103,9 @@ interface BookRepository {
      * Uses a SQL IN clause to batch-load. Results are unordered — callers that
      * need a specific order should re-sort on the returned list.
      *
+     * Deliberately does NOT leave out books held for review: Downloads lists what is on the device,
+     * held or not. Its reactive counterpart [observeBookListItems] does leave them out.
+     *
      * @param ids Book IDs to fetch. Empty input returns an empty list.
      * @return List-shaped projections for the books that exist. May be smaller
      *   than the requested input if some IDs aren't in the local DB.
@@ -118,8 +121,13 @@ interface BookRepository {
      * book side live so the Continue Listening shelf updates as books sync into
      * Room without an explicit re-subscription.
      *
+     * Leaves out books held for review (triage-only, admin devices): every consumer is a surface a
+     * held book leaves. It re-emits when a book is held or released. Unlike [getBookListItems], which
+     * keeps them.
+     *
      * @param ids Book IDs to observe. Empty input emits an empty list immediately.
-     * @return Flow emitting the current set of matching [BookListItem]s; re-emits on any row change.
+     * @return Flow emitting the current set of matching, unheld [BookListItem]s; re-emits on any row
+     *   change or hold/release.
      */
     fun observeBookListItems(ids: List<String>): Flow<List<BookListItem>>
 
@@ -157,6 +165,9 @@ interface BookRepository {
      * [SearchRepository] — Siri resolves a book, not a multi-type search result.
      *
      * Emits exactly once: this is a query, not a live subscription.
+     *
+     * Leaves out books held for review, before the result limit: this surface only offers play, and
+     * a held book cannot be played. [SearchRepository] is the search that keeps them, marked.
      *
      * @param query The raw search query. A blank query yields an empty list.
      */

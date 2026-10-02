@@ -14,6 +14,11 @@ import com.calypsan.listenup.client.presentation.profile.EditProfileEvent
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.web.features.admin.inboxBook
+import com.calypsan.listenup.web.features.admin.fixedInboxBadge
+import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
+import com.calypsan.listenup.web.features.bookdetail.readyBook
+import com.calypsan.listenup.web.features.library.contractLibrary
+import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.admin.fixedAdminInbox
 import com.calypsan.listenup.web.features.admin.fixedCategories
 import com.calypsan.listenup.web.features.admin.fixedCollectionDetail
@@ -269,6 +274,69 @@ class AccountRoutesTest :
                 awaitFrame()
 
                 router.current.segments shouldBe listOf("book", "b7", "edit")
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("pressing a book in the inbox opens its page") {
+            val (host, router) =
+                mountAt(
+                    "/admin/inbox",
+                    openAdminInbox = fixedAdminInbox(readyInbox(books = listOf(inboxBook(id = "b7")))),
+                )
+
+            try {
+                (host.querySelector(".inbox-book") as HTMLElement).click()
+                awaitFrame()
+
+                router.current.segments shouldBe listOf("book", "b7")
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // ⛔ Book Detail's release action is a defaulted parameter, so the route dropping it compiles
+        // and renders a Release that confirms and then does nothing. Only a route-level spec sees it.
+        test("releasing a held book from its page reaches the session") {
+            var releases = 0
+            val held = readyBook().copy(isAdmin = true, isHeld = true, canPlay = false)
+            val (host, router) =
+                mountAt("/book/b1", openBookDetail = fixedBookDetail(held, onReleaseFromInbox = { releases++ }))
+
+            try {
+                host
+                    .querySelectorAll(".bd-held-actions button")
+                    .asList()
+                    .filterIsInstance<HTMLElement>()
+                    .first { it.textContent?.trim() == "Release" }
+                    .click()
+                awaitFrame()
+                (host.querySelectorAll(".bd dialog.dlg .dlg-actions button").item(1) as HTMLElement).click()
+                awaitFrame()
+
+                releases shouldBe 1
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // The strip's count and its destination are both defaulted on LibraryPage, so a route that
+        // forgets either still compiles — with no strip, or a strip that goes nowhere.
+        test("held books put the inbox strip on the Library page, and it opens the inbox") {
+            val (host, router) =
+                mountAt(
+                    "/library",
+                    openLibrary = fakeLibrary(contractLibrary()),
+                    openInboxBadge = fixedInboxBadge(heldCount = 2),
+                )
+
+            try {
+                val strip = host.querySelector("a.lib-inbox").shouldNotBeNull() as HTMLElement
+                strip.click()
+                awaitFrame()
+
+                router.current.segments shouldBe listOf("admin", "inbox")
             } finally {
                 router.dispose()
             }

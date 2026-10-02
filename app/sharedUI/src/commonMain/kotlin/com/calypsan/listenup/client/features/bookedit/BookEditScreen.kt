@@ -404,6 +404,7 @@ private fun ClassificationCard(
             isMoodSearching = state.moodSearchLoading,
             isMoodCreating = state.moodCreating,
             isAdmin = state.isAdmin,
+            isHeld = state.isHeld,
             collections = state.collections,
             collectionSearchQuery = state.collectionSearchQuery,
             collectionSearchResults = state.collectionSearchResults,

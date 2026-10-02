@@ -120,4 +120,17 @@ class ClassificationFieldsTest :
 
             root.querySelector(".rel-chip")!!.textContent!! shouldContain "Found Family"
         }
+
+        test("a held book's collections field says choosing releases it") {
+            val root = page(ready().copy(isAdmin = true, isHeld = true))
+
+            root.querySelector(".bke-held-note")?.textContent shouldBe
+                "Choosing collections releases this book from the inbox."
+        }
+
+        test("an ordinary book's collections field says nothing extra") {
+            val root = page(ready().copy(isAdmin = true, isHeld = false))
+
+            (root.querySelector(".bke-held-note") == null) shouldBe true
+        }
     })

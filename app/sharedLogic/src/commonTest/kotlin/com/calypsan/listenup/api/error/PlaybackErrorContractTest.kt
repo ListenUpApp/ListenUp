@@ -34,4 +34,13 @@ class PlaybackErrorContractTest :
             error.code shouldBe "PLAYBACK_STALLED"
             error.isRetryable shouldBe true
         }
+
+        test("should round-trip PlaybackError.CouldNotStart through AppError serializer") {
+            val original: AppError = PlaybackError.CouldNotStart(debugInfo = "bookId=b1")
+            val json = contractJson.encodeToString(AppError.serializer(), original)
+            json.contains("\"PlaybackError.CouldNotStart\"") shouldBe true
+            contractJson.decodeFromString(AppError.serializer(), json) shouldBe original
+            PlaybackError.CouldNotStart().code shouldBe "PLAYBACK_COULD_NOT_START"
+            PlaybackError.CouldNotStart().isRetryable shouldBe false
+        }
     })

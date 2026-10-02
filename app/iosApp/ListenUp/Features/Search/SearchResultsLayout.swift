@@ -146,6 +146,10 @@ private struct SearchBookCard: View {
                 .aspectRatio(1, contentMode: .fit)
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.m))
+                // Before the hover effect, so the badge lifts with the cover it marks.
+                .overlay(alignment: .topLeading) {
+                    if row.isHeld { HeldBadge(onCover: true).padding(Spacing.xs) }
+                }
                 .coverHoverEffect(cornerRadius: Radius.m)
             Text(row.name)
                 .font(.subheadline)

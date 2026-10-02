@@ -15,6 +15,7 @@ internal val voiceModule =
                 homeRepository = get(),
                 seriesRepository = get(),
                 bookRepository = get(),
+                inboxRepository = get(),
             )
         }
     }

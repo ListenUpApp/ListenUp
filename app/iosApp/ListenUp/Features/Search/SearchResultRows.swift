@@ -16,6 +16,9 @@ struct SearchBookRow: View {
                     .frame(width: 52, height: 52)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.s))
                 SearchRowText(title: row.name, subtitle: row.subtitle)
+                if row.isHeld {
+                    HeldBadge()
+                }
             }
         }
         .buttonStyle(.plain)

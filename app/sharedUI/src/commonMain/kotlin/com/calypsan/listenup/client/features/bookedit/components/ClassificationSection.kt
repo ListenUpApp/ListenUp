@@ -5,10 +5,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
@@ -16,6 +18,7 @@ import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -30,6 +33,7 @@ import com.calypsan.listenup.client.presentation.bookedit.displayName
 import com.calypsan.listenup.client.presentation.bookedit.parentPath
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.admin_held_collections_release
 import listenup.composeapp.generated.resources.common_remove_name
 import listenup.composeapp.generated.resources.book_detail_mood
 import listenup.composeapp.generated.resources.book_detail_tags
@@ -58,6 +62,7 @@ fun ClassificationSection(
     isMoodSearching: Boolean,
     isMoodCreating: Boolean,
     isAdmin: Boolean,
+    isHeld: Boolean = false,
     collections: List<EditableCollection>,
     collectionSearchQuery: String,
     collectionSearchResults: List<EditableCollection>,
@@ -122,6 +127,7 @@ fun ClassificationSection(
                 onSearchQueryChange = onCollectionSearchQueryChange,
                 onCollectionSelected = onCollectionSelected,
                 onRemoveCollection = onRemoveCollection,
+                isHeld = isHeld,
             )
         }
     }
@@ -360,13 +366,14 @@ private fun MoodsSubsection(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CollectionsSubsection(
+internal fun CollectionsSubsection(
     collections: List<EditableCollection>,
     searchQuery: String,
     searchResults: List<EditableCollection>,
     onSearchQueryChange: (String) -> Unit,
     onCollectionSelected: (EditableCollection) -> Unit,
     onRemoveCollection: (EditableCollection) -> Unit,
+    isHeld: Boolean = false,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
@@ -374,6 +381,27 @@ private fun CollectionsSubsection(
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Medium,
         )
+
+        // A held book leaves the inbox the moment it is curated — the server releases on
+        // curation — so the field says so before the admin chooses (spec §9).
+        if (isHeld) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Inbox,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    text = stringResource(Res.string.admin_held_collections_release),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
 
         if (collections.isNotEmpty()) {
             FlowRow(

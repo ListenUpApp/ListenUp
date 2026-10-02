@@ -7,11 +7,13 @@ import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
+import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.StorageSpaceProvider
 import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import com.calypsan.listenup.core.IODispatcher
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -65,6 +67,7 @@ class StorageViewModel(
     private val storageSpaceProvider: StorageSpaceProvider,
     private val errorBus: ErrorBus,
     private val playbackStateProvider: PlaybackStateProvider,
+    inboxRepository: InboxRepository,
     /**
      * Where [StorageSpaceProvider.calculateStorageUsed]'s blocking tree walk runs — injected, not
      * hardcoded, so tests can substitute a dispatcher the test scheduler controls. Pinning
@@ -76,11 +79,13 @@ class StorageViewModel(
 ) : ViewModel() {
     private val internalState = MutableStateFlow(StorageUiState())
 
-    val state: StateFlow<StorageUiState> =
-        combine(
-            internalState,
-            downloadRepository.observeDownloadedBooks(),
-        ) { internal, books ->
+    /**
+     * Everything but the held marks. The downloads tree is walked here and only here, so it re-runs
+     * on a download change or a screen action and never on a hold or release: the held set re-emits
+     * on every collection write, and a walk per emission is the expensive part.
+     */
+    private val measuredState: Flow<StorageUiState> =
+        combine(internalState, downloadRepository.observeDownloadedBooks()) { internal, books ->
             // calculateStorageUsed() walks the ENTIRE downloads tree — File.walkTopDown() plus a
             // stat per file, with zero suspension points — and getAvailableSpace() is a blocking
             // statvfs. This transform runs on the collector's context, i.e. Main
@@ -101,6 +106,14 @@ class StorageViewModel(
                 totalStorageUsed = totalUsed,
                 availableStorage = available,
                 downloadedBooks = books,
+            )
+        }
+
+    val state: StateFlow<StorageUiState> =
+        combine(measuredState, inboxRepository.observeHeldBookIds()) { measured, heldIds ->
+            measured.copy(
+                downloadedBooks =
+                    measured.downloadedBooks.map { if (BookId(it.bookId) in heldIds) it.copy(isHeld = true) else it },
             )
         }.stateIn(
             scope = viewModelScope,

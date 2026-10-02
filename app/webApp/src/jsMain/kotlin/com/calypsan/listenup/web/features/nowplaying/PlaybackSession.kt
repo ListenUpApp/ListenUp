@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
@@ -598,15 +600,24 @@ internal class LivePlayback(
             scope.launch(start = CoroutineStart.UNDISPATCHED) {
                 var reachedPlayback = false
                 try {
-                    val result = playbackManager.prepareForPlayback(bookId)
-                    if (result == null) {
-                        playbackManager.reportError(PREPARE_FAILED, isRecoverable = true)
-                        return@launch
+                    when (val result = playbackManager.prepareForPlayback(bookId)) {
+                        is AppResult.Failure -> {
+                            // A held book's refusal names what unlocks it, and a retry cannot help.
+                            val held = result.error is BookError.HeldForReview
+                            playbackManager.reportError(
+                                if (held) result.error.message else PREPARE_FAILED,
+                                isRecoverable = !held,
+                            )
+                            return@launch
+                        }
+
+                        is AppResult.Success -> {
+                            title.value = result.data.bookTitle
+                            playbackManager.activateBook(bookId)
+                            playbackController.startPlayback(result.data)
+                            reachedPlayback = true
+                        }
                     }
-                    title.value = result.bookTitle
-                    playbackManager.activateBook(bookId)
-                    playbackController.startPlayback(result)
-                    reachedPlayback = true
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {

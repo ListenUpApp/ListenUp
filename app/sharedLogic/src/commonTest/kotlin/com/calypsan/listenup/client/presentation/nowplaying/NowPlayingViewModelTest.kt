@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.nowplaying
 
+import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
@@ -364,6 +365,25 @@ class NowPlayingViewModelTest :
                 verifySuspend(VerifyMode.exactly(0)) {
                     fixture.playbackController.startPlayback(any())
                 }
+            }
+        }
+
+        test("playBook on a held book says what unlocks it, and does not offer a retry") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                val bookId = BookId("book-1")
+                fixture.fakePm.stubbedPrepareError = BookError.HeldForReview()
+                every { fixture.networkMonitor.isOnline() } returns true
+
+                val vm = fixture.newVm()
+                vm.playBook(bookId)
+                advanceUntilIdle()
+
+                val reported = fixture.fakePm.reportedErrors.single()
+                reported.message shouldBe BookError.HeldForReview().message
+                reported.isRecoverable shouldBe false
+                fixture.fakePm.activatedBookIds.isEmpty() shouldBe true
+                verifySuspend(VerifyMode.exactly(0)) { fixture.playbackController.startPlayback(any()) }
             }
         }
 

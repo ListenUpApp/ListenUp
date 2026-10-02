@@ -1221,4 +1221,9 @@ private class FakeSearchRepository(
             hits = results,
         )
     }
+
+    override suspend fun searchPlayableBooks(
+        query: String,
+        limit: Int,
+    ): List<SearchHit> = error("the import flow never asks for playable books")
 }

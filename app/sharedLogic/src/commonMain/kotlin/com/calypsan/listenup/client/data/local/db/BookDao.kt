@@ -82,6 +82,15 @@ internal interface BookDao {
     fun observeIsEmpty(): Flow<Boolean>
 
     /**
+     * Reactive count of live (non-tombstoned) books — the books table itself, held books included.
+     * Counts in SQL, so a caller that only needs "how many" never loads the rows.
+     *
+     * @return Flow emitting the live book count; re-emits on any write to `books`.
+     */
+    @Query("SELECT COUNT(*) FROM books WHERE deletedAt IS NULL")
+    fun observeLiveCount(): Flow<Int>
+
+    /**
      * Observe all books with their contributors as a reactive Flow.
      *
      * Uses Room Relations to efficiently load books and their contributors
@@ -90,10 +99,19 @@ internal interface BookDao {
      * The @Transaction annotation ensures that the book and its related
      * contributors are loaded atomically.
      *
+     * Held books are excluded ([HELD_BOOK_IDS_SQL]) — the library grid never shows a book an admin
+     * is holding for review; the inbox does.
+     *
      * @return Flow emitting list of books with their contributors
      */
     @Transaction
-    @Query("SELECT * FROM books WHERE deletedAt IS NULL ORDER BY title ASC")
+    @Query(
+        """
+        SELECT * FROM books
+        WHERE deletedAt IS NULL AND id NOT IN ($HELD_BOOK_IDS_SQL)
+        ORDER BY title ASC
+    """,
+    )
     fun observeAllWithContributors(): Flow<List<BookWithContributors>>
 
     /**
@@ -135,6 +153,13 @@ internal interface BookDao {
      */
     @Query("SELECT COUNT(*) > 0 FROM books WHERE id = :id AND deletedAt IS NULL")
     fun observeIsLive(id: BookId): Flow<Boolean>
+
+    /**
+     * Whether [id] is held for review ([HELD_BOOK_IDS_SQL]). The single-book check behind the
+     * triage-only gates — see [heldRefusal]. Room-only, so it answers offline.
+     */
+    @Query("SELECT :id IN ($HELD_BOOK_IDS_SQL)")
+    suspend fun isHeld(id: BookId): Boolean
 
     /**
      * Observe just the book's two chapter-grouping tier names.
@@ -346,6 +371,9 @@ internal interface BookDao {
      * Uses Room Relations to efficiently load books and their contributors
      * in a single batched query for a specific series.
      *
+     * Held books are excluded ([HELD_BOOK_IDS_SQL]) — the library list never shows a book an admin
+     * is holding for review; the inbox does.
+     *
      * @param seriesId The series ID to filter by
      * @return Flow emitting list of books with their contributors
      */
@@ -354,7 +382,7 @@ internal interface BookDao {
         """
         SELECT b.* FROM books b
         INNER JOIN book_series bs ON b.id = bs.bookId
-        WHERE bs.seriesId = :seriesId AND b.deletedAt IS NULL
+        WHERE bs.seriesId = :seriesId AND b.deletedAt IS NULL AND b.id NOT IN ($HELD_BOOK_IDS_SQL)
         ORDER BY bs.sequence ASC, b.title ASC
     """,
     )
@@ -366,6 +394,9 @@ internal interface BookDao {
      * Used for contributor detail pages to show books grouped by role.
      * Results are ordered by title (series ordering handled in UI/domain layer).
      *
+     * Held books are excluded ([HELD_BOOK_IDS_SQL]) — the library list never shows a book an admin
+     * is holding for review; the inbox does.
+     *
      * @param contributorId The contributor's unique ID
      * @param role The role to filter by (e.g., "author", "narrator")
      * @return Flow emitting list of books with their contributors
@@ -376,6 +407,7 @@ internal interface BookDao {
         SELECT b.* FROM books b
         INNER JOIN book_contributors bc ON b.id = bc.bookId
         WHERE bc.contributorId = :contributorId AND bc.role = :role AND b.deletedAt IS NULL
+            AND b.id NOT IN ($HELD_BOOK_IDS_SQL)
         ORDER BY b.title ASC
     """,
     )
@@ -430,6 +462,8 @@ internal interface BookDao {
      * Neutral query: returns every book ordered by `createdAt` DESC with no series-sequence
      * filter.
      *
+     * Held books are excluded in SQL, before any LIMIT, so Discover never comes up short.
+     *
      * @param limit Maximum number of books to return
      * @return Flow emitting list of recently added books with author
      */
@@ -444,7 +478,7 @@ internal interface BookDao {
                 LIMIT 1
             ) as authorName
         FROM books b
-        WHERE b.deletedAt IS NULL
+        WHERE b.deletedAt IS NULL AND b.id NOT IN ($HELD_BOOK_IDS_SQL)
         ORDER BY b.createdAt DESC
         LIMIT :limit
     """,
@@ -487,6 +521,8 @@ internal interface BookDao {
      * applied in the repository (per the rule "query-shaping lives in the repository"), which
      * must filter the full candidate set *before* limiting.
      *
+     * Held books are excluded in SQL, before any LIMIT, so Discover never comes up short.
+     *
      * @return Flow emitting every unstarted (book × sequence) row.
      */
     @Query(
@@ -504,6 +540,7 @@ internal interface BookDao {
         LEFT JOIN playback_positions p ON b.id = p.bookId
         LEFT JOIN book_series bs ON bs.bookId = b.id
         WHERE (p.bookId IS NULL OR p.positionMs = 0) AND b.deletedAt IS NULL
+            AND b.id NOT IN ($HELD_BOOK_IDS_SQL)
     """,
     )
     fun observeUnstartedCandidatesWithSeries(): Flow<List<DiscoveryBookWithSeries>>

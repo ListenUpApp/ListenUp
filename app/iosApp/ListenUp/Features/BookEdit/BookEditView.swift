@@ -338,6 +338,17 @@ struct BookEditView: View {
     @ViewBuilder
     private func collectionsSection(_ observer: BookEditObserver) -> some View {
         EditSection(title: String(localized: "book.edit_collections")) {
+            if BookEditObserver.warnsCollectionsRelease(isAdmin: observer.isAdmin, isHeld: observer.isHeld) {
+                // Amber tray and words — never colour alone (spec §9: one line).
+                Label {
+                    Text(String(localized: "admin.held_collections_release"))
+                        .foregroundStyle(.secondary)
+                } icon: {
+                    Image(systemName: "tray.full")
+                        .foregroundStyle(Color.luWarning)
+                }
+                .font(.footnote)
+            }
             if observer.collections.isEmpty {
                 EmptyRelationHint(text: String(localized: "book.edit_no_collections"))
             } else {

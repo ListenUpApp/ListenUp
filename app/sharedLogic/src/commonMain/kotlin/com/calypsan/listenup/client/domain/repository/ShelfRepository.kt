@@ -84,7 +84,9 @@ interface ShelfRepository {
     /**
      * Get full shelf detail including books from the server.
      *
-     * Owner receives all books; a non-owner receives the access-filtered set.
+     * The server sends the owner every book and a non-owner the access-filtered set. Books held for
+     * review are then left out on this device (only an admin's device holds any), and the detail's
+     * book count and total duration are corrected to match the list.
      *
      * @param shelfId The shelf ID to fetch
      * @return [AppResult.Success] with the shelf detail, or [AppResult.Failure] on RPC error
@@ -108,6 +110,9 @@ interface ShelfRepository {
      * Returns how many of [bookIds] the shelf actually gained — books already on it are left
      * where they are, and are not counted, so a caller confirming the write can say what changed
      * rather than what was asked for.
+     *
+     * Refuses with [com.calypsan.listenup.api.error.BookError.HeldForReview], adding nothing, when
+     * any requested book is held for review.
      *
      * @param shelfId The shelf to add to
      * @param bookIds The books to add

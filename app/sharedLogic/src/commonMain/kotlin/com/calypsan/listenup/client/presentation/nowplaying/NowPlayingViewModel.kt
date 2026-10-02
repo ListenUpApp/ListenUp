@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.presentation.nowplaying
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
@@ -506,25 +508,42 @@ class NowPlayingViewModel internal constructor(
         preparingJob =
             viewModelScope.launch {
                 try {
-                    val result = playbackManager.prepareForPlayback(bookId)
-                    if (result == null) {
-                        val message =
-                            if (networkMonitor.isOnline()) {
-                                "Failed to load book"
-                            } else {
-                                "Can't play this book offline. Download it first."
-                            }
-                        playbackManager.reportError(message, isRecoverable = true)
-                        return@launch
+                    when (val result = playbackManager.prepareForPlayback(bookId)) {
+                        is AppResult.Failure -> {
+                            reportPrepareFailure(result.error)
+                            return@launch
+                        }
+
+                        is AppResult.Success -> {
+                            playbackManager.activateBook(bookId)
+                            playbackController.startPlayback(result.data)
+                        }
                     }
-                    playbackManager.activateBook(bookId)
-                    playbackController.startPlayback(result)
                 } finally {
                     if (playbackManager.preparingBookId.value == bookId) {
                         playbackManager.clearPreparing()
                     }
                 }
             }
+    }
+
+    /**
+     * A held book's refusal says what unlocks it and offers no retry — tapping Play again cannot help
+     * until it is released. Every other prepare failure keeps the wording that tells an offline
+     * listener what to do.
+     */
+    private fun reportPrepareFailure(error: AppError) {
+        if (error is BookError.HeldForReview) {
+            playbackManager.reportError(error.message, isRecoverable = false)
+            return
+        }
+        val message =
+            if (networkMonitor.isOnline()) {
+                "Failed to load book"
+            } else {
+                "Can't play this book offline. Download it first."
+            }
+        playbackManager.reportError(message, isRecoverable = true)
     }
 
     fun playPause() {

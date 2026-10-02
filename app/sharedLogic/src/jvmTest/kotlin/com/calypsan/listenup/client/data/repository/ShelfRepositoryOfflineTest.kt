@@ -333,5 +333,6 @@ private fun repo(
         userDao = userDao,
         channel = RpcChannel.forTest(service),
         offlineEditor = offlineEditor,
+        collectionBookDao = db.collectionBookDao(),
     )
 }

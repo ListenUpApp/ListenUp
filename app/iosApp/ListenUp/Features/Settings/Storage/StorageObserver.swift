@@ -10,13 +10,15 @@ struct DownloadedBookRow: Identifiable, Equatable {
     let authorNames: String
     let sizeBytes: Int64
     let fileCount: Int
+    let isHeld: Bool
 
-    init(id: String, title: String, authorNames: String, sizeBytes: Int64, fileCount: Int) {
+    init(id: String, title: String, authorNames: String, sizeBytes: Int64, fileCount: Int, isHeld: Bool = false) {
         self.id = id
         self.title = title
         self.authorNames = authorNames
         self.sizeBytes = sizeBytes
         self.fileCount = fileCount
+        self.isHeld = isHeld
     }
 
     init(_ summary: DownloadedBookSummary) {
@@ -25,6 +27,7 @@ struct DownloadedBookRow: Identifiable, Equatable {
         self.authorNames = summary.authorNames
         self.sizeBytes = summary.sizeBytes
         self.fileCount = Int(summary.fileCount)
+        self.isHeld = summary.isHeld
     }
 }
 

@@ -155,6 +155,51 @@ class ShellTest :
             (host.querySelector(".nav-i") as HTMLElement).getAttribute("title") shouldBe "Notifications"
         }
 
+        test("a held count is amber and says what is waiting, not what is unread") {
+            val host =
+                mount {
+                    Shell(
+                        sections =
+                            listOf(
+                                NavSection(
+                                    listOf(
+                                        NavEntry("library", "Library", WebIcon.Book, badge = 3, badgeKind = NavBadgeKind.Held),
+                                    ),
+                                ),
+                            ),
+                        active = "home",
+                    ) {}
+                }
+
+            val badge = host.querySelector(".nav-i .nav-badge") as HTMLElement
+            badge.classList.contains("is-held") shouldBe true
+            badge.getAttribute("aria-label") shouldBe "3 books waiting for review"
+            badge.textContent shouldBe "3"
+        }
+
+        test("one held book is one book, and a large count is capped but read in full") {
+            val host =
+                mount {
+                    Shell(
+                        sections =
+                            listOf(
+                                NavSection(
+                                    listOf(
+                                        NavEntry("library", "Library", WebIcon.Book, badge = 1, badgeKind = NavBadgeKind.Held),
+                                        NavEntry("shelves", "Shelves", WebIcon.Bookmark, badge = 120, badgeKind = NavBadgeKind.Held),
+                                    ),
+                                ),
+                            ),
+                        active = "home",
+                    ) {}
+                }
+
+            val badges = host.querySelectorAll(".nav-i .nav-badge")
+            (badges.item(0) as HTMLElement).getAttribute("aria-label") shouldBe "1 book waiting for review"
+            (badges.item(1) as HTMLElement).textContent shouldBe "99+"
+            (badges.item(1) as HTMLElement).getAttribute("aria-label") shouldBe "more than 99 books waiting for review"
+        }
+
         test("the content slot renders inside the scrolling main region") {
             val host =
                 mount {

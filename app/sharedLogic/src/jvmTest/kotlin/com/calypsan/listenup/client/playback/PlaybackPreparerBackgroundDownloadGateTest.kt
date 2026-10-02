@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.dto.CodecCapability
@@ -213,7 +214,7 @@ class PlaybackPreparerBackgroundDownloadGateTest :
 
                 val preparer = buildPreparer(downloadService, this)
 
-                preparer.prepare(bookId).shouldNotBeNull()
+                preparer.prepare(bookId).getOrNull().shouldNotBeNull()
 
                 // The gate is checked synchronously, before the fire-and-forget scope.launch that
                 // would otherwise call downloadBook(). Settling the scheduler anyway is what makes
@@ -236,7 +237,7 @@ class PlaybackPreparerBackgroundDownloadGateTest :
 
                 val preparer = buildPreparer(downloadService, this)
 
-                preparer.prepare(bookId).shouldNotBeNull()
+                preparer.prepare(bookId).getOrNull().shouldNotBeNull()
 
                 // The download is launched, not awaited, so `prepare` returning proves nothing
                 // about it yet. Settle the scheduler first; asserting straight after the call was

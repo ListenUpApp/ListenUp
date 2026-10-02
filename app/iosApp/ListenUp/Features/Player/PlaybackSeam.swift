@@ -96,7 +96,7 @@ struct PreparedFile: Sendable {
 
 /// Resolve + map a book to a `PreparedPlayback`, or `nil` on failure.
 protocol PlaybackPreparing: Sendable {
-    func prepare(bookId: String) async -> PreparedPlayback?
+    func prepareOrNull(bookId: String) async -> PreparedPlayback?
 }
 
 /// Position + listening-event persistence. `bookId` is the value-class-erased id.

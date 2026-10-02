@@ -2,11 +2,12 @@ package com.calypsan.listenup.client.voice
 
 import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.client.domain.model.SearchHit
-import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
+import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
+import kotlinx.coroutines.flow.first
 
 /**
  * Resolves voice queries to playback intents.
@@ -22,6 +23,7 @@ class VoiceIntentResolver(
     private val homeRepository: HomeRepository,
     private val seriesRepository: SeriesRepository,
     private val bookRepository: BookRepository,
+    private val inboxRepository: InboxRepository,
 ) {
     companion object {
         // Search configuration
@@ -80,27 +82,19 @@ class VoiceIntentResolver(
         query: String,
         hints: VoiceHints,
     ): PlaybackIntent {
-        val searchResult =
-            searchRepository.search(
-                query = query,
-                types = listOf(SearchHitType.BOOK),
-                limit = MAX_SEARCH_RESULTS,
-            )
+        // A held book is triage-only — never a play target. The playable search leaves held books out
+        // before its limit, so they can't crowd out a book voice could actually play.
+        val hits = searchRepository.searchPlayableBooks(query = query, limit = MAX_SEARCH_RESULTS)
 
-        if (searchResult.hits.isEmpty()) {
+        if (hits.isEmpty()) {
             return PlaybackIntent.NotFound(query)
         }
 
         // Score and rank results
         val scoredMatches =
-            searchResult.hits
-                .filter { it.type == SearchHitType.BOOK }
+            hits
                 .map { hit -> scoreMatch(hit, query, hints) }
                 .sortedByDescending { it.confidence }
-
-        if (scoredMatches.isEmpty()) {
-            return PlaybackIntent.NotFound(query)
-        }
 
         val topMatch = scoredMatches.first()
 
@@ -177,8 +171,12 @@ class VoiceIntentResolver(
         val bookIds = seriesRepository.getBookIdsForSeries(context.seriesId)
         if (bookIds.isEmpty()) return null
 
+        // A held book is triage-only, so navigation skips it: "next book" past a held sequel lands on
+        // the one after, and asking for the held one by number finds nothing to play.
+        val heldIds = inboxRepository.observeHeldBookIds().first()
+
         // Batch-load all books in a single query (avoids N+1 problem)
-        val books = bookRepository.getBookListItems(bookIds)
+        val books = bookRepository.getBookListItems(bookIds).filterNot { it.id in heldIds }
 
         // Map books to their sequence numbers and sort
         val booksWithSequence =

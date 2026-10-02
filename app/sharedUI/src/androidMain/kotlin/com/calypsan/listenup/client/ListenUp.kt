@@ -299,6 +299,7 @@ val playbackModule =
                 seriesRepository = get(),
                 contributorRepository = get(),
                 downloadRepository = get(),
+                inboxRepository = get(),
                 packageName = get<Context>().packageName,
                 strings = get(),
             )

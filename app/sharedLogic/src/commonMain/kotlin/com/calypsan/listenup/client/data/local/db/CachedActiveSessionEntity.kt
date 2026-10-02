@@ -48,6 +48,7 @@ internal interface CachedActiveSessionDao {
      * one query instead of a book read per row on every emission. Being a join, it also re-emits
      * when the library changes, so a session whose book syncs in after the snapshot appears then
      * rather than at the next presence ping. Live rows first, newest activity first within each half.
+     * A session on a book held for review is left out; it rejoins when the book is released.
      */
     @Query(
         """
@@ -59,7 +60,7 @@ internal interface CachedActiveSessionDao {
                 LIMIT 1
             ) AS bookAuthorName
         FROM cached_active_sessions s
-        INNER JOIN books b ON b.id = s.bookId AND b.deletedAt IS NULL
+        INNER JOIN books b ON b.id = s.bookId AND b.deletedAt IS NULL AND b.id NOT IN ($HELD_BOOK_IDS_SQL)
         ORDER BY s.isLive DESC, s.lastActiveAtMs DESC
         """,
     )

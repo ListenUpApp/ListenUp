@@ -51,6 +51,11 @@ data class SearchHit(
     val coverHash: String? = null,
     val score: Float = 0f,
     val highlight: String? = null,
+    /**
+     * Held for review in the admin inbox — hidden from every member. Only book hits can be held;
+     * always false on a member's device.
+     */
+    val isHeld: Boolean = false,
 ) {
     /**
      * Format duration as human-readable string.

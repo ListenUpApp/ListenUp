@@ -34,6 +34,7 @@ import com.calypsan.listenup.client.features.shell.components.AppHeader
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.features.shell.components.AppNavigationSuite
 
+import com.calypsan.listenup.client.presentation.admin.InboxBadgeViewModel
 import com.calypsan.listenup.client.presentation.search.SearchNavAction
 import com.calypsan.listenup.client.features.search.SearchResultsOverlay
 import com.calypsan.listenup.client.presentation.notifications.NotificationBellViewModel
@@ -124,6 +125,7 @@ fun AppShell(
     val searchViewModel: SearchViewModel = koinViewModel()
     val syncIndicatorViewModel: SyncIndicatorViewModel = koinViewModel()
     val notificationBellViewModel: NotificationBellViewModel = koinViewModel()
+    val inboxBadgeViewModel: InboxBadgeViewModel = koinViewModel()
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Request POST_NOTIFICATIONS once at the post-auth entry point. The composable is
@@ -173,6 +175,7 @@ fun AppShell(
     val syncIndicatorState by syncIndicatorViewModel.state.collectAsStateWithLifecycle()
     val isSyncDetailsExpanded by syncIndicatorViewModel.isExpanded.collectAsStateWithLifecycle()
     val unreadNotificationCount by notificationBellViewModel.unreadCount.collectAsStateWithLifecycle()
+    val heldBookCount by inboxBadgeViewModel.heldCount.collectAsStateWithLifecycle()
 
     // Search overlay expansion lives in the UI — purely presentational state.
     var isSearchExpanded by rememberSaveable { mutableStateOf(false) }
@@ -379,6 +382,7 @@ fun AppShell(
                         currentDestination = currentDestination,
                         onDestinationSelected = onDestinationChange,
                         onSignOutRequest = signOutConfirmation::request,
+                        libraryBadgeCount = heldBookCount,
                     )
                 }
             },
@@ -395,6 +399,7 @@ fun AppShell(
                 currentDestination = currentDestination,
                 onDestinationSelected = onDestinationChange,
                 onSignOutRequest = signOutConfirmation::request,
+                libraryBadgeCount = heldBookCount,
             )
             Scaffold(
                 modifier = Modifier.weight(1f),

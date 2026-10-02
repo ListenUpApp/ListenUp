@@ -28,6 +28,31 @@
 .luw .lib-status-track { flex: 1; min-width: 8rem; }
 /* On Library the strip sits above the grid, so it needs the gap Home's column gives it for free. */
 .luw .lib-status.is-above-grid { margin-bottom: var(--sp-16); }
+/* The Library's inbox strip: the .lib-status slot above the virtualised grid, so card heights never
+   change. Amber (--warn) is "waiting for you"; the focus ring is the coral one .lib-card uses. */
+.luw .lib-inbox {
+  display: flex; align-items: center; gap: 14px; min-height: 68px; box-sizing: border-box;
+  padding: 12px 14px; margin-bottom: var(--sp-16); border-radius: var(--r-md);
+  background: var(--warn-soft); border: 1px solid color-mix(in srgb, var(--warn) 22%, var(--warn-soft));
+  color: var(--ink); text-decoration: none;
+}
+.luw .lib-inbox:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+.luw .lib-inbox-tile {
+  width: 40px; height: 40px; flex: none; border-radius: 10px;
+  background: var(--warn); color: var(--on-warn); display: flex; align-items: center; justify-content: center;
+}
+.luw .lib-inbox-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.luw .lib-inbox-t { font-size: 0.9375rem; font-weight: 700; letter-spacing: -0.01em; }
+.luw .lib-inbox-sub { font-size: var(--fs-small); color: var(--ink-2); }
+.luw .lib-inbox-fan { display: flex; align-items: center; padding: 0 6px; }
+.luw .lib-inbox-fan .lib-inbox-cover + .lib-inbox-cover { margin-left: -14px; }
+.luw .lib-inbox-cover { border: 2px solid var(--warn-soft); border-radius: 6px; flex: none; }
+.luw .lib-inbox-review { font-size: 0.84375rem; font-weight: 700; color: var(--ink-2); }
+.luw .lib-inbox-chev { display: flex; color: var(--ink-2); }
+/* On a phone the word goes and the chevron stays (canvas W-Library-Phone). */
+@media (max-width: 759px) {
+  .luw .lib-inbox-review { display: none; }
+}
 .luw .lib-retry { margin-top: var(--sp-8); }
 /* The failed-setup-check panel's one move, filling the auth card like the sign-in submit does. */
 .luw .setup-check-retry { margin-top: var(--sp-8); }
@@ -628,27 +653,33 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 /* Rows, not cards: the reader is scanning a queue for the one that looks wrong, and a grid of
    covers makes that a hunt. */
 .luw .inbox-books { display: flex; flex-direction: column; gap: 0.5rem; }
-/* The row and its actions menu sit side by side: a <button> cannot contain another one, so the
-   per-book actions live beside the selection target rather than inside it. */
-.luw .inbox-book-row { display: flex; align-items: stretch; gap: var(--sp-8); }
+/* Checkbox, book, actions menu — side by side, never nested: the book is a <button>, which cannot
+   contain another control. The row draws the card so the three read as one book. */
+.luw .inbox-book-row {
+  display: flex; align-items: stretch; gap: var(--sp-4);
+  border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2);
+  transition: border-color var(--dur), background var(--dur);
+}
+.luw .inbox-book-row.is-sel { border-color: var(--coral); background: var(--coral-soft); }
+.luw .inbox-book-sel { flex: none; display: flex; align-items: stretch; }
+/* The drawn box is 17px; the input over it is what takes the tap. Stretching the label to the
+   row's full height at 44px wide makes the whole left edge of the row the target (WCAG 2.5.8),
+   and centring the box in it keeps it where the row's old padding put it. */
+.luw .inbox-book-sel .cbx-hit { width: 44px; align-items: center; justify-content: center; }
 .luw .inbox-book-row > .inbox-book { flex: 1; min-width: 0; }
-.luw .inbox-book-row > .menu-anchor { display: flex; align-items: center; }
+.luw .inbox-book-row > .menu-anchor { display: flex; align-items: center; padding-right: 0.35rem; }
 .luw .inbox-book {
   display: flex; align-items: center; gap: 0.9rem; width: 100%; text-align: left;
-  padding: 0.5rem 0.7rem; border: 1px solid var(--line); border-radius: var(--r-md);
-  background: var(--surface-2); cursor: pointer; transition: border-color var(--dur), background var(--dur);
+  padding: 0.5rem 0.7rem; border: 0; border-radius: var(--r-md);
+  background: transparent; color: inherit; font: inherit; cursor: pointer;
 }
-@media (hover: hover) { .luw .inbox-book:hover { border-color: var(--coral); } }
+@media (hover: hover) { .luw .inbox-book:hover .inbox-book-title { color: var(--coral-text); } }
 .luw .inbox-book:focus { outline: none; }
 .luw .inbox-book:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
-.luw .inbox-book.is-sel { border-color: var(--coral); background: var(--coral-soft); }
 .luw .inbox-book-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
 .luw .inbox-book-title { font-size: var(--fs-body); font-weight: 700; color: var(--ink); }
 .luw .inbox-book-by { font-size: var(--fs-small); color: var(--ink-2); }
 .luw .inbox-book-dur { flex: none; font-size: var(--fs-small); color: var(--ink-3); font-variant-numeric: tabular-nums; }
-/* Always present, so selecting a row never changes its height and the queue never reflows. */
-.luw .inbox-tick { flex: none; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--coral-text); }
-.luw .inbox-book.is-sel .inbox-tick { background: var(--coral-fill); color: var(--on-coral); }
 
 .luw .inbox-issues { display: flex; flex-direction: column; gap: 0.6rem; }
 .luw .inbox-issue { display: flex; align-items: flex-start; gap: 0.9rem; padding: 0.7rem 0.8rem; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
@@ -1185,3 +1216,31 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
     padding: var(--sp-4) 0 var(--sp-24);
   }
 }
+
+/* Book Detail's held panel (triage only): the main column's first block, on --warn-soft with a
+   --warn tile — amber is "waiting for you"; Release keeps the coral primary ("act here"). */
+.luw .bd-held {
+  display: flex; align-items: center; gap: 16px; padding: 18px; margin-bottom: var(--sp-16);
+  border-radius: 14px; background: var(--warn-soft);
+  border: 1px solid color-mix(in srgb, var(--warn) 22%, var(--warn-soft));
+}
+.luw .bd-held-tile {
+  width: 44px; height: 44px; flex: none; border-radius: 12px;
+  background: var(--warn); color: var(--on-warn); display: flex; align-items: center; justify-content: center;
+}
+.luw .bd-held-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.luw .bd-held-t { margin: 0; font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; }
+.luw .bd-held-sub { margin: 0; font-size: 0.875rem; line-height: 1.5; color: var(--ink-2); }
+.luw .bd-held-actions { display: flex; flex-wrap: wrap; gap: 8px; flex: none; max-width: 22rem; justify-content: flex-end; }
+/* On a phone the panel stacks: the words, then the four actions — Edit and Release, Match and
+   Edit chapters — sharing the width and wrapping as they need to. */
+@media (max-width: 759px) {
+  .luw .bd-held { flex-wrap: wrap; }
+  .luw .bd-held-actions { width: 100%; }
+  .luw .bd-held-actions > * { flex: 1; }
+}
+
+/* Book Edit: the line above Collections for a held book. Amber glyph, ink-2 words. */
+.luw .bke-held-note { display: flex; align-items: center; gap: 8px; margin: 0 0 var(--sp-8);
+  font-size: var(--fs-small); color: var(--ink-2); }
+.luw .bke-held-note svg { color: var(--warn); flex: none; }

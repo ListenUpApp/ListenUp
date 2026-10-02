@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.voice
 
+import com.calypsan.listenup.client.test.fake.FakeInboxRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
@@ -14,6 +15,7 @@ class VoiceIntentResolverTest :
         lateinit var homeRepository: FakeHomeRepository
         lateinit var seriesRepository: FakeSeriesRepository
         lateinit var bookRepository: FakeBookRepository
+        lateinit var inboxRepository: FakeInboxRepository
         lateinit var resolver: VoiceIntentResolver
 
         fun setup() {
@@ -21,12 +23,14 @@ class VoiceIntentResolverTest :
             homeRepository = FakeHomeRepository()
             seriesRepository = FakeSeriesRepository()
             bookRepository = FakeBookRepository()
+            inboxRepository = FakeInboxRepository()
             resolver =
                 VoiceIntentResolver(
                     searchRepository = searchRepository,
                     homeRepository = homeRepository,
                     seriesRepository = seriesRepository,
                     bookRepository = bookRepository,
+                    inboxRepository = inboxRepository,
                 )
         }
 
@@ -69,6 +73,30 @@ class VoiceIntentResolverTest :
 
                 val playBook = result.shouldBeInstanceOf<PlaybackIntent.PlayBook>()
                 playBook.bookId shouldBe "book1"
+            }
+        }
+
+        test("a held book is never a voice play target") {
+            runTest {
+                setup()
+                searchRepository.setResults(
+                    testSearchHit(id = "held", name = "The Hobbit", score = 1.0f).copy(isHeld = true),
+                )
+
+                resolver.resolve("The Hobbit").shouldBeInstanceOf<PlaybackIntent.NotFound>()
+            }
+        }
+
+        test("a playable hit wins over a better-scoring held one") {
+            runTest {
+                setup()
+                searchRepository.setResults(
+                    testSearchHit(id = "held", name = "The Hobbit", score = 1.0f).copy(isHeld = true),
+                    testSearchHit(id = "playable", name = "The Hobbit", score = 0.9f),
+                )
+
+                val playBook = resolver.resolve("The Hobbit").shouldBeInstanceOf<PlaybackIntent.PlayBook>()
+                playBook.bookId shouldBe "playable"
             }
         }
 
@@ -192,6 +220,43 @@ class VoiceIntentResolverTest :
 
                 val playSeries = result.shouldBeInstanceOf<PlaybackIntent.PlaySeriesFrom>()
                 playSeries.startBookId shouldBe "book2"
+            }
+        }
+
+        /** Series 1, 2 (playing), 3 (held), 4 — a held sequel is skipped, never landed on. */
+        fun seedSeriesWithHeldThird() {
+            val series = testSeries("series1", "Stormlight")
+            val ids = listOf("book1", "book2", "book3", "book4")
+            ids.forEachIndexed { index, id ->
+                bookRepository.addBook(
+                    testBook(
+                        id = id,
+                        title = "Stormlight ${index + 1}",
+                        series = listOf(testBookSeries("series1", "Stormlight", (index + 1).toDouble())),
+                    ),
+                )
+            }
+            seriesRepository.addSeries(series, ids)
+            inboxRepository.hold("book3")
+            homeRepository.setContinueListening(testContinueListeningBook("book2", "Stormlight 2"))
+        }
+
+        test("next book skips a held sequel") {
+            runTest {
+                setup()
+                seedSeriesWithHeldThird()
+
+                val playSeries = resolver.resolve("next book").shouldBeInstanceOf<PlaybackIntent.PlaySeriesFrom>()
+                playSeries.startBookId shouldBe "book4"
+            }
+        }
+
+        test("asking for a held book by its number finds nothing to play") {
+            runTest {
+                setup()
+                seedSeriesWithHeldThird()
+
+                resolver.resolve("book 3").shouldBeInstanceOf<PlaybackIntent.NotFound>()
             }
         }
 

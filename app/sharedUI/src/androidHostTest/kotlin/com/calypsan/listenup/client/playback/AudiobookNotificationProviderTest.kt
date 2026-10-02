@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.result.AppResult
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.media3.common.util.UnstableApi
@@ -286,7 +288,8 @@ private class StubPlaybackManager : PlaybackManager {
 
     override fun activateBook(bookId: BookId) = Unit
 
-    override suspend fun prepareForPlayback(bookId: BookId): PlaybackManager.PrepareResult? = null
+    override suspend fun prepareForPlayback(bookId: BookId): AppResult<PlaybackManager.PrepareResult> =
+        AppResult.Failure(PlaybackError.CouldNotStart())
 
     override suspend fun startPlayback(
         player: AudioPlayer,

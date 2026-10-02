@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.web.features.admin.fixedInboxBadge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.remember
@@ -219,6 +220,7 @@ private fun Gate(
                 userDetail = fixedUserDetail(UserDetailUiState.Loading),
                 upload = fixedUpload(UploadBooksUiState.Idle),
                 organize = fixedOrganize(OrganizeSettingsUiState.Loading),
+                inboxBadge = fixedInboxBadge(),
             ),
         openShelfDetail = fixedShelfDetail(),
         openShelfEdit = fixedShelfEdit(),

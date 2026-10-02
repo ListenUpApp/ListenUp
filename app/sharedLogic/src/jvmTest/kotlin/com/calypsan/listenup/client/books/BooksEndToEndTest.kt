@@ -185,6 +185,7 @@ private fun clientBookRepository(database: ListenUpDatabase): BookRepository {
         chapterDao = database.chapterDao(),
         audioFileDao = database.audioFileDao(),
         searchDao = database.searchDao(),
+        collectionBookDao = database.collectionBookDao(),
         transactionRunner = transactionRunner,
         imageStorage = imageStorage,
         joinSources = BookDetailJoinSources(genreRepository, tagRepository, moodRepository),

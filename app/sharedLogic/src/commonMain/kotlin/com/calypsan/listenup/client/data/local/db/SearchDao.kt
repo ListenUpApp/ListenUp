@@ -8,10 +8,14 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * Result class for book search that includes denormalized author name.
+ *
+ * [isHeld] is true when the book is held for review in the admin inbox ([HELD_BOOK_IDS_SQL]). Search
+ * keeps held books — it is how an admin reaches one outside the inbox — and marks them.
  */
 internal data class BookSearchResult(
     @Embedded val book: BookEntity,
     val authorName: String?,
+    val isHeld: Boolean,
 )
 
 /**
@@ -51,7 +55,7 @@ internal interface SearchDao {
     @SkipQueryVerification
     @Query(
         """
-        SELECT b.*, fts.author AS authorName
+        SELECT b.*, fts.author AS authorName, (b.id IN ($HELD_BOOK_IDS_SQL)) AS isHeld
         FROM books_fts fts
         INNER JOIN books b ON fts.bookId = b.id
         WHERE books_fts MATCH :query
@@ -61,6 +65,31 @@ internal interface SearchDao {
     """,
     )
     suspend fun searchBooks(
+        query: String,
+        limit: Int = 20,
+    ): List<BookSearchResult>
+
+    /**
+     * [searchBooks] without the books held for review — for surfaces that only offer play (iOS App
+     * Intents, voice), where a held book is never a valid answer.
+     *
+     * The exclusion runs in SQL, before the `LIMIT`, so held books ranking near the top cannot take
+     * the slots of playable ones. [BookSearchResult.isHeld] is therefore always false.
+     */
+    @SkipQueryVerification
+    @Query(
+        """
+        SELECT b.*, fts.author AS authorName, 0 AS isHeld
+        FROM books_fts fts
+        INNER JOIN books b ON fts.bookId = b.id
+        WHERE books_fts MATCH :query
+          AND b.deletedAt IS NULL
+          AND b.id NOT IN ($HELD_BOOK_IDS_SQL)
+        ORDER BY bm25(books_fts)
+        LIMIT :limit
+    """,
+    )
+    suspend fun searchUnheldBooks(
         query: String,
         limit: Int = 20,
     ): List<BookSearchResult>
@@ -217,35 +246,6 @@ internal interface SearchDao {
     // ==================== HELPER QUERIES FOR DENORMALIZATION ====================
 
     /**
-     * Get primary author name for a book.
-     *
-     * Returns the first author found. Books may have multiple authors,
-     * but we only index the first one for search simplicity.
-     */
-    @Query(
-        """
-        SELECT c.name FROM contributors c
-        INNER JOIN book_contributors bc ON bc.contributorId = c.id
-        WHERE bc.bookId = :bookId AND LOWER(bc.role) = 'author'
-        LIMIT 1
-    """,
-    )
-    suspend fun getPrimaryAuthorName(bookId: String): String?
-
-    /**
-     * Get primary narrator name for a book.
-     */
-    @Query(
-        """
-        SELECT c.name FROM contributors c
-        INNER JOIN book_contributors bc ON bc.contributorId = c.id
-        WHERE bc.bookId = :bookId AND LOWER(bc.role) = 'narrator'
-        LIMIT 1
-    """,
-    )
-    suspend fun getPrimaryNarratorName(bookId: String): String?
-
-    /**
      * Get series names for a book (comma-separated, alphabetically sorted).
      *
      * Returns names of all series the book belongs to, joined with comma.
@@ -293,10 +293,8 @@ internal interface SearchDao {
      *
      * Using [MIN] over contributor names rather than an arbitrary `LIMIT 1`
      * produces a deterministic result when a book has multiple authors — the
-     * same author is always chosen across rebuild runs. The per-book
-     * [getPrimaryAuthorName] uses `LIMIT 1` without ordering, which has the
-     * same single-author semantics but is non-deterministic for multi-author
-     * books; this batch variant is strictly more consistent.
+     * same author is always chosen across rebuild runs, and by the targeted
+     * [getPrimaryAuthorNamesFor] too.
      *
      * @return List of `(bookId, authorName)` pairs — one row per book that has an author.
      *   Books with no author contributor are absent from the result.

@@ -14,6 +14,8 @@ import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.CheckboxField
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
+import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.RelationField
 import com.calypsan.listenup.web.design.SelectField
 import com.calypsan.listenup.web.design.SelectOption
@@ -231,6 +233,14 @@ private fun ClassificationFields(
         id = "edit-moods",
     )
     if (state.isAdmin) {
+        // A held book leaves the inbox the moment it is curated — the server releases on curation —
+        // so the field says so before the admin chooses (spec §9).
+        if (state.isHeld) {
+            P(attrs = { classes("bke-held-note") }) {
+                Icon(WebIcon.Inbox, size = HELD_NOTE_ICON_SIZE)
+                Text("Choosing collections releases this book from the inbox.")
+            }
+        }
         RelationField(
             label = "Collections",
             attached = state.collections.map { it.toChip() },
@@ -464,6 +474,7 @@ private fun fromDateInputValue(text: String): Long? {
 private fun Int.pad(): String = toString().padStart(2, '0')
 
 private const val DATE_PARTS = 3
+private const val HELD_NOTE_ICON_SIZE = 16
 
 /**
  * Save and Cancel.

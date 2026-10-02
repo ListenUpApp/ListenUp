@@ -2,7 +2,10 @@
 package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.valueOrNull
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
@@ -15,6 +18,7 @@ import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.BookWithContributors
 import com.calypsan.listenup.client.data.local.db.ChapterDao
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
+import com.calypsan.listenup.client.data.local.db.heldRefusal
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.device.DeviceContext
@@ -51,7 +55,7 @@ private const val MS_PER_SECOND = 1000L
  * magnitude looser — long enough for a real, moderately-degraded fetch to still succeed. It is still
  * a fraction of [com.calypsan.listenup.client.data.remote.DEFAULT_RPC_TIMEOUT] (15s, up to ~30s once
  * doubled by a pre-delivery retry): the failure mode this closes is a dead-socket caller sitting on
- * the tap-to-audio path for tens of seconds before the outer `prepare()` catch-all folds it to null
+ * the tap-to-audio path for tens of seconds before the outer `prepare()` catch-all folds it to a failure
  * and the listener sees "couldn't start playback" — the same outcome, arrived at far faster.
  */
 private val FETCH_BOOK_TIMEOUT = 5.seconds
@@ -118,7 +122,7 @@ data class PlaybackNavRef(
  *
  * Holds no mutable playback state. [PlaybackManagerImpl] constructs one
  * internally and delegates [PlaybackManager.prepareForPlayback] to it; the iOS
- * native player calls [prepare] directly via Koin.
+ * native player calls [prepareOrNull] via Koin.
  *
  * LongParameterList suppressed: the playback-prep pipeline orchestrates auth,
  * persistence (3 DAOs + repo), cover storage, progress, signed-URL RPC, and
@@ -145,28 +149,45 @@ class PlaybackPreparer internal constructor(
     private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) {
     /**
-     * Prepare playback for [bookId].
+     * Prepare playback for [bookId] — **the one choke point every playback start passes through**:
+     * Android (Book Detail, Continue Listening, deep links, Android Auto, voice, resumption), web,
+     * desktop, and iOS (Book Detail, CarPlay, App Intents, context menu) all funnel here.
      *
-     * Offline-first: if every audio file is already downloaded, the server prepare
-     * endpoint is skipped entirely and local paths are used. Otherwise, a single call
-     * to [PlaybackService.prepare] fetches signed streaming URLs for all files.
+     * A book held for review is refused first, with [BookError.HeldForReview] — before any network
+     * call or download, and even when its audio is already on the device: a held book is triage-only
+     * until released. Every other failure is a [PlaybackError.CouldNotStart] carrying the cause in
+     * `debugInfo`.
      *
-     * @return a [PreparedPlayback] value, or `null` on any failure (logged).
+     * Offline-first: if every audio file is already downloaded, the server prepare endpoint is skipped
+     * entirely and local paths are used. Otherwise, a single call to [PlaybackService.prepare] fetches
+     * signed streaming URLs for all files.
      */
-    suspend fun prepare(bookId: BookId): PreparedPlayback? =
+    suspend fun prepare(bookId: BookId): AppResult<PreparedPlayback> =
         try {
-            prepareInternal(bookId)
+            val refusal = bookDao.heldRefusal(bookId)
+            if (refusal != null) {
+                logger.info { "Refusing to play ${bookId.value}: held for review" }
+                AppResult.Failure(refusal)
+            } else {
+                prepareInternal(bookId)?.let { AppResult.Success(it) }
+                    ?: AppResult.Failure(PlaybackError.CouldNotStart(debugInfo = "bookId=${bookId.value}"))
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            // Contract (see KDoc): "null on any failure (logged)". An escaping throw — e.g. a
-            // transport exception from the streaming-prepare RPC when the book isn't downloaded
-            // (buildTimeline's `playbackService().prepare` is the one unguarded RPC) — otherwise
-            // crosses the Swift Export seam as an opaque `KotlinError`, and the player shows
-            // "Couldn't start playback" with no cause. Fold to null and log the real exception.
+            // An escaping throw — e.g. a transport exception from the streaming-prepare RPC when the
+            // book isn't downloaded — is folded to a typed failure and logged with its real cause.
             logger.error(e) { "Playback prepare failed for ${bookId.value}" }
-            null
+            AppResult.Failure(PlaybackError.CouldNotStart(debugInfo = "bookId=${bookId.value}: ${e.message}"))
         }
+
+    /**
+     * iOS-safe accessor: the [PreparedPlayback] or `null` on any refusal or failure (logged). Use from
+     * Swift — never `await` the `AppResult`-returning [prepare] (Swift Export bridge trap). The held
+     * refusal happens inside [prepare], so this path is gated identically.
+     */
+    suspend fun prepareOrNull(bookId: BookId): PreparedPlayback? =
+        prepare(bookId).valueOrNull { logger.warn { "prepareOrNull(${bookId.value}): ${it.code} ${it.debugInfo.orEmpty()}" } }
 
     private suspend fun prepareInternal(bookId: BookId): PreparedPlayback? {
         logger.info { "Preparing playback for book: ${bookId.value}" }

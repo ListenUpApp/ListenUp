@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.test.fake
 
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
@@ -86,6 +89,9 @@ class FakePlaybackManager : PlaybackManager {
 
     var stubbedPrepareResult: PrepareResult? = null
 
+    /** When set, [prepareForPlayback] fails with this error instead of consulting [stubbedPrepareResult]. */
+    var stubbedPrepareError: AppError? = null
+
     /**
      * Optional suspension hook invoked by [prepareForPlayback] before it returns. No-op by
      * default, so most tests resolve synchronously once the dispatcher advances. Tests that need
@@ -138,10 +144,11 @@ class FakePlaybackManager : PlaybackManager {
         preparingBookIdUiFlow.value = null
     }
 
-    override suspend fun prepareForPlayback(bookId: BookId): PrepareResult? {
+    override suspend fun prepareForPlayback(bookId: BookId): AppResult<PrepareResult> {
         prepareForPlaybackCalls += bookId
         prepareForPlaybackSuspension()
-        return stubbedPrepareResult
+        stubbedPrepareError?.let { return AppResult.Failure(it) }
+        return stubbedPrepareResult?.let { AppResult.Success(it) } ?: AppResult.Failure(PlaybackError.CouldNotStart())
     }
 
     override suspend fun startPlayback(

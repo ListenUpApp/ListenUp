@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ChapterDao
+import com.calypsan.listenup.client.data.local.db.CollectionBookDao
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
@@ -31,6 +32,7 @@ import org.koin.test.verify.verify
  *  - [ChapterDao] — owned by `persistenceModule`.
  *  - [AudioFileDao] — owned by `persistenceModule`.
  *  - [SearchDao] — owned by `persistenceModule`.
+ *  - [CollectionBookDao] — owned by `persistenceModule`.
  *  - [TransactionRunner] — owned by `persistenceModule`.
  *  - [ImageStorage] — owned by the platform storage module.
  *  - [NetworkMonitor] — owned by the platform device module.
@@ -54,6 +56,7 @@ class BookModuleVerifyTest :
                         ChapterDao::class,
                         AudioFileDao::class,
                         SearchDao::class,
+                        CollectionBookDao::class,
                         TransactionRunner::class,
                         ImageStorage::class,
                         NetworkMonitor::class,

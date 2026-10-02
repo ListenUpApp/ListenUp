@@ -23,6 +23,7 @@ import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
+import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.SearchRepository
@@ -700,6 +701,7 @@ class ListenUpSessionCallbackTest {
             seriesRepository = mock<SeriesRepository>(),
             contributorRepository = mock<ContributorRepository>(),
             downloadRepository = mock<DownloadRepository>(),
+            inboxRepository = mock<InboxRepository>(),
             packageName = "com.calypsan.listenup.client",
             strings = SystemStringsHolder(),
         )
@@ -710,6 +712,7 @@ class ListenUpSessionCallbackTest {
             homeRepository = mock<HomeRepository>(),
             seriesRepository = mock<SeriesRepository>(),
             bookRepository = mock<BookRepository>(),
+            inboxRepository = mock<InboxRepository>(),
         )
 }
 

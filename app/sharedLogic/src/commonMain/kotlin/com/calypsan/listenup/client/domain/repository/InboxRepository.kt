@@ -4,26 +4,36 @@ package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.core.BookId
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Repository contract for the admin collection inbox.
  *
- * The inbox is a system collection holding freshly-ingested books awaiting admin
- * triage. Both operations ride `CollectionService.listInbox` /
- * `CollectionService.releaseBooks` on the `@Rpc CollectionService` contract. Reads are
- * direct RPC fetches of the authoritative book-id set — the inbox is not mirrored into
- * Room.
+ * The inbox is a system collection holding freshly-ingested books awaiting admin triage. Which books
+ * are held is a Room fact — admins sync every INBOX membership — so [observeHeldBookIds] reads the
+ * local mirror and works offline. Releasing and the scanner's issue list ride the `CollectionService`
+ * and `ScannerService` RPCs.
  *
  * Implementations live in the data layer.
  */
 interface InboxRepository {
-    /** Returns the live (unreleased) book ids in the inbox for [libraryId]. */
-    suspend fun listInbox(libraryId: String): AppResult<List<String>>
+    /**
+     * The books currently held for review, oldest hold first. The one held set the inbox page, the
+     * Library entry, the navigation badge and Book Detail all read. Always empty on a member's
+     * device, which never receives INBOX rows.
+     *
+     * The iteration order is part of the contract, not an accident of the backing set: consumers
+     * take the newest holds from its end (the Library entry's cover fan), so an implementation must
+     * emit an insertion-ordered set, oldest hold first.
+     */
+    fun observeHeldBookIds(): Flow<Set<BookId>>
 
     /**
      * Releases the books keyed in [assignments] out of the inbox. Each entry maps a
      * book id to the collection ids it should be added to on release (an empty list
      * releases the book as publicly visible).
+     * On success the books leave the local held set immediately, without waiting for the sync echo.
      */
     suspend fun releaseBooks(
         libraryId: String,

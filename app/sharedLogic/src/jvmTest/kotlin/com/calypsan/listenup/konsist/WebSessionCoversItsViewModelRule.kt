@@ -30,7 +30,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * ⛔ **An offender is a question, not a verdict.** Four shapes have turned out not to be gaps:
  * a **convenience overload** (`onResultClicked` *is* `onResultSelected`), a **different route to
  * the same capability** (`SettingsViewModel.signOut` vs `AuthGraph.signOut()`), a **function the
- * ViewModel calls itself** (`loadScanIssues`, from `init`), and a **building block covered by
+ * ViewModel calls itself** (`loadScanIssues`, from Retry), and a **building block covered by
  * wrappers** (`setBookOverride`, behind `selectBook`/`skipBook`). Plus the big one:
  *
  * ⛔ **it cannot see a capability that lives on a different ViewModel.** An offender here means
@@ -263,8 +263,10 @@ private val EXCUSED =
         "BulkEditViewModel.close",
         "ChapterEditorViewModel.close",
         "HomeViewModel.close",
+        "InboxBadgeViewModel.close",
         "LibraryViewModel.close",
         "LibrarySetupViewModel.close",
+        "NotificationBellViewModel.close",
         // Reached via onResultClicked, which IS onResultSelected(hit.id, hit.type, hit.name).
         "SearchViewModel.onResultSelected",
         "SeeAllSearchViewModel.onResultSelected",
@@ -273,8 +275,8 @@ private val EXCUSED =
         "SearchViewModel.setTypeFilter",
         // Web signs out through AuthGraph.signOut() — see AuthGate.
         "SettingsViewModel.signOut",
-        // Loaded by the ViewModel itself — from `init`, and again when an admin event says the
-        // inbox changed. No client wires it because none needs to; it is public by accident.
+        // Loaded by the ViewModel itself — when first observed, from Retry (`loadInboxBooks`, which web
+        // wires), and again when an admin event says a scan ran. No client wires it directly.
         "AdminInboxViewModel.loadScanIssues",
         // A building block. Clients drive the two wrappers that cover it — `selectBook` and
         // `skipBook` — and web wires both.

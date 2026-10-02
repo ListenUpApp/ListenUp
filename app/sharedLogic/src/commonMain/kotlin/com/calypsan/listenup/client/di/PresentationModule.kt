@@ -175,6 +175,14 @@ internal val adminPresentationModule =
                 errorBus = get(),
             )
         }
+        // The Library entry's and the nav badge's held count — factory, resolved by each shell's own
+        // ViewModelStore, like NotificationBellViewModel.
+        factory {
+            com.calypsan.listenup.client.presentation.admin.InboxBadgeViewModel(
+                userRepository = get(),
+                inboxRepository = get(),
+            )
+        }
         factory {
             com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel(
                 collectionRepository = get(),
@@ -344,6 +352,7 @@ internal val bookPresentationModule =
                 bookAvailability = get(),
                 serverReachability = get(),
                 documentRepository = get(),
+                inboxRepository = get(),
             )
         }
         factory { params ->
@@ -377,6 +386,7 @@ internal val bookPresentationModule =
                 collectionRepository = get(),
                 bookEditRepository = get(),
                 userRepository = get(),
+                inboxRepository = get(),
                 imageStagingRepository = get(),
                 errorBus = get(),
             )
@@ -671,6 +681,7 @@ internal val settingsPresentationModule =
                 // The concrete PlaybackManager implements PlaybackStateProvider (same narrowing as
                 // AuthModule's LogoutUseCase wiring) — used to refuse deleting the playing book (B9).
                 playbackStateProvider = get<com.calypsan.listenup.client.playback.PlaybackManager>(),
+                inboxRepository = get(),
             )
         }
     }

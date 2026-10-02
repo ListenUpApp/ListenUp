@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.dto.PreparedAudioFile
 import com.calypsan.listenup.api.dto.PreparedPlayback as ContractPreparedPlayback
@@ -174,7 +175,7 @@ class PlaybackPreparerBatchedLocalPathsTest :
                     AppResult.Success(DownloadOutcome.AlreadyDownloaded)
 
                 val preparer = buildPreparer(downloadService, prepareRepository)
-                val result = preparer.prepare(bookId)
+                val result = preparer.prepare(bookId).getOrNull()
 
                 result.shouldNotBeNull()
                 // Resolves the same paths a per-file getLocalPath loop would have — just via one call.

@@ -177,9 +177,52 @@ struct SearchObserverTests {
         #expect(SeeAllPhase.tooShort != .results([]))
     }
 
+    // MARK: - Held
+
+    @Test func aHeldBookHitBecomesAHeldRow() {
+        #expect(SearchRow(bookHit(isHeld: true)).isHeld == true)
+    }
+
+    @Test func anOrdinaryBookHitIsNotHeld() {
+        #expect(SearchRow(bookHit(isHeld: false)).isHeld == false)
+    }
+
+    /// Held marks a book. A contributor (or series, or tag) hit carrying the flag is not a held row:
+    /// only books wait in the inbox.
+    @Test func aContributorHitIsNeverHeld() {
+        #expect(SearchRow(bookHit(isHeld: true, type: .contributor)).isHeld == false)
+    }
+
+    @Test func handBuiltRowsDefaultToNotHeld() {
+        #expect(row("b1", .book).isHeld == false)
+    }
+
     // MARK: - Helpers
 
     private func row(_ id: String, _ kind: SearchRowKind) -> SearchRow {
         SearchRow(id: id, kind: kind, name: "Name \(id)", subtitle: nil, author: nil, coverPath: nil, coverHash: nil)
+    }
+
+    /// A book `SearchHit` built across Swift Export, which has no default arguments: every
+    /// parameter is passed.
+    private func bookHit(isHeld: Bool, type: SearchHitType = .book) -> SearchHit {
+        SearchHit(
+            id: "b1",
+            type: type,
+            name: "The Ministry of Time",
+            subtitle: nil,
+            author: "Kaliane Bradley",
+            narrator: nil,
+            seriesName: nil,
+            duration: 42_720_000,
+            bookCount: nil,
+            genreSlugs: nil,
+            tags: nil,
+            coverPath: nil,
+            coverHash: nil,
+            score: 0,
+            highlight: nil,
+            isHeld: isHeld
+        )
     }
 }

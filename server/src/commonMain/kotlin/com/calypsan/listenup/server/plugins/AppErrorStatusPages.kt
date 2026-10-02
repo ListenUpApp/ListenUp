@@ -458,6 +458,10 @@ private fun BookError.toHttpStatus(): HttpStatusCode =
         // 409, not 400: the request is well-formed and the book exists — it is the current state of
         // the library (two books in one folder) that makes the delete unsafe.
         is BookError.FolderNotExclusive -> HttpStatusCode.Conflict
+
+        // Never raised by the server (a client-side triage gate); mapped for exhaustiveness. 409 for
+        // the same reason as FolderNotExclusive: the book's current state, not the request, refuses.
+        is BookError.HeldForReview -> HttpStatusCode.Conflict
     }
 
 private fun CoverError.toHttpStatus(): HttpStatusCode =

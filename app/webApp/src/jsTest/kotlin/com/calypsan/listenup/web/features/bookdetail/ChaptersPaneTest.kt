@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.web.features.admin.fixedInboxBadge
 import androidx.compose.runtime.Composition
 import com.calypsan.listenup.web.features.hardcover.fixedBookHardcover
 import com.calypsan.listenup.web.features.hardcover.fixedHardcoverMatch
@@ -166,6 +167,7 @@ class ChaptersPaneTest :
                                 userDetail = fixedUserDetail(UserDetailUiState.Loading),
                                 upload = fixedUpload(UploadBooksUiState.Idle),
                                 organize = fixedOrganize(OrganizeSettingsUiState.Loading),
+                                inboxBadge = fixedInboxBadge(),
                             ),
                         openShelfDetail = fixedShelfDetail(),
                         openShelfEdit = fixedShelfEdit(),

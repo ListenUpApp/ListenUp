@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
 
@@ -30,4 +31,20 @@ interface SearchRepository {
         genrePath: String? = null,
         limit: Int = 20,
     ): SearchResult
+
+    /**
+     * Search the books a listener can play: [search]'s book hits without the books held for review.
+     *
+     * [search] keeps held books, marked ([SearchHit.isHeld]) — it is how an admin reaches one. A
+     * surface that can only play its answer (voice) uses this instead: the exclusion happens in the
+     * index query, before [limit], so held books ranking near the top never crowd out a playable one.
+     *
+     * @param query Search query string; a blank query yields an empty list
+     * @param limit Max book hits to return
+     * @return Book hits, best match first, none of them held
+     */
+    suspend fun searchPlayableBooks(
+        query: String,
+        limit: Int,
+    ): List<SearchHit>
 }

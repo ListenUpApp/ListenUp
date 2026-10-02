@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.StorageSpaceProvider
 import com.calypsan.listenup.client.playback.PlaybackStateProvider
+import com.calypsan.listenup.client.test.fake.FakeInboxRepository
 import dev.mokkery.verify.VerifyMode.Companion.not
 import kotlinx.coroutines.flow.StateFlow
 import dev.mokkery.answering.returns
@@ -14,6 +15,7 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.answering.calls
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -62,22 +64,31 @@ class StorageViewModelTest :
             val downloadRepository: StorageViewModelFakeDownloadRepository,
             val downloadService: DownloadService,
             val storageSpaceProvider: StorageSpaceProvider,
-        )
+            val inbox: FakeInboxRepository,
+        ) {
+            /** How many times the downloads tree has been walked. */
+            var walks = 0
+        }
 
         fun TestScope.buildVm(
             downloads: List<DownloadedBookSummary> = emptyList(),
             totalUsed: Long = 0L,
             available: Long = 1_000_000L,
             playingBookId: BookId? = null,
+            heldIds: Set<String> = emptySet(),
         ): Pair<StorageViewModel, Fixture> {
             val fixture =
                 Fixture(
                     downloadRepository = StorageViewModelFakeDownloadRepository(downloads),
                     downloadService = mock(),
                     storageSpaceProvider = mock(),
+                    inbox = FakeInboxRepository().apply { hold(*heldIds.toTypedArray()) },
                 )
             // StorageSpaceProvider is an interface — safely mockable
-            every { fixture.storageSpaceProvider.calculateStorageUsed() } returns totalUsed
+            every { fixture.storageSpaceProvider.calculateStorageUsed() } calls {
+                fixture.walks++
+                totalUsed
+            }
             every { fixture.storageSpaceProvider.getAvailableSpace() } returns available
             val vm =
                 StorageViewModel(
@@ -86,9 +97,47 @@ class StorageViewModelTest :
                     storageSpaceProvider = fixture.storageSpaceProvider,
                     errorBus = ErrorBus(),
                     playbackStateProvider = FakePlaybackStateProvider(playingBookId),
+                    inboxRepository = fixture.inbox,
                     backgroundDispatcher = UnconfinedTestDispatcher(testScheduler),
                 )
             return vm to fixture
+        }
+
+        test("a downloaded book held for review is marked held; the rest are not") {
+            runTest {
+                val held = DownloadedBookSummary("b1", "Held One", "A", 10L, 1)
+                val ordinary = DownloadedBookSummary("b2", "Public One", "A", 20L, 1)
+                val (vm, _) = buildVm(downloads = listOf(held, ordinary), heldIds = setOf("b1"))
+
+                vm.state.test {
+                    awaitItem().isLoading shouldBe true
+                    val books = awaitItem().downloadedBooks
+                    books.first { it.bookId == "b1" }.isHeld shouldBe true
+                    books.first { it.bookId == "b2" }.isHeld shouldBe false
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a hold or release re-marks the downloads without walking the downloads tree again") {
+            runTest {
+                val first = DownloadedBookSummary("b1", "First", "A", 10L, 1)
+                val second = DownloadedBookSummary("b2", "Second", "A", 20L, 1)
+                val (vm, fixture) = buildVm(downloads = listOf(first, second))
+
+                vm.state.test {
+                    awaitItem().isLoading shouldBe true
+                    awaitItem().downloadedBooks.none { it.isHeld } shouldBe true
+                    fixture.walks shouldBe 1
+
+                    // Every collection write re-emits the held set; the walk is the expensive part.
+                    fixture.inbox.hold("b1")
+                    awaitItem().downloadedBooks.first { it.bookId == "b1" }.isHeld shouldBe true
+
+                    fixture.walks shouldBe 1
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
         }
 
         test("state reflects downloaded books from repository") {

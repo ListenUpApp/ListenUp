@@ -4,45 +4,74 @@ import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.result.map
+import com.calypsan.listenup.api.result.onSuccess
+import com.calypsan.listenup.client.data.local.db.CollectionBookDao
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.core.currentEpochMilliseconds
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+
+private val logger = KotlinLogging.logger {}
 
 /**
- * [InboxRepository] backed by [CollectionService.listInbox] / [CollectionService.releaseBooks].
+ * [InboxRepository] over the local held set ([CollectionBookDao]) and the `CollectionService` /
+ * `ScannerService` RPCs.
  *
- * A thin pass-through: the inbox is admin-internal and not mirrored into Room, so the
- * repository simply forwards to the RPC channel, mapping the domain-interface's plain
- * `String` ids to their typed contract counterparts at the boundary. Mutations on release
- * propagate into Room through the normal collection/book sync stream, not through this
- * repository.
+ * The held set is read from Room, which the collection sync stream keeps current. A release is the
+ * RPC; once the server has committed it, [releaseBooks] tombstones the local INBOX memberships so
+ * every held surface converges at once. The ALL_BOOKS membership still arrives through the echo —
+ * for that moment the book is in neither, which reads as "not held", the truth.
  */
 internal class InboxRepositoryImpl(
     private val channel: RpcChannel<CollectionService>,
     // Scan issues are a scanner concern, not collection membership — they ride the scanner's own
     // channel rather than being bolted onto the collection surface for proximity's sake.
     private val scannerChannel: RpcChannel<ScannerService>,
+    private val collectionBookDao: CollectionBookDao,
 ) : InboxRepository {
-    override suspend fun listInbox(libraryId: String): AppResult<List<String>> =
-        channel
-            .call(idempotent = true) { it.listInbox(LibraryId(libraryId)) }
-            .map { bookIds -> bookIds.map { it.value } }
+    // Room re-runs the held query on every collection_books / collections write, held or not. The
+    // list (not the set) is compared, so a reorder still counts as a change: order is the contract.
+    override fun observeHeldBookIds(): Flow<Set<BookId>> =
+        collectionBookDao
+            .observeHeldBookIds()
+            .distinctUntilChanged()
+            .map { ids -> ids.mapTo(LinkedHashSet<BookId>()) { BookId(it) } }
 
     override suspend fun releaseBooks(
         libraryId: String,
         assignments: Map<String, List<String>>,
     ): AppResult<Unit> =
-        channel.call {
-            it.releaseBooks(
-                LibraryId(libraryId),
-                assignments.entries.associate { (bookId, targets) ->
-                    BookId(bookId) to targets.map(::CollectionId)
-                },
-            )
+        channel
+            .call {
+                it.releaseBooks(
+                    LibraryId(libraryId),
+                    assignments.entries.associate { (bookId, targets) ->
+                        BookId(bookId) to targets.map(::CollectionId)
+                    },
+                )
+            }.onSuccess { tombstoneReleasedLocally(assignments.keys.toList()) }
+
+    /**
+     * The release has already committed on the server, so a failed local write must not turn it into
+     * an error: the caller would report a release that happened. The server's tombstone echo still
+     * converges Room; until it lands the books simply stay in the inbox a moment longer.
+     */
+    private suspend fun tombstoneReleasedLocally(bookIds: List<String>) {
+        try {
+            collectionBookDao.tombstoneHeldRows(bookIds, currentEpochMilliseconds())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "Release committed, but the local inbox write-through failed; awaiting the sync echo" }
         }
+    }
 
     override suspend fun listScanIssues(): AppResult<List<ScanIssue>> =
         scannerChannel.call(idempotent = true) { it.listScanIssues() }

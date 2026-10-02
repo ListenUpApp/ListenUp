@@ -39,9 +39,9 @@ internal val collectionModule: Module =
             )
         }
 
-        // InboxRepository — admin collection-inbox over CollectionService RPC
+        // InboxRepository — admin inbox: Room held set + CollectionService/ScannerService RPC
         single<InboxRepository> {
-            InboxRepositoryImpl(channel = rpcChannel(), scannerChannel = rpcChannel())
+            InboxRepositoryImpl(channel = rpcChannel(), scannerChannel = rpcChannel(), collectionBookDao = get())
         }
 
         // AddBooksToCollectionUseCase — bulk add for multi-select flows

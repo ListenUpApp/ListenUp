@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -224,7 +225,7 @@ class PlaybackManagerFallbackFetchTest :
 
                     val playbackManager = createPlaybackManager(db = db, channel = RpcChannel.forTest(bookService))
 
-                    playbackManager.prepareForPlayback(BookId("book-1"))
+                    playbackManager.prepareForPlayback(BookId("book-1")).getOrNull()
 
                     // After fallback fetch, the junction should be populated...
                     val rows = db.audioFileDao().getForBook("book-1")

@@ -288,7 +288,7 @@ final class FakeSkipIntervalProviding: SkipIntervalProviding {
 
 final class FakePlaybackPreparing: PlaybackPreparing, @unchecked Sendable {
     var result: PreparedPlayback?
-    func prepare(bookId: String) async -> PreparedPlayback? { result }
+    func prepareOrNull(bookId: String) async -> PreparedPlayback? { result }
 }
 
 final class FakeBookDocumentProviding: BookDocumentProviding, @unchecked Sendable {

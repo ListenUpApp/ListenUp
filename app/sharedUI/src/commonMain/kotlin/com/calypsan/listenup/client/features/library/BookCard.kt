@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.BookCoverImage
+import com.calypsan.listenup.client.design.components.HeldLabel
 import com.calypsan.listenup.client.design.transitions.bookCoverHeroKey
 import com.calypsan.listenup.client.design.components.BookCoverModel
 import com.calypsan.listenup.client.design.components.cookieScallopShape
@@ -102,6 +103,8 @@ data class AvatarOverlayData(
  * @param isFinished Authoritative completion status. Shows completion badge when true.
  * @param avatarOverlay Optional avatar overlay data for "currently listening" display
  * @param hasDocuments Whether this book has at least one PDF document attached.
+ * @param isHeld Whether this book is held for review in the admin inbox — draws [HeldLabel] at the
+ *   cover's top-leading corner.
  * @param isInSelectionMode Whether multi-select mode is active
  * @param isSelected Whether this book is currently selected
  * @param onLongPress Callback when card is long-pressed (for entering selection mode)
@@ -122,6 +125,7 @@ fun BookCard(
     isPlaying: Boolean = false,
     avatarOverlay: AvatarOverlayData? = null,
     hasDocuments: Boolean = false,
+    isHeld: Boolean = false,
     isInSelectionMode: Boolean = false,
     isSelected: Boolean = false,
     onLongPress: (() -> Unit)? = null,
@@ -265,6 +269,11 @@ fun BookCard(
                 CompletionBadge(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp))
             } else if (hasDocuments) {
                 DocumentsBadge(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp))
+            }
+
+            // Held for review sits at the top-leading corner (spec §7), clear of every TopEnd badge.
+            if (isHeld) {
+                HeldLabel(modifier = Modifier.align(Alignment.TopStart).padding(8.dp))
             }
         }
 

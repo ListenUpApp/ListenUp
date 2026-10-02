@@ -48,6 +48,8 @@ class NavEntry(
      * something to look at.
      */
     val badge: Int = 0,
+    /** What [badge] counts; decides its colour and what a screen reader hears. */
+    val badgeKind: NavBadgeKind = NavBadgeKind.Unread,
     /**
      * Where the entry lives, as a real URL. Defaults to `/[key]`; Home is the one that differs, since
      * it is the root rather than `/home`.
@@ -66,6 +68,13 @@ class NavSection(
     val entries: List<NavEntry>,
     val label: String? = null,
 )
+
+/**
+ * What a nav badge counts. [Unread] is the bell's coral "act here"; [Held] is the Library's amber
+ * "waiting for you" — books held for review. Different words to a screen reader, different colour to
+ * the eye, so a waiting book never reads as an unread notification.
+ */
+enum class NavBadgeKind { Unread, Held }
 
 /**
  * The authenticated app chrome — the design project's Shell A: a labeled, collapsible sidebar
@@ -336,7 +345,7 @@ private fun NavItem(
     }) {
         Icon(entry.icon, size = NAV_ICON_SIZE)
         Span(attrs = { classes("lb") }) { Text(entry.label) }
-        if (entry.badge > 0) NavBadge(entry.badge)
+        if (entry.badge > 0) NavBadge(entry.badge, entry.badgeKind)
     }
 }
 
@@ -348,10 +357,14 @@ private fun NavItem(
  * screen-reader user does not have. `aria-label` on the badge itself says the quantity in words.
  */
 @Composable
-private fun NavBadge(count: Int) {
+private fun NavBadge(
+    count: Int,
+    kind: NavBadgeKind = NavBadgeKind.Unread,
+) {
     Span(attrs = {
         classes("nav-badge")
-        attr(ARIA_LABEL, badgeLabel(count))
+        if (kind == NavBadgeKind.Held) classes("is-held")
+        attr(ARIA_LABEL, badgeLabel(count, kind))
     }) { Text(badgeText(count)) }
 }
 
@@ -373,13 +386,30 @@ private const val BRAND_MARK_SRC = "/listenup-mark.svg"
 private fun badgeText(count: Int): String = if (count > BADGE_MAX) "$BADGE_MAX+" else count.toString()
 
 /** What a screen reader says instead of reading "99+" as characters. */
-private fun badgeLabel(count: Int): String =
-    if (count == 1) {
-        "1 unread"
-    } else if (count > BADGE_MAX) {
-        "more than $BADGE_MAX unread"
-    } else {
-        "$count unread"
+private fun badgeLabel(
+    count: Int,
+    kind: NavBadgeKind,
+): String =
+    when (kind) {
+        NavBadgeKind.Unread -> {
+            if (count == 1) {
+                "1 unread"
+            } else if (count > BADGE_MAX) {
+                "more than $BADGE_MAX unread"
+            } else {
+                "$count unread"
+            }
+        }
+
+        NavBadgeKind.Held -> {
+            if (count == 1) {
+                "1 book waiting for review"
+            } else if (count > BADGE_MAX) {
+                "more than $BADGE_MAX books waiting for review"
+            } else {
+                "$count books waiting for review"
+            }
+        }
     }
 
 private const val BADGE_MAX = 99

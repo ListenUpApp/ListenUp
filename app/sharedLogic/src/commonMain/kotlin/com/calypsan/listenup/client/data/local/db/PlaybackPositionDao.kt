@@ -162,11 +162,16 @@ internal interface PlaybackPositionDao {
      *
      * Excludes soft-deleted (tombstoned) rows (C-C04) — see [getLive].
      *
+     * Books held for review ([HELD_BOOK_IDS_SQL]) are excluded before the LIMIT: a held book is
+     * triage-only — it cannot be played until released — so it is not offered to resume. Its row is
+     * untouched and reappears with the book.
+     *
      * @param limit Maximum number of positions to return
      * @return List of positions ordered by lastPlayedAt descending (with updatedAt fallback)
      */
     @Query(
         "SELECT * FROM playback_positions WHERE deletedAt IS NULL " +
+            "AND bookId NOT IN ($HELD_BOOK_IDS_SQL) " +
             "ORDER BY COALESCE(lastPlayedAt, updatedAt) DESC LIMIT :limit",
     )
     suspend fun getRecentPositions(limit: Int): List<PlaybackPositionEntity>
@@ -185,12 +190,17 @@ internal interface PlaybackPositionDao {
      *
      * Also excludes soft-deleted (tombstoned) rows (C-C04) — see [getLive].
      *
+     * Books held for review ([HELD_BOOK_IDS_SQL]) are excluded before the LIMIT: a held book is
+     * triage-only — it cannot be played until released — so it is not offered to resume. Its row is
+     * untouched and reappears with the book.
+     *
      * @param limit Maximum number of positions to emit per update
      * @return Flow emitting ordered positions; re-emits on any row change
      */
     @Query(
         "SELECT * FROM playback_positions " +
             "WHERE positionMs > 0 AND isFinished = 0 AND deletedAt IS NULL " +
+            "AND bookId NOT IN ($HELD_BOOK_IDS_SQL) " +
             "ORDER BY COALESCE(lastPlayedAt, updatedAt) DESC LIMIT :limit",
     )
     fun observeRecentPositions(limit: Int): Flow<List<PlaybackPositionEntity>>

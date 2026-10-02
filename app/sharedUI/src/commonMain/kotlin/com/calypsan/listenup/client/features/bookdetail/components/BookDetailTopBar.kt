@@ -29,7 +29,8 @@ import listenup.composeapp.generated.resources.book_detail_more_options
  *
  * Shows a back arrow, the screen label ("Book details"), and a three-dot overflow that delegates
  * to [BookActionsMenu]. Beside a list (see [LocalInDetailPane]) the back arrow becomes a Close. Container colour is [MaterialTheme.colorScheme.surface] so it blends
- * seamlessly with the hero section below it.
+ * seamlessly with the hero section below it. For a book held for review, [showActions] is false and
+ * the bar is Back alone — the triage layout has no overflow (spec §8).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Suppress("LongParameterList") // Compose state-hoisting over BookActionsMenu requires one callback per action item
@@ -52,6 +53,7 @@ fun BookDetailTopBar(
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier,
     actionsEnabled: Boolean = true,
+    showActions: Boolean = true,
 ) {
     val haptics = LocalHaptics.current
     var showMenu by remember { mutableStateOf(false) }
@@ -64,66 +66,68 @@ fun BookDetailTopBar(
         navigationIcon = if (inDetailPane) Icons.Outlined.Close else Icons.AutoMirrored.Outlined.ArrowBack,
         navigationContentDescription = if (inDetailPane) stringResource(Res.string.book_detail_close) else null,
         actions = {
-            Box {
-                IconButton(
-                    onClick = {
-                        haptics.press()
-                        showMenu = true
-                    },
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.MoreVert,
-                        contentDescription = stringResource(Res.string.book_detail_more_options),
+            if (showActions) {
+                Box {
+                    IconButton(
+                        onClick = {
+                            haptics.press()
+                            showMenu = true
+                        },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.MoreVert,
+                            contentDescription = stringResource(Res.string.book_detail_more_options),
+                        )
+                    }
+                    BookActionsMenu(
+                        expanded = showMenu,
+                        onDismiss = { showMenu = false },
+                        isComplete = isComplete,
+                        hasProgress = hasProgress,
+                        isAdmin = isAdmin,
+                        actionsEnabled = actionsEnabled,
+                        onEditClick = {
+                            showMenu = false
+                            onEditClick()
+                        },
+                        onFindMetadataClick = {
+                            showMenu = false
+                            onFindMetadataClick()
+                        },
+                        onEditChaptersClick = {
+                            showMenu = false
+                            onEditChaptersClick()
+                        },
+                        onMarkCompleteClick = {
+                            showMenu = false
+                            onMarkCompleteClick()
+                        },
+                        onMarkNotStartedClick = {
+                            showMenu = false
+                            onMarkNotStartedClick()
+                        },
+                        onRestartClick = {
+                            showMenu = false
+                            onRestartClick()
+                        },
+                        onAddToShelfClick = {
+                            showMenu = false
+                            onAddToShelfClick()
+                        },
+                        onAddToCollectionClick = {
+                            showMenu = false
+                            onAddToCollectionClick()
+                        },
+                        onShareClick = {
+                            showMenu = false
+                            onShareClick()
+                        },
+                        onDeleteClick = {
+                            showMenu = false
+                            onDeleteClick()
+                        },
                     )
                 }
-                BookActionsMenu(
-                    expanded = showMenu,
-                    onDismiss = { showMenu = false },
-                    isComplete = isComplete,
-                    hasProgress = hasProgress,
-                    isAdmin = isAdmin,
-                    actionsEnabled = actionsEnabled,
-                    onEditClick = {
-                        showMenu = false
-                        onEditClick()
-                    },
-                    onFindMetadataClick = {
-                        showMenu = false
-                        onFindMetadataClick()
-                    },
-                    onEditChaptersClick = {
-                        showMenu = false
-                        onEditChaptersClick()
-                    },
-                    onMarkCompleteClick = {
-                        showMenu = false
-                        onMarkCompleteClick()
-                    },
-                    onMarkNotStartedClick = {
-                        showMenu = false
-                        onMarkNotStartedClick()
-                    },
-                    onRestartClick = {
-                        showMenu = false
-                        onRestartClick()
-                    },
-                    onAddToShelfClick = {
-                        showMenu = false
-                        onAddToShelfClick()
-                    },
-                    onAddToCollectionClick = {
-                        showMenu = false
-                        onAddToCollectionClick()
-                    },
-                    onShareClick = {
-                        showMenu = false
-                        onShareClick()
-                    },
-                    onDeleteClick = {
-                        showMenu = false
-                        onDeleteClick()
-                    },
-                )
             }
         },
         colors =

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -250,7 +251,7 @@ class PlaybackManagerSpeedTest :
                             scope = CoroutineScope(Job()),
                         )
 
-                    val result = manager.prepareForPlayback(BookId("book-1"))
+                    val result = manager.prepareForPlayback(BookId("book-1")).getOrNull()
                     checkNotNull(result) { "prepareForPlayback must succeed" }
                     manager.activateBook(BookId("book-1"))
 

@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.ChapterDao
 import com.calypsan.listenup.client.data.local.db.ChapterEntity
+import com.calypsan.listenup.client.data.local.db.CollectionBookDao
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.db.coverPathFor
@@ -91,6 +92,8 @@ internal data class BookDetailJoinSources(
  * @property chapterDao Room DAO for chapter operations
  * @property audioFileDao Room DAO for audio-file operations
  * @property searchDao Room FTS5 DAO backing the offline [search] fallback.
+ * @property collectionBookDao The held-for-review set ([CollectionBookDao.observeHeldBookIds]). Held
+ *   books are triage-only, so the id-addressed list and book search leave them out.
  * @property transactionRunner Runs multi-table writes atomically
  * @property imageStorage Storage for resolving cover image paths
  * @property joinSources The genre/tag/mood Flow sources composed into the
@@ -106,6 +109,7 @@ internal class BookRepositoryImpl(
     private val chapterDao: ChapterDao,
     private val audioFileDao: AudioFileDao,
     private val searchDao: SearchDao,
+    private val collectionBookDao: CollectionBookDao,
     private val transactionRunner: TransactionRunner,
     private val imageStorage: ImageStorage,
     private val joinSources: BookDetailJoinSources,
@@ -244,11 +248,22 @@ internal class BookRepositoryImpl(
 
     override fun observeIsBookLive(id: String): Flow<Boolean> = bookDao.observeIsLive(BookId(id))
 
+    /**
+     * The books for [ids], in Room's order, leaving out any held for review. A held book is
+     * triage-only — it is reached through the inbox and search, not through Continue Listening,
+     * browsing or Hardcover — so no consumer of this list should ever see one. The exclusion lives
+     * here rather than in [BookDao.observeByIdsWithContributors] because the admin inbox hydrates
+     * held books through that query.
+     */
     override fun observeBookListItems(ids: List<String>): Flow<List<BookListItem>> {
         if (ids.isEmpty()) return kotlinx.coroutines.flow.flowOf(emptyList())
-        return bookDao
-            .observeByIdsWithContributors(ids.map { BookId(it) })
-            .map { rows -> rows.map { it.toListItem(imageStorage) } }
+        return combine(
+            bookDao.observeByIdsWithContributors(ids.map { BookId(it) }),
+            collectionBookDao.observeHeldBookIds(),
+        ) { rows, heldIds ->
+            val heldSet = heldIds.toSet()
+            rows.filterNot { it.book.id.value in heldSet }.map { it.toListItem(imageStorage) }
+        }
     }
 
     /**
@@ -330,7 +345,12 @@ internal class BookRepositoryImpl(
         return row.toDetail(imageStorage, genres, tags, moods, audioFiles)
     }
 
-    /** Local Room FTS5 search — the only search path there is. Emits exactly once. */
+    /**
+     * Local Room FTS5 search for the iOS App Intents "play …" surface. Emits exactly once. Leaves out
+     * books held for review in SQL, before the limit ([SearchDao.searchUnheldBooks]): that surface only
+     * offers play, and a held book cannot be played. The never-stranded search — which keeps held
+     * books, marked — is [com.calypsan.listenup.client.domain.repository.SearchRepository].
+     */
     override fun search(query: String): Flow<List<BookListItem>> =
         flow {
             if (query.isBlank()) {
@@ -339,7 +359,7 @@ internal class BookRepositoryImpl(
             }
             val ids =
                 searchDao
-                    .searchBooks(QueryUtils.toFtsQuery(query), limit = SEARCH_LIMIT)
+                    .searchUnheldBooks(QueryUtils.toFtsQuery(query), limit = SEARCH_LIMIT)
                     .map { it.book.id }
             if (ids.isEmpty()) {
                 emit(emptyList())
@@ -363,9 +383,9 @@ internal class BookRepositoryImpl(
             }
         }
 
-    private companion object {
+    internal companion object {
         /** Cap on book search results — mirrors the server FTS default. */
-        const val SEARCH_LIMIT = 50
+        internal const val SEARCH_LIMIT = 50
     }
 }
 

@@ -49,6 +49,7 @@ import com.calypsan.listenup.client.presentation.admin.UserDetailViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel
+import com.calypsan.listenup.client.presentation.admin.InboxBadgeViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsViewModel
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsViewModel
 import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsViewModel
@@ -350,6 +351,8 @@ object KoinHelper {
     fun getImportFlowViewModel(): ImportFlowViewModel = resolve(ImportFlowViewModel::class)
 
     fun getAdminInboxViewModel(): AdminInboxViewModel = resolve(AdminInboxViewModel::class)
+
+    fun getInboxBadgeViewModel(): InboxBadgeViewModel = resolve(InboxBadgeViewModel::class)
 
     fun getAdminCollectionsViewModel(): AdminCollectionsViewModel = resolve(AdminCollectionsViewModel::class)
 

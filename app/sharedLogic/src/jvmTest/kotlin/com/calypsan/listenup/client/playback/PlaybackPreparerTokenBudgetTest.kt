@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -178,7 +179,7 @@ class PlaybackPreparerTokenBudgetTest :
 
                 val preparer = buildPreparer(downloadedDownloadService(), tokenProvider)
 
-                val result = preparer.prepare(bookId)
+                val result = preparer.prepare(bookId).getOrNull()
 
                 result.shouldNotBeNull()
                 // A fully-downloaded book plays entirely from local file:// paths — no HTTP audio
@@ -196,7 +197,7 @@ class PlaybackPreparerTokenBudgetTest :
 
                 val preparer = buildPreparer(streamingDownloadService(), tokenProvider)
 
-                val result = preparer.prepare(bookId)
+                val result = preparer.prepare(bookId).getOrNull()
 
                 result.shouldNotBeNull()
                 // Streaming files are fetched over HTTP with a bearer token — the token must still

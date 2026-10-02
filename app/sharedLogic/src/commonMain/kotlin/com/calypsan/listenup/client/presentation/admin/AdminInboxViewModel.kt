@@ -2,7 +2,10 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.dto.scan.ScanIssue
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.BookDao
+import com.calypsan.listenup.client.data.local.db.BookWithContributors
 import com.calypsan.listenup.client.data.local.db.toListItem
 import com.calypsan.listenup.client.domain.model.AdminEvent
 import com.calypsan.listenup.client.domain.model.InboxBookItem
@@ -10,32 +13,93 @@ import com.calypsan.listenup.client.domain.repository.EventStreamRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.LibraryRepository
-import com.calypsan.listenup.api.dto.scan.ScanIssue
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
-import kotlinx.coroutines.Job
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+private val logger = KotlinLogging.logger {}
+
+/** The one way a Room-backed inbox can fail to load: the local read itself. */
+private const val HELD_BOOKS_UNAVAILABLE = "Couldn't read the inbox on this device."
+
+/** The one release failure no [com.calypsan.listenup.api.error.AppError] describes: there is no library to release into. */
+private const val NO_LIBRARY = "No library available"
+
+/** One consistent snapshot: the held ids and the hydrated rows for exactly those ids. */
+private data class HeldBooks(
+    val ids: List<String>,
+    val books: List<InboxBookItem>,
+)
+
+/** Where the held-set read stands. */
+private sealed interface HeldLoad {
+    /** A Retry is re-reading after a failure. The first read needs no marker: `state` starts Loading. */
+    data object Loading : HeldLoad
+
+    /** The held ids and their hydrated rows. */
+    data class Loaded(
+        val held: HeldBooks,
+    ) : HeldLoad
+
+    /** The local read threw; Retry re-reads. */
+    data object Failed : HeldLoad
+}
+
+/** What the admin has done on top of the inbox: the selection, and the release in flight and its outcome. */
+private data class InboxOverlay(
+    val selected: Set<String> = emptySet(),
+    val isReleasing: Boolean = false,
+    val lastReleasedCount: Int? = null,
+    val error: String? = null,
+)
 
 /**
  * ViewModel for the admin inbox screen.
  *
- * The inbox holds freshly-ingested books awaiting admin triage. The authoritative id set
- * comes from [InboxRepository.listInbox] (the admin `CollectionService` RPC returns ids only); the
- * VM then hydrates each id into an [InboxBookItem] (cover/title/author/duration) by observing
- * [BookDao.observeByIdsWithContributors] so the review-and-release queue shows real book detail
- * rather than raw ids. The admin selects books and **releases** them: every inbox release is
- * public — `releaseBooks` with an empty target list moves the book into the shared `ALL_BOOKS`
- * collection every member can see — so the single `releaseBooks(libraryId, assignments)` call
- * maps each selected id to an empty target-collection list. Per-book collection assignment is
- * book-edit's job, not the inbox's.
+ * The held set is Room's: [InboxRepository.observeHeldBookIds] reads the live INBOX memberships the
+ * sync engine mirrors for admins — the same definition that hides held books from the library and
+ * counts the badge — so the inbox page, the badge and the library cannot disagree, and the inbox
+ * works offline. Each id is hydrated into an [InboxBookItem] by observing
+ * [BookDao.observeByIdsWithContributors]; an id whose book row has not synced yet counts in
+ * [AdminInboxUiState.Ready.bookIds] and joins [AdminInboxUiState.Ready.books] when it lands. Ids and
+ * rows travel together, so a released book can never reappear from a stale hydration.
  *
- * Subscribes to admin events from the server event stream for real-time inbox add/release updates.
+ * [state] is derived, never written: the held books, the scan issues, the dismissed issues and the
+ * admin's [InboxOverlay] combine into it, and actions only write those inputs. The selection shown is
+ * the overlay's selection intersected with what is held, and a release sends only selected books that
+ * are still held, so a book released elsewhere is neither shown selected nor released again here.
+ *
+ * Releasing is the RPC. Every inbox release is public — `releaseBooks` with an empty target list
+ * moves the book into ALL_BOOKS; per-book collection assignment is book-edit's job. The book leaves
+ * the list when its INBOX membership leaves Room, which [InboxRepository.releaseBooks] writes through
+ * on success. A refused release goes to the [ErrorBus] — which every platform already shows — and
+ * nowhere else, so it is said once.
+ *
+ * Scan issues are not mirrored and stay on their RPC. The admin event stream is kept for exactly one
+ * reason: [AdminEvent.InboxBookAdded] means a scan just ran, which may have raised or cleared an issue.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class AdminInboxViewModel internal constructor(
     private val inboxRepository: InboxRepository,
     private val libraryRepository: LibraryRepository,
@@ -44,220 +108,186 @@ class AdminInboxViewModel internal constructor(
     private val imageStorage: ImageStorage,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
-    val state: StateFlow<AdminInboxUiState>
-        field = MutableStateFlow<AdminInboxUiState>(AdminInboxUiState.Loading)
+    private val overlay = MutableStateFlow(InboxOverlay())
+    private val dismissedIssueIds = MutableStateFlow(emptySet<String>())
 
-    // Tracks the in-flight Room hydration so a new inbox id-set replaces the prior observation.
-    private var hydrationJob: Job? = null
+    // Attempt counters, not refresh signals: each bump is the admin asking again (Retry, pull to
+    // refresh), and a StateFlow replays the latest attempt to a fresh subscriber.
+    private val heldReadAttempts = MutableStateFlow(0)
+    private val scanIssueLoadAttempts = MutableStateFlow(0)
 
-    init {
-        loadInboxBooks()
-        loadScanIssues()
-        observeAdminEvents()
-    }
-
-    private fun observeAdminEvents() {
-        viewModelScope.launch {
-            eventStreamRepository.adminEvents.collect { event ->
-                when (event) {
-                    is AdminEvent.InboxBookAdded -> {
-                        loadInboxBooks()
-                        // A scan that just added a book may equally have fixed or raised an issue.
-                        loadScanIssues()
+    private val heldLoad: Flow<HeldLoad> =
+        heldReadAttempts
+            .flatMapLatest {
+                heldBooks()
+                    // While the inbox is observed, a book that stops being held drops out of the stored
+                    // selection, so if it is held again later it comes back unselected rather than
+                    // pre-armed for release. Nothing prunes while nobody observes; [state]'s intersection
+                    // and the release's own snapshot are what keep a stale id from being shown or sent.
+                    .onEach { held -> overlay.update { it.copy(selected = it.selected.intersect(held.ids.toSet())) } }
+                    .map<HeldBooks, HeldLoad> { HeldLoad.Loaded(it) }
+                    // Only a Retry from Error shows Loading; a re-subscription to a Ready inbox must not flash it.
+                    .onStart { if (state.value is AdminInboxUiState.Error) emit(HeldLoad.Loading) }
+                    .catch { e ->
+                        logger.error(e) { "Reading the inbox's held books failed" }
+                        emit(HeldLoad.Failed)
                     }
-
-                    is AdminEvent.InboxBookReleased -> {
-                        handleInboxBookReleased(event.bookId)
-                    }
-
-                    else -> { /* Other admin events handled elsewhere */ }
-                }
             }
-        }
-    }
-
-    private fun handleInboxBookReleased(bookId: String) {
-        updateReady { ready ->
-            if (ready.bookIds.contains(bookId)) {
-                ready.copy(
-                    bookIds = ready.bookIds.filterNot { it == bookId },
-                    books = ready.books.filterNot { it.id == bookId },
-                    selectedBookIds = ready.selectedBookIds - bookId,
-                )
-            } else {
-                ready
-            }
-        }
-    }
 
     /**
-     * Loads the folders the scanner could not import.
-     *
-     * Failure here is reported but never downgrades the screen to [AdminInboxUiState.Error]: the
-     * held-books half is independently useful, and losing the whole inbox because one call failed
-     * would be a worse answer than showing what we do have.
+     * The folders the scanner could not import, or null before the first answer. Loaded when the screen
+     * starts observing, on [loadScanIssues], and whenever a scan adds a book. A failed load is reported
+     * and keeps the last answer: the held-books half is independently useful, and losing it — or the
+     * issues already shown — because one call failed would be a worse answer than showing what we have.
+     * It is a StateFlow, not a plain Flow, for exactly that: a failed reload's null is filtered out, so
+     * the StateFlow keeps replaying the last answer.
      */
+    private val scanIssues: StateFlow<List<ScanIssue>?> =
+        merge(
+            scanIssueLoadAttempts.map { },
+            eventStreamRepository.adminEvents.filterIsInstance<AdminEvent.InboxBookAdded>().map { },
+        ).mapLatest { fetchScanIssues() }
+            .filterNotNull()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val state: StateFlow<AdminInboxUiState> =
+        combine(heldLoad, scanIssues, dismissedIssueIds, overlay) { held, issues, dismissed, ov ->
+            when (held) {
+                HeldLoad.Loading -> {
+                    AdminInboxUiState.Loading
+                }
+
+                // Error must STICK whatever the issues do: a half-populated screen would hide the
+                // inbox failing to load.
+                HeldLoad.Failed -> {
+                    AdminInboxUiState.Error(HELD_BOOKS_UNAVAILABLE)
+                }
+
+                is HeldLoad.Loaded -> {
+                    AdminInboxUiState.Ready(
+                        bookIds = held.held.ids,
+                        books = held.held.books,
+                        selectedBookIds = ov.selected.intersect(held.held.ids.toSet()),
+                        isReleasing = ov.isReleasing,
+                        lastReleasedCount = ov.lastReleasedCount,
+                        error = ov.error,
+                        scanIssues = issues.orEmpty().filterNot { it.id in dismissed },
+                    )
+                }
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AdminInboxUiState.Loading)
+
+    /**
+     * Retry. After a failed local read ([AdminInboxUiState.Error]) this re-reads the held set; the list
+     * otherwise follows Room and needs no refresh. Either way it reloads the scan issues.
+     */
+    fun loadInboxBooks() {
+        if (state.value is AdminInboxUiState.Error) heldReadAttempts.update { it + 1 }
+        loadScanIssues()
+    }
+
+    /** Reloads the folders the scanner could not import. */
     fun loadScanIssues() {
-        viewModelScope.launch {
-            when (val result = inboxRepository.listScanIssues()) {
-                is AppResult.Success -> {
-                    state.update { current ->
-                        when (current) {
-                            is AdminInboxUiState.Ready -> current.copy(scanIssues = result.data)
+        scanIssueLoadAttempts.update { it + 1 }
+    }
 
-                            // Loading has nothing to lose; the books load fills in the rest.
-                            is AdminInboxUiState.Loading -> AdminInboxUiState.Ready(scanIssues = result.data)
-
-                            // Error must STICK. Promoting it to Ready because a different call
-                            // happened to succeed would hide the inbox failing to load behind a
-                            // half-populated screen — the failure the user needs to see, silenced
-                            // by the very surface built to stop silencing failures.
-                            is AdminInboxUiState.Error -> current
-                        }
-                    }
+    private fun heldBooks(): Flow<HeldBooks> =
+        inboxRepository
+            .observeHeldBookIds()
+            .map { held -> held.map { it.value } }
+            .distinctUntilChanged()
+            .flatMapLatest { ids ->
+                if (ids.isEmpty()) {
+                    flowOf(HeldBooks(ids, emptyList()))
+                } else {
+                    bookDao
+                        .observeByIdsWithContributors(ids.map { BookId(it) })
+                        .map { rows -> HeldBooks(ids, rows.toInboxItems(ids)) }
                 }
+            }
 
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                }
+    /** Rows as [InboxBookItem]s in held order; ids with no row yet are simply absent. */
+    private fun List<BookWithContributors>.toInboxItems(ids: List<String>): List<InboxBookItem> {
+        val byId = associateBy { it.book.id.value }
+        return ids.mapNotNull { id ->
+            byId[id]?.toListItem(imageStorage)?.let { item ->
+                InboxBookItem(
+                    id = item.id.value,
+                    title = item.title,
+                    author = item.authors.firstOrNull()?.name,
+                    coverPath = item.coverPath,
+                    durationMs = item.duration,
+                    coverHash = item.coverHash,
+                )
             }
         }
     }
+
+    private suspend fun fetchScanIssues(): List<ScanIssue>? =
+        when (val result = inboxRepository.listScanIssues()) {
+            is AppResult.Success -> {
+                result.data
+            }
+
+            is AppResult.Failure -> {
+                errorBus.emit(result.error)
+                null
+            }
+        }
 
     /** Stops showing [issueId], and drops it from the list without a round trip. */
     fun dismissScanIssue(issueId: String) {
         viewModelScope.launch {
             when (val result = inboxRepository.dismissScanIssue(issueId)) {
-                is AppResult.Success -> {
-                    state.update { current ->
-                        if (current is AdminInboxUiState.Ready) {
-                            current.copy(scanIssues = current.scanIssues.filterNot { it.id == issueId })
-                        } else {
-                            current
-                        }
-                    }
-                }
-
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                }
-            }
-        }
-    }
-
-    /** Load inbox book ids for the admin's library. */
-    fun loadInboxBooks() {
-        viewModelScope.launch {
-            val libraryId = currentLibraryId()
-            if (libraryId == null) {
-                state.value = AdminInboxUiState.Error("No library available")
-                return@launch
-            }
-            when (val result = inboxRepository.listInbox(libraryId)) {
-                is AppResult.Success -> {
-                    state.update { current ->
-                        if (current is AdminInboxUiState.Ready) {
-                            current.copy(bookIds = result.data, error = null)
-                        } else {
-                            AdminInboxUiState.Ready(bookIds = result.data)
-                        }
-                    }
-                    hydrate(result.data)
-                }
-
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    state.update { current ->
-                        if (current is AdminInboxUiState.Ready) {
-                            current.copy(error = result.error.message)
-                        } else {
-                            AdminInboxUiState.Error(result.error.message)
-                        }
-                    }
-                }
+                is AppResult.Success -> dismissedIssueIds.update { it + issueId }
+                is AppResult.Failure -> errorBus.emit(result.error)
             }
         }
     }
 
     /**
-     * Observe the Room projections for [ids] and fold them into [AdminInboxUiState.Ready.books].
+     * Release the selected books to everyone (into the shared ALL_BOOKS collection).
      *
-     * Books are emitted in inbox-id order so the triage list is stable regardless of Room's
-     * row order, and ids with no Room row yet are simply omitted until they sync in. A new
-     * call cancels the prior observation so the live set tracks the latest inbox id-set.
-     */
-    private fun hydrate(ids: List<String>) {
-        hydrationJob?.cancel()
-        if (ids.isEmpty()) {
-            updateReady { it.copy(books = emptyList()) }
-            return
-        }
-        hydrationJob =
-            viewModelScope.launch {
-                bookDao.observeByIdsWithContributors(ids.map { BookId(it) }).collect { rows ->
-                    val byId = rows.associateBy { it.book.id.value }
-                    val books =
-                        ids.mapNotNull { id ->
-                            byId[id]?.toListItem(imageStorage)?.let { item ->
-                                InboxBookItem(
-                                    id = item.id.value,
-                                    title = item.title,
-                                    author = item.authors.firstOrNull()?.name,
-                                    coverPath = item.coverPath,
-                                    durationMs = item.duration,
-                                    coverHash = item.coverHash,
-                                )
-                            }
-                        }
-                    // Filter against the CURRENT id-set, not the one this collector was started
-                    // with. Releasing a book prunes `bookIds` without restarting hydration, and a
-                    // released book is not deleted from Room — so the next Room invalidation (a
-                    // cover download, a position write, any sync) would otherwise recompute over
-                    // the stale list and put released books straight back in the grid, disagreeing
-                    // with the header count and with what `selectAll` selects.
-                    updateReady { ready -> ready.copy(books = books.filter { it.id in ready.bookIds }) }
-                }
-            }
-    }
-
-    /**
-     * Release the selected books from the inbox as publicly visible (moved into the shared
-     * `ALL_BOOKS` collection every member can see).
-     *
-     * Every inbox release is public — per-book collection assignment is book-edit's job,
-     * not the inbox's — so each selected id maps to an empty target-collection list in the
-     * single [InboxRepository.releaseBooks] call. Released books leave the list via the firehose
-     * echo, but we also clear them locally so the UI converges immediately.
+     * One [InboxRepository.releaseBooks] call maps each selected id to an empty target list. On
+     * success the books leave the list through Room — the repository writes the INBOX exit through —
+     * so this only clears the selection and records the count for the confirmation. A release already
+     * in flight makes this a no-op, so a double tap sends one release.
      */
     fun releaseSelected() {
         val ready = state.value as? AdminInboxUiState.Ready ?: return
-        if (ready.selectedBookIds.isEmpty()) return
+        // The overlay, not [state], is read: a tap in the same frame may not have reached [state] yet.
+        val current = overlay.value
+        if (current.isReleasing) return
+        val releasing = current.selected.intersect(ready.bookIds.toSet())
+        if (releasing.isEmpty()) return
+        overlay.update { it.copy(isReleasing = true) }
 
         viewModelScope.launch {
-            updateReady { it.copy(isReleasing = true) }
             val libraryId = currentLibraryId()
             if (libraryId == null) {
-                updateReady { it.copy(isReleasing = false, error = "No library available") }
+                overlay.update { it.copy(isReleasing = false, error = NO_LIBRARY) }
                 return@launch
             }
-            val assignments = ready.selectedBookIds.associateWith { emptyList<String>() }
-
-            when (val result = inboxRepository.releaseBooks(libraryId, assignments)) {
+            when (
+                val result =
+                    inboxRepository.releaseBooks(
+                        libraryId,
+                        releasing.associateWith { emptyList<String>() },
+                    )
+            ) {
                 is AppResult.Success -> {
-                    updateReady { current ->
-                        current.copy(
+                    overlay.update {
+                        it.copy(
                             isReleasing = false,
-                            bookIds = current.bookIds.filterNot { it in current.selectedBookIds },
-                            books = current.books.filterNot { it.id in current.selectedBookIds },
-                            selectedBookIds = emptySet(),
-                            lastReleasedCount = current.selectedBookIds.size,
+                            selected = it.selected - releasing,
+                            lastReleasedCount = releasing.size,
                         )
                     }
                 }
 
                 is AppResult.Failure -> {
+                    overlay.update { it.copy(isReleasing = false) }
                     errorBus.emit(result.error)
-                    updateReady { it.copy(isReleasing = false, error = result.error.message) }
                 }
             }
         }
@@ -265,31 +295,31 @@ class AdminInboxViewModel internal constructor(
 
     /** Toggle a book's selection for batch release. */
     fun toggleBookSelection(bookId: String) {
-        updateReady { ready ->
-            val newSelection =
-                if (bookId in ready.selectedBookIds) ready.selectedBookIds - bookId else ready.selectedBookIds + bookId
-            ready.copy(selectedBookIds = newSelection)
+        if (state.value !is AdminInboxUiState.Ready) return
+        overlay.update { ov ->
+            ov.copy(selected = if (bookId in ov.selected) ov.selected - bookId else ov.selected + bookId)
         }
     }
 
     /** Select every book in the inbox. */
     fun selectAll() {
-        updateReady { ready -> ready.copy(selectedBookIds = ready.bookIds.toSet()) }
+        val ready = state.value as? AdminInboxUiState.Ready ?: return
+        overlay.update { it.copy(selected = ready.bookIds.toSet()) }
     }
 
     /** Clear the selection. */
     fun clearSelection() {
-        updateReady { it.copy(selectedBookIds = emptySet()) }
+        overlay.update { it.copy(selected = emptySet()) }
     }
 
     /** Clear the transient error state. */
     fun clearError() {
-        updateReady { it.copy(error = null) }
+        overlay.update { it.copy(error = null) }
     }
 
     /** Clear the last-release-count confirmation. */
     fun clearReleaseResult() {
-        updateReady { it.copy(lastReleasedCount = null) }
+        overlay.update { it.copy(lastReleasedCount = null) }
     }
 
     private suspend fun currentLibraryId(): String? =
@@ -298,23 +328,18 @@ class AdminInboxViewModel internal constructor(
             .first()
             .firstOrNull()
             ?.id
-
-    private fun updateReady(transform: (AdminInboxUiState.Ready) -> AdminInboxUiState.Ready) {
-        state.update { current ->
-            if (current is AdminInboxUiState.Ready) transform(current) else current
-        }
-    }
 }
 
 /**
  * UI state for the admin inbox screen.
  *
  * Sealed hierarchy:
- * - [Loading] before the first inbox fetch.
+ * - [Loading] before the first held-set read.
  * - [Ready] once book ids have loaded; carries the book ids, the hydrated [InboxBookItem]
- *   projections, the selection set, the `isReleasing` overlay, a transient `error`, and
- *   `lastReleasedCount` for the success confirmation.
- * - [Error] terminal state when the initial inbox fetch fails.
+ *   projections, the selection set, the `isReleasing` overlay, a transient `error` (only for a
+ *   failure no `AppError` describes — typed failures go to the `ErrorBus`, which every platform
+ *   shows), and `lastReleasedCount` for the success confirmation.
+ * - [Error] when the local held-set read fails; [AdminInboxViewModel.loadInboxBooks] retries.
  */
 sealed interface AdminInboxUiState {
     data object Loading : AdminInboxUiState
@@ -346,7 +371,7 @@ sealed interface AdminInboxUiState {
         val allSelected: Boolean get() = selectedBookIds.size == bookIds.size && bookIds.isNotEmpty()
     }
 
-    /** Terminal state when the initial inbox load fails. */
+    /** The local held-set read failed. Retry with [AdminInboxViewModel.loadInboxBooks]. */
     data class Error(
         val message: String,
     ) : AdminInboxUiState

@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.DownloadDao
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
+import com.calypsan.listenup.client.data.local.db.heldRefusal
 import com.calypsan.listenup.client.data.repository.aggregateBookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
@@ -176,6 +177,11 @@ class AppleDownloadService internal constructor(
 
     @Suppress("ReturnCount")
     override suspend fun downloadBook(bookId: BookId): AppResult<DownloadOutcome> {
+        // A held book is triage-only (spec §8): it can't be downloaded until an admin releases it.
+        bookDao.heldRefusal(bookId)?.let { refusal ->
+            logger.info { "Refusing to download ${bookId.value}: held for review" }
+            return AppResult.Failure(refusal)
+        }
         val existing = downloadDao.getForBook(bookId.value)
         if (existing.isNotEmpty() && existing.all { it.state == DownloadState.COMPLETED }) {
             return AppResult.Success(DownloadOutcome.AlreadyDownloaded)

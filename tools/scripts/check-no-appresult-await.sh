@@ -9,10 +9,13 @@
 #     an AppResult and a non-AppResult overload is skipped (grep can't disambiguate it);
 #   * matches only an `await` whose direct receiver chain reaches `.<fn>(` — so enum-case
 #     comparisons and nested `await otherFn { … .fn() }` don't false-trigger.
-# Residual gap (accepted): a real trap on an overloaded name slips through. Live examples today —
-#   `prepare` (PlaybackPreparer→PreparedPlayback? vs PlaybackService→AppResult) and
-#   `resumeIncompleteDownloads` (DownloadService→Unit vs DownloadRepository→AppResult) — are safe
+# Residual gap (accepted): a real trap on an overloaded name slips through. Live example today —
+#   `resumeIncompleteDownloads` (DownloadService→Unit vs DownloadRepository→AppResult) — is safe
 #   only because Swift targets the non-AppResult variant; awaiting the AppResult overload would pass.
+# Converse (false positive): the match is by name, so a *Swift* method sharing a watched name
+#   trips the gate however it is typed. Name Swift seams after the plain-typed Kotlin accessor they
+#   wrap — `PlaybackPreparing.prepareOrNull`, not `prepare`, now that `PlaybackPreparer.prepare`
+#   returns AppResult.
 # bash 3.2-safe (no mapfile).
 #
 # Usage: check-no-appresult-await.sh [path-to-Shared.swift]   (auto-discovers if omitted)

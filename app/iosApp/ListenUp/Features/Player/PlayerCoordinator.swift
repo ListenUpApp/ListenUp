@@ -579,7 +579,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     // MARK: - Prepare
 
     private func prepareAndStart(bookId: String, generation: Int) async {
-        guard let prepared = await preparer.prepare(bookId: bookId) else {
+        guard let prepared = await preparer.prepareOrNull(bookId: bookId) else {
             guard !isSuperseded(generation) else { return }
             isEngineLoading = false
             phase = .error(ErrorState(message: "Couldn't start playback.", bookId: bookId))

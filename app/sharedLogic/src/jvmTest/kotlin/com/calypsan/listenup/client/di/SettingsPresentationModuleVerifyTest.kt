@@ -4,6 +4,7 @@ import com.calypsan.listenup.client.data.connection.ConnectionHealthStore
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
+import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.LibraryPreferences
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
@@ -50,6 +51,7 @@ import org.koin.test.verify.verify
  *  - [DownloadFileManager] — owned by the platform download module; the adapter this module binds
  *    wraps it to satisfy `StorageSpaceProvider`.
  *  - [PlaybackStateProvider] — the concrete `PlaybackManager`, owned by `playbackModule`.
+ *  - [InboxRepository] — owned by `collectionModule` (marks a downloaded book held).
  */
 @OptIn(KoinExperimentalAPI::class)
 class SettingsPresentationModuleVerifyTest :
@@ -78,6 +80,7 @@ class SettingsPresentationModuleVerifyTest :
                         DownloadService::class,
                         DownloadFileManager::class,
                         PlaybackStateProvider::class,
+                        InboxRepository::class,
                     ),
             )
         }

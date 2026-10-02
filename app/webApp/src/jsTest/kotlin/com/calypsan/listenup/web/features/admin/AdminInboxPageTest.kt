@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.scan.ScanIssueReason
 import com.calypsan.listenup.client.domain.model.InboxBookItem
 import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
 import com.calypsan.listenup.web.awaitFrame
+import com.calypsan.listenup.web.design.WebAppSurface
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
@@ -14,9 +15,13 @@ import io.kotest.matchers.string.shouldContain
 import kotlinx.browser.document
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.asList
 
 private val hosts = mutableListOf<HTMLElement>()
+
+/** The row's touch-target floor: comfortably over WCAG 2.5.8's 24px, matching the row's own rhythm. */
+private const val MIN_TARGET_PX = 44.0
 
 private const val TWO_HOURS_MS = 2L * 3_600_000
 
@@ -76,25 +81,30 @@ private fun page(
     onOpenAdmin: () -> Unit = {},
     onOpenBookEdit: (String) -> Unit = {},
     onOpenMatch: (String) -> Unit = {},
+    onOpenBook: (String) -> Unit = {},
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
     hosts += host
+    // On the real surface, so the `.luw`-scoped page rules apply and a spec can measure layout.
     renderComposable(root = host) {
-        AdminInboxPage(
-            state = state,
-            onToggleBook = onToggleBook,
-            onSelectAll = onSelectAll,
-            onClearSelection = onClearSelection,
-            onRelease = onRelease,
-            onDismissIssue = onDismissIssue,
-            onClearError = onClearError,
-            onClearReleaseResult = onClearReleaseResult,
-            onRetry = onRetry,
-            onOpenAdmin = onOpenAdmin,
-            onOpenBookEdit = onOpenBookEdit,
-            onOpenMatch = onOpenMatch,
-        )
+        WebAppSurface {
+            AdminInboxPage(
+                state = state,
+                onToggleBook = onToggleBook,
+                onSelectAll = onSelectAll,
+                onClearSelection = onClearSelection,
+                onRelease = onRelease,
+                onDismissIssue = onDismissIssue,
+                onClearError = onClearError,
+                onClearReleaseResult = onClearReleaseResult,
+                onRetry = onRetry,
+                onOpenAdmin = onOpenAdmin,
+                onOpenBookEdit = onOpenBookEdit,
+                onOpenMatch = onOpenMatch,
+                onOpenBook = onOpenBook,
+            )
+        }
     }
     return host
 }
@@ -117,6 +127,9 @@ private suspend fun openRowMenu(
 }
 
 private fun bookRows(host: HTMLElement) = host.querySelectorAll(".inbox-book").asList().filterIsInstance<HTMLElement>()
+
+private fun rowCheckboxes(host: HTMLElement) =
+    host.querySelectorAll(".inbox-book-row input[type='checkbox']").asList().filterIsInstance<HTMLInputElement>()
 
 /** Cancel is first in the DOM so a hurried Return lands on the safe choice; confirm follows it. */
 private fun dialogButton(
@@ -168,25 +181,67 @@ class AdminInboxPageTest :
             host.querySelector(".inbox-book-by").shouldBeNull()
         }
 
-        test("a row announces itself as a checkbox, and reports the press") {
+        // Spec §8: a held book's triage page opens "from the inbox or from search". The row is the
+        // way in; selection is its own explicit control, so the one tap never means two things.
+        test("pressing a row opens that book's page, and selects nothing") {
             val toggled = mutableListOf<String>()
-            val host = page(readyInbox(books = listOf(inboxBook(id = "b7"))), onToggleBook = { toggled += it })
+            var opened: String? = null
+            val host =
+                page(
+                    readyInbox(books = listOf(inboxBook(id = "b1"), inboxBook(id = "b7"))),
+                    onToggleBook = { toggled += it },
+                    onOpenBook = { opened = it },
+                )
 
-            val row = bookRows(host).single()
-            row.getAttribute("role") shouldBe "checkbox"
-            row.getAttribute("aria-checked") shouldBe "false"
-            row.click()
+            bookRows(host)[1].click()
+            awaitFrame()
+
+            opened shouldBe "b7"
+            toggled shouldBe emptyList()
+        }
+
+        test("a row is a plain button, not a checkbox wearing one") {
+            val host = page(readyInbox(books = listOf(inboxBook(id = "b7"))))
+
+            bookRows(host).single().getAttribute("role").shouldBeNull()
+        }
+
+        test("each row's checkbox names its book, and reports the toggle without opening it") {
+            val toggled = mutableListOf<String>()
+            var opened: String? = null
+            val host =
+                page(
+                    readyInbox(books = listOf(inboxBook(id = "b7", title = "Elantris"))),
+                    onToggleBook = { toggled += it },
+                    onOpenBook = { opened = it },
+                )
+
+            val box = rowCheckboxes(host).single()
+            box.getAttribute("aria-label") shouldBe "Select Elantris"
+            box.checked shouldBe false
+            box.click()
             awaitFrame()
 
             toggled shouldContainExactly listOf("b7")
+            opened.shouldBeNull()
+        }
+
+        // WCAG 2.5.8: the drawn box is 17px, but the input over it is what takes the tap, and it
+        // spans the row's full height so a thumb aimed at the box cannot land on nothing.
+        test("a row's checkbox takes taps across a target at least 44px square") {
+            val host = page(readyInbox(books = listOf(inboxBook(id = "b7"))))
+            awaitFrame()
+
+            val target = rowCheckboxes(host).single().getBoundingClientRect()
+            (target.width >= MIN_TARGET_PX) shouldBe true
+            (target.height >= MIN_TARGET_PX) shouldBe true
         }
 
         test("a selected row says so, to the screen reader as well as the eye") {
             val host = page(readyInbox(books = listOf(inboxBook(id = "b7")), selectedBookIds = setOf("b7")))
 
-            val row = bookRows(host).single()
-            row.getAttribute("aria-checked") shouldBe "true"
-            row.className shouldContain "is-sel"
+            rowCheckboxes(host).single().checked shouldBe true
+            host.querySelector(".inbox-book-row")!!.className shouldContain "is-sel"
         }
 
         test("Select all offers itself until everything is selected, then offers the way back") {
@@ -275,7 +330,25 @@ class AdminInboxPageTest :
             button(host, "Release 1").shouldNotBeNull().click()
             awaitFrame()
 
-            host.querySelector("dialog.dlg")?.textContent.orEmpty() shouldContain "visible to everyone"
+            host.querySelector("dialog.dlg .dlg-t")?.textContent shouldBe "Release to everyone?"
+            host.querySelector("dialog.dlg .dlg-p")?.textContent shouldBe "Every member will be able to find and play it."
+            host.querySelectorAll("dialog.dlg .dlg-actions button").asList().map { it.textContent } shouldBe
+                listOf("Cancel", "Release")
+        }
+
+        test("several books are asked about in the plural") {
+            val host =
+                page(
+                    readyInbox(
+                        books = listOf(inboxBook(id = "b1"), inboxBook(id = "b2", title = "Words of Radiance")),
+                        selectedBookIds = setOf("b1", "b2"),
+                    ),
+                )
+
+            button(host, "Release 2").shouldNotBeNull().click()
+            awaitFrame()
+
+            host.querySelector("dialog.dlg .dlg-p")?.textContent shouldBe "Every member will be able to find and play them."
         }
 
         test("a release in flight says so and cannot be started again") {
@@ -436,12 +509,12 @@ class AdminInboxPageTest :
             retries shouldBe 1
         }
 
-        // ⛔ Beside the row, not inside it. The row is a <button role="checkbox"> and a <button>
-        // cannot contain another — invalid markup, and a screen reader loses the inner control.
+        // ⛔ Beside the row, not inside it. The row is a <button> and a <button> cannot contain
+        // another control — invalid markup, and a screen reader loses the inner control.
         test("a book's actions live beside the selection target, never nested inside it") {
             val host = page(readyInbox(books = listOf(inboxBook(id = "b7"))))
 
-            host.querySelectorAll(".inbox-book button").length shouldBe 0
+            host.querySelectorAll(".inbox-book :is(button, input, a, [tabindex])").length shouldBe 0
             host.querySelectorAll(".inbox-book-row > .menu-anchor").length shouldBe 1
         }
 

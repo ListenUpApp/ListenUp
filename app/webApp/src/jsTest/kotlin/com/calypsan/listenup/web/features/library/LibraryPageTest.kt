@@ -14,6 +14,7 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.design.LibraryFacet
+import com.calypsan.listenup.web.features.admin.InboxBadgeState
 import com.calypsan.listenup.web.features.home.scanning
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -62,6 +63,63 @@ class LibraryPageTest :
             root.querySelectorAll(".lib-card").length shouldBe 2
             root.textContent!! shouldContain "Dune"
             root.textContent!! shouldContain "Ubik"
+        }
+
+        fun withInbox(
+            heldCount: Int,
+            selecting: Boolean = false,
+            onOpenInbox: () -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                LibraryPage(
+                    state = loadedWith(listOf(bookItem("b1", "Dune"))),
+                    onEvent = {},
+                    onOpenBook = {},
+                    onSelectFacet = {},
+                    selecting = selecting,
+                    inbox = InboxBadgeState(heldCount = heldCount),
+                    onOpenInbox = onOpenInbox,
+                )
+            }
+
+        test("held books put the inbox strip above the grid, as one link") {
+            val root = withInbox(heldCount = 3)
+
+            val strip = root.querySelector("a.lib-inbox") as HTMLElement
+            strip.getAttribute("href") shouldBe "/admin/inbox"
+            strip.getAttribute("aria-label") shouldBe "Inbox, 3 books waiting for review"
+            strip.textContent!! shouldContain "Inbox · 3 new books"
+            strip.textContent!! shouldContain "Waiting for you to release"
+            // Outside the virtualised grid, so no card's height ever changes for it.
+            (strip.closest(".vl-item") == null) shouldBe true
+        }
+
+        test("one held book is one book") {
+            val root = withInbox(heldCount = 1)
+
+            (root.querySelector("a.lib-inbox") as HTMLElement).textContent!! shouldContain "Inbox · 1 new book"
+        }
+
+        test("nothing held, no strip — not even a placeholder") {
+            val root = withInbox(heldCount = 0)
+
+            (root.querySelector(".lib-inbox") == null) shouldBe true
+        }
+
+        test("a plain click opens the inbox in the app") {
+            var opened = 0
+            val root = withInbox(heldCount = 3, onOpenInbox = { opened++ })
+            root.addEventListener("click", { it.preventDefault() })
+
+            (root.querySelector("a.lib-inbox") as HTMLElement).click()
+
+            opened shouldBe 1
+        }
+
+        test("while selecting books, the strip steps aside") {
+            val root = withInbox(heldCount = 3, selecting = true)
+
+            (root.querySelector(".lib-inbox") == null) shouldBe true
         }
 
         test("each card points its cover at the server blob endpoint") {

@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
+import com.calypsan.listenup.client.test.fake.FakeInboxRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.Reachability
 import com.calypsan.listenup.client.domain.repository.ServerReachability
@@ -86,6 +87,7 @@ class BookDetailViewModelCollectionTest :
             val addBooksToShelfUseCase: AddBooksToShelfUseCase = mock()
             val createShelfUseCase: CreateShelfUseCase = mock()
             val documentRepository: DocumentRepository = mock()
+            val inboxRepository = FakeInboxRepository()
             val bookAvailability = FakeBookAvailability()
             val serverReachability = FakeServerReachability()
 
@@ -114,6 +116,7 @@ class BookDetailViewModelCollectionTest :
                     bookAvailability = bookAvailability,
                     serverReachability = serverReachability,
                     documentRepository = documentRepository,
+                    inboxRepository = inboxRepository,
                 )
         }
 
