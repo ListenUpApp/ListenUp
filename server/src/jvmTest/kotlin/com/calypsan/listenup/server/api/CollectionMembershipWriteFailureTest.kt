@@ -88,7 +88,8 @@ class CollectionMembershipWriteFailureTest :
                             mapOf(BookId("book1") to listOf(CollectionId(privateId))),
                         )
                     result.shouldBeInstanceOf<AppResult.Failure>()
-                    result.error.shouldBeInstanceOf<CollectionError.ReleaseIncomplete>()
+                    result.error
+                        .shouldBeInstanceOf<CollectionError.ReleaseIncomplete>()
                         .failedBookIds shouldBe listOf("book1")
 
                     // The dangerous outcome this test guards: the book must NOT have been re-homed
@@ -140,7 +141,8 @@ class CollectionMembershipWriteFailureTest :
                             mapOf(BookId("book1") to emptyList(), BookId("book2") to emptyList()),
                         )
                     result.shouldBeInstanceOf<AppResult.Failure>()
-                    result.error.shouldBeInstanceOf<CollectionError.ReleaseIncomplete>()
+                    result.error
+                        .shouldBeInstanceOf<CollectionError.ReleaseIncomplete>()
                         .failedBookIds shouldBe listOf("book1")
 
                     // book2 released normally: public, out of the inbox, and announced.
@@ -191,7 +193,8 @@ class CollectionMembershipWriteFailureTest :
                             mapOf(BookId("book1") to listOf(CollectionId(okId), CollectionId(failId))),
                         )
                     result.shouldBeInstanceOf<AppResult.Failure>()
-                    result.error.shouldBeInstanceOf<CollectionError.ReleaseIncomplete>()
+                    result.error
+                        .shouldBeInstanceOf<CollectionError.ReleaseIncomplete>()
                         .failedBookIds shouldBe listOf("book1")
 
                     // The OK write landed, but a held book in a members' collection would be visible

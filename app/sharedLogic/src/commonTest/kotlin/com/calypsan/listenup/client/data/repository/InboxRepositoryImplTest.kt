@@ -153,7 +153,7 @@ class InboxRepositoryImplTest :
                 verifySuspend(VerifyMode.not) { dao.tombstoneHeldRows(any(), any()) }
             }
         }
-    
+
         test("a partly failed release takes out only the books that left, and still reports the failure") {
             runTest {
                 val service = mock<CollectionService>()

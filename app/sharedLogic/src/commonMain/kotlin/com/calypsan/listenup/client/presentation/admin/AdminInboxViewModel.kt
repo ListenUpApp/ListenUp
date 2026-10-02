@@ -288,7 +288,12 @@ class AdminInboxViewModel internal constructor(
                 is AppResult.Failure -> {
                     val error = result.error
                     if (error is CollectionError.ReleaseIncomplete) {
-                        overlay.update { it.released(releasing, stayed = releasing.intersect(error.failedBookIds.toSet())) }
+                        overlay.update {
+                            it.released(
+                                releasing,
+                                stayed = releasing.intersect(error.failedBookIds.toSet()),
+                            )
+                        }
                     } else {
                         overlay.update { it.copy(isReleasing = false) }
                     }
