@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.BookVisibility
 import com.calypsan.listenup.client.domain.model.CollectionRef
 import com.calypsan.listenup.client.domain.model.HiddenFrom
@@ -8,6 +11,7 @@ import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import kotlinx.browser.document
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.asList
@@ -133,4 +137,37 @@ class BookDetailVisibilityTest :
         test("a held book shows no panel even while its visibility still reads stranded") {
             (panel(rendered(with(BookVisibility.Stranded).copy(isHeld = true, canPlay = false))) == null) shouldBe true
         }
+
+        // Each fix succeeds by unmounting the stranded block, and with it the button that had focus.
+        // Without a hand-off focus falls to <body>; the house pattern is the page's own H1.
+        fun focusLandsOnHeadingWhenStrandedBecomes(after: BookVisibility) {
+            test("when the stranded block gives way to ${after::class.simpleName}, the heading takes focus") {
+                var state by mutableStateOf<BookDetailUiState>(with(BookVisibility.Stranded))
+                val host =
+                    mounts.mount {
+                        BookDetailPage(
+                            state = state,
+                            tab = "overview",
+                            onSelectTab = {},
+                            onOpenLibrary = {},
+                            onPlay = {},
+                            onRetryConnection = {},
+                        )
+                    }
+
+                button(host, "Show to all members").focus()
+                document.activeElement shouldBe button(host, "Show to all members")
+                state = with(after)
+                awaitFrame()
+                awaitFrame()
+
+                (host.querySelector(".bd-vis-stranded") == null) shouldBe true
+                document.activeElement shouldBe host.querySelector(".bd-head h1")
+            }
+        }
+
+        // "Show to all members": the local reconcile turns the book Public at once.
+        focusLandsOnHeadingWhenStrandedBecomes(BookVisibility.Public)
+        // "Add to a collection": the picker closes and the book is now Restricted.
+        focusLandsOnHeadingWhenStrandedBecomes(BookVisibility.Restricted(listOf(CollectionRef("c1", "Kids")), HiddenFrom.Everyone))
     })

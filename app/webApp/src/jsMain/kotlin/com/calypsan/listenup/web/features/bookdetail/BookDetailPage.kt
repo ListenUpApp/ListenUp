@@ -15,6 +15,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDocument
+import com.calypsan.listenup.client.domain.model.BookVisibility
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
@@ -192,7 +193,10 @@ fun BookDetailPage(
 
             is BookDetailUiState.Ready -> {
                 ServerOfflineBanner(state.showServerWarning, onRetryConnection)
-                FocusHeadingOnRelease(state.book.id.value, state.isHeld) { root.element }
+                // Release, Show to all members and Add to a collection each unmount the control
+                // that had focus; the page's H1 takes it rather than <body>.
+                FocusHeadingWhenLeft(state.book.id.value, state.isHeld) { root.element }
+                FocusHeadingWhenLeft(state.book.id.value, state.visibility == BookVisibility.Stranded) { root.element }
 
                 // A held book is triage-only (spec §8). The panel stands above the tabs so it stays in
                 // view whichever pane is open; Release asks first (§7).
