@@ -125,6 +125,7 @@ class FakeHardcoverLibrary(
         val defaultAudioEditionId: Long? = null,
         val ratingsCount: Int = 0,
         val releaseYear: Int? = null,
+        val usersReadCount: Int = 0,
     )
 
     private val lock = Any()
@@ -577,6 +578,7 @@ class FakeHardcoverLibrary(
             put("title", edition.title)
             put("rating", null as Double?)
             put("ratings_count", edition.ratingsCount)
+            put("users_read_count", edition.usersReadCount)
             put("release_year", edition.releaseYear)
             put("default_audio_edition_id", edition.defaultAudioEditionId)
             putJsonArray("contributions") {

@@ -139,6 +139,74 @@ class HardcoverBookMatcherTest :
             }
         }
 
+        test("Dungeon Crawler Carl 4: the real record beats its one-reader duplicate and the author-less copies") {
+            runTest {
+                val real =
+                    FakeHardcoverLibrary.Edition(
+                        id = 31_860_587L,
+                        bookId = 446_722L,
+                        title = "The Gate of the Feral Gods",
+                        authors = listOf("Matt Dinniman"),
+                        defaultAudioEditionId = 31_860_587L,
+                        usersReadCount = 3_895,
+                    )
+                val oneReaderDuplicate = real.copy(id = 1L, bookId = 2_664_448L, defaultAudioEditionId = null, usersReadCount = 1)
+                val authorless =
+                    (1..3).map { n -> real.copy(id = 10L + n, bookId = 90_000L + n, authors = emptyList(), usersReadCount = 0) }
+                val (matcher, _) = matcherOver(oneReaderDuplicate, real, *authorless.toTypedArray())
+                matcher.match("hc_at_1", BookIdentity(title = "The Gate of the Feral Gods", primaryAuthor = "Matt Dinniman")) shouldBe
+                    HardcoverCall.Ok(HardcoverMatch(446_722L, 31_860_587L, HardcoverMatchMethod.SEARCH))
+            }
+        }
+
+        test("the only confident hit with an audiobook edition wins, however few its readers") {
+            runTest {
+                val printOnly = HAIL_MARY_AUDIO.copy(asin = null, defaultAudioEditionId = null, usersReadCount = 12)
+                val audio = printOnly.copy(id = 9_002L, bookId = 500_001L, defaultAudioEditionId = 9_002L, usersReadCount = 10)
+                val (matcher, _) = matcherOver(printOnly, audio)
+                matcher.match("hc_at_1", BookIdentity(title = "Project Hail Mary", primaryAuthor = "Andy Weir")) shouldBe
+                    HardcoverCall.Ok(HardcoverMatch(500_001L, 9_002L, HardcoverMatchMethod.SEARCH))
+            }
+        }
+
+        test("twenty times the runner-up's readers, and at least fifty, is a clear winner") {
+            runTest {
+                val runnerUp = HAIL_MARY_AUDIO.copy(asin = null, usersReadCount = 50)
+                val popular = runnerUp.copy(id = 9_002L, bookId = 500_001L, defaultAudioEditionId = 9_002L, usersReadCount = 1_000)
+                val (matcher, _) = matcherOver(runnerUp, popular)
+                matcher.match("hc_at_1", BookIdentity(title = "Project Hail Mary", primaryAuthor = "Andy Weir")) shouldBe
+                    HardcoverCall.Ok(HardcoverMatch(500_001L, 9_002L, HardcoverMatchMethod.SEARCH))
+            }
+        }
+
+        test("two comparable audiobook records are ambiguous: no match, never a guess") {
+            runTest {
+                val first = HAIL_MARY_AUDIO.copy(asin = null, usersReadCount = 400)
+                val second = first.copy(id = 9_002L, bookId = 500_001L, defaultAudioEditionId = 9_002L, usersReadCount = 300)
+                val (matcher, _) = matcherOver(first, second)
+                matcher.match("hc_at_1", BookIdentity(title = "Project Hail Mary", primaryAuthor = "Andy Weir")) shouldBe
+                    HardcoverCall.Ok(null)
+            }
+        }
+
+        test("a lead by ratio alone is not a winner under fifty readers") {
+            runTest {
+                val leader = HAIL_MARY_AUDIO.copy(asin = null, usersReadCount = 40)
+                val trailer = leader.copy(id = 9_002L, bookId = 500_001L, defaultAudioEditionId = 9_002L, usersReadCount = 1)
+                val (matcher, _) = matcherOver(leader, trailer)
+                matcher.match("hc_at_1", BookIdentity(title = "Project Hail Mary", primaryAuthor = "Andy Weir")) shouldBe
+                    HardcoverCall.Ok(null)
+            }
+        }
+
+        test("a single confident hit matches with no readers and no audiobook edition") {
+            runTest {
+                val (matcher, _) = matcherOver(HAIL_MARY_AUDIO.copy(asin = null, defaultAudioEditionId = null, usersReadCount = 0))
+                matcher.match("hc_at_1", BookIdentity(title = "Project Hail Mary", primaryAuthor = "Andy Weir")) shouldBe
+                    HardcoverCall.Ok(HardcoverMatch(427_578L, null, HardcoverMatchMethod.SEARCH))
+            }
+        }
+
         test("a title hit by a different author is no match") {
             runTest {
                 val (matcher, _) = matcherOver(HAIL_MARY_AUDIO.copy(asin = null, authors = listOf("Someone Else")))
