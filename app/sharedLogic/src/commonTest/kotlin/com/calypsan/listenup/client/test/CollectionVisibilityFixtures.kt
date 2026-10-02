@@ -84,7 +84,6 @@ internal fun rosterUser(
     displayName = displayName,
     role = role,
     status = status,
-    canShare = false,
     accountCreatedAt = 1L,
     revision = 1L,
     deletedAt = deletedAt,
