@@ -3,8 +3,9 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.dto.scan.ScanIssue
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.result.onSuccess
 import com.calypsan.listenup.client.data.local.db.CollectionBookDao
 import com.calypsan.listenup.client.data.local.db.CollectionBookEntity
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
@@ -31,7 +32,9 @@ private val logger = KotlinLogging.logger {}
  * RPC; once the server has committed it, [releaseBooks] tombstones the local INBOX memberships so
  * every held surface converges at once, writes each book's new memberships — All Books for a book
  * released to everyone, the named collections otherwise — as the server just did, so the book never
- * reads as in no collection at all.
+ * reads as in no collection at all. A partial release ([CollectionError.ReleaseIncomplete]) writes
+ * through only the books it does not name — the named ones stayed held on the server, so they stay
+ * held here too.
  */
 internal class InboxRepositoryImpl(
     private val channel: RpcChannel<CollectionService>,
@@ -54,16 +57,37 @@ internal class InboxRepositoryImpl(
     override suspend fun releaseBooks(
         libraryId: String,
         assignments: Map<String, List<String>>,
-    ): AppResult<Unit> =
-        channel
-            .call {
+    ): AppResult<Unit> {
+        val result =
+            channel.call {
                 it.releaseBooks(
                     LibraryId(libraryId),
                     assignments.entries.associate { (bookId, targets) ->
                         BookId(bookId) to targets.map(::CollectionId)
                     },
                 )
-            }.onSuccess { writeReleaseThrough(assignments) }
+            }
+        // A partial release committed for every book it does not name, and those books have left the
+        // inbox on the server. The ones it names stayed held, so they must stay held here too.
+        val released =
+            when (result) {
+                is AppResult.Success -> assignments.keys.toList()
+                is AppResult.Failure -> releasedDespite(result.error, assignments.keys)
+            }
+        if (released.isNotEmpty()) writeReleaseThrough(assignments.filterKeys { it in released })
+        return result
+    }
+
+    /** The books that left the inbox even though the release as a whole failed: none, unless it was partial. */
+    private fun releasedDespite(
+        error: AppError,
+        requested: Set<String>,
+    ): List<String> =
+        if (error is CollectionError.ReleaseIncomplete) {
+            requested.filterNot { it in error.failedBookIds }
+        } else {
+            emptyList()
+        }
 
     /**
      * Write the committed release through to Room in one transaction: the INBOX memberships end, each

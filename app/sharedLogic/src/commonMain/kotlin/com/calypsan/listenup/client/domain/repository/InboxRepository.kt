@@ -34,6 +34,9 @@ interface InboxRepository {
      * book id to the collection ids it should be added to on release (an empty list
      * releases the book as publicly visible).
      * On success the books leave the local held set immediately, without waiting for the sync echo.
+     * A partial release returns [com.calypsan.listenup.api.error.CollectionError.ReleaseIncomplete]:
+     * the books it does not name left (and leave the local held set the same way); the books it
+     * names stayed held.
      */
     suspend fun releaseBooks(
         libraryId: String,
