@@ -240,6 +240,21 @@ sealed interface PreviewLoadState {
          * the Swift Export boundary.
          */
         fun fallbackSourceFor(field: BookField): String? = fallbackSources[field]
+
+        /**
+         * Where genre [label] came from, when the match proposed it from somewhere other than its genres
+         * winner ("Hardcover"), else null — a genre the book already had claims nothing. A String argument,
+         * so it bridges to Swift intact (#1542).
+         */
+        fun genreSourceFor(label: String): String? =
+            preview.matchProvenance?.genreSources?.get(label)
+                ?: fallbackSources[BookField.GENRES]?.takeIf { label in preview.genres }
+
+        /**
+         * Where mood [label] came from, for a mood the match proposed ("Hardcover"), else null — a mood the
+         * book already had claims nothing. Bridge-safe like [genreSourceFor].
+         */
+        fun moodSourceFor(label: String): String? = fallbackSources[BookField.MOODS]?.takeIf { label in preview.moods }
     }
 
     /** Preview fetch failed; [message] is shown in-line. */
@@ -708,7 +723,7 @@ class MetadataViewModel(
             try {
                 val result =
                     withTimeout(METADATA_RPC_TIMEOUT) {
-                        metadataRepository.getBookMetadata(match.asin, region)
+                        metadataRepository.getBookMetadata(match.asin, region, BookId(bookId))
                     }
                 when (result) {
                     is AppResult.Success -> {

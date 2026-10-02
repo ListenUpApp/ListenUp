@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
@@ -70,6 +71,7 @@ class AdminSettingsViewModel(
                         }
                     }
                     loadRatingSources()
+                    loadHardcoverSource()
                 }
 
                 is AppResult.Failure -> {
@@ -96,6 +98,20 @@ class AdminSettingsViewModel(
             is AppResult.Failure -> {
                 errorBus.emit(result.error)
                 logger.error { "Failed to load rating sources: ${result.error}" }
+            }
+        }
+    }
+
+    /** Loaded alongside the rest of the settings — see [loadSettings]. A failure leaves the section out. */
+    private suspend fun loadHardcoverSource() {
+        when (val result = loadServerSettingsUseCase.hardcoverSource()) {
+            is AppResult.Success -> {
+                updateReady { it.copy(hardcoverSource = result.data) }
+            }
+
+            is AppResult.Failure -> {
+                errorBus.emit(result.error)
+                logger.error { "Failed to load the Hardcover source: ${result.error.code}" }
             }
         }
     }
@@ -206,6 +222,82 @@ class AdminSettingsViewModel(
                     // Revert the optimistic flip to the last server-confirmed list.
                     updateReady { it.copy(ratingSources = previous, error = result.error).withDirty() }
                 }
+            }
+        }
+    }
+
+    /**
+     * Sends [token] to be checked with Hardcover and stored on the server (#1542). It is never kept here
+     * and never logged: it goes out once, and only its owner comes back. A refusal is shown beside the
+     * field ([HardcoverTokenSave.Refused]) and not on the error bus, which would say it twice.
+     */
+    fun saveHardcoverApiToken(token: String) {
+        val ready = state.value as? AdminSettingsUiState.Ready ?: return
+        if (token.isBlank() || ready.hardcoverTokenSave == HardcoverTokenSave.Busy) return
+        updateReady { it.copy(hardcoverTokenSave = HardcoverTokenSave.Busy) }
+        viewModelScope.launch {
+            when (val result = updateServerSettingsUseCase.setHardcoverApiToken(token)) {
+                is AppResult.Success -> {
+                    updateReady { it.copy(hardcoverSource = result.data, hardcoverTokenSave = HardcoverTokenSave.Idle) }
+                }
+
+                is AppResult.Failure -> {
+                    logger.warn { "Hardcover API token not saved: ${result.error.code}" }
+                    updateReady { it.copy(hardcoverTokenSave = HardcoverTokenSave.Refused(result.error)) }
+                }
+            }
+        }
+    }
+
+    /** Removes the server's Hardcover API token. The screens confirm before calling this. */
+    fun removeHardcoverApiToken() {
+        updateReady { it.copy(hardcoverTokenSave = HardcoverTokenSave.Busy) }
+        viewModelScope.launch {
+            when (val result = updateServerSettingsUseCase.clearHardcoverApiToken()) {
+                is AppResult.Success -> {
+                    updateReady { it.copy(hardcoverSource = result.data, hardcoverTokenSave = HardcoverTokenSave.Idle) }
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to remove the Hardcover API token: ${result.error.code}" }
+                    updateReady { it.copy(hardcoverTokenSave = HardcoverTokenSave.Idle, error = result.error) }
+                }
+            }
+        }
+    }
+
+    /**
+     * Switches Hardcover metadata on or off. Like the other switches it applies on tap: optimistic, and
+     * reverted to the last server-confirmed status if the save fails.
+     */
+    fun setHardcoverMetadataEnabled(enabled: Boolean) {
+        val previous = (state.value as? AdminSettingsUiState.Ready)?.hardcoverSource ?: return
+        updateReady { it.copy(hardcoverSource = previous.copy(metadataEnabled = enabled)) }
+        viewModelScope.launch {
+            when (val result = updateServerSettingsUseCase.setHardcoverMetadataEnabled(enabled)) {
+                is AppResult.Success -> {
+                    updateReady { it.copy(hardcoverSource = result.data) }
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to set Hardcover metadata enabled=$enabled: ${result.error.code}" }
+                    updateReady { it.copy(hardcoverSource = previous, error = result.error) }
+                }
+            }
+        }
+    }
+
+    /** The admin is editing the token again, so the last refusal no longer applies. */
+    fun clearHardcoverTokenError() {
+        updateReady { ready ->
+            if (ready.hardcoverTokenSave is HardcoverTokenSave.Refused) {
+                ready.copy(
+                    hardcoverTokenSave = HardcoverTokenSave.Idle,
+                )
+            } else {
+                ready
             }
         }
     }
@@ -325,6 +417,9 @@ sealed interface AdminSettingsUiState {
      * @property ratingSources every outside rating source, with its enabled flag and last-fetch
      *   health — loaded alongside the rest of the settings, toggled immediately on tap like
      *   [holdNewBooksForReview].
+     * @property hardcoverSource Admin → Hardcover (#1542): the API token's state and the metadata switch;
+     *   null until loaded, and the section is left out while it is.
+     * @property hardcoverTokenSave whether a token is being checked, or why the last one was refused.
      */
     data class Ready(
         val serverName: String = "",
@@ -332,6 +427,8 @@ sealed interface AdminSettingsUiState {
         val holdNewBooksForReview: Boolean = false,
         val pushNotificationsEnabled: Boolean = true,
         val ratingSources: List<RatingSourceStatus> = emptyList(),
+        val hardcoverSource: HardcoverSourceStatus? = null,
+        val hardcoverTokenSave: HardcoverTokenSave = HardcoverTokenSave.Idle,
         val isDirty: Boolean = false,
         val isSaving: Boolean = false,
         val error: AppError? = null,

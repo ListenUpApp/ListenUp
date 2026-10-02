@@ -135,3 +135,11 @@ JOIN books AS b ON b.id = l.book_id
 WHERE l.user_id = :user_id AND l.match_state = 'NEEDS_MATCH' AND b.deleted_at IS NULL
   AND NOT EXISTS (SELECT 1 FROM hardcover_book_exclusions AS x WHERE x.user_id = l.user_id AND x.book_id = l.book_id)
 ORDER BY l.updated_at DESC, l.book_id;
+
+-- The Hardcover book anyone linked :book_id to (#1542): catalogue data is the same for every user. A
+-- hand-picked (MANUAL) link wins over an automatic one; then the most recently updated.
+catalogBookFor:
+SELECT * FROM hardcover_book_links
+WHERE book_id = :book_id AND match_state = 'LINKED' AND hc_book_id IS NOT NULL
+ORDER BY CASE WHEN match_method = 'MANUAL' THEN 0 ELSE 1 END, updated_at DESC
+LIMIT 1;

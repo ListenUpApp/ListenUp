@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.metadata
 
+import com.calypsan.listenup.api.dto.MatchProvenance
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.MetadataLocale
@@ -650,5 +651,31 @@ class MetadataPageTest :
             awaitFrame()
 
             left.size shouldBe 1
+        }
+
+        // #1542: Hardcover's additions say where they came from; the book's own values claim nothing.
+        test("a genre and a mood Hardcover proposed say 'from Hardcover'; a value the book already had says nothing") {
+            val host =
+                page(
+                    previewState(
+                        readyPreview(
+                            preview =
+                                metadataBook(genres = listOf("Science Fiction", "Space Opera"), moods = listOf("Hopeful")).copy(
+                                    matchProvenance = MatchProvenance(genreSources = mapOf("Space Opera" to "Hardcover")),
+                                ),
+                            genreCandidates = listOf("Science Fiction", "Space Opera"),
+                            moodCandidates = listOf("Tense", "Hopeful"),
+                            fallbackSources = mapOf(BookField.MOODS to "Hardcover"),
+                        ),
+                    ),
+                )
+
+            val labelled =
+                host
+                    .querySelectorAll(".mdx-values .mdx-from")
+                    .asList()
+                    .filterIsInstance<HTMLElement>()
+                    .map { it.previousElementSibling?.textContent?.trim() to it.textContent }
+            labelled shouldContainExactly listOf("Space Opera" to "from Hardcover", "Hopeful" to "from Hardcover")
         }
     })

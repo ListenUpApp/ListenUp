@@ -50,6 +50,10 @@ class HardcoverBookLinkStore(
     ): HardcoverBookLink? =
         suspendTransaction(sql) { queries.selectLink(userId, bookId).executeAsOneOrNull() }?.toLink()
 
+    /** The Hardcover book anyone linked [bookId] to — a hand-picked link first — or null when nobody has. */
+    suspend fun catalogBookFor(bookId: String): Long? =
+        suspendTransaction(sql) { queries.catalogBookFor(bookId).executeAsOneOrNull() }?.hc_book_id
+
     /** Records an automatic [match] — or NEEDS_MATCH when null — unless the book already has a link. */
     suspend fun recordAutomaticMatch(
         userId: String,

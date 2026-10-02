@@ -6,6 +6,7 @@ import androidx.navigation3.runtime.NavKey
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import com.calypsan.listenup.client.features.admin.AdminScreen
+import com.calypsan.listenup.client.features.admin.HardcoverSourceActions
 import com.calypsan.listenup.client.features.admin.CreateInviteScreen
 import com.calypsan.listenup.client.features.admin.backup.AdminBackupScreen
 import com.calypsan.listenup.client.features.admin.import.ImportFlowScreen
@@ -37,6 +38,7 @@ import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
+import com.calypsan.listenup.client.presentation.admin.HardcoverTokenSave
 import com.calypsan.listenup.client.presentation.error.localized
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -95,6 +97,15 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             onRatingSourceEnabledChange = { source, enabled ->
                 settingsViewModel.setRatingSourceEnabled(source, enabled)
             },
+            hardcoverSource = readySettings?.hardcoverSource,
+            hardcoverTokenSave = readySettings?.hardcoverTokenSave ?: HardcoverTokenSave.Idle,
+            hardcoverActions =
+                HardcoverSourceActions(
+                    onSaveToken = settingsViewModel::saveHardcoverApiToken,
+                    onRemoveToken = settingsViewModel::removeHardcoverApiToken,
+                    onMetadataEnabledChange = settingsViewModel::setHardcoverMetadataEnabled,
+                    onClearTokenError = settingsViewModel::clearHardcoverTokenError,
+                ),
             isDirty = readySettings?.isDirty == true,
             onSave = { settingsViewModel.saveAll() },
             settingsError =

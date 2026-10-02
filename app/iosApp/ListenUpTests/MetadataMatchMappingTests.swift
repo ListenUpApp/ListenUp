@@ -193,6 +193,49 @@ struct MetadataMatchMappingTests {
         #expect(preview.contributingSources.isEmpty)
     }
 
+    // MARK: - Hardcover's genres and moods (#1542)
+
+    @Test func eachGenreCarriesItsOwnSourceAndHardcoversAdditionsGroupTogether() {
+        let book = makeBook(
+            asin: "B30", title: "Project Hail Mary", genres: ["Science Fiction", "Space Opera", "Humor"]
+        )
+        let added: [String: String] = ["Space Opera": "Hardcover", "Humor": "Hardcover"]
+        let preview = MetadataMatchMapping.preview(
+            from: ready(book: book),
+            match: book,
+            sourceFor: { _ in nil },
+            genreSourceFor: { added[$0] }
+        )
+
+        #expect(preview.genres.map(\.sourceLabel) == [nil, "Hardcover", "Hardcover"])
+        let runs = MetadataMatchMapping.sourceRuns(preview.genres)
+        #expect(runs.map(\.source) == [nil, "Hardcover"])
+        #expect(runs[1].items.map(\.label) == ["Space Opera", "Humor"])
+    }
+
+    @Test func aFieldLevelGenreSourceStillLabelsEveryGenre() {
+        let book = makeBook(asin: "B31", title: "Title", genres: ["Fantasy"])
+        let preview = MetadataMatchMapping.preview(
+            from: ready(book: book),
+            match: book,
+            sourceFor: { $0 == .genres ? "Audnexus" : nil }
+        )
+        #expect(preview.genres.first?.sourceLabel == "Audnexus")
+    }
+
+    /// Hardcover's moods each say so, and a mood the book already had claims no source.
+    @Test func eachMoodCarriesItsOwnSource() {
+        let book = makeBook(asin: "B32", title: "Title", moods: ["Tense", "Hopeful"])
+        let preview = MetadataMatchMapping.preview(
+            from: ready(book: book),
+            match: book,
+            sourceFor: { _ in nil },
+            moodSourceFor: { $0 == "Hopeful" ? "Hardcover" : nil }
+        )
+        #expect(preview.moods.map(\.sourceLabel) == [nil, "Hardcover"])
+        #expect(MetadataMatchMapping.sourceRuns(preview.moods).map(\.source) == [nil, "Hardcover"])
+    }
+
     // MARK: - Fixtures
 
     private func ref(_ name: String, asin: String? = nil) -> MetadataContributorRef {

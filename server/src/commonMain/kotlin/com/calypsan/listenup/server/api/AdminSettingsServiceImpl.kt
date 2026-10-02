@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.dto.admin.AdminServerSettings
 import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
+import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.AdminError
@@ -11,7 +12,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.hardcover.HardcoverRatingConnection
+import com.calypsan.listenup.server.hardcover.HardcoverSourceSettings
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.metadata.spi.RatingSource
 import com.calypsan.listenup.server.metadata.spi.RatingSourceAvailability
@@ -51,8 +52,11 @@ internal class AdminSettingsServiceImpl(
     private val externalRatings: BookExternalRatingRepository? = null,
     /** Every registered [RatingSource] — what [getRatingSources] enumerates. */
     private val providerRegistry: MetadataProviderRegistry? = null,
-    /** Whose Hardcover account [getRatingSources] names on the Hardcover row. */
-    private val hardcoverConnection: HardcoverRatingConnection? = null,
+    /**
+     * Admin → Hardcover (#1542): the API token, the metadata switch, and whose account catalogue reads
+     * use — which [getRatingSources] names on the Hardcover row.
+     */
+    private val hardcoverSource: HardcoverSourceSettings? = null,
 ) : AdminSettingsService {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): AdminSettingsServiceImpl =
@@ -65,7 +69,7 @@ internal class AdminSettingsServiceImpl(
             sourceSettings,
             externalRatings,
             providerRegistry,
-            hardcoverConnection,
+            hardcoverSource,
         )
 
     override suspend fun getServerSettings(): AppResult<AdminServerSettings> {
@@ -128,6 +132,29 @@ internal class AdminSettingsServiceImpl(
         return AppResult.Success(ratingSourceStatuses())
     }
 
+    override suspend fun getHardcoverSource(): AppResult<HardcoverSourceStatus> {
+        requireAdmin()?.let { return it }
+        return AppResult.Success(requireHardcoverSource().status())
+    }
+
+    override suspend fun setHardcoverApiToken(token: String): AppResult<HardcoverSourceStatus> {
+        requireAdmin()?.let { return it }
+        return requireHardcoverSource().setApiToken(token)
+    }
+
+    override suspend fun clearHardcoverApiToken(): AppResult<HardcoverSourceStatus> {
+        requireAdmin()?.let { return it }
+        return AppResult.Success(requireHardcoverSource().clearApiToken())
+    }
+
+    override suspend fun setHardcoverMetadataEnabled(enabled: Boolean): AppResult<HardcoverSourceStatus> {
+        requireAdmin()?.let { return it }
+        return AppResult.Success(requireHardcoverSource().setMetadataEnabled(enabled))
+    }
+
+    private fun requireHardcoverSource(): HardcoverSourceSettings =
+        requireNotNull(hardcoverSource) { "AdminSettingsServiceImpl.hardcoverSource not wired" }
+
     /** Every registered [RatingSource], with its enabled flag and health, as the admin sees it. */
     private suspend fun ratingSourceStatuses(): List<RatingSourceStatus> {
         val sources = sourceSettings ?: return emptyList()
@@ -144,7 +171,7 @@ internal class AdminSettingsServiceImpl(
                 unavailable = (source.availability() as? RatingSourceAvailability.Unavailable)?.reason,
                 connectionUsername =
                     if (source.ratingSource == ExternalRatingSource.HARDCOVER) {
-                        hardcoverConnection?.pick()?.hardcoverUsername
+                        hardcoverSource?.accountName()
                     } else {
                         null
                     },

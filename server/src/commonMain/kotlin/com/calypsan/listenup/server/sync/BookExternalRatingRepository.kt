@@ -293,6 +293,15 @@ class BookExternalRatingRepository(
                 .toSet()
         }
 
+    /** When [source] last attempted [bookId] (epoch ms), or null when it never has. */
+    suspend fun attemptedAt(
+        bookId: String,
+        source: ExternalRatingSource,
+    ): Long? =
+        suspendTransaction(db) {
+            db.externalRatingAttemptsQueries.selectAttemptedAt(bookId, source.name).executeAsOneOrNull()
+        }
+
     /**
      * Up to [limit] live books, after [after] in id order, that at least one of [sources] has never
      * attempted — see `BookExternalRatings.sq`'s `selectBooksMissingAttempt`.

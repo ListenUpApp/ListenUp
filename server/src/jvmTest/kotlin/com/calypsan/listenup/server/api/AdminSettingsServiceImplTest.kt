@@ -1,19 +1,16 @@
 package com.calypsan.listenup.server.api
 
-import com.calypsan.listenup.server.hardcover.HardcoverConnectionStore
-import com.calypsan.listenup.server.hardcover.HardcoverGraphQlClient
-import com.calypsan.listenup.server.hardcover.HardcoverLinker
-import com.calypsan.listenup.server.hardcover.HardcoverMe
-import com.calypsan.listenup.server.hardcover.HardcoverOAuthClient
-import com.calypsan.listenup.server.hardcover.HardcoverRatingConnection
-import com.calypsan.listenup.server.hardcover.HardcoverTokenCipher
-import com.calypsan.listenup.server.hardcover.HardcoverTokenProvider
-import com.calypsan.listenup.server.hardcover.HardcoverTokens
 import com.calypsan.listenup.server.db.UserRoleColumn
-import com.calypsan.listenup.server.testing.seedTestUser
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
+import com.calypsan.listenup.api.dto.admin.HardcoverApiTokenStatus
+import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
+import com.calypsan.listenup.api.error.HardcoverError
+import com.calypsan.listenup.server.hardcover.ADMIN_TOKEN
+import com.calypsan.listenup.server.hardcover.FakeHardcoverCatalog
+import com.calypsan.listenup.server.hardcover.HardcoverCatalogRig
+import com.calypsan.listenup.server.hardcover.HardcoverSourceSettings
+import com.calypsan.listenup.server.hardcover.NoWaitRateLimiter
+import io.kotest.matchers.string.shouldNotContain
+import com.calypsan.listenup.server.testing.shouldFailWith
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
@@ -353,24 +350,8 @@ class AdminSettingsServiceImplTest :
         test("getRatingSources names the Hardcover account the Hardcover row borrows, and no one else's row") {
             withSqlDatabase {
                 runTest {
-                    sql.seedTestUser("admin1", UserRoleColumn.ADMIN)
-                    val store = HardcoverConnectionStore(sql, HardcoverTokenCipher(HardcoverTokenCipher.deriveKey("secret")))
-                    store.save("admin1", HardcoverMe(7, "simon-hc"), HardcoverTokens("at", "rt", 604_800, "scope"))
-                    val unusedOauth = HardcoverOAuthClient(HttpClient(MockEngine { respond("{}") }), "id", "https://hc.test")
-                    val connection =
-                        HardcoverRatingConnection(
-                            store,
-                            HardcoverTokenProvider(
-                                unusedOauth,
-                                store,
-                                HardcoverLinker(
-                                    unusedOauth,
-                                    HardcoverGraphQlClient(HttpClient(MockEngine { respond("{}") })),
-                                    store,
-                                    backgroundScope,
-                                ),
-                            ),
-                        )
+                    val (hardcoverSource, rig) = hardcoverSourceFor(this@withSqlDatabase)
+                    rig.connect("admin1", UserRoleColumn.ADMIN)
                     val sourceSettings = RatingSourceSettings(ServerSettingsRepository(sql, RegistrationPolicy.OPEN))
                     val (svc) =
                         makeAdminSettingsService(
@@ -379,14 +360,14 @@ class AdminSettingsServiceImplTest :
                             sourceSettings = sourceSettings,
                             externalRatings = BookExternalRatingRepository(sql, ChangeBus(), SyncRegistry(), driver),
                             providerRegistry = singleRatingSourceRegistry(source = ExternalRatingSource.HARDCOVER),
-                            hardcoverConnection = connection,
+                            hardcoverSource = hardcoverSource,
                         )
 
                     svc
                         .getRatingSources()
                         .shouldSucceed()
                         .single()
-                        .connectionUsername shouldBe "simon-hc"
+                        .connectionUsername shouldBe "hc-admin1"
                 }
             }
         }
@@ -504,6 +485,90 @@ class AdminSettingsServiceImplTest :
                 }
             }
         }
+
+        test("an admin stores a Hardcover API token, and the status names its owner and never carries it") {
+            withSqlDatabase {
+                runTest {
+                    val (hardcoverSource) = hardcoverSourceFor(this@withSqlDatabase)
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("admin1", UserRole.ADMIN),
+                            hardcoverSource = hardcoverSource,
+                        )
+
+                    val saved = svc.setHardcoverApiToken(ADMIN_TOKEN).shouldSucceed()
+
+                    (saved.apiToken as HardcoverApiTokenStatus.Saved).username shouldBe "simon"
+                    svc.getHardcoverSource().shouldSucceed() shouldBe saved
+                    saved.toString() shouldNotContain ADMIN_TOKEN
+                }
+            }
+        }
+
+        test("a token Hardcover refuses comes back as TokenRejected and nothing is stored") {
+            withSqlDatabase {
+                runTest {
+                    val hardcover =
+                        FakeHardcoverCatalog().apply {
+                            accounts = mapOf(ADMIN_TOKEN to "simon")
+                            rejected = setOf("hc_unknown_test_token")
+                        }
+                    val (hardcoverSource) = hardcoverSourceFor(this@withSqlDatabase, hardcover)
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                            hardcoverSource = hardcoverSource,
+                        )
+
+                    svc.setHardcoverApiToken("hc_unknown_test_token").shouldFailWith<HardcoverError.TokenRejected>()
+                    svc.getHardcoverSource().shouldSucceed().apiToken shouldBe HardcoverApiTokenStatus.NotSet
+                }
+            }
+        }
+
+        test("Remove clears the token, and the metadata switch round-trips") {
+            withSqlDatabase {
+                runTest {
+                    val (hardcoverSource) = hardcoverSourceFor(this@withSqlDatabase)
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                            hardcoverSource = hardcoverSource,
+                        )
+                    svc.setHardcoverApiToken(ADMIN_TOKEN).shouldSucceed()
+
+                    svc.clearHardcoverApiToken().shouldSucceed().apiToken shouldBe HardcoverApiTokenStatus.NotSet
+                    svc.setHardcoverMetadataEnabled(false).shouldSucceed().metadataEnabled shouldBe false
+                    svc.getHardcoverSource().shouldSucceed().metadataEnabled shouldBe false
+                }
+            }
+        }
+
+        test("a member is denied every Hardcover source call, and nothing changes") {
+            withSqlDatabase {
+                runTest {
+                    val (hardcoverSource) = hardcoverSourceFor(this@withSqlDatabase)
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("member1", UserRole.MEMBER),
+                            hardcoverSource = hardcoverSource,
+                        )
+
+                    svc.getHardcoverSource().shouldFailWith<AuthError.PermissionDenied>()
+                    svc.setHardcoverApiToken(ADMIN_TOKEN).shouldFailWith<AuthError.PermissionDenied>()
+                    svc.clearHardcoverApiToken().shouldFailWith<AuthError.PermissionDenied>()
+                    svc.setHardcoverMetadataEnabled(false).shouldFailWith<AuthError.PermissionDenied>()
+                    hardcoverSource.status() shouldBe
+                        HardcoverSourceStatus(
+                            metadataUnavailable = com.calypsan.listenup.api.dto.admin.RatingSourceUnavailable.NO_CONNECTION,
+                        )
+                }
+            }
+        }
     })
 
 // ── Test fixtures ─────────────────────────────────────────────────────────────
@@ -521,7 +586,7 @@ private fun makeAdminSettingsService(
     sourceSettings: RatingSourceSettings? = null,
     externalRatings: BookExternalRatingRepository? = null,
     providerRegistry: MetadataProviderRegistry? = null,
-    hardcoverConnection: HardcoverRatingConnection? = null,
+    hardcoverSource: HardcoverSourceSettings? = null,
 ): AdminSettingsFixture {
     val libraryRepo = LibraryRepository(db = db.sql, bus = bus, registry = SyncRegistry())
     val libraryRegistry = LibraryRegistry(sql = db.sql)
@@ -534,9 +599,24 @@ private fun makeAdminSettingsService(
             sourceSettings = sourceSettings,
             externalRatings = externalRatings,
             providerRegistry = providerRegistry,
-            hardcoverConnection = hardcoverConnection,
+            hardcoverSource = hardcoverSource,
         ).copyWith(principal)
     return AdminSettingsFixture(svc, libraryRepo, libraryRegistry)
+}
+
+/** Real Hardcover source settings over [db], asking [hardcover] (which knows [ADMIN_TOKEN] as `simon`). */
+private fun hardcoverSourceFor(
+    db: SqlTestDatabases,
+    hardcover: FakeHardcoverCatalog = FakeHardcoverCatalog().apply { accounts = mapOf(ADMIN_TOKEN to "simon") },
+): Pair<HardcoverSourceSettings, HardcoverCatalogRig> {
+    val rig = HardcoverCatalogRig(db.sql)
+    return HardcoverSourceSettings(
+        apiTokens = rig.apiTokens,
+        catalogToken = rig.catalog,
+        graphQl = hardcover.client(),
+        rateLimiter = NoWaitRateLimiter(),
+        settings = ServerSettingsRepository(db.sql, RegistrationPolicy.OPEN),
+    ) to rig
 }
 
 /** A single-source (AUDIBLE) [MetadataProviderRegistry] — enough for [AdminSettingsServiceImpl]'s

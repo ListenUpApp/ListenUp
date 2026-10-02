@@ -13,6 +13,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.domain.ListenerRatingLimits
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.ratings.ExternalRatingsFetcher
+import com.calypsan.listenup.server.ratings.HardcoverRatingOnOpen
 import com.calypsan.listenup.server.sync.BookRatingRepository
 
 /**
@@ -23,12 +24,17 @@ import com.calypsan.listenup.server.sync.BookRatingRepository
  * [refreshExternalRatings] is the one admin-only method here: gated by [requireAdmin], same as its
  * neighbours in [AdminSettingsServiceImpl]. [fetcher] is nullable — non-null in production, absent
  * in the direct-construction unit tests that never call this method, where it is a no-op.
+ *
+ * [ensureExternalRatings] is open to any listener who can open the book; it only ever starts a
+ * background fetch.
  */
 class BookRatingServiceImpl(
     private val ratings: BookRatingRepository,
     private val accessPolicy: BookAccessPolicy,
     private val principal: PrincipalProvider,
     private val fetcher: ExternalRatingsFetcher? = null,
+    /** Ratings on open (#1542). Nullable on the same terms as [fetcher]: absent in direct-construction tests. */
+    private val onOpen: HardcoverRatingOnOpen? = null,
 ) : BookRatingService {
     override suspend fun rate(
         bookId: BookId,
@@ -70,8 +76,14 @@ class BookRatingServiceImpl(
     }
 
     /** Returns a copy scoped to [principal]; the route handler calls this per request. */
+    override suspend fun ensureExternalRatings(bookId: BookId): AppResult<Unit> {
+        callerWithAccessTo(bookId) ?: return notFound(bookId)
+        onOpen?.ensure(bookId)
+        return AppResult.Success(Unit)
+    }
+
     fun copyWith(principal: PrincipalProvider): BookRatingServiceImpl =
-        BookRatingServiceImpl(ratings, accessPolicy, principal, fetcher)
+        BookRatingServiceImpl(ratings, accessPolicy, principal, fetcher, onOpen)
 
     private suspend fun callerWithAccessTo(bookId: BookId): String? {
         val p = principal.current() ?: return null

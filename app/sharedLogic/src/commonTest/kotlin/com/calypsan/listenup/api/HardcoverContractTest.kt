@@ -1,5 +1,9 @@
 package com.calypsan.listenup.api
 
+import com.calypsan.listenup.api.dto.MatchProvenance
+import com.calypsan.listenup.api.dto.admin.HardcoverApiTokenStatus
+import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
+import com.calypsan.listenup.api.dto.admin.RatingSourceUnavailable
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookCandidate
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookSync
@@ -12,6 +16,7 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.HardcoverError
+import com.calypsan.listenup.api.metadata.BookField
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
@@ -116,6 +121,7 @@ class HardcoverContractTest :
             "HardcoverError.ConnectionBroken" to HardcoverError.ConnectionBroken(),
             "HardcoverError.AlreadyConnected" to HardcoverError.AlreadyConnected(),
             "HardcoverError.NotConnected" to HardcoverError.NotConnected(),
+            "HardcoverError.TokenRejected" to HardcoverError.TokenRejected(),
         ).forEach { (discriminator, error) ->
             test("$discriminator round-trips through AppError") {
                 val json = contractJson.encodeToString(AppError.serializer(), error)
@@ -130,6 +136,7 @@ class HardcoverContractTest :
             HardcoverError.AlreadyConnected().isRetryable shouldBe false
             HardcoverError.ConnectionBroken().isRetryable shouldBe false
             HardcoverError.NotConnected().isRetryable shouldBe false
+            HardcoverError.TokenRejected().isRetryable shouldBe false
         }
 
         test("a catalog candidate round-trips, with and without an edition") {
@@ -243,5 +250,58 @@ class HardcoverContractTest :
             val legacy = """{"type":"HardcoverConnection.Connected","hardcoverUsername":"simon","since":1}"""
             (contractJson.decodeFromString(HardcoverConnection.serializer(), legacy) as HardcoverConnection.Connected)
                 .keptOffBookCount shouldBe 0
+        }
+
+        listOf(
+            HardcoverSourceStatus(),
+            HardcoverSourceStatus(apiToken = HardcoverApiTokenStatus.Saved(username = "simon", setAt = 1_780_000_000_000L)),
+            HardcoverSourceStatus(apiToken = HardcoverApiTokenStatus.Rejected(username = "simon"), metadataEnabled = false),
+            HardcoverSourceStatus(metadataUnavailable = RatingSourceUnavailable.NO_CONNECTION),
+        ).forEach { status ->
+            test("the Hardcover source status round-trips: $status") {
+                val json = contractJson.encodeToString(HardcoverSourceStatus.serializer(), status)
+                contractJson.decodeFromString(HardcoverSourceStatus.serializer(), json) shouldBe status
+            }
+        }
+
+        test("the API token states are spelled on the wire as pinned names") {
+            contractJson.encodeToString(HardcoverApiTokenStatus.serializer(), HardcoverApiTokenStatus.NotSet) shouldBe
+                """{"type":"HardcoverApiTokenStatus.NotSet"}"""
+            contractJson.encodeToString(HardcoverApiTokenStatus.serializer(), HardcoverApiTokenStatus.Saved("simon", 5L)) shouldBe
+                """{"type":"HardcoverApiTokenStatus.Saved","username":"simon","setAt":5}"""
+            contractJson.encodeToString(HardcoverApiTokenStatus.serializer(), HardcoverApiTokenStatus.Rejected("simon")) shouldBe
+                """{"type":"HardcoverApiTokenStatus.Rejected","username":"simon"}"""
+        }
+
+        test("an empty Hardcover source payload reads as no token, metadata on, available") {
+            contractJson.decodeFromString(HardcoverSourceStatus.serializer(), "{}") shouldBe
+                HardcoverSourceStatus(
+                    apiToken = HardcoverApiTokenStatus.NotSet,
+                    metadataEnabled = true,
+                    metadataUnavailable = null,
+                )
+        }
+
+        test("a rejected token's error says what to do, and no token is carried anywhere on it") {
+            val error = HardcoverError.TokenRejected()
+            error.message shouldBe "Hardcover didn't accept that token. Check it and try again."
+            error.code shouldBe "HARDCOVER_TOKEN_REJECTED"
+            error.debugInfo shouldBe null
+        }
+
+        test("a match's provenance carries which genres Hardcover added, and round-trips") {
+            val provenance =
+                MatchProvenance(
+                    contributingSources = listOf("Audible", "Hardcover"),
+                    fallbackFields = mapOf(BookField.MOODS to "Hardcover"),
+                    genreSources = mapOf("Space Opera" to "Hardcover"),
+                )
+            val json = contractJson.encodeToString(MatchProvenance.serializer(), provenance)
+            contractJson.decodeFromString(MatchProvenance.serializer(), json) shouldBe provenance
+        }
+
+        test("a provenance payload from a server that predates Hardcover reads as no genre sources") {
+            val legacy = """{"contributingSources":["Audible"],"fallbackFields":{}}"""
+            contractJson.decodeFromString(MatchProvenance.serializer(), legacy).genreSources shouldBe emptyMap()
         }
     })

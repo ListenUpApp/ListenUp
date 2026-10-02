@@ -5,11 +5,13 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.api.HardcoverServiceImpl
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.hardcover.HardcoverApiTokenStore
 import com.calypsan.listenup.server.hardcover.HardcoverBookIdentities
 import com.calypsan.listenup.server.hardcover.HardcoverBookLinkStore
 import com.calypsan.listenup.server.hardcover.HardcoverBookLinking
 import com.calypsan.listenup.server.hardcover.HardcoverBookMatcher
 import com.calypsan.listenup.server.hardcover.HardcoverCatalogCache
+import com.calypsan.listenup.server.hardcover.HardcoverCatalogToken
 import com.calypsan.listenup.server.hardcover.HardcoverConnectionStore
 import com.calypsan.listenup.server.hardcover.HardcoverExclusions
 import com.calypsan.listenup.server.hardcover.HardcoverGraphQlClient
@@ -18,6 +20,7 @@ import com.calypsan.listenup.server.hardcover.HardcoverHistorySender
 import com.calypsan.listenup.server.hardcover.HardcoverKeepOff
 import com.calypsan.listenup.server.hardcover.HardcoverLinker
 import com.calypsan.listenup.server.hardcover.HardcoverMatchBackfill
+import com.calypsan.listenup.server.hardcover.HardcoverMetadataSource
 import com.calypsan.listenup.server.hardcover.HardcoverOAuthClient
 import com.calypsan.listenup.server.hardcover.HardcoverOutbox
 import com.calypsan.listenup.server.hardcover.HardcoverPreferences
@@ -35,6 +38,7 @@ import com.calypsan.listenup.server.hardcover.HardcoverRatingConnection
 import com.calypsan.listenup.server.hardcover.HardcoverRatingSource
 import com.calypsan.listenup.server.hardcover.HardcoverShelfEntryStore
 import com.calypsan.listenup.server.hardcover.HardcoverShelfResolver
+import com.calypsan.listenup.server.hardcover.HardcoverSourceSettings
 import com.calypsan.listenup.server.hardcover.HardcoverSyncActivity
 import com.calypsan.listenup.server.hardcover.HardcoverTokenCipher
 import com.calypsan.listenup.server.hardcover.HardcoverTokenProvider
@@ -117,14 +121,7 @@ fun hardcoverModule(
         single { HardcoverRateLimiter() }
         single { HardcoverUserGate() }
         single { HardcoverRatingConnection(store = get(), tokens = get()) }
-        single {
-            HardcoverRatingSource(
-                graphQl = get(),
-                connection = get(),
-                rateLimiter = get(),
-                clientConfigured = clientId != null,
-            )
-        }
+        hardcoverCatalog(clientConfigured = clientId != null)
         single { HardcoverUserBooks(graphQl = get()) }
         single { HardcoverBookMatcher(graphQl = get(), rateLimiter = get()) }
         single { HardcoverBookLinkStore(sql = get(), clock = get()) }
@@ -191,6 +188,43 @@ fun hardcoverModule(
         }
         single<HardcoverService> { get<HardcoverServiceImpl>() }
     }
+
+/**
+ * Reading Hardcover's catalogue (#1542): the admin's sealed API token, the seam that picks it or a
+ * borrowed connection ([HardcoverCatalogToken]), and the [HardcoverRatingSource] the metadata registry lists.
+ */
+private fun Module.hardcoverCatalog(clientConfigured: Boolean) {
+    single { HardcoverApiTokenStore(sql = get(), cipher = get(), clock = get()) }
+    single { HardcoverCatalogToken(apiTokens = get(), connections = get()) }
+    single {
+        HardcoverRatingSource(
+            graphQl = get(),
+            catalogToken = get(),
+            rateLimiter = get(),
+            clientConfigured = clientConfigured,
+        )
+    }
+    single {
+        HardcoverSourceSettings(
+            apiTokens = get(),
+            catalogToken = get(),
+            graphQl = get(),
+            rateLimiter = get(),
+            settings = get(),
+        )
+    }
+    single {
+        HardcoverMetadataSource(
+            graphQl = get(),
+            catalogToken = get(),
+            matcher = get(),
+            rateLimiter = get(),
+            links = get(),
+            identities = get(),
+            sourceSettings = get(),
+        )
+    }
+}
 
 /**
  * The push lane (spec B2): the executor, the per-user push worker — also bound as the [HardcoverPushNudge]

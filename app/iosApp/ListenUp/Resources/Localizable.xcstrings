@@ -681,6 +681,146 @@
         }
       }
     },
+    "admin.hardcover_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An API token lets ListenUp read Hardcover's catalogue — moods, genres, series and ratings — without borrowing anyone's account. It is never used for anyone's shelves."
+          }
+        }
+      }
+    },
+    "admin.hardcover_metadata_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offer Hardcover's moods, genres, series and descriptions when you match a book"
+          }
+        }
+      }
+    },
+    "admin.hardcover_metadata_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hardcover metadata"
+          }
+        }
+      }
+    },
+    "admin.hardcover_metadata_unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add an API token or connect a Hardcover account to enable"
+          }
+        }
+      }
+    },
+    "admin.hardcover_token_checking": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking with Hardcover…"
+          }
+        }
+      }
+    },
+    "admin.hardcover_token_get": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Get a token from Hardcover"
+          }
+        }
+      }
+    },
+    "admin.hardcover_token_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API token"
+          }
+        }
+      }
+    },
+    "admin.hardcover_token_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste your Hardcover API token"
+          }
+        }
+      }
+    },
+    "admin.hardcover_token_rejected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hardcover rejected this token — replace it"
+          }
+        }
+      }
+    },
+    "admin.hardcover_token_remove_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ListenUp will read Hardcover's catalogue through a connected account instead, if anyone has connected one."
+          }
+        }
+      }
+    },
+    "admin.hardcover_token_remove_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove the API token?"
+          }
+        }
+      }
+    },
+    "admin.hardcover_token_replace": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace"
+          }
+        }
+      }
+    },
+    "admin.hardcover_token_save": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save token"
+          }
+        }
+      }
+    },
+    "admin.hardcover_token_set": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set · belongs to @%1$@"
+          }
+        }
+      }
+    },
     "admin.held": {
       "localizations": {
         "en": {
@@ -1756,7 +1896,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Connect a Hardcover account to enable"
+            "value": "Add a Hardcover API token or connect an account to enable"
           }
         }
       }

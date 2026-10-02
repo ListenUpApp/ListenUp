@@ -15,6 +15,8 @@ struct AdminSettingsObserverTests {
             holdNewBooksForReview: true,
             pushNotificationsEnabled: true,
             ratingSources: [],
+            hardcoverSource: nil,
+            hardcoverTokenSave: HardcoverTokenSaveIdle.shared,
             isDirty: false,
             isSaving: false,
             error: nil
@@ -34,6 +36,8 @@ struct AdminSettingsObserverTests {
             holdNewBooksForReview: false,
             pushNotificationsEnabled: false,
             ratingSources: [],
+            hardcoverSource: nil,
+            hardcoverTokenSave: HardcoverTokenSaveIdle.shared,
             isDirty: true,
             isSaving: false,
             error: nil
@@ -52,6 +56,8 @@ struct AdminSettingsObserverTests {
             holdNewBooksForReview: true,
             pushNotificationsEnabled: true,
             ratingSources: [],
+            hardcoverSource: nil,
+            hardcoverTokenSave: HardcoverTokenSaveIdle.shared,
             isDirty: true,
             isSaving: true,
             error: nil
@@ -74,6 +80,8 @@ struct AdminSettingsObserverTests {
                 status(.audible, enabled: true),
                 status(.hardcover, enabled: false)
             ],
+            hardcoverSource: nil,
+            hardcoverTokenSave: HardcoverTokenSaveIdle.shared,
             isDirty: false,
             isSaving: false,
             error: nil
@@ -131,7 +139,7 @@ struct AdminSettingsObserverTests {
 
     @Test func noConnectionAsksTheAdminToConnectHardcover() {
         let row = RatingSourceRowModel.from(status(.hardcover, unavailable: .noConnection))
-        #expect(row.healthLine() == "Connect a Hardcover account to enable")
+        #expect(row.healthLine() == "Add a Hardcover API token or connect an account to enable")
     }
 
     @Test func anUnavailabilityThisBuildCannotNameReadsAsUnavailable() {
@@ -171,6 +179,46 @@ struct AdminSettingsObserverTests {
         let row = RatingSourceRowModel.from(status(.hardcover, enabled: true, unavailable: .noConnection))
         #expect(row.enabled == true)
         #expect(row.unavailable == .noConnection)
+    }
+
+    // MARK: - Hardcover (#1542)
+
+    @Test func readyModelMapsTheHardcoverSection() {
+        let ready = AdminSettingsUiStateReady(
+            serverName: "S",
+            remoteUrl: "",
+            holdNewBooksForReview: false,
+            pushNotificationsEnabled: true,
+            ratingSources: [],
+            hardcoverSource: HardcoverSourceStatus(
+                apiToken: HardcoverApiTokenStatusSaved(username: "simon", setAt: 1),
+                metadataEnabled: true,
+                metadataUnavailable: nil
+            ),
+            hardcoverTokenSave: HardcoverTokenSaveBusy.shared,
+            isDirty: false,
+            isSaving: false,
+            error: nil
+        )
+        let model = AdminSettingsReadyModel.from(ready)
+        #expect(model.hardcover?.token == .saved(username: "simon"))
+        #expect(model.hardcover?.isBusy == true)
+    }
+
+    @Test func noHardcoverSectionUntilItLoads() {
+        let ready = AdminSettingsUiStateReady(
+            serverName: "S",
+            remoteUrl: "",
+            holdNewBooksForReview: false,
+            pushNotificationsEnabled: true,
+            ratingSources: [],
+            hardcoverSource: nil,
+            hardcoverTokenSave: HardcoverTokenSaveIdle.shared,
+            isDirty: false,
+            isSaving: false,
+            error: nil
+        )
+        #expect(AdminSettingsReadyModel.from(ready).hardcover == nil)
     }
 
     // MARK: - Fixtures

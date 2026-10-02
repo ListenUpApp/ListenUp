@@ -1,10 +1,14 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.api.dto.admin.HardcoverApiTokenStatus
+import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceUnavailable
+import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
+import com.calypsan.listenup.client.presentation.admin.HardcoverTokenSave
 import com.calypsan.listenup.client.util.formatDateLong
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
@@ -17,6 +21,7 @@ import io.kotest.matchers.string.shouldNotContain
 import kotlinx.browser.document
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.EventInit
+import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.asList
@@ -53,6 +58,10 @@ private fun page(
     onHoldNewBooks: (Boolean) -> Unit = {},
     onPushNotifications: (Boolean) -> Unit = {},
     onSetRatingSourceEnabled: (ExternalRatingSource, Boolean) -> Unit = { _, _ -> },
+    onSaveHardcoverToken: (String) -> Unit = {},
+    onRemoveHardcoverToken: () -> Unit = {},
+    onHardcoverMetadata: (Boolean) -> Unit = {},
+    onClearHardcoverTokenError: () -> Unit = {},
     onSave: () -> Unit = {},
     onClearError: () -> Unit = {},
     onRetry: () -> Unit = {},
@@ -70,6 +79,10 @@ private fun page(
             onHoldNewBooks = onHoldNewBooks,
             onPushNotifications = onPushNotifications,
             onSetRatingSourceEnabled = onSetRatingSourceEnabled,
+            onSaveHardcoverToken = onSaveHardcoverToken,
+            onRemoveHardcoverToken = onRemoveHardcoverToken,
+            onHardcoverMetadata = onHardcoverMetadata,
+            onClearHardcoverTokenError = onClearHardcoverTokenError,
             onSave = onSave,
             onClearError = onClearError,
             onRetry = onRetry,
@@ -88,6 +101,16 @@ private fun input(
 private fun switches(host: HTMLElement) = host.querySelectorAll(".srv-toggle .sw-in").asList().filterIsInstance<HTMLInputElement>()
 
 private fun saveButton(host: HTMLElement) = host.querySelector(".edit-actions button[type=submit]") as HTMLElement
+
+private fun buttonLabelled(
+    host: HTMLElement,
+    label: String,
+): HTMLButtonElement? =
+    host
+        .querySelectorAll("button")
+        .asList()
+        .filterIsInstance<HTMLButtonElement>()
+        .firstOrNull { it.textContent?.trim() == label }
 
 private fun healthStatus(
     source: ExternalRatingSource = ExternalRatingSource.HARDCOVER,
@@ -366,7 +389,7 @@ class ServerSettingsPageTest :
         test("a source waiting for a Hardcover connection asks for one") {
             val host = oneSource(healthStatus(unavailable = RatingSourceUnavailable.NO_CONNECTION, lastFetchedAt = 1L))
 
-            healthLines(host) shouldContainExactly listOf("Connect a Hardcover account to enable")
+            healthLines(host) shouldContainExactly listOf("Add a Hardcover API token or connect an account to enable")
         }
 
         test("a reason from a newer server still reads as unavailable") {
@@ -421,5 +444,83 @@ class ServerSettingsPageTest :
 
             healthLines(host) shouldContainExactly
                 listOf("Last fetched just now", "Using simon's Hardcover account")
+        }
+
+        test("with no token, the Hardcover panel takes one and sends it once") {
+            val sent = mutableListOf<String>()
+            val host = page(readyServerSettings().copy(hardcoverSource = HardcoverSourceStatus()), onSaveHardcoverToken = { sent += it })
+            awaitFrame()
+
+            val field = input(host, "hc-token")
+            field.type shouldBe "password"
+            field.getAttribute("autocomplete") shouldBe "off"
+            field.value = "hc_web_test_token"
+            field.dispatchEvent(Event("input", EventInit(bubbles = true)))
+            awaitFrame()
+            buttonLabelled(host, "Save token")!!.click()
+
+            sent shouldBe listOf("hc_web_test_token")
+        }
+
+        test("a saved token is described by its owner only, and Remove asks first") {
+            var removed = 0
+            val host =
+                page(
+                    readyServerSettings().copy(
+                        hardcoverSource = HardcoverSourceStatus(apiToken = HardcoverApiTokenStatus.Saved("simon", 1L)),
+                    ),
+                    onRemoveHardcoverToken = { removed++ },
+                )
+            awaitFrame()
+
+            (host.textContent ?: "") shouldContain "Set · belongs to @simon"
+            host.querySelector("#hc-token").shouldBeNull()
+            buttonLabelled(host, "Remove")!!.click()
+            awaitFrame()
+            removed shouldBe 0
+            (host.textContent ?: "") shouldContain "Remove the API token?"
+        }
+
+        test("a refused token is explained beside the field, and a rejected one asks to be replaced") {
+            val refused =
+                page(
+                    readyServerSettings().copy(
+                        hardcoverSource = HardcoverSourceStatus(apiToken = HardcoverApiTokenStatus.Rejected("simon")),
+                        hardcoverTokenSave = HardcoverTokenSave.Refused(HardcoverError.TokenRejected()),
+                    ),
+                )
+            awaitFrame()
+
+            (refused.textContent ?: "") shouldContain "Hardcover rejected this token — replace it"
+            (refused.textContent ?: "") shouldContain "Hardcover didn't accept that token. Check it and try again."
+        }
+
+        test("while Hardcover checks the token, Save says so and can't be pressed") {
+            val host =
+                page(readyServerSettings().copy(hardcoverSource = HardcoverSourceStatus(), hardcoverTokenSave = HardcoverTokenSave.Busy))
+            awaitFrame()
+
+            val button = buttonLabelled(host, "Checking with Hardcover…").shouldNotBeNull()
+            button.hasAttribute("disabled") shouldBe true
+        }
+
+        test("the Hardcover metadata switch reflects the setting and flips it") {
+            val flips = mutableListOf<Boolean>()
+            val host = page(readyServerSettings().copy(hardcoverSource = HardcoverSourceStatus()), onHardcoverMetadata = { flips += it })
+            awaitFrame()
+
+            val metadataSwitch = switches(host).last()
+            metadataSwitch.checked shouldBe true
+            metadataSwitch.click()
+
+            flips shouldBe listOf(false)
+        }
+
+        test("no Hardcover panel until the section has loaded") {
+            val host = page(readyServerSettings())
+            awaitFrame()
+
+            host.querySelector("#hc-token").shouldBeNull()
+            (host.textContent ?: "") shouldNotContain "Hardcover metadata"
         }
     })

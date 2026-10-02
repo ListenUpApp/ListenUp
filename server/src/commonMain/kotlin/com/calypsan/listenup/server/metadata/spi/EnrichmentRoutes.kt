@@ -68,21 +68,33 @@ data class EnrichmentRoutes(
         /**
          * The approved code defaults — the enrichment order with no env configured.
          * Total over every [MetadataDomain]; [MetadataDomain.CHARACTERS] is empty (no
-         * source exists).
+         * source exists). Hardcover sits last wherever it can fill a gap, so Audible and
+         * Audnexus win wherever they have data.
          */
         val DEFAULT_DOMAIN_ORDER: Map<MetadataDomain, List<MetadataProviderId>> =
             mapOf(
-                MetadataDomain.BOOK_CORE to listOf(MetadataProviderId.AUDIBLE, MetadataProviderId.AUDNEXUS),
-                MetadataDomain.CONTRIBUTORS to listOf(MetadataProviderId.AUDNEXUS, MetadataProviderId.AUDIBLE),
+                MetadataDomain.BOOK_CORE to
+                    listOf(MetadataProviderId.AUDIBLE, MetadataProviderId.AUDNEXUS, MetadataProviderId.HARDCOVER),
+                MetadataDomain.CONTRIBUTORS to
+                    listOf(MetadataProviderId.AUDNEXUS, MetadataProviderId.AUDIBLE, MetadataProviderId.HARDCOVER),
                 MetadataDomain.CHAPTERS to listOf(MetadataProviderId.AUDNEXUS, MetadataProviderId.AUDIBLE),
                 MetadataDomain.COVER to listOf(MetadataProviderId.AUDIBLE, MetadataProviderId.ITUNES),
-                MetadataDomain.SERIES to listOf(MetadataProviderId.AUDIBLE, MetadataProviderId.AUDNEXUS),
-                MetadataDomain.GENRES to listOf(MetadataProviderId.AUDIBLE, MetadataProviderId.AUDNEXUS),
+                MetadataDomain.SERIES to
+                    listOf(MetadataProviderId.AUDIBLE, MetadataProviderId.AUDNEXUS, MetadataProviderId.HARDCOVER),
+                MetadataDomain.GENRES to
+                    listOf(MetadataProviderId.AUDIBLE, MetadataProviderId.AUDNEXUS, MetadataProviderId.HARDCOVER),
                 MetadataDomain.CHARACTERS to emptyList(),
             )
 
-        /** The routes with no env configured — code defaults, no field overrides. */
-        val DEFAULT = EnrichmentRoutes(DEFAULT_DOMAIN_ORDER, emptyMap())
+        /**
+         * The code-default field routes. Moods come from Hardcover alone (#1542): no other live source has
+         * them. An env `moods=` clause replaces this; a global order leaves it in place.
+         */
+        val DEFAULT_FIELD_OVERRIDES: Map<BookField, List<MetadataProviderId>> =
+            mapOf(BookField.MOODS to listOf(MetadataProviderId.HARDCOVER))
+
+        /** The routes with no env configured — code defaults, with the default field routes. */
+        val DEFAULT = EnrichmentRoutes(DEFAULT_DOMAIN_ORDER, DEFAULT_FIELD_OVERRIDES)
 
         /**
          * Parses the enrichment configuration, never-strand.
@@ -114,7 +126,7 @@ data class EnrichmentRoutes(
                 MetadataDomain.entries.forEach { domain -> resolved[domain] = globalBaseline }
             }
 
-            val fieldOverrides = mutableMapOf<BookField, List<MetadataProviderId>>()
+            val fieldOverrides = DEFAULT_FIELD_OVERRIDES.toMutableMap()
             parseClauses(routes).forEach { (key, providers) ->
                 val domain = MetadataDomain.fromToken(key)
                 if (domain != null) {

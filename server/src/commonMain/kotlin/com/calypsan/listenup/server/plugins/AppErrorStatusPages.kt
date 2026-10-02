@@ -608,6 +608,7 @@ private fun HardcoverError.toHttpStatus(): HttpStatusCode =
         is HardcoverError.ConnectionBroken -> HttpStatusCode.Conflict
         is HardcoverError.AlreadyConnected -> HttpStatusCode.Conflict
         is HardcoverError.NotConnected -> HttpStatusCode.Conflict
+        is HardcoverError.TokenRejected -> HttpStatusCode.UnprocessableEntity
     }
 
 private fun RatingError.toHttpStatus(): HttpStatusCode =

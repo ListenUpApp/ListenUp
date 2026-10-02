@@ -144,6 +144,7 @@ private val SQ_TABLES =
         "hardcover_history",
         "hardcover_history_reads",
         "hardcover_book_exclusions",
+        "hardcover_api_token",
     )
 
 /** A table's comparable shape: column → storage-class category, and the set of its indexes. */

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.admin
 
+import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ExternalRatingSource
@@ -36,4 +37,16 @@ open class UpdateServerSettingsUseCase(
         source: ExternalRatingSource,
         enabled: Boolean,
     ): AppResult<List<RatingSourceStatus>> = adminRepository.setRatingSourceEnabled(source, enabled)
+
+    /** Sends a Hardcover API token to be checked and stored on the server. */
+    open suspend fun setHardcoverApiToken(token: String): AppResult<HardcoverSourceStatus> =
+        adminRepository.setHardcoverApiToken(token)
+
+    /** Removes the server's Hardcover API token. */
+    open suspend fun clearHardcoverApiToken(): AppResult<HardcoverSourceStatus> =
+        adminRepository.clearHardcoverApiToken()
+
+    /** Switches Hardcover metadata on or off. */
+    open suspend fun setHardcoverMetadataEnabled(enabled: Boolean): AppResult<HardcoverSourceStatus> =
+        adminRepository.setHardcoverMetadataEnabled(enabled)
 }

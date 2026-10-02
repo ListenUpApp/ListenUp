@@ -69,8 +69,9 @@ data class MatchProvenance(
     val contributingSources: List<String> = emptyList(),
     /**
      * Text/list fields whose winner is NOT that field's configured primary provider ("fell through to a
-     * fallback"). Keyed by the on-wire [com.calypsan.listenup.api.metadata.BookField]; value is a display
-     * label. Sparse — a present entry means "came from a fallback." Excludes COVER (see cover fields below).
+     * fallback"), or that a gap-filling source (Hardcover) supplied. Keyed by the on-wire
+     * [com.calypsan.listenup.api.metadata.BookField]; value is a display label. Sparse — a present entry
+     * means "show where this came from". Excludes COVER (see cover fields below).
      */
     val fallbackFields: Map<com.calypsan.listenup.api.metadata.BookField, String> = emptyMap(),
     /** Display label of the provider supplying the applied (max-size) cover; set whenever a cover exists. */
@@ -78,6 +79,12 @@ data class MatchProvenance(
     /** Probed pixel width/height of the applied cover, or null when the probe found nothing. */
     val coverWidth: Int? = null,
     val coverHeight: Int? = null,
+    /**
+     * Genre label → display label of the source that added it, for genres a gap-filling source
+     * (Hardcover) contributed beside the primary's own. Sparse; a genre with no entry came from the
+     * genres field's winner. Keyed by String, so it bridges to Swift intact.
+     */
+    val genreSources: Map<String, String> = emptyMap(),
 )
 
 /**
@@ -104,7 +111,10 @@ data class MetadataContributorRef(
 @Serializable
 @SerialName("MetadataSeriesRef")
 data class MetadataSeriesRef(
-    /** Audible series ASIN, or `null` when Audible omits it. */
+    /**
+     * The catalog's key for the series, used as its selection key: an Audible series ASIN, or
+     * `hardcover:series:<id>` for a series only Hardcover knows. `null` when the catalog omits one.
+     */
     val asin: String?,
     /** Series title, e.g. "The Stormlight Archive". */
     val title: String,

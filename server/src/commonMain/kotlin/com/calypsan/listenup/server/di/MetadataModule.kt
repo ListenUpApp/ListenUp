@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.MetadataLookupService
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.MetadataEnrichmentDeps
 import com.calypsan.listenup.server.api.MetadataImageDeps
@@ -16,6 +17,7 @@ import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleClient
+import com.calypsan.listenup.server.hardcover.HardcoverMetadataSource
 import com.calypsan.listenup.server.hardcover.HardcoverRatingSource
 import com.calypsan.listenup.server.metadata.audible.AudibleRateLimiter
 import com.calypsan.listenup.server.metadata.audnexus.AudnexusApi
@@ -35,7 +37,9 @@ import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.ratings.ExternalRatingsBackfill
 import com.calypsan.listenup.server.ratings.ExternalRatingsFetcher
+import com.calypsan.listenup.server.ratings.HardcoverRatingOnOpen
 import com.calypsan.listenup.server.ratings.RatingSourceSettings
+import com.calypsan.listenup.server.ratings.localeFor
 import com.calypsan.listenup.server.scheduler.ExternalRatingsSweepTask
 import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
@@ -167,7 +171,7 @@ fun metadataModule(imageHome: Path): Module =
             MetadataProviderRegistry(
                 providers =
                     listOf(get<AudibleProvider>(), get<AudnexusProvider>(), get<ITunesProvider>()) +
-                        get<HardcoverRatingSource>() + customProviders(),
+                        get<HardcoverRatingSource>() + get<HardcoverMetadataSource>() + customProviders(),
             )
         }
 
@@ -261,6 +265,22 @@ private fun Module.ratingsBindings() {
         ExternalRatingsBackfill(
             fetcher = get(),
             ratings = get<BookExternalRatingRepository>(),
+            scope = get<CoroutineScope>(),
+        )
+    }
+    single {
+        val ratings = get<BookExternalRatingRepository>()
+        val fetcher = get<ExternalRatingsFetcher>()
+        HardcoverRatingOnOpen(
+            lastTried = { bookId -> ratings.attemptedAt(bookId, ExternalRatingSource.HARDCOVER) },
+            fetch = { bookId ->
+                fetcher.fetch(
+                    bookId,
+                    ratings.localeFor(bookId.value),
+                    refresh = false,
+                    sources = setOf(ExternalRatingSource.HARDCOVER),
+                )
+            },
             scope = get<CoroutineScope>(),
         )
     }

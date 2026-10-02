@@ -44,6 +44,11 @@ final class AdminSettingsObserver {
         viewModel.setRatingSourceEnabled(source: source, enabled: enabled)
     }
 
+    func saveHardcoverApiToken(_ token: String) { viewModel.saveHardcoverApiToken(token: token) }
+    func removeHardcoverApiToken() { viewModel.removeHardcoverApiToken() }
+    func setHardcoverMetadataEnabled(_ enabled: Bool) { viewModel.setHardcoverMetadataEnabled(enabled: enabled) }
+    func clearHardcoverTokenError() { viewModel.clearHardcoverTokenError() }
+
     func save() { viewModel.saveAll() }
     func clearError() { viewModel.clearError() }
 
@@ -80,6 +85,8 @@ struct AdminSettingsReadyModel: Equatable {
     let pushNotificationsEnabled: Bool
     /// Every outside rating source, with its enabled flag and last-fetch health.
     let ratingSources: [RatingSourceRowModel]
+    /// Admin → Hardcover (#1542); nil until it loads, and the section is left out meanwhile.
+    let hardcover: HardcoverSourceModel?
     let isDirty: Bool
     let isSaving: Bool
     /// Transient save/load failure message (nil when none), surfaced as an inline banner.
@@ -94,6 +101,7 @@ struct AdminSettingsReadyModel: Equatable {
             holdNewBooksForReview: ready.holdNewBooksForReview,
             pushNotificationsEnabled: ready.pushNotificationsEnabled,
             ratingSources: ready.ratingSources.map { RatingSourceRowModel.from($0) },
+            hardcover: ready.hardcoverSource.map { HardcoverSourceModel.from($0, save: ready.hardcoverTokenSave) },
             isDirty: ready.isDirty,
             isSaving: ready.isSaving,
             error: ready.error?.message

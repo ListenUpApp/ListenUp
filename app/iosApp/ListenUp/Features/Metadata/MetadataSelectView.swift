@@ -273,12 +273,15 @@ struct MetadataSelectBody: View {
             isOn: preview.genres.contains { $0.isSelected },
             onToggle: { toggleAllGenres() }
         ) {
+            // One chip and flow per source, so Hardcover's additions say where they came from (#1542).
             VStack(alignment: .leading, spacing: 4) {
-                MetadataSourceChip(source: preview.genres.first?.sourceLabel)
-                FlowLayout(spacing: 8) {
-                    ForEach(preview.genres) { genre in
-                        MetadataGenreChip(label: genre.label, isOn: genre.isSelected) {
-                            observer.toggleGenre(genre.id)
+                ForEach(MetadataMatchMapping.sourceRuns(preview.genres)) { run in
+                    MetadataSourceChip(source: run.source)
+                    FlowLayout(spacing: 8) {
+                        ForEach(run.items) { genre in
+                            MetadataGenreChip(label: genre.label, isOn: genre.isSelected) {
+                                observer.toggleGenre(genre.id)
+                            }
                         }
                     }
                 }
@@ -294,12 +297,15 @@ struct MetadataSelectBody: View {
             isOn: preview.moods.contains { $0.isSelected },
             onToggle: { toggleAllMoods() }
         ) {
+            // One chip and flow per source, so Hardcover's additions say where they came from (#1542).
             VStack(alignment: .leading, spacing: 4) {
-                MetadataSourceChip(source: preview.moods.first?.sourceLabel)
-                FlowLayout(spacing: 8) {
-                    ForEach(preview.moods) { mood in
-                        MetadataGenreChip(label: mood.label, isOn: mood.isSelected) {
-                            observer.toggleMood(mood.id)
+                ForEach(MetadataMatchMapping.sourceRuns(preview.moods)) { run in
+                    MetadataSourceChip(source: run.source)
+                    FlowLayout(spacing: 8) {
+                        ForEach(run.items) { mood in
+                            MetadataGenreChip(label: mood.label, isOn: mood.isSelected) {
+                                observer.toggleMood(mood.id)
+                            }
                         }
                     }
                 }

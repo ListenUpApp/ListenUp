@@ -105,6 +105,14 @@ class BookRatingsViewModel(
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BookRatingsUiState.Loading)
 
+    init {
+        // Ratings on open (#1542): ask the server to fetch this book's Hardcover rating in the background
+        // if it is missing or stale. Fire-and-forget — never shown, never blocking the block; the rating
+        // reaches every device through the ratings sync. Every platform's Book Detail builds this
+        // ViewModel per book, so this one call covers Android, iOS and web.
+        viewModelScope.launch { val _ = repository.ensureExternal(bookId) }
+    }
+
     /** Rate the book [halfStars] (2..10) with an optional [note]. */
     fun rate(
         halfStars: Int,

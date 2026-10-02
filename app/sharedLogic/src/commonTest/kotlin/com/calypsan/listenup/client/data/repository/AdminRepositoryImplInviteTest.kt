@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.dto.admin.AdminServerSettings
 import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
+import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.api.result.getOrNull
@@ -149,6 +150,15 @@ private class FakeInviteSettingsService(
         source: ExternalRatingSource,
         enabled: Boolean,
     ): AppResult<List<RatingSourceStatus>> = AppResult.Success(emptyList())
+
+    override suspend fun getHardcoverSource(): AppResult<HardcoverSourceStatus> = AppResult.Success(HardcoverSourceStatus())
+
+    override suspend fun setHardcoverApiToken(token: String): AppResult<HardcoverSourceStatus> = AppResult.Success(HardcoverSourceStatus())
+
+    override suspend fun clearHardcoverApiToken(): AppResult<HardcoverSourceStatus> = AppResult.Success(HardcoverSourceStatus())
+
+    override suspend fun setHardcoverMetadataEnabled(enabled: Boolean): AppResult<HardcoverSourceStatus> =
+        AppResult.Success(HardcoverSourceStatus(metadataEnabled = enabled))
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

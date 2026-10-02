@@ -254,8 +254,20 @@ private fun ClassificationFields(
     // ⛔ The CANDIDATES, not the match's own lists. The ViewModel narrows Audible's labels to the
     // ones this library actually has, so a tick always lands on a real genre rather than minting
     // one from a scraped string.
-    ValueRows("Genres", ready.genreCandidates.map { it to it }, ready.selections.selectedGenres, onToggleGenre)
-    ValueRows("Moods", ready.moodCandidates.map { it to it }, ready.selections.selectedMoods, onToggleMood)
+    ValueRows(
+        label = "Genres",
+        values = ready.genreCandidates.map { it to it },
+        selected = ready.selections.selectedGenres,
+        onToggle = onToggleGenre,
+        sourceOf = ready::genreSourceFor,
+    )
+    ValueRows(
+        label = "Moods",
+        values = ready.moodCandidates.map { it to it },
+        selected = ready.selections.selectedMoods,
+        onToggle = onToggleMood,
+        sourceOf = ready::moodSourceFor,
+    )
     ValueRows("Tags", ready.tagCandidates.map { it to it }, ready.selections.selectedTags, onToggleTag)
 }
 
@@ -279,13 +291,18 @@ private fun FieldRow(
     }
 }
 
-/** A list field — every value its own decision, because taking all of them rarely is one. */
+/**
+ * A list field — every value its own decision, because taking all of them rarely is one. [sourceOf] names
+ * where a value came from when the match proposed it from another source ("from Hardcover", #1542); a value
+ * the book already had claims nothing.
+ */
 @Composable
 private fun ValueRows(
     label: String,
     values: List<Pair<String, String>>,
     selected: Set<String>,
     onToggle: (String) -> Unit,
+    sourceOf: (String) -> String? = { null },
 ) {
     if (values.isEmpty()) return
     Div(attrs = { classes("mdx-values") }) {
@@ -293,6 +310,7 @@ private fun ValueRows(
         values.forEach { (valueKey, text) ->
             key(valueKey) {
                 CheckboxField(label = text, checked = valueKey in selected, onChange = { onToggle(valueKey) })
+                sourceOf(valueKey)?.let { source -> Span(attrs = { classes("mdx-from") }) { Text("from $source") } }
             }
         }
     }

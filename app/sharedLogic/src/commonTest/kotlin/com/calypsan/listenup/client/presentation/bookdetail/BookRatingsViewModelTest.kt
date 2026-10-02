@@ -285,6 +285,47 @@ class BookRatingsViewModelTest :
                 }
             }
         }
+
+        test("opening a book asks the server, once, to make sure its outside ratings are fresh") {
+            runTest {
+                val repo = FakeBookRatingRepository()
+                BookRatingsViewModel(
+                    bookId = "b1",
+                    repository = repo,
+                    currentUserId = flowOf("me"),
+                    errorBus = ErrorBus(),
+                    userRepository = userRepository(),
+                )
+                advanceUntilIdle()
+
+                repo.ensured shouldBe listOf("b1")
+            }
+        }
+
+        test("a failed ask is dropped silently: no error is shown, and the block still loads") {
+            runTest {
+                val repo = FakeBookRatingRepository().apply { ensureResult = AppResult.Failure(TransportError.NetworkUnavailable()) }
+                val errorBus = ErrorBus()
+                val vm =
+                    BookRatingsViewModel(
+                        bookId = "b1",
+                        repository = repo,
+                        currentUserId = flowOf("me"),
+                        errorBus = errorBus,
+                        userRepository = userRepository(),
+                    )
+
+                errorBus.errors.test {
+                    advanceUntilIdle()
+                    expectNoEvents()
+                }
+                vm.state.test {
+                    awaitItem() shouldBe BookRatingsUiState.Loading
+                    awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>()
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
     })
 
 /**
@@ -317,6 +358,17 @@ private class FakeBookRatingRepository : BookRatingRepository {
 
     /** What the next [refreshExternal] call answers. */
     var refreshExternalResult: AppResult<Unit> = AppResult.Success(Unit)
+
+    /** Every bookId [ensureExternal] was called with. */
+    val ensured = mutableListOf<String>()
+
+    /** What [ensureExternal] answers. */
+    var ensureResult: AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun ensureExternal(bookId: String): AppResult<Unit> {
+        ensured += bookId
+        return ensureResult
+    }
 
     fun seed(vararg rows: ListenerRating) {
         ratingsFlow.value = rows.toList()

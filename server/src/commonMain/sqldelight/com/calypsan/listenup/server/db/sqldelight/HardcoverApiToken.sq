@@ -1,0 +1,22 @@
+-- hardcover_api_token: the admin's Hardcover API token, sealed. One row at most. See V84__hardcover_api_token.sql.
+CREATE TABLE hardcover_api_token (
+    id          INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    token_enc   TEXT    NOT NULL,
+    hc_username TEXT    NOT NULL,
+    set_at      INTEGER NOT NULL,
+    rejected_at INTEGER
+);
+
+selectToken:
+SELECT * FROM hardcover_api_token WHERE id = 1;
+
+-- Saving always clears rejected_at: a new token starts trusted.
+saveToken:
+INSERT OR REPLACE INTO hardcover_api_token (id, token_enc, hc_username, set_at, rejected_at)
+VALUES (1, :token_enc, :hc_username, :set_at, NULL);
+
+markRejected:
+UPDATE hardcover_api_token SET rejected_at = :rejected_at WHERE id = 1 AND rejected_at IS NULL;
+
+deleteToken:
+DELETE FROM hardcover_api_token;

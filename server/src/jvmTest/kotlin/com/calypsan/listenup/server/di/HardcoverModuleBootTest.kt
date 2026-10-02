@@ -6,16 +6,19 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.server.hardcover.HardcoverBookLinking
+import com.calypsan.listenup.server.hardcover.HardcoverCatalogToken
 import com.calypsan.listenup.server.hardcover.HardcoverExclusions
 import com.calypsan.listenup.server.hardcover.HardcoverHistoryProgress
 import com.calypsan.listenup.server.hardcover.HardcoverHistorySender
 import com.calypsan.listenup.server.hardcover.HardcoverKeepOff
+import com.calypsan.listenup.server.hardcover.HardcoverMetadataSource
 import com.calypsan.listenup.server.hardcover.HardcoverPreferences
 import com.calypsan.listenup.server.hardcover.HardcoverPullRequests
 import com.calypsan.listenup.server.hardcover.HardcoverPullWorker
 import com.calypsan.listenup.server.hardcover.HardcoverPushHook
 import com.calypsan.listenup.server.hardcover.HardcoverPushRecorder
 import com.calypsan.listenup.server.hardcover.HardcoverPushWorker
+import com.calypsan.listenup.server.hardcover.HardcoverSourceSettings
 import com.calypsan.listenup.server.hardcover.HardcoverTokenProvider
 import com.calypsan.listenup.server.hardcover.HardcoverWantToRead
 import com.calypsan.listenup.server.module
@@ -82,6 +85,9 @@ class HardcoverModuleBootTest :
                     koinGet<HardcoverHistoryProgress>().shouldNotBeNull()
                     koinGet<HardcoverKeepOff>().shouldNotBeNull()
                     koinGet<HardcoverExclusions>().shouldNotBeNull()
+                    koinGet<HardcoverCatalogToken>().shouldNotBeNull()
+                    koinGet<HardcoverSourceSettings>().shouldNotBeNull()
+                    koinGet<HardcoverMetadataSource>().shouldNotBeNull()
                 }
 
                 val service = authedService<HardcoverService>(rootToken())

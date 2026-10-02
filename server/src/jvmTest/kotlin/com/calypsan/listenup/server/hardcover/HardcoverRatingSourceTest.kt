@@ -50,6 +50,9 @@ private class FakeRatingGraphQl {
     var byIsbn: Pair<HttpStatusCode, String> = HttpStatusCode.OK to MISSING
     var byTitle: Pair<HttpStatusCode, String> = HttpStatusCode.OK to """{"data":{"books":[]}}"""
 
+    /** Tokens Hardcover answers 401 for, whatever is asked. */
+    var rejected: Set<String> = emptySet()
+
     val client =
         HardcoverGraphQlClient(
             http =
@@ -62,8 +65,13 @@ private class FakeRatingGraphQl {
                                 "isbn_13" in query -> "isbn" to byIsbn
                                 else -> "title" to byTitle
                             }
-                        asked += Asked(lookup, req.headers[HttpHeaders.Authorization].orEmpty().removePrefix("Bearer "))
-                        respond(reply.second, reply.first, RATING_JSON)
+                        val token = req.headers[HttpHeaders.Authorization].orEmpty().removePrefix("Bearer ")
+                        asked += Asked(lookup, token)
+                        if (token in rejected) {
+                            respond("""{"error":"invalid_token"}""", HttpStatusCode.Unauthorized, RATING_JSON)
+                        } else {
+                            respond(reply.second, reply.first, RATING_JSON)
+                        }
                     },
                 ),
             apiBaseUrl = "https://hc.test",
@@ -94,7 +102,8 @@ private class RatingRig(
     private val linker =
         HardcoverLinker(oauth, graphQl.client, store, kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined))
     val connection = HardcoverRatingConnection(store, HardcoverTokenProvider(oauth, store, linker))
-    val source = HardcoverRatingSource(graphQl.client, connection, NoWait(), clientConfigured)
+    val apiTokens = HardcoverApiTokenStore(sql, ratingCipher("secret"))
+    val source = HardcoverRatingSource(graphQl.client, HardcoverCatalogToken(apiTokens, connection), NoWait(), clientConfigured)
 
     suspend fun connect(
         userId: String,
@@ -286,6 +295,53 @@ class HardcoverRatingSourceTest :
                 graphQl.byTitle = HttpStatusCode.OK to PAGEANT_CANDIDATES
                 rating(PAGEANT).shouldBeInstanceOf<AppResult.Success<ExternalRatingMeta?>>().data!!.count shouldBe 58
                 graphQl.asked.map { it.token }.distinct() shouldBe listOf("at-member")
+            }
+        }
+
+        test("with an API token the source is available even without a client id or a connection") {
+            ratingTest(clientConfigured = false) {
+                apiTokens.save(ADMIN_TOKEN, "simon")
+                source.availability() shouldBe RatingSourceAvailability.Available
+            }
+        }
+
+        test("with an API token, the API token asks before any connected account") {
+            ratingTest {
+                connect("admin", UserRoleColumn.ADMIN)
+                apiTokens.save(ADMIN_TOKEN, "simon")
+                graphQl.byAsin = HttpStatusCode.OK to FOUND_BY_ASIN
+
+                rating(BookIdentity(asin = "B08G9RZBTT", title = "Project Hail Mary"))
+
+                graphQl.asked.map { it.token } shouldBe listOf(ADMIN_TOKEN)
+            }
+        }
+
+        test("a 401 on the API token marks it rejected, and the rating comes through a connected account") {
+            ratingTest {
+                connect("admin", UserRoleColumn.ADMIN)
+                apiTokens.save(ADMIN_TOKEN, "simon")
+                graphQl.rejected = setOf(ADMIN_TOKEN)
+                graphQl.byAsin = HttpStatusCode.OK to FOUND_BY_ASIN
+
+                val result = rating(BookIdentity(asin = "B08G9RZBTT", title = "Project Hail Mary"))
+
+                result.shouldBeInstanceOf<AppResult.Success<ExternalRatingMeta?>>().data!!.count shouldBe 8107
+                graphQl.asked.map { it.token } shouldBe listOf(ADMIN_TOKEN, "at-admin")
+                apiTokens.status() shouldBe
+                    com.calypsan.listenup.api.dto.admin.HardcoverApiTokenStatus
+                        .Rejected("simon")
+            }
+        }
+
+        test("a 401 on a connected account's token is still a broken connection") {
+            ratingTest {
+                connect("member")
+                graphQl.rejected = setOf("at-member")
+
+                val result = rating(BookIdentity(asin = "B08G9RZBTT", title = "Project Hail Mary"))
+
+                result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<HardcoverError.ConnectionBroken>()
             }
         }
     })

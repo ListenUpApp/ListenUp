@@ -12,6 +12,7 @@ import kotlinx.serialization.Serializable
  * - [ConnectionBroken] → 409
  * - [AlreadyConnected] → 409
  * - [NotConnected] → 409
+ * - [TokenRejected] → 422
  */
 @Serializable
 sealed interface HardcoverError : AppError {
@@ -75,6 +76,21 @@ sealed interface HardcoverError : AppError {
     ) : HardcoverError {
         override val message: String = "Connect your Hardcover account first."
         override val code: String = "HARDCOVER_NOT_CONNECTED"
+        override val isRetryable: Boolean = false
+    }
+
+    /**
+     * Hardcover refused the API token an admin tried to save (`me` answered 401). Nothing was stored.
+     * Never carries the token, in [debugInfo] or anywhere else.
+     */
+    @Serializable
+    @SerialName("HardcoverError.TokenRejected")
+    data class TokenRejected(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : HardcoverError {
+        override val message: String = "Hardcover didn't accept that token. Check it and try again."
+        override val code: String = "HARDCOVER_TOKEN_REJECTED"
         override val isRetryable: Boolean = false
     }
 }

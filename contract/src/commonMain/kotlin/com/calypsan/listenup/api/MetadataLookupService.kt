@@ -62,6 +62,12 @@ interface MetadataLookupService {
      * Fetches the canonical metadata for the Audible book identified by [asin]
      * in [region].
      *
+     * When [bookId] names the local book being matched, the server uses what it
+     * knows about that book to fill gaps from other catalogs — Hardcover's moods,
+     * genres, series and description, found by the book's existing Hardcover link,
+     * then its identifiers (#1542). `null` (an older client) resolves by [asin] alone.
+     * A book the caller can't see is treated as `null`.
+     *
      * Returns `null` inside [AppResult.Success] when Audible returns HTTP 404
      * for the ASIN; null is cached for the same 7-day TTL so repeated lookups
      * for unknown ASINs don't hammer the external API.
@@ -69,6 +75,7 @@ interface MetadataLookupService {
     suspend fun getBookMetadata(
         asin: String,
         region: MetadataLocale,
+        bookId: BookId? = null,
     ): AppResult<MetadataBook?>
 
     /**

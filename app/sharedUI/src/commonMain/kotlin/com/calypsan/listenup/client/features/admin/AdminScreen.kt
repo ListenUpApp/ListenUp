@@ -70,6 +70,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceUnavailable
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
@@ -100,6 +101,7 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
+import com.calypsan.listenup.client.presentation.admin.HardcoverTokenSave
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
@@ -214,6 +216,9 @@ fun AdminScreen(
     onPushNotificationsEnabledChange: (Boolean) -> Unit = {},
     ratingSources: List<RatingSourceStatus> = emptyList(),
     onRatingSourceEnabledChange: (ExternalRatingSource, Boolean) -> Unit = { _, _ -> },
+    hardcoverSource: HardcoverSourceStatus? = null,
+    hardcoverTokenSave: HardcoverTokenSave = HardcoverTokenSave.Idle,
+    hardcoverActions: HardcoverSourceActions = HardcoverSourceActions(),
     isDirty: Boolean = false,
     onSave: () -> Unit = {},
     settingsError: String? = null,
@@ -302,6 +307,9 @@ fun AdminScreen(
                     onPushNotificationsEnabledChange = onPushNotificationsEnabledChange,
                     ratingSources = ratingSources,
                     onRatingSourceEnabledChange = onRatingSourceEnabledChange,
+                    hardcoverSource = hardcoverSource,
+                    hardcoverTokenSave = hardcoverTokenSave,
+                    hardcoverActions = hardcoverActions,
                     modifier = Modifier.padding(innerPadding),
                 )
             }
@@ -447,6 +455,9 @@ private fun AdminContent(
     onPushNotificationsEnabledChange: (Boolean) -> Unit,
     ratingSources: List<RatingSourceStatus>,
     onRatingSourceEnabledChange: (ExternalRatingSource, Boolean) -> Unit,
+    hardcoverSource: HardcoverSourceStatus?,
+    hardcoverTokenSave: HardcoverTokenSave,
+    hardcoverActions: HardcoverSourceActions,
     modifier: Modifier = Modifier,
 ) {
     val isExpanded =
@@ -485,6 +496,9 @@ private fun AdminContent(
             onPushNotificationsEnabledChange = onPushNotificationsEnabledChange,
             ratingSources = ratingSources,
             onRatingSourceEnabledChange = onRatingSourceEnabledChange,
+            hardcoverSource = hardcoverSource,
+            hardcoverTokenSave = hardcoverTokenSave,
+            hardcoverActions = hardcoverActions,
             modifier = modifier,
         )
     } else {
@@ -516,6 +530,12 @@ private fun AdminContent(
                     sources = ratingSources,
                     onSourceEnabledChange = onRatingSourceEnabledChange,
                 )
+            }
+
+            hardcoverSource?.let { source ->
+                item {
+                    HardcoverSourceGroup(status = source, tokenSave = hardcoverTokenSave, actions = hardcoverActions)
+                }
             }
 
             usersSection(
@@ -581,6 +601,9 @@ private fun AdminTwoPaneContent(
     onPushNotificationsEnabledChange: (Boolean) -> Unit,
     ratingSources: List<RatingSourceStatus>,
     onRatingSourceEnabledChange: (ExternalRatingSource, Boolean) -> Unit,
+    hardcoverSource: HardcoverSourceStatus?,
+    hardcoverTokenSave: HardcoverTokenSave,
+    hardcoverActions: HardcoverSourceActions,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -612,6 +635,12 @@ private fun AdminTwoPaneContent(
                     sources = ratingSources,
                     onSourceEnabledChange = onRatingSourceEnabledChange,
                 )
+            }
+
+            hardcoverSource?.let { source ->
+                item {
+                    HardcoverSourceGroup(status = source, tokenSave = hardcoverTokenSave, actions = hardcoverActions)
+                }
             }
 
             usersSection(

@@ -13,6 +13,8 @@ class BuildMatchProvenanceTest :
         fun composed(
             fieldProviders: Map<BookField, MetadataProviderId>,
             coverMax: MetadataProviderId?,
+            genreProviders: Map<String, MetadataProviderId> = emptyMap(),
+            moods: List<String> = emptyList(),
         ) = ComposedBook(
             asin = "B1",
             core = BookCoreMeta(null, null, null, null, null, null, null, null, null, emptyList(), emptyList()),
@@ -22,6 +24,8 @@ class BuildMatchProvenanceTest :
             series = emptyList(),
             fieldProviders = fieldProviders,
             coverMaxSizeWinner = coverMax,
+            moods = moods,
+            genreProviders = genreProviders,
         )
 
         test("fallbackFields holds only non-primary, non-cover fields; cover + footer are populated") {
@@ -70,5 +74,51 @@ class BuildMatchProvenanceTest :
             prov.coverSource shouldBe null
             prov.coverWidth shouldBe null
             prov.contributingSources shouldBe emptyList()
+        }
+
+        test("a field Hardcover supplied is labelled, even where Hardcover is that field's primary (moods)") {
+            val prov =
+                buildMatchProvenance(
+                    composed(
+                        fieldProviders =
+                            mapOf(
+                                BookField.TITLE to MetadataProviderId.AUDIBLE,
+                                BookField.MOODS to MetadataProviderId.HARDCOVER,
+                                BookField.SERIES to MetadataProviderId.HARDCOVER,
+                            ),
+                        coverMax = null,
+                    ),
+                    routes = EnrichmentRoutes.DEFAULT,
+                    coverDimensions = null,
+                )
+
+            prov.fallbackFields shouldBe mapOf(BookField.MOODS to "Hardcover", BookField.SERIES to "Hardcover")
+            prov.contributingSources shouldBe listOf("Audible", "Hardcover")
+        }
+
+        test("the genres Hardcover added are named one by one, and Hardcover joins the footer") {
+            val prov =
+                buildMatchProvenance(
+                    composed(
+                        fieldProviders =
+                            mapOf(
+                                BookField.TITLE to MetadataProviderId.AUDIBLE,
+                                BookField.GENRES to MetadataProviderId.AUDIBLE,
+                            ),
+                        coverMax = null,
+                        genreProviders = mapOf("Space Opera" to MetadataProviderId.HARDCOVER),
+                    ),
+                    routes = EnrichmentRoutes.DEFAULT,
+                    coverDimensions = null,
+                )
+
+            prov.genreSources shouldBe mapOf("Space Opera" to "Hardcover")
+            prov.fallbackFields.containsKey(BookField.GENRES) shouldBe false
+            prov.contributingSources shouldBe listOf("Audible", "Hardcover")
+        }
+
+        test("the wire book carries the composed moods") {
+            composed(emptyMap(), coverMax = null, moods = listOf("Hopeful", "Funny")).toMetadataBook().moods shouldBe
+                listOf("Hopeful", "Funny")
         }
     })

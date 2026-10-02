@@ -157,6 +157,8 @@ private class FakeBookRatingRepository(
         refreshGate.await()
         return AppResult.Success(Unit)
     }
+
+    override suspend fun ensureExternal(bookId: String): AppResult<Unit> = AppResult.Success(Unit)
 }
 
 /** [BookRatingsViewModel] only reads [observeIsAdmin] here — [isAdmin] governs `canRefresh`. */

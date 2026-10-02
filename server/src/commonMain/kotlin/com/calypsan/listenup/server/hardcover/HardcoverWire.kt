@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.hardcover
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -206,4 +207,69 @@ internal data class PulledEditionWire(
     @SerialName("asin") val asin: String? = null,
     @SerialName("isbn_13") val isbn13: String? = null,
     @SerialName("isbn_10") val isbn10: String? = null,
+)
+
+@Serializable
+internal data class BookDetailsResponse(
+    @SerialName("data") val data: BookDetailsData? = null,
+)
+
+@Serializable
+internal data class BookDetailsData(
+    @SerialName("books") val books: List<BookDetailsWire> = emptyList(),
+)
+
+/** One book as the metadata source's details query answers it (#1542). `cached_tags` is Hasura `jsonb`. */
+@Serializable
+internal data class BookDetailsWire(
+    @SerialName("id") val id: Long,
+    @SerialName("description") val description: String? = null,
+    @SerialName("cached_tags") val cachedTags: JsonElement? = null,
+    @SerialName("book_series") val bookSeries: List<BookSeriesWire> = emptyList(),
+    @SerialName("contributions") val contributions: List<CreditWire> = emptyList(),
+)
+
+@Serializable
+internal data class BookSeriesWire(
+    @SerialName("position") val position: Double? = null,
+    @SerialName("series") val series: SeriesWire? = null,
+)
+
+@Serializable
+internal data class SeriesWire(
+    @SerialName("id") val id: Long,
+    @SerialName("name") val name: String,
+)
+
+/**
+ * A contribution with its role: `contribution` is "Author" for an author (null on some records),
+ * "Narrator" and the like otherwise.
+ */
+@Serializable
+internal data class CreditWire(
+    @SerialName("contribution") val contribution: String? = null,
+    @SerialName("author") val author: AuthorProfileWire? = null,
+)
+
+@Serializable
+internal data class AuthorProfileWire(
+    @SerialName("id") val id: Long,
+    @SerialName("name") val name: String,
+    @SerialName("bio") val bio: String? = null,
+    @SerialName("image") val image: ImageWire? = null,
+)
+
+@Serializable
+internal data class ImageWire(
+    @SerialName("url") val url: String? = null,
+)
+
+@Serializable
+internal data class AuthorsResponse(
+    @SerialName("data") val data: AuthorsData? = null,
+)
+
+@Serializable
+internal data class AuthorsData(
+    @SerialName("authors") val authors: List<AuthorProfileWire> = emptyList(),
 )

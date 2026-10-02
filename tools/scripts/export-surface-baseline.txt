@@ -335,6 +335,8 @@ GenreShareBar
 GenreTagEditDelegate
 GenreTreeNode
 GenreUpdate
+HardcoverApiTokenStatus
+HardcoverApiTokenStatus_SealedType
 HardcoverBookSync
 HardcoverBookToMatch
 HardcoverBrokenReason
@@ -365,9 +367,12 @@ HardcoverSettingsUiState
 HardcoverSettingsUiState_SealedType
 HardcoverSettingsViewModel
 HardcoverShareMode
+HardcoverSourceStatus
 HardcoverSyncProblem
 HardcoverSyncStatus
 HardcoverSyncStatus_SealedType
+HardcoverTokenSave
+HardcoverTokenSave_SealedType
 HomeRepository
 HomeStatsUiState
 HomeStatsUiState_SealedType

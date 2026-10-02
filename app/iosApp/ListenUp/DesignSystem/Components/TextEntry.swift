@@ -39,6 +39,9 @@ enum TextEntry: Equatable {
     case search
     /// A position in a book, typed as `1:02:03.4` — digits and the colon, nothing corrected.
     case timecode
+    /// An API token or other pasted secret: ASCII, nothing capitalized or corrected, and no content type,
+    /// so iOS never offers to save it as a site password. Pair with `AppTextField.Kind.secure`.
+    case secret
 
     /// Capitalization as an `Equatable` value the tests can pin; `TextInputAutocapitalization`
     /// itself is not comparable.
@@ -61,7 +64,7 @@ enum TextEntry: Equatable {
         case .url: .URL
         case .number: .numberPad
         case .decimal: .decimalPad
-        case .identifier: .asciiCapable
+        case .identifier, .secret: .asciiCapable
         case .timecode: .numbersAndPunctuation
         case .words, .sentences, .givenName, .familyName, .password, .newPassword, .search: .default
         }
@@ -76,7 +79,7 @@ enum TextEntry: Equatable {
         case .password: .password
         case .newPassword: .newPassword
         case .url: .URL
-        case .words, .sentences, .number, .decimal, .identifier, .search, .timecode: nil
+        case .words, .sentences, .number, .decimal, .identifier, .search, .timecode, .secret: nil
         }
     }
 
@@ -85,7 +88,8 @@ enum TextEntry: Equatable {
         case .words, .givenName, .familyName: .words
         case .sentences: .sentences
         case .identifier: .characters
-        case .email, .accountEmail, .password, .newPassword, .url, .number, .decimal, .search, .timecode: .never
+        case .email, .accountEmail, .password, .newPassword, .url, .number, .decimal, .search, .timecode, .secret:
+            .never
         }
     }
 
@@ -94,7 +98,7 @@ enum TextEntry: Equatable {
         switch self {
         case .words, .sentences: true
         case .givenName, .familyName, .email, .accountEmail, .password, .newPassword, .url, .number, .decimal,
-             .identifier, .search, .timecode: false
+             .identifier, .search, .timecode, .secret: false
         }
     }
 }

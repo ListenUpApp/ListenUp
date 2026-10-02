@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
@@ -215,6 +216,18 @@ interface AdminRepository {
         source: ExternalRatingSource,
         enabled: Boolean,
     ): AppResult<List<RatingSourceStatus>>
+
+    /** Admin → Hardcover (#1542): the API token's state — never the token — and the metadata switch. */
+    suspend fun getHardcoverSource(): AppResult<HardcoverSourceStatus>
+
+    /** Sends [token] once, to be checked with Hardcover and stored on the server. Never kept on this device. */
+    suspend fun setHardcoverApiToken(token: String): AppResult<HardcoverSourceStatus>
+
+    /** Removes the server's Hardcover API token. */
+    suspend fun clearHardcoverApiToken(): AppResult<HardcoverSourceStatus>
+
+    /** Switches whether Hardcover fills gaps when a book is matched. */
+    suspend fun setHardcoverMetadataEnabled(enabled: Boolean): AppResult<HardcoverSourceStatus>
 
     // ═══════════════════════════════════════════════════════════════════════
     // LIBRARY MANAGEMENT

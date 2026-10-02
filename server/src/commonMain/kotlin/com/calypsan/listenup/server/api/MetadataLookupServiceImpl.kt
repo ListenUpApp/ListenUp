@@ -200,9 +200,10 @@ internal class MetadataLookupServiceImpl(
     override suspend fun getBookMetadata(
         asin: String,
         region: MetadataLocale,
+        bookId: BookId?,
     ): AppResult<MetadataBook?> {
         enforceRate(MetadataRateBucket.FETCH)?.let { return AppResult.Failure(it) }
-        return when (val composed = composeBook(asin, region)) {
+        return when (val composed = composeBook(asin, region, bookId = visibleBookId(bookId))) {
             is AppResult.Success -> AppResult.Success(composed.data?.toMetadataBookWithProvenance())
             is AppResult.Failure -> composed
         }
@@ -259,13 +260,14 @@ internal class MetadataLookupServiceImpl(
      * Composes the ASIN-keyed book preview across the provider registry. `Success(null)` when no
      * catalog has the book (an honest miss); a typed [MetadataError.ExternalUnavailable] when every
      * consulted core provider errored (an outage), so the caller shows "service unavailable" rather
-     * than "no match found".
+     * than "no match found". [bookId] names the local book being matched, for catalogs that can use it.
      */
     private suspend fun composeBook(
         asin: String,
         locale: MetadataLocale,
         refresh: Boolean = false,
-    ): AppResult<ComposedBook?> = coordinator.composeBook(bookIdentity(asin), locale, refresh)
+        bookId: BookId? = null,
+    ): AppResult<ComposedBook?> = coordinator.composeBook(bookIdentity(asin, bookId), locale, refresh)
 
     /** Compose → probe the applied cover's dimensions → attach [com.calypsan.listenup.api.dto.MatchProvenance]. */
     private suspend fun ComposedBook.toMetadataBookWithProvenance(): MetadataBook {
@@ -277,7 +279,17 @@ internal class MetadataLookupServiceImpl(
      * The lookup key for an ASIN-keyed compose. The title is unknown at this point — the coordinator
      * backfills it from the fetched core before running any title-keyed (cover) lookup.
      */
-    private fun bookIdentity(asin: String): BookIdentity = BookIdentity(asin = asin, title = "")
+    private fun bookIdentity(
+        asin: String,
+        bookId: BookId? = null,
+    ): BookIdentity = BookIdentity(asin = asin, title = "", bookId = bookId?.value)
+
+    /** [bookId] when the caller may see that book, else null: a book they can't see is matched as if unnamed. */
+    private suspend fun visibleBookId(bookId: BookId?): BookId? {
+        val requested = bookId ?: return null
+        val caller = principal.current() ?: return null
+        return requested.takeIf { bookAccessPolicy.canAccess(caller.userId.value, caller.role, it.value) }
+    }
 
     override suspend fun applyBookMetadata(
         bookId: BookId,
@@ -298,7 +310,7 @@ internal class MetadataLookupServiceImpl(
                 imageStorage = imageDeps.imageStorage,
                 coverImageStore = imageDeps.coverImageStore,
                 matchSource = { a, locale ->
-                    composeBook(a, locale).map { composed ->
+                    composeBook(a, locale, bookId = bookId).map { composed ->
                         composed?.let { MetadataMatch(it.toMetadataBook(), it.fieldProviders) }
                     }
                 },

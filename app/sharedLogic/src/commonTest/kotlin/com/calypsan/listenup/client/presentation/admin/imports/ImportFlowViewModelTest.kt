@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.admin.imports
 
+import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
@@ -1180,6 +1181,15 @@ private class FakeAdminRepository(
         source: ExternalRatingSource,
         enabled: Boolean,
     ): AppResult<List<RatingSourceStatus>> = AppResult.Success(emptyList())
+
+    override suspend fun getHardcoverSource(): AppResult<HardcoverSourceStatus> = AppResult.Success(HardcoverSourceStatus())
+
+    override suspend fun setHardcoverApiToken(token: String): AppResult<HardcoverSourceStatus> = AppResult.Success(HardcoverSourceStatus())
+
+    override suspend fun clearHardcoverApiToken(): AppResult<HardcoverSourceStatus> = AppResult.Success(HardcoverSourceStatus())
+
+    override suspend fun setHardcoverMetadataEnabled(enabled: Boolean): AppResult<HardcoverSourceStatus> =
+        AppResult.Success(HardcoverSourceStatus(metadataEnabled = enabled))
 
     override suspend fun getLibrary(): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
 

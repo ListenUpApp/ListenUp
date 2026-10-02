@@ -36,10 +36,15 @@ interface MetadataRepository {
         bookId: BookId? = null,
     ): AppResult<MetadataSearchResults>
 
-    /** Fetches the canonical metadata for the Audible book identified by [asin] in [region]. */
+    /**
+     * Fetches the canonical metadata for the Audible book identified by [asin] in [region]. [bookId] names
+     * the book being matched, so the server can fill gaps (Hardcover's moods, genres, series, description)
+     * using what it knows about that book.
+     */
     suspend fun getBookMetadata(
         asin: String,
         region: MetadataLocale,
+        bookId: BookId?,
     ): AppResult<MetadataBook?>
 
     /** Fetches the chapter list for the Audible book identified by [asin] in [region]. */
