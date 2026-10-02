@@ -125,3 +125,28 @@ FROM hardcover_outbox AS o
 JOIN books AS b ON b.id = o.book_id AND b.deleted_at IS NULL
 LEFT JOIN hardcover_book_links AS l ON l.user_id = o.user_id AND l.book_id = o.book_id
 WHERE o.user_id = :user_id AND o.op = 'HISTORY' AND (l.match_state IS NULL OR l.match_state = 'LINKED');
+
+-- A book kept off Hardcover is synced again (#1541): the user's own reads of it finished at or after it was
+-- kept off, neither in the ledger nor queued, oldest first, each with the start ListenUp can vouch for
+-- (as selectUnsentHistory). Live books only.
+selectCatchUpHistory:
+SELECT r.id, r.book_id, r.finished_at,
+    (
+        SELECT MIN(e.started_at) FROM listening_events AS e
+        WHERE e.user_id = r.user_id AND e.book_id = r.book_id AND e.deleted_at IS NULL
+          AND e.started_at <= r.finished_at
+          AND e.started_at > COALESCE(
+              (
+                  SELECT MAX(p.finished_at) FROM book_reads AS p
+                  WHERE p.user_id = r.user_id AND p.book_id = r.book_id AND p.source <> 'hardcover'
+                    AND (p.finished_at < r.finished_at OR (p.finished_at = r.finished_at AND p.id < r.id))
+              ),
+              -1
+          )
+    ) AS derived_started_at
+FROM book_reads AS r
+JOIN books AS b ON b.id = r.book_id AND b.deleted_at IS NULL
+WHERE r.user_id = :user_id AND r.book_id = :book_id AND r.source <> 'hardcover' AND r.finished_at >= :since
+  AND NOT EXISTS (SELECT 1 FROM hardcover_history_reads AS h WHERE h.user_id = r.user_id AND h.read_id = r.id)
+  AND NOT EXISTS (SELECT 1 FROM hardcover_outbox AS o WHERE o.user_id = r.user_id AND o.history_read_id = r.id)
+ORDER BY r.finished_at, r.id;

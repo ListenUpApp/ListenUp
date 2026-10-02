@@ -31,11 +31,16 @@ private class KeepOffRig(
 ) {
     val activity = HardcoverSyncActivity()
     val exclusions = HardcoverExclusions(rig.sql)
+    val pulls = RecordingPullRequests()
+    val nudged = java.util.concurrent.CopyOnWriteArrayList<String>()
     val keepOff =
         HardcoverKeepOff(
             sql = rig.sql,
             access = BookAccessPolicy(rig.sql, rig.dbs.driver),
+            connections = rig.connections,
             wantToRead = rig.wantToRead,
+            pulls = pulls,
+            nudge = HardcoverPushNudge { nudged += it },
             gate = HardcoverUserGate(),
             bus = rig.bus,
             history = HardcoverHistoryProgress(rig.sql, rig.clock),
@@ -188,6 +193,111 @@ class HardcoverKeepOffTest :
 
                 keepOff.keptOffBooks(USER, UserRole.ROOT) shouldBe listOf("book-2", "book-1")
                 keepOff.keptOffBooks(USER, UserRole.MEMBER) shouldBe emptyList()
+            }
+        }
+
+        test("syncing again sends, as history, exactly the listener's reads finished while it was kept off") {
+            keepOffTest {
+                rig.connect()
+                link()
+                rig.sql.seedListeningEvent(USER, BOOK, "e0", startedAt = T0 + DAY)
+                rig.sql.seedOwnRead(USER, BOOK, "before", finishedAt = T0 + 2 * DAY)
+                rig.clock.instant = Instant.fromEpochMilliseconds(T0 + 3 * DAY)
+                keepOff() shouldBe AppResult.Success(Unit)
+
+                rig.sql.seedListeningEvent(USER, BOOK, "e1", startedAt = T0 + 4 * DAY)
+                rig.sql.seedOwnRead(USER, BOOK, "while", finishedAt = T0 + 5 * DAY)
+                rig.sql.seedPulledRead(USER, BOOK, hcReadId = 77L, finishedAt = T0 + 5 * DAY)
+                rig.sql.seedOwnRead(USER, BOOK, "sent", finishedAt = T0 + 6 * DAY)
+                rig.sql.recordHardcoverHistoryRead(USER, "sent", HardcoverHistoryOutcome.SENT, at = T0 + 6 * DAY)
+                rig.clock.instant = Instant.fromEpochMilliseconds(T0 + 7 * DAY)
+
+                syncAgain() shouldBe AppResult.Success(Unit)
+
+                exclusions.isExcluded(USER, BOOK) shouldBe false
+                rig.outbox.pendingFor(USER).map { it.payload } shouldBe
+                    listOf(HardcoverPushPayload.History(startedAt = T0 + 4 * DAY, finishedAt = T0 + 5 * DAY, readId = "while"))
+                pulls.fullPulls shouldBe listOf(USER)
+                nudged shouldBe listOf(USER)
+                rig.hardcover.operations shouldBe emptyList()
+            }
+        }
+
+        test("with nothing finished while it was kept off, it pulls again but has nothing to send") {
+            keepOffTest {
+                rig.connect()
+                keepOff() shouldBe AppResult.Success(Unit)
+
+                syncAgain() shouldBe AppResult.Success(Unit)
+
+                rig.outbox.pendingFor(USER) shouldBe emptyList()
+                pulls.fullPulls shouldBe listOf(USER)
+                nudged shouldBe emptyList()
+            }
+        }
+
+        test("the next full pull brings its Hardcover reads back") {
+            keepOffTest {
+                rig.connect()
+                rig.hardcover.seedShelf(HC_BOOK, HardcoverStatus.READ, "2017-01-02" to "2017-03-01", editionId = 9_001L)
+                rig.pullAll()
+                keepOff() shouldBe AppResult.Success(Unit)
+                rig.store.pulledReads(USER) shouldBe emptyList()
+
+                syncAgain() shouldBe AppResult.Success(Unit)
+                // What the pull worker does for fullPullNow, which RecordingPullRequests only records.
+                rig.store.requestFullPull(USER)
+                rig.pullAll()
+
+                rig.store.pulledReads(USER).size shouldBe 1
+            }
+        }
+
+        test("a To Read entry the listener took off by hand stays off through a full pull and after syncing again") {
+            keepOffTest {
+                val starter = rig.shelves.createStarterShelf(USER).shouldSucceed().id
+                rig.connect()
+                rig.hardcover.seedShelf(HC_BOOK, HardcoverStatus.WANT_TO_READ, editionId = 9_001L)
+                rig.pullAll()
+                rig.shelfEntries.markRemovedByHand(USER, starter, BOOK)
+                rig.shelfBooks.removeBook(starter, BOOK, USER).shouldSucceed()
+                keepOff() shouldBe AppResult.Success(Unit)
+
+                rig.clock.instant =
+                    Instant.fromEpochMilliseconds(T0 + FULL_PULL_INTERVAL.inWholeMilliseconds + 60_000L)
+                rig.pullAll()
+                rig.shelfEntries.recordFor(USER, BOOK)!!.state shouldBe HardcoverShelfEntryState.USER_REMOVED
+
+                syncAgain() shouldBe AppResult.Success(Unit)
+                rig.store.requestFullPull(USER)
+                rig.pullAll()
+
+                rig.shelfBooks.listByShelf(starter) shouldBe emptyList()
+            }
+        }
+
+        test("syncing again a book that was never kept off changes nothing and asks for nothing") {
+            keepOffTest {
+                rig.connect()
+                syncAgain() shouldBe AppResult.Success(Unit)
+                pulls.fullPulls shouldBe emptyList()
+                nudged shouldBe emptyList()
+            }
+        }
+
+        test("without a connection, syncing again just lets it go; connecting later offers those reads as history") {
+            keepOffTest {
+                keepOff() shouldBe AppResult.Success(Unit)
+                rig.sql.seedOwnRead(USER, BOOK, "while", finishedAt = T0 + DAY)
+                rig.clock.instant = Instant.fromEpochMilliseconds(T0 + 2 * DAY)
+
+                syncAgain() shouldBe AppResult.Success(Unit)
+
+                exclusions.isExcluded(USER, BOOK) shouldBe false
+                rig.outbox.pendingFor(USER) shouldBe emptyList()
+                pulls.fullPulls shouldBe emptyList()
+                rig.connect()
+                rig.sql.unsentHardcoverHistory(USER, connectedAt = T0 + 2 * DAY).map { it.readId } shouldBe listOf("while")
             }
         }
     })

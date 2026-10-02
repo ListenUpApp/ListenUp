@@ -25,11 +25,19 @@ import kotlin.time.Clock
  *   content-free broadcast — other listeners see this one's Hardcover reads too);
  * - a send of earlier books this emptied settles, and the listener's Connected is republished.
  * The link stays, so syncing again never asks for a match again.
+ *
+ * Syncing it again: the exclusion goes; the listener's own reads finished since it was kept off are queued
+ * as HISTORY rows (#1540's, which fill in and never duplicate); the whole shelf is pulled again so its
+ * Hardcover reads and its Want to Read come back; and the push lane wakes. Without a connection only the
+ * exclusion goes: connecting later offers those reads as history anyway.
  */
 class HardcoverKeepOff(
     private val sql: ListenUpDatabase,
     private val access: BookAccessPolicy,
+    private val connections: HardcoverConnectionStore,
     private val wantToRead: HardcoverWantToRead,
+    private val pulls: HardcoverPullRequests,
+    private val nudge: HardcoverPushNudge,
     private val gate: HardcoverUserGate,
     private val bus: ChangeBus,
     private val history: HardcoverHistoryProgress,
@@ -96,15 +104,22 @@ class HardcoverKeepOff(
         userId: String,
         bookId: String,
     ): AppResult<Unit> {
-        val wasKeptOff =
+        val connected = connections.hasConnection(userId)
+        val at = clock.now().toEpochMilliseconds()
+        val queued =
             gate.withUser(userId) {
-                suspendTransaction(sql) {
-                    val excludedAt = sql.hardcoverBookExclusionsQueries.selectExclusion(userId, bookId).executeAsOneOrNull()
-                    if (excludedAt != null) sql.hardcoverBookExclusionsQueries.deleteExclusion(userId, bookId)
-                    excludedAt != null
+                suspendTransaction<Int?>(sql) {
+                    sql.hardcoverBookExclusionsQueries.selectExclusion(userId, bookId).executeAsOneOrNull()?.let { excludedAt ->
+                        sql.hardcoverBookExclusionsQueries.deleteExclusion(userId, bookId)
+                        if (connected) sql.queueCatchUp(userId, bookId, since = excludedAt, at = at) else 0
+                    }
                 }
-            }
-        if (wasKeptOff) activity.keptOffChanged(userId)
+            } ?: return AppResult.Success(Unit)
+        activity.keptOffChanged(userId)
+        if (connected) {
+            pulls.fullPullNow(userId)
+            if (queued > 0) nudge.nudge(userId)
+        }
         return AppResult.Success(Unit)
     }
 }

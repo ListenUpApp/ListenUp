@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.hardcover
 
 import com.calypsan.listenup.api.dto.hardcover.HardcoverHistory
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.SelectCatchUpHistory
 import com.calypsan.listenup.server.db.sqldelight.SelectUnsentHistory
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
@@ -237,4 +238,23 @@ internal suspend fun ListenUpDatabase.recordLiveFinish(
 }
 
 internal fun SelectUnsentHistory.toHistoryRead(): HardcoverHistoryRead =
+    HardcoverHistoryRead(readId = id, bookId = book_id, startedAt = derived_started_at, finishedAt = finished_at)
+
+/**
+ * Queues as HISTORY rows, inside the caller's transaction and due at [at], [userId]'s own reads of [bookId]
+ * finished at or after [since] — what a book kept off Hardcover (#1541) finished while it was — that are
+ * neither in the ledger nor queued. Answers how many it queued.
+ */
+internal fun ListenUpDatabase.queueCatchUp(
+    userId: String,
+    bookId: String,
+    since: Long,
+    at: Long,
+): Int {
+    val reads = hardcoverHistoryQueries.selectCatchUpHistory(userId, bookId, since).executeAsList()
+    reads.forEach { insertHistoryRow(userId, it.toHistoryRead(), at) }
+    return reads.size
+}
+
+internal fun SelectCatchUpHistory.toHistoryRead(): HardcoverHistoryRead =
     HardcoverHistoryRead(readId = id, bookId = book_id, startedAt = derived_started_at, finishedAt = finished_at)

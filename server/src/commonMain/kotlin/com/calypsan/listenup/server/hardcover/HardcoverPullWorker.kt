@@ -46,6 +46,9 @@ interface HardcoverPullRequests {
         userId: String,
         bookId: String,
     )
+
+    /** [userId]'s whole shelf is pulled again now — a book kept off Hardcover syncs again (#1541). Nothing without a working connection. */
+    suspend fun fullPullNow(userId: String)
 }
 
 /**
@@ -126,6 +129,12 @@ class HardcoverPullWorker(
         bookId: String,
     ) {
         store.forgetPulledBook(userId, bookId)
+        requestFullPull(userId)
+        pullNow(userId)
+    }
+
+    override suspend fun fullPullNow(userId: String) {
+        if (connections.connectionFor(userId) !is StoredConnection.Healthy) return
         requestFullPull(userId)
         pullNow(userId)
     }
