@@ -171,6 +171,10 @@ internal interface CollectionBookDao {
         deletedAt: Long,
     )
 
+    /** The live (non-tombstoned) book ids of a collection, one-shot — the books a cascade delete touches. */
+    @Query("SELECT bookId FROM collection_books WHERE collectionId = :collectionId AND deletedAt IS NULL")
+    suspend fun liveBookIdsFor(collectionId: String): List<String>
+
     /** Live (non-tombstoned) book count for a single collection — used by the offline-first rename's optimistic return. */
     @Query("SELECT COUNT(*) FROM collection_books WHERE collectionId = :collectionId AND deletedAt IS NULL")
     suspend fun liveBookCountFor(collectionId: String): Int
@@ -268,16 +272,18 @@ internal interface CollectionBookDao {
     suspend fun liveNormalCollectionIdsForBook(bookId: String): List<String>
 
     /**
-     * Whether [bookId] has a live membership in a live **normal** collection — the same "normal" the
-     * visibility classifier and [observeRestrictedBookIds] use.
+     * Whether [bookId] has a live membership in a live **normal** collection. As in
+     * [liveNormalCollectionIdsForBook], a membership whose collection row has not synced counts as
+     * normal — nothing says it is a system one — so the reconcile errs towards keeping a book out of
+     * All Books, never towards showing it to everyone.
      */
     @Query(
         """
         SELECT EXISTS(
             SELECT 1 FROM collection_books cb
-            JOIN collections c ON c.id = cb.collectionId
+            LEFT JOIN collections c ON c.id = cb.collectionId
             WHERE cb.bookId = :bookId AND cb.deletedAt IS NULL AND c.deletedAt IS NULL
-              AND c.isSystem = 0 AND c.isInbox = 0
+              AND COALESCE(c.isSystem, 0) = 0 AND COALESCE(c.isInbox, 0) = 0
         )
     """,
     )
@@ -315,11 +321,11 @@ internal interface CollectionBookDao {
     )
 
     /**
-     * Tombstone [bookId]'s live All Books memberships, one revision ahead of the live row — see
-     * `SystemMembershipReconciler`.
+     * Tombstone [bookId]'s live All Books memberships, keeping each row's revision — see
+     * `SystemMembershipReconciler` for why this one, unlike [reviveLocally], does not move ahead.
      */
     @Query(
-        "UPDATE collection_books SET deletedAt = :now, revision = revision + 1 " +
+        "UPDATE collection_books SET deletedAt = :now " +
             "WHERE bookId = :bookId AND deletedAt IS NULL AND collectionId IN " +
             "(SELECT id FROM collections WHERE isSystem = 1 AND isInbox = 0)",
     )
