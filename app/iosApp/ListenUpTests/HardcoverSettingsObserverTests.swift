@@ -61,7 +61,8 @@ struct HardcoverPhaseMappingTests {
             isMatchListKnown: false,
             shareMode: .asIListen,
             isSavingShareMode: false,
-            history: HardcoverHistoryNone.shared
+            history: HardcoverHistoryNone.shared,
+            keptOffBookCount: 0
         )
         guard case .connected(let model) = HardcoverSettingsObserver.phase(from: state) else {
             Issue.record("expected .connected")
@@ -188,7 +189,8 @@ struct HardcoverShareModeTests {
             isMatchListKnown: true,
             shareMode: shareMode,
             isSavingShareMode: isSaving,
-            history: HardcoverHistoryNone.shared
+            history: HardcoverHistoryNone.shared,
+            keptOffBookCount: 0
         )
     }
 
@@ -230,5 +232,29 @@ struct HardcoverShareModeTests {
             String(localized: "hardcover.shared_nothing_while_listening")
         ])
         #expect(lines.map(\.isQuiet) == [false, true])
+    }
+}
+
+@Suite("Hardcover kept-off count")
+struct HardcoverKeptOffCountTests {
+    @Test func connectedCarriesHowManyBooksAreKeptOff() {
+        let state = HardcoverSettingsUiStateConnected(
+            username: "simon",
+            since: 1_790_000_000_000,
+            isDisconnecting: false,
+            lastSyncedAt: nil,
+            sync: HardcoverSyncStatusIdle.shared,
+            booksToMatch: [],
+            isMatchListKnown: true,
+            shareMode: .asIListen,
+            isSavingShareMode: false,
+            history: HardcoverHistoryNone.shared,
+            keptOffBookCount: 3
+        )
+        guard case .connected(let model) = HardcoverSettingsObserver.phase(from: state) else {
+            Issue.record("expected .connected")
+            return
+        }
+        #expect(model.keptOffBookCount == 3)
     }
 }

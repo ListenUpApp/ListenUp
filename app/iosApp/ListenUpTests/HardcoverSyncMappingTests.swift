@@ -25,7 +25,8 @@ struct HardcoverSyncMappingTests {
             isMatchListKnown: isMatchListKnown,
             shareMode: .asIListen,
             isSavingShareMode: false,
-            history: HardcoverHistoryNone.shared
+            history: HardcoverHistoryNone.shared,
+            keptOffBookCount: 0
         )
     }
 

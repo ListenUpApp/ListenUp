@@ -3,10 +3,20 @@ import Shared
 
 /// The Book Detail Hardcover section, native.
 enum BookHardcoverPhase: Equatable {
-    /// No section: not connected, never matched, or the server's answer isn't known.
+    /// No section: not connected, or the server's answer isn't known.
     case hidden
+    /// Never matched (decision 1): the Toggle alone, on; switching it off never asks first.
+    case unmatched
     case needsMatch
     case linked(BookHardcoverLinkedModel)
+    /// Kept off Hardcover (#1541). `isResuming` while syncing it again saves: the Toggle already reads on.
+    case keptOff(isResuming: Bool)
+
+    /// Whether Sync with Hardcover reads on.
+    var isSyncOn: Bool {
+        if case .keptOff(let isResuming) = self { return isResuming }
+        return true
+    }
 }
 
 /// A matched book: what it is matched to, whether the user chose it, and where it stands.
@@ -16,6 +26,8 @@ struct BookHardcoverLinkedModel: Equatable {
     let byline: String?
     let chosenByYou: Bool
     let status: BookHardcoverStatus
+    /// What the confirmation says before keeping it off; nil when nothing visible would leave, so it switches off at once.
+    var keepOffMessage: String?
 }
 
 /// Where a matched book stands with Hardcover, as one line with its glyph and tone.
@@ -54,12 +66,18 @@ final class BookHardcoverObserver {
     /// shared error bus, which `GlobalErrorObserver` shows as an alert.
     func removeMatch() { viewModel.removeMatch() }
 
+    /// Sync with Hardcover: off keeps the book off Hardcover, on syncs it again (#1541). Callers confirm first when
+    /// the linked model has a `keepOffMessage`. A refusal reaches the shared error bus, shown as an alert.
+    func setSynced(_ synced: Bool) { viewModel.setSynced(synced: synced) }
+
     // MARK: - Pure mappings (unit-tested)
 
     nonisolated static func phase(from state: BookHardcoverUiState) -> BookHardcoverPhase {
         switch state.sealedType() {
         case .hidden: return .hidden
+        case .unmatched: return .unmatched
         case .needsMatch: return .needsMatch
+        case .keptOff(let keptOffType): return .keptOff(isResuming: keptOffType.value.isResuming)
         case .linked(let linkedType):
             let linked = linkedType.value
             return .linked(
@@ -70,7 +88,8 @@ final class BookHardcoverObserver {
                         year: linked.match.releaseYear
                     ),
                     chosenByYou: linked.match.chosenByYou,
-                    status: linked.justMatched ? justMatched : status(for: linked.sync)
+                    status: linked.justMatched ? justMatched : status(for: linked.sync),
+                    keepOffMessage: keepOffMessage(for: linked.keepOffRemoves)
                 )
             )
         }
@@ -110,6 +129,17 @@ final class BookHardcoverObserver {
                 systemImage: "exclamationmark.triangle.fill",
                 tone: .caution
             )
+        }
+    }
+
+    /// The confirmation's message, naming exactly what leaves (#1541). Deliberately no `default`: a new kind must
+    /// fail to compile here rather than borrow another's words.
+    nonisolated static func keepOffMessage(for removes: KeepOffRemoves?) -> String? {
+        guard let removes else { return nil }
+        switch removes {
+        case .reads: return String(localized: "hardcover.keep_off_confirm_body_reads")
+        case .toRead: return String(localized: "hardcover.keep_off_confirm_body_to_read")
+        case .readsAndToRead: return String(localized: "hardcover.keep_off_confirm_body")
         }
     }
 }

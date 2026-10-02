@@ -159,6 +159,10 @@ final class Dependencies {
     func createHardcoverSettingsViewModel() -> HardcoverSettingsViewModel {
         KoinHelper.shared.getHardcoverSettingsViewModel()
     }
+    /// The books kept off Hardcover (#1541). A fresh instance per visit to the list.
+    func createKeptOffBooksViewModel() -> KeptOffBooksViewModel {
+        KoinHelper.shared.getKeptOffBooksViewModel()
+    }
     /// Find on Hardcover for exactly this book. Parametrized, so a fresh instance per sheet.
     func createHardcoverMatchViewModel(bookId: String) -> HardcoverMatchViewModel {
         KoinHelper.shared.getHardcoverMatchViewModel(bookId: bookId)

@@ -21,6 +21,8 @@ struct BookDetailView: View {
     /// Find on Hardcover, opened from the Hardcover section (Change Match, or Find on Hardcover).
     @State private var hardcoverMatchTarget: HardcoverMatchTarget?
     @State private var confirmingHardcoverRemoval = false
+    /// The confirmation's message while switching Sync with Hardcover off asks first (#1541).
+    @State private var keepOffMessage: String?
     @State private var showRateSheet = false
     @State private var showRatingBreakdown = false
     /// Counts completed book actions (download, delete download, mark finished) so `commit`
@@ -115,6 +117,19 @@ struct BookDetailView: View {
             Button(String(localized: "common.cancel"), role: .cancel) {}
         } message: {
             Text(String(localized: "hardcover.match_remove_detail"))
+        }
+        .confirmationDialog(
+            String(localized: "hardcover.keep_off_confirm_title"),
+            isPresented: Binding(get: { keepOffMessage != nil }, set: { if !$0 { keepOffMessage = nil } }),
+            titleVisibility: .visible
+        ) {
+            // Not destructive: Sync Again undoes it.
+            Button(String(localized: "hardcover.keep_off_confirm_action").titleStyled) {
+                hardcoverObserver?.setSynced(false)
+            }
+            Button(String(localized: "common.cancel"), role: .cancel) {}
+        } message: {
+            Text(keepOffMessage ?? "")
         }
         .sheet(isPresented: $showCast) {
             if let observer, let book = observer.book {
@@ -392,8 +407,9 @@ struct BookDetailView: View {
         }
     }
 
-    /// The Hardcover match, under Readers. Renders only for a connected user whose book is matched or
-    /// needs a match; otherwise it stays out of the layout, divider and all.
+    /// The Hardcover match, under Readers. Renders only for a connected user, whatever the book's match:
+    /// matched, needs a match, never matched, or kept off Hardcover; otherwise it stays out of the layout,
+    /// divider and all.
     @ViewBuilder
     private var hardcoverSection: some View {
         if let phase = hardcoverObserver?.phase, phase != .hidden {
@@ -401,7 +417,9 @@ struct BookDetailView: View {
             BookHardcoverSection(
                 phase: phase,
                 onFindMatch: { hardcoverMatchTarget = HardcoverMatchTarget(bookId: bookId) },
-                onRemoveMatch: { confirmingHardcoverRemoval = true }
+                onRemoveMatch: { confirmingHardcoverRemoval = true },
+                onSetSynced: { hardcoverObserver?.setSynced($0) },
+                onConfirmKeepOff: { keepOffMessage = $0 }
             )
         }
     }
