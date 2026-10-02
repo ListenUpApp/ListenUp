@@ -57,7 +57,11 @@ class BookDetailVisibilityTest :
 
         test("it is the first panel in the side column, above Details") {
             val host = rendered(with(BookVisibility.Restricted(listOf(CollectionRef("c1", "Kids")), HiddenFrom.Everyone)))
-            host.querySelectorAll(".bd-side h2").asList().map { it.textContent?.trim() }.take(2) shouldBe
+            host
+                .querySelectorAll(".bd-side h2")
+                .asList()
+                .map { it.textContent?.trim() }
+                .take(2) shouldBe
                 listOf("Visibility", "Details")
             panel(host)!!.textContent!!.contains("Admins only") shouldBe true
         }

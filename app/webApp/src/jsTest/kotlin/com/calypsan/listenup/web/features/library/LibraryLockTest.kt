@@ -21,11 +21,12 @@ class LibraryLockTest :
             restricted: Set<String>,
             selecting: Boolean = false,
         ): HTMLElement =
-            mounts.mount {
-                CompositionLocalProvider(LocalRestrictedBookIds provides restricted) {
-                    BookCard(book = contractBook("b1", "Dune"), progress = 0f, onOpen = {}, selecting = selecting)
-                }
-            }.querySelector(".lib-card") as HTMLElement
+            mounts
+                .mount {
+                    CompositionLocalProvider(LocalRestrictedBookIds provides restricted) {
+                        BookCard(book = contractBook("b1", "Dune"), progress = 0f, onOpen = {}, selecting = selecting)
+                    }
+                }.querySelector(".lib-card") as HTMLElement
 
         test("a restricted book's card carries the lock inside its cover") {
             (card(setOf("b1")).querySelector(".lib-cover > .lu-lock") != null) shouldBe true

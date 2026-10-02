@@ -45,9 +45,10 @@ internal fun VisibilityPanel(
                 Text("Admins only")
             }
         }) {
-            when (visibility) {
-                is BookVisibility.Restricted -> Restricted(bookId, visibility, onOpenCollection)
-                else -> Stranded(isRestoring, onRestoreToAllBooks, onAddToCollection)
+            if (visibility is BookVisibility.Restricted) {
+                Restricted(bookId, visibility, onOpenCollection)
+            } else {
+                Stranded(isRestoring, onRestoreToAllBooks, onAddToCollection)
             }
         }
     }
@@ -141,26 +142,24 @@ internal fun nameList(
 private fun reason(
     hiddenFrom: HiddenFrom,
     collections: List<CollectionRef>,
-): String {
-    val only = collections.singleOrNull()?.name
-    return when (hiddenFrom) {
-        is HiddenFrom.Members -> {
-            if (only != null) "Only people in $only can see it." else "Anyone in at least one of these collections can see it."
-        }
+): String = collections.singleOrNull()?.name?.let { reasonForOne(hiddenFrom, it) } ?: reasonForMany(hiddenFrom)
 
-        HiddenFrom.Nobody -> {
-            if (only != null) "Every member is in $only." else "Every member is in at least one of these collections."
-        }
-
-        HiddenFrom.Everyone -> {
-            if (only != null) {
-                "No member is in $only yet, so only admins can see it."
-            } else {
-                "No member is in any of these collections yet, so only admins can see it."
-            }
-        }
+private fun reasonForOne(
+    hiddenFrom: HiddenFrom,
+    name: String,
+): String =
+    when (hiddenFrom) {
+        is HiddenFrom.Members -> "Only people in $name can see it."
+        HiddenFrom.Nobody -> "Every member is in $name."
+        HiddenFrom.Everyone -> "No member is in $name yet, so only admins can see it."
     }
-}
+
+private fun reasonForMany(hiddenFrom: HiddenFrom): String =
+    when (hiddenFrom) {
+        is HiddenFrom.Members -> "Anyone in at least one of these collections can see it."
+        HiddenFrom.Nobody -> "Every member is in at least one of these collections."
+        HiddenFrom.Everyone -> "No member is in any of these collections yet, so only admins can see it."
+    }
 
 private const val NOTE_ICON = 13
 
