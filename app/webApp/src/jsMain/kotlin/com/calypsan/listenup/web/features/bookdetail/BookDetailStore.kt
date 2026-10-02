@@ -110,6 +110,12 @@ class BookDetailSession(
      */
     val onReleaseFromInbox: () -> Unit,
     /**
+     * Puts a stranded book — in no collection, so hidden from every member — back into All Books.
+     * Offered only while `Ready.visibility` is `BookVisibility.Stranded`; only an admin's device
+     * ever computes a visibility, so this is admin-only by construction. No confirmation (spec §7).
+     */
+    val onRestoreToAllBooks: () -> Unit,
+    /**
      * The ViewModel's one-shot navigation events. Web honours only `BookDeleted` — leave the page
      * for the library. The document-viewer events never fire here, because `onOpenDocument` is
      * deliberately unwired (see [documents]).
@@ -163,6 +169,7 @@ fun graphBookDetail(koin: Koin): OpenBookDetail =
             onDeleteBook = viewModel::deleteBook,
             onClearDeleteError = viewModel::clearDeleteError,
             onReleaseFromInbox = viewModel::releaseFromInbox,
+            onRestoreToAllBooks = viewModel::restoreToAllBooks,
             navActions = viewModel.navActions,
             close = store::clear,
         )
@@ -194,6 +201,7 @@ fun fixedBookDetail(
     onDeleteBook: () -> Unit = {},
     onClearDeleteError: () -> Unit = {},
     onReleaseFromInbox: () -> Unit = {},
+    onRestoreToAllBooks: () -> Unit = {},
     navActions: Flow<BookDetailNavAction> = emptyFlow(),
 ): OpenBookDetail =
     {
@@ -221,6 +229,7 @@ fun fixedBookDetail(
             onDeleteBook = onDeleteBook,
             onClearDeleteError = onClearDeleteError,
             onReleaseFromInbox = onReleaseFromInbox,
+            onRestoreToAllBooks = onRestoreToAllBooks,
             navActions = navActions,
             close = {},
         )

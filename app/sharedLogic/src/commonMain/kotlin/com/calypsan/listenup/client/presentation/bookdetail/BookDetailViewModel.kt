@@ -691,6 +691,38 @@ class BookDetailViewModel(
     }
 
     /**
+     * Puts a **stranded** book — in no collection at all, so hidden from every member — back into
+     * All Books ("Show to all members"; spec §7: no confirmation, it restores what was meant to be
+     * public). Admin-only by construction: only an admin's device ever computes a visibility.
+     *
+     * Sends an empty collection set through the book-edit outbox (offline-first). The server's
+     * `setBookCollections` finds no normal membership and no inbox hold, so its system-membership
+     * reconcile re-homes the book into All Books; that echo moves [BookDetailUiState.Ready.visibility]
+     * to Public and ends [BookDetailUiState.Ready.isRestoringToAllBooks]. Does nothing unless the
+     * book is stranded, not held, and no restore is already waiting.
+     */
+    fun restoreToAllBooks() {
+        val ready = state.value as? BookDetailUiState.Ready ?: return
+        if (ready.isHeld || ready.visibility !is BookVisibility.Stranded || ready.isRestoringToAllBooks) return
+        val bookId = ready.book.id
+        // Busy BEFORE the launch: a second tap in the same frame must already see it.
+        updateReady { it.copy(isRestoringToAllBooks = true) }
+        viewModelScope.launch {
+            when (val result = bookEditRepository.setBookCollections(bookId, emptyList())) {
+                is AppResult.Success -> {
+                    logger.info { "Queued stranded book ${bookId.value} to return to All Books" }
+                }
+
+                is AppResult.Failure -> {
+                    updateReady { it.copy(isRestoringToAllBooks = false) }
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to queue ${bookId.value} back to All Books: ${result.error.code}" }
+                }
+            }
+        }
+    }
+
+    /**
      * Handle a tap on a supplementary document row.
      *
      * For PDF documents: downloads (if not already cached) then emits

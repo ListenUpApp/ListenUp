@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
+import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
@@ -26,6 +27,8 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode
+import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -141,6 +144,81 @@ class BookDetailViewModelVisibilityTest :
                 f.visibility.setVisibility(bookId, BookVisibility.Public)
                 advanceUntilIdle()
                 vm.state.value.shouldBeInstanceOf<BookDetailUiState.Ready>().visibility shouldBe BookVisibility.Public
+            }
+        }
+
+        test("restoreToAllBooks sends an empty collection set for a stranded book, and stays restoring until re-homed") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.visibility.setVisibility(bookId, BookVisibility.Stranded)
+                everySuspend { f.bookEditRepository.setBookCollections(bookId, emptyList()) } returns AppResult.Success(Unit)
+                val vm = f.build()
+                vm.loadBook("book-1")
+                advanceUntilIdle()
+
+                vm.restoreToAllBooks()
+                advanceUntilIdle()
+
+                verifySuspend { f.bookEditRepository.setBookCollections(bookId, emptyList()) }
+                vm.state.value.shouldBeInstanceOf<BookDetailUiState.Ready>().isRestoringToAllBooks shouldBe true
+
+                // The server's echo re-homes the book; the restoring state ends with it.
+                f.visibility.setVisibility(bookId, BookVisibility.Public)
+                advanceUntilIdle()
+                val ready = vm.state.value.shouldBeInstanceOf<BookDetailUiState.Ready>()
+                ready.visibility shouldBe BookVisibility.Public
+                ready.isRestoringToAllBooks shouldBe false
+            }
+        }
+
+        test("restoreToAllBooks does nothing unless the book is stranded") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.visibility.setVisibility(bookId, restricted)
+                val vm = f.build()
+                vm.loadBook("book-1")
+                advanceUntilIdle()
+
+                vm.restoreToAllBooks()
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.not) { f.bookEditRepository.setBookCollections(any(), any()) }
+                vm.state.value.shouldBeInstanceOf<BookDetailUiState.Ready>().isRestoringToAllBooks shouldBe false
+            }
+        }
+
+        test("restoreToAllBooks never touches a held book — the inbox's Release owns it") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.inboxRepository.hold("book-1")
+                f.visibility.setVisibility(bookId, BookVisibility.Held)
+                val vm = f.build()
+                vm.loadBook("book-1")
+                advanceUntilIdle()
+
+                vm.restoreToAllBooks()
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.not) { f.bookEditRepository.setBookCollections(any(), any()) }
+            }
+        }
+
+        test("a refused restore clears the restoring state and reports the error") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.visibility.setVisibility(bookId, BookVisibility.Stranded)
+                everySuspend { f.bookEditRepository.setBookCollections(bookId, emptyList()) } returns
+                    AppResult.Failure(BookError.NotFound())
+                val vm = f.build()
+                vm.loadBook("book-1")
+                advanceUntilIdle()
+
+                vm.restoreToAllBooks()
+                advanceUntilIdle()
+
+                val ready = vm.state.value.shouldBeInstanceOf<BookDetailUiState.Ready>()
+                ready.visibility shouldBe BookVisibility.Stranded
+                ready.isRestoringToAllBooks shouldBe false
             }
         }
     })
