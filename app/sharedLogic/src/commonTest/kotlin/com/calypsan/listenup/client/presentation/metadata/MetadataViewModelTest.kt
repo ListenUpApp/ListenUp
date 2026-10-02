@@ -112,7 +112,7 @@ class MetadataViewModelTest :
             val book = makeBook(asin = "B001", title = "Dune")
             val repo = mock<MetadataRepository>()
             everySuspend { repo.searchBooks(any(), any(), any()) } returns AppResult.Success(MetadataSearchResults(listOf(book)))
-            everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+            everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
             everySuspend { repo.getBookChapters(any(), any()) } returns
                 AppResult.Success(
                     MetadataChapters(listOf(MetadataChapter("Prologue", 0L, 1000L), MetadataChapter("Chapter One", 1000L, 1000L))),
@@ -228,7 +228,7 @@ class MetadataViewModelTest :
             runTest {
                 val book = makeBook(asin = "B001", title = "Dune")
                 val repo = mock<MetadataRepository>()
-                everySuspend { repo.getBookMetadata(any(), any()) } calls { awaitCancellation() }
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } calls { awaitCancellation() }
                 val vm = buildVm(repo)
 
                 vm.initForBook("b1", "Dune", "Frank Herbert")
@@ -248,7 +248,7 @@ class MetadataViewModelTest :
                 val repo = mock<MetadataRepository>()
                 everySuspend { repo.searchBooks(any(), any(), any()) } returns
                     AppResult.Success(MetadataSearchResults(listOf(book)))
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 val vm = buildVm(repo)
 
                 vm.initForBook("b1", "Dune", "Frank Herbert")
@@ -279,7 +279,7 @@ class MetadataViewModelTest :
                 val repo = mock<MetadataRepository>()
                 everySuspend { repo.searchBooks(any(), any(), any()) } returns
                     AppResult.Success(MetadataSearchResults(listOf(book)))
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 val vm = buildVm(repo)
 
                 vm.initForBook("b1", "Dune", "Frank Herbert")
@@ -304,7 +304,7 @@ class MetadataViewModelTest :
                 val repo = mock<MetadataRepository>()
                 everySuspend { repo.searchBooks(any(), any(), any()) } returns
                     AppResult.Success(MetadataSearchResults(listOf(book)))
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(null)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(null)
                 val vm = buildVm(repo)
 
                 vm.initForBook("b1", "Fallback Title", "")
@@ -324,7 +324,7 @@ class MetadataViewModelTest :
             runTest {
                 val book = makeBook(title = "Fallback Title")
                 val repo = mock<MetadataRepository>()
-                everySuspend { repo.getBookMetadata(any(), any()) } returns
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns
                     AppResult.Failure(TransportError.NetworkUnavailable())
                 val vm = buildVm(repo)
 
@@ -347,7 +347,7 @@ class MetadataViewModelTest :
                     )
                 val repo = mock<MetadataRepository>()
                 val error = TransportError.NetworkUnavailable()
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Failure(error)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Failure(error)
                 val vm = buildVm(repo)
 
                 vm.initForBook("b1", "", "")
@@ -368,7 +368,7 @@ class MetadataViewModelTest :
                 val repo = mock<MetadataRepository>()
                 everySuspend { repo.searchBooks(any(), any(), any()) } returns
                     AppResult.Success(MetadataSearchResults(listOf(book)))
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 val vm = buildVm(repo)
 
                 vm.initForBook("b1", "Dune", "FH")
@@ -391,7 +391,7 @@ class MetadataViewModelTest :
             runTest {
                 val book = makeBook()
                 val repo = mock<MetadataRepository>()
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 val vm = buildVm(repo)
 
                 vm.initForBook("b1", "Dune", "FH")
@@ -413,7 +413,7 @@ class MetadataViewModelTest :
             runTest {
                 val book = makeBook(authorAsin = "A1")
                 val repo = mock<MetadataRepository>()
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 val vm = buildVm(repo)
 
                 vm.initForBook("b1", "Dune", "FH")
@@ -446,7 +446,7 @@ class MetadataViewModelTest :
             runTest {
                 val book = makeBook()
                 val repo = mock<MetadataRepository>()
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 everySuspend { repo.applyBookMetadata(any(), any(), any(), any()) } returns AppResult.Success(Unit)
                 val vm = buildVm(repo)
 
@@ -474,7 +474,7 @@ class MetadataViewModelTest :
             runTest {
                 val book = makeBook()
                 val repo = mock<MetadataRepository>()
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 everySuspend { repo.applyBookMetadata(any(), any(), any(), any()) } returns AppResult.Success(Unit)
                 val vm = buildVm(repo)
 
@@ -517,7 +517,7 @@ class MetadataViewModelTest :
             runTest {
                 val book = makeBook()
                 val repo = mock<MetadataRepository>()
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 everySuspend { repo.applyBookMetadata(any(), any(), any(), any()) } returns AppResult.Success(Unit)
                 val vm = buildVm(repo)
 
@@ -559,7 +559,7 @@ class MetadataViewModelTest :
             runTest {
                 val book = makeBook()
                 val repo = mock<MetadataRepository>()
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 everySuspend { repo.applyBookMetadata(any(), any(), any(), any()) } returns AppResult.Success(Unit)
                 val vm = buildVm(repo)
 
@@ -601,7 +601,7 @@ class MetadataViewModelTest :
             runTest {
                 val book = makeBook()
                 val repo = mock<MetadataRepository>()
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 everySuspend { repo.applyBookMetadata(any(), any(), any(), any()) } returns AppResult.Success(Unit)
                 val vm = buildVm(repo)
 
@@ -645,7 +645,7 @@ class MetadataViewModelTest :
                 val book = makeBook()
                 val repo = mock<MetadataRepository>()
                 val error = TransportError.NetworkUnavailable()
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 everySuspend { repo.applyBookMetadata(any(), any(), any(), any()) } returns AppResult.Failure(error)
                 val vm = buildVm(repo)
 
@@ -677,7 +677,7 @@ class MetadataViewModelTest :
                         tags = listOf("Slow Burn"),
                     )
                 val repo = mock<MetadataRepository>()
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 val vm =
                     buildVm(
                         repo,
@@ -717,7 +717,7 @@ class MetadataViewModelTest :
                         tags = emptyList(),
                     )
                 val repo = mock<MetadataRepository>()
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 val vm = buildVm(repo, currentMoods = listOf("Cozy"))
 
                 vm.initForBook("b1", "Dune", "Frank Herbert")
@@ -742,7 +742,7 @@ class MetadataViewModelTest :
                 val book = makeBook(asin = "B001", title = "Dune")
                 val repo = mock<MetadataRepository>()
                 everySuspend { repo.searchBooks(any(), any(), any()) } returns AppResult.Success(MetadataSearchResults(listOf(book)))
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 everySuspend { repo.getBookChapters(any(), any()) } returns
                     AppResult.Success(
                         MetadataChapters(
@@ -782,7 +782,7 @@ class MetadataViewModelTest :
                 val book = makeBook(asin = "B001", title = "Dune")
                 val repo = mock<MetadataRepository>()
                 everySuspend { repo.searchBooks(any(), any(), any()) } returns AppResult.Success(MetadataSearchResults(listOf(book)))
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 everySuspend { repo.getBookChapters(any(), any()) } returns
                     AppResult.Success(MetadataChapters((0 until 5).map { MetadataChapter("C$it", it * 1000L, 1000L) }))
                 val bookRepo =
@@ -810,7 +810,7 @@ class MetadataViewModelTest :
                 val book = makeBook(asin = "B001", title = "Dune")
                 val repo = mock<MetadataRepository>()
                 everySuspend { repo.searchBooks(any(), any(), any()) } returns AppResult.Success(MetadataSearchResults(listOf(book)))
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 everySuspend { repo.getBookChapters(any(), any()) } returns
                     AppResult.Success(MetadataChapters(listOf(MetadataChapter("Prologue", 0L, 1000L))))
                 val bookRepo = mock<BookRepository> { everySuspend { getChapters("b1") } returns emptyList() }
@@ -830,7 +830,7 @@ class MetadataViewModelTest :
                 val book = makeBook(asin = "B001", title = "Dune")
                 val repo = mock<MetadataRepository>()
                 everySuspend { repo.searchBooks(any(), any(), any()) } returns AppResult.Success(MetadataSearchResults(listOf(book)))
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 everySuspend { repo.getBookChapters(any(), any()) } returns AppResult.Failure(MetadataError.ExternalUnavailable())
                 val bookRepo =
                     mock<BookRepository> {
@@ -852,7 +852,7 @@ class MetadataViewModelTest :
                 val book = makeBook(asin = "B001", title = "Dune")
                 val repo = mock<MetadataRepository>()
                 everySuspend { repo.searchBooks(any(), any(), any()) } returns AppResult.Success(MetadataSearchResults(listOf(book)))
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 everySuspend { repo.getBookChapters(any(), any()) } returns
                     AppResult.Success(
                         MetadataChapters(listOf(MetadataChapter("Prologue", 0L, 1000L), MetadataChapter("Chapter One", 1000L, 1000L))),
@@ -914,7 +914,7 @@ class MetadataViewModelTest :
                 val book = makeBook(asin = "B001", title = "Dune")
                 val repo = mock<MetadataRepository>()
                 everySuspend { repo.searchBooks(any(), any(), any()) } returns AppResult.Success(MetadataSearchResults(listOf(book)))
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 everySuspend { repo.getBookChapters(any(), any()) } returns
                     AppResult.Success(
                         MetadataChapters(listOf(MetadataChapter("Prologue", 0L, 1000L), MetadataChapter("Chapter One", 1000L, 1000L))),
@@ -949,8 +949,8 @@ class MetadataViewModelTest :
                 val usBook = makeBook(title = "US Edition")
                 val ukBook = makeBook(title = "UK Edition")
                 val repo = mock<MetadataRepository>()
-                everySuspend { repo.getBookMetadata(any(), MetadataLocale.DEFAULT) } returns AppResult.Success(usBook)
-                everySuspend { repo.getBookMetadata(any(), MetadataLocale("uk")) } returns AppResult.Success(ukBook)
+                everySuspend { repo.getBookMetadata(any(), MetadataLocale.DEFAULT, any()) } returns AppResult.Success(usBook)
+                everySuspend { repo.getBookMetadata(any(), MetadataLocale("uk"), any()) } returns AppResult.Success(ukBook)
                 val vm = buildVm(repo)
 
                 vm.initForBook("b1", "Dune", "FH")
@@ -999,7 +999,7 @@ class MetadataViewModelTest :
             runTest {
                 val book = makeBook(asin = "B007")
                 val repo = mock<MetadataRepository>()
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 val vm = buildVm(repo)
 
                 // Mirrors MatchPreviewRoute on a fresh per-entry VM: init, apply the region carried
@@ -1013,7 +1013,22 @@ class MetadataViewModelTest :
                 vm.state.value
                     .shouldBeInstanceOf<MetadataUiState.Preview>()
                     .region shouldBe MetadataLocale("ca")
-                verifySuspend { repo.getBookMetadata("B007", MetadataLocale("ca")) }
+                verifySuspend { repo.getBookMetadata("B007", MetadataLocale("ca"), BookId("b1")) }
+            }
+        }
+
+        test("the preview is fetched for the book being matched, so the server can use its Hardcover link") {
+            runTest {
+                val book = makeBook(asin = "B08G9RZBTT")
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
+                val vm = buildVm(repo)
+
+                vm.initForBook(bookId = "book-42", title = "Project Hail Mary", author = "Andy Weir")
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                verifySuspend { repo.getBookMetadata("B08G9RZBTT", MetadataLocale.DEFAULT, BookId("book-42")) }
             }
         }
 
@@ -1027,7 +1042,7 @@ class MetadataViewModelTest :
                         coverUrlMaxSize = "https://itunes.com/cover-max.jpg",
                     )
                 val repo = mock<MetadataRepository>()
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 val vm = buildVm(repo)
 
                 vm.initForBook("b1", "Dune", "FH")
@@ -1049,7 +1064,7 @@ class MetadataViewModelTest :
             runTest {
                 val book = makeBook().copy(coverUrlMaxSize = null)
                 val repo = mock<MetadataRepository>()
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 val vm = buildVm(repo)
 
                 vm.initForBook("b1", "Dune", "FH")
@@ -1083,7 +1098,7 @@ class MetadataViewModelTest :
                     )
                 val repo = mock<MetadataRepository>()
                 everySuspend { repo.searchBooks(any(), any(), any()) } returns AppResult.Success(MetadataSearchResults(listOf(book)))
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 everySuspend { repo.getBookChapters(any(), any()) } returns AppResult.Success(MetadataChapters(emptyList()))
                 val vm = buildVm(repo)
                 vm.initForBook("b1", "Dune", "Frank Herbert")
@@ -1119,7 +1134,7 @@ class MetadataViewModelTest :
                     )
                 val repo = mock<MetadataRepository>()
                 everySuspend { repo.searchBooks(any(), any(), any()) } returns AppResult.Success(MetadataSearchResults(listOf(book)))
-                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookMetadata(any(), any(), any()) } returns AppResult.Success(book)
                 everySuspend { repo.getBookChapters(any(), any()) } returns AppResult.Success(MetadataChapters(emptyList()))
                 val vm = buildVm(repo)
                 vm.initForBook("b1", "Dune", "Frank Herbert")
