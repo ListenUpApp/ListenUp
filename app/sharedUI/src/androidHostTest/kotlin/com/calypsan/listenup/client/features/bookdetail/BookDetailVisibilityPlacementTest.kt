@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.readers.BookReaders
@@ -30,6 +31,7 @@ import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.MockMode
 import dev.mokkery.answering.returns
 import dev.mokkery.every
+import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.matchers.comparables.shouldBeLessThan
@@ -209,6 +211,7 @@ class BookDetailVisibilityPlacementTest {
                 every { observeForBook(any()) } returns flowOf(emptyList())
                 every { observeExternalForBook(any()) } returns flowOf(emptyList())
                 every { observeCombinedScore(any()) } returns flowOf(null)
+                everySuspend { ensureExternal(any()) } returns AppResult.Success(Unit)
             }
         val users = mock<UserRepository>(MockMode.autoUnit) { every { observeIsAdmin() } returns flowOf(true) }
         composeRule.setContent {
