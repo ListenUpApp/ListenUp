@@ -100,6 +100,34 @@ class BookVisibilityClassifierTest :
                 )
         }
 
+        test("names that differ only in case or spacing are the same name, so each carries its email") {
+            val users =
+                listOf(
+                    rosterUser("alex1", "Alex", email = "alex@a.com"),
+                    rosterUser("alex2", "alex ", email = "alex@b.com"),
+                    rosterUser("ben", "Ben"),
+                )
+            classify(listOf(kids), shares = listOf(collectionShare("c1", "ben")), users = users) shouldBe
+                BookVisibility.Restricted(
+                    listOf(CollectionRef("c1", "Kids")),
+                    HiddenFrom.Members(listOf("Alex (alex@a.com)", "alex (alex@b.com)")),
+                )
+        }
+
+        test("a repeated name with no email stays bare rather than wearing empty brackets") {
+            val users =
+                listOf(
+                    rosterUser("alex1", "Alex", email = "alex@a.com"),
+                    rosterUser("alex2", "Alex", email = " "),
+                    rosterUser("ben", "Ben"),
+                )
+            classify(listOf(kids), shares = listOf(collectionShare("c1", "ben")), users = users) shouldBe
+                BookVisibility.Restricted(
+                    listOf(CollectionRef("c1", "Kids")),
+                    HiddenFrom.Members(listOf("Alex", "Alex (alex@a.com)")),
+                )
+        }
+
         test("a name shared only with a member who can see the book needs no email") {
             val users = listOf(rosterUser("alex1", "Alex"), rosterUser("alex2", "Alex"), rosterUser("ben", "Ben"))
             classify(listOf(kids), shares = listOf(collectionShare("c1", "alex2")), users = users) shouldBe

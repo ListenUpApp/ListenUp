@@ -95,16 +95,23 @@ private fun hiddenFrom(
 }
 
 /**
- * Each user's display name (email when blank). A name more than one of [users] shares gets the
- * email appended — "Alex (alex@a.com)" — or two hidden Alexes would read as one.
+ * Each user's display name, trimmed (email when blank). A name more than one of [users] shares —
+ * ignoring case and surrounding spaces, so "Alex" and "alex " are one name — gets the email
+ * appended, "Alex (alex@a.com)", or two hidden Alexes would read as one. A user with no email keeps
+ * the bare name rather than "Alex ()".
  */
 private fun distinguishableNames(users: List<AdminUserRosterEntity>): List<String> {
-    val names = users.map { user -> user.displayName.ifBlank { user.email } }
+    val names = users.map { user -> user.displayName.trim().ifBlank { user.email } }
     val repeated =
         names
-            .groupingBy { it }
+            .groupingBy { it.sameNameKey() }
             .eachCount()
             .filterValues { it > 1 }
             .keys
-    return users.zip(names) { user, name -> if (name in repeated) "$name (${user.email})" else name }
+    return users.zip(names) { user, name ->
+        val email = user.email.trim().takeIf { it.isNotBlank() }
+        if (name.sameNameKey() in repeated && email != null) "$name ($email)" else name
+    }
 }
+
+private fun String.sameNameKey(): String = trim().lowercase()
