@@ -60,6 +60,7 @@ internal data class BookWire(
     @SerialName("title") val title: String,
     @SerialName("rating") val rating: Double? = null,
     @SerialName("ratings_count") val ratingsCount: Int = 0,
+    @SerialName("users_read_count") val usersReadCount: Int = 0,
     @SerialName("release_year") val releaseYear: Int? = null,
     @SerialName("default_audio_edition_id") val defaultAudioEditionId: Long? = null,
     @SerialName("contributions") val contributions: List<ContributionWire> = emptyList(),
@@ -73,6 +74,7 @@ internal data class BookWire(
             count = ratingsCount,
             releaseYear = releaseYear,
             defaultAudioEditionId = defaultAudioEditionId,
+            readers = usersReadCount,
         )
 }
 

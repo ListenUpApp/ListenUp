@@ -24,8 +24,8 @@ fun interface HardcoverBookIdentities {
  *    several audiobook editions, so the ASIN's own edition beats the book's default one);
  * 2. the ISBN, against ISBN-13 and ISBN-10 — the book, preferring its default audiobook edition when
  *    the ISBN's edition isn't one (only reading format "Listened" is; "Both" is not);
- * 3. the title — accepted only when exactly one candidate agrees on title and on at least one author,
- *    by the same rule ratings use ([MatchScorer.isConfidentRatingMatch]).
+ * 3. the title — candidates must agree on title and on at least one author, by the same rule ratings
+ *    use ([MatchScorer.isConfidentRatingMatch]); of several, only a [clearWinner] is accepted.
  *
  * `Ok(null)` means "no confident match" (the book becomes NEEDS_MATCH): it never guesses. A failure
  * is returned as a failure, so an outage never masquerades as NEEDS_MATCH. Shares the catalog
@@ -63,7 +63,7 @@ class HardcoverBookMatcher(
                     return it
                 }.filter { it.isConfidentMatchFor(book) }
         return HardcoverCall.Ok(
-            confident.singleOrNull()?.let {
+            confident.clearWinner()?.let {
                 HardcoverMatch(
                     it.id,
                     it.defaultAudioEditionId,
@@ -79,3 +79,19 @@ internal fun HardcoverCatalogBook.isConfidentMatchFor(book: BookIdentity): Boole
     authors.any { author ->
         MatchScorer.isConfidentRatingMatch(book, BookMatch(title = title, author = author, score = 0.0))
     }
+
+private const val WINNER_READER_RATIO = 20
+private const val WINNER_MIN_READERS = 50
+
+/**
+ * The one candidate Hardcover's duplicate records leave no doubt about, or null. A lone candidate
+ * wins; of several, the only one with an audiobook edition wins, else the most-read one if it has at
+ * least [WINNER_MIN_READERS] readers and [WINNER_READER_RATIO]× the runner-up's. Anything closer is
+ * a genuine tie between comparable editions, and the matcher declines rather than guess.
+ */
+internal fun List<HardcoverCatalogBook>.clearWinner(): HardcoverCatalogBook? {
+    if (size < 2) return singleOrNull()
+    filter { it.defaultAudioEditionId != null }.singleOrNull()?.let { return it }
+    val (top, runnerUp) = sortedByDescending { it.readers }
+    return top.takeIf { it.readers >= WINNER_MIN_READERS && it.readers >= runnerUp.readers * WINNER_READER_RATIO }
+}

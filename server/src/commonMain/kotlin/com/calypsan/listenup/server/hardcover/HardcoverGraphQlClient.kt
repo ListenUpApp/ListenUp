@@ -62,7 +62,8 @@ sealed interface HardcoverRatingResult {
 
 /**
  * One book in Hardcover's catalog. [average] is null while [count] is 0. [defaultAudioEditionId] is
- * the edition Hardcover shows for listeners, when it names one.
+ * the edition Hardcover shows for listeners, when it names one. [readers] is how many Hardcover users
+ * have read it (`users_read_count`).
  */
 data class HardcoverCatalogBook(
     val id: Long,
@@ -72,6 +73,7 @@ data class HardcoverCatalogBook(
     val count: Int,
     val releaseYear: Int?,
     val defaultAudioEditionId: Long?,
+    val readers: Int = 0,
 ) {
     /** The first-credited author, as the rating lookup has always read it. */
     val author: String? get() = authors.firstOrNull()
@@ -370,7 +372,7 @@ class HardcoverGraphQlClient(
         const val AUDIOBOOK_READING_FORMAT = 2
         const val ME_QUERY = "{ me { id username } }"
         const val BOOK_FIELDS =
-            "id title rating ratings_count release_year default_audio_edition_id contributions(limit:5){ author { name } }"
+            "id title rating ratings_count users_read_count release_year default_audio_edition_id contributions(limit:5){ author { name } }"
         const val EDITION_FIELDS = "id reading_format_id book { $BOOK_FIELDS }"
         const val EDITION_BY_ASIN_QUERY =
             "query(\$asin:String!){ editions(where:{asin:{_eq:\$asin}}, limit:1){ $EDITION_FIELDS } }"
