@@ -57,6 +57,7 @@ internal val BARE_COVER_EXEMPTIONS: Map<String, BareCoverExemption> =
         "features/bookdetail/BookDetailPage.kt" to BareCoverExemption(1, "the hero cover; the page's Visibility panel says it in words"),
         "features/bookedit/CoverField.kt" to BareCoverExemption(1, "the editor's cover picker, not a card"),
         "features/hardcover/HardcoverPage.kt" to BareCoverExemption(1, "a Hardcover matching-task row, not a browse card"),
+        "features/hardcover/KeptOffBooksPage.kt" to BareCoverExemption(1, "a kept-off-Hardcover row, not a browse card"),
         "features/nowplaying/NowPlayingPanel.kt" to BareCoverExemption(1, "the player's art, for the book you are already playing"),
         "features/seriesdetail/SeriesDetailPage.kt" to BareCoverExemption(1, "the series hero; its book rows carry the lock"),
         "features/serieslist/SeriesListPage.kt" to BareCoverExemption(1, "a series card — the first book's art stands for the series"),
