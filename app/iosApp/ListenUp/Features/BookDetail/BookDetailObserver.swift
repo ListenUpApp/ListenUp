@@ -125,6 +125,10 @@ final class BookDetailObserver {
     private(set) var isHeld: Bool = false
     /// A release is in flight — Release shows its spinner.
     private(set) var isReleasingFromInbox: Bool = false
+    /// Who can't see this book, for the Visibility section; nil for a member, a public book or a held one.
+    private(set) var visibility: BookVisibilityModel?
+    /// "Show to All Members" is in flight — its button reads "Showing to All Members…".
+    private(set) var isRestoringToAllBooks = false
     var layout: BookDetailLayout { .forBook(isHeld: isHeld) }
 
     // MARK: - Documents
@@ -326,6 +330,12 @@ final class BookDetailObserver {
     /// the user through `ErrorAlertCenter`'s alert, as Delete Book's does.
     func releaseFromInbox() { viewModel.releaseFromInbox() }
 
+    // MARK: - Visibility (admin)
+
+    /// Puts a stranded book back in All Books, so every member can see it again. No confirmation:
+    /// it restores what was meant to be public.
+    func restoreToAllBooks() { viewModel.restoreToAllBooks() }
+
     // MARK: - Progress
 
     func discardProgress() { viewModel.discardProgress() }
@@ -443,6 +453,8 @@ final class BookDetailObserver {
             showServerWarning = r.showServerWarning
             isHeld = r.isHeld
             isReleasingFromInbox = r.isReleasingFromInbox
+            visibility = BookVisibilityModel.from(r.visibility)
+            isRestoringToAllBooks = r.isRestoringToAllBooks
             if isWaitingForWifi != r.isWaitingForWifi {
                 isWaitingForWifi = r.isWaitingForWifi
                 latestDownloadStatus.map { applyDownloadStatus($0) }
