@@ -13,7 +13,7 @@ import com.calypsan.listenup.server.api.InstanceServiceImpl
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
-import com.calypsan.listenup.server.hardcover.HardcoverRatingConnection
+import com.calypsan.listenup.server.hardcover.HardcoverSourceSettings
 import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.DEFAULT_ARGON2_PARALLELISM
@@ -192,7 +192,7 @@ fun authModule(
                 sourceSettings = get<RatingSourceSettings>(),
                 externalRatings = get<BookExternalRatingRepository>(),
                 providerRegistry = get<MetadataProviderRegistry>(),
-                hardcoverConnection = get<HardcoverRatingConnection>(),
+                hardcoverSource = get<HardcoverSourceSettings>(),
             )
         }
         single<AdminSettingsService> { get<AdminSettingsServiceImpl>() }

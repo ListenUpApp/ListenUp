@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.admin.AdminServerSettings
 import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
+import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
@@ -47,6 +48,30 @@ private class FakeAdminSettingsService : AdminSettingsService {
     ): AppResult<List<RatingSourceStatus>> {
         ratingSources = ratingSources.map { if (it.source == source) it.copy(enabled = enabled) else it }
         return AppResult.Success(ratingSources)
+    }
+
+    var hardcoverSource = HardcoverSourceStatus()
+    val tokensSent = mutableListOf<String>()
+
+    override suspend fun getHardcoverSource(): AppResult<HardcoverSourceStatus> = AppResult.Success(hardcoverSource)
+
+    override suspend fun setHardcoverApiToken(token: String): AppResult<HardcoverSourceStatus> {
+        tokensSent += token
+        hardcoverSource =
+            hardcoverSource.copy(
+                apiToken = com.calypsan.listenup.api.dto.admin.HardcoverApiTokenStatus.Saved("simon", 1L),
+            )
+        return AppResult.Success(hardcoverSource)
+    }
+
+    override suspend fun clearHardcoverApiToken(): AppResult<HardcoverSourceStatus> {
+        hardcoverSource = hardcoverSource.copy(apiToken = com.calypsan.listenup.api.dto.admin.HardcoverApiTokenStatus.NotSet)
+        return AppResult.Success(hardcoverSource)
+    }
+
+    override suspend fun setHardcoverMetadataEnabled(enabled: Boolean): AppResult<HardcoverSourceStatus> {
+        hardcoverSource = hardcoverSource.copy(metadataEnabled = enabled)
+        return AppResult.Success(hardcoverSource)
     }
 }
 
@@ -110,6 +135,16 @@ class AdminRepositoryImplSettingsTest :
                         source: ExternalRatingSource,
                         enabled: Boolean,
                     ): AppResult<List<RatingSourceStatus>> = throw IOException("network down")
+
+                    override suspend fun getHardcoverSource(): AppResult<HardcoverSourceStatus> = throw IOException("network down")
+
+                    override suspend fun setHardcoverApiToken(token: String): AppResult<HardcoverSourceStatus> =
+                        throw IOException("network down")
+
+                    override suspend fun clearHardcoverApiToken(): AppResult<HardcoverSourceStatus> = throw IOException("network down")
+
+                    override suspend fun setHardcoverMetadataEnabled(enabled: Boolean): AppResult<HardcoverSourceStatus> =
+                        throw IOException("network down")
                 }
             repo(throwing)
                 .getServerSettings()

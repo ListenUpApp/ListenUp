@@ -37,6 +37,7 @@ import com.calypsan.listenup.server.hardcover.HardcoverRatingConnection
 import com.calypsan.listenup.server.hardcover.HardcoverRatingSource
 import com.calypsan.listenup.server.hardcover.HardcoverShelfEntryStore
 import com.calypsan.listenup.server.hardcover.HardcoverShelfResolver
+import com.calypsan.listenup.server.hardcover.HardcoverSourceSettings
 import com.calypsan.listenup.server.hardcover.HardcoverSyncActivity
 import com.calypsan.listenup.server.hardcover.HardcoverTokenCipher
 import com.calypsan.listenup.server.hardcover.HardcoverTokenProvider
@@ -200,6 +201,15 @@ private fun Module.hardcoverCatalog(clientConfigured: Boolean) {
             catalogToken = get(),
             rateLimiter = get(),
             clientConfigured = clientConfigured,
+        )
+    }
+    single {
+        HardcoverSourceSettings(
+            apiTokens = get(),
+            catalogToken = get(),
+            graphQl = get(),
+            rateLimiter = get(),
+            settings = get(),
         )
     }
 }
