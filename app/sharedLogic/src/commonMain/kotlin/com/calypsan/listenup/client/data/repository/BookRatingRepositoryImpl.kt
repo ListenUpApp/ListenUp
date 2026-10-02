@@ -177,6 +177,9 @@ internal class BookRatingRepositoryImpl(
 
     override suspend fun refreshExternal(bookId: String): AppResult<Unit> =
         ratingChannel.call { it.refreshExternalRatings(BookId(bookId)) }
+
+    override suspend fun ensureExternal(bookId: String): AppResult<Unit> =
+        ratingChannel.call(idempotent = true) { it.ensureExternalRatings(BookId(bookId)) }
 }
 
 private fun BookRatingEntity.toDomain(): ListenerRating =

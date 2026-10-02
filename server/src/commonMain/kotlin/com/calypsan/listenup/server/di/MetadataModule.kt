@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.MetadataLookupService
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.MetadataEnrichmentDeps
 import com.calypsan.listenup.server.api.MetadataImageDeps
@@ -36,7 +37,9 @@ import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.ratings.ExternalRatingsBackfill
 import com.calypsan.listenup.server.ratings.ExternalRatingsFetcher
+import com.calypsan.listenup.server.ratings.HardcoverRatingOnOpen
 import com.calypsan.listenup.server.ratings.RatingSourceSettings
+import com.calypsan.listenup.server.ratings.localeFor
 import com.calypsan.listenup.server.scheduler.ExternalRatingsSweepTask
 import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
@@ -262,6 +265,22 @@ private fun Module.ratingsBindings() {
         ExternalRatingsBackfill(
             fetcher = get(),
             ratings = get<BookExternalRatingRepository>(),
+            scope = get<CoroutineScope>(),
+        )
+    }
+    single {
+        val ratings = get<BookExternalRatingRepository>()
+        val fetcher = get<ExternalRatingsFetcher>()
+        HardcoverRatingOnOpen(
+            lastTried = { bookId -> ratings.attemptedAt(bookId, ExternalRatingSource.HARDCOVER) },
+            fetch = { bookId ->
+                fetcher.fetch(
+                    bookId,
+                    ratings.localeFor(bookId.value),
+                    refresh = false,
+                    sources = setOf(ExternalRatingSource.HARDCOVER),
+                )
+            },
             scope = get<CoroutineScope>(),
         )
     }

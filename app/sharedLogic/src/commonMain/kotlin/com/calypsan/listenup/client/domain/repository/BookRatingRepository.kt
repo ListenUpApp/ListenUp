@@ -45,4 +45,10 @@ interface BookRatingRepository {
      * outbox: there is nothing to queue offline, since only the server can reach an outside catalog.
      */
     suspend fun refreshExternal(bookId: String): AppResult<Unit>
+
+    /**
+     * Tell the server this book was opened, so it fetches a missing or stale Hardcover rating in the
+     * background (#1542). Fire-and-forget: the rating arrives through sync; a failure changes nothing.
+     */
+    suspend fun ensureExternal(bookId: String): AppResult<Unit>
 }

@@ -97,9 +97,15 @@ class RatingSourceSettings(
         return fetchedAt to error
     }
 
-    private companion object {
-        const val FAILURES_BEFORE_PAUSE = 5
-        val PAUSE = 7.days
+    companion object {
+        private const val FAILURES_BEFORE_PAUSE = 5
+        private val PAUSE = 7.days
+
+        /**
+         * How long a source's answer for a book counts as fresh before opening the book asks again
+         * (#1542): the nightly sweep's period, which refreshes a thirtieth of the library a night.
+         */
+        val STALE_AFTER = 30.days
     }
 
     private fun key(

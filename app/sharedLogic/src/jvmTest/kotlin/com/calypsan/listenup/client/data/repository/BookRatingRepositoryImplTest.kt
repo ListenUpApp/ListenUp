@@ -23,7 +23,10 @@ import com.calypsan.listenup.client.domain.model.SourceCalibration
 import com.calypsan.listenup.client.domain.model.listenUpScore
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
+import dev.mokkery.answering.returns
+import dev.mokkery.everySuspend
 import dev.mokkery.mock
+import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.maps.shouldContainExactly
@@ -341,12 +344,29 @@ class BookRatingRepositoryImplTest :
                             calledWith = bookId.value
                             return AppResult.Success(Unit)
                         }
+
+                        override suspend fun ensureExternalRatings(bookId: com.calypsan.listenup.core.BookId): AppResult<Unit> =
+                            AppResult.Success(Unit)
                     }
                 val repo = repo(db, ratingChannel = RpcChannel.forTest(service))
 
                 repo.refreshExternal("b1").shouldBeInstanceOf<AppResult.Success<*>>()
 
                 calledWith shouldBe "b1"
+                db.close()
+            }
+        }
+
+        test("ensureExternal asks the rating service for the book") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val service = mock<BookRatingService>()
+                everySuspend { service.ensureExternalRatings(com.calypsan.listenup.core.BookId("b1")) } returns AppResult.Success(Unit)
+                val repo = repo(db, ratingChannel = RpcChannel.forTest(service))
+
+                repo.ensureExternal("b1").shouldBeInstanceOf<AppResult.Success<*>>()
+
+                verifySuspend { service.ensureExternalRatings(com.calypsan.listenup.core.BookId("b1")) }
                 db.close()
             }
         }

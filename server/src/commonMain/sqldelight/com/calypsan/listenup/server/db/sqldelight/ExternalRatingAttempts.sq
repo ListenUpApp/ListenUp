@@ -24,3 +24,7 @@ VALUES (:book_id, :source, :attempted_at);
 -- Every source that has ever attempted this book.
 selectAttemptedSources:
 SELECT source FROM external_rating_attempts WHERE book_id = :book_id;
+
+-- When :source last attempted :book_id, or no row (#1542's ratings on open: fresh or stale).
+selectAttemptedAt:
+SELECT attempted_at FROM external_rating_attempts WHERE book_id = :book_id AND source = :source;
