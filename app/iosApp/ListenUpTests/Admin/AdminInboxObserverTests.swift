@@ -29,6 +29,7 @@ struct AdminInboxPhaseTests {
             selectedBookIds: ["b1"],
             isReleasing: true,
             lastReleasedCount: 3,
+            lastUnreleasedCount: 0,
             error: "partial",
             scanIssues: []
         )
@@ -55,6 +56,7 @@ struct AdminInboxPhaseTests {
             selectedBookIds: [],
             isReleasing: false,
             lastReleasedCount: nil,
+            lastUnreleasedCount: 0,
             error: nil,
             scanIssues: []
         )
@@ -79,6 +81,7 @@ struct AdminInboxPhaseTests {
             selectedBookIds: ["b1", "b2"],
             isReleasing: false,
             lastReleasedCount: nil,
+            lastUnreleasedCount: 0,
             error: nil,
             scanIssues: []
         )
@@ -87,6 +90,38 @@ struct AdminInboxPhaseTests {
             return
         }
         #expect(model.allSelected == true)
+    }
+}
+
+// MARK: - Release confirmation
+
+@Suite("Admin inbox release confirmation")
+struct AdminInboxReleaseConfirmationTests {
+    private func model(released: Int32?, unreleased: Int32) -> AdminInboxReadyModel {
+        AdminInboxReadyModel(from: AdminInboxUiStateReady(
+            bookIds: [],
+            books: [],
+            selectedBookIds: [],
+            isReleasing: false,
+            lastReleasedCount: released,
+            lastUnreleasedCount: unreleased,
+            error: nil,
+            scanIssues: []
+        ))
+    }
+
+    @Test func nothingToConfirmBeforeARelease() {
+        #expect(model(released: nil, unreleased: 0).releaseConfirmation == nil)
+    }
+
+    @Test func aFullReleaseCountsInTheRightNumber() {
+        #expect(model(released: 1, unreleased: 0).releaseConfirmation == "Released 1 book")
+        #expect(model(released: 4, unreleased: 0).releaseConfirmation == "Released 4 books")
+    }
+
+    @Test func aPartialReleaseSaysHowManyCouldNotBeReleased() {
+        let confirmation = model(released: 2, unreleased: 1).releaseConfirmation
+        #expect(confirmation == "Released 2 of 3 books. 1 couldn't be released.")
     }
 }
 
@@ -166,6 +201,7 @@ struct AdminInboxScanIssueTests {
             selectedBookIds: [],
             isReleasing: false,
             lastReleasedCount: nil,
+            lastUnreleasedCount: 0,
             error: nil,
             scanIssues: [scanIssue(id: "i1"), scanIssue(id: "i2")]
         )
@@ -186,6 +222,7 @@ struct AdminInboxScanIssueTests {
             selectedBookIds: [],
             isReleasing: false,
             lastReleasedCount: nil,
+            lastUnreleasedCount: 0,
             error: nil,
             scanIssues: []
         )

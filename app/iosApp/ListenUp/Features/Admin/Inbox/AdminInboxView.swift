@@ -10,7 +10,8 @@ import Shared
 /// selection, where a row toggles instead; select-all and release then appear (`InboxMode`).
 /// Release confirmation is a native alert. Transient errors surface as an alert.
 /// A release confirms itself: the books leave the inbox, with a success haptic and the count
-/// spoken to VoiceOver.
+/// spoken to VoiceOver. A partial release speaks both counts and keeps the books that stayed held
+/// selected; the reason arrives through the shared error bus.
 ///
 /// SSE updates flow through the shared VM into the observer — no extra wiring here.
 struct AdminInboxView: View {
@@ -87,11 +88,12 @@ struct AdminInboxView: View {
                 // announcement carry it to people not looking at the list (HIG, Feedback).
                 .haptic(.commit, trigger: releases)
                 .onChange(of: ready.lastReleasedCount) { _, count in
-                    guard let count else { return }
+                    guard count != nil, let confirmation = ready.releaseConfirmation else { return }
                     releases += 1
-                    // The released books have left; so has the selection, and with it the mode.
-                    isSelectRequested = false
-                    VoiceOverAnnouncement.post(releasedAnnouncement(count: count))
+                    // The released books have left; so has their selection. Books that stayed held
+                    // are still selected, so the mode stays for Release to retry exactly them.
+                    if ready.lastUnreleasedCount == 0 { isSelectRequested = false }
+                    VoiceOverAnnouncement.post(confirmation)
                     observer.clearReleaseResult()
                 }
         case .error(let message):
@@ -367,11 +369,6 @@ struct AdminInboxView: View {
 
     /// "Released 3 books" — what VoiceOver hears after a release lands. A result, never a prompt:
     /// the prompt is `ReleaseToEveryone`.
-    private func releasedAnnouncement(count: Int) -> String {
-        count == 1
-            ? String(format: String(localized: "admin.inbox_released_count"), count)
-            : String(format: String(localized: "admin.inbox_released_count_plural"), count)
-    }
 }
 
 // MARK: - Book row
