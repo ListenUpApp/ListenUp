@@ -2,6 +2,8 @@ package com.calypsan.listenup.web
 
 import com.calypsan.listenup.web.features.admin.fixedInboxBadge
 import com.calypsan.listenup.web.features.admin.OpenInboxBadge
+import com.calypsan.listenup.web.features.admin.OpenRestrictedBooks
+import com.calypsan.listenup.web.features.admin.fixedRestrictedBooks
 import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
 import com.calypsan.listenup.web.design.ShowActionToast
 import com.calypsan.listenup.web.features.hardcover.OpenBookHardcover
@@ -216,6 +218,7 @@ internal fun mountAt(
     openAdmin: OpenAdmin = fixedAdmin(),
     openAdminInbox: OpenAdminInbox = fixedAdminInbox(),
     openInboxBadge: OpenInboxBadge = fixedInboxBadge(),
+    openRestrictedBooks: OpenRestrictedBooks = fixedRestrictedBooks(),
     openServerSettings: OpenServerSettings = fixedServerSettings(),
     openCategories: OpenCategories = fixedCategories(),
     openCollections: OpenCollections = fixedCollections(),
@@ -303,6 +306,7 @@ internal fun mountAt(
                             upload = openUpload,
                             organize = openOrganize,
                             inboxBadge = openInboxBadge,
+                            restrictedBooks = openRestrictedBooks,
                         ),
                     openShelfDetail = openShelfDetail,
                     openShelfEdit = openShelfEdit,
