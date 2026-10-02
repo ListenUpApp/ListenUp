@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.features.bookdetail
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -31,6 +32,8 @@ import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import io.kotest.matchers.comparables.shouldBeLessThan
+import io.kotest.matchers.comparables.shouldBeLessThanOrEqualTo
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.flowOf
 import org.junit.After
@@ -62,6 +65,7 @@ class BookDetailVisibilityPlacementTest {
 
     private var opened: String? = null
     private var restores = 0
+    private var pickers = 0
 
     @Test
     fun `a restricted book's detail shows the card, and a name opens its collection`() {
@@ -89,14 +93,17 @@ class BookDetailVisibilityPlacementTest {
     }
 
     @Test
+    @Config(qualifiers = TALL_PHONE)
     fun `a member's detail — no visibility — has no card`() {
         show(ready(visibility = null))
         composeRule.onNodeWithText("Visibility").assertDoesNotExist()
     }
 
+    // Stranded would render a card on its own, so only the held guard can be what hides it.
     @Test
+    @Config(qualifiers = TALL_PHONE)
     fun `a held book's triage layout has no Visibility card — the held section says it`() {
-        show(ready(BookVisibility.Held).copy(isHeld = true, canPlay = false))
+        show(ready(BookVisibility.Stranded).copy(isHeld = true, canPlay = false))
         composeRule.onNodeWithText("Release").assertExists()
         composeRule.onNodeWithText("Visibility").assertDoesNotExist()
     }
@@ -121,7 +128,59 @@ class BookDetailVisibilityPlacementTest {
         composeRule.onNodeWithText("Visibility").assertDoesNotExist()
     }
 
-    private fun ready(visibility: BookVisibility?) =
+    @Test
+    @Config(qualifiers = TALL_PHONE)
+    fun `on a phone the card sits after About and before Rating`() {
+        show(ready(restrictedToKids))
+        val about = composeRule.onNodeWithText("About this book").getUnclippedBoundsInRoot()
+        val visibility = composeRule.onNodeWithText("Visibility").getUnclippedBoundsInRoot()
+        val rating = composeRule.onNodeWithText("Rate").getUnclippedBoundsInRoot()
+        about.bottom shouldBeLessThanOrEqualTo visibility.top
+        visibility.bottom shouldBeLessThan rating.top
+    }
+
+    @Test
+    @Config(qualifiers = Windows.TABLET)
+    fun `in the wide layout the card sits after About and before Details`() {
+        show(ready(restrictedToKids, publisher = "Ace"))
+        val about = composeRule.onNodeWithText("About this book").getUnclippedBoundsInRoot()
+        val visibility = composeRule.onNodeWithText("Visibility").getUnclippedBoundsInRoot()
+        val details = composeRule.onNodeWithText("Details").getUnclippedBoundsInRoot()
+        about.bottom shouldBeLessThanOrEqualTo visibility.top
+        visibility.bottom shouldBeLessThan details.top
+    }
+
+    @Test
+    fun `a stranded book's Add to a collection opens the picker on a phone`() {
+        show(ready(BookVisibility.Stranded))
+        composeRule.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Add to a collection"))
+        composeRule.onNodeWithText("Add to a collection").performClick()
+        composeRule.runOnIdle { pickers shouldBe 1 }
+    }
+
+    @Test
+    @Config(qualifiers = Windows.TABLET)
+    fun `a stranded book's Add to a collection opens the picker in the wide layout`() {
+        show(ready(BookVisibility.Stranded))
+        composeRule.onNodeWithText("Add to a collection").performScrollTo().performClick()
+        composeRule.runOnIdle { pickers shouldBe 1 }
+    }
+
+    @Test
+    @Config(qualifiers = Windows.TABLET)
+    fun `in the wide layout a collection name opens its collection`() {
+        show(ready(restrictedToKids))
+        composeRule.onNodeWithText("Kids").performScrollTo().performClick()
+        composeRule.runOnIdle { opened shouldBe "c1" }
+    }
+
+    private val restrictedToKids =
+        BookVisibility.Restricted(listOf(CollectionRef("c1", "Kids")), HiddenFrom.Everyone)
+
+    private fun ready(
+        visibility: BookVisibility?,
+        publisher: String? = null,
+    ) =
         BookDetailUiState.Ready(
             book =
                 BookDetail(
@@ -135,6 +194,7 @@ class BookDetailVisibilityPlacementTest {
                     coverPath = "/tmp/cover-b1.webp",
                     addedAt = Timestamp(0L),
                     updatedAt = Timestamp(0L),
+                    publisher = publisher,
                 ),
             isAdmin = true,
             visibility = visibility,
@@ -183,7 +243,7 @@ class BookDetailVisibilityPlacementTest {
                         onMarkNotStartedClick = {},
                         onRestartClick = {},
                         onAddToShelfClick = {},
-                        onAddToCollectionClick = {},
+                        onAddToCollectionClick = { pickers++ },
                         onShareClick = {},
                         onDeleteBookClick = {},
                         onPlayClick = {},
