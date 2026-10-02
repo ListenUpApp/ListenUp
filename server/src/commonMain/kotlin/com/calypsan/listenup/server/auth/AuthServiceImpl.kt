@@ -746,7 +746,7 @@ class AuthServiceImpl(
     /**
      * Build the in-memory [AuthUser] for a brand-new account with the exact default shape the
      * Exposed `UserEntity.new { … }` path produced: a freshly-minted id, last_login_at NULL,
-     * can_edit / can_share true, approval / invite / tagline fields NULL, avatar_type "auto",
+     * can_edit true, approval / invite / tagline fields NULL, avatar_type "auto",
      * timezone "UTC". The value is both inserted ([insert]) and handed to [SessionIssuer], so the
      * issued session reflects the persisted row without a re-read.
      */
@@ -772,7 +772,6 @@ class AuthServiceImpl(
             status = status,
             createdAt = now,
             canEdit = true,
-            canShare = true,
             approvedBy = null,
             approvedAt = null,
             deletedAt = null,
@@ -796,7 +795,6 @@ class AuthServiceImpl(
             updated_at = user.createdAt,
             last_login_at = null,
             can_edit = if (user.canEdit) 1L else 0L,
-            can_share = if (user.canShare) 1L else 0L,
             approved_by = user.approvedBy,
             approved_at = user.approvedAt,
             deleted_at = user.deletedAt,

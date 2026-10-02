@@ -27,8 +27,6 @@ internal data class AdminUserRosterEntity(
     val role: String,
     /** Account status, e.g. `"active"` / `"pending_approval"`. */
     val status: String,
-    /** Whether the user can share content. */
-    val canShare: Boolean,
     /**
      * Whether the user can edit content metadata (#1270). Defaults to `true` to match the
      * server column default, so a roster row synced before `V60` reads as it behaved.

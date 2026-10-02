@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Admin → a user's detail: read-only identity plus the editable **Can Share** permission — the
+/// Admin → a user's detail: read-only identity plus the editable **Can Edit** permission — the
 /// counterpart to Android's `UserDetailScreen`, and the only place an admin can grant/revoke a
-/// user's sharing right. Protected (root/self) users show the toggle disabled with an explanation.
+/// user's right to edit book metadata. Protected (root/self) users show the toggle disabled with an
+/// explanation.
 struct UserDetailView: View {
     let userId: String
 
@@ -41,7 +42,7 @@ struct UserDetailView: View {
     @ViewBuilder
     private func content(_ ready: UserDetailReadyModel) -> some View {
         Form {
-            Section(String(localized: "common.permissions")) {
+            Section(String(format: String(localized: "common.entity_information"), "User")) {
                 LabeledContent(String(localized: "common.display_name"), value: ready.displayName)
                 LabeledContent(String(localized: "common.email_address"), value: ready.email)
                 LabeledContent(String(localized: "common.role"), value: ready.role.capitalized)
@@ -49,13 +50,17 @@ struct UserDetailView: View {
 
             Section {
                 Toggle(
-                    String(localized: "admin.can_share"),
                     isOn: Binding(
-                        get: { ready.canShare },
-                        set: { _ in observer?.toggleCanShare() }
+                        get: { ready.canEdit },
+                        set: { _ in observer?.toggleCanEdit() }
                     )
-                )
+                ) {
+                    Text(String(localized: "admin.can_edit"))
+                    Text(String(localized: "admin.allow_editing_content_metadata"))
+                }
                 .disabled(ready.isProtected || ready.isSaving)
+            } header: {
+                Text(String(localized: "common.permissions"))
             } footer: {
                 if ready.isProtected {
                     Text(String(localized: "admin.this_users_permissions_cannot_be"))

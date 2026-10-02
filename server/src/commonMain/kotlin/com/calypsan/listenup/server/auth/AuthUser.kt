@@ -29,7 +29,6 @@ internal data class AuthUser(
     val status: UserStatusColumn,
     val createdAt: Long,
     val canEdit: Boolean,
-    val canShare: Boolean,
     val approvedBy: String?,
     val approvedAt: Long?,
     val deletedAt: Long?,
@@ -46,10 +45,9 @@ internal fun Users.toAuthUser(): AuthUser =
         displayName = display_name,
         status = UserStatusColumn.valueOf(status),
         createdAt = created_at,
-        // can_edit / can_share are INTEGER 0/1 in SQLite; 0 ↔ false, anything else ↔ true,
+        // can_edit is INTEGER 0/1 in SQLite; 0 ↔ false, anything else ↔ true,
         // matching the Exposed `bool` adapter that read non-zero as true.
         canEdit = can_edit != 0L,
-        canShare = can_share != 0L,
         approvedBy = approved_by,
         approvedAt = approved_at,
         deletedAt = deleted_at,
@@ -64,7 +62,7 @@ internal fun AuthUser.toContract(): User =
         role = role.toContract(),
         status = status.toContract(),
         createdAt = createdAt,
-        permissions = UserPermissions(canEdit = canEdit, canShare = canShare),
+        permissions = UserPermissions(canEdit = canEdit),
         approvedBy = approvedBy,
         approvedAt = approvedAt,
     )

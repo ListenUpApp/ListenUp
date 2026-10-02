@@ -26,7 +26,6 @@ class AdminUserRosterMaintainerTest :
                         updated_at = 1L,
                         last_login_at = null,
                         can_edit = 1L,
-                        can_share = 1L,
                         approved_by = null,
                         approved_at = null,
                         deleted_at = null,
@@ -50,18 +49,17 @@ class AdminUserRosterMaintainerTest :
                     saved.displayName shouldBe "Ada"
                     saved.role shouldBe "MEMBER"
                     saved.status shouldBe "ACTIVE"
-                    saved.canShare shouldBe true
                     saved.canEdit shouldBe true
                     saved.accountCreatedAt shouldBe 1L
                 }
             }
         }
 
-        test("refresh projects both permission flags independently") {
-            // The projection carried only can_share until #1270, which is why no admin UI could
+        test("refresh projects a revoked canEdit flag") {
+            // The projection did not carry can_edit until #1270, which is why no admin UI could
             // ever reach canEdit — UserPermissionPolicy gated every metadata mutation on a flag
-            // that existed on `users` and stopped there. Asserting a user who may share but may
-            // NOT edit is the case a projection that hardcoded either flag would fail.
+            // that existed on `users` and stopped there. A user who may NOT edit is the case a
+            // projection that hardcoded the flag would fail.
             withSqlDatabase {
                 sql.transaction {
                     sql.usersQueries.insert(
@@ -76,7 +74,6 @@ class AdminUserRosterMaintainerTest :
                         updated_at = 2L,
                         last_login_at = null,
                         can_edit = 0L,
-                        can_share = 1L,
                         approved_by = null,
                         approved_at = null,
                         deleted_at = null,
@@ -95,7 +92,6 @@ class AdminUserRosterMaintainerTest :
 
                     val saved = repo.pullSince(userId = null, cursor = 0, limit = 100).items.single()
                     saved.canEdit shouldBe false
-                    saved.canShare shouldBe true
                 }
             }
         }
@@ -115,7 +111,6 @@ class AdminUserRosterMaintainerTest :
                         updated_at = 1L,
                         last_login_at = null,
                         can_edit = 1L,
-                        can_share = 1L,
                         approved_by = null,
                         approved_at = null,
                         deleted_at = null,

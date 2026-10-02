@@ -289,20 +289,18 @@ fun ListenUpDatabase.seedTestBook(
  *
  * Used in tests that insert `collection_shares` rows — the junction table's FK
  * `shared_with_user_id REFERENCES users(id)` requires the parent row to exist when FK enforcement is
- * enabled — and in permission-enforcement tests that need to control the per-user `canEdit`/`canShare`
- * flags or seed a soft-deleted user. DDL-defaulted columns are supplied explicitly: `avatar_type='auto'`,
+ * enabled — and in permission-enforcement tests that need to control the per-user `canEdit`
+ * flag or seed a soft-deleted user. DDL-defaulted columns are supplied explicitly: `avatar_type='auto'`,
  * `last_login_at=null`, `approved_by=null`, `approved_at=null`, `invited_by=null`, `tagline=null`.
  * Booleans are stored as `1L`/`0L` (SQLite INTEGER 0/1 affinity); enums by their `.name`.
  *
  * @param canEdit the `can_edit` flag (default true, matching the column default).
- * @param canShare the `can_share` flag (default true, matching the column default).
  * @param deletedAt the soft-delete tombstone in epoch-millis; null (default) is a live user.
  */
 fun ListenUpDatabase.seedTestUser(
     userId: String,
     userRole: UserRoleColumn = UserRoleColumn.MEMBER,
     canEdit: Boolean = true,
-    canShare: Boolean = true,
     deletedAt: Long? = null,
     timezone: String = "UTC",
 ) {
@@ -319,7 +317,6 @@ fun ListenUpDatabase.seedTestUser(
             updated_at = 1L,
             last_login_at = null,
             can_edit = if (canEdit) 1L else 0L,
-            can_share = if (canShare) 1L else 0L,
             approved_by = null,
             approved_at = null,
             deleted_at = deletedAt,

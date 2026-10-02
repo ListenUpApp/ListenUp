@@ -15,7 +15,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at **v12** — the Room 3 baseline (v1) plus the [MIGRATION_1_2] volume-boost columns, the
+ * Schema is at **v13** — the Room 3 baseline (v1) plus the [MIGRATION_1_2] volume-boost columns, the
  * [MIGRATION_2_3] `books.normalizationGainDb` tag-fallback column, the [MIGRATION_3_4] per-user
  * permission flags (`admin_user_roster.canEdit`, `users.canEdit`/`canShare`), the
  * [MIGRATION_4_5] presence-cache columns (`cached_active_sessions.lastActiveAtMs`/`isLive`), the
@@ -26,6 +26,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  * no outbox). [MIGRATION_10_11] changes no schema: it drops the `UNKNOWN`-source rows PR-2 builds
  * stored and rewinds that domain's cursor, so the next catch-up re-pulls them decoded.
  * [MIGRATION_11_12] adds `book_readership.hardcoverFinishesJson`, the cached Hardcover reads of each reader.
+ * [MIGRATION_12_13] drops the inert "Can share" columns, `users.canShare` and `admin_user_roster.canShare`.
  * **v1** was the squashed starting point: the pre-1.0 chain (old v1 → v2 → v3) was squashed to a
  * single starting point alongside the Room 2.8.4 → Room 3 migration, while the app was still
  * pre-production and no install base held a database worth preserving. Everything those migrations
@@ -90,7 +91,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         BookRatingEntity::class,
         BookExternalRatingEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
 )
 @ColumnTypeConverters(

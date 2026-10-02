@@ -598,13 +598,6 @@ internal class CollectionServiceImpl(
         manageGate(decision, caller.role)?.let { return AppResult.Failure(it) }
         val systemIds = collectionRepo.systemCollectionIds()
         if (id.value in systemIds) return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
-        // Inert since only admins write collections: manageGate admits ROOT/ADMIN alone, and they
-        // pass the canShare flag implicitly. Kept so sharing stays gated on canShare if member
-        // collection writes ever return.
-        permissionPolicy
-            .requireCanShare(UserId(caller.userId), caller.role.toContract())
-            ?.let { return AppResult.Failure(it) }
-
         if (sharedWithUserId == caller.userId) return AppResult.Failure(CollectionError.SelfShare())
         if (!userExists(sharedWithUserId)) return AppResult.Failure(CollectionError.UserNotFound())
         if (grantRepo.findActiveGrant(id.value, sharedWithUserId) != null) {

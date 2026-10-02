@@ -9,11 +9,9 @@ package com.calypsan.listenup.client.domain.model
  * admin bit and dropped the rest.
  *
  * @property canEdit Whether user can edit content metadata — tags, moods, genres, series, contributors
- * @property canShare Whether user can share collections with other users
  */
 data class UserPermissions(
     val canEdit: Boolean = true,
-    val canShare: Boolean = true,
 )
 
 /**

@@ -289,3 +289,21 @@ internal val MIGRATION_11_12 =
             connection.executeDdl("ALTER TABLE `book_readership` ADD COLUMN `hardcoverFinishesJson` TEXT NOT NULL DEFAULT ''")
         }
     }
+
+/**
+ * v12 → v13: the inert "Can share" permission leaves the local mirror — `users.canShare` and
+ * `admin_user_roster.canShare` are dropped, mirroring the server's `V82__drop_can_share.sql`.
+ *
+ * Since only admins write collections (#1548) the flag gated nothing, so no client reads it any
+ * more. This is a column drop, but not a data loss: every row survives, and the dropped values had
+ * no effect anywhere. The unsynced outbox lives in other tables and is untouched, per the migration
+ * policy in [ListenUpDatabase]. Neither column is indexed or keyed, so SQLite's `DROP COLUMN`
+ * (bundled SQLite on every platform) applies directly — no table rebuild needed.
+ */
+internal val MIGRATION_12_13 =
+    object : Migration(12, 13) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE `users` DROP COLUMN `canShare`")
+            connection.executeDdl("ALTER TABLE `admin_user_roster` DROP COLUMN `canShare`")
+        }
+    }

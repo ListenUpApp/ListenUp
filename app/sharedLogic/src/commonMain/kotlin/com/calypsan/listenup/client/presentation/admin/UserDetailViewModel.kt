@@ -19,7 +19,7 @@ private val logger = KotlinLogging.logger {}
  * ViewModel for the user detail screen.
  *
  * Manages viewing and editing a single user's details and permissions.
- * Allows toggling canShare permission for non-protected users.
+ * Allows toggling the canEdit permission for non-protected users.
  */
 class UserDetailViewModel(
     private val userId: String,
@@ -49,7 +49,6 @@ class UserDetailViewModel(
                         UserDetailUiState.Ready(
                             user = user,
                             canEdit = user.permissions.canEdit,
-                            canShare = user.permissions.canShare,
                             isProtected = user.isProtected,
                         )
                     }
@@ -85,28 +84,11 @@ class UserDetailViewModel(
     }
 
     /**
-     * Toggle the canShare permission.
+     * The optimistic-toggle cycle behind a permission switch.
      *
-     * Optimistically updates the UI state, then saves to server. Reverts on failure.
-     */
-    fun toggleCanShare() {
-        val ready = state.value as? UserDetailUiState.Ready ?: return
-        togglePermission(
-            name = "canShare",
-            previousValue = ready.canShare,
-            optimistic = { current, value -> current.copy(canShare = value) },
-            save = { value -> adminRepository.updateUser(userId = userId, canShare = value) },
-            reconcile = { current, user -> current.copy(canShare = user.permissions.canShare) },
-        )
-    }
-
-    /**
-     * The shared optimistic-toggle cycle behind both permission switches.
-     *
-     * Both flags round-trip identically — flip locally, save, then either reconcile against what
-     * the server actually stored or revert — and #1270 added the second one. Two copies of this
-     * would be two places for the revert to rot, and a permission toggle that fails to revert
-     * leaves the admin looking at a grant the server never made.
+     * Flip locally, save, then either reconcile against what the server actually stored or
+     * revert — a permission toggle that fails to revert leaves the admin looking at a grant the
+     * server never made.
      *
      * [reconcile] deliberately re-reads the flag off the server's response rather than trusting
      * the optimistic value: the server applies permissions wholesale, so its answer is the truth.
@@ -168,7 +150,7 @@ class UserDetailViewModel(
  * Sealed hierarchy:
  * - [Loading] before the first `getUser` response.
  * - [Ready] once the user has loaded; carries the user, edit buffer
- *   (`canEdit`/`canShare`), `isProtected` guard, the `isSaving` overlay for optimistic
+ *   (`canEdit`), `isProtected` guard, the `isSaving` overlay for optimistic
  *   permission toggling, and a transient `error` surfaced as a snackbar when
  *   a toggle fails after the initial load.
  * - [Error] terminal state when the initial load fails.
@@ -177,13 +159,12 @@ sealed interface UserDetailUiState {
     data object Loading : UserDetailUiState
 
     /**
-     * User has loaded; carries the canonical user, edit buffer (`canEdit`/`canShare`),
+     * User has loaded; carries the canonical user, edit buffer (`canEdit`),
      * the `isProtected` guard, save overlay, and a transient `error`.
      */
     data class Ready(
         val user: AdminUserInfo,
         val canEdit: Boolean,
-        val canShare: Boolean,
         val isProtected: Boolean,
         val isSaving: Boolean = false,
         val error: AppError? = null,

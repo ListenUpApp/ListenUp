@@ -95,7 +95,6 @@ interface AdminRepository {
      * @param lastName New last name (null to keep unchanged)
      * @param role New role (null to keep unchanged)
      * @param canEdit New metadata-edit permission (null to keep unchanged)
-     * @param canShare New share permission (null to keep unchanged)
      * @return [AppResult] carrying the updated user info, or a failure.
      */
     suspend fun updateUser(
@@ -104,7 +103,6 @@ interface AdminRepository {
         lastName: String? = null,
         role: String? = null,
         canEdit: Boolean? = null,
-        canShare: Boolean? = null,
     ): AppResult<AdminUserInfo>
 
     // ═══════════════════════════════════════════════════════════════════════

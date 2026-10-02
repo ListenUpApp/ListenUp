@@ -20,7 +20,7 @@ final class UserDetailObserver {
 
     // MARK: - Actions
 
-    func toggleCanShare() { viewModel.toggleCanShare() }
+    func toggleCanEdit() { viewModel.toggleCanEdit() }
     func clearError() { viewModel.clearError() }
 
     // MARK: - State mapping
@@ -46,13 +46,13 @@ enum UserDetailPhase {
     case error(String)
 }
 
-/// Native snapshot of the ready state — the user's display fields plus the editable Can Share
+/// Native snapshot of the ready state — the user's display fields plus the editable Can Edit
 /// permission and the `isProtected` guard that disables it for protected users.
 struct UserDetailReadyModel {
     let displayName: String
     let email: String
     let role: String
-    let canShare: Bool
+    let canEdit: Bool
     let isProtected: Bool
     let isSaving: Bool
     let error: String?
@@ -61,7 +61,7 @@ struct UserDetailReadyModel {
         self.displayName = ready.user.displayName ?? ready.user.email
         self.email = ready.user.email
         self.role = ready.user.role
-        self.canShare = ready.canShare
+        self.canEdit = ready.canEdit
         self.isProtected = ready.isProtected
         self.isSaving = ready.isSaving
         self.error = ready.error?.message

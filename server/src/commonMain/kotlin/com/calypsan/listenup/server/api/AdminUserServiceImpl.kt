@@ -234,13 +234,11 @@ class AdminUserServiceImpl(
                 val mergedRole = patch.role?.toColumn() ?: user.role
                 demoted = user.role == UserRoleColumn.ADMIN && mergedRole == UserRoleColumn.MEMBER
                 val mergedCanEdit = patch.permissions?.canEdit ?: user.canEdit
-                val mergedCanShare = patch.permissions?.canShare ?: user.canShare
                 val now = clock.now().toEpochMilliseconds()
                 sql.usersQueries.updateAdminFields(
                     display_name = mergedDisplayName,
                     role = mergedRole.name,
                     can_edit = mergedCanEdit.toDbLong(),
-                    can_share = mergedCanShare.toDbLong(),
                     updated_at = now,
                     id = id.value,
                 )
@@ -250,7 +248,6 @@ class AdminUserServiceImpl(
                             displayName = mergedDisplayName,
                             role = mergedRole,
                             canEdit = mergedCanEdit,
-                            canShare = mergedCanShare,
                         ).toContract(),
                 )
             }

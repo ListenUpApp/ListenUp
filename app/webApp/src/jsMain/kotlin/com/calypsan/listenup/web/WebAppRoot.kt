@@ -3825,7 +3825,6 @@ private fun UserDetailRoute(
     UserDetailPage(
         state = session.state.collectAsState().value,
         onToggleCanEdit = session.onToggleCanEdit,
-        onToggleCanShare = session.onToggleCanShare,
         onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
     )
 }

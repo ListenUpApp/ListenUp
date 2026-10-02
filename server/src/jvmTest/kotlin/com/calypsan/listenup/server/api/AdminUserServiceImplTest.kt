@@ -123,7 +123,6 @@ class AdminUserServiceImplTest :
                     updated_at = 1L,
                     last_login_at = null,
                     can_edit = 1L,
-                    can_share = 1L,
                     approved_by = null,
                     approved_at = null,
                     deleted_at = null,
@@ -149,12 +148,12 @@ class AdminUserServiceImplTest :
                             UserId("m1"),
                             AdminUserPatch(
                                 role = UserRole.ADMIN,
-                                permissions = UserPermissions(canEdit = false, canShare = false),
+                                permissions = UserPermissions(canEdit = false),
                             ),
                         )
                     val user = res.shouldSucceed()
                     user.role shouldBe UserRole.ADMIN
-                    user.permissions shouldBe UserPermissions(canEdit = false, canShare = false)
+                    user.permissions shouldBe UserPermissions(canEdit = false)
                 }
             }
         }
@@ -169,7 +168,7 @@ class AdminUserServiceImplTest :
                     val user = svc.updateUser(UserId("m1"), AdminUserPatch(displayName = "Renamed")).shouldSucceed()
                     user.displayName shouldBe "Renamed"
                     user.role shouldBe UserRole.MEMBER
-                    user.permissions shouldBe UserPermissions(canEdit = true, canShare = true)
+                    user.permissions shouldBe UserPermissions(canEdit = true)
                 }
             }
         }

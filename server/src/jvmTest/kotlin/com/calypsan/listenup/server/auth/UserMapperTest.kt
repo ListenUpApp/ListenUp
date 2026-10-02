@@ -24,7 +24,6 @@ class UserMapperTest :
                         updated_at = 0L,
                         last_login_at = null,
                         can_edit = 0L,
-                        can_share = 1L,
                         approved_by = "admin1",
                         approved_at = 123L,
                         deleted_at = null,
@@ -40,7 +39,7 @@ class UserMapperTest :
                         .executeAsOne()
                         .toAuthUser()
                         .toContract()
-                user.permissions shouldBe UserPermissions(canEdit = false, canShare = true)
+                user.permissions shouldBe UserPermissions(canEdit = false)
                 user.approvedBy shouldBe "admin1"
                 user.approvedAt shouldBe 123L
             }

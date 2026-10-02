@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.admin
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
@@ -39,10 +40,20 @@ class UserDetailWideLayoutTest {
         assertStacked(composeRule.onNodeWithText("User information"), composeRule.onNodeWithText("Permissions"))
     }
 
+    @Test
+    @Config(qualifiers = Windows.PHONE)
+    fun `the only permission an admin can set is Can edit, with no Can share control`() {
+        setContent()
+
+        composeRule.onNodeWithText("Can edit metadata").assertIsDisplayed()
+        composeRule.onNodeWithText("Can share").assertDoesNotExist()
+        composeRule.onNodeWithText("Allow sharing collections with other users").assertDoesNotExist()
+    }
+
     private fun setContent() {
         composeRule.setContent {
             MaterialTheme {
-                UserDetailContent(state = STATE, onToggleCanEdit = {}, onToggleCanShare = {})
+                UserDetailContent(state = STATE, onToggleCanEdit = {})
             }
         }
     }
@@ -63,7 +74,6 @@ class UserDetailWideLayoutTest {
                         createdAt = "2026-01-01",
                     ),
                 canEdit = true,
-                canShare = false,
                 isProtected = false,
             )
     }

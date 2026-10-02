@@ -77,7 +77,6 @@ class AdminUserServiceDecisionPushTest :
                     updated_at = 1L,
                     last_login_at = null,
                     can_edit = 1L,
-                    can_share = 1L,
                     approved_by = null,
                     approved_at = null,
                     deleted_at = null,

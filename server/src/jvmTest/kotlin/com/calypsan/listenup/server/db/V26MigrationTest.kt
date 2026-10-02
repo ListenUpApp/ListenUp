@@ -10,7 +10,7 @@ import kotlinx.coroutines.withContext
 
 class V26MigrationTest :
     FunSpec({
-        test("users has can_edit/can_share defaulting to 1 and approval/soft-delete columns") {
+        test("users has can_edit defaulting to 1 and approval/soft-delete columns") {
             withSqlDatabase {
                 runBlocking {
                     withContext(Dispatchers.IO) {
@@ -23,18 +23,17 @@ class V26MigrationTest :
                             parameters = 0,
                             binders = null,
                         )
-                        val (canEdit, canShare, deletedAt) =
+                        val (canEdit, deletedAt) =
                             driver
                                 .executeQuery(
                                     identifier = null,
-                                    sql = "SELECT can_edit, can_share, deleted_at FROM users WHERE id='u1'",
+                                    sql = "SELECT can_edit, deleted_at FROM users WHERE id='u1'",
                                     mapper = { cursor ->
                                         cursor.next()
                                         QueryResult.Value(
-                                            Triple(
+                                            Pair(
                                                 cursor.getLong(0),
                                                 cursor.getLong(1),
-                                                cursor.getLong(2),
                                             ),
                                         )
                                     },
@@ -42,7 +41,6 @@ class V26MigrationTest :
                                     binders = null,
                                 ).value
                         canEdit shouldBe 1L
-                        canShare shouldBe 1L
                         deletedAt shouldBe null
                     }
                 }

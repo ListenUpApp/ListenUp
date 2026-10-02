@@ -121,16 +121,6 @@
         }
       }
     },
-    "admin.allow_sharing_collections_with_other": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Allow sharing collections with other users"
-          }
-        }
-      }
-    },
     "admin.approve_reset": {
       "localizations": {
         "en": {
@@ -317,16 +307,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Can manage users and invites"
-          }
-        }
-      }
-    },
-    "admin.can_share": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Can share"
           }
         }
       }

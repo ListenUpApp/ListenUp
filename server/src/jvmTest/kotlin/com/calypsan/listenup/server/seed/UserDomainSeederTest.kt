@@ -68,12 +68,10 @@ class UserDomainSeederTest :
 
                     val member = findUser(sql, UserDomainSeeder.MEMBER_EMAIL)
                     (member.can_edit == 1L) shouldBe true
-                    (member.can_share == 1L) shouldBe true
 
-                    // The restricted member has canEdit/canShare revoked.
+                    // The restricted member has canEdit revoked.
                     val restricted = findUser(sql, UserDomainSeeder.RESTRICTED_EMAIL)
                     (restricted.can_edit == 1L) shouldBe false
-                    (restricted.can_share == 1L) shouldBe false
                 }
             }
         }
