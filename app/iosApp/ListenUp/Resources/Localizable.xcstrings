@@ -16161,16 +16161,6 @@
         }
       }
     },
-    "profile.recently_finished": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Recently finished"
-          }
-        }
-      }
-    },
     "profile.recently_listened": {
       "localizations": {
         "en": {
