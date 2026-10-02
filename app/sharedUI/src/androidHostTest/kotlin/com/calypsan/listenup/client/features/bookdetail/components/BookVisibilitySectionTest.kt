@@ -33,7 +33,7 @@ class BookVisibilitySectionTest {
                 BookVisibilitySection(
                     visibility = visibility,
                     isRestoring = isRestoring,
-                    onCollectionClick = if (canOpen) ({ opened = it }) else null,
+                    onCollectionClick = { id: String -> opened = id }.takeIf { canOpen },
                     onShowToAllMembers = { restores++ },
                     onAddToCollection = { pickers++ },
                 )
