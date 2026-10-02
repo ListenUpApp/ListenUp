@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api
 
+import com.calypsan.listenup.api.dto.MatchProvenance
 import com.calypsan.listenup.api.dto.admin.HardcoverApiTokenStatus
 import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceUnavailable
@@ -15,6 +16,7 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.HardcoverError
+import com.calypsan.listenup.api.metadata.BookField
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
@@ -285,5 +287,21 @@ class HardcoverContractTest :
             error.message shouldBe "Hardcover didn't accept that token. Check it and try again."
             error.code shouldBe "HARDCOVER_TOKEN_REJECTED"
             error.debugInfo shouldBe null
+        }
+
+        test("a match's provenance carries which genres Hardcover added, and round-trips") {
+            val provenance =
+                MatchProvenance(
+                    contributingSources = listOf("Audible", "Hardcover"),
+                    fallbackFields = mapOf(BookField.MOODS to "Hardcover"),
+                    genreSources = mapOf("Space Opera" to "Hardcover"),
+                )
+            val json = contractJson.encodeToString(MatchProvenance.serializer(), provenance)
+            contractJson.decodeFromString(MatchProvenance.serializer(), json) shouldBe provenance
+        }
+
+        test("a provenance payload from a server that predates Hardcover reads as no genre sources") {
+            val legacy = """{"contributingSources":["Audible"],"fallbackFields":{}}"""
+            contractJson.decodeFromString(MatchProvenance.serializer(), legacy).genreSources shouldBe emptyMap()
         }
     })
