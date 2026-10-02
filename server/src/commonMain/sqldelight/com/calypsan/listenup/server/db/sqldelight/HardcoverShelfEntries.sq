@@ -50,3 +50,12 @@ DELETE FROM hardcover_shelf_entries WHERE user_id = :user_id AND book_id = :book
 
 deleteForUser:
 DELETE FROM hardcover_shelf_entries WHERE user_id = :user_id;
+
+-- Whether Hardcover's Want to Read put the book on a shelf and it is still there: what keeping the book off
+-- Hardcover would take off To Read (#1541). A hand removal, or a book shelved by hand, is never Hardcover's.
+isOnShelfFromHardcover:
+SELECT EXISTS(
+    SELECT 1 FROM hardcover_shelf_entries AS e
+    JOIN shelf_books AS s ON s.shelf_id = e.shelf_id AND s.book_id = e.book_id AND s.deleted_at IS NULL
+    WHERE e.user_id = :user_id AND e.book_id = :book_id AND e.state = 'ON_SHELF'
+);

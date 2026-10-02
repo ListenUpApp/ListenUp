@@ -9,3 +9,32 @@ CREATE TABLE hardcover_book_exclusions (
 );
 
 CREATE INDEX idx_hardcover_book_exclusions_book ON hardcover_book_exclusions(book_id);
+
+-- Keeping it off twice keeps the first time: syncing again catches up from then.
+insertExclusion:
+INSERT OR IGNORE INTO hardcover_book_exclusions (user_id, book_id, excluded_at)
+VALUES (:user_id, :book_id, :excluded_at);
+
+selectExclusion:
+SELECT excluded_at FROM hardcover_book_exclusions WHERE user_id = :user_id AND book_id = :book_id;
+
+deleteExclusion:
+DELETE FROM hardcover_book_exclusions WHERE user_id = :user_id AND book_id = :book_id;
+
+isExcluded:
+SELECT EXISTS(SELECT 1 FROM hardcover_book_exclusions WHERE user_id = :user_id AND book_id = :book_id);
+
+-- The listener's kept-off books still in the library, by title: the list the Hardcover screen opens.
+keptOffBooks:
+SELECT x.book_id
+FROM hardcover_book_exclusions AS x
+JOIN books AS b ON b.id = x.book_id AND b.deleted_at IS NULL
+WHERE x.user_id = :user_id
+ORDER BY b.title COLLATE NOCASE, x.book_id;
+
+-- How many of them there are: Connected's keptOffBookCount.
+countKeptOffBooks:
+SELECT COUNT(*)
+FROM hardcover_book_exclusions AS x
+JOIN books AS b ON b.id = x.book_id AND b.deleted_at IS NULL
+WHERE x.user_id = :user_id;
