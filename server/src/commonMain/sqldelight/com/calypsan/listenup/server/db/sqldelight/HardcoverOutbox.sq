@@ -102,3 +102,7 @@ SELECT COUNT(*) FROM hardcover_outbox WHERE user_id = :user_id AND book_id = :bo
 -- Only when I finish (#1538): the user's queued starts and progress are dropped; their FINISH rows stay.
 deleteStartsAndProgressForUser:
 DELETE FROM hardcover_outbox WHERE user_id = :user_id AND op IN ('START', 'PROGRESS');
+
+-- Keeping a book off Hardcover (#1541): every queued row of the book goes, live and HISTORY alike.
+deleteForBook:
+DELETE FROM hardcover_outbox WHERE user_id = :user_id AND book_id = :book_id;
