@@ -29,12 +29,12 @@ private val logger = KotlinLogging.logger {}
  * `ScannerService` RPCs.
  *
  * The held set is read from Room, which the collection sync stream keeps current. A release is the
- * RPC; once the server has committed it, [releaseBooks] tombstones the local INBOX memberships so
- * every held surface converges at once, writes each book's new memberships — All Books for a book
- * released to everyone, the named collections otherwise — as the server just did, so the book never
- * reads as in no collection at all. A partial release ([CollectionError.ReleaseIncomplete]) writes
- * through only the books it does not name — the named ones stayed held on the server, so they stay
- * held here too.
+ * RPC; once the server has committed it, [releaseBooks] writes it through to Room as the server just
+ * did: the INBOX memberships end, so every held surface converges at once, and each book gains its
+ * new memberships — All Books for a book released to everyone, the named collections otherwise — so
+ * it never reads as in no collection at all. A partial release ([CollectionError.ReleaseIncomplete])
+ * writes through only the books it does not name: the named ones stayed held on the server, so they
+ * stay held here too.
  */
 internal class InboxRepositoryImpl(
     private val channel: RpcChannel<CollectionService>,

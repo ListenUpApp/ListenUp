@@ -12,8 +12,9 @@ import kotlinx.coroutines.flow.update
 
 /**
  * In-memory [InboxRepository]. [held] stands in for Room's held set, and a successful release removes
- * the books from it (a partial one, all but the books its `ReleaseIncomplete` names) — exactly what the real write-through does — so specs exercise a consumer's real
- * convergence path instead of a local prune.
+ * the books from it (a partial one, all but the books its `ReleaseIncomplete` names) — exactly what
+ * the real write-through does — so specs exercise a consumer's real convergence path instead of a
+ * local prune.
  *
  * [heldSource] swaps in a custom held-set flow (e.g. one that throws); [releaseGate], when set, holds
  * every [releaseBooks] call in flight until it completes, so a spec can act mid-release.
