@@ -7,8 +7,10 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import com.calypsan.listenup.client.design.components.LocalRestrictedBookIds
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import dev.mokkery.MockMode
@@ -45,13 +47,16 @@ class UserProfileRestrictedTest {
 
     @Test
     fun `a recent book card locks the restricted book only`() {
-        // The hero's avatar reads the profile cache and the image store; neither has anything here.
+        // The hero's avatar reads the profile cache and the image store, and each card resolves its
+        // cover by book id through the server config and session; none has anything here.
         val profiles = mock<UserProfileRepository> { every { observeProfile(any()) } returns flowOf(null) }
         val avatars =
             module {
                 single { profiles }
                 single { mock<ImageStorage>(MockMode.autofill) }
                 single { mock<ImageRepository>(MockMode.autofill) }
+                single { mock<ServerConfig>(MockMode.autofill) }
+                single { mock<AuthSession>(MockMode.autofill) }
             }
         composeRule.setContent {
             KoinApplication(application = { modules(avatars) }) {
@@ -88,8 +93,8 @@ class UserProfileRestrictedTest {
                 longestStreak = 0,
                 recentBooks =
                     listOf(
-                        ProfileRecentBook(bookId = "restricted", title = "Dune", coverPath = "/tmp/cover-restricted.webp"),
-                        ProfileRecentBook(bookId = "open", title = "Emma", coverPath = "/tmp/cover-open.webp"),
+                        ProfileRecentBook(bookId = "restricted", title = "Dune", coverHash = null),
+                        ProfileRecentBook(bookId = "open", title = "Emma", coverHash = null),
                     ),
                 publicShelves = emptyList(),
             )
