@@ -23,7 +23,9 @@ struct HardcoverSourceModelTests {
         )
         #expect(model.token == .saved(username: "simon"))
         #expect(model.savedLine == "Set · belongs to @simon")
-        #expect(model.metadataSubtitle == "Offer Hardcover's moods, genres, series and descriptions when you match a book")
+        #expect(
+            model.metadataSubtitle == "Offer Hardcover's moods, genres, series and descriptions when you match a book"
+        )
     }
 
     @Test func aRejectedTokenAsksToBeReplaced() {

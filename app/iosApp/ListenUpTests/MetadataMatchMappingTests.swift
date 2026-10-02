@@ -196,7 +196,9 @@ struct MetadataMatchMappingTests {
     // MARK: - Hardcover's genres and moods (#1542)
 
     @Test func eachGenreCarriesItsOwnSourceAndHardcoversAdditionsGroupTogether() {
-        let book = makeBook(asin: "B30", title: "Project Hail Mary", genres: ["Science Fiction", "Space Opera", "Humor"])
+        let book = makeBook(
+            asin: "B30", title: "Project Hail Mary", genres: ["Science Fiction", "Space Opera", "Humor"]
+        )
         let added: [String: String] = ["Space Opera": "Hardcover", "Humor": "Hardcover"]
         let preview = MetadataMatchMapping.preview(
             from: ready(book: book),
