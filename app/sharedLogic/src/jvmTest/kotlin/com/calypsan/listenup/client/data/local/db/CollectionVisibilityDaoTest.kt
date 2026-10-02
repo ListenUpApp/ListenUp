@@ -81,7 +81,11 @@ class CollectionVisibilityDaoTest :
                 members.upsert(membership("dead", "b1"))
                 members.upsert(membership("c2", "b1", deletedAt = 5L))
 
-                db.collectionDao().observeCollectionsForBook("b1").first().map { it.id } shouldContainExactlyInAnyOrder
+                db
+                    .collectionDao()
+                    .observeCollectionsForBook("b1")
+                    .first()
+                    .map { it.id } shouldContainExactlyInAnyOrder
                     listOf(ALL_BOOKS, "c1")
             }
         }

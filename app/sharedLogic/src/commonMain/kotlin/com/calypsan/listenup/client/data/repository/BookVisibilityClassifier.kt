@@ -37,10 +37,19 @@ internal fun classifyBookVisibility(
     val live = holding.filter { it.deletedAt == null }.distinctBy { it.id }
     val normal = live.filter { it.isNormal }
     return when {
-        isHeld -> BookVisibility.Held
-        live.isEmpty() -> BookVisibility.Stranded
-        normal.isEmpty() -> BookVisibility.Public
-        else ->
+        isHeld -> {
+            BookVisibility.Held
+        }
+
+        live.isEmpty() -> {
+            BookVisibility.Stranded
+        }
+
+        normal.isEmpty() -> {
+            BookVisibility.Public
+        }
+
+        else -> {
             BookVisibility.Restricted(
                 collections =
                     normal
@@ -48,6 +57,7 @@ internal fun classifyBookVisibility(
                         .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name }),
                 hiddenFrom = hiddenFrom(normal, shares, roster),
             )
+        }
     }
 }
 
@@ -66,11 +76,21 @@ private fun hiddenFrom(
     val members = roster.filter { it.deletedAt == null && it.status == ACTIVE && it.role !in SEES_EVERYTHING }
     val hidden = members.filterNot { it.id in withAccess }
     return when {
-        hidden.isEmpty() -> HiddenFrom.Nobody
-        hidden.size == members.size -> HiddenFrom.Everyone
-        else ->
+        hidden.isEmpty() -> {
+            HiddenFrom.Nobody
+        }
+
+        hidden.size == members.size -> {
+            HiddenFrom.Everyone
+        }
+
+        else -> {
             HiddenFrom.Members(
-                hidden.map { user -> user.displayName.ifBlank { user.email } }.sortedWith(String.CASE_INSENSITIVE_ORDER),
+                hidden
+                    .map { user ->
+                        user.displayName.ifBlank { user.email }
+                    }.sortedWith(String.CASE_INSENSITIVE_ORDER),
             )
+        }
     }
 }
