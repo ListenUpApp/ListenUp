@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.features.bulkedit.PendingSelectionExit
 import com.calypsan.listenup.client.features.bulkedit.bulkEditAppliedMessage
 import com.calypsan.listenup.client.features.documentviewer.DocumentViewerScreen
 import com.calypsan.listenup.client.features.genredestination.GenreDestinationScreen
+import com.calypsan.listenup.client.navigation.AdminCollectionDetail
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BookEdit
 import com.calypsan.listenup.client.navigation.BookReaders
@@ -80,6 +81,7 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
                 },
                 onSeeAllReaders = { id -> backStack.add(BookReaders(id)) },
                 onFindHardcoverMatch = { id -> backStack.add(HardcoverMatch(id)) },
+                onCollectionClick = { id -> backStack.add(AdminCollectionDetail(id)) },
                 onOpenDocumentViewer = { localPath ->
                     backStack.add(DocumentViewer(localPath))
                 },

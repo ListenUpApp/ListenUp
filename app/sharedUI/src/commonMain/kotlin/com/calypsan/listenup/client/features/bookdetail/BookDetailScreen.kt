@@ -64,6 +64,7 @@ import com.calypsan.listenup.client.features.bookdetail.components.AboutSection
 import com.calypsan.listenup.client.features.bookdetail.components.BookDetailTopBar
 import com.calypsan.listenup.client.features.admin.inbox.ReleaseToEveryoneDialog
 import com.calypsan.listenup.client.features.bookdetail.components.BookRatingBlock
+import com.calypsan.listenup.client.features.bookdetail.components.BookVisibilitySection
 import com.calypsan.listenup.client.features.bookdetail.components.HeldForReviewSection
 import com.calypsan.listenup.client.features.bookdetail.components.BookHardcoverSection
 import com.calypsan.listenup.client.features.bookdetail.components.BookReadersSection
@@ -135,6 +136,8 @@ fun BookDetailScreen(
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit = {},
     onFindHardcoverMatch: ((bookId: String) -> Unit)? = null,
+    /** Opens an admin collection from the Visibility card; null shows the names as plain labels. */
+    onCollectionClick: ((collectionId: String) -> Unit)? = null,
     onOpenDocumentViewer: (localPath: String) -> Unit = {},
     viewModel: BookDetailViewModel = koinViewModel(),
 ) {
@@ -222,6 +225,7 @@ fun BookDetailScreen(
                     onUserProfileClick = onUserProfileClick,
                     onSeeAllReaders = onSeeAllReaders,
                     onFindHardcoverMatch = onFindHardcoverMatch,
+                    onCollectionClick = onCollectionClick,
                 )
             }
         }
@@ -314,6 +318,7 @@ private fun BookDetailReadyContent(
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit,
     onFindHardcoverMatch: ((bookId: String) -> Unit)?,
+    onCollectionClick: ((collectionId: String) -> Unit)?,
 ) {
     val platformActions: BookDetailPlatformActions = koinInject()
     val instanceRepository: InstanceRepository = koinInject()
@@ -422,6 +427,8 @@ private fun BookDetailReadyContent(
         onSeeAllReaders = onSeeAllReaders,
         onFindHardcoverMatch = onFindHardcoverMatch,
         onReleaseFromInboxClick = { showReleaseDialog = true },
+        onRestoreToAllBooksClick = { viewModel.restoreToAllBooks() },
+        onCollectionClick = onCollectionClick,
     )
 
     if (showDeleteDialog) {
@@ -597,6 +604,9 @@ fun BookDetailContent(
     onSeeAllReaders: (bookId: String) -> Unit = {},
     onFindHardcoverMatch: ((bookId: String) -> Unit)? = null,
     onReleaseFromInboxClick: () -> Unit = {},
+    onRestoreToAllBooksClick: () -> Unit = {},
+    /** Opens a collection from the Visibility card; null (the frozen desktop) shows plain names. */
+    onCollectionClick: ((collectionId: String) -> Unit)? = null,
 ) {
     val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
 
@@ -650,6 +660,8 @@ fun BookDetailContent(
             onSeeAllReaders = onSeeAllReaders,
             onFindHardcoverMatch = onFindHardcoverMatch,
             onReleaseFromInboxClick = onReleaseFromInboxClick,
+            onRestoreToAllBooksClick = onRestoreToAllBooksClick,
+            onCollectionClick = onCollectionClick,
         )
     } else {
         ImmersiveBookDetail(
@@ -693,6 +705,8 @@ fun BookDetailContent(
             onSeeAllReaders = onSeeAllReaders,
             onFindHardcoverMatch = onFindHardcoverMatch,
             onReleaseFromInboxClick = onReleaseFromInboxClick,
+            onRestoreToAllBooksClick = onRestoreToAllBooksClick,
+            onCollectionClick = onCollectionClick,
         )
     }
 }
@@ -752,6 +766,8 @@ private fun ImmersiveBookDetail(
     onSeeAllReaders: (bookId: String) -> Unit,
     onFindHardcoverMatch: ((bookId: String) -> Unit)?,
     onReleaseFromInboxClick: () -> Unit,
+    onRestoreToAllBooksClick: () -> Unit,
+    onCollectionClick: ((collectionId: String) -> Unit)?,
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var isChaptersExpanded by rememberSaveable { mutableStateOf(false) }
@@ -898,6 +914,21 @@ private fun ImmersiveBookDetail(
 
             // Rating, readers and Hardcover are hidden for a held book (spec §9: hidden, not refused).
             if (!state.isHeld) {
+                // Who can't see it — straight after About, before Rating (canvas). Admins only: a
+                // member's visibility is null. Never in the triage layout: the held section says it.
+                state.visibility?.let { visibility ->
+                    item {
+                        BookVisibilitySection(
+                            visibility = visibility,
+                            isRestoring = state.isRestoringToAllBooks,
+                            onCollectionClick = onCollectionClick,
+                            onShowToAllMembers = onRestoreToAllBooksClick,
+                            onAddToCollection = onAddToCollectionClick,
+                            modifier = screenPadding.padding(vertical = 8.dp),
+                        )
+                    }
+                }
+
                 // Rating — your listeners' stars and your own, right above the people who left them.
                 item {
                     BookRatingBlock(

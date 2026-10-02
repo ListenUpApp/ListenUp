@@ -28,11 +28,15 @@ import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookSeries
+import com.calypsan.listenup.client.domain.model.BookVisibility
+import com.calypsan.listenup.client.domain.model.CollectionRef
+import com.calypsan.listenup.client.domain.model.HiddenFrom
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.features.bookdetail.components.AboutSection
 import com.calypsan.listenup.client.features.bookdetail.components.BookReadersContent
+import com.calypsan.listenup.client.features.bookdetail.components.BookVisibilitySection
 import com.calypsan.listenup.client.features.bookdetail.components.ChapterListItem
 import com.calypsan.listenup.client.features.bookdetail.components.ChaptersHeader
 import com.calypsan.listenup.client.features.contributors.CastRole
@@ -199,6 +203,7 @@ fun BookDetailPreviewGallery() {
             StatsSection()
             GenresVsTagsSection()
             AboutSectionGallery()
+            VisibilitySectionGallery()
             DetailsSectionGallery()
             ActionsSection()
             OfflineSection()
@@ -416,6 +421,34 @@ private fun OfflineSection() {
 
     GalleryLabel("Offline banner — compact")
     OfflineBanner(onRetryClick = {}, modifier = horizontalGutter(), compact = true)
+}
+
+/** The canvas's five Visibility states, admins-only card on Book Detail. */
+@Composable
+private fun VisibilitySectionGallery() {
+    val sciFi = listOf(CollectionRef("c1", "Sci-Fi Club"))
+    val three =
+        listOf(CollectionRef("c1", "Bedtime Stories"), CollectionRef("c2", "Classics Shelf"), CollectionRef("c3", "Family"))
+    val states =
+        listOf(
+            "Visibility — named members" to BookVisibility.Restricted(sciFi, HiddenFrom.Members(listOf("Alice", "Ben"))),
+            "Visibility — three collections, five names" to
+                BookVisibility.Restricted(three, HiddenFrom.Members(listOf("Alice", "Dev", "Hana", "Lee", "Zoe"))),
+            "Visibility — every member" to BookVisibility.Restricted(listOf(CollectionRef("c3", "Family")), HiddenFrom.Nobody),
+            "Visibility — all members" to BookVisibility.Restricted(listOf(CollectionRef("c4", "Drafts")), HiddenFrom.Everyone),
+            "Visibility — stranded" to BookVisibility.Stranded,
+        )
+    states.forEach { (label, visibility) ->
+        GalleryLabel(label)
+        BookVisibilitySection(
+            visibility = visibility,
+            isRestoring = false,
+            onCollectionClick = {},
+            onShowToAllMembers = {},
+            onAddToCollection = {},
+            modifier = horizontalGutter(),
+        )
+    }
 }
 
 @Composable
