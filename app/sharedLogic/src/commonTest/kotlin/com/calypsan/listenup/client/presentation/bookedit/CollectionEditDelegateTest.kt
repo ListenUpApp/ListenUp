@@ -44,6 +44,21 @@ class CollectionEditDelegateTest :
                 isOwner = true,
             )
 
+        fun systemCollection(
+            id: String,
+            isInbox: Boolean,
+        ): Collection =
+            Collection(
+                id = id,
+                name = if (isInbox) "Inbox" else "All Books",
+                ownerId = "system",
+                isInbox = isInbox,
+                isSystem = true,
+                bookCount = 0,
+                callerPermission = SharePermission.Write,
+                isOwner = false,
+            )
+
         class Fixture {
             val state = MutableStateFlow(BookEditUiState(bookId = "book-1"))
             val collectionRepository: CollectionRepository = mock()
@@ -167,6 +182,57 @@ class CollectionEditDelegateTest :
 
                 fixture.state.value.allCollections
                     .map { it.id } shouldContainExactly listOf("c1")
+            }
+        }
+
+        // A public book's membership includes ALL_BOOKS, a held book's includes INBOX — system rows
+        // the picker never shows. The baseline must not count them, or every load reads as an edit.
+        test("a public book's ALL_BOOKS membership is not an unsaved change") {
+            runTest {
+                val fixture = Fixture()
+                every { fixture.collectionRepository.observeCollections() } returns
+                    flowOf(listOf(systemCollection("all-books", isInbox = false), collection("c1", "Favorites")))
+                every { fixture.collectionRepository.observeBookCollectionIds(any()) } returns
+                    flowOf(listOf("all-books", "c1"))
+                val delegate = fixture.build(this)
+
+                delegate.loadCollections("book-1")
+                advanceUntilIdle()
+
+                delegate.hasChanges() shouldBe false
+            }
+        }
+
+        test("a held book's INBOX membership is not an unsaved change") {
+            runTest {
+                val fixture = Fixture()
+                every { fixture.collectionRepository.observeCollections() } returns
+                    flowOf(listOf(systemCollection("inbox", isInbox = true), collection("c1", "Favorites")))
+                every { fixture.collectionRepository.observeBookCollectionIds(any()) } returns
+                    flowOf(listOf("inbox"))
+                val delegate = fixture.build(this)
+
+                delegate.loadCollections("book-1")
+                advanceUntilIdle()
+
+                delegate.hasChanges() shouldBe false
+            }
+        }
+
+        test("a real collection change beside a system membership is still a change") {
+            runTest {
+                val fixture = Fixture()
+                every { fixture.collectionRepository.observeCollections() } returns
+                    flowOf(listOf(systemCollection("all-books", isInbox = false), collection("c1", "Favorites")))
+                every { fixture.collectionRepository.observeBookCollectionIds(any()) } returns
+                    flowOf(listOf("all-books"))
+                val delegate = fixture.build(this)
+                delegate.loadCollections("book-1")
+                advanceUntilIdle()
+
+                delegate.selectCollection(EditableCollection(id = "c1", name = "Favorites"))
+
+                delegate.hasChanges() shouldBe true
             }
         }
     })

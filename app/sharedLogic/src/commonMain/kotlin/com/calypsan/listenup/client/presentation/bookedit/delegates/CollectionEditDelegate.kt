@@ -41,8 +41,8 @@ class CollectionEditDelegate(
     private val onChangesMade: () -> Unit,
 ) {
     /**
-     * The book's collection ids at load time — the baseline the dirty-check diffs
-     * against. `null` until the first reactive load emission lands.
+     * The book's non-system collection ids at load time — the baseline the dirty-check
+     * diffs against. `null` until the first reactive load emission lands.
      */
     private var originalCollectionIds: Set<String>? = null
 
@@ -64,7 +64,10 @@ class CollectionEditDelegate(
             val current = available.filter { it.id in currentIds }
 
             if (originalCollectionIds == null) {
-                originalCollectionIds = currentIds.toSet()
+                // The baseline is the same set the user edits: system memberships (ALL_BOOKS,
+                // INBOX) are server-managed and never in the pending set, so counting them here
+                // would make every public or held book read as edited.
+                originalCollectionIds = current.map { it.id }.toSet()
                 state.update { it.copy(allCollections = available, collections = current) }
             } else {
                 // Baseline already captured — refresh the available list only; never

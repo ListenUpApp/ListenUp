@@ -934,6 +934,97 @@ class BookEditViewModelTest :
             }
         }
 
+        fun makeSystemCollection(
+            id: String,
+            isInbox: Boolean,
+        ): Collection =
+            Collection(
+                id = id,
+                name = if (isInbox) "Inbox" else "All Books",
+                ownerId = "system",
+                isInbox = isInbox,
+                isSystem = true,
+                bookCount = 0,
+                callerPermission = SharePermission.Write,
+                isOwner = false,
+            )
+
+        test("saving a public book's details does not dispatch setBookCollections") {
+            runTest {
+                // Given — the book's membership carries the ALL_BOOKS system row beside a real one
+                val fixture = createFixture()
+                every { fixture.collectionRepository.observeCollections() } returns
+                    flowOf(listOf(makeSystemCollection("all-books", isInbox = false), makeCollection("coll-1", "Favorites")))
+                every { fixture.collectionRepository.observeBookCollectionIds(any()) } returns
+                    flowOf(listOf("all-books", "coll-1"))
+                val editData = createBookEditData(bookId = "book-1", title = "Original")
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
+                everySuspend { fixture.updateBookUseCase(any(), any()) } returns AppResult.Success(Unit)
+                everySuspend { fixture.bookEditRepository.setBookCollections(any(), any()) } returns AppResult.Success(Unit)
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                // When — only the title changes
+                viewModel.onEvent(BookEditUiEvent.TitleChanged("Updated"))
+                viewModel.onEvent(BookEditUiEvent.Save)
+                advanceUntilIdle()
+
+                // Then — the system row is not an edit, so the collection rewrite is skipped
+                verifySuspend(VerifyMode.not) { fixture.bookEditRepository.setBookCollections(any(), any()) }
+            }
+        }
+
+        test("reverting a public book's title clears hasChanges") {
+            runTest {
+                val fixture = createFixture()
+                every { fixture.collectionRepository.observeCollections() } returns
+                    flowOf(listOf(makeSystemCollection("all-books", isInbox = false), makeCollection("coll-1", "Favorites")))
+                every { fixture.collectionRepository.observeBookCollectionIds(any()) } returns
+                    flowOf(listOf("all-books", "coll-1"))
+                val editData = createBookEditData(bookId = "book-1", title = "Original")
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                viewModel.onEvent(BookEditUiEvent.TitleChanged("Updated"))
+                viewModel.state.value.hasChanges shouldBe true
+                viewModel.onEvent(BookEditUiEvent.TitleChanged("Original"))
+
+                viewModel.state.value.hasChanges shouldBe false
+            }
+        }
+
+        test("saving a held book's details leaves its inbox membership alone") {
+            runTest {
+                // Given — a held book: its only membership is the INBOX system row
+                val fixture = createFixture()
+                fixture.inbox.hold("book-1")
+                every { fixture.collectionRepository.observeCollections() } returns
+                    flowOf(listOf(makeSystemCollection("inbox", isInbox = true), makeCollection("coll-1", "Favorites")))
+                every { fixture.collectionRepository.observeBookCollectionIds(any()) } returns
+                    flowOf(listOf("inbox"))
+                val editData = createBookEditData(bookId = "book-1", title = "Original")
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
+                everySuspend { fixture.updateBookUseCase(any(), any()) } returns AppResult.Success(Unit)
+                everySuspend { fixture.bookEditRepository.setBookCollections(any(), any()) } returns AppResult.Success(Unit)
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                // When — a metadata-only save
+                viewModel.onEvent(BookEditUiEvent.TitleChanged("Updated"))
+                viewModel.onEvent(BookEditUiEvent.Save)
+                advanceUntilIdle()
+
+                // Then — no collection rewrite reaches the repository, so nothing can tombstone the
+                // INBOX row: the book stays held, in the inbox and under the badge
+                verifySuspend(VerifyMode.not) { fixture.bookEditRepository.setBookCollections(any(), any()) }
+                viewModel.state.value.isHeld shouldBe true
+            }
+        }
+
         test("dismiss error clears error state") {
             runTest {
                 // Given
