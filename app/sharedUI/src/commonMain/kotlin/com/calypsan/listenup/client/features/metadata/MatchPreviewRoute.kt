@@ -146,6 +146,10 @@ fun MatchPreviewRoute(
                 chapterSuggestion = ready.chapterSuggestion,
                 onReviewChapters = { showChapterReview = true },
                 fallbackSources = ready.fallbackSources,
+                genreSources =
+                    ready.preview.matchProvenance
+                        ?.genreSources
+                        .orEmpty(),
                 coverSourceLabel = ready.coverSourceLabel,
                 coverResolution = ready.coverResolution,
                 contributingSources = ready.contributingSources,

@@ -157,6 +157,7 @@ fun MatchPreviewScreen(
     onReviewChapters: () -> Unit,
     // Provenance
     fallbackSources: Map<BookField, String>,
+    genreSources: Map<String, String> = emptyMap(),
     coverSourceLabel: String?,
     coverResolution: String?,
     contributingSources: List<String>,
@@ -191,6 +192,7 @@ fun MatchPreviewScreen(
                 chapterSuggestion = chapterSuggestion,
                 onReviewChapters = onReviewChapters,
                 fallbackSources = fallbackSources,
+                genreSources = genreSources,
                 coverSourceLabel = coverSourceLabel,
                 coverResolution = coverResolution,
                 onToggleField = onToggleField,
@@ -586,6 +588,7 @@ private fun metadataFieldSections(
     chapterSuggestion: ChapterSuggestion,
     onReviewChapters: () -> Unit,
     fallbackSources: Map<BookField, String>,
+    genreSources: Map<String, String>,
     coverSourceLabel: String?,
     coverResolution: String?,
     onToggleField: (MetadataField) -> Unit,
@@ -640,6 +643,7 @@ private fun metadataFieldSections(
                             selectedGenres = selections.selectedGenres,
                             onToggle = onToggleGenre,
                             sourceLabel = fallbackSources[BookField.GENRES],
+                            genreSources = genreSources,
                         )
                     }
                     if (newMetadata.moods.isNotEmpty()) {
@@ -647,6 +651,7 @@ private fun metadataFieldSections(
                             moods = newMetadata.moods,
                             selectedMoods = selections.selectedMoods,
                             onToggle = onToggleMood,
+                            sourceLabel = fallbackSources[BookField.MOODS],
                         )
                     }
                     if (newMetadata.tags.isNotEmpty()) {
@@ -1397,7 +1402,8 @@ private fun ValueCheckRow(
 
 /**
  * Genre field row: the matched genres as toggleable filled chips with a leading check when selected.
- * [sourceLabel] renders a [FieldSourceChip] beside the header when genres came from a fallback provider.
+ * Genres a gap-filling source (Hardcover) added are grouped after the match's own under their own
+ * [FieldSourceChip] (#1542); [sourceLabel] marks the header when the match's own genres came from a fallback.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -1406,7 +1412,9 @@ private fun GenreFieldRow(
     selectedGenres: Set<String>,
     onToggle: (String) -> Unit,
     sourceLabel: String? = null,
+    genreSources: Map<String, String> = emptyMap(),
 ) {
+    val runs = genres.groupBy { genreSources[it] }
     Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 10.dp)) {
             Text(
@@ -1415,18 +1423,23 @@ private fun GenreFieldRow(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.tertiary,
             )
-            FieldSourceChip(sourceLabel)
+            FieldSourceChip(sourceLabel?.takeIf { null in runs })
         }
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            genres.forEach { genre ->
-                GenreToggleChip(
-                    label = genre,
-                    selected = genre in selectedGenres,
-                    onClick = { onToggle(genre) },
-                )
+        runs.forEach { (source, run) ->
+            if (source != null) {
+                Row(modifier = Modifier.padding(top = 10.dp, bottom = 8.dp)) { FieldSourceChip(source) }
+            }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                run.forEach { genre ->
+                    GenreToggleChip(
+                        label = genre,
+                        selected = genre in selectedGenres,
+                        onClick = { onToggle(genre) },
+                    )
+                }
             }
         }
     }
@@ -1438,15 +1451,18 @@ private fun MoodFieldRow(
     moods: List<String>,
     selectedMoods: Set<String>,
     onToggle: (String) -> Unit,
+    sourceLabel: String? = null,
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
-        Text(
-            text = stringResource(Res.string.metadata_field_moods),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.tertiary,
-            modifier = Modifier.padding(bottom = 10.dp),
-        )
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 10.dp)) {
+            Text(
+                text = stringResource(Res.string.metadata_field_moods),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.tertiary,
+            )
+            FieldSourceChip(sourceLabel)
+        }
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
