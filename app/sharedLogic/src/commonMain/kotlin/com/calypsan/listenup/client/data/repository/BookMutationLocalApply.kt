@@ -229,8 +229,8 @@ internal class BookMutationLocalApply(
 
     /**
      * Set the book's collection membership to exactly [collectionIds] — mirrors the server's diff
-     * (`CollectionService.setBookCollections`): memberships not in the set are tombstoned, missing
-     * ones are added. New rows are written as `revision = 0` stubs; the membership domain's own echo
+     * (`CollectionService.setBookCollections`): normal memberships not in the set are tombstoned,
+     * missing ones are added, and system memberships (INBOX, ALL_BOOKS) are left to the server. New rows are written as `revision = 0` stubs; the membership domain's own echo
      * supersedes them with the authoritative revision.
      */
     private suspend fun applyCollections(
@@ -238,7 +238,7 @@ internal class BookMutationLocalApply(
         collectionIds: List<String>,
     ) {
         val now = currentEpochMilliseconds()
-        val current = collectionBookDao.liveCollectionIdsForBook(bookId.value).toSet()
+        val current = collectionBookDao.liveNormalCollectionIdsForBook(bookId.value).toSet()
         val target = collectionIds.toSet()
         for (collectionId in current - target) {
             collectionBookDao.tombstone(

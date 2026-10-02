@@ -174,16 +174,22 @@ internal interface CollectionBookDao {
     fun observeCollectionIdsForBook(bookId: String): Flow<List<String>>
 
     /**
-     * One-shot live (non-tombstoned) collection ids a book currently belongs to.
+     * One-shot live (non-tombstoned) NORMAL collection ids a book currently belongs to — system
+     * memberships (INBOX, ALL_BOOKS) excluded.
      *
-     * The synchronous counterpart to [observeCollectionIdsForBook], used by the offline-first
-     * `setBookCollections` optimistic write to diff the book's current membership against the
-     * requested set before adding/removing rows.
+     * Used by the offline-first `setBookCollections` optimistic write to diff the book's current
+     * membership against the requested set. The server's diff touches normal memberships only and
+     * derives the system ones itself, so the local diff must never see them: tombstoning a held
+     * book's INBOX row would drop it out of the inbox, and no echo would ever restore it. A
+     * membership whose collection row has not synced yet counts as normal.
      */
     @Query(
-        "SELECT collectionId FROM collection_books WHERE bookId = :bookId AND deletedAt IS NULL ORDER BY createdAt ASC",
+        "SELECT cb.collectionId FROM collection_books cb " +
+            "LEFT JOIN collections c ON c.id = cb.collectionId " +
+            "WHERE cb.bookId = :bookId AND cb.deletedAt IS NULL AND COALESCE(c.isSystem, 0) = 0 " +
+            "ORDER BY cb.createdAt ASC",
     )
-    suspend fun liveCollectionIdsForBook(bookId: String): List<String>
+    suspend fun liveNormalCollectionIdsForBook(bookId: String): List<String>
 
     /**
      * Observe the books held for review, oldest hold first — see [HELD_BOOK_IDS_SQL].

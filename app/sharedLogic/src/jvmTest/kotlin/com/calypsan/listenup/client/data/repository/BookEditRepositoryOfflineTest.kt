@@ -19,10 +19,12 @@ import com.calypsan.listenup.client.data.local.db.CollectionBookEntity
 import com.calypsan.listenup.client.data.local.db.CollectionEntity
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.GenreEntity
+import com.calypsan.listenup.client.data.local.db.HeldBookFixture
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
+import com.calypsan.listenup.client.data.local.db.withHeldBookDb
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperation
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
@@ -47,6 +49,7 @@ import com.calypsan.listenup.core.Timestamp
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
@@ -279,11 +282,51 @@ class BookEditRepositoryOfflineTest :
 
                     repo.setBookCollections(bookId, listOf("new")).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                    db.collectionBookDao().liveCollectionIdsForBook(bookId.value) shouldContainExactly listOf("new")
+                    db.collectionBookDao().liveNormalCollectionIdsForBook(bookId.value) shouldContainExactly listOf("new")
                     db.singleQueuedBooksOp().decodeMutation().shouldBeInstanceOf<BookMutation.SetCollections>()
                 } finally {
                     db.close()
                 }
+            }
+        }
+
+        // The server's setBookCollections diffs NORMAL memberships only — system rows (INBOX,
+        // ALL_BOOKS) are server-managed — so the optimistic write must leave them alone too. A
+        // tombstoned INBOX row would drop a held book out of the inbox, and no echo would repair it.
+        test("setBookCollections on a held book keeps its INBOX membership live") {
+            withHeldBookDb { db ->
+                HeldBookFixture.seedBook(db, "book1")
+                HeldBookFixture.hold(db, "book1")
+                db.seedCollection("c1")
+                val repo = db.bookEditRepository()
+
+                repo.setBookCollections(BookId("book1"), listOf("c1")).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                db.collectionBookDao().heldBookIds() shouldContainExactly listOf("book1")
+                db
+                    .collectionBookDao()
+                    .findByKey(HeldBookFixture.INBOX, "book1")
+                    .shouldNotBeNull()
+                    .deletedAt
+                    .shouldBeNull()
+                db
+                    .collectionBookDao()
+                    .findByKey("c1", "book1")
+                    .shouldNotBeNull()
+                    .deletedAt
+                    .shouldBeNull()
+            }
+        }
+
+        test("setBookCollections on a held book with an unchanged set leaves it held") {
+            withHeldBookDb { db ->
+                HeldBookFixture.seedBook(db, "book1")
+                HeldBookFixture.hold(db, "book1")
+                val repo = db.bookEditRepository()
+
+                repo.setBookCollections(BookId("book1"), emptyList()).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                db.collectionBookDao().heldBookIds() shouldContainExactly listOf("book1")
             }
         }
 
