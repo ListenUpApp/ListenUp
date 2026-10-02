@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.admin
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.scan.ScanIssue
+import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.BookWithContributors
@@ -71,6 +72,7 @@ private data class InboxOverlay(
     val selected: Set<String> = emptySet(),
     val isReleasing: Boolean = false,
     val lastReleasedCount: Int? = null,
+    val lastUnreleasedCount: Int = 0,
     val error: String? = null,
 )
 
@@ -94,7 +96,9 @@ private data class InboxOverlay(
  * moves the book into ALL_BOOKS; per-book collection assignment is book-edit's job. The book leaves
  * the list when its INBOX membership leaves Room, which [InboxRepository.releaseBooks] writes through
  * on success. A refused release goes to the [ErrorBus] — which every platform already shows — and
- * nowhere else, so it is said once.
+ * nowhere else, so it is said once. A partial release ([CollectionError.ReleaseIncomplete]) goes there
+ * too; the books that did leave are confirmed as usual, with the count that stayed held beside them,
+ * and the books that stayed keep their selection so Release retries exactly them.
  *
  * Scan issues are not mirrored and stay on their RPC. The admin event stream is kept for exactly one
  * reason: [AdminEvent.InboxBookAdded] means a scan just ran, which may have raised or cleared an issue.
@@ -170,6 +174,7 @@ class AdminInboxViewModel internal constructor(
                         selectedBookIds = ov.selected.intersect(held.held.ids.toSet()),
                         isReleasing = ov.isReleasing,
                         lastReleasedCount = ov.lastReleasedCount,
+                        lastUnreleasedCount = ov.lastUnreleasedCount,
                         error = ov.error,
                         scanIssues = issues.orEmpty().filterNot { it.id in dismissed },
                     )
@@ -250,7 +255,8 @@ class AdminInboxViewModel internal constructor(
      *
      * One [InboxRepository.releaseBooks] call maps each selected id to an empty target list. On
      * success the books leave the list through Room — the repository writes the INBOX exit through —
-     * so this only clears the selection and records the count for the confirmation. A release already
+     * so this only clears the selection and records the count for the confirmation. A partial release
+     * does the same for the books that left and keeps the rest selected. A release already
      * in flight makes this a no-op, so a double tap sends one release.
      */
     fun releaseSelected() {
@@ -276,21 +282,38 @@ class AdminInboxViewModel internal constructor(
                     )
             ) {
                 is AppResult.Success -> {
-                    overlay.update {
-                        it.copy(
-                            isReleasing = false,
-                            selected = it.selected - releasing,
-                            lastReleasedCount = releasing.size,
-                        )
-                    }
+                    overlay.update { it.released(releasing, stayed = emptySet()) }
                 }
 
                 is AppResult.Failure -> {
-                    overlay.update { it.copy(isReleasing = false) }
-                    errorBus.emit(result.error)
+                    val error = result.error
+                    if (error is CollectionError.ReleaseIncomplete) {
+                        overlay.update { it.released(releasing, stayed = releasing.intersect(error.failedBookIds.toSet())) }
+                    } else {
+                        overlay.update { it.copy(isReleasing = false) }
+                    }
+                    errorBus.emit(error)
                 }
             }
         }
+    }
+
+    /**
+     * The overlay after a release of [releasing] in which [stayed] were not released: the books that
+     * left drop out of the selection and are confirmed, and the ones that stayed keep their selection
+     * so Release retries them. When nothing left there is nothing to confirm.
+     */
+    private fun InboxOverlay.released(
+        releasing: Set<String>,
+        stayed: Set<String>,
+    ): InboxOverlay {
+        val left = releasing - stayed
+        return copy(
+            isReleasing = false,
+            selected = selected - left,
+            lastReleasedCount = left.size.takeIf { it > 0 } ?: lastReleasedCount,
+            lastUnreleasedCount = if (left.isEmpty()) lastUnreleasedCount else stayed.size,
+        )
     }
 
     /** Toggle a book's selection for batch release. */
@@ -319,7 +342,7 @@ class AdminInboxViewModel internal constructor(
 
     /** Clear the last-release-count confirmation. */
     fun clearReleaseResult() {
-        overlay.update { it.copy(lastReleasedCount = null) }
+        overlay.update { it.copy(lastReleasedCount = null, lastUnreleasedCount = 0) }
     }
 
     private suspend fun currentLibraryId(): String? =
@@ -355,6 +378,13 @@ sealed interface AdminInboxUiState {
         val selectedBookIds: Set<String> = emptySet(),
         val isReleasing: Boolean = false,
         val lastReleasedCount: Int? = null,
+        /**
+         * How many books of the release [lastReleasedCount] confirms could not be released and are
+         * still held — `0` when every book left. Set only alongside [lastReleasedCount], so a screen
+         * says "released 2 of 3" in the same breath; a release in which nothing left confirms nothing
+         * and says so through the `ErrorBus` alone.
+         */
+        val lastUnreleasedCount: Int = 0,
         val error: String? = null,
         /**
          * Folders the scanner could not import. Independent of [bookIds]: an issue is not a book

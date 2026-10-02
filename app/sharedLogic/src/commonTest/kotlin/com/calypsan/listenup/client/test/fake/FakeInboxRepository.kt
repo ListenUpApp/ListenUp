@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.test.fake
 
 import com.calypsan.listenup.api.dto.scan.ScanIssue
+import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.core.BookId
@@ -11,7 +12,7 @@ import kotlinx.coroutines.flow.update
 
 /**
  * In-memory [InboxRepository]. [held] stands in for Room's held set, and a successful release removes
- * the books from it — exactly what the real write-through does — so specs exercise a consumer's real
+ * the books from it (a partial one, all but the books its `ReleaseIncomplete` names) — exactly what the real write-through does — so specs exercise a consumer's real
  * convergence path instead of a local prune.
  *
  * [heldSource] swaps in a custom held-set flow (e.g. one that throws); [releaseGate], when set, holds
@@ -46,10 +47,18 @@ class FakeInboxRepository : InboxRepository {
     ): AppResult<Unit> {
         releases += libraryId to assignments
         releaseGate?.await()
-        if (releaseResult is AppResult.Success) {
-            held.update { current -> current.filterNot { it.value in assignments.keys }.toSet() }
+        // Exactly the real write-through: every released book leaves the held set, and a partial
+        // release's named books stay.
+        val result = releaseResult
+        val stayed =
+            when (result) {
+                is AppResult.Success -> emptySet()
+                is AppResult.Failure -> (result.error as? CollectionError.ReleaseIncomplete)?.failedBookIds?.toSet()
+            }
+        if (stayed != null) {
+            held.update { current -> current.filterNot { it.value in assignments.keys && it.value !in stayed }.toSet() }
         }
-        return releaseResult
+        return result
     }
 
     override suspend fun listScanIssues(): AppResult<List<ScanIssue>> {

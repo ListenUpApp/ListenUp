@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.admin
 
 import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.api.dto.scan.ScanIssueReason
+import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
@@ -312,6 +313,91 @@ class AdminInboxViewModelTest :
                     ready.isReleasing shouldBe false
                     errors.cancel()
                 }
+            }
+        }
+
+        test("a partial release confirms what left, keeps the books that stayed selected, and reports once") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.inbox.hold("b1", "b2", "b3", "b4")
+                val incomplete = CollectionError.ReleaseIncomplete(failedBookIds = listOf("b2"))
+                f.inbox.releaseResult = AppResult.Failure(incomplete)
+                val vm = observed(f.build())
+                advanceUntilIdle()
+
+                turbineScope {
+                    val errors = f.errorBus.errors.testIn(backgroundScope)
+
+                    vm.toggleBookSelection("b1")
+                    vm.toggleBookSelection("b2")
+                    vm.toggleBookSelection("b3")
+                    vm.releaseSelected()
+                    advanceUntilIdle()
+
+                    errors.awaitItem() shouldBe incomplete
+                    val ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                    // b1 and b3 left; b2 is still held, and still selected so Release retries it.
+                    ready.bookIds shouldBe listOf("b2", "b4")
+                    ready.selectedBookIds shouldBe setOf("b2")
+                    ready.lastReleasedCount shouldBe 2
+                    ready.lastUnreleasedCount shouldBe 1
+                    ready.isReleasing shouldBe false
+                    withClue("the bus already carries the error; a screen-level copy would say it twice") {
+                        ready.error shouldBe null
+                    }
+                    errors.expectNoEvents()
+                    errors.cancel()
+                }
+
+                vm.clearReleaseResult()
+                advanceUntilIdle()
+                val cleared = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                cleared.lastReleasedCount shouldBe null
+                cleared.lastUnreleasedCount shouldBe 0
+            }
+        }
+
+        test("a release in which every book stayed held confirms nothing and keeps the selection") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.inbox.hold("b1", "b2")
+                val incomplete = CollectionError.ReleaseIncomplete(failedBookIds = listOf("b1", "b2"))
+                f.inbox.releaseResult = AppResult.Failure(incomplete)
+                val vm = observed(f.build())
+                advanceUntilIdle()
+
+                turbineScope {
+                    val errors = f.errorBus.errors.testIn(backgroundScope)
+
+                    vm.selectAll()
+                    vm.releaseSelected()
+                    advanceUntilIdle()
+
+                    errors.awaitItem() shouldBe incomplete
+                    val ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                    ready.bookIds shouldBe listOf("b1", "b2")
+                    ready.selectedBookIds shouldBe setOf("b1", "b2")
+                    ready.lastReleasedCount shouldBe null
+                    ready.lastUnreleasedCount shouldBe 0
+                    errors.cancel()
+                }
+            }
+        }
+
+        test("a full release reports nothing left behind") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.inbox.hold("b1")
+                val vm = observed(f.build())
+                advanceUntilIdle()
+
+                vm.toggleBookSelection("b1")
+                vm.releaseSelected()
+                advanceUntilIdle()
+
+                vm.state.value
+                    .shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                    .lastUnreleasedCount shouldBe 0
             }
         }
 
