@@ -63,7 +63,7 @@ private fun resolverTest(
 ) = withSqlDatabase {
     sql.seedTestUser(USER, userRole = role)
     sql.seedTestLibraryAndFolder()
-    val resolver = HardcoverShelfResolver(sql, BookAccessPolicy(sql, driver))
+    val resolver = HardcoverShelfResolver(sql, BookAccessPolicy(sql, driver), HardcoverExclusions(sql))
     runTest { block(resolver) }
 }
 
@@ -76,6 +76,26 @@ class HardcoverShelfResolverTest :
                 sql.seedTestBook("book-1")
                 HardcoverBookLinkStore(sql).recordAutomaticMatch(USER, "book-1", HardcoverMatch(HC_BOOK, null, HardcoverMatchMethod.ASIN))
                 resolver.resolve(USER, listOf(entry(finished = emptyList()))) shouldBe mapOf(1L to ShelfResolution.Linked("book-1"))
+            }
+        }
+
+        test("a linked book kept off Hardcover resolves to nothing") {
+            resolverTest { resolver ->
+                sql.seedTestBook("book-1")
+                HardcoverBookLinkStore(sql).recordAutomaticMatch(USER, "book-1", HardcoverMatch(HC_BOOK, null, HardcoverMatchMethod.ASIN))
+                sql.seedExclusion(USER, "book-1", at = 1L)
+
+                resolver.resolve(USER, listOf(entry(finished = emptyList()))) shouldBe emptyMap()
+            }
+        }
+
+        test("an unlinked book kept off Hardcover is never matched, even by its ASIN") {
+            resolverTest { resolver ->
+                sql.seedTestBook("book-1", asin = "B005UR3VFO")
+                sql.seedExclusion(USER, "book-1", at = 1L)
+
+                resolver.resolve(USER, listOf(entry(asin = "B005UR3VFO"))) shouldBe emptyMap()
+                resolver.resolve(USER, listOf(entry(asin = "B005UR3VFO", statusId = HardcoverStatus.WANT_TO_READ))) shouldBe emptyMap()
             }
         }
 

@@ -67,7 +67,7 @@ internal class PullRig(
         HardcoverPuller(
             userBooks = userBooks,
             store = store,
-            resolver = HardcoverShelfResolver(sql, BookAccessPolicy(sql, dbs.driver)),
+            resolver = HardcoverShelfResolver(sql, BookAccessPolicy(sql, dbs.driver), HardcoverExclusions(sql)),
             links = links,
             wantToRead = wantToRead,
             rateLimiter = NoWaitRateLimiter(),
@@ -148,6 +148,22 @@ class HardcoverPullerTest :
 
                 store.pulledReads(USER) shouldBe listOf(PulledReadRow(BOOK, noonUtc("2017-03-01"), shelf.reads.single().id))
                 links.linkFor(USER, BOOK)!!.method shouldBe HardcoverMatchMethod.ASIN
+            }
+        }
+
+        test("a book kept off Hardcover brings nothing in: no reads, no link, and Want to Read never shelves it") {
+            pullTest {
+                connect()
+                sql.seedExclusion(USER, BOOK, at = T0)
+                hardcover.seedShelf(HC_BOOK, HardcoverStatus.READ, "2017-01-02" to "2017-03-01", editionId = 9_001L)
+
+                pullAll()
+                store.pulledReads(USER) shouldBe emptyList()
+                links.linkFor(USER, BOOK) shouldBe null
+
+                hardcover.moveTo(HC_BOOK, HardcoverStatus.WANT_TO_READ)
+                pullAll()
+                shelfEntries.recordFor(USER, BOOK) shouldBe null
             }
         }
 

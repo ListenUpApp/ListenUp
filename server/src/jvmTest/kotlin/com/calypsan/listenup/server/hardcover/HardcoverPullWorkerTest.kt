@@ -78,7 +78,7 @@ private class PullWorkerRig(
                 HardcoverPuller(
                     userBooks = HardcoverUserBooks(graphQl),
                     store = store,
-                    resolver = HardcoverShelfResolver(sql, BookAccessPolicy(sql, dbs.driver)),
+                    resolver = HardcoverShelfResolver(sql, BookAccessPolicy(sql, dbs.driver), HardcoverExclusions(sql)),
                     links = links,
                     wantToRead = testWantToRead(dbs, clock),
                     rateLimiter = NoWaitRateLimiter(),

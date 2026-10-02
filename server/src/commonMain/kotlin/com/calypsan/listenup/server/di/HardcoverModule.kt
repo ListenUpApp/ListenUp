@@ -231,7 +231,7 @@ private fun Module.hardcoverPushLane() {
  */
 private fun Module.hardcoverPull() {
     single { HardcoverPullStore(sql = get(), clock = get()) }
-    single { HardcoverShelfResolver(sql = get(), access = get()) }
+    single { HardcoverShelfResolver(sql = get(), access = get(), exclusions = get()) }
     single { HardcoverShelfEntryStore(sql = get(), clock = get()) }
     single {
         HardcoverWantToRead(

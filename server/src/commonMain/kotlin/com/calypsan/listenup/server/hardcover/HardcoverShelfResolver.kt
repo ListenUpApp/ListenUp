@@ -37,11 +37,13 @@ private val REVERSE_TIERS = listOf(HardcoverMatchMethod.ASIN, HardcoverMatchMeth
  * Hardcover lists illustrators and translators with no role, sometimes first (Alice's John Tenniel).
  * It never guesses, never takes a book that already has a link row (a NEEDS_MATCH book, or one the
  * user unlinked with "Change match", is the user's to settle), and costs no Hardcover request: the
- * page carries everything it compares.
+ * page carries everything it compares. A book the listener keeps off Hardcover (#1541) resolves to
+ * nothing, linked or not.
  */
 class HardcoverShelfResolver(
     private val sql: ListenUpDatabase,
     private val access: BookAccessPolicy,
+    private val exclusions: HardcoverExclusions,
 ) {
     private val roles = UserRoleLookup(sql)
 
@@ -80,7 +82,10 @@ class HardcoverShelfResolver(
                         null
                     }
                 }
-            if (resolution != null && claimed.add(resolution.bookId)) resolved[entry.userBookId] = resolution
+            // Kept off Hardcover (#1541): no book, so its reads aren't mirrored, no link is made, and Want to
+            // Read doesn't shelve it.
+            if (resolution == null || exclusions.isExcluded(userId, resolution.bookId)) continue
+            if (claimed.add(resolution.bookId)) resolved[entry.userBookId] = resolution
         }
         return resolved
     }
