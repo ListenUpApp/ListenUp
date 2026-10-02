@@ -128,7 +128,9 @@ class BookDetailViewModelVisibilityTest :
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
-                vm.state.value.shouldBeInstanceOf<BookDetailUiState.Ready>().visibility shouldBe null
+                vm.state.value
+                    .shouldBeInstanceOf<BookDetailUiState.Ready>()
+                    .visibility shouldBe null
             }
         }
 
@@ -139,11 +141,15 @@ class BookDetailViewModelVisibilityTest :
                 val vm = f.build()
                 vm.loadBook("book-1")
                 advanceUntilIdle()
-                vm.state.value.shouldBeInstanceOf<BookDetailUiState.Ready>().visibility shouldBe restricted
+                vm.state.value
+                    .shouldBeInstanceOf<BookDetailUiState.Ready>()
+                    .visibility shouldBe restricted
 
                 f.visibility.setVisibility(bookId, BookVisibility.Public)
                 advanceUntilIdle()
-                vm.state.value.shouldBeInstanceOf<BookDetailUiState.Ready>().visibility shouldBe BookVisibility.Public
+                vm.state.value
+                    .shouldBeInstanceOf<BookDetailUiState.Ready>()
+                    .visibility shouldBe BookVisibility.Public
             }
         }
 
@@ -160,7 +166,9 @@ class BookDetailViewModelVisibilityTest :
                 advanceUntilIdle()
 
                 verifySuspend { f.bookEditRepository.setBookCollections(bookId, emptyList()) }
-                vm.state.value.shouldBeInstanceOf<BookDetailUiState.Ready>().isRestoringToAllBooks shouldBe true
+                vm.state.value
+                    .shouldBeInstanceOf<BookDetailUiState.Ready>()
+                    .isRestoringToAllBooks shouldBe true
 
                 // The server's echo re-homes the book; the restoring state ends with it.
                 f.visibility.setVisibility(bookId, BookVisibility.Public)
@@ -183,7 +191,9 @@ class BookDetailViewModelVisibilityTest :
                 advanceUntilIdle()
 
                 verifySuspend(VerifyMode.not) { f.bookEditRepository.setBookCollections(any(), any()) }
-                vm.state.value.shouldBeInstanceOf<BookDetailUiState.Ready>().isRestoringToAllBooks shouldBe false
+                vm.state.value
+                    .shouldBeInstanceOf<BookDetailUiState.Ready>()
+                    .isRestoringToAllBooks shouldBe false
             }
         }
 
