@@ -212,3 +212,15 @@ interface RatingSource : MetadataCapability {
         refresh: Boolean = false,
     ): AppResult<ExternalRatingMeta?>
 }
+
+/**
+ * Fetches a book's moods — the affective tags readers apply ("Hopeful", "Tense"). Hardcover's community
+ * tags are the only live source (#1542). `Success(null)`/empty when the catalog has none or isn't confident
+ * which book this is; [AppResult.Failure] only on a provider error.
+ */
+interface MoodSource : MetadataCapability {
+    suspend fun getMoods(
+        book: BookIdentity,
+        locale: MetadataLocale,
+    ): AppResult<List<String>?>
+}

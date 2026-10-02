@@ -23,4 +23,9 @@ data class BookIdentity(
     val primaryAuthor: String? = null,
     /** Local audio runtime in milliseconds, when measured — feeds the match scorer. */
     val durationMs: Long? = null,
+    /**
+     * The ListenUp book being matched, when the caller named one. Lets a catalog use what this server
+     * already knows about the book — Hardcover reads an existing link, then the book's own identifiers.
+     */
+    val bookId: String? = null,
 )

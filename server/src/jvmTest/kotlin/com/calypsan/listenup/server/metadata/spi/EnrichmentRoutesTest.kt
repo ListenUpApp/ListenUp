@@ -13,6 +13,7 @@ class EnrichmentRoutesTest :
         val audible = MetadataProviderId.AUDIBLE
         val audnexus = MetadataProviderId.AUDNEXUS
         val itunes = MetadataProviderId.ITUNES
+        val hardcover = MetadataProviderId.HARDCOVER
 
         // ---- orderFor: field override beats domain; domain default otherwise ----
 
@@ -43,12 +44,14 @@ class EnrichmentRoutesTest :
             MetadataDomain.entries.forEach { domain ->
                 d.domainOrder.containsKey(domain) shouldBe true
             }
-            d.orderFor(BookField.TITLE) shouldBe listOf(audible, audnexus)
-            d.orderFor(BookField.AUTHORS) shouldBe listOf(audnexus, audible)
+            d.orderFor(BookField.TITLE) shouldBe listOf(audible, audnexus, hardcover)
+            d.orderFor(BookField.DESCRIPTION) shouldBe listOf(audible, audnexus, hardcover)
+            d.orderFor(BookField.AUTHORS) shouldBe listOf(audnexus, audible, hardcover)
             d.orderFor(BookField.CHAPTERS) shouldBe listOf(audnexus, audible)
             d.orderFor(BookField.COVER) shouldBe listOf(audible, itunes)
-            d.orderFor(BookField.GENRES) shouldBe listOf(audible, audnexus)
-            d.orderFor(BookField.SERIES) shouldBe listOf(audible, audnexus)
+            d.orderFor(BookField.GENRES) shouldBe listOf(audible, audnexus, hardcover)
+            d.orderFor(BookField.SERIES) shouldBe listOf(audible, audnexus, hardcover)
+            d.orderFor(BookField.MOODS) shouldBe listOf(hardcover)
         }
 
         test("CHARACTERS is the honest empty slot") {
@@ -168,5 +171,33 @@ class EnrichmentRoutesTest :
                     parsed.domainOrder.containsKey(domain) shouldBe true
                 }
             }
+        }
+
+        // ---- #1542: Hardcover as a gap-filling metadata source ----
+
+        test("hardcover is a routable provider token now, and the one gap filler") {
+            MetadataProviderId.fromToken("Hardcover") shouldBe hardcover
+            MetadataProviderId.known.contains(hardcover) shouldBe true
+            MetadataProviderId.gapFillers shouldBe setOf(hardcover)
+        }
+
+        test("a global order replaces every domain's chain but leaves moods on Hardcover") {
+            val parsed = EnrichmentRoutes.parse(order = "audible,audnexus", routes = null)
+
+            parsed.orderFor(BookField.GENRES) shouldBe listOf(audible, audnexus)
+            parsed.orderFor(BookField.MOODS) shouldBe listOf(hardcover)
+        }
+
+        test("an env route can move moods, or name Hardcover anywhere") {
+            val parsed = EnrichmentRoutes.parse(order = null, routes = "moods=audnexus; core=hardcover,audible")
+
+            parsed.orderFor(BookField.MOODS) shouldBe listOf(audnexus)
+            parsed.orderFor(BookField.TITLE) shouldBe listOf(hardcover, audible)
+        }
+
+        test("Hardcover is consulted for genres, and through the moods route even when genres leave it out") {
+            EnrichmentRoutes.DEFAULT.providersFor(MetadataDomain.GENRES) shouldBe setOf(audible, audnexus, hardcover)
+            EnrichmentRoutes.parse(order = "audible", routes = null).providersFor(MetadataDomain.GENRES) shouldBe
+                setOf(audible, hardcover)
         }
     })

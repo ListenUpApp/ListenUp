@@ -31,13 +31,20 @@ value class MetadataProviderId(
         val AUDNEXUS = MetadataProviderId("audnexus")
 
         /**
-         * Hardcover, as a rating-only source. Deliberately not in [known]: it is no metadata provider,
-         * so an enrichment route may not name it.
+         * Hardcover's community catalogue (#1542): ratings, and the gaps Audible and Audnexus leave —
+         * moods above all, then genres, series, descriptions and author photos. A [gapFillers] member.
          */
         val HARDCOVER = MetadataProviderId("hardcover")
 
         /** Every built-in id the router recognizes from config tokens. */
-        val known: List<MetadataProviderId> = listOf(AUDIBLE, ITUNES, AUDNEXUS)
+        val known: List<MetadataProviderId> = listOf(AUDIBLE, ITUNES, AUDNEXUS, HARDCOVER)
+
+        /**
+         * Providers that fill gaps rather than identify books. The coordinator never treats one as having
+         * found a book (its fields join a match another catalog made), unions its genres with the
+         * primary's, and always labels a field it supplied — even where it is that field's primary.
+         */
+        val gapFillers: Set<MetadataProviderId> = setOf(HARDCOVER)
 
         /**
          * The prefix that marks an operator-declared custom provider id — the token
