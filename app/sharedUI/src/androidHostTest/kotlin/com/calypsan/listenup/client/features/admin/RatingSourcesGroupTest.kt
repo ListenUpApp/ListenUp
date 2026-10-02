@@ -170,7 +170,7 @@ class RatingSourcesGroupTest {
     fun `a source waiting for a Hardcover connection asks for one`() {
         showOne(status(unavailable = RatingSourceUnavailable.NO_CONNECTION, lastFetchedAt = 1L))
 
-        assertRowReads(ExternalRatingSource.HARDCOVER, "Hardcover", "Connect a Hardcover account to enable")
+        assertRowReads(ExternalRatingSource.HARDCOVER, "Hardcover", "Add a Hardcover API token or connect an account to enable")
     }
 
     @Test
