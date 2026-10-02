@@ -399,6 +399,7 @@ ImportReviewSnapshot
 ImportReviewUserSnapshot
 ImportStatus
 ImportSummary
+InboxBadgeViewModel
 InboxBookItem
 InboxRepository
 InstanceRepository
