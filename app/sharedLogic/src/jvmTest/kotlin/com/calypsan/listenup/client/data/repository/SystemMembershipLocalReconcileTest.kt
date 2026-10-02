@@ -373,11 +373,21 @@ class SystemMembershipLocalReconcileTest :
 
                 // b1 left the inbox on the server: Public at once, through its All Books stub.
                 visibilityOf(db).observeBookVisibility(BookId("b1")).first() shouldBe BookVisibility.Public
-                db.collectionBookDao().findByKey(ALL_BOOKS, "b1").shouldNotBeNull().deletedAt.shouldBeNull()
+                db
+                    .collectionBookDao()
+                    .findByKey(ALL_BOOKS, "b1")
+                    .shouldNotBeNull()
+                    .deletedAt
+                    .shouldBeNull()
                 // b2 stayed held on the server, so it stays held here: no INBOX tombstone, no Kids stub,
                 // and no reconcile into All Books.
                 visibilityOf(db).observeBookVisibility(BookId("b2")).first() shouldBe BookVisibility.Held
-                db.collectionBookDao().findByKey(INBOX, "b2").shouldNotBeNull().deletedAt.shouldBeNull()
+                db
+                    .collectionBookDao()
+                    .findByKey(INBOX, "b2")
+                    .shouldNotBeNull()
+                    .deletedAt
+                    .shouldBeNull()
                 db.collectionBookDao().findByKey("c1", "b2").shouldBeNull()
                 db.collectionBookDao().findByKey(ALL_BOOKS, "b2").shouldBeNull()
             }
