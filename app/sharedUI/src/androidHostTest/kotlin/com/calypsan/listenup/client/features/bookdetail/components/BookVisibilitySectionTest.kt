@@ -1,12 +1,21 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertHasNoClickAction
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.calypsan.listenup.client.domain.model.BookVisibility
 import com.calypsan.listenup.client.domain.model.CollectionRef
 import com.calypsan.listenup.client.domain.model.HiddenFrom
+import io.kotest.matchers.comparables.shouldBeGreaterThanOrEqualTo
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -27,16 +36,19 @@ class BookVisibilitySectionTest {
         visibility: BookVisibility,
         isRestoring: Boolean = false,
         canOpen: Boolean = true,
+        width: Dp = 400.dp,
     ) {
         composeRule.setContent {
             MaterialTheme {
-                BookVisibilitySection(
-                    visibility = visibility,
-                    isRestoring = isRestoring,
-                    onCollectionClick = { id: String -> opened = id }.takeIf { canOpen },
-                    onShowToAllMembers = { restores++ },
-                    onAddToCollection = { pickers++ },
-                )
+                Box(Modifier.width(width)) {
+                    BookVisibilitySection(
+                        visibility = visibility,
+                        isRestoring = isRestoring,
+                        onCollectionClick = { id: String -> opened = id }.takeIf { canOpen },
+                        onShowToAllMembers = { restores++ },
+                        onAddToCollection = { pickers++ },
+                    )
+                }
             }
         }
     }
@@ -92,7 +104,25 @@ class BookVisibilitySectionTest {
     @Test
     fun `with nowhere to open, the names are still shown`() {
         show(BookVisibility.Restricted(sciFi, HiddenFrom.Nobody), canOpen = false)
-        composeRule.onNodeWithText("Sci-Fi Club").assertExists()
+        composeRule.onNodeWithText("Sci-Fi Club").assertExists().assertHasNoClickAction()
+    }
+
+    @Test
+    fun `collection names that wrap keep a gap between their rows`() {
+        val long =
+            listOf(CollectionRef("c1", "Bedtime Stories for Everyone"), CollectionRef("c2", "Classics Shelf of the Family"))
+        show(BookVisibility.Restricted(long, HiddenFrom.Nobody), width = 200.dp)
+        val first = composeRule.onNodeWithText("Bedtime Stories for Everyone").getUnclippedBoundsInRoot()
+        val second = composeRule.onNodeWithText("Classics Shelf of the Family").getUnclippedBoundsInRoot()
+        second.top - first.bottom shouldBeGreaterThanOrEqualTo Spacing.sm
+    }
+
+    // Members(empty) breaks HiddenFrom's invariant (an empty list is Nobody); the card must not crash on it.
+    @Test
+    fun `an empty hidden-from list reads as every member can see it`() {
+        show(BookVisibility.Restricted(sciFi, HiddenFrom.Members(emptyList())))
+        composeRule.onNodeWithText("Every member can see it").assertExists()
+        composeRule.onNodeWithText("Every member is in Sci-Fi Club.").assertExists()
     }
 
     @Test

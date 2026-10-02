@@ -149,7 +149,8 @@ private fun RestrictedBody(
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val collections = visibility.collections
-    val hiddenFrom = visibility.hiddenFrom
+    // An empty Members list breaks HiddenFrom's invariant; read it as the Nobody it means.
+    val hiddenFrom = visibility.hiddenFrom.takeUnless { it is HiddenFrom.Members && it.names.isEmpty() } ?: HiddenFrom.Nobody
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text(
             text = headline(hiddenFrom, expanded),
@@ -182,7 +183,10 @@ private fun RestrictedBody(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
             collections.forEach { collection -> CollectionName(collection, onCollectionClick) }
         }
     }
