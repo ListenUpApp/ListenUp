@@ -72,9 +72,10 @@ sealed interface HardcoverConnection {
      * anything last reached Hardcover or came back from it, or null before the first sync.
      * [isSyncing] is true while a "Sync now" the user asked for is still running. [syncProblem] says
      * why sync isn't keeping up, or is null when it is. [shareMode] is when ListenUp updates Hardcover.
-     * [history] is the offer to send the books finished before connecting. All five default, so a payload
-     * from a server that predates them reads as never synced, idle, healthy, As I listen and no history —
-     * and a mode or history state this build doesn't know reads as As I listen and no history too.
+     * [history] is the offer to send the books finished before connecting. [keptOffBookCount] is how many
+     * books the listener keeps off Hardcover (#1541). All six default, so a payload from a server that
+     * predates them reads as never synced, idle, healthy, As I listen, no history and none kept off — and a
+     * mode or history state this build doesn't know reads as As I listen and no history too.
      */
     @Serializable
     @SerialName("HardcoverConnection.Connected")
@@ -86,6 +87,7 @@ sealed interface HardcoverConnection {
         @SerialName("syncProblem") val syncProblem: HardcoverSyncProblem? = null,
         @SerialName("shareMode") val shareMode: HardcoverShareMode = HardcoverShareMode.AS_I_LISTEN,
         @SerialName("history") val history: HardcoverHistory = HardcoverHistory.None,
+        @SerialName("keptOffBookCount") val keptOffBookCount: Int = 0,
     ) : HardcoverConnection
 
     /**

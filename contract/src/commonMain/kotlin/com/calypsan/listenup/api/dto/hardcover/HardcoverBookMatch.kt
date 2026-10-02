@@ -33,11 +33,22 @@ sealed interface HardcoverBookMatch {
     data object NeedsMatch : HardcoverBookMatch
 
     /**
+     * The listener keeps this book off Hardcover (#1541): nothing about it is sent, and nothing about it is
+     * brought in. Answered whatever the book's link, which is kept for when it syncs again.
+     */
+    @Serializable
+    @SerialName("HardcoverBookMatch.KeptOff")
+    data object KeptOff : HardcoverBookMatch
+
+    /**
      * Linked to Hardcover book [hcBookId], as edition [hcEditionId] when one is named. [title], [authors]
      * and [releaseYear] describe it as Hardcover's catalog does; [title] is null when Hardcover couldn't
      * be asked. [chosenByYou] is true for a match the user picked. [sync] is where it stands. [method] is
      * how the match was made — what [com.calypsan.listenup.api.HardcoverService.restoreMatch] needs to put
-     * it back exactly; null from a server that doesn't say.
+     * it back exactly; null from a server that doesn't say. [readsInReaders] is true when the listener's
+     * Hardcover reads of it show in Readers, and [onToReadFromHardcover] when Hardcover's Want to Read put it
+     * on their To Read shelf: what keeping it off would take out of ListenUp (#1541). Both default to false,
+     * so an older server's payload never asks for a confirmation it can't justify.
      */
     @Serializable
     @SerialName("HardcoverBookMatch.Linked")
@@ -50,5 +61,7 @@ sealed interface HardcoverBookMatch {
         @SerialName("chosenByYou") val chosenByYou: Boolean = false,
         @SerialName("sync") val sync: HardcoverBookSync = HardcoverBookSync.NOTHING_SENT_YET,
         @SerialName("method") val method: HardcoverMatchMethod? = null,
+        @SerialName("readsInReaders") val readsInReaders: Boolean = false,
+        @SerialName("onToReadFromHardcover") val onToReadFromHardcover: Boolean = false,
     ) : HardcoverBookMatch
 }

@@ -122,5 +122,7 @@ private fun HardcoverBookMatch?.toUiState(): BookHardcoverUiState =
     when (this) {
         null, HardcoverBookMatch.Unmatched -> BookHardcoverUiState.Hidden
         HardcoverBookMatch.NeedsMatch -> BookHardcoverUiState.NeedsMatch
+        // Task 13 gives a kept-off book its own state; until then no server answers it.
+        HardcoverBookMatch.KeptOff -> BookHardcoverUiState.Hidden
         is HardcoverBookMatch.Linked -> BookHardcoverUiState.Linked(toMatchedBook(), sync)
     }
