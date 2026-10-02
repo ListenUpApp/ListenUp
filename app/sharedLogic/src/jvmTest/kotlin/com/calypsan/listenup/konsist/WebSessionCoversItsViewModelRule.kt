@@ -263,8 +263,10 @@ private val EXCUSED =
         "BulkEditViewModel.close",
         "ChapterEditorViewModel.close",
         "HomeViewModel.close",
+        "InboxBadgeViewModel.close",
         "LibraryViewModel.close",
         "LibrarySetupViewModel.close",
+        "NotificationBellViewModel.close",
         // Reached via onResultClicked, which IS onResultSelected(hit.id, hit.type, hit.name).
         "SearchViewModel.onResultSelected",
         "SeeAllSearchViewModel.onResultSelected",
