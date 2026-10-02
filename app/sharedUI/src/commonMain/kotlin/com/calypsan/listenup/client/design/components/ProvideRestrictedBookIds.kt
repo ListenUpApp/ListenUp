@@ -14,7 +14,7 @@ import org.koin.compose.viewmodel.koinViewModel
  * member's device publishes the empty set.
  */
 @Composable
-fun ProvideRestrictedBookIds(content: @Composable () -> Unit) {
+internal fun ProvideRestrictedBookIds(content: @Composable () -> Unit) {
     val viewModel: RestrictedBooksViewModel = koinViewModel()
     val restrictedBookIds by viewModel.restrictedBookIds.collectAsStateWithLifecycle()
     CompositionLocalProvider(LocalRestrictedBookIds provides restrictedBookIds, content = content)
