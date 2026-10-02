@@ -72,7 +72,12 @@ class SystemMembershipLocalReconcileTest :
 
                 applyReleaseEcho(db, "b1")
                 visibility.observeBookVisibility(BookId("b1")).first() shouldBe BookVisibility.Public
-                db.collectionBookDao().findByKey(ALL_BOOKS, "b1").shouldNotBeNull().deletedAt.shouldBeNull()
+                db
+                    .collectionBookDao()
+                    .findByKey(ALL_BOOKS, "b1")
+                    .shouldNotBeNull()
+                    .deletedAt
+                    .shouldBeNull()
             }
         }
 
@@ -196,8 +201,16 @@ class SystemMembershipLocalReconcileTest :
                 bookEdit(db).setBookCollections(BookId("public"), listOf("c1"))
                 bookEdit(db).setBookCollections(BookId("held"), listOf("c1"))
 
-                db.collectionBookDao().findByKey(ALL_BOOKS, "public").shouldNotBeNull().deletedAt shouldNotBe null
-                db.collectionBookDao().findByKey(INBOX, "held").shouldNotBeNull().deletedAt shouldNotBe null
+                db
+                    .collectionBookDao()
+                    .findByKey(ALL_BOOKS, "public")
+                    .shouldNotBeNull()
+                    .deletedAt shouldNotBe null
+                db
+                    .collectionBookDao()
+                    .findByKey(INBOX, "held")
+                    .shouldNotBeNull()
+                    .deletedAt shouldNotBe null
                 db.collectionBookDao().findByKey(ALL_BOOKS, "held").shouldBeNull()
                 db.collectionBookDao().observeCollectionIdsForBook("held").first() shouldBe listOf("c1")
             }
