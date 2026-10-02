@@ -321,6 +321,12 @@ class PeopleTest :
             awaitFrame()
 
             edits shouldBe 1
+
+            // The switch reflects the member's actual grant, not a fixed position.
+            val granted = userPage(readyUser(adminUser(canEdit = true)))
+            val grantedSwitches = granted.querySelectorAll(".sw-in").asList().filterIsInstance<HTMLInputElement>()
+            grantedSwitches.size shouldBe 1
+            grantedSwitches[0].hasAttribute("checked") shouldBe true
         }
 
         test("the owner's switches are genuinely disabled, and the page says why") {
