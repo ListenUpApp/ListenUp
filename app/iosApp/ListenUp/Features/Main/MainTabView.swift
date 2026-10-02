@@ -24,6 +24,9 @@ struct MainTabView: View {
     @State private var libraryObserver: LibraryObserver?
     /// The held-for-review count for the Library badge and the Books entry, one per window.
     @State private var inboxBadge: InboxBadgeObserver?
+    /// Whether the tab bar lists the Library sections (sidebar shown) or collapses them into one
+    /// item (sidebar hidden); reported by every tab's stack through `TabBarSectionsProbe`.
+    @State private var isTabBarShowingSections = true
     @State private var bookLinkError: BookLinkError?
     /// The window's book share links, for every book context menu under the shell.
     @State private var shareLinks = BookShareLinks()
@@ -65,6 +68,11 @@ struct MainTabView: View {
 
     /// Books held for review — 0 for anyone who is not an admin, which hides every badge.
     private var heldCount: Int { inboxBadge?.heldCount ?? 0 }
+
+    /// The sidebar's badges: Books while the sections are listed, the collapsed Library item when not.
+    private var libraryBadges: LibraryBadges {
+        LibraryBadges.forPlacement(heldCount: heldCount, showingSections: isTabBarShowingSections)
+    }
 
     var body: some View {
         @Bindable var shell = shell
@@ -213,11 +221,13 @@ struct MainTabView: View {
                         tabStack(.librarySection(section)) { libraryView(for: .librarySection(section)) }
                     }
                     .customizationID("listenup.library.\(section.rawValue)")
-                    // The held count rides Books, the section the entry heads (canvas sI1).
-                    .badge(section == .books ? heldCount : 0)
+                    // The held count rides Books, the section the entry heads (canvas sI1) —
+                    // while the sidebar shows; `LibraryBadges` says why it moves when it hides.
+                    .badge(section == .books ? libraryBadges.books : 0)
                 }
             }
             .customizationID("listenup.librarySections")
+            .badge(libraryBadges.section)
         } else {
             SwiftUI.Tab(ShellTab.library.title, systemImage: "books.vertical.fill", value: ShellTab.library) {
                 tabStack(.library) { libraryView(for: .library) }
@@ -268,6 +278,7 @@ struct MainTabView: View {
         // THIS tab's main stack (a full page) instead of navigating inside the sheet.
         .environment(\.navigateToContributor, { shell.open(ContributorDestination(id: $0)) })
         .environment(\.heroNamespace, heroNamespace)
+        .modifier(TabBarSectionsProbe(isShowingSections: $isTabBarShowingSections))
     }
 
     /// Binding into the shell's per-tab paths, defaulting to an empty path so a missing entry
