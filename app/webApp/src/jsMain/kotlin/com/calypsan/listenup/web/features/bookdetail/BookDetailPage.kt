@@ -134,6 +134,10 @@ fun BookDetailPage(
     onClearDeleteError: () -> Unit = {},
     /** Release this held book (the triage layout's primary action; the page confirms first). */
     onReleaseFromInbox: () -> Unit = {},
+    /** Put a stranded book back in All Books ("Show to all members"; no confirmation, spec §7). */
+    onRestoreToAllBooks: () -> Unit = {},
+    /** Open an admin collection from the Visibility panel. */
+    onOpenCollection: (String) -> Unit = {},
 ) {
     val root = remember { PageRoot() }
     Div(attrs = {
@@ -266,6 +270,9 @@ fun BookDetailPage(
                                 onFindHardcoverMatch = onFindHardcoverMatch,
                                 onRemoveHardcoverMatch = onRemoveHardcoverMatch,
                                 onSetHardcoverSynced = onSetHardcoverSynced,
+                                onRestoreToAllBooks = onRestoreToAllBooks,
+                                onOpenCollection = onOpenCollection,
+                                onAddToCollection = pickers.onShowCollectionPicker,
                             )
                         }
                     }
@@ -490,6 +497,9 @@ private fun OverviewPane(
     onFindHardcoverMatch: () -> Unit,
     onRemoveHardcoverMatch: () -> Unit,
     onSetHardcoverSynced: (Boolean) -> Unit,
+    onRestoreToAllBooks: () -> Unit,
+    onOpenCollection: (String) -> Unit,
+    onAddToCollection: () -> Unit,
 ) {
     Div(attrs = { classes("bd-cols") }) {
         Div(attrs = { classes("bd-main") }) {
@@ -510,6 +520,19 @@ private fun OverviewPane(
             }
         }
         Div(attrs = { classes("bd-side") }) {
+            // First in the side column (canvas). Admins only — a member's visibility is null — and
+            // never for a held book: the held panel above the tabs already says who can't see it.
+            val visibility = state.visibility
+            if (!state.isHeld && visibility != null) {
+                VisibilityPanel(
+                    bookId = state.book.id.value,
+                    visibility = visibility,
+                    isRestoring = state.isRestoringToAllBooks,
+                    onOpenCollection = onOpenCollection,
+                    onRestoreToAllBooks = onRestoreToAllBooks,
+                    onAddToCollection = onAddToCollection,
+                )
+            }
             Panel(title = "Details") {
                 MetaList(details(state))
             }

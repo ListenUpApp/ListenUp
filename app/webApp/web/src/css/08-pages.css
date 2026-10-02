@@ -1240,6 +1240,23 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   .luw .bd-held-actions > * { flex: 1; }
 }
 
+/* Book Detail's Visibility panel (admins only): the side column's first. Who cannot see the book,
+   why, and the collections that are the reason as .pill links (already in the coarse-pointer 44px
+   hit list). A stranded book is one --warn-soft block holding the words and both fixes. */
+.luw .bd-vis-note { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 600; color: var(--ink-3); }
+.luw .bd-vis-body { display: flex; flex-direction: column; gap: 12px; }
+.luw .bd-vis-says { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.luw .bd-vis-head { margin: 0; font-size: 0.9375rem; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+.luw .bd-vis-why { margin: 0; font-size: var(--fs-small); line-height: 1.45; color: var(--ink-2); }
+.luw .bd-vis-more { display: flex; }
+.luw .bd-vis-in { display: flex; flex-direction: column; gap: 8px; }
+.luw .bd-vis-label { font-size: 0.75rem; font-weight: 600; color: var(--ink-3); }
+.luw .bd-vis-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.luw .bd-vis-stranded { display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: var(--r-md); background: var(--warn-soft); }
+.luw .bd-vis-callout { display: flex; gap: 10px; }
+.luw .bd-vis-alert { display: flex; padding-top: 1px; color: var(--warn); }
+.luw .bd-vis-fixes { display: flex; flex-wrap: wrap; gap: 8px; }
+
 /* Book Edit: the line above Collections for a held book. Amber glyph, ink-2 words. */
 .luw .bke-held-note { display: flex; align-items: center; gap: 8px; margin: 0 0 var(--sp-8);
   font-size: var(--fs-small); color: var(--ink-2); }

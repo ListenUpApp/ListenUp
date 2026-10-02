@@ -1827,6 +1827,8 @@ private fun BookDetailRoute(
         onDeleteBook = detailSession.onDeleteBook,
         onClearDeleteError = detailSession.onClearDeleteError,
         onReleaseFromInbox = detailSession.onReleaseFromInbox,
+        onRestoreToAllBooks = detailSession.onRestoreToAllBooks,
+        onOpenCollection = { id -> router.navigate(Route(listOf(ADMIN_KEY, COLLECTIONS_KEY, id))) },
         pickers = bookPickersFor(detailSession),
         onEdit = { router.navigate(Route(listOf(BOOK_KEY, bookId, EDIT_KEY))) },
         onEditChapters = { router.navigate(Route(listOf(BOOK_KEY, bookId, CHAPTERS_KEY))) },
