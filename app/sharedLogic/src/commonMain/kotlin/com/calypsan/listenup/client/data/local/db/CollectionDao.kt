@@ -43,17 +43,23 @@ internal interface CollectionDao {
 
     /**
      * Observe the live collections [bookId] is a live member of — system ones included, so the
-     * visibility classifier can tell Public (All Books) and Restricted apart. Joins through
-     * `collection_books`, so Room re-emits on a membership change as well as a rename.
+     * visibility classifier can tell Public (All Books) and Restricted apart — each row also saying
+     * whether the book is held ([HELD_BOOK_IDS_SQL], the inbox's own definition).
+     *
+     * One statement, so one write is one coherent emission: a release from the inbox into a
+     * collection tombstones the INBOX row and adds the new one in a single transaction, and the
+     * classifier sees both at once rather than a hold that has lifted over a list that has not yet
+     * changed (which read as Public for a frame). No rows means not held: a held book's INBOX
+     * membership is itself a live membership of a live collection, so it is always among the rows.
      */
     @Query(
         """
-        SELECT c.* FROM collections c
+        SELECT c.*, (:bookId IN ($HELD_BOOK_IDS_SQL)) AS isBookHeld FROM collections c
         JOIN collection_books cb ON cb.collectionId = c.id
         WHERE cb.bookId = :bookId AND cb.deletedAt IS NULL AND c.deletedAt IS NULL
     """,
     )
-    fun observeCollectionsForBook(bookId: String): Flow<List<CollectionEntity>>
+    fun observeHoldingCollections(bookId: String): Flow<List<HoldingCollection>>
 
     /**
      * Observe all non-tombstoned collections with their live book counts, ordered by name.
@@ -206,13 +212,6 @@ internal interface CollectionBookDao {
     suspend fun heldBookIds(): List<String>
 
     /**
-     * Whether [bookId] is held for review — [HELD_BOOK_IDS_SQL], the inbox's own definition, so
-     * Book Detail's visibility and held sections cannot disagree about one book.
-     */
-    @Query("SELECT :bookId IN ($HELD_BOOK_IDS_SQL)")
-    fun observeIsHeld(bookId: String): Flow<Boolean>
-
-    /**
      * Observe the ids of restricted books: a live membership in a live **normal** collection
      * (neither system nor inbox), excluding every held book ([HELD_BOOK_IDS_SQL]) — so this set is
      * exactly the books the visibility classifier calls Restricted, and the lock never meets the
@@ -289,7 +288,7 @@ internal interface CollectionBookDao {
     )
     suspend fun hasLiveNormalMembership(bookId: String): Boolean
 
-    /** One-shot counterpart to [observeIsHeld] — [HELD_BOOK_IDS_SQL], the inbox's own definition. */
+    /** Whether [bookId] is held for review, once — [HELD_BOOK_IDS_SQL], the inbox's own definition. */
     @Query("SELECT :bookId IN ($HELD_BOOK_IDS_SQL)")
     suspend fun isHeld(bookId: String): Boolean
 
@@ -437,18 +436,13 @@ internal interface CollectionShareDao {
     fun observeForCollection(collectionId: String): Flow<List<CollectionShareEntity>>
 
     /**
-     * Observe the live shares of every collection [bookId] is a live member of. A share of a
-     * system or tombstoned collection may appear; the classifier keeps only shares of the book's
-     * live normal collections.
+     * Observe every live share. Deliberately not narrowed to one book: a query that joined
+     * `collection_books` would re-run on a membership write separately from the book's membership
+     * read, and their combine could pair the new memberships with the old shares for a frame. The
+     * classifier keeps only shares of the book's live normal collections.
      */
-    @Query(
-        """
-        SELECT s.* FROM collection_shares s
-        JOIN collection_books cb ON cb.collectionId = s.collectionId
-        WHERE cb.bookId = :bookId AND cb.deletedAt IS NULL AND s.deletedAt IS NULL
-    """,
-    )
-    fun observeSharesForBook(bookId: String): Flow<List<CollectionShareEntity>>
+    @Query("SELECT * FROM collection_shares WHERE deletedAt IS NULL")
+    fun observeLive(): Flow<List<CollectionShareEntity>>
 
     /** Live (non-tombstoned) share ids — used by the access-change reconcile. */
     @Query("SELECT id FROM collection_shares WHERE deletedAt IS NULL")

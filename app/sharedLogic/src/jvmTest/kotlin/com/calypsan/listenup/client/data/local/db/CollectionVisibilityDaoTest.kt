@@ -65,9 +65,15 @@ class CollectionVisibilityDaoTest :
                 members.upsert(membership(ALL_BOOKS, "b-public"))
 
                 for (id in listOf("b-held", "b-public", "b-never")) {
-                    members.observeIsHeld(id).first() shouldBe (id in members.heldBookIds())
+                    val holding = db.collectionDao().observeHoldingCollections(id).first()
+                    holding.any { it.isBookHeld } shouldBe (id in members.heldBookIds())
+                    holding.forEach { it.isBookHeld shouldBe (id in members.heldBookIds()) }
                 }
-                members.observeIsHeld("b-held").first() shouldBe true
+                db
+                    .collectionDao()
+                    .observeHoldingCollections("b-held")
+                    .first()
+                    .map { it.isBookHeld } shouldBe listOf(true)
             }
         }
 
@@ -83,27 +89,24 @@ class CollectionVisibilityDaoTest :
 
                 db
                     .collectionDao()
-                    .observeCollectionsForBook("b1")
+                    .observeHoldingCollections("b1")
                     .first()
-                    .map { it.id } shouldContainExactlyInAnyOrder
+                    .map { it.collection.id } shouldContainExactlyInAnyOrder
                     listOf(ALL_BOOKS, "c1")
             }
         }
 
-        test("shares for a book are the live shares of collections it is live in") {
+        test("live shares are every share not revoked") {
             withHeldBookDb { db ->
                 seedCollections(db)
                 db.collectionDao().upsert(normalCollection("c2", "Other"))
-                db.collectionBookDao().upsert(membership("c1", "b1"))
-                // The book left c2: c2's live share must not count for it.
-                db.collectionBookDao().upsert(membership("c2", "b1", deletedAt = 5L))
                 val shares = db.collectionShareDao()
                 shares.upsert(collectionShare("c1", "alice"))
                 shares.upsert(collectionShare("c1", "bob", deletedAt = 5L))
                 shares.upsert(collectionShare("c2", "carol"))
 
-                shares.observeSharesForBook("b1").first().map { it.sharedWithUserId } shouldContainExactly
-                    listOf("alice")
+                shares.observeLive().first().map { it.sharedWithUserId } shouldContainExactlyInAnyOrder
+                    listOf("alice", "carol")
             }
         }
     })

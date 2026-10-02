@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ScannerService
@@ -27,10 +28,14 @@ import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.data.sync.domains.collectionBooksDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.domain.model.BookVisibility
+import com.calypsan.listenup.client.domain.model.CollectionRef
+import com.calypsan.listenup.client.domain.model.HiddenFrom
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.test.fake.FakeUserRepository
+import com.calypsan.listenup.client.test.collectionShare
 import com.calypsan.listenup.client.test.normalCollection
+import com.calypsan.listenup.client.test.rosterUser
 import com.calypsan.listenup.core.BookId
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
@@ -259,15 +264,20 @@ class SystemMembershipLocalReconcileTest :
             }
         }
 
-        test("adding a held book to a collection from the collection screen releases it at once") {
+        test("adding a held book to a collection from the collection screen goes straight from Held to Restricted") {
             withHeldBookDb { db ->
                 seedBook(db, "b1")
-                db.collectionDao().upsert(normalCollection("c1", "Kids"))
+                seedKidsSharedWithAlice(db)
                 hold(db, "b1")
 
-                collections(db).addBook("c1", "b1").shouldBeInstanceOf<AppResult.Success<Boolean>>()
+                visibilityOf(db).observeBookVisibility(BookId("b1")).test {
+                    awaitItemMatching { it == BookVisibility.Held }
 
-                visibilityOf(db).observeBookVisibility(BookId("b1")).first().shouldBeInstanceOf<BookVisibility.Restricted>()
+                    collections(db).addBook("c1", "b1").shouldBeInstanceOf<AppResult.Success<Boolean>>()
+
+                    awaitHeldThenRestricted() shouldBe KIDS_HIDDEN_FROM_BEN
+                    cancelAndIgnoreRemainingEvents()
+                }
                 db
                     .collectionBookDao()
                     .findByKey(INBOX, "b1")
@@ -326,10 +336,10 @@ class SystemMembershipLocalReconcileTest :
             }
         }
 
-        test("a release into a named collection reads Restricted at once, never Stranded, and is never put in All Books") {
+        test("a release into a named collection goes straight from Held to Restricted, and is never put in All Books") {
             withHeldBookDb { db ->
                 seedBook(db, "b1")
-                db.collectionDao().upsert(normalCollection("c1", "Kids"))
+                seedKidsSharedWithAlice(db)
                 hold(db, "b1")
 
                 visibilityOf(db).observeBookVisibility(BookId("b1")).test {
@@ -337,11 +347,7 @@ class SystemMembershipLocalReconcileTest :
 
                     inbox(db).releaseBooks("lib1", mapOf("b1" to listOf("c1"))).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                    // The held flag and the collection list are separate Room flows, so their combine
-                    // can pass through one frame of the stale list; what matters is that the release
-                    // settles on Restricted without ever reading as in no collection at all.
-                    awaitItemMatching { it is BookVisibility.Restricted || it == BookVisibility.Stranded }
-                        .shouldBeInstanceOf<BookVisibility.Restricted>()
+                    awaitHeldThenRestricted() shouldBe KIDS_HIDDEN_FROM_BEN
                     cancelAndIgnoreRemainingEvents()
                 }
                 db.collectionBookDao().findByKey(ALL_BOOKS, "b1").shouldBeNull()
@@ -387,6 +393,31 @@ class SystemMembershipLocalReconcileTest :
     })
 
 private const val SERVER_ALL_BOOKS_ID = "server-all-books-b1"
+
+/** Kids is shared with Alice, so of the two members it hides the book from Ben alone. */
+private val KIDS_HIDDEN_FROM_BEN =
+    BookVisibility.Restricted(
+        collections = listOf(CollectionRef(id = "c1", name = "Kids")),
+        hiddenFrom = HiddenFrom.Members(listOf("Ben")),
+    )
+
+private suspend fun seedKidsSharedWithAlice(db: ListenUpDatabase) {
+    db.collectionDao().upsert(normalCollection("c1", "Kids"))
+    db.collectionShareDao().upsert(collectionShare("c1", "alice"))
+    db.adminUserRosterDao().upsert(rosterUser("alice", "Alice"))
+    db.adminUserRosterDao().upsert(rosterUser("ben", "Ben"))
+}
+
+/**
+ * Await the first emission that is not [BookVisibility.Held] and return it, failing if it is not
+ * [BookVisibility.Restricted]. A release into a collection is one write, so the stream must not pass
+ * through any state in between — a frame of Public or Stranded would be the UI telling the admin
+ * something that was never true.
+ */
+private suspend fun ReceiveTurbine<BookVisibility?>.awaitHeldThenRestricted(): BookVisibility {
+    val next = awaitItemMatching { it != BookVisibility.Held }
+    return next.shouldBeInstanceOf<BookVisibility.Restricted>()
+}
 
 private fun handlerFor(db: ListenUpDatabase) = collectionBooksDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
 

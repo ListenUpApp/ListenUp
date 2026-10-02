@@ -19,12 +19,16 @@ import kotlinx.coroutines.flow.map
 /**
  * Room-backed [BookVisibilityRepository]. Every read is behind [UserRepository.observeIsAdmin]:
  * a member's device gets the empty answer without a single collection query, and a role change
- * switches the reads on or off live. The per-book answer is [classifyBookVisibility] over four
+ * switches the reads on or off live. The per-book answer is [classifyBookVisibility] over three
  * Room flows, so a membership, hold, collection, share or roster write re-classifies with no refresh.
  *
- * @property collectionDao Live collections behind a book's live memberships.
- * @property collectionBookDao The held check (the inbox's fragment) and the restricted-id set.
- * @property collectionShareDao Live shares of a book's collections.
+ * The book's memberships and its hold are one statement ([CollectionDao.observeHoldingCollections]),
+ * and the other two flows read tables a membership write never touches — so a release from the inbox
+ * into a collection is one emission, straight from Held to Restricted, never a frame of Public.
+ *
+ * @property collectionDao A book's live collections, with its hold, in one read.
+ * @property collectionBookDao The restricted-id set.
+ * @property collectionShareDao Every live share.
  * @property adminUserRosterDao The admin-only roster: who the members are, and their roles.
  * @property userRepository Source of the admin gate.
  */
@@ -44,12 +48,17 @@ internal class BookVisibilityRepositoryImpl(
     override fun observeBookVisibility(bookId: BookId): Flow<BookVisibility?> =
         whenAdmin(otherwise = null) {
             combine(
-                collectionBookDao.observeIsHeld(bookId.value),
-                collectionDao.observeCollectionsForBook(bookId.value),
-                collectionShareDao.observeSharesForBook(bookId.value),
+                collectionDao.observeHoldingCollections(bookId.value),
+                collectionShareDao.observeLive(),
                 adminUserRosterDao.observeAll(),
-                ::classifyBookVisibility,
-            )
+            ) { holding, shares, roster ->
+                classifyBookVisibility(
+                    isHeld = holding.any { it.isBookHeld },
+                    holding = holding.map { it.collection },
+                    shares = shares,
+                    roster = roster,
+                )
+            }
         }
 
     private fun <T> whenAdmin(
