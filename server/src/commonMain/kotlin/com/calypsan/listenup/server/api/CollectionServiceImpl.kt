@@ -128,6 +128,52 @@ private suspend fun CollectionBookRepository.upsertOrLog(
 }
 
 /**
+ * Releases one held book into [targetIds], returning whether it left the inbox [inboxId] — the
+ * per-book step of [CollectionServiceImpl.releaseBooks].
+ *
+ * The targets are written first and the inbox junction is tombstoned only after every one has
+ * landed, so a failed write can never leave the book in no collection at all — invisible to members
+ * and absent from the inbox, with nothing that re-homes it. On a failure the targets this call newly
+ * joined are withdrawn again, so the book stays held exactly as it was: a held book sitting in a
+ * members' collection would be visible while the inbox says it is waiting for review. A target the
+ * book was already in before the release is left alone.
+ */
+private suspend fun CollectionBookRepository.releaseOneBook(
+    bookId: String,
+    inboxId: String,
+    targetIds: List<String>,
+    createdAt: Long,
+): Boolean {
+    val alreadyIn = findCollectionIdsForBook(bookId).toSet()
+    val joined = mutableListOf<String>()
+    var allLanded = true
+    for (targetId in targetIds) {
+        val payload =
+            CollectionBookSyncPayload(
+                id = Uuid.random().toString(),
+                collectionId = targetId,
+                bookId = bookId,
+                createdAt = createdAt,
+                revision = 0L,
+                deletedAt = null,
+            )
+        if (upsertOrLog("releaseBooks", payload)) {
+            if (targetId !in alreadyIn) joined += targetId
+        } else {
+            allLanded = false
+        }
+    }
+    if (!allLanded) {
+        for (targetId in joined) softDelete(collectionId = targetId, bookId = bookId)
+        return false
+    }
+    // softDelete is idempotent: a Failure(NotFound) means the book was no longer held, which is
+    // exactly the state a release asks for.
+    softDelete(collectionId = inboxId, bookId = bookId)
+    return true
+}
+
+/**
  * Builds the recipient-agnostic [AccessScope] naming the entities an access change touched, or
  * `null` when the change is too large to delta ([maxBooks]) — the explicit, never-silent fallback to
  * a coarse re-derive. A pure function of the affected ids, so the emission sites can build the scope
@@ -882,14 +928,15 @@ internal class CollectionServiceImpl(
 
         // Sequential suspend repo writes — each opens its own SQLDelight transaction, so they
         // cannot nest inside a non-suspend SQLDelight transaction body. Each book is released on its
-        // own and only once all its target writes have landed — see [releaseOneBook].
+        // own and only once all its target writes have landed — see [CollectionBookRepository.releaseOneBook].
         val releasedBookIds = mutableListOf<String>()
         val releasedTargetIds = mutableSetOf<String>()
         val failedBookIds = mutableListOf<String>()
         for ((bookId, targetCollectionIds) in assignments) {
             // Empty target → release to ALL_BOOKS so the book stays publicly visible.
             val resolvedTargets = targetCollectionIds.ifEmpty { listOfNotNull(allBooksId) }
-            if (releaseOneBook(bookId, inboxId, resolvedTargets)) {
+            val now = clock.now().toEpochMilliseconds()
+            if (collectionBookRepo.releaseOneBook(bookId, inboxId, resolvedTargets, now)) {
                 releasedBookIds += bookId
                 releasedTargetIds += resolvedTargets
             } else {
@@ -930,50 +977,6 @@ internal class CollectionServiceImpl(
                 ),
             )
         }
-    }
-
-    /**
-     * Releases one held book into [targetIds], returning whether it left the inbox.
-     *
-     * The targets are written first and the inbox junction is tombstoned only after every one has
-     * landed, so a failed write can never leave the book in no collection at all — invisible to
-     * members and absent from the inbox, with nothing that re-homes it. On a failure the targets
-     * this call newly joined are withdrawn again, so the book stays held exactly as it was: a held
-     * book sitting in a members' collection would be visible while the inbox says it is waiting
-     * for review. A target the book was already in before the release is left alone.
-     */
-    private suspend fun releaseOneBook(
-        bookId: String,
-        inboxId: String,
-        targetIds: List<String>,
-    ): Boolean {
-        val alreadyIn = collectionBookRepo.findCollectionIdsForBook(bookId).toSet()
-        val joined = mutableListOf<String>()
-        var allLanded = true
-        for (targetId in targetIds) {
-            val payload =
-                CollectionBookSyncPayload(
-                    id = Uuid.random().toString(),
-                    collectionId = targetId,
-                    bookId = bookId,
-                    createdAt = clock.now().toEpochMilliseconds(),
-                    revision = 0L,
-                    deletedAt = null,
-                )
-            if (collectionBookRepo.upsertOrLog("releaseBooks", payload)) {
-                if (targetId !in alreadyIn) joined += targetId
-            } else {
-                allLanded = false
-            }
-        }
-        if (!allLanded) {
-            for (targetId in joined) collectionBookRepo.softDelete(collectionId = targetId, bookId = bookId)
-            return false
-        }
-        // softDelete is idempotent: a Failure(NotFound) means the book was no longer held, which is
-        // exactly the state a release asks for.
-        collectionBookRepo.softDelete(collectionId = inboxId, bookId = bookId)
-        return true
     }
 
     /**
