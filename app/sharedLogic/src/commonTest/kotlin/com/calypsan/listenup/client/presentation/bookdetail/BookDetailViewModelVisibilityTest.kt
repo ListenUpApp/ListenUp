@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
+import app.cash.turbine.test
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.TestData
@@ -229,6 +230,82 @@ class BookDetailViewModelVisibilityTest :
                 val ready = vm.state.value.shouldBeInstanceOf<BookDetailUiState.Ready>()
                 ready.visibility shouldBe BookVisibility.Stranded
                 ready.isRestoringToAllBooks shouldBe false
+            }
+        }
+
+        test("a double tap on Show to all members sends exactly one restore") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.visibility.setVisibility(bookId, BookVisibility.Stranded)
+                everySuspend { f.bookEditRepository.setBookCollections(bookId, emptyList()) } returns AppResult.Success(Unit)
+                val vm = f.build()
+                vm.loadBook("book-1")
+                advanceUntilIdle()
+
+                // Both taps land before the first launch runs — the busy flag must already be up.
+                vm.restoreToAllBooks()
+                vm.restoreToAllBooks()
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.exactly(1)) { f.bookEditRepository.setBookCollections(bookId, emptyList()) }
+            }
+        }
+
+        test("the restoring flag survives an unrelated rebuild while the book is still stranded") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.visibility.setVisibility(bookId, BookVisibility.Stranded)
+                everySuspend { f.bookEditRepository.setBookCollections(bookId, emptyList()) } returns AppResult.Success(Unit)
+                val vm = f.build()
+                vm.loadBook("book-1")
+                advanceUntilIdle()
+                vm.restoreToAllBooks()
+                advanceUntilIdle()
+
+                // Another book being held re-emits the held set, which rebuilds Ready from scratch.
+                f.inboxRepository.hold("another-book")
+                advanceUntilIdle()
+
+                val ready = vm.state.value.shouldBeInstanceOf<BookDetailUiState.Ready>()
+                ready.visibility shouldBe BookVisibility.Stranded
+                ready.isRestoringToAllBooks shouldBe true
+            }
+        }
+
+        test("a refused restore reports the typed error on the error bus") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.visibility.setVisibility(bookId, BookVisibility.Stranded)
+                everySuspend { f.bookEditRepository.setBookCollections(bookId, emptyList()) } returns
+                    AppResult.Failure(BookError.NotFound())
+                val vm = f.build()
+                vm.loadBook("book-1")
+                advanceUntilIdle()
+
+                f.errorBus.errors.test {
+                    vm.restoreToAllBooks()
+                    advanceUntilIdle()
+                    awaitItem() shouldBe BookError.NotFound()
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("restoreToAllBooks trusts the held set even while visibility still reads Stranded") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                // The held set and the visibility are two Room flows; for an emission they can
+                // disagree. The held set wins: a held book is the inbox's to release.
+                f.inboxRepository.hold("book-1")
+                f.visibility.setVisibility(bookId, BookVisibility.Stranded)
+                val vm = f.build()
+                vm.loadBook("book-1")
+                advanceUntilIdle()
+
+                vm.restoreToAllBooks()
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.not) { f.bookEditRepository.setBookCollections(any(), any()) }
             }
         }
     })
