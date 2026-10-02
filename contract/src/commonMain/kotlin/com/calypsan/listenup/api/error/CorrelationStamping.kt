@@ -369,6 +369,7 @@ private fun CollectionError.withCorrelationId(id: String?): CollectionError =
         is CollectionError.SystemCollectionReadOnly -> copy(correlationId = id)
         is CollectionError.SelfShare -> copy(correlationId = id)
         is CollectionError.AlreadyShared -> copy(correlationId = id)
+        is CollectionError.ReleaseIncomplete -> copy(correlationId = id)
     }
 
 private fun ShelfError.withCorrelationId(id: String?): ShelfError =

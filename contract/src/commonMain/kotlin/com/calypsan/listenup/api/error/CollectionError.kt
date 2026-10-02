@@ -12,13 +12,15 @@ import kotlinx.serialization.Serializable
  * per-instance technical detail for debug builds; [message] is the constant
  * user-facing string.
  *
- * [isRetryable] is `false` for all subtypes — collection failures require user
- * action (correct input, choose a different target user, etc.).
+ * [isRetryable] is `false` for every subtype but [ReleaseIncomplete] — those failures require
+ * user action (correct input, choose a different target user, etc.). A [ReleaseIncomplete]
+ * names books that are still held exactly as they were, so asking again is safe.
  *
  * HTTP status mapping (wired in `AppErrorStatusPages.kt`):
  * - [NotFound] / [BookNotFound] / [UserNotFound] → 404
  * - [Forbidden] → 403
  * - [InvalidInput] / [SystemCollectionReadOnly] / [SelfShare] / [AlreadyShared] → 400
+ * - [ReleaseIncomplete] → 500
  */
 @Serializable
 sealed interface CollectionError : AppError {
@@ -144,5 +146,27 @@ sealed interface CollectionError : AppError {
         override val message: String = "This collection is already shared with that user."
         override val code: String = "COLLECTION_ALREADY_SHARED"
         override val isRetryable: Boolean = false
+    }
+
+    /**
+     * A release from the inbox freed some books but not all of them.
+     *
+     * Every book in [failedBookIds] is still held — back in the inbox exactly as it was before the
+     * release, in no other collection — so nothing is hidden from members and nothing is half-public.
+     * Every other book in the request was released normally. A client writes through only the books
+     * that left, keeps the failed ones held, and may ask again: retrying re-sends the same release of
+     * books that are unchanged, which is why this is retryable.
+     */
+    @Serializable
+    @SerialName("CollectionError.ReleaseIncomplete")
+    data class ReleaseIncomplete(
+        @SerialName("failedBookIds")
+        val failedBookIds: List<String>,
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : CollectionError {
+        override val message: String = "Some books couldn't be released. They're still in the inbox."
+        override val code: String = "COLLECTION_RELEASE_INCOMPLETE"
+        override val isRetryable: Boolean = true
     }
 }

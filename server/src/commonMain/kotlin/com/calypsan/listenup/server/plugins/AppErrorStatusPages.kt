@@ -535,6 +535,7 @@ private fun CollectionError.toHttpStatus(): HttpStatusCode =
         is CollectionError.SystemCollectionReadOnly -> HttpStatusCode.BadRequest
         is CollectionError.SelfShare -> HttpStatusCode.BadRequest
         is CollectionError.AlreadyShared -> HttpStatusCode.BadRequest
+        is CollectionError.ReleaseIncomplete -> HttpStatusCode.InternalServerError
     }
 
 private fun ShelfError.toHttpStatus(): HttpStatusCode =
