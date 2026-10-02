@@ -430,6 +430,7 @@ private fun HardcoverError.withCorrelationId(id: String?): HardcoverError =
         is HardcoverError.ConnectionBroken -> copy(correlationId = id)
         is HardcoverError.AlreadyConnected -> copy(correlationId = id)
         is HardcoverError.NotConnected -> copy(correlationId = id)
+        is HardcoverError.TokenRejected -> copy(correlationId = id)
     }
 
 private fun RatingError.withCorrelationId(id: String?): RatingError =
