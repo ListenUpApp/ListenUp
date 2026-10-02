@@ -42,6 +42,20 @@ internal interface CollectionDao {
     fun observeById(id: String): Flow<CollectionEntity?>
 
     /**
+     * Observe the live collections [bookId] is a live member of — system ones included, so the
+     * visibility classifier can tell Public (All Books) and Restricted apart. Joins through
+     * `collection_books`, so Room re-emits on a membership change as well as a rename.
+     */
+    @Query(
+        """
+        SELECT c.* FROM collections c
+        JOIN collection_books cb ON cb.collectionId = c.id
+        WHERE cb.bookId = :bookId AND cb.deletedAt IS NULL AND c.deletedAt IS NULL
+    """,
+    )
+    fun observeCollectionsForBook(bookId: String): Flow<List<CollectionEntity>>
+
+    /**
      * Observe all non-tombstoned collections with their live book counts, ordered by name.
      *
      * `bookCount` counts live (non-tombstoned) [CollectionBookEntity] rows per collection
@@ -206,6 +220,30 @@ internal interface CollectionBookDao {
     suspend fun heldBookIds(): List<String>
 
     /**
+     * Whether [bookId] is held for review — [HELD_BOOK_IDS_SQL], the inbox's own definition, so
+     * Book Detail's visibility and held sections cannot disagree about one book.
+     */
+    @Query("SELECT :bookId IN ($HELD_BOOK_IDS_SQL)")
+    fun observeIsHeld(bookId: String): Flow<Boolean>
+
+    /**
+     * Observe the ids of restricted books: a live membership in a live **normal** collection
+     * (neither system nor inbox), excluding every held book ([HELD_BOOK_IDS_SQL]) — so this set is
+     * exactly the books the visibility classifier calls Restricted, and the lock never meets the
+     * *Held* marker on a card. Drives the admin-only lock on every book card; the repository gates
+     * it to admins.
+     */
+    @Query(
+        """
+        SELECT DISTINCT cb.bookId FROM collection_books cb
+        JOIN collections c ON c.id = cb.collectionId
+        WHERE cb.deletedAt IS NULL AND c.deletedAt IS NULL AND c.isSystem = 0 AND c.isInbox = 0
+          AND cb.bookId NOT IN ($HELD_BOOK_IDS_SQL)
+    """,
+    )
+    fun observeRestrictedBookIds(): Flow<List<String>>
+
+    /**
      * Tombstone the INBOX memberships of [bookIds] — the write-through after the server has
      * committed a release, so the books leave the inbox, the badge and the library's exclusion the
      * moment the RPC succeeds rather than when the echo lands.
@@ -329,6 +367,20 @@ internal interface CollectionShareDao {
         "SELECT * FROM collection_shares WHERE collectionId = :collectionId AND deletedAt IS NULL ORDER BY sharedWithUserId ASC",
     )
     fun observeForCollection(collectionId: String): Flow<List<CollectionShareEntity>>
+
+    /**
+     * Observe the live shares of every collection [bookId] is a live member of. A share of a
+     * system or tombstoned collection may appear; the classifier keeps only shares of the book's
+     * live normal collections.
+     */
+    @Query(
+        """
+        SELECT s.* FROM collection_shares s
+        JOIN collection_books cb ON cb.collectionId = s.collectionId
+        WHERE cb.bookId = :bookId AND cb.deletedAt IS NULL AND s.deletedAt IS NULL
+    """,
+    )
+    fun observeSharesForBook(bookId: String): Flow<List<CollectionShareEntity>>
 
     /** Live (non-tombstoned) share ids — used by the access-change reconcile. */
     @Query("SELECT id FROM collection_shares WHERE deletedAt IS NULL")
