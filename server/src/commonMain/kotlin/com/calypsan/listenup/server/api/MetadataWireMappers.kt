@@ -13,6 +13,7 @@ import com.calypsan.listenup.server.metadata.spi.BookMatch
 import com.calypsan.listenup.server.metadata.spi.ChapterListMeta
 import com.calypsan.listenup.server.metadata.spi.ChapterMeta
 import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
+import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.metadata.spi.SeriesMeta
 import com.calypsan.listenup.server.metadata.spi.displayLabel
 
@@ -25,7 +26,7 @@ import com.calypsan.listenup.server.metadata.spi.displayLabel
 
 private const val MS_PER_MINUTE: Long = 60_000L
 
-/** Projects a fully composed book onto the wire [MetadataBook]. Moods/tags stay empty (no live source). */
+/** Projects a fully composed book onto the wire [MetadataBook]. Tags stay empty (no live source). */
 internal fun ComposedBook.toMetadataBook(): MetadataBook =
     MetadataBook(
         asin = asin.orEmpty(),
@@ -40,6 +41,7 @@ internal fun ComposedBook.toMetadataBook(): MetadataBook =
         narrators = core.narrators.map { it.toContributorRef() },
         series = series.map { it.toSeriesRef() },
         genres = genres.map { it.name },
+        moods = moods,
         coverUrl = coverUrl,
         coverUrlMaxSize = coverUrlMaxSize,
     )
@@ -51,6 +53,7 @@ internal fun ComposedBook.toMetadataBook(): MetadataBook =
  * - [MatchProvenance.contributingSources]: distinct provider labels across all field winners + the
  *   applied cover's winner, in BookField order (deterministic).
  * - cover source/dimensions from the applied cover's winner and the probed [coverDimensions].
+ * - [MatchProvenance.genreSources]: each genre a gap filler added, with its label.
  */
 internal fun buildMatchProvenance(
     composed: ComposedBook,
@@ -58,17 +61,20 @@ internal fun buildMatchProvenance(
     coverDimensions: Pair<Int, Int>?,
 ): MatchProvenance {
     val fieldProviders = composed.fieldProviders
+    // A field is labelled when it fell through to a fallback, or when a gap filler (Hardcover) supplied it —
+    // moods' primary IS Hardcover, so "differs from the primary" alone would never label them (#1542).
     val fallbackFields =
         fieldProviders
             .filterKeys { it != BookField.COVER }
-            .filter { (field, winner) -> routes.orderFor(field).firstOrNull() != winner }
-            .mapValues { (_, winner) -> winner.displayLabel() }
+            .filter { (field, winner) ->
+                routes.orderFor(field).firstOrNull() != winner || winner in MetadataProviderId.gapFillers
+            }.mapValues { (_, winner) -> winner.displayLabel() }
     // The applied cover is `coverUrlMaxSize ?: coverUrl`. When no provider set a max-size URL
     // (e.g. iTunes had no match), the applied cover is the primary-url winner — report THAT source
     // so the badge and probed dimensions aren't dropped for the common Audible-only-cover case.
     val coverWinner = composed.coverMaxSizeWinner ?: fieldProviders[BookField.COVER]
     val contributing =
-        (BookField.entries.mapNotNull { fieldProviders[it] } + listOfNotNull(coverWinner))
+        (BookField.entries.mapNotNull { fieldProviders[it] } + composed.genreProviders.values + listOfNotNull(coverWinner))
             .map { it.displayLabel() }
             .distinct()
     return MatchProvenance(
@@ -77,6 +83,7 @@ internal fun buildMatchProvenance(
         coverSource = coverWinner?.displayLabel(),
         coverWidth = coverDimensions?.first,
         coverHeight = coverDimensions?.second,
+        genreSources = composed.genreProviders.mapValues { (_, provider) -> provider.displayLabel() },
     )
 }
 

@@ -30,6 +30,7 @@ import com.calypsan.listenup.server.metadata.spi.MetadataCapability
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
+import com.calypsan.listenup.server.metadata.spi.MoodSource
 import com.calypsan.listenup.server.metadata.spi.SeriesMeta
 import com.calypsan.listenup.server.metadata.spi.SeriesSource
 import kotlinx.coroutines.CancellationException
@@ -44,8 +45,9 @@ private val logger = loggerFor<EnrichmentCoordinator>()
  * [EnrichmentRoutes] — the neutral result the coordinator hands back before it is
  * mapped to a wire DTO.
  *
- * Every slot is resolved first-non-empty across each domain's provider chain, so a
- * field can come from one catalog and its neighbor from another. [fieldProviders]
+ * Every slot is resolved first-non-empty across each domain's provider chain, except
+ * genres, where a gap filler's are unioned after the winner's, so a field can come from
+ * one catalog and its neighbor from another. [fieldProviders]
  * records which catalog actually won each field, so the apply layer can stamp honest
  * per-field provenance instead of crediting a single hardcoded provider. All fields
  * are empty-able: a total catalog miss yields `Success(null)` from
@@ -68,6 +70,13 @@ internal data class ComposedBook(
     val fieldProviders: Map<BookField, MetadataProviderId>,
     /** The provider whose covers supply the applied max-size cover URL, or `null` when none. */
     val coverMaxSizeWinner: MetadataProviderId? = null,
+    /** The first non-empty mood list walking the moods chain — Hardcover's, by default (#1542). */
+    val moods: List<String> = emptyList(),
+    /**
+     * Genre name → the gap filler that added it beside the genres winner's own (#1542). Sparse; when a
+     * gap filler is the genres winner itself, every genre is listed.
+     */
+    val genreProviders: Map<String, MetadataProviderId> = emptyMap(),
 )
 
 /**
@@ -113,13 +122,13 @@ internal class EnrichmentCoordinator(
                     MetadataDomain.BOOK_CORE,
                     "book-core",
                 ) { it.getBookCore(identity, locale, refresh) }
-            val cores = coreOutcomes.succeededValues()
-            if (cores.isEmpty()) {
-                // Distinguish an outage (every consulted provider errored) from an honest miss: if even
-                // one working provider said "not in my catalog", it's a genuine miss; only when every
-                // consulted provider failed is it an outage worth surfacing as unavailable.
+            // A gap filler (Hardcover) adds to a match; it can't make one. Whether the book was found, or
+            // the catalogs are down, is decided by the providers that can identify a book. Distinguish an
+            // outage (every one of those errored) from an honest miss (at least one said "not mine").
+            val identifying = coreOutcomes.filterKeys { it !in MetadataProviderId.gapFillers }
+            if (identifying.succeededValues().isEmpty()) {
                 val allFailed =
-                    coreOutcomes.values.isNotEmpty() && coreOutcomes.values.all { it is ProviderOutcome.Failed }
+                    identifying.values.isNotEmpty() && identifying.values.all { it is ProviderOutcome.Failed }
                 return@coroutineScope if (allFailed) {
                     AppResult.Failure(
                         MetadataError.ExternalUnavailable(
@@ -131,9 +140,9 @@ internal class EnrichmentCoordinator(
                 }
             }
 
-            val (core, coreWinners) = mergeCore(cores)
-            // Cover search is title-keyed, so it needs the resolved core's title/author; genres and
-            // series are ASIN-keyed and can fan out alongside it.
+            val (core, coreWinners) = mergeCore(coreOutcomes.succeededValues())
+            // Cover search is title-keyed, so it needs the resolved core's title/author; genres, series and
+            // moods are ASIN-keyed and fan out alongside it.
             val coverIdentity =
                 identity.copy(
                     title = core.title ?: identity.title,
@@ -157,26 +166,36 @@ internal class EnrichmentCoordinator(
                         it.getSeries(identity, locale)
                     }
                 }
+            val moods =
+                async {
+                    fanOut(registry.capable<MoodSource>(), MetadataDomain.GENRES, "moods") {
+                        it.getMoods(identity, locale)
+                    }
+                }
 
             val coversByProvider = covers.await()
-            val genresByProvider = genres.await()
+            val genreUnion = unionGenres(genres.await())
             val seriesByProvider = series.await()
+            val moodsByProvider = moods.await()
             AppResult.Success(
                 ComposedBook(
                     asin = identity.asin,
                     core = core,
                     coverUrl = resolveCover(coversByProvider) { it.url },
                     coverUrlMaxSize = resolveCover(coversByProvider) { it.maxSizeUrl },
-                    genres = resolveList(BookField.GENRES, genresByProvider),
+                    genres = genreUnion.genres,
                     series = resolveList(BookField.SERIES, seriesByProvider),
                     fieldProviders =
                         coreWinners +
                             listOfNotNull(
                                 coverWinnerBy(coversByProvider) { it.url }?.let { BookField.COVER to it },
-                                listWinner(BookField.GENRES, genresByProvider)?.let { BookField.GENRES to it },
+                                genreUnion.winner?.let { BookField.GENRES to it },
                                 listWinner(BookField.SERIES, seriesByProvider)?.let { BookField.SERIES to it },
+                                listWinner(BookField.MOODS, moodsByProvider)?.let { BookField.MOODS to it },
                             ),
                     coverMaxSizeWinner = coverWinnerBy(coversByProvider) { it.maxSizeUrl },
+                    moods = resolveList(BookField.MOODS, moodsByProvider),
+                    genreProviders = genreUnion.addedBy,
                 ),
             )
         }
@@ -258,9 +277,9 @@ internal class EnrichmentCoordinator(
     }
 
     /**
-     * Fetches the contributor profile for [key] in [locale], returning the first provider
-     * with a profile walking the CONTRIBUTORS order (`null` when none has one). [refresh]
-     * bypasses any provider-side cache. Each source is failure-contained.
+     * Fetches the contributor profile for [key] in [locale], returning the first provider with a profile
+     * walking the CONTRIBUTORS order (`null` when none has one), its missing bio or photo filled from a gap
+     * filler (#1542). [refresh] bypasses any provider-side cache. Each source is failure-contained.
      */
     suspend fun getContributor(
         key: String,
@@ -271,7 +290,36 @@ internal class EnrichmentCoordinator(
             fanOut(registry.capable<ContributorSource>(), MetadataDomain.CONTRIBUTORS, "contributor-profile") {
                 it.getContributor(key, locale, refresh)
             }
-        return contributorOrder().firstNotNullOfOrNull { byProvider[it] }
+        val profile = contributorOrder().firstNotNullOfOrNull { byProvider[it] } ?: return null
+        val complete = !profile.description.isNullOrBlank() && !profile.imageUrl.isNullOrBlank()
+        return if (complete) profile else fillProfileGaps(profile, locale)
+    }
+
+    /**
+     * Fills [profile]'s blank bio or photo from a gap filler routed to contributors, which finds the person
+     * by their exact name. Only blanks are filled; nothing the winner said is replaced.
+     */
+    private suspend fun fillProfileGaps(
+        profile: ContributorMeta,
+        locale: MetadataLocale,
+    ): ContributorMeta {
+        val routed = contributorOrder()
+        val fillers = registry.capable<ContributorSource>().filter { it.id in MetadataProviderId.gapFillers && it.id in routed }
+        for (filler in fillers) {
+            val hit =
+                contained(filler.id, "contributor-fill") {
+                    filler.searchContributors(profile.name, locale).map { hits ->
+                        hits.firstOrNull { it.name.equals(profile.name, ignoreCase = true) }
+                    }
+                }.valueOrNull() ?: continue
+            if (hit.key == profile.key) continue
+            val found = contained(filler.id, "contributor-fill") { filler.getContributor(hit.key, locale) }.valueOrNull() ?: continue
+            return profile.copy(
+                description = profile.description?.takeIf { it.isNotBlank() } ?: found.description,
+                imageUrl = profile.imageUrl?.takeIf { it.isNotBlank() } ?: found.imageUrl,
+            )
+        }
+        return profile
     }
 
     /** The provider precedence for contributor profiles. */
@@ -383,6 +431,41 @@ internal class EnrichmentCoordinator(
         field: BookField,
         byProvider: Map<MetadataProviderId, List<T>>,
     ): MetadataProviderId? = routes.orderFor(field).firstOrNull { byProvider[it]?.isNotEmpty() == true }
+
+    /** Genres as the coordinator composes them: the winner's list, a gap filler's additions, and who added which. */
+    private data class GenreUnion(
+        val genres: List<GenreMeta>,
+        val winner: MetadataProviderId?,
+        val addedBy: Map<String, MetadataProviderId>,
+    )
+
+    /**
+     * The genres winner is the first identifying provider with genres walking the chain (a gap filler only
+     * when none has any). Each gap filler in the chain then adds the genres the winner lacks
+     * (case-insensitively), and every added genre is recorded with the provider that added it (#1542).
+     */
+    private fun unionGenres(byProvider: Map<MetadataProviderId, List<GenreMeta>>): GenreUnion {
+        val chain = routes.orderFor(BookField.GENRES)
+        val winner =
+            chain.firstOrNull { it !in MetadataProviderId.gapFillers && byProvider[it]?.isNotEmpty() == true }
+                ?: chain.firstOrNull { byProvider[it]?.isNotEmpty() == true }
+                ?: return GenreUnion(emptyList(), null, emptyMap())
+        val genres = byProvider.getValue(winner).toMutableList()
+        val seen = genres.mapTo(mutableSetOf()) { it.name.trim().lowercase() }
+        val addedBy = mutableMapOf<String, MetadataProviderId>()
+        if (winner in MetadataProviderId.gapFillers) genres.forEach { addedBy[it.name] = winner }
+        chain
+            .filter { it in MetadataProviderId.gapFillers && it != winner }
+            .forEach { filler ->
+                byProvider[filler].orEmpty().forEach { genre ->
+                    if (seen.add(genre.name.trim().lowercase())) {
+                        genres += genre
+                        addedBy[genre.name] = filler
+                    }
+                }
+            }
+        return GenreUnion(genres, winner, addedBy)
+    }
 
     /**
      * Fetches [block] from every routed [providers] entry once, in parallel and contained, keyed
