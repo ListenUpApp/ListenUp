@@ -37,6 +37,18 @@ struct BookVisibilityTests {
         #expect(VisibilityCopy.headline(.everyone, expanded: false) == "Hidden from all members")
     }
 
+    @Test func theNameListReadsNaturallyAtOneThreeAndFourNames() {
+        #expect(VisibilityCopy.headline(.members(["Alice"]), expanded: false) == "Hidden from Alice")
+        #expect(
+            VisibilityCopy.headline(.members(["Alice", "Ben", "Cy"]), expanded: false)
+                == "Hidden from Alice, Ben and Cy"
+        )
+        #expect(
+            VisibilityCopy.headline(.members(["Alice", "Ben", "Cy", "Dev"]), expanded: false)
+                == "Hidden from Alice, Ben, Cy and 1 other"
+        )
+    }
+
     @Test func theReasonIsWordedForOneCollectionOrSeveral() {
         let one = [VisibilityCollection(id: "c1", name: "Sci-Fi Club")]
         let two = one + [VisibilityCollection(id: "c2", name: "Family")]
@@ -49,6 +61,14 @@ struct BookVisibilityTests {
         #expect(
             VisibilityCopy.reason(.everyone, collections: one)
                 == "No member is in Sci-Fi Club yet, so only admins can see it."
+        )
+        #expect(
+            VisibilityCopy.reason(.nobody, collections: two)
+                == "Every member is in at least one of these collections."
+        )
+        #expect(
+            VisibilityCopy.reason(.everyone, collections: two)
+                == "No member is in any of these collections yet, so only admins can see it."
         )
     }
 }

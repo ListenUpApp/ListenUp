@@ -54,11 +54,16 @@ struct BookVisibilitySection: View {
         }
         if case .members(let names) = hiddenFrom, VisibilityCopy.canExpand(names, expanded: expanded) {
             Divider()
-            Button(String(format: String(localized: "book.visibility_show_all_ios"), names.count)) {
+            // The frame and shape sit inside the label, so the whole 44pt row is the hit target,
+            // not just the words (HIG, Accessibility: 44×44pt minimum).
+            Button {
                 expanded = true
+            } label: {
+                Text(String(format: String(localized: "book.visibility_show_all_ios"), Int32(names.count)))
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
-            .frame(minHeight: 44)
         }
         ForEach(collections) { collection in
             Divider()

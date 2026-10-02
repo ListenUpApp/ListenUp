@@ -62,7 +62,8 @@ enum VisibilityCopy {
     nonisolated static func nameList(_ names: [String], expanded: Bool) -> String {
         let summary = HiddenFromNames.shared.summarize(names: names, expanded: expanded)
         let shown = summary.shown
-        let others = Int(summary.othersCount)
+        // Stays Int32: the catalog's `%2$d` reads a C int, so the argument matches it exactly.
+        let others = summary.othersCount
         if others == 1 {
             return String(format: String(localized: "book.visibility_names_one_other"), shown.joined(separator: ", "))
         }
