@@ -1232,7 +1232,8 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .bd-held-t { margin: 0; font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; }
 .luw .bd-held-sub { margin: 0; font-size: 0.875rem; line-height: 1.5; color: var(--ink-2); }
 .luw .bd-held-actions { display: flex; flex-wrap: wrap; gap: 8px; flex: none; max-width: 22rem; justify-content: flex-end; }
-/* On a phone the panel stacks: the words, then the two buttons sharing the width. */
+/* On a phone the panel stacks: the words, then the four actions — Edit and Release, Match and
+   Edit chapters — sharing the width and wrapping as they need to. */
 @media (max-width: 759px) {
   .luw .bd-held { flex-wrap: wrap; }
   .luw .bd-held-actions { width: 100%; }

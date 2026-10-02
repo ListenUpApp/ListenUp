@@ -9,6 +9,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import org.w3c.dom.EventInit
+import kotlinx.browser.window
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
@@ -348,6 +349,23 @@ class SearchPageTest :
             pill.getAttribute("role") shouldBe "img"
             pill.getAttribute("aria-label") shouldBe "Held for review, hidden from all members"
             pill.textContent!!.trim() shouldBe "Held"
+        }
+
+        // The pill is static, but the row it sits in is pressable: an arrow over one patch of the
+        // row would say that patch is dead.
+        test("a held row's pill shows the row's own pointer") {
+            val host =
+                mounts.mount {
+                    SearchRow(
+                        hit = bookHit("b1", "The Ministry of Time").copy(isHeld = true),
+                        isOpenable = true,
+                        onOpen = {},
+                    )
+                }
+
+            val row = host.querySelector(".search-row") as HTMLElement
+            val pill = host.querySelector(".search-row .held-pill") as HTMLElement
+            window.getComputedStyle(pill).cursor shouldBe window.getComputedStyle(row).cursor
         }
 
         test("an ordinary row carries no Held pill") {
