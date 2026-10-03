@@ -44,8 +44,8 @@ class KeptOffBooksPageTest :
                     .querySelectorAll("button")
                     .asList()
                     .map { it as HTMLButtonElement }
-                    .single { it.getAttribute("aria-label") == "Sync The Gate of the Feral Gods with Hardcover again" }
-            syncGate.textContent.orEmpty().trim() shouldBe "Sync again"
+                    .single { it.textContent.orEmpty().trim() == "Sync again: The Gate of the Feral Gods" }
+            syncGate.firstChild!!.textContent shouldBe "Sync again"
             syncGate.click()
             synced shouldBe listOf("b1")
         }
