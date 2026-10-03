@@ -32,6 +32,9 @@ import com.calypsan.listenup.core.currentEpochMilliseconds
  * dispatcher — a merge relinks memberships server-side and can't be mirrored optimistically; it
  * routes through the [channel], which bounds the call, self-heals the transport, and folds any
  * fault to a typed [AppResult.Failure], following the same pattern as [BookEditRepositoryImpl].
+ *
+ * The hierarchy writes ([createSeries], [setParent], [reorderChildren]) are pure RPC dispatchers
+ * for the same reason [mergeSeries] is: the server owns the cycle check and the sibling position.
  */
 internal class SeriesEditRepositoryImpl(
     private val channel: RpcChannel<SeriesService>,
@@ -80,4 +83,23 @@ internal class SeriesEditRepositoryImpl(
 
     override suspend fun undoMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult> =
         channel.call { it.undoSeriesMerge(receiptId) }
+
+    override suspend fun createSeries(
+        name: String,
+        parentId: SeriesId?,
+    ): AppResult<SeriesId> =
+        when (val created = channel.call { it.createSeries(name, parentId) }) {
+            is AppResult.Success -> AppResult.Success(SeriesId(created.data.id))
+            is AppResult.Failure -> created
+        }
+
+    override suspend fun setParent(
+        id: SeriesId,
+        parentId: SeriesId?,
+    ): AppResult<Unit> = channel.call { it.setSeriesParent(id, parentId) }
+
+    override suspend fun reorderChildren(
+        parentId: SeriesId,
+        orderedChildIds: List<SeriesId>,
+    ): AppResult<Unit> = channel.call { it.reorderChildSeries(parentId, orderedChildIds) }
 }
