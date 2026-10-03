@@ -30,7 +30,7 @@ struct BookRatingSection: View {
             Text(String(localized: "book.detail_rating_heading"))
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
-                .padding(.horizontal, 4)
+                .padding(.horizontal, Spacing.xxs)
             group
                 .background(
                     Color(.secondarySystemBackground),
@@ -61,7 +61,7 @@ struct BookRatingSection: View {
         } else {
             VStack(alignment: .leading, spacing: 0) {
                 yourRating
-                Divider().padding(.leading, 16)
+                Divider().padding(.leading, Spacing.m)
                 everyone
             }
         }
@@ -96,7 +96,9 @@ struct BookRatingSection: View {
                 },
                 onCancel: { dragging = nil }
             )
-            .padding(.leading, -7) // the first glyph lines up with the text; its slot reaches the edge
+            // Geometry, not spacing: a 30 pt glyph centred in its 44 pt slot sits 7 pt in, so the first glyph
+            // lines up with the text above it while its slot still reaches the edge.
+            .padding(.leading, -7)
             if dragging != nil {
                 hint(String(localized: "book.detail_rating_saved_on_lift"))
             } else if let note = snapshot.mine?.note, !note.isEmpty {
@@ -108,8 +110,8 @@ struct BookRatingSection: View {
                 hint(String(localized: "book.detail_rating_tap_hint"))
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 11)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
     }
 
     private func optionsMenu(_ mine: MyRating) -> some View {
@@ -149,11 +151,11 @@ struct BookRatingSection: View {
             case .absent: EmptyView()
             }
             if let listeners = snapshot.listeners {
-                if snapshot.scoreRow != .absent { Divider().padding(.leading, 16) }
+                if snapshot.scoreRow != .absent { Divider().padding(.leading, Spacing.m) }
                 listenersRow(listeners)
             }
             if snapshot.scoreRow == .absent, snapshot.showsInlineRefresh {
-                Divider().padding(.leading, 16)
+                Divider().padding(.leading, Spacing.m)
                 row { refreshButton }
             }
         }
@@ -242,8 +244,8 @@ struct BookRatingSection: View {
 
     private func row(@ViewBuilder _ content: () -> some View) -> some View {
         HStack(spacing: 12) { content() }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 11)
+            .padding(.horizontal, Spacing.m)
+            .padding(.vertical, Spacing.s)
             .frame(minHeight: 44)
     }
 

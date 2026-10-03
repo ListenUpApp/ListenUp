@@ -96,7 +96,7 @@ struct RatingBreakdownSheet: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, Spacing.xxs)
         .accessibilityElement(children: .combine)
     }
 
