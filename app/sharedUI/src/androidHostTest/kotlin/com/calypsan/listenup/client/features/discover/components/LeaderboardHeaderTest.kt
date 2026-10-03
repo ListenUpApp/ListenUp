@@ -111,6 +111,51 @@ class LeaderboardHeaderTest {
         labels.forEach(::assertLabelGetsItsFullWidth)
     }
 
+    private val descriptions = listOf("Last 7 days", "Last 30 days", "Last 12 months", "All time")
+
+    private fun assertEachButtonIsItsLabelPlusAnEqualShare(width: Int) {
+        show(width = width)
+        val spare =
+            labels.zip(descriptions).map { (label, description) ->
+                buttonNode(description).boundsInRoot.width - labelNode(label).boundsInRoot.width
+            }
+        spare.forEach { assertEquals("every button's room beside its label $spare", spare.first(), it, 1.5f) }
+        val buttons = descriptions.map { buttonNode(it).boundsInRoot }
+        assertEquals("the row spans the margins", 0f, buttons.first().left, 0.5f)
+        assertEquals("the row spans the margins", width.toFloat(), buttons.last().right, 0.5f)
+    }
+
+    @Test
+    fun onA360dpPhoneEachButtonIsItsLabelPlusAnEqualShareOfTheSpareWidth() {
+        assertEachButtonIsItsLabelPlusAnEqualShare(width = 312)
+    }
+
+    @Test
+    fun onA412dpPhoneEachButtonIsItsLabelPlusAnEqualShareOfTheSpareWidth() {
+        assertEachButtonIsItsLabelPlusAnEqualShare(width = 364)
+    }
+
+    @Test
+    fun theRowSitsUnderTheTitleAtTheSameMargin() {
+        show()
+        val title = labelNode("Leaderboard").boundsInRoot
+        val first = buttonNode("Last 7 days").boundsInRoot
+        assertTrue("the row sits below the title", first.top >= title.bottom)
+        assertEquals("the row starts at the title's margin", title.left, first.left, 0.5f)
+    }
+
+    @Test
+    fun theRowIs48dpTallSoEvery40dpButtonHasAFullTouchTarget() {
+        // The 40dp buttons keep M3's 48dp minimum interactive size, so the row they sit in is 48dp.
+        show()
+        val group = composeRule.onNodeWithContentDescription("Leaderboard period").fetchSemanticsNode().boundsInRoot
+        assertEquals("the row is ${group.height}dp tall", 48f, group.height, 0.5f)
+        descriptions.forEach { description ->
+            val button = buttonNode(description).boundsInRoot
+            assertTrue("$description sits inside the 48dp row", button.top >= group.top && button.bottom <= group.bottom)
+        }
+    }
+
     @Test
     fun onAWideWindowTheButtonsAreEqualAndTheRowStopsAt480dp() {
         show(width = 700)
