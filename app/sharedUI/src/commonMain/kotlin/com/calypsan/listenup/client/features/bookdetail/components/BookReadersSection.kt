@@ -33,6 +33,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -59,6 +61,8 @@ import listenup.composeapp.generated.resources.book_detail_progresspercent
 import listenup.composeapp.generated.resources.book_detail_readers_listening_now
 import listenup.composeapp.generated.resources.book_detail_readers_note
 import listenup.composeapp.generated.resources.book_detail_readers_hardcover
+import listenup.composeapp.generated.resources.book_detail_readers_also_on_hardcover
+import listenup.composeapp.generated.resources.book_detail_readers_finished_also_on_hardcover
 import listenup.composeapp.generated.resources.book_detail_readers_rated
 import listenup.composeapp.generated.resources.book_detail_readers_read
 import listenup.composeapp.generated.resources.common_see_all
@@ -93,6 +97,8 @@ private const val MAX_COLLAPSED_READERS = 5
  *   beside a "Hardcover" label, never "Finished".
  * @property finishedAtMs When a finished row's read was finished (epoch ms) — its identity in a list,
  *   since [finishedWhen] reads the same for two finishes in one month; `null` for other rows.
+ * @property isAlsoOnHardcover `true` for a ListenUp finish the reader logged on Hardcover too: the one
+ *   row reads "Finished {date}" beside an "Also on Hardcover" label, instead of a second Hardcover row.
  */
 data class ReaderRowUi(
     val userId: String,
@@ -105,6 +111,7 @@ data class ReaderRowUi(
     val isRatedOnly: Boolean = false,
     val isOnHardcover: Boolean = false,
     val finishedAtMs: Long? = null,
+    val isAlsoOnHardcover: Boolean = false,
 )
 
 /**
@@ -148,6 +155,7 @@ internal fun List<Reader>.toReaderRows(nowMs: Long): List<ReaderRowUi> =
                     halfStars = line.rating?.halfStars,
                     note = line.rating?.note,
                     finishedAtMs = k.finishedAtMs,
+                    isAlsoOnHardcover = k.alsoOnHardcover,
                 )
             }
 
@@ -446,7 +454,8 @@ internal fun ReaderRow(
 
 /**
  * The line under a reader's name: progress while they are reading, "Read {date}" beside a "Hardcover"
- * label for a read logged there, "Finished {date}" for a ListenUp finish, or "Rated".
+ * label for a read logged there, "Finished {date}" for a ListenUp finish — beside an "Also on
+ * Hardcover" label when it was logged there too — or "Rated".
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -485,6 +494,23 @@ private fun ReaderStateLine(reader: ReaderRowUi) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             TonalLabel(label = stringResource(Res.string.book_detail_readers_hardcover))
+        }
+    } else if (reader.finishedWhen != null && reader.isAlsoOnHardcover) {
+        // One phrase for TalkBack, merged into the row's name — "Ada, Finished Oct 1, also on
+        // Hardcover" — where the eye reads the date beside the label.
+        val spoken = stringResource(Res.string.book_detail_readers_finished_also_on_hardcover, reader.finishedWhen)
+        FlowRow(
+            modifier = Modifier.padding(top = 2.dp).clearAndSetSemantics { contentDescription = spoken },
+            itemVerticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = stringResource(Res.string.book_detail_readers_finished, reader.finishedWhen),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TonalLabel(label = stringResource(Res.string.book_detail_readers_also_on_hardcover))
         }
     } else if (reader.finishedWhen != null) {
         Text(

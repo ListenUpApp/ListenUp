@@ -4931,6 +4931,16 @@
         }
       }
     },
+    "book.detail_readers_a11y_finished_also_on_hardcover": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, finished %2$@, also on Hardcover"
+          }
+        }
+      }
+    },
     "book.detail_readers_a11y_read_on_hardcover": {
       "localizations": {
         "en": {
@@ -4951,6 +4961,16 @@
         }
       }
     },
+    "book.detail_readers_also_on_hardcover": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Also on Hardcover"
+          }
+        }
+      }
+    },
     "book.detail_readers_empty": {
       "localizations": {
         "en": {
@@ -4967,6 +4987,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Finished %1$@"
+          }
+        }
+      }
+    },
+    "book.detail_readers_finished_also_on_hardcover": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finished %1$@, also on Hardcover"
           }
         }
       }

@@ -201,6 +201,7 @@ fun playbackModule(
                 playbackPositions = get(),
                 bookReads = get(),
                 books = get(),
+                sql = get(),
                 principal = unscopedSocialPlaceholder(),
             )
         }

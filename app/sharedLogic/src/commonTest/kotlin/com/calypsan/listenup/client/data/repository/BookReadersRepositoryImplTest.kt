@@ -58,6 +58,7 @@ class BookReadersRepositoryImplTest :
             currentProgressPct: Int? = null,
             finishes: List<Long> = emptyList(),
             hardcoverFinishes: List<Long> = emptyList(),
+            finishesAlsoOnHardcover: List<Long> = emptyList(),
         ) = BookReaderEntry(
             userId = userId,
             displayName = displayName,
@@ -65,6 +66,7 @@ class BookReadersRepositoryImplTest :
             currentProgressPct = currentProgressPct,
             finishes = finishes,
             hardcoverFinishes = hardcoverFinishes,
+            finishesAlsoOnHardcover = finishesAlsoOnHardcover,
         )
 
         fun user(
@@ -194,6 +196,37 @@ class BookReadersRepositoryImplTest :
                         val jake = awaitNonEmpty().single()
                         jake.finishes shouldBe listOf(300L)
                         jake.hardcoverFinishes shouldBe listOf(900L, 100L)
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
+
+        test("which finishes were also logged on Hardcover survives the Room cache") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { bookReadership(BookId("b1")) } returns
+                            AppResult.Success(
+                                BookReadership(
+                                    listOf(
+                                        entry(
+                                            "u2",
+                                            "Jake",
+                                            finishes = listOf(900L, 300L),
+                                            finishesAlsoOnHardcover = listOf(900L),
+                                        ),
+                                    ),
+                                ),
+                            )
+                    }
+
+                repo(RpcChannel.forTest(service), FakeBookReadershipDao(), currentUser = user(id = "me"))
+                    .observeReadersFor("b1")
+                    .test {
+                        val jake = awaitNonEmpty().single()
+                        jake.finishes shouldBe listOf(900L, 300L)
+                        jake.finishesAlsoOnHardcover shouldBe listOf(900L)
+                        jake.hardcoverFinishes shouldBe emptyList()
                         cancelAndIgnoreRemainingEvents()
                     }
             }

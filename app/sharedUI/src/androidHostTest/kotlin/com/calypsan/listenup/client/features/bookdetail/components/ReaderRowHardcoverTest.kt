@@ -2,7 +2,12 @@ package com.calypsan.listenup.client.features.bookdetail.components
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.api.result.AppResult
@@ -47,15 +52,18 @@ class ReaderRowHardcoverTest {
         stopKoin()
     }
 
-    private fun row(isOnHardcover: Boolean) =
-        ReaderRowUi(
-            userId = "u1",
-            name = "Ada",
-            isReading = false,
-            progressPct = null,
-            finishedWhen = "Mar 2017",
-            isOnHardcover = isOnHardcover,
-        )
+    private fun row(
+        isOnHardcover: Boolean,
+        isAlsoOnHardcover: Boolean = false,
+    ) = ReaderRowUi(
+        userId = "u1",
+        name = "Ada",
+        isReading = false,
+        progressPct = null,
+        finishedWhen = "Mar 2017",
+        isOnHardcover = isOnHardcover,
+        isAlsoOnHardcover = isAlsoOnHardcover,
+    )
 
     /**
      * The row's avatar resolves its collaborators through Koin; stubbed to the "no profile yet" path so
@@ -106,5 +114,23 @@ class ReaderRowHardcoverTest {
 
         composeRule.onNodeWithText("Finished Mar 2017").assertIsDisplayed()
         composeRule.onNodeWithText("Hardcover").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a finish also logged on Hardcover is one row that says so, read as part of the row`() {
+        composeRule.setContent {
+            WithAvatarDependencies {
+                ReaderRow(reader = row(isOnHardcover = false, isAlsoOnHardcover = true), onUserClick = {})
+            }
+        }
+
+        // The row is one accessible element: its name, then the date and where else it was logged.
+        composeRule
+            .onNode(hasClickAction())
+            .assertIsDisplayed()
+            .assert(hasText("Ada"))
+            .assert(hasContentDescription("Finished Mar 2017, also on Hardcover"))
+        composeRule.onAllNodes(hasClickAction()).assertCountEquals(1)
+        composeRule.onNodeWithText("Read Mar 2017").assertDoesNotExist()
     }
 }

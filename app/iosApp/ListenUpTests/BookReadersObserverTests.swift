@@ -15,7 +15,8 @@ struct BookReadersObserverTests {
         isYou: Bool = false,
         progressPct: Int? = nil,
         finishes: [Int64] = [],
-        hardcoverFinishes: [Int64] = []
+        hardcoverFinishes: [Int64] = [],
+        finishesAlsoOnHardcover: [Int64] = []
     ) -> Reader {
         // Native Swift Export bridges Kotlin `Int?` → `Int32?` and `List<Long>` → `[Int64]`.
         Reader(
@@ -25,7 +26,8 @@ struct BookReadersObserverTests {
             currentProgressPct: progressPct.map { Int32($0) },
             finishes: finishes,
             rating: nil,
-            hardcoverFinishes: hardcoverFinishes
+            hardcoverFinishes: hardcoverFinishes,
+            finishesAlsoOnHardcover: finishesAlsoOnHardcover
         )
     }
 
@@ -86,6 +88,45 @@ struct BookReadersObserverTests {
 
         #expect(row.lastFinished == Date(timeIntervalSince1970: 1_711_929_600))
         #expect(row.lastFinishedOnHardcover == true)
+    }
+
+    @Test func aFinishAlsoLoggedOnHardcoverIsOneRowBadgedAlsoOnHardcover() {
+        let row = BookReaderRow(from: reader(
+            id: "u6",
+            name: "Simon Hull",
+            finishes: [1_711_929_600_000],
+            finishesAlsoOnHardcover: [1_711_929_600_000]
+        ))
+
+        #expect(row.lastFinished == Date(timeIntervalSince1970: 1_711_929_600))
+        #expect(row.lastFinishedAlsoOnHardcover == true)
+        #expect(row.lastFinishedOnHardcover == false)
+    }
+
+    @MainActor
+    @Test func anAlsoOnHardcoverFinishIsSpokenAsPartOfTheRow() {
+        let row = BookReaderRow(from: reader(
+            id: "u6",
+            name: "Simon Hull",
+            finishes: [1_711_929_600_000],
+            finishesAlsoOnHardcover: [1_711_929_600_000]
+        ))
+        let date = Date(timeIntervalSince1970: 1_711_929_600).formatted(date: .abbreviated, time: .omitted)
+
+        // The row combines its children into one element; the badge is read in it, not after it.
+        #expect(BookReadersSection(readers: [row]).accessibilityLabel(for: row)
+            == "Simon Hull, finished \(date), also on Hardcover")
+    }
+
+    @Test func anOlderFinishAlsoOnHardcoverDoesNotBadgeANewerOne() {
+        let row = BookReaderRow(from: reader(
+            id: "u7",
+            name: "Simon Hull",
+            finishes: [1_711_929_600_000, 1_600_000_000_000],
+            finishesAlsoOnHardcover: [1_600_000_000_000]
+        ))
+
+        #expect(row.lastFinishedAlsoOnHardcover == false)
     }
 
     @Test func currentUserFlagSurvives() {

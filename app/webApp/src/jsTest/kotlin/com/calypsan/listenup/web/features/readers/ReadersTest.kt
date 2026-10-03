@@ -28,6 +28,7 @@ internal fun reader(
     finishes: List<Long> = emptyList(),
     rating: ListenerRating? = null,
     hardcoverFinishes: List<Long> = emptyList(),
+    finishesAlsoOnHardcover: List<Long> = emptyList(),
 ) = Reader(
     userId = userId,
     displayName = displayName,
@@ -36,6 +37,7 @@ internal fun reader(
     finishes = finishes,
     rating = rating,
     hardcoverFinishes = hardcoverFinishes,
+    finishesAlsoOnHardcover = finishesAlsoOnHardcover,
 )
 
 internal fun readerRating(
@@ -52,6 +54,14 @@ private fun text(
     host: HTMLElement,
     selector: String,
 ): String? = (host.querySelector(selector) as? HTMLElement)?.textContent?.trim()
+
+/** What a screen reader takes from [element]: its text, less anything hidden from assistive tech. */
+private fun spokenText(element: org.w3c.dom.Node): String =
+    when {
+        element is HTMLElement && element.getAttribute("aria-hidden") == "true" -> ""
+        element.nodeType == org.w3c.dom.Node.TEXT_NODE -> element.textContent.orEmpty()
+        else -> element.childNodes.asList().joinToString("") { spokenText(it) }
+    }
 
 private fun button(
     host: HTMLElement,
@@ -151,6 +161,25 @@ class ReadersTest :
         test("a ListenUp finish wears no Hardcover label") {
             val host = panel(readersData(reader(userId = "u2", displayName = "Grace Hopper", finishes = listOf(READERS_NOW - DAY))))
             host.querySelector(".rdr-src").shouldBeNull()
+        }
+
+        test("a finish also logged on Hardcover is one line that says so, inside the row's name") {
+            val host =
+                panel(
+                    readersData(
+                        reader(
+                            userId = "u2",
+                            displayName = "Grace Hopper",
+                            finishes = listOf(READERS_NOW - DAY),
+                            finishesAlsoOnHardcover = listOf(READERS_NOW - DAY),
+                        ),
+                    ),
+                )
+
+            val row = rows(host).single()
+            (row.querySelector(".rdr-src") as HTMLElement).textContent shouldBe "Also on Hardcover"
+            // Drawn as the date beside a label, read as one phrase within the row button's name.
+            spokenText(row).trim() shouldBe "Grace HopperFinished yesterday, also on Hardcover"
         }
 
         test("a Hardcover read and a ListenUp finish of the same day are two lines") {

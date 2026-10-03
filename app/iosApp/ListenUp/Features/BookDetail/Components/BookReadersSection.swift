@@ -9,7 +9,8 @@ import SwiftUI
 /// user's row gets a "(You)" suffix. A reader's rating sits beside their name as small stars, with
 /// their note in quotes beneath (two lines at most); someone who rated the book without reading it
 /// here reads "Rated". A reader whose newest read was logged on Hardcover reads "Read {date}" with a
-/// Hardcover badge. Tapping a row opens that reader's profile.
+/// Hardcover badge; one whose newest ListenUp finish was logged on Hardcover too reads "Finished {date}"
+/// with an "Also on Hardcover" badge. Tapping a row opens that reader's profile.
 ///
 /// Pure/presentational: it takes the projected rows. Renders nothing when empty (the
 /// observer's `.empty` phase keeps it out of the layout entirely).
@@ -75,6 +76,8 @@ struct BookReadersSection: View {
                     progress(reader)
                 } else if let finished = reader.lastFinished, reader.lastFinishedOnHardcover {
                     readOnHardcover(finished)
+                } else if let finished = reader.lastFinished, reader.lastFinishedAlsoOnHardcover {
+                    finishedAlsoOnHardcover(finished)
                 } else if let finished = reader.lastFinished {
                     Text(String(
                         format: String(localized: "book.detail_readers_finished"),
@@ -122,6 +125,28 @@ struct BookReadersSection: View {
             }
             VStack(alignment: .leading, spacing: Spacing.xxs) {
                 read
+                badge
+            }
+        }
+    }
+
+    /// "Finished {date}" beside an "Also on Hardcover" badge — one listen logged in both places. Wraps
+    /// the badge beneath the date at large Dynamic Type sizes, like `readOnHardcover`.
+    private func finishedAlsoOnHardcover(_ finished: Date) -> some View {
+        let date = Text(String(
+            format: String(localized: "book.detail_readers_finished"),
+            finished.formatted(date: .abbreviated, time: .omitted)
+        ))
+        .font(.footnote)
+        .foregroundStyle(.secondary)
+        let badge = SourceBadge(label: String(localized: "book.detail_readers_also_on_hardcover"))
+        return ViewThatFits(in: .horizontal) {
+            HStack(spacing: Spacing.xs) {
+                date.fixedSize()
+                badge
+            }
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                date
                 badge
             }
         }
@@ -186,7 +211,8 @@ struct BookReadersSection: View {
             : reader.displayName
     }
 
-    private func accessibilityLabel(for reader: BookReaderRow) -> String {
+    /// The row's one VoiceOver label — its children are combined, so everything the row shows is here.
+    func accessibilityLabel(for reader: BookReaderRow) -> String {
         [activityLabel(for: reader), ratingLabel(for: reader)]
             .compactMap { $0 }
             .joined(separator: ", ")
@@ -203,6 +229,13 @@ struct BookReadersSection: View {
         if let finished = reader.lastFinished, reader.lastFinishedOnHardcover {
             return String(
                 format: String(localized: "book.detail_readers_a11y_read_on_hardcover"),
+                name(for: reader),
+                finished.formatted(date: .abbreviated, time: .omitted)
+            )
+        }
+        if let finished = reader.lastFinished, reader.lastFinishedAlsoOnHardcover {
+            return String(
+                format: String(localized: "book.detail_readers_a11y_finished_also_on_hardcover"),
                 name(for: reader),
                 finished.formatted(date: .abbreviated, time: .omitted)
             )

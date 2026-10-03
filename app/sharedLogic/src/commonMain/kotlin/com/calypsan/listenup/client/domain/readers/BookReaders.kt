@@ -31,6 +31,9 @@ data class BookReaders(
  * @property rating This reader's rating of the book, when they left one.
  * @property hardcoverFinishes Reads logged on Hardcover and pulled (#601 B3), epoch ms newest-first.
  *   Apart from [finishes] so every surface can badge them; they never count as listening.
+ * @property finishesAlsoOnHardcover The [finishes] that were also logged on Hardcover — the server
+ *   paired each with a Hardcover read of the same listen, so it is one row that says "Also on
+ *   Hardcover", never a second Hardcover row. A subset of [finishes], epoch ms newest-first.
  */
 data class Reader(
     val userId: String,
@@ -40,4 +43,5 @@ data class Reader(
     val finishes: List<Long>,
     val rating: ListenerRating? = null,
     val hardcoverFinishes: List<Long> = emptyList(),
+    val finishesAlsoOnHardcover: List<Long> = emptyList(),
 )

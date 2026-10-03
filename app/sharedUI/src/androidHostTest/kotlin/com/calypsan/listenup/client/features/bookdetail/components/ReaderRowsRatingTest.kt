@@ -82,6 +82,26 @@ class ReaderRowsRatingTest :
             rows[1].isRatedOnly shouldBe false
         }
 
+        test("a finish also logged on Hardcover is one row, flagged as also on Hardcover") {
+            val readers =
+                listOf(
+                    Reader(
+                        userId = "u1",
+                        displayName = "Ada",
+                        isYou = false,
+                        currentProgressPct = null,
+                        finishes = listOf(9_000L),
+                        finishesAlsoOnHardcover = listOf(9_000L),
+                    ),
+                )
+
+            val row = readers.toReaderRows(nowMs = 10_000L).single()
+
+            row.isAlsoOnHardcover shouldBe true
+            row.isOnHardcover shouldBe false
+            row.finishedWhen shouldBe relativeOrMonthYear(9_000L, 10_000L)
+        }
+
         test("a Hardcover read and a ListenUp finish shown with the same date are different list items") {
             val readers =
                 listOf(

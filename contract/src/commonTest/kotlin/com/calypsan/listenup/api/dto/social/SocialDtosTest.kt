@@ -68,4 +68,24 @@ class SocialDtosTest :
             val json = """{"userId":"u1","displayName":"Ada","avatarType":"auto","currentProgressPct":null,"finishes":[5]}"""
             contractJson.decodeFromString<BookReaderEntry>(json).hardcoverFinishes shouldBe emptyList()
         }
+
+        test("a finish also logged on Hardcover round-trips flagged as one") {
+            val original =
+                BookReaderEntry(
+                    "u1",
+                    "Ada",
+                    "auto",
+                    currentProgressPct = null,
+                    finishes = listOf(1_777_000_000_000L, 1_488_369_600_000L),
+                    finishesAlsoOnHardcover = listOf(1_777_000_000_000L),
+                )
+            contractJson.decodeFromString<BookReaderEntry>(contractJson.encodeToString(original)) shouldBe original
+        }
+
+        test("an entry from a server that never paired finishes decodes with none also on Hardcover") {
+            val json =
+                """{"userId":"u1","displayName":"Ada","avatarType":"auto","currentProgressPct":null,""" +
+                    """"finishes":[5],"hardcoverFinishes":[3]}"""
+            contractJson.decodeFromString<BookReaderEntry>(json).finishesAlsoOnHardcover shouldBe emptyList()
+        }
     })
