@@ -1019,9 +1019,14 @@ One beautiful library.</string>
     <string name="discover_leaderboard_category_streak">Streak</string>
     <string name="discover_leaderboard_category_time">Time</string>
     <string name="discover_leaderboard_empty">Start listening to climb the rankings.</string>
-    <string name="discover_leaderboard_period_all">All</string>
-    <string name="discover_leaderboard_period_month">Month</string>
-    <string name="discover_leaderboard_period_week">Week</string>
+    <string name="discover_leaderboard_period_12_months">12 months</string>
+    <string name="discover_leaderboard_period_12_months_description">Last 12 months</string>
+    <string name="discover_leaderboard_period_30_days">30 days</string>
+    <string name="discover_leaderboard_period_30_days_description">Last 30 days</string>
+    <string name="discover_leaderboard_period_7_days">7 days</string>
+    <string name="discover_leaderboard_period_7_days_description">Last 7 days</string>
+    <string name="discover_leaderboard_period_all_time">All time</string>
+    <string name="discover_leaderboard_period_group">Leaderboard period</string>
     <string name="discover_leaderboard_show_all">Show all %1$d</string>
     <string name="discover_leaderboard_show_less">Show less</string>
     <string name="discover_listening_now">Listening now</string>
@@ -1032,9 +1037,6 @@ One beautiful library.</string>
     <string name="discover_no_one_listening_right_now">No one's listening right now. Check back soon!</string>
     <string name="discover_no_recently_added_books">No books added recently.</string>
     <string name="discover_no_shelves_to_discover_yet">No shelves to discover yet</string>
-    <string name="discover_period_all">All</string>
-    <string name="discover_period_month">Month</string>
-    <string name="discover_period_week">Week</string>
     <string name="discover_recently_added">Recently added</string>
     <string name="discover_shelf_count">%1$d shelf</string>
     <string name="discover_shelves_count">%1$d shelves</string>
@@ -1242,6 +1244,7 @@ One beautiful library.</string>
     <string name="home_day_streak">%1$d day streak</string>
     <string name="home_greeting_with_name">%1$s, %2$s</string>
     <string name="home_hours_minutes">%1$dh %2$dm</string>
+    <string name="home_last_7_days">Last 7 days</string>
     <string name="home_listened">listened</string>
     <string name="home_my_shelves">My shelves</string>
     <string name="home_no_listening">No listening</string>
@@ -1253,7 +1256,6 @@ One beautiful library.</string>
     <string name="home_shelf_books_count_duration">%1$d books · %2$s</string>
     <string name="home_start_listening_to_an_audiobook">Start listening to an audiobook and it will appear here</string>
     <string name="home_start_listening_to_see_your">Start listening to see your stats here</string>
-    <string name="home_this_week">This week</string>
     <string name="home_today">Today</string>
     <string name="home_top_genres">Top genres</string>
     <string name="import_accept">Accept</string>

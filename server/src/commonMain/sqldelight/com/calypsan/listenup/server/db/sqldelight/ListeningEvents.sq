@@ -101,15 +101,15 @@ SELECT EXISTS(
     WHERE user_id = :userId AND book_id = :bookId AND id != :excludingId
 );
 
--- Stats support: SUM of wall-clock seconds for live events ended at/after :cutoffMs (rolling window).
--- A span that started before :cutoffMs but ended inside it is clipped to its post-cutoff portion via
--- MAX(started_at, :cutoffMs), so a session straddling the boundary contributes only its in-window
--- seconds. Soft-deleted rows are excluded (deleted_at IS NULL) so the window agrees with the all-time
--- and streak reads that derive from the same primitive. Returns 0 when no live rows fall in the window.
-sumWallSecondsSince:
-SELECT CAST(COALESCE(SUM((ended_at - MAX(started_at, :cutoffMs)) / 1000), 0) AS INTEGER)
+-- Stats support: SUM of wall-clock seconds for live events that ended at/after :windowStartMs — the
+-- StatsWindow counting rule: a span that began before the window but ended inside it counts whole,
+-- exactly as Home counts it (per-row integer seconds, like StatsWindow.secondsCounted). Soft-deleted
+-- rows are excluded (deleted_at IS NULL) so the window agrees with the all-time and streak reads that
+-- derive from the same primitive. Returns 0 when no live rows fall in the window.
+sumWallSecondsEndedSince:
+SELECT CAST(COALESCE(SUM((ended_at - started_at) / 1000), 0) AS INTEGER)
 FROM listening_events
-WHERE user_id = :userId AND ended_at >= :cutoffMs AND deleted_at IS NULL;
+WHERE user_id = :userId AND ended_at >= :windowStartMs AND deleted_at IS NULL;
 
 -- Stats support: content coverage (summed end-start position deltas, negatives clamped to 0) a user
 -- accrued on :bookId strictly after :sinceMs. Drives the re-read coverage rule — a genuine re-read

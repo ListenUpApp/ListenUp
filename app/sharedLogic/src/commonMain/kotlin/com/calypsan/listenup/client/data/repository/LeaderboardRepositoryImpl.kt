@@ -14,8 +14,10 @@ import kotlinx.coroutines.flow.map
  * roster (the global social projection). Every user's row is present locally, so all
  * rankings compute client-side with no network call.
  *
- * Time ranks by the period-appropriate rolling-window seconds field (Week=last7,
- * Month=last30, Year=last365, AllTime=allTime). Books and Streak rank by the same
+ * Time ranks by the period-appropriate window seconds field (Week=last7,
+ * Month=last30, Year=last365, AllTime=allTime). The server computes each windowed column over
+ * the shared [com.calypsan.listenup.domain.stats.StatsWindow] in the listener's home timezone —
+ * the same week Home counts. Books and Streak rank by the same
  * period: a bounded period uses the windowed columns (distinct books finished within
  * the window; the longest consecutive-day run within the window), AllTime uses the
  * cumulative totals. The ranked value is carried on the entry so the UI shows it directly.

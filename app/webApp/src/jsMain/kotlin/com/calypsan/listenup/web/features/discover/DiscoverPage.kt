@@ -343,8 +343,14 @@ private fun LeaderboardSection(
             is LeaderboardUiState.Data -> {
                 Div(attrs = { classes("disc-lb-controls") }) {
                     Div(attrs = { classes("disc-chips") }) {
-                        PERIODS.forEach { (period, label) ->
-                            Chip(label, selected = period == state.period) { onSelectPeriod(period) }
+                        PERIODS.forEach { tab ->
+                            Chip(
+                                tab.label,
+                                selected = tab.period == state.period,
+                                accessibleLabel = tab.accessibleLabel,
+                            ) {
+                                onSelectPeriod(tab.period)
+                            }
                         }
                     }
                     Div(attrs = { classes("disc-chips") }) {
@@ -511,10 +517,12 @@ private fun SectionError(
 private fun Chip(
     label: String,
     selected: Boolean,
+    accessibleLabel: String? = null,
     onSelect: () -> Unit,
 ) {
     Button(attrs = {
         classes("disc-chip")
+        accessibleLabel?.let { attr("aria-label", it) }
         if (selected) classes("is-on")
         attr(ATTR_TYPE, VALUE_BUTTON)
         // Pressed, not selected: these are buttons in a group, not a listbox, and `aria-pressed`
@@ -526,13 +534,23 @@ private fun Chip(
     }
 }
 
-/** The periods the board offers, with the words the tabs use for them. */
-private val PERIODS: List<Pair<LeaderboardPeriod, String>> =
+/** A period the board offers: the short word its tab shows, and the full window a screen reader hears. */
+private data class PeriodTab(
+    val period: LeaderboardPeriod,
+    val label: String,
+    val accessibleLabel: String,
+)
+
+/**
+ * The periods the board offers. They are trailing windows (today plus the days before it), so the
+ * labels name the window, not a calendar unit.
+ */
+private val PERIODS: List<PeriodTab> =
     listOf(
-        LeaderboardPeriod.Week to "Week",
-        LeaderboardPeriod.Month to "Month",
-        LeaderboardPeriod.Year to "Year",
-        LeaderboardPeriod.AllTime to "All time",
+        PeriodTab(LeaderboardPeriod.Week, "7 days", "Last 7 days"),
+        PeriodTab(LeaderboardPeriod.Month, "30 days", "Last 30 days"),
+        PeriodTab(LeaderboardPeriod.Year, "12 months", "Last 12 months"),
+        PeriodTab(LeaderboardPeriod.AllTime, "All time", "All time"),
     )
 
 private fun categoryLabel(category: LeaderboardCategory): String =

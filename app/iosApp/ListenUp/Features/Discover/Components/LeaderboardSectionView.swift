@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The Discover leaderboard section: a title, a Week / Month / All period control, a
+/// The Discover leaderboard section: a title, a 7 days / 30 days / 12 months / All time period control, a
 /// Time / Books / Streak metric control, and flat ranked rows. Renders loading / empty /
 /// data / error from the observer's phase.
 struct LeaderboardSectionView: View {
@@ -9,6 +9,7 @@ struct LeaderboardSectionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
+            periodPicker
             metricPicker
             content
         }
@@ -35,28 +36,31 @@ struct LeaderboardSectionView: View {
     // MARK: - Header
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
-            Text(String(localized: "discover.leaderboard"))
-                .font(.title2.bold())
-                .accessibilityAddTraits(.isHeader)
+        Text(String(localized: "discover.leaderboard"))
+            .font(.title2.bold())
+            .accessibilityAddTraits(.isHeader)
+    }
 
-            Spacer(minLength: 8)
+    // MARK: - Period control
 
-            Picker(
-                String(localized: "discover.leaderboard"),
-                selection: Binding(
-                    get: { observer.selectedPeriod },
-                    set: { observer.selectPeriod($0) }
-                )
-            ) {
-                ForEach(LeaderboardSelection.allCases) { selection in
-                    Text(String(localized: selection.titleKey)).tag(selection)
-                }
+    /// Full width, on its own row: four segments beside the title would not fit "12 months" on a
+    /// compact phone.
+    private var periodPicker: some View {
+        Picker(
+            String(localized: "discover.leaderboard"),
+            selection: Binding(
+                get: { observer.selectedPeriod },
+                set: { observer.selectPeriod($0) }
+            )
+        ) {
+            ForEach(LeaderboardSelection.allCases) { selection in
+                Text(String(localized: selection.titleKey))
+                    .accessibilityLabel(Text(String(localized: selection.accessibilityKey)))
+                    .tag(selection)
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(maxWidth: 200)
         }
+        .pickerStyle(.segmented)
+        .labelsHidden()
     }
 
     // MARK: - Content

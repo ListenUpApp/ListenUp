@@ -222,6 +222,16 @@ class HomePageTest :
             (bars.item(0) as HTMLElement).className shouldNotContain "is-today"
         }
 
+        test("the stats section is headed with the window it counts, not a calendar week") {
+            // The total is today plus the previous six days, not Monday-to-Sunday: "This week" promised
+            // the wrong thing, and it no longer matched the leaderboard's labels either.
+            val host = homePage(readyHome(), stats = weekStats())
+
+            val headings = host.querySelectorAll(".home-section-h")
+            (0 until headings.length).map { (headings.item(it) as HTMLElement).textContent }.contains("Last 7 days") shouldBe true
+            host.textContent.orEmpty() shouldNotContain "This week"
+        }
+
         test("a day with no listening still draws, so the week reads as seven days") {
             val host = homePage(readyHome(), stats = weekStats())
 

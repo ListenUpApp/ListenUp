@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.sync.PublicProfileSyncPayload
+import com.calypsan.listenup.domain.stats.StatsWindow
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.PublicProfileRepository
@@ -10,9 +11,6 @@ import kotlin.time.Clock
 import kotlinx.datetime.TimeZone
 
 private val logger = loggerFor<PublicProfileMaintainer>()
-
-/** Days in the longest rolling window the projection tracks. */
-private const val YEAR_WINDOW_DAYS = 365
 
 /**
  * Rebuilds the global `public_profiles` projection from the authoritative `users`
@@ -45,6 +43,37 @@ class PublicProfileMaintainer(
         userId: String,
         tz: TimeZone? = null,
     ) {
+        val payload = buildPayload(userId, tz) ?: return
+        publicProfileRepo.upsert(payload, clientOpId = null, userId = null)
+    }
+
+    /**
+     * [refresh] only when the rebuilt row differs from the stored one, so a periodic re-check (the
+     * midnight rollover sweep) doesn't bump the revision — and push a frame to every client — for a
+     * user whose leaderboard row hasn't moved. Returns `true` when the row was written.
+     *
+     * The windowed books and streak columns live only in this projection, not in `user_stats`, so a
+     * week rolling over can change this row while `user_stats` stays put; this is what catches that.
+     */
+    suspend fun refreshIfChanged(
+        userId: String,
+        tz: TimeZone? = null,
+    ): Boolean {
+        val payload = buildPayload(userId, tz) ?: return false
+        val stored = publicProfileRepo.getById(userId)
+        if (stored != null && stored.copy(revision = 0, updatedAt = 0, createdAt = 0) == payload) return false
+        publicProfileRepo.upsert(payload, clientOpId = null, userId = null)
+        return true
+    }
+
+    /**
+     * Rebuild [userId]'s projection row from `users` + `user_stats` + the windowed reads, or `null` when
+     * the user row is absent. `revision` and the timestamps are left at 0 for the substrate to assign.
+     */
+    private suspend fun buildPayload(
+        userId: String,
+        tz: TimeZone?,
+    ): PublicProfileSyncPayload? {
         // Identity from the `users` table (pure read; live rows only — a tombstoned/absent user
         // yields no row and the projection refresh no-ops, matching the prior Exposed read).
         val identity =
@@ -57,69 +86,66 @@ class PublicProfileMaintainer(
                     tagline = it.tagline,
                     avatarUpdatedAt = it.avatar_updated_at,
                 )
-            } ?: return
+            } ?: return null
 
-        val nowMs = clock.now().toEpochMilliseconds()
-        // Home timezone for the windowed-streak day math (same frame the stats walk uses). Read
-        // outside the payload transaction, mirroring UserStatsBackfillService.
+        val now = clock.now()
+        // Home timezone for the window starts and the windowed-streak day math (same frame the stats
+        // walk uses). Read outside the payload transaction, mirroring UserStatsBackfillService.
         val tzResolved = tz ?: sql.homeTimeZone(userId)
-        val cutoff7 = nowMs - 7 * 86_400_000L
-        val cutoff30 = nowMs - 30 * 86_400_000L
-        val yearCutoff = nowMs - YEAR_WINDOW_DAYS * 86_400_000L
+        val weekStart = StatsWindow.Week.startMs(now, tzResolved)
+        val monthStart = StatsWindow.Month.startMs(now, tzResolved)
+        val yearStart = StatsWindow.Year.startMs(now, tzResolved)
 
         // Aggregates from the SQLDelight `user_stats` / `listening_events` / `book_reads` tables.
-        val payload =
-            suspendTransaction(sql) {
-                val stats = sql.userStatsQueries.selectLiveForUser(userId).executeAsOneOrNull()
-                val yearWindowSeconds =
-                    sql.listeningEventsQueries
-                        .sumWallSecondsSince(
-                            userId = userId,
-                            cutoffMs = yearCutoff,
-                        ).executeAsOne()
+        return suspendTransaction(sql) {
+            val stats = sql.userStatsQueries.selectLiveForUser(userId).executeAsOneOrNull()
+            val yearWindowSeconds =
+                sql.listeningEventsQueries
+                    .sumWallSecondsEndedSince(
+                        userId = userId,
+                        windowStartMs = yearStart,
+                    ).executeAsOne()
 
-                // Windowed books: distinct books finished within each trailing window.
-                val books = sql.bookReadsQueries
+            // Windowed books: distinct books finished within each calendar window.
+            val books = sql.bookReadsQueries
 
-                fun booksFinishedSince(cutoffMs: Long): Int =
-                    books.countDistinctFinishedSince(userId, cutoffMs).executeAsOne().toInt()
+            fun booksFinishedSince(cutoffMs: Long): Int =
+                books.countDistinctFinishedSince(userId, cutoffMs).executeAsOne().toInt()
 
-                // Windowed streak: longest consecutive listening-day run whose events fall in the window.
-                val events = sql.listeningEventsQueries
+            // Windowed streak: longest consecutive listening-day run whose events fall in the window.
+            val events = sql.listeningEventsQueries
 
-                fun longestStreakSince(cutoffMs: Long): Int =
-                    longestStreakInWindow(
-                        events.selectEndedAtForUserSince(userId, cutoffMs).executeAsList(),
-                        tzResolved,
-                    )
-
-                PublicProfileSyncPayload(
-                    id = userId,
-                    displayName = identity.displayName,
-                    avatarType = identity.avatarType,
-                    tagline = identity.tagline,
-                    avatarUpdatedAt = identity.avatarUpdatedAt,
-                    totalSecondsAllTime = stats?.total_seconds_all_time ?: 0L,
-                    totalSecondsLast7Days = stats?.total_seconds_last_7_days ?: 0L,
-                    totalSecondsLast30Days = stats?.total_seconds_last_30_days ?: 0L,
-                    totalSecondsLast365Days = yearWindowSeconds,
-                    booksFinished = (stats?.books_finished ?: 0L).toInt(),
-                    currentStreakDays = (stats?.current_streak_days ?: 0L).toInt(),
-                    longestStreakDays = (stats?.longest_streak_days ?: 0L).toInt(),
-                    booksFinishedLast7Days = booksFinishedSince(cutoff7),
-                    booksFinishedLast30Days = booksFinishedSince(cutoff30),
-                    booksFinishedLast365Days = booksFinishedSince(yearCutoff),
-                    longestStreakLast7Days = longestStreakSince(cutoff7),
-                    longestStreakLast30Days = longestStreakSince(cutoff30),
-                    longestStreakLast365Days = longestStreakSince(yearCutoff),
-                    revision = 0,
-                    updatedAt = 0,
-                    createdAt = 0,
-                    deletedAt = null,
+            fun longestStreakSince(cutoffMs: Long): Int =
+                longestStreakInWindow(
+                    events.selectEndedAtForUserSince(userId, cutoffMs).executeAsList(),
+                    tzResolved,
                 )
-            }
 
-        publicProfileRepo.upsert(payload, clientOpId = null, userId = null)
+            PublicProfileSyncPayload(
+                id = userId,
+                displayName = identity.displayName,
+                avatarType = identity.avatarType,
+                tagline = identity.tagline,
+                avatarUpdatedAt = identity.avatarUpdatedAt,
+                totalSecondsAllTime = stats?.total_seconds_all_time ?: 0L,
+                totalSecondsLast7Days = stats?.total_seconds_last_7_days ?: 0L,
+                totalSecondsLast30Days = stats?.total_seconds_last_30_days ?: 0L,
+                totalSecondsLast365Days = yearWindowSeconds,
+                booksFinished = (stats?.books_finished ?: 0L).toInt(),
+                currentStreakDays = (stats?.current_streak_days ?: 0L).toInt(),
+                longestStreakDays = (stats?.longest_streak_days ?: 0L).toInt(),
+                booksFinishedLast7Days = booksFinishedSince(weekStart),
+                booksFinishedLast30Days = booksFinishedSince(monthStart),
+                booksFinishedLast365Days = booksFinishedSince(yearStart),
+                longestStreakLast7Days = longestStreakSince(weekStart),
+                longestStreakLast30Days = longestStreakSince(monthStart),
+                longestStreakLast365Days = longestStreakSince(yearStart),
+                revision = 0,
+                updatedAt = 0,
+                createdAt = 0,
+                deletedAt = null,
+            )
+        }
     }
 
     /** Soft-delete the projection row for a removed user, so clients prune it. */
@@ -142,6 +168,15 @@ class PublicProfileMaintainer(
                 ) { "public_profiles refresh failed for $userId; projection will self-heal on next backfill" }
             }
     }
+
+    /** Best-effort [refreshIfChanged]; see [refreshBestEffort]. Returns `false` when the refresh failed. */
+    suspend fun refreshIfChangedBestEffort(userId: String): Boolean =
+        runCatchingCancellable { refreshIfChanged(userId) }
+            .onFailure {
+                logger.warn(
+                    it,
+                ) { "public_profiles refresh failed for $userId; projection will self-heal on next backfill" }
+            }.getOrDefault(false)
 
     /** Best-effort [tombstone]; see [refreshBestEffort]. */
     suspend fun tombstoneBestEffort(userId: String) {

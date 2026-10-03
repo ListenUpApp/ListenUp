@@ -29,17 +29,17 @@ class LeaderboardPeriodTest :
             startLondon shouldNotBe startNY
         }
 
-        test("Month.bounds covers current month") {
+        test("Month.bounds covers today plus the previous 29 days") {
             val (start, end) = LeaderboardPeriod.Month.bounds(now, london)
             end shouldBe now.toEpochMilliseconds()
-            // 2026-05-01T00:00 London BST = 2026-04-30T23:00Z
-            start shouldBe Instant.parse("2026-04-30T23:00:00Z").toEpochMilliseconds()
+            // 2026-05-23 minus 29 days → 2026-04-24T00:00 London BST = 2026-04-23T23:00Z
+            start shouldBe Instant.parse("2026-04-23T23:00:00Z").toEpochMilliseconds()
         }
 
-        test("Year.bounds covers current year") {
+        test("Year.bounds covers today plus the previous 364 days") {
             val (start, _) = LeaderboardPeriod.Year.bounds(now, london)
-            // 2026-01-01T00:00 London GMT (no DST in Jan) = 2026-01-01T00:00Z
-            start shouldBe Instant.parse("2026-01-01T00:00:00Z").toEpochMilliseconds()
+            // 2026-05-23 minus 364 days → 2025-05-24T00:00 London BST = 2025-05-23T23:00Z
+            start shouldBe Instant.parse("2025-05-23T23:00:00Z").toEpochMilliseconds()
         }
 
         test("AllTime.bounds is the full epoch window") {

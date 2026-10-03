@@ -300,9 +300,29 @@ class DiscoverPageTest :
             val on = host.querySelectorAll(".disc-chip.is-on")
             // Exactly one period and one category, never two of either.
             on.length shouldBe 2
-            (on.item(0) as HTMLElement).textContent shouldBe "Month"
+            (on.item(0) as HTMLElement).textContent shouldBe "30 days"
             (on.item(1) as HTMLElement).textContent shouldBe "Time"
             (on.item(0) as HTMLElement).getAttribute("aria-pressed") shouldBe "true"
+        }
+
+        test("the periods say what they count: four trailing windows, in order, read out in full") {
+            val host =
+                mounts.mount {
+                    page(
+                        leaderboard =
+                            LeaderboardUiState.Data(
+                                snapshot = LeaderboardSnapshot(listOf(entry("Ada")), emptyList(), emptyList()),
+                                period = LeaderboardPeriod.Week,
+                                category = LeaderboardCategory.Time,
+                            ),
+                    )
+                }
+
+            val chips = host.querySelectorAll(".disc-chip")
+            val periods = (0 until 4).map { chips.item(it) as HTMLElement }
+            periods.map { it.textContent } shouldBe listOf("7 days", "30 days", "12 months", "All time")
+            periods.map { it.getAttribute("aria-label") } shouldBe
+                listOf("Last 7 days", "Last 30 days", "Last 12 months", "All time")
         }
 
         test("pressing a period and a category reports each once, and not the other") {
@@ -323,7 +343,7 @@ class DiscoverPageTest :
                 }
 
             val chips = host.querySelectorAll(".disc-chip")
-            // Periods first (Week, Month, Year, All time), then the three categories.
+            // Periods first (7 days, 30 days, 12 months, All time), then the three categories.
             (chips.item(2) as HTMLElement).click()
             period shouldBe LeaderboardPeriod.Year
             category shouldBe null

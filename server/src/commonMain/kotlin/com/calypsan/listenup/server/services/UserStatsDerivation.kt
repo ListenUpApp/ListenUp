@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
+import com.calypsan.listenup.domain.stats.StatsWindow
 import com.calypsan.listenup.domain.stats.StreakReducer
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -93,15 +94,16 @@ suspend fun deriveUserStats(
                 .date
     }
 
-    // 3. Rolling-window sums against nowMs, clipping any span that straddles the cutoff.
-    val cutoff7 = nowMs - 7 * 86_400_000L
-    val cutoff30 = nowMs - 30 * 86_400_000L
+    // 3. Window sums over the shared calendar windows (local midnight in the home timezone), counting
+    //    each span whole when it ended inside the window — the same rule Home applies.
+    val now = Instant.fromEpochMilliseconds(nowMs)
+    val weekStart = StatsWindow.Week.startMs(now, userTz)
+    val monthStart = StatsWindow.Month.startMs(now, userTz)
     var last7 = 0L
     var last30 = 0L
     for (event in events) {
-        val endedAtMs = event.ended_at
-        if (endedAtMs >= cutoff7) last7 += (endedAtMs - maxOf(event.started_at, cutoff7)) / 1_000L
-        if (endedAtMs >= cutoff30) last30 += (endedAtMs - maxOf(event.started_at, cutoff30)) / 1_000L
+        last7 += StatsWindow.secondsCounted(event.started_at, event.ended_at, weekStart)
+        last30 += StatsWindow.secondsCounted(event.started_at, event.ended_at, monthStart)
     }
 
     // 4. Finished-book count from the `book_reads` primitive (re-reads counted). All-time and windowed
@@ -134,7 +136,7 @@ suspend fun deriveUserStats(
     }
 
     // 6. Current + longest streak via the shared reducer, resolved as-of-today in the home timezone.
-    val today = Instant.fromEpochMilliseconds(nowMs).toLocalDateTime(userTz).date
+    val today = now.toLocalDateTime(userTz).date
     val streaks = StreakReducer.reduce(streakDays, today)
 
     return UserStatsSyncPayload(
