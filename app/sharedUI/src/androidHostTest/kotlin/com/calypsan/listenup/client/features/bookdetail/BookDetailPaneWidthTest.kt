@@ -2,11 +2,14 @@ package com.calypsan.listenup.client.features.bookdetail
 
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.readers.BookReaders
@@ -109,7 +112,10 @@ class BookDetailPaneWidthTest {
                     )
                 },
             ) {
-                MaterialTheme { content() }
+                // Book Detail's rating block offers Undo through the app's snackbar host.
+                MaterialTheme {
+                    CompositionLocalProvider(LocalSnackbarHostState provides SnackbarHostState()) { content() }
+                }
             }
         }
     }
