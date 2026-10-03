@@ -540,23 +540,6 @@ class PlaybackPositionRepository(
                 ?.toSyncPayload()
         }
 
-    /**
-     * The finish date a write may claim, or null when it claims none the server can use — the caller
-     * then dates the finish by its clamped `lastPlayedAt`, as it always has.
-     *
-     * Bounded above by the same skew ceiling as `lastPlayedAt`: the picker refuses future days, so a
-     * later value is a fast device clock, and a finish dated in the future would put a book in a stats
-     * window that has not happened yet. NOT bounded below by anything but the epoch: a reader may be
-     * recording a book they finished years before ListenUp — or before this server had the book at
-     * all — and a floor such as the book's `created_at` would refuse exactly what the picker exists
-     * for. A non-positive value is the unset sentinel (an ABS backup's blank `finishedAt` parses to 0),
-     * never a real day.
-     */
-    private fun resolveFinishedAt(
-        finishedAt: Long?,
-        now: Long,
-    ): Long? = finishedAt?.takeIf { it > 0 }?.let { min(it, now + SKEW_TOLERANCE_MS) }
-
     /** Test-only accessor for the protected [idAsString]. */
     internal fun idAsStringForTest(id: PlaybackPositionId): String = idAsString(id)
 
@@ -716,18 +699,35 @@ class PlaybackPositionRepository(
         /** Import rows per write transaction — one [suspendTransaction] commits a whole chunk. */
         const val PERSIST_CHUNK_SIZE = 200
 
-        /**
-         * How far into the future a client-reported `lastPlayedAt` is trusted, relative to the
-         * server clock — generous for honest clock drift, but nothing further out survives the
-         * clamp in [recordPosition] / [recordAllForImport]. Never bounds the past: an
-         * offline-for-days device's old timestamp is untouched.
-         */
-        const val SKEW_TOLERANCE_MS = 5 * 60 * 1000L
-
         /** SQLite stores booleans as INTEGER 0/1; map at the write boundary. */
         private fun Boolean.toDbLong(): Long = if (this) 1L else 0L
     }
 }
+
+/**
+ * How far into the future a client-reported `lastPlayedAt` or `finishedAt` is trusted, relative to the
+ * server clock — generous for honest clock drift, but nothing further out survives the clamp in
+ * [PlaybackPositionRepository.recordPosition] / [PlaybackPositionRepository.recordAllForImport]. Never
+ * bounds the past: an offline-for-days device's old timestamp is untouched.
+ */
+internal const val SKEW_TOLERANCE_MS = 5 * 60 * 1000L
+
+/**
+ * The finish date a write may claim, or null when it claims none the server can use — the caller
+ * then dates the finish by its `lastPlayedAt`, as it always has.
+ *
+ * Bounded above by the same skew ceiling as `lastPlayedAt`: the picker refuses future days, so a
+ * later value is a fast device clock, and a finish dated in the future would put a book in a stats
+ * window that has not happened yet. NOT bounded below by anything but the epoch: a reader may be
+ * recording a book they finished years before ListenUp — or before this server had the book at
+ * all — and a floor such as the book's `created_at` would refuse exactly what the picker exists
+ * for. A non-positive value is the unset sentinel (an ABS backup's blank `finishedAt` parses to 0),
+ * never a real day.
+ */
+internal fun resolveFinishedAt(
+    finishedAt: Long?,
+    nowMs: Long,
+): Long? = finishedAt?.takeIf { it > 0 }?.let { min(it, nowMs + SKEW_TOLERANCE_MS) }
 
 /**
  * One user's most-recently-played unfinished book — the presence section's recent-fill row before

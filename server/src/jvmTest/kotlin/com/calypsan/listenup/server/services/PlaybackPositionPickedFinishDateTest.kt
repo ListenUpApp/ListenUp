@@ -46,9 +46,6 @@ private val SEP_30 = LocalDate(2026, 9, 30).atStartOfDayIn(EDMONTON).toEpochMill
 private const val ONE_MINUTE_MS = 60_000L
 private const val THREE_DAYS_MS = 3L * 24 * 60 * 60 * 1000
 
-/** The server's five-minute allowance for a fast device clock; nothing later survives the clamp. */
-private const val SKEW_TOLERANCE_MS = 5 * ONE_MINUTE_MS
-
 /**
  * The real position → stats → Hardcover chain, with a connected Hardcover account, so one finish can be
  * read back from every place it is dated: `book_reads`, the FINISHED_BOOK activity and the FINISH push.
@@ -217,6 +214,36 @@ class PlaybackPositionPickedFinishDateTest :
                 finishedActivitiesAt() shouldBe listOf(SEP_30)
                 queuedFinishes() shouldBe listOf(SEP_30)
                 positions.getPosition(USER, BOOK).shouldNotBeNull().finishedAt shouldBe SEP_30
+            }
+        }
+
+        test("a stats rebuild that recovers a lost finish dates it by the position's finish day") {
+            finishTest {
+                // A finished position whose completion cascade never ran (a crash between the two).
+                sql.playbackPositionsQueries.insert(
+                    id = "pos-1",
+                    user_id = USER,
+                    book_id = BOOK,
+                    position_ms = 99_000L,
+                    last_played_at = PRESSED_AT,
+                    finished = 1L,
+                    playback_speed = 1.0,
+                    volume_boost_db = 0.0,
+                    measured_gain_db = null,
+                    finished_at = SEP_30,
+                    has_custom_speed = 0L,
+                    has_custom_boost = 0L,
+                    current_chapter_id = null,
+                    revision = 1L,
+                    created_at = PRESSED_AT,
+                    updated_at = PRESSED_AT,
+                    deleted_at = null,
+                    client_op_id = null,
+                )
+
+                reconcileBookReadsFromPositions(sql, USER, nowMs = PRESSED_AT)
+
+                readsFinishedAt() shouldBe listOf(SEP_30)
             }
         }
 
