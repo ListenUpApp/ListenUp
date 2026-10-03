@@ -163,7 +163,7 @@ internal class SeriesServiceImpl(
         val sourcePayload =
             seriesRepo.findById(source.value)
                 ?: return AppResult.Failure(SeriesError.NotFound(debugInfo = "source=${source.value}"))
-        seriesRepo.findById(target.value)
+        hierarchy.live(target)
             ?: return AppResult.Failure(SeriesError.NotFound(debugInfo = "target=${target.value}"))
         if (sourcePayload.deletedAt != null) {
             return AppResult.Failure(

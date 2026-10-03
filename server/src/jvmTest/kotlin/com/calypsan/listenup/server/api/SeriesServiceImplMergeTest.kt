@@ -81,6 +81,24 @@ class SeriesServiceImplMergeTest :
             }
         }
 
+        test("mergeSeries returns NotFound when target is already tombstoned") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeMergeSeriesServiceAndDeps(this)
+                runTest {
+                    val sourceId = deps.seriesRepo.resolveOrCreate("The Stormlight Archive")
+                    val targetId = deps.seriesRepo.resolveOrCreate("Stormlight Archive")
+                    deps.seriesRepo.softDelete(targetId)
+
+                    val result = deps.service.mergeSeries(sourceId, targetId)
+
+                    val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                    failure.error.shouldBeInstanceOf<SeriesError.NotFound>()
+                    deps.seriesRepo.findById(sourceId.value)!!.deletedAt shouldBe null
+                }
+            }
+        }
+
         test("mergeSeries returns NotFound when target does not exist") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
