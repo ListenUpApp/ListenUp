@@ -223,6 +223,10 @@
     content: ""; position: absolute; left: 50%; top: 50%;
     width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%);
   }
+  /* Segments that wrap onto a second line would sit 2px apart, and the lower one's square would take
+     the taps meant for the bottom of the upper one. 14px between rows (30px + 14px = 44px centre to
+     centre) keeps each square its own; a row that fits on one line is untouched. */
+  .luw .seg { row-gap: 14px; }
   /* Stacked menu items cannot borrow room from each other the way an isolated icon can, so the
      item itself grows. A menu is a popover: a taller one moves nothing else. */
   .luw .menu-i { height: 44px; }
