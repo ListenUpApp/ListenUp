@@ -76,6 +76,21 @@ class SeriesLineageResolverTest :
                 listOf("final-empire", "well", "way-of-kings", "warbreaker")
         }
 
+        test("books that tie on sequence, or have none, order by title whatever order the rows arrive in") {
+            val books =
+                listOf(
+                    book("id-1", "cosmere" to null).copy(title = "Warbreaker"),
+                    book("id-2", "cosmere" to null).copy(title = "Elantris"),
+                    book("id-3", "era1" to 1.0).copy(title = "The Well of Ascension"),
+                    book("id-4", "era1" to 1.0).copy(title = "The Final Empire"),
+                )
+            val expected = listOf("id-4", "id-3", "id-2", "id-1")
+
+            resolver.resolve("cosmere", books).subtreeBooks.map { it.id.value } shouldContainExactly expected
+            resolver.resolve("cosmere", books.reversed()).subtreeBooks.map { it.id.value } shouldContainExactly expected
+            resolver.resolve("cosmere", books.reversed()).children[0].bookIds shouldContainExactly listOf("id-4", "id-3")
+        }
+
         test("a nested series lists its ancestors root first") {
             resolver.resolve("era1", emptyList()).ancestors.map { it.id.value } shouldContainExactly
                 listOf("cosmere", "mistborn")

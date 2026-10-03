@@ -11,7 +11,7 @@ import com.calypsan.listenup.domain.series.SeriesTree
 /**
  * Turns the flat list of live series plus a subtree's books into a [SeriesLineage]. Pure: the
  * repository supplies the Room rows, this decides the shape, and [SeriesTree] — shared with the
- * server — decides the order.
+ * server — decides the order. Books that tie on sequence order by title, as a flat series' do.
  */
 internal class SeriesLineageResolver(
     allSeries: List<Series>,
@@ -39,7 +39,7 @@ internal class SeriesLineageResolver(
             subtreeBooks.flatMap { book ->
                 book.series
                     .filter { it.seriesId in subtree }
-                    .map { SeriesMembership(book.id.value, it.seriesId, it.sequence) }
+                    .map { SeriesMembership(book.id.value, it.seriesId, it.sequence, sortKey = book.title) }
             }
         val bookById = subtreeBooks.associateBy { it.id.value }
         return SeriesLineage(
