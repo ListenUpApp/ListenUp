@@ -68,6 +68,31 @@ internal class SeriesHierarchyWrites(
     }
 
     /**
+     * Hands the sub-series of [source] on, ahead of [source] being merged into [target]: they
+     * follow it into the target, after the target's own sub-series. One that IS the target, or
+     * contains it, can't sit under the target — it takes the source's own slot in the tree instead.
+     */
+    suspend fun handChildrenTo(
+        source: SeriesSyncPayload,
+        target: SeriesId,
+    ): AppResult<Unit> {
+        val tree = seriesRepo.liveTree()
+        val heir =
+            tree
+                .childrenOf(source.id)
+                .firstOrNull { target.value in tree.subtreeOf(it) }
+                ?.let { live(SeriesId(it)) }
+        if (heir != null) {
+            val parent = liveParentOf(source)
+            when (val placed = place(heir, parent, source.parentPosition.takeIf { parent != null })) {
+                is AppResult.Success -> Unit
+                is AppResult.Failure -> return placed
+            }
+        }
+        return reparentChildren(SeriesId(source.id)) { target.value }
+    }
+
+    /**
      * Creates the series [name] under [parentId] (null for a root), appended after that parent's
      * existing sub-series. Refuses a blank or over-long name, a missing parent, and a name a live
      * series already holds.

@@ -328,4 +328,27 @@ class SeriesHierarchyLifecycleTest :
                 }
             }
         }
+
+        test("a sub-series that contains the merge target takes the source's own slot among its siblings") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeHierarchyDeps(this)
+                runTest {
+                    val universe = deps.seriesRepo.resolveOrCreate("Sanderson")
+                    val reckoners = deps.seriesRepo.resolveOrCreate("Reckoners")
+                    val cosmere = deps.seriesRepo.resolveOrCreate("Cosmere")
+                    val skyward = deps.seriesRepo.resolveOrCreate("Skyward")
+                    val mistborn = deps.seriesRepo.resolveOrCreate("Mistborn")
+                    deps.place(reckoners, parent = universe, position = 0)
+                    deps.place(cosmere, parent = universe, position = 1)
+                    deps.place(skyward, parent = universe, position = 2)
+                    deps.place(mistborn, parent = cosmere, position = 0)
+
+                    deps.service.mergeSeries(source = cosmere, target = mistborn).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    deps.seriesRepo.liveTree().childrenOf(universe.value) shouldContainExactly
+                        listOf(reckoners.value, mistborn.value, skyward.value)
+                }
+            }
+        }
     })

@@ -200,15 +200,9 @@ internal class SeriesServiceImpl(
             }
         }
 
-        // The source's sub-series follow it into the target. One that IS the target, or contains
-        // it, can't sit under the target — it takes the source's own place in the tree instead.
-        val tree = seriesRepo.liveTree()
-        val sourceParent = hierarchy.liveParentOf(sourcePayload)
-        val reparented =
-            hierarchy.reparentChildren(source) { childId ->
-                if (target.value in tree.subtreeOf(childId)) sourceParent else target.value
-            }
-        if (reparented is AppResult.Failure) return reparented
+        // The source's sub-series follow it into the target.
+        val handedOn = hierarchy.handChildrenTo(sourcePayload, target)
+        if (handedOn is AppResult.Failure) return handedOn
 
         // Tombstone the source AND record its merge redirect, so a rescan of a book whose files
         // still carry the old name lands in the target instead of reviving the source.
