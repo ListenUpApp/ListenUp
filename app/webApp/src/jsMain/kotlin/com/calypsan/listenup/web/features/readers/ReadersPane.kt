@@ -174,6 +174,21 @@ private fun ReaderRow(
                     Span(attrs = { classes("rdr-s") }) { Text(stateLine(kind, nowMs)) }
                     Span(attrs = { classes("rdr-src") }) { Text(HARDCOVER) }
                 }
+            } else if (kind is ReaderLineKind.Finished && kind.alsoOnHardcover) {
+                // One listen, logged here and on Hardcover. Drawn as the date beside a label; spoken as
+                // one phrase within the row button's name, never as a stray "Also on Hardcover".
+                val finished = stateLine(kind, nowMs)
+                Div(attrs = { classes("rdr-sl") }) {
+                    Span(attrs = {
+                        classes("rdr-s")
+                        attr("aria-hidden", "true")
+                    }) { Text(finished) }
+                    Span(attrs = {
+                        classes("rdr-src")
+                        attr("aria-hidden", "true")
+                    }) { Text(ALSO_ON_HARDCOVER) }
+                    Span(attrs = { classes("sr-only") }) { Text("$finished, also on Hardcover") }
+                }
             } else {
                 Span(attrs = { classes("rdr-s") }) { Text(stateLine(kind, nowMs)) }
             }
@@ -227,3 +242,5 @@ private const val MARK_SIZE = 16
 private const val READERS = "Readers"
 
 private const val HARDCOVER = "Hardcover"
+
+private const val ALSO_ON_HARDCOVER = "Also on Hardcover"
