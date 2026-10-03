@@ -523,7 +523,29 @@
     "detail_rating_source_row": "%1$s · %2$s",
     "detail_rating_source_row_share": "%1$s · %2$s · %3$s · %4$s%",
     "detail_rating_combined_from": "Combined from %1$s sources",
-    "detail_rating_refresh": "Refresh ratings"
+    "detail_rating_refresh": "Refresh ratings",
+    "detail_rating_heading": "Ratings",
+    "detail_rating_tap_hint": "Tap a star. Drag for half stars.",
+    "detail_rating_saved_on_lift": "Saved as you lift your finger",
+    "detail_rating_add_note": "Add a note",
+    "detail_rating_edit_note": "Edit note",
+    "detail_rating_removed": "Rating removed",
+    "detail_rating_undo": "Undo",
+    "detail_rating_options": "Rating options",
+    "detail_rating_remove_confirm": "Remove your rating and note?",
+    "detail_rating_score": "ListenUp score",
+    "detail_rating_count": "%1$s ratings",
+    "detail_rating_count_one": "1 rating",
+    "detail_rating_score_detail": "%1$s · %2$s",
+    "detail_rating_score_a11y": "ListenUp score: Rated %1$s out of 5 stars from %2$s ratings. %3$s.",
+    "detail_rating_score_a11y_one": "ListenUp score: Rated %1$s out of 5 stars from 1 rating. %2$s.",
+    "detail_rating_show_sources": "Show rating sources",
+    "detail_rating_checking": "Checking Hardcover…",
+    "detail_rating_no_ratings": "No ratings yet",
+    "detail_rating_updated_today": "Updated today",
+    "detail_rating_updated_yesterday": "Updated yesterday",
+    "detail_rating_updated_days": "Updated %1$d days ago",
+    "detail_rating_share": "%1$s%"
   },
   "series": {
     "sort_descending_a11y": "Sort descending",
@@ -1978,6 +2000,7 @@
     "source_audible": "Audible",
     "source_hardcover": "Hardcover",
     "source_goodreads": "Goodreads",
-    "source_listeners": "Your listeners"
+    "source_listeners": "Your listeners",
+    "source_listeners_inline": "your listeners"
   }
 }
