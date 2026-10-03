@@ -14,19 +14,26 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import org.jetbrains.compose.resources.stringResource
@@ -34,6 +41,8 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.HeroInk
+import com.calypsan.listenup.client.design.util.isLargeFontScale
+import kotlin.math.roundToInt
 
 private val HERO_BADGE_SIZE = 48.dp
 
@@ -58,7 +67,14 @@ private val HERO_BADGE_SIZE = 48.dp
  * @param actions Optional top-bar actions (e.g. a [SaveAction]). When present, the back button and
  *   the actions share a top row, the way a Material large top app bar carries them, and the title
  *   drops to its own row beneath — so an action never squeezes the display-size title.
+ * @param scrollBehavior From [rememberHeroScrollBehavior]: at a large font the hero slides away as the
+ *   content scrolls up and returns on the way back, instead of holding a third of the screen. Pass the
+ *   same behaviour's `nestedScrollConnection` to the screen's scaffold. Null keeps the hero pinned.
+ *
+ * At a large font the title steps down a size and hyphenates, so a long word ("Administration") breaks at
+ * a syllable rather than leaving a lone letter on its own line.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ColorBlockHero(
     title: String,
@@ -67,12 +83,13 @@ fun ColorBlockHero(
     modifier: Modifier = Modifier,
     overline: String? = null,
     supportingText: String? = null,
+    scrollBehavior: TopAppBarScrollBehavior? = null,
     actions: @Composable (RowScope.() -> Unit)? = null,
     content: @Composable (ColumnScope.() -> Unit)? = null,
 ) {
     val haptics = LocalHaptics.current
     Surface(
-        modifier = modifier,
+        modifier = modifier.then(scrollBehavior?.let { Modifier.slidesAway(it) } ?: Modifier),
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         shape = ContentShapes.hero,
@@ -120,25 +137,7 @@ fun ColorBlockHero(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 if (actions == null) backButton()
-                Column(modifier = Modifier.weight(1f)) {
-                    if (!overline.isNullOrBlank()) {
-                        Text(
-                            text = overline.uppercase(),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = HeroInk.muted(),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.semantics { heading() },
-                    )
-                }
+                HeroHeadline(title = title, overline = overline, modifier = Modifier.weight(1f))
                 ScallopBadge(size = HERO_BADGE_SIZE, containerColor = MaterialTheme.colorScheme.primary) {
                     Icon(
                         imageVector = badgeIcon,
@@ -164,3 +163,60 @@ fun ColorBlockHero(
         }
     }
 }
+
+/**
+ * The hero's optional UPPERCASE [overline] over its [title], the screen's heading. At a large font the title
+ * steps down a size and hyphenates.
+ */
+@Composable
+private fun HeroHeadline(
+    title: String,
+    overline: String?,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        if (!overline.isNullOrBlank()) {
+            Text(
+                text = overline.uppercase(),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = HeroInk.muted(),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(
+            text = title,
+            style =
+                if (isLargeFontScale()) {
+                    MaterialTheme.typography.headlineSmall.copy(hyphens = Hyphens.Auto)
+                } else {
+                    MaterialTheme.typography.headlineMedium
+                },
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.semantics { heading() },
+        )
+    }
+}
+
+/**
+ * The scroll behaviour a [ColorBlockHero] takes at a large font: it slides away as the content scrolls up and
+ * comes back as soon as it scrolls down (Material's enter-always top app bar). Null below [isLargeFontScale]'s
+ * threshold, where the hero stays pinned as designed.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun rememberHeroScrollBehavior(): TopAppBarScrollBehavior? =
+    if (isLargeFontScale()) TopAppBarDefaults.enterAlwaysScrollBehavior() else null
+
+/** Lays the hero out at its full height minus what [behavior] has scrolled away, sliding its content up with it. */
+@OptIn(ExperimentalMaterial3Api::class)
+private fun Modifier.slidesAway(behavior: TopAppBarScrollBehavior): Modifier =
+    clipToBounds().layout { measurable, constraints ->
+        val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
+        val limit = -placeable.height.toFloat()
+        if (behavior.state.heightOffsetLimit != limit) behavior.state.heightOffsetLimit = limit
+        val shown = (placeable.height + behavior.state.heightOffset.roundToInt()).coerceIn(0, placeable.height)
+        layout(placeable.width, shown) { placeable.place(0, shown - placeable.height) }
+    }

@@ -53,8 +53,10 @@ internal val segmentColor: Color
  *
  * @param label Section heading, shown as written — sentence case, never shouted.
  * @param modifier Modifier for the whole section column.
- * @param trailing Optional content at the end of the header (e.g. an Add button); when null the
- *   header is just the label.
+ * @param trailing Optional content at the end of the header (e.g. an Add button, or a [CountBadge]);
+ *   when null the header is just the label. The header is one heading node for TalkBack: a badge's
+ *   description is read with the label ("Needs a match, 28 books need a match"), while a button keeps
+ *   its own node.
  * @param content The group's segments: a [SettingRow] paints its own; anything else goes in a
  *   [SectionSegment].
  */
@@ -70,6 +72,7 @@ fun SectionGroup(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    .semantics(mergeDescendants = true) { heading() }
                     .heightIn(min = HEADER_MIN_HEIGHT)
                     .padding(start = Spacing.lg, bottom = Spacing.xs),
             verticalAlignment = Alignment.CenterVertically,
@@ -78,10 +81,7 @@ fun SectionGroup(
                 text = label,
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary,
-                modifier =
-                    Modifier
-                        .semantics { heading() }
-                        .then(if (trailing != null) Modifier.weight(1f) else Modifier),
+                modifier = if (trailing != null) Modifier.weight(1f) else Modifier,
             )
             trailing?.invoke(this)
         }
