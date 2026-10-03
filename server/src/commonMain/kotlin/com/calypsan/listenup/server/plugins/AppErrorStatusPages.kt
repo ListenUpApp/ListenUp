@@ -508,6 +508,9 @@ private fun SeriesError.toHttpStatus(): HttpStatusCode =
         is SeriesError.MergeReceiptNotFound -> HttpStatusCode.NotFound
         is SeriesError.MergeAlreadyUndone -> HttpStatusCode.Conflict
         is SeriesError.MergeTargetGone -> HttpStatusCode.Conflict
+        is SeriesError.ParentNotFound -> HttpStatusCode.NotFound
+        is SeriesError.HierarchyCycle -> HttpStatusCode.Conflict
+        is SeriesError.NameAlreadyExists -> HttpStatusCode.Conflict
     }
 
 private fun GenreError.toHttpStatus(): HttpStatusCode =

@@ -7,6 +7,7 @@
 --   V18__b2a_substrate.sql                (asin, description, cover_path)
 --   V53__drop_blurhash_columns.sql        (drops the dormant cover_blur_hash column)
 --   V69__series_merged_into.sql          (merged_into — the merge redirect)
+--   V85__series_hierarchy.sql            (parent_id, parent_position — the series tree)
 --
 -- revision / created_at / updated_at are declared NOT NULL here so the generated
 -- column types are non-null `Long` — every live row carries them (V14 backfills the
@@ -26,11 +27,14 @@ CREATE TABLE book_series (
     asin            TEXT,
     description     TEXT,
     cover_path      TEXT,
-    merged_into     TEXT
+    merged_into     TEXT,
+    parent_id       TEXT,
+    parent_position INTEGER
 );
 
 CREATE UNIQUE INDEX idx_series_normalized ON book_series(normalized_name);
 CREATE INDEX idx_book_series_revision ON book_series(revision);
+CREATE INDEX idx_book_series_parent ON book_series(parent_id);
 
 -- ── root-row queries ───────────────────────────────────────────────────────────
 
@@ -111,3 +115,18 @@ SELECT id, revision FROM book_series WHERE revision > :cursor ORDER BY revision 
 
 selectIdRevAtMost:
 SELECT id, revision FROM book_series WHERE deleted_at IS NULL AND revision <= :cursor;
+
+-- ── hierarchy ──────────────────────────────────────────────────────────────────
+
+-- Written by writePayload straight after its insert/update, in the same transaction, so the
+-- hierarchy rides every substrate upsert without widening the insert/update signatures.
+setHierarchy:
+UPDATE book_series SET parent_id = :parent_id, parent_position = :parent_position WHERE id = :id;
+
+-- Every live series as the tree sees it. Hundreds of rows at most; SeriesTree walks them in memory.
+selectLiveHierarchy:
+SELECT id, parent_id, parent_position FROM book_series WHERE deleted_at IS NULL;
+
+-- Whether a live series names this one as its parent — a parent with sub-series is never an orphan.
+hasLiveChildren:
+SELECT EXISTS(SELECT 1 FROM book_series WHERE parent_id = :id AND deleted_at IS NULL);

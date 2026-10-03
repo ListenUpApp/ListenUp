@@ -15,6 +15,9 @@ import com.calypsan.listenup.core.Timestamp
  * from the existing row when the payload's value is null — a B1-era event must
  * never null Books-B2 enrichment. This is apply-layer mapping, not conflict policy.
  * An own-echo needs no shield: idempotent upsert; edits echo identical values.
+ *
+ * The hierarchy fields are the exception to copy-forward: `parentId = null` is a real value
+ * (a root series), so they are written verbatim.
  */
 internal fun seriesDomain(database: ListenUpDatabase): MirroredDomain<SeriesSyncPayload> {
     val apply = SeriesMirrorApply(database)
@@ -42,6 +45,9 @@ internal class SeriesMirrorApply(
                 description = payload.description ?: existing?.description,
                 asin = payload.asin ?: existing?.asin,
                 coverPath = payload.coverPath ?: existing?.coverPath,
+                // Hierarchy is applied as sent: a null parent means "root", not "unknown".
+                parentId = payload.parentId,
+                parentPosition = payload.parentPosition,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,
                 createdAt = Timestamp(payload.createdAt),

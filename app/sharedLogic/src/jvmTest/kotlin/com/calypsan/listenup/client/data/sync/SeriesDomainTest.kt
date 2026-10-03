@@ -94,6 +94,63 @@ class SeriesDomainTest :
             }
         }
 
+        test("the hierarchy fields are mirrored as sent") {
+            withHandler { handler, db ->
+                handler
+                    .onEvent(created(payload("s1", "Mistborn").copy(parentId = "cosmere", parentPosition = 2)))
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                val row = db.seriesDao().getById("s1")!!
+                row.parentId shouldBe "cosmere"
+                row.parentPosition shouldBe 2
+            }
+        }
+
+        test("a null parent clears the link — it is never copied forward like enrichment") {
+            withHandler { handler, db ->
+                handler.onEvent(created(payload("s1", "Mistborn").copy(parentId = "cosmere", parentPosition = 2)))
+                handler.onEvent(
+                    SyncEvent.Updated(
+                        id = "s1",
+                        revision = 5,
+                        occurredAt = 200L,
+                        clientOpId = null,
+                        payload = payload("s1", "Mistborn", revision = 5),
+                    ),
+                )
+                val row = db.seriesDao().getById("s1")!!
+                row.parentId shouldBe null
+                row.parentPosition shouldBe null
+            }
+        }
+
+        test("a re-pulled series at the revision already stored still lands its parent") {
+            // The state MIGRATION_14_15 leaves behind: an older build stored the bumped revision but
+            // dropped the parent, and the rewound cursor makes catch-up re-send the row unchanged.
+            withHandler { handler, db ->
+                db.seriesDao().upsert(
+                    SeriesEntity(
+                        id = SeriesId("s1"),
+                        name = "Mistborn",
+                        description = null,
+                        revision = 7L,
+                        createdAt = Timestamp(1L),
+                        updatedAt = Timestamp(1L),
+                    ),
+                )
+
+                handler
+                    .onCatchUpItem(
+                        payload("s1", "Mistborn", revision = 7).copy(parentId = "cosmere", parentPosition = 1),
+                        isTombstone = false,
+                    ).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                val row = db.seriesDao().getById("s1")!!
+                row.revision shouldBe 7L
+                row.parentId shouldBe "cosmere"
+                row.parentPosition shouldBe 1
+            }
+        }
+
         test("handler self-registers under domainName 'series'") {
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()

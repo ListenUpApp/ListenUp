@@ -53,6 +53,11 @@ private val logger = loggerFor<SeriesServiceImpl>()
  * lock, so the SQLDelight writes serialize on the lone SQLDelight connection without the
  * cross-engine `SQLITE_BUSY` the prior Exposed-junction-write split exhibited.
  *
+ * Hierarchy edits ([createSeries], [setSeriesParent], [reorderChildSeries]) are gated here and
+ * carried out by [SeriesHierarchyWrites], which validates against the live
+ * [com.calypsan.listenup.domain.series.SeriesTree] and writes through the same substrate upsert
+ * as [updateSeries].
+ *
  * [getSeries] (series metadata) is open to any authenticated user, but [listBooksBySeries]
  * is access-filtered: a non-admin caller receives only the sibling books they can reach
  * (via [BookAccessPolicy]), so a quarantined or private-collection-only book in the series
@@ -73,7 +78,8 @@ internal class SeriesServiceImpl(
     private val principal: PrincipalProvider = PrincipalProvider.None,
     private val clock: Clock = Clock.System,
 ) : SeriesService {
-    private val mergeReceipts = SeriesMergeReceipts(sqlDb, seriesRepo, bookRepo, clock)
+    private val hierarchy = SeriesHierarchyWrites(seriesRepo)
+    private val mergeReceipts = SeriesMergeReceipts(sqlDb, seriesRepo, bookRepo, hierarchy, clock)
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): SeriesServiceImpl =
@@ -157,7 +163,7 @@ internal class SeriesServiceImpl(
         val sourcePayload =
             seriesRepo.findById(source.value)
                 ?: return AppResult.Failure(SeriesError.NotFound(debugInfo = "source=${source.value}"))
-        seriesRepo.findById(target.value)
+        hierarchy.live(target)
             ?: return AppResult.Failure(SeriesError.NotFound(debugInfo = "target=${target.value}"))
         if (sourcePayload.deletedAt != null) {
             return AppResult.Failure(
@@ -194,6 +200,10 @@ internal class SeriesServiceImpl(
             }
         }
 
+        // The source's sub-series follow it into the target.
+        val handedOn = hierarchy.handChildrenTo(sourcePayload, target)
+        if (handedOn is AppResult.Failure) return handedOn
+
         // Tombstone the source AND record its merge redirect, so a rescan of a book whose files
         // still carry the old name lands in the target instead of reviving the source.
         return when (val softDeleteResult = seriesRepo.softDeleteMergedInto(source, target)) {
@@ -212,6 +222,30 @@ internal class SeriesServiceImpl(
         return mergeReceipts.undo(receiptId)
     }
 
+    override suspend fun createSeries(
+        name: String,
+        parentId: SeriesId?,
+    ): AppResult<SeriesSyncPayload> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
+        return hierarchy.create(name, parentId)
+    }
+
+    override suspend fun setSeriesParent(
+        id: SeriesId,
+        parentId: SeriesId?,
+    ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
+        return hierarchy.setParent(id, parentId)
+    }
+
+    override suspend fun reorderChildSeries(
+        parentId: SeriesId,
+        orderedChildIds: List<SeriesId>,
+    ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
+        return hierarchy.reorderChildren(parentId, orderedChildIds)
+    }
+
     override suspend fun deleteSeries(id: SeriesId): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
         val result = deleteCore(id)
@@ -225,8 +259,16 @@ internal class SeriesServiceImpl(
      * matching the established cutover shape.
      */
     private suspend fun deleteCore(id: SeriesId): AppResult<Unit> {
-        seriesRepo.findById(id.value)
-            ?: return seriesNotFound(id)
+        val doomed =
+            seriesRepo.findById(id.value)
+                ?: return seriesNotFound(id)
+        // Sub-series outlive their parent: lift them to the grandparent (or to the root) before
+        // the tombstone, so no live series is ever left pointing at a dead one.
+        val grandparent = hierarchy.liveParentOf(doomed)
+        when (val lifted = hierarchy.reparentChildren(id) { grandparent }) {
+            is AppResult.Success -> Unit
+            is AppResult.Failure -> return lifted
+        }
         // Snapshot affected book IDs, then hard-delete every membership row for the series —
         // both over the single SQLDelight connection in one mini-transaction.
         val affectedBookIds =
@@ -279,7 +321,7 @@ private data class SeriesUpdateOutcome(
     val result: AppResult<Unit>,
 )
 
-private fun seriesNotFound(id: SeriesId): AppResult.Failure =
+internal fun seriesNotFound(id: SeriesId): AppResult.Failure =
     AppResult.Failure(SeriesError.NotFound(debugInfo = "seriesId=${id.value}"))
 
 private fun SeriesSyncPayload.applyPatch(patch: SeriesUpdate): SeriesSyncPayload =
