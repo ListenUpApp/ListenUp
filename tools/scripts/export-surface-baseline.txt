@@ -167,6 +167,7 @@ ChapterSuggestion
 ChapterSuggestion_SealedType
 ChapterTimeFormat
 ChapterUiModel
+ChildSeriesUi
 ClaimInviteUiState
 ClaimInviteUiState_SealedType
 ClaimInviteViewModel
@@ -680,6 +681,8 @@ SelectionMode
 SelectionMode_SealedType
 Series
 SeriesCandidate
+SeriesChild
+SeriesCrumb
 SeriesDetailUiState
 SeriesDetailUiState_SealedType
 SeriesDetailViewModel
@@ -695,6 +698,7 @@ SeriesError
 SeriesError_SealedType
 SeriesGroup
 SeriesId
+SeriesLineage
 SeriesNavigationDetector
 SeriesNavigation_SealedType
 SeriesProgress
