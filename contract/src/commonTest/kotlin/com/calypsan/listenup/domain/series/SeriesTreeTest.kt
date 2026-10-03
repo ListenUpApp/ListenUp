@@ -5,6 +5,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import kotlin.random.Random
 
 class SeriesTreeTest :
     FunSpec({
@@ -75,6 +76,51 @@ class SeriesTreeTest :
             tree.nextChildPosition("narnia") shouldBe 0
         }
 
+        test("a series placed at the next child position sorts last among positioned siblings") {
+            val siblings =
+                listOf(
+                    SeriesNode("cosmere", null, null),
+                    SeriesNode("mistborn", "cosmere", 0),
+                    SeriesNode("stormlight", "cosmere", 4),
+                )
+            val next = SeriesTree(siblings).nextChildPosition("cosmere")
+            next shouldBe 5
+            SeriesTree(siblings + SeriesNode("a-new-one", "cosmere", next)).childrenOf("cosmere") shouldContainExactly
+                listOf("mistborn", "stormlight", "a-new-one")
+        }
+
+        test("the next child position ignores unpositioned siblings, which still sort after it") {
+            // An unpositioned sibling sorts after EVERY position, so no position can append behind
+            // one: a caller that needs a true append must give those siblings positions first.
+            val loose =
+                listOf(
+                    SeriesNode("p", null, null),
+                    SeriesNode("b", "p", null),
+                    SeriesNode("a", "p", null),
+                )
+            SeriesTree(loose).nextChildPosition("p") shouldBe 0
+            SeriesTree(loose + SeriesNode("z", "p", 3)).nextChildPosition("p") shouldBe 4
+            SeriesTree(loose + SeriesNode("new", "p", 0)).childrenOf("p") shouldContainExactly listOf("new", "a", "b")
+        }
+
+        test("a corrupt cycle never hangs the book order or the cycle check") {
+            val corrupt = SeriesTree(listOf(SeriesNode("a", "b", 0), SeriesNode("b", "a", 0)))
+            val memberships = listOf(SeriesMembership("in-a", "a", 1.0), SeriesMembership("in-b", "b", 1.0))
+            corrupt.defaultBookOrder("a", memberships) shouldContainExactly listOf("in-b", "in-a")
+            corrupt.wouldCycle(id = "a", newParentId = "b") shouldBe true
+        }
+
+        test("a series that names itself as its parent is a root with no sub-series") {
+            val selfParent = SeriesTree(listOf(SeriesNode("s", "s", 0), SeriesNode("other", null, null)))
+            selfParent.ancestorsOf("s").shouldBeEmpty()
+            selfParent.childrenOf("s").shouldBeEmpty()
+            selfParent.subtreeOf("s") shouldContainExactlyInAnyOrder listOf("s")
+            selfParent.nextChildPosition("s") shouldBe 0
+            selfParent.wouldCycle(id = "s", newParentId = "s") shouldBe true
+            selfParent.wouldCycle(id = "s", newParentId = "other") shouldBe false
+            selfParent.defaultBookOrder("s", listOf(SeriesMembership("book", "s", 1.0))) shouldContainExactly listOf("book")
+        }
+
         test("default order walks sub-series in sibling order, then the parent's own books") {
             val memberships =
                 listOf(
@@ -90,7 +136,7 @@ class SeriesTreeTest :
                 listOf("final-empire", "well", "hero", "alloy", "way-of-kings", "elantris", "warbreaker")
         }
 
-        test("a book reachable twice appears once, at its deepest membership") {
+        test("a book in a series and in its sub-series appears once, with the sub-series") {
             val memberships =
                 listOf(
                     SeriesMembership("final-empire", "cosmere", 1.0),
@@ -112,14 +158,68 @@ class SeriesTreeTest :
             tree.defaultBookOrder("stormlight", memberships) shouldContainExactly listOf("way-of-kings", "crossover")
         }
 
-        test("a flat series orders by sequence, unnumbered last, ties in input order") {
+        test("a book in two branches is listed where the walk reaches it first, not at its deepest membership") {
+            // cosmere ─┬─ a
+            //          └─ b ── b1
+            val branches =
+                SeriesTree(
+                    listOf(
+                        SeriesNode("cosmere", null, null),
+                        SeriesNode("a", "cosmere", 0),
+                        SeriesNode("b", "cosmere", 1),
+                        SeriesNode("b1", "b", 0),
+                    ),
+                )
             val memberships =
                 listOf(
-                    SeriesMembership("c", "narnia", null),
+                    SeriesMembership("only-a", "a", 1.0),
+                    SeriesMembership("shared", "a", 2.0),
+                    SeriesMembership("shared", "b1", 1.0),
+                    SeriesMembership("only-b1", "b1", 2.0),
+                )
+            branches.defaultBookOrder("cosmere", memberships) shouldContainExactly listOf("only-a", "shared", "only-b1")
+        }
+
+        test("a flat series orders by sequence, unnumbered last, ties by sort key and then book id") {
+            val memberships =
+                listOf(
+                    SeriesMembership("c", "narnia", null, sortKey = "Zebra"),
+                    SeriesMembership("d", "narnia", null, sortKey = "Aslan"),
                     SeriesMembership("b", "narnia", 2.0),
+                    SeriesMembership("a2", "narnia", 1.0, sortKey = "Prince Caspian"),
+                    SeriesMembership("a1", "narnia", 1.0, sortKey = "The Silver Chair"),
+                    SeriesMembership("a4", "narnia", 1.0, sortKey = "The Horse and His Boy"),
+                    SeriesMembership("a3", "narnia", 1.0, sortKey = "The Horse and His Boy"),
+                )
+            tree.defaultBookOrder("narnia", memberships) shouldContainExactly listOf("a2", "a3", "a4", "a1", "b", "d", "c")
+        }
+
+        test("a membership without a sort key breaks ties by book id") {
+            val memberships =
+                listOf(
                     SeriesMembership("a2", "narnia", 1.0),
                     SeriesMembership("a1", "narnia", 1.0),
                 )
-            tree.defaultBookOrder("narnia", memberships) shouldContainExactly listOf("a2", "a1", "b", "c")
+            tree.defaultBookOrder("narnia", memberships) shouldContainExactly listOf("a1", "a2")
+        }
+
+        test("the book order does not depend on the order the memberships arrive in") {
+            val memberships =
+                listOf(
+                    SeriesMembership("warbreaker", "cosmere", null, sortKey = "Warbreaker"),
+                    SeriesMembership("elantris", "cosmere", null, sortKey = "Elantris"),
+                    SeriesMembership("way-of-kings", "stormlight", 1.0, sortKey = "The Way of Kings"),
+                    SeriesMembership("edgedancer", "stormlight", 1.0, sortKey = "Edgedancer"),
+                    SeriesMembership("hero", "era1", 3.0),
+                    SeriesMembership("final-empire", "era1", 1.0),
+                    SeriesMembership("crossover", "era2", 1.0),
+                    SeriesMembership("crossover", "stormlight", 1.0, sortKey = "Crossover"),
+                )
+            val expected =
+                listOf("final-empire", "hero", "crossover", "edgedancer", "way-of-kings", "elantris", "warbreaker")
+            tree.defaultBookOrder("cosmere", memberships) shouldContainExactly expected
+            repeat(20) { seed ->
+                tree.defaultBookOrder("cosmere", memberships.shuffled(Random(seed))) shouldContainExactly expected
+            }
         }
     })

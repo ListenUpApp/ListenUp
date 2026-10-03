@@ -16,11 +16,15 @@ data class SeriesNode(
  * One book's membership of one series.
  *
  * @property sequence the book's position in that series (1.0, 1.5); null when unnumbered.
+ * @property sortKey what orders books that share a sequence, or have none — the book's title,
+ *   wherever the caller has one. Defaults to the book id, which is stable but means nothing to a
+ *   reader.
  */
 data class SeriesMembership(
     val bookId: String,
     val seriesId: String,
     val sequence: Double?,
+    val sortKey: String = bookId,
 )
 
 /**
@@ -79,14 +83,24 @@ class SeriesTree(
         newParentId: String,
     ): Boolean = newParentId in subtreeOf(id)
 
-    /** The position a series appended to [parentId]'s children should take. */
+    /**
+     * One past the highest position [parentId]'s children hold; 0 when none holds one. A series
+     * placed there sorts after every positioned sibling. An unpositioned sibling sorts after every
+     * position, so nothing can be appended behind one: a caller that finds any must give them
+     * positions first.
+     */
     fun nextChildPosition(parentId: String): Int =
         childrenOf(parentId).maxOfOrNull { byId[it]?.parentPosition ?: -1 }?.plus(1) ?: 0
 
     /**
      * The books of [rootId]'s subtree in series order: each sub-series in sibling order, expanded
-     * the same way, followed by the books that belong to the series directly and to none of its
-     * descendants, by sequence with unnumbered books last. Each book appears once.
+     * the same way, followed by the series' own books. Each book appears once, where this walk
+     * first reaches it — so a book in two branches is listed with the earlier one, however deep
+     * its other membership is.
+     *
+     * Within one series, books order by sequence with unnumbered books last, then by
+     * [SeriesMembership.sortKey], then by book id. The result never depends on the order of
+     * [memberships], so the client and the server always agree.
      */
     fun defaultBookOrder(
         rootId: String,
@@ -101,10 +115,18 @@ class SeriesTree(
             childrenOf(seriesId).forEach(::walk)
             bySeries[seriesId]
                 .orEmpty()
-                .sortedBy { it.sequence ?: Double.MAX_VALUE }
+                .sortedWith(BOOK_ORDER)
                 .forEach { emitted += it.bookId }
         }
         walk(rootId)
         return emitted.toList()
+    }
+
+    private companion object {
+        val BOOK_ORDER: Comparator<SeriesMembership> =
+            compareBy<SeriesMembership> { it.sequence == null }
+                .thenBy { it.sequence }
+                .thenBy { it.sortKey }
+                .thenBy { it.bookId }
     }
 }
