@@ -33,10 +33,12 @@ import listenup.composeapp.generated.resources.discover_start_listening_to_join_
  * Discover screen leaderboard section.
  *
  * Renders a sealed [LeaderboardUiState] from [LeaderboardViewModel]:
- * - [LeaderboardUiState.Loading] — shows the header and a loading placeholder.
- * - [LeaderboardUiState.Empty] — shows the header and an empty-state message.
- * - [LeaderboardUiState.Data] — shows the full ranked list with category pager.
- * - [LeaderboardUiState.Error] — shows the header and an error message.
+ * The title and the period selector ([LeaderboardHeader]) sit above the board's card, at the screen
+ * margins; the card holds the board for the state:
+ * - [LeaderboardUiState.Loading] — a loading placeholder.
+ * - [LeaderboardUiState.Empty] — an empty-state message.
+ * - [LeaderboardUiState.Data] — the full ranked list with category pager.
+ * - [LeaderboardUiState.Error] — an error message.
  *
  * Switching categories is a pure state filter in the ViewModel — no DB re-query.
  *
@@ -51,10 +53,30 @@ fun DiscoverLeaderboardSection(
     viewModel: LeaderboardViewModel = koinViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val selectedPeriod = (state as? LeaderboardUiState.Data)?.period ?: LeaderboardPeriod.Week
 
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        // The title and period selector sit above the card, at the screen margins: inside the card's
+        // padding, "12 months" has no room on a phone.
+        LeaderboardHeader(
+            selectedPeriod = selectedPeriod,
+            onPeriodSelected = viewModel::selectPeriod,
+        )
+        LeaderboardCard(state = state, onCategorySelected = viewModel::selectCategory, onUserClick = onUserClick)
+    }
+}
+
+@Composable
+private fun LeaderboardCard(
+    state: LeaderboardUiState,
+    onCategorySelected: (LeaderboardCategory) -> Unit,
+    onUserClick: (String) -> Unit,
+) {
     Card(
-        modifier =
-            modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         colors =
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -69,10 +91,6 @@ fun DiscoverLeaderboardSection(
         ) {
             when (val current = state) {
                 is LeaderboardUiState.Loading -> {
-                    LeaderboardHeader(
-                        selectedPeriod = LeaderboardPeriod.Week,
-                        onPeriodSelected = viewModel::selectPeriod,
-                    )
                     Text(
                         text = stringResource(Res.string.discover_loading_leaderboard),
                         style = MaterialTheme.typography.bodyMedium,
@@ -81,10 +99,6 @@ fun DiscoverLeaderboardSection(
                 }
 
                 is LeaderboardUiState.Empty -> {
-                    LeaderboardHeader(
-                        selectedPeriod = LeaderboardPeriod.Week,
-                        onPeriodSelected = viewModel::selectPeriod,
-                    )
                     Text(
                         text = stringResource(Res.string.discover_start_listening_to_join_the),
                         style = MaterialTheme.typography.bodyMedium,
@@ -95,17 +109,12 @@ fun DiscoverLeaderboardSection(
                 is LeaderboardUiState.Data -> {
                     DataContent(
                         data = current,
-                        onPeriodSelected = viewModel::selectPeriod,
-                        onCategorySelected = viewModel::selectCategory,
+                        onCategorySelected = onCategorySelected,
                         onUserClick = onUserClick,
                     )
                 }
 
                 is LeaderboardUiState.Error -> {
-                    LeaderboardHeader(
-                        selectedPeriod = LeaderboardPeriod.Week,
-                        onPeriodSelected = viewModel::selectPeriod,
-                    )
                     Text(
                         text = stringResource(Res.string.discover_could_not_load_leaderboard),
                         style = MaterialTheme.typography.bodySmall,
@@ -120,15 +129,9 @@ fun DiscoverLeaderboardSection(
 @Composable
 private fun DataContent(
     data: LeaderboardUiState.Data,
-    onPeriodSelected: (LeaderboardPeriod) -> Unit,
     onCategorySelected: (LeaderboardCategory) -> Unit,
     onUserClick: (String) -> Unit,
 ) {
-    LeaderboardHeader(
-        selectedPeriod = data.period,
-        onPeriodSelected = onPeriodSelected,
-    )
-
     val categories = LeaderboardCategory.entries
     val pagerState =
         rememberPagerState(

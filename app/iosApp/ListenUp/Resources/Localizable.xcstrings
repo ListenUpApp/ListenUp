@@ -10251,6 +10251,16 @@
         }
       }
     },
+    "discover.leaderboard_period_group": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leaderboard period"
+          }
+        }
+      }
+    },
     "discover.leaderboard_show_all": {
       "localizations": {
         "en": {

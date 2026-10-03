@@ -3,19 +3,17 @@ package com.calypsan.listenup.client.features.discover.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.ButtonGroupChoice
+import com.calypsan.listenup.client.design.components.ConnectedSelectButtonGroup
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
-import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.discover_leaderboard
 import listenup.composeapp.generated.resources.discover_leaderboard_period_12_months
@@ -25,30 +23,22 @@ import listenup.composeapp.generated.resources.discover_leaderboard_period_30_da
 import listenup.composeapp.generated.resources.discover_leaderboard_period_7_days
 import listenup.composeapp.generated.resources.discover_leaderboard_period_7_days_description
 import listenup.composeapp.generated.resources.discover_leaderboard_period_all_time
-import org.jetbrains.compose.resources.StringResource
-
-private val PERIODS =
-    listOf(
-        LeaderboardPeriod.Week,
-        LeaderboardPeriod.Month,
-        LeaderboardPeriod.AllTime,
-    )
+import listenup.composeapp.generated.resources.discover_leaderboard_period_group
+import org.jetbrains.compose.resources.stringResource
 
 /**
- * Leaderboard header: an emphasized title above a 7 days / 30 days / All time period selector built
- * from the M3 [SingleChoiceSegmentedButtonRow] — a compact segmented control that stays legible at
- * compact width. The periods are trailing windows, so the labels name the window rather than a calendar
+ * Leaderboard header: the section title above the period selector — a Material 3 Expressive connected
+ * button group ([ConnectedSelectButtonGroup]) offering 7 days, 30 days, 12 months and All time, in the
+ * same order as iOS and web. It sits on its own row at the screen margins, outside the board's card, so
+ * all four labels get their full width on a 360dp phone; at a large font scale the group wraps into
+ * two pairs. The periods are trailing windows, so the labels name the window rather than a calendar
  * unit, and a screen reader hears the full "Last 7 days".
- *
- * 12 months ([LeaderboardPeriod.Year]) is not offered here yet: inside the Discover card a fourth
- * segment leaves "12 months" ~57dp of its ~69dp even on a 412dp phone, so it clips. Fitting it needs a
- * different control or label, which is a design call rather than a code one.
  *
  * @param selectedPeriod Currently selected period
  * @param onPeriodSelected Callback when a period is selected
  * @param modifier Modifier from parent
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LeaderboardHeader(
     selectedPeriod: LeaderboardPeriod,
@@ -57,43 +47,44 @@ fun LeaderboardHeader(
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
             text = stringResource(Res.string.discover_leaderboard),
             style = MaterialTheme.typography.titleLargeEmphasized,
             color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.semantics { heading() },
         )
 
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            PERIODS.forEachIndexed { index, period ->
-                val description = periodDescription(period)
-                SegmentedButton(
-                    selected = selectedPeriod == period,
-                    onClick = { onPeriodSelected(period) },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = PERIODS.size),
-                    modifier = Modifier.semantics { contentDescription = description },
-                ) {
-                    Text(text = stringResource(periodLabel(period)), maxLines = 1)
-                }
-            }
-        }
+        ConnectedSelectButtonGroup(
+            choices = periodChoices(),
+            selected = selectedPeriod,
+            onSelect = onPeriodSelected,
+            groupLabel = stringResource(Res.string.discover_leaderboard_period_group),
+        )
     }
 }
 
-private fun periodLabel(period: LeaderboardPeriod): StringResource =
-    when (period) {
-        LeaderboardPeriod.Week -> Res.string.discover_leaderboard_period_7_days
-        LeaderboardPeriod.Month -> Res.string.discover_leaderboard_period_30_days
-        LeaderboardPeriod.Year -> Res.string.discover_leaderboard_period_12_months
-        LeaderboardPeriod.AllTime -> Res.string.discover_leaderboard_period_all_time
-    }
-
 @Composable
-private fun periodDescription(period: LeaderboardPeriod): String =
-    when (period) {
-        LeaderboardPeriod.Week -> stringResource(Res.string.discover_leaderboard_period_7_days_description)
-        LeaderboardPeriod.Month -> stringResource(Res.string.discover_leaderboard_period_30_days_description)
-        LeaderboardPeriod.Year -> stringResource(Res.string.discover_leaderboard_period_12_months_description)
-        LeaderboardPeriod.AllTime -> stringResource(Res.string.discover_leaderboard_period_all_time)
-    }
+private fun periodChoices(): List<ButtonGroupChoice<LeaderboardPeriod>> =
+    listOf(
+        ButtonGroupChoice(
+            value = LeaderboardPeriod.Week,
+            label = stringResource(Res.string.discover_leaderboard_period_7_days),
+            accessibleLabel = stringResource(Res.string.discover_leaderboard_period_7_days_description),
+        ),
+        ButtonGroupChoice(
+            value = LeaderboardPeriod.Month,
+            label = stringResource(Res.string.discover_leaderboard_period_30_days),
+            accessibleLabel = stringResource(Res.string.discover_leaderboard_period_30_days_description),
+        ),
+        ButtonGroupChoice(
+            value = LeaderboardPeriod.Year,
+            label = stringResource(Res.string.discover_leaderboard_period_12_months),
+            accessibleLabel = stringResource(Res.string.discover_leaderboard_period_12_months_description),
+        ),
+        ButtonGroupChoice(
+            value = LeaderboardPeriod.AllTime,
+            label = stringResource(Res.string.discover_leaderboard_period_all_time),
+        ),
+    )

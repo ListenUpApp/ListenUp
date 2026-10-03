@@ -1026,6 +1026,7 @@ One beautiful library.</string>
     <string name="discover_leaderboard_period_7_days">7 days</string>
     <string name="discover_leaderboard_period_7_days_description">Last 7 days</string>
     <string name="discover_leaderboard_period_all_time">All time</string>
+    <string name="discover_leaderboard_period_group">Leaderboard period</string>
     <string name="discover_leaderboard_show_all">Show all %1$d</string>
     <string name="discover_leaderboard_show_less">Show less</string>
     <string name="discover_listening_now">Listening now</string>
