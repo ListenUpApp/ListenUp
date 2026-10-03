@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -88,8 +89,9 @@ fun ColorBlockHero(
     content: @Composable (ColumnScope.() -> Unit)? = null,
 ) {
     val haptics = LocalHaptics.current
+    val statusBarTop = WindowInsets.statusBars.getTop(LocalDensity.current)
     Surface(
-        modifier = modifier.then(scrollBehavior?.let { Modifier.slidesAway(it) } ?: Modifier),
+        modifier = modifier.then(scrollBehavior?.let { Modifier.slidesAway(it, keepPx = statusBarTop) } ?: Modifier),
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         shape = ContentShapes.hero,
@@ -210,13 +212,20 @@ private fun HeroHeadline(
 fun rememberHeroScrollBehavior(): TopAppBarScrollBehavior? =
     if (isLargeFontScale()) TopAppBarDefaults.enterAlwaysScrollBehavior() else null
 
-/** Lays the hero out at its full height minus what [behavior] has scrolled away, sliding its content up with it. */
+/**
+ * Lays the hero out at its full height minus what [behavior] has scrolled away, never less than [keepPx] — the
+ * status bar's band, which stays in the hero's colour behind the clock while the rest folds up under it.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
-private fun Modifier.slidesAway(behavior: TopAppBarScrollBehavior): Modifier =
+private fun Modifier.slidesAway(
+    behavior: TopAppBarScrollBehavior,
+    keepPx: Int,
+): Modifier =
     clipToBounds().layout { measurable, constraints ->
         val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
-        val limit = -placeable.height.toFloat()
+        val floor = keepPx.coerceAtMost(placeable.height)
+        val limit = (floor - placeable.height).toFloat()
         if (behavior.state.heightOffsetLimit != limit) behavior.state.heightOffsetLimit = limit
-        val shown = (placeable.height + behavior.state.heightOffset.roundToInt()).coerceIn(0, placeable.height)
-        layout(placeable.width, shown) { placeable.place(0, shown - placeable.height) }
+        val shown = (placeable.height + behavior.state.heightOffset.roundToInt()).coerceIn(floor, placeable.height)
+        layout(placeable.width, shown) { placeable.place(0, 0) }
     }
