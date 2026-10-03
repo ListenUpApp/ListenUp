@@ -111,7 +111,8 @@ fun SelectField(
  * A checkbox with its label, wired as one control.
  *
  * The `<label>` wraps the input rather than pointing at it by id, so the text is part of the click
- * target without every call site having to invent a unique id for it.
+ * target without every call site having to invent a unique id for it. [describedBy] points at a
+ * note that belongs to this one value — where it came from, say.
  */
 @Composable
 fun CheckboxField(
@@ -119,12 +120,14 @@ fun CheckboxField(
     checked: Boolean,
     onChange: (Boolean) -> Unit,
     id: String? = null,
+    describedBy: String? = null,
 ) {
     // No generated id here: this label WRAPS its control, which is a valid association on its own
     // — a `for` would be redundant, and an id nothing points at is noise.
     Label(attrs = { classes("f-check") }) {
         CheckboxInput(checked = checked) {
             id?.let { attr("id", it) }
+            describedBy?.let { attr("aria-describedby", it) }
             onChange { event -> onChange(event.value) }
         }
         Text(label)

@@ -5,39 +5,45 @@
    radius and weight. The press, and the 44px touch target, live in 03-press.css with every other
    control's; the focus ring is the page's own (05-patterns.css).
    ============================================================ */
+/* A button keeps its words on one line while there is room, and wraps them — growing taller from its
+   min-height — only when its row is narrower than its label (WCAG 1.4.10 at 320px, 1.4.4 at 200% text).
+   `max-width: 100%` is what lets it: a non-shrinking button wider than its row used to push past the
+   edge, and a nowrap one beside a `flex: 1; min-width: 0` text squeezed that text to a sliver. */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-8);
-  flex-shrink: 0; margin: 0; border: 1.5px solid transparent; border-radius: var(--r-md);
+  flex-shrink: 0; max-width: 100%; margin: 0; border: 1.5px solid transparent; border-radius: var(--r-md);
   cursor: pointer; font-family: inherit; font-weight: 700; letter-spacing: -0.01em;
-  line-height: 1; text-decoration: none; white-space: nowrap;
+  line-height: 1.2; text-align: center; text-decoration: none; white-space: normal;
   transition: background var(--dur), border-color var(--dur), box-shadow var(--dur), color var(--dur);
 }
-.btn:disabled { opacity: .5; cursor: default; }
+/* `aria-disabled` is a button whose own press made it unavailable (`Button(pressable = false)`): drawn
+   like `disabled`, but it keeps the keyboard focus the press put on it. */
+.btn:disabled, .btn[aria-disabled="true"] { opacity: .5; cursor: default; }
 
-/* sizes */
-.btn-sm { height: 32px; padding: 0 var(--sp-12); border-radius: var(--r-sm); font-size: var(--fs-small); }
-.btn-md { height: 40px; padding: 0 var(--sp-16); font-size: var(--fs-ui); }
-.btn-lg { height: 52px; padding: 0 var(--sp-24); font-size: var(--fs-body); }
+/* sizes — min-heights, so a label that has to wrap grows the button instead of spilling out of it */
+.btn-sm { min-height: 32px; padding: var(--sp-4) var(--sp-12); border-radius: var(--r-sm); font-size: var(--fs-small); }
+.btn-md { min-height: 40px; padding: 6px var(--sp-16); font-size: var(--fs-ui); }
+.btn-lg { min-height: 52px; padding: var(--sp-8) var(--sp-24); font-size: var(--fs-body); }
 .btn-fill { width: 100%; }
 
 /* kinds */
 .btn-primary { background: var(--coral-fill); color: var(--on-coral); }
 .btn-primary.btn-lg { box-shadow: var(--shadow-glow); }
-.btn-secondary { background: var(--surface); color: var(--ink); border-color: var(--line); font-weight: 600; }
+.btn-secondary { background: var(--surface); color: var(--ink); border-color: var(--outline); font-weight: 600; }
 .btn-ghost { background: transparent; color: var(--ink-2); font-weight: 600; }
 .btn-danger { background: var(--danger-fill); color: var(--on-danger); }
 /* Icon-only: square. Small ones sit inside rows and cards, where an outline on every one would be
    noise, so they are quiet until hovered; page-level ones match the outlined buttons beside them. */
-.btn-icon { padding: 0; background: var(--surface); color: var(--ink); border-color: var(--line); }
-.btn-icon.btn-sm { width: 30px; height: 30px; background: transparent; border-color: transparent; color: var(--ink-3); }
-.btn-icon.btn-md { width: 40px; }
-.btn-icon.btn-lg { width: 52px; }
+.btn-icon { padding: 0; background: var(--surface); color: var(--ink); border-color: var(--outline); }
+.btn-icon.btn-sm { width: 30px; height: 30px; min-height: 0; background: transparent; border-color: transparent; color: var(--ink-3); }
+.btn-icon.btn-md { width: 40px; height: 40px; }
+.btn-icon.btn-lg { width: 52px; height: 52px; }
 
 @media (hover: hover) {
-  .btn-primary:not(:disabled):hover { background: var(--coral-fill-press); }
-  .btn-primary.btn-lg:not(:disabled):hover { box-shadow: var(--shadow-glow-hover); }
-  .btn-secondary:not(:disabled):hover, .btn-icon:not(:disabled):hover { background: var(--surface-3); }
-  .btn-icon.btn-sm:not(:disabled):hover { color: var(--ink); }
-  .btn-ghost:not(:disabled):hover { background: var(--surface-2); color: var(--ink); }
-  .btn-danger:not(:disabled):hover { background: var(--danger-fill-press); }
+  .btn-primary:not(:disabled):not([aria-disabled="true"]):hover { background: var(--coral-fill-press); }
+  .btn-primary.btn-lg:not(:disabled):not([aria-disabled="true"]):hover { box-shadow: var(--shadow-glow-hover); }
+  .btn-secondary:not(:disabled):not([aria-disabled="true"]):hover, .btn-icon:not(:disabled):not([aria-disabled="true"]):hover { background: var(--surface-3); }
+  .btn-icon.btn-sm:not(:disabled):not([aria-disabled="true"]):hover { color: var(--ink); }
+  .btn-ghost:not(:disabled):not([aria-disabled="true"]):hover { background: var(--surface-2); color: var(--ink); }
+  .btn-danger:not(:disabled):not([aria-disabled="true"]):hover { background: var(--danger-fill-press); }
 }
