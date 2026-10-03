@@ -6,6 +6,8 @@ import com.calypsan.listenup.api.dto.MergeReceipt
 import com.calypsan.listenup.api.dto.MergeUndoResult
 import com.calypsan.listenup.api.dto.SeriesUpdate
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.SeriesSyncPayload
+import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withSqlDatabase
@@ -14,6 +16,9 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -348,6 +353,44 @@ class SeriesHierarchyLifecycleTest :
 
                     deps.seriesRepo.liveTree().childrenOf(universe.value) shouldContainExactly
                         listOf(reckoners.value, mistborn.value, skyward.value)
+                }
+            }
+        }
+
+        test("deleting a parent publishes Updated for each lifted sub-series, then Deleted for the parent") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeHierarchyDeps(this)
+                runTest {
+                    val cosmere = deps.seriesRepo.resolveOrCreate("Cosmere")
+                    val mistborn = deps.seriesRepo.resolveOrCreate("Mistborn")
+                    val era1 = deps.seriesRepo.resolveOrCreate("Mistborn Era 1")
+                    val era2 = deps.seriesRepo.resolveOrCreate("Mistborn Era 2")
+                    deps.place(mistborn, parent = cosmere, position = 0)
+                    deps.place(era1, parent = mistborn, position = 0)
+                    deps.place(era2, parent = mistborn, position = 1)
+
+                    val published = mutableListOf<SyncEvent<*>>()
+                    val subscriber =
+                        launch(start = CoroutineStart.UNDISPATCHED) { deps.bus.subscribe().collect { published += it.event } }
+                    // The bus replays its live tail to a new subscriber: skip what the setup published.
+                    runCurrent()
+                    val setupEvents = published.size
+                    deps.service.deleteSeries(mistborn).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    runCurrent()
+                    subscriber.cancel()
+
+                    val fromDelete = published.drop(setupEvents)
+                    fromDelete.map { it::class to it.id } shouldContainExactly
+                        listOf(
+                            SyncEvent.Updated::class to era1.value,
+                            SyncEvent.Updated::class to era2.value,
+                            SyncEvent.Deleted::class to mistborn.value,
+                        )
+                    fromDelete
+                        .filterIsInstance<SyncEvent.Updated<*>>()
+                        .map { (it.payload as SeriesSyncPayload).parentId } shouldContainExactly
+                        listOf(cosmere.value, cosmere.value)
                 }
             }
         }

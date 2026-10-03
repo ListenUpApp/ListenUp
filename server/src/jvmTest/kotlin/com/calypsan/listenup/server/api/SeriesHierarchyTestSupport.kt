@@ -23,6 +23,7 @@ internal data class HierarchyDeps(
     val service: SeriesServiceImpl,
     val seriesRepo: SeriesRepository,
     val bookRepo: BookRepository,
+    val bus: ChangeBus,
 )
 
 internal fun makeHierarchyDeps(dbs: SqlTestDatabases): HierarchyDeps {
@@ -47,7 +48,7 @@ internal fun makeHierarchyDeps(dbs: SqlTestDatabases): HierarchyDeps {
             accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
             principal = rootPrincipal(),
         )
-    return HierarchyDeps(service, seriesRepo, bookRepo)
+    return HierarchyDeps(service, seriesRepo, bookRepo, bus)
 }
 
 /** The live payload of [id]; fails the test when the series is missing. */
