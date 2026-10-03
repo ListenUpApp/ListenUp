@@ -94,6 +94,35 @@ class SeriesDomainTest :
             }
         }
 
+        test("the hierarchy fields are mirrored as sent") {
+            withHandler { handler, db ->
+                handler
+                    .onEvent(created(payload("s1", "Mistborn").copy(parentId = "cosmere", parentPosition = 2)))
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                val row = db.seriesDao().getById("s1")!!
+                row.parentId shouldBe "cosmere"
+                row.parentPosition shouldBe 2
+            }
+        }
+
+        test("a null parent clears the link — it is never copied forward like enrichment") {
+            withHandler { handler, db ->
+                handler.onEvent(created(payload("s1", "Mistborn").copy(parentId = "cosmere", parentPosition = 2)))
+                handler.onEvent(
+                    SyncEvent.Updated(
+                        id = "s1",
+                        revision = 5,
+                        occurredAt = 200L,
+                        clientOpId = null,
+                        payload = payload("s1", "Mistborn", revision = 5),
+                    ),
+                )
+                val row = db.seriesDao().getById("s1")!!
+                row.parentId shouldBe null
+                row.parentPosition shouldBe null
+            }
+        }
+
         test("handler self-registers under domainName 'series'") {
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()

@@ -307,3 +307,18 @@ internal val MIGRATION_12_13 =
             connection.executeDdl("ALTER TABLE `admin_user_roster` DROP COLUMN `canShare`")
         }
     }
+
+/**
+ * v13 → v14: `series.parentId` / `series.parentPosition` — the series tree (#962), mirroring the
+ * server's `V85__series_hierarchy.sql`. Two `ADD COLUMN`s and an index, per the migration policy in
+ * [ListenUpDatabase]: every cached series stays put as a root until the next sync delivers its
+ * place in the hierarchy.
+ */
+internal val MIGRATION_13_14 =
+    object : Migration(13, 14) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE `series` ADD COLUMN `parentId` TEXT")
+            connection.executeDdl("ALTER TABLE `series` ADD COLUMN `parentPosition` INTEGER")
+            connection.executeDdl("CREATE INDEX IF NOT EXISTS `index_series_parentId` ON `series` (`parentId`)")
+        }
+    }

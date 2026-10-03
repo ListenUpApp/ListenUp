@@ -296,6 +296,8 @@ private fun SeriesEntity.toDomain(): Series =
         createdAt = createdAt,
         coverPath = coverPath,
         asin = asin,
+        parentId = parentId?.let(::SeriesId),
+        parentPosition = parentPosition,
     )
 
 private fun SeriesEntity.toSearchResult(): SeriesSearchResult =
