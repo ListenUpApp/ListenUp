@@ -1,0 +1,258 @@
+import Darwin
+import SwiftUI
+import Testing
+import UIKit
+@testable import ListenUp
+
+/// One stop VoiceOver would make, read back from a hosted view's accessibility tree.
+struct AccessibilityStop: CustomStringConvertible {
+    let label: String
+    let value: String
+    let hint: String
+    let traits: UIAccessibilityTraits
+    let inputLabels: [String]
+    /// Window coordinates, in points.
+    let frame: CGRect
+
+    var isSelected: Bool { traits.contains(.selected) }
+    var isButton: Bool { traits.contains(.button) }
+    var isHeader: Bool { traits.contains(.header) }
+
+    var description: String {
+        "\"\(label)\" value=\"\(value)\" traits=\(traits.rawValue) frame=\(frame.integral)"
+    }
+}
+
+/// Hosts a SwiftUI view in a real window, at a chosen Dynamic Type size, and reads back what VoiceOver
+/// would find there: the stops, their labels, values, traits and frames. It also captures what was
+/// drawn, so a test can measure the contrast of the text it can see.
+///
+/// SwiftUI builds its accessibility tree only while an assistive technology asks for it, so the harness
+/// switches on the same automation mode XCUITest uses (`_AXSSetAutomationEnabled`, test target only — the
+/// app never links it). The tree it returns is the one `XCUIApplication` would query: combined rows are
+/// one stop, hidden images are absent, and a symbol's default label ("Selected" for `checkmark`) shows up
+/// exactly where VoiceOver would speak it.
+@MainActor
+final class HostedView {
+    let window: UIWindow
+    private let fit: (CGSize) -> CGSize
+
+    init<Content: View>(
+        _ content: Content,
+        size: CGSize = CGSize(width: 393, height: 852),
+        dynamicTypeSize: DynamicTypeSize = .large
+    ) async {
+        Self.enableAccessibilityTree()
+        let root = content
+            .environment(\.dynamicTypeSize, dynamicTypeSize)
+            .environment(HapticsSettings())
+        let host = UIHostingController(rootView: root)
+        host.overrideUserInterfaceStyle = .light
+        let window = UIWindow(frame: CGRect(origin: .zero, size: size))
+        window.overrideUserInterfaceStyle = .light
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        self.window = window
+        self.fit = { host.sizeThatFits(in: $0) }
+        await settle()
+    }
+
+    /// Lets SwiftUI lay out, render, and publish its accessibility nodes.
+    func settle() async {
+        for _ in 0..<4 {
+            window.layoutIfNeeded()
+            try? await Task.sleep(for: .milliseconds(60))
+        }
+    }
+
+    /// Every stop, in tree order.
+    var stops: [AccessibilityStop] {
+        var found: [AccessibilityStop] = []
+        var seen = Set<ObjectIdentifier>()
+        collect(window, into: &found, seen: &seen)
+        return found
+    }
+
+    func stops(labelled label: String) -> [AccessibilityStop] {
+        stops.filter { $0.label == label }
+    }
+
+    func stop(labelled label: String) -> AccessibilityStop? {
+        stops.first { $0.label == label }
+    }
+
+    func stops(labelContaining fragment: String) -> [AccessibilityStop] {
+        stops.filter { $0.label.contains(fragment) }
+    }
+
+    /// The tree as text, for an assertion message that shows what was there instead.
+    var tree: String {
+        stops.map(\.description).joined(separator: "\n")
+    }
+
+    /// The SwiftUI-measured height of the hosted content at the window's width.
+    func fittingHeight() -> CGFloat {
+        fit(CGSize(width: window.bounds.width, height: .greatestFiniteMagnitude)).height
+    }
+
+    func close() {
+        window.isHidden = true
+        window.rootViewController = nil
+    }
+
+    private func collect(_ object: NSObject, into found: inout [AccessibilityStop], seen: inout Set<ObjectIdentifier>) {
+        guard seen.insert(ObjectIdentifier(object)).inserted else { return }
+        if let view = object as? UIView, view.isHidden || view.alpha == 0 { return }
+        if object.accessibilityElementsHidden { return }
+        if object.isAccessibilityElement {
+            found.append(AccessibilityStop(
+                label: object.accessibilityLabel ?? "",
+                value: object.accessibilityValue ?? "",
+                hint: object.accessibilityHint ?? "",
+                traits: object.accessibilityTraits,
+                inputLabels: object.accessibilityUserInputLabels ?? [],
+                frame: object.accessibilityFrame
+            ))
+            return
+        }
+        let children = accessibilityChildren(of: object)
+        if !children.isEmpty {
+            for child in children { collect(child, into: &found, seen: &seen) }
+        } else if let view = object as? UIView {
+            for subview in view.subviews { collect(subview, into: &found, seen: &seen) }
+        }
+    }
+
+    private func accessibilityChildren(of object: NSObject) -> [NSObject] {
+        if let elements = object.accessibilityElements as? [NSObject], !elements.isEmpty { return elements }
+        let count = object.accessibilityElementCount()
+        guard count != NSNotFound, count > 0 else { return [] }
+        return (0..<count).compactMap { object.accessibilityElement(at: $0) as? NSObject }
+    }
+
+    private static var isTreeEnabled = false
+
+    /// Turns on accessibility automation for this test process, as XCUITest does for an app under test.
+    private static func enableAccessibilityTree() {
+        guard !isTreeEnabled, let handle = dlopen("/usr/lib/libAccessibility.dylib", RTLD_NOW) else { return }
+        typealias SetEnabled = @convention(c) (Bool) -> Void
+        for name in ["_AXSSetAutomationEnabled", "_AXSApplicationAccessibilitySetEnabled"] {
+            if let symbol = dlsym(handle, name) {
+                unsafeBitCast(symbol, to: SetEnabled.self)(true)
+            }
+        }
+        isTreeEnabled = true
+    }
+}
+
+// MARK: - Drawn contrast
+
+/// The contrast of what was actually drawn, measured from the window's own pixels with the WCAG formula
+/// `SRGBColor` implements — the measurement the audit took from screenshots, made repeatable.
+@MainActor
+struct DrawnContrast {
+    private let pixels: [UInt8]
+    private let width: Int
+    private let height: Int
+    private let scale: CGFloat
+
+    init(_ hosted: HostedView) {
+        let window = hosted.window
+        let format = UIGraphicsImageRendererFormat(for: window.traitCollection)
+        format.opaque = true
+        let image = UIGraphicsImageRenderer(bounds: window.bounds, format: format).image { context in
+            window.layer.render(in: context.cgContext)
+        }
+        let cgImage = image.cgImage!
+        width = cgImage.width
+        height = cgImage.height
+        scale = CGFloat(cgImage.width) / window.bounds.width
+        var buffer = [UInt8](repeating: 0, count: width * height * 4)
+        buffer.withUnsafeMutableBytes { bytes in
+            let context = CGContext(
+                data: bytes.baseAddress, width: cgImage.width, height: cgImage.height, bitsPerComponent: 8,
+                bytesPerRow: cgImage.width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
+            context?.draw(cgImage, in: CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height))
+        }
+        pixels = buffer
+    }
+
+    /// Each line of text inside `rect` (window points), top to bottom, as the strongest contrast any of its
+    /// pixels reaches against the region's background — the most common colour in it. Antialiased edges
+    /// only ever lower a pixel's contrast, so a glyph's stem carries the colour the text was set in.
+    func textLines(in rect: CGRect) -> [Double] {
+        let region = pixelRect(rect)
+        guard region.width > 0, region.height > 0 else { return [] }
+        let background = dominantColour(in: region)
+        var rowContrast: [Double] = []
+        for y in region.minY..<region.maxY {
+            var strongest = 1.0
+            for x in region.minX..<region.maxX {
+                strongest = max(strongest, colour(x, y).contrastRatio(against: background))
+            }
+            rowContrast.append(strongest)
+        }
+        // A row belongs to a line when anything in it stands off the background; blank rows separate lines.
+        var lines: [Double] = []
+        var current: Double?
+        for value in rowContrast {
+            if value > 1.25 {
+                current = max(current ?? 1, value)
+            } else if let line = current {
+                lines.append(line)
+                current = nil
+            }
+        }
+        if let line = current { lines.append(line) }
+        return lines
+    }
+
+    /// The strongest contrast anything inside `rect` reaches against the region's background.
+    func strongestInk(in rect: CGRect) -> Double {
+        textLines(in: rect).max() ?? 1
+    }
+
+    /// A region of the capture, in pixels.
+    private struct PixelRegion {
+        let minX: Int, minY: Int, maxX: Int, maxY: Int
+        var width: Int { max(0, maxX - minX) }
+        var height: Int { max(0, maxY - minY) }
+    }
+
+    private func pixelRect(_ rect: CGRect) -> PixelRegion {
+        PixelRegion(
+            minX: max(0, Int((rect.minX * scale).rounded())),
+            minY: max(0, Int((rect.minY * scale).rounded())),
+            maxX: min(width, Int((rect.maxX * scale).rounded())),
+            maxY: min(height, Int((rect.maxY * scale).rounded()))
+        )
+    }
+
+    private func colour(_ x: Int, _ y: Int) -> SRGBColor {
+        let offset = (y * width + x) * 4
+        return SRGBColor(
+            red: Double(pixels[offset]) / 255,
+            green: Double(pixels[offset + 1]) / 255,
+            blue: Double(pixels[offset + 2]) / 255
+        )
+    }
+
+    private func dominantColour(in region: PixelRegion) -> SRGBColor {
+        var counts: [UInt32: Int] = [:]
+        for y in region.minY..<region.maxY {
+            for x in region.minX..<region.maxX {
+                let offset = (y * width + x) * 4
+                let key = UInt32(pixels[offset]) << 16 | UInt32(pixels[offset + 1]) << 8 | UInt32(pixels[offset + 2])
+                counts[key, default: 0] += 1
+            }
+        }
+        let key = counts.max { $0.value < $1.value }?.key ?? 0xFFFFFF
+        return SRGBColor(
+            red: Double((key >> 16) & 0xFF) / 255,
+            green: Double((key >> 8) & 0xFF) / 255,
+            blue: Double(key & 0xFF) / 255
+        )
+    }
+}
