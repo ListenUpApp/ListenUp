@@ -40,6 +40,12 @@ enum class ButtonSize { Sm, Md, Lg }
  * [kind] has no default on purpose: a call that does not say what its button is for resolves to
  * the plain DOM `Button`, which is what a custom control (a tab, a chip, a row) should be.
  *
+ * [pressable] false is for a button whose own press is what makes it unavailable — Sync now while
+ * the sync it started runs, Pick while its match saves. It says `aria-disabled` and ignores a press
+ * rather than taking `disabled`: a `disabled` button drops the keyboard focus that press put on it
+ * back to the top of the page, the trap [SegmentedControl] already sidesteps the same way. [enabled]
+ * false stays for a button that was never available, which a keyboard should not land on at all.
+ *
  * [attrs] is for what this does not own — a page class for placement, a `disabledWhen`, an id.
  */
 @Composable
@@ -51,11 +57,13 @@ fun Button(
     label: String? = null,
     fill: Boolean = false,
     submit: Boolean = false,
+    pressable: Boolean = true,
     attrs: (AttrsScope<HTMLButtonElement>.() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     requireAccessibleName(kind, label)
     val press = onClick
+    val takesPress = enabled && pressable
     DomButton(attrs = {
         classes(*buttonClasses(kind, size, fill))
         attr("type", if (submit) "submit" else "button")
@@ -64,7 +72,15 @@ fun Button(
             if (kind == ButtonKind.Icon) attr("title", it)
         }
         if (!enabled) attr("disabled", "")
-        this.onClick { if (enabled) press() }
+        if (enabled && !pressable) attr("aria-disabled", "true")
+        this.onClick { event ->
+            if (takesPress) {
+                press()
+            } else {
+                // A submit button that only looks unavailable would still submit its form.
+                event.preventDefault()
+            }
+        }
         attrs?.invoke(this)
     }) { content() }
 }

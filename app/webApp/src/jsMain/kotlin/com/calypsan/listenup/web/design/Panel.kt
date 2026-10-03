@@ -16,12 +16,17 @@ import org.jetbrains.compose.web.dom.Text
  *
  * [flush] drops the body padding, which is what a panel wrapping a [DataTable] needs: the table
  * draws its own edges, and padding around it would leave the rows floating inside a border.
+ *
+ * [spokenCount] is what a count drawn in [trailing] means, said inside the heading for a screen
+ * reader only ("Needs a match, 3 books"); the drawn count is then hidden from it. A bare "3" read
+ * after the heading says nothing about what was counted.
  */
 @Composable
 fun Panel(
     title: String? = null,
     flush: Boolean = false,
     trailing: (@Composable () -> Unit)? = null,
+    spokenCount: String? = null,
     content: @Composable () -> Unit,
 ) {
     Section(attrs = {
@@ -54,9 +59,14 @@ fun Panel(
                     }
                 }) {
                     Text(title)
+                    spokenCount?.let { Span(attrs = { classes("sr-only") }) { Text(", $it") } }
                 }
                 Span(attrs = { style { property("flex", "1") } }) {}
-                trailing?.invoke()
+                if (spokenCount != null && trailing != null) {
+                    Span(attrs = { attr("aria-hidden", "true") }) { trailing() }
+                } else {
+                    trailing?.invoke()
+                }
             }
         }
         Div(attrs = {

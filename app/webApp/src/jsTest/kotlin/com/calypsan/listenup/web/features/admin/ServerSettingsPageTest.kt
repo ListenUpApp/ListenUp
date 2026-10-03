@@ -475,7 +475,7 @@ class ServerSettingsPageTest :
 
             (host.textContent ?: "") shouldContain "Set · belongs to @simon"
             host.querySelector("#hc-token").shouldBeNull()
-            buttonLabelled(host, "Remove")!!.click()
+            buttonLabelled(host, "Remove API token")!!.click()
             awaitFrame()
             removed shouldBe 0
             (host.textContent ?: "") shouldContain "Remove the API token?"
@@ -496,12 +496,19 @@ class ServerSettingsPageTest :
         }
 
         test("while Hardcover checks the token, Save says so and can't be pressed") {
+            val sent = mutableListOf<String>()
             val host =
-                page(readyServerSettings().copy(hardcoverSource = HardcoverSourceStatus(), hardcoverTokenSave = HardcoverTokenSave.Busy))
+                page(
+                    readyServerSettings().copy(hardcoverSource = HardcoverSourceStatus(), hardcoverTokenSave = HardcoverTokenSave.Busy),
+                    onSaveHardcoverToken = { sent += it },
+                )
             awaitFrame()
 
+            // Unavailable, never `disabled`: that would drop the focus of the press that started it.
             val button = buttonLabelled(host, "Checking with Hardcover…").shouldNotBeNull()
-            button.hasAttribute("disabled") shouldBe true
+            button.getAttribute("aria-disabled") shouldBe "true"
+            button.click()
+            sent shouldBe emptyList()
         }
 
         test("the Hardcover metadata switch reflects the setting and flips it") {

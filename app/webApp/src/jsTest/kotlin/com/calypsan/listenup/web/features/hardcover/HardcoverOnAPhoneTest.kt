@@ -15,6 +15,7 @@ import com.calypsan.listenup.web.SMALL_PHONE
 import com.calypsan.listenup.web.ViewportFrames
 import com.calypsan.listenup.web.contentOverflow
 import com.calypsan.listenup.web.pastTheEdge
+import com.calypsan.listenup.web.zoomTextTo200
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldNotBeEmpty
@@ -111,6 +112,46 @@ class HardcoverOnAPhoneTest :
                 withClue(frame.pastTheEdge().joinToString("\n")) { frame.contentOverflow() shouldBe 0 }
                 val options = frame.findAll(".hc-share-mode .seg button")
                 options.size shouldBe 2
+                options.forEach { option ->
+                    withClue(option.textContent) { frame.takesTapsWithin(option, MIN_TARGET_PX / 2 - 1) shouldBe true }
+                }
+            }
+
+            // When the options do not fit on one line — a wider font, or larger text — they stack, and
+            // each must still take a tap near its centre: stacked 2px apart, the lower option's 44px
+            // touch square covered the upper one's bottom edge (#1568 CI, at 320px on a wider font).
+            test("at ${width}px and 200% text on a touchscreen each stacked Update Hardcover option takes a tap near its centre") {
+                val frame =
+                    frames.mount(width, pointer = Pointer.Touch) {
+                        InShell {
+                            HardcoverPage(
+                                state =
+                                    HardcoverSettingsUiState.Connected(
+                                        username = "simonhull",
+                                        since = 0L,
+                                        isDisconnecting = false,
+                                        shareMode = HardcoverShareMode.FINISHED_ONLY,
+                                    ),
+                                onConnect = {},
+                                onDisconnect = {},
+                                onSyncNow = {},
+                                onSetShareMode = {},
+                                onSendHistory = {},
+                                onDismissHistory = {},
+                                onFindMatch = {},
+                                onOpenKeptOff = {},
+                                onOpenSettings = {},
+                                nowMs = 1L,
+                            )
+                        }
+                    }
+                frame.zoomTextTo200()
+
+                val options = frame.findAll(".hc-share-mode .seg button")
+                options.size shouldBe 2
+                withClue("the options stack at this size, which is the case under test") {
+                    (frame.rect(options[1]).top >= frame.rect(options[0]).bottom) shouldBe true
+                }
                 options.forEach { option ->
                     withClue(option.textContent) { frame.takesTapsWithin(option, MIN_TARGET_PX / 2 - 1) shouldBe true }
                 }

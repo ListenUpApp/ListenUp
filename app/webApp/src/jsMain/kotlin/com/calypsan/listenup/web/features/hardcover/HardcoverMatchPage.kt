@@ -38,7 +38,12 @@ import org.jetbrains.compose.web.dom.Ul
  * group. Picking a result links it in one press; there is no confirm, because the toast offers Undo.
  *
  * Each result is a row with one "Pick" button named for what it picks, not a clickable row: a button
- * is what a keyboard and a screen reader already know how to press.
+ * is what a keyboard and a screen reader already know how to press. Its name starts with the word on
+ * it — "Pick Project Hail Mary, Andy Weir, Ray Porter, Audiobook, 2021, 8.1k ratings" — so a voice
+ * command of "click Pick" finds it (WCAG 2.5.3), and carries every tell the row draws.
+ *
+ * While a pick or a removal saves, Pick and Remove match say `aria-disabled` and ignore a press rather
+ * than going `disabled`, which dropped the focus of the button just pressed to the top of the page.
  */
 @Composable
 fun HardcoverMatchPage(
@@ -248,10 +253,12 @@ private fun CandidateRow(
             Button(
                 kind = ButtonKind.Secondary,
                 onClick = { onPick(row.hcBookId) },
-                enabled = enabled,
-                label = "Match to ${row.title.withDetail(row.detail())}",
+                pressable = enabled,
                 attrs = { if (isLinking) attr("aria-busy", "true") },
-            ) { Text("Pick") }
+            ) {
+                Text("Pick")
+                Span(attrs = { classes("sr-only") }) { Text(" ${row.spokenDetail()}") }
+            }
         }
     }
 }
@@ -272,7 +279,7 @@ private fun CurrentMatch(
             Button(
                 kind = ButtonKind.Secondary,
                 onClick = onRemove,
-                enabled = enabled,
+                pressable = enabled,
                 attrs = { if (isRemoving) attr("aria-busy", "true") },
             ) { Text("Remove match") }
         }
@@ -288,6 +295,20 @@ private fun HardcoverCandidateRow.detail(): String =
     listOfNotNull(AUDIOBOOK.takeIf { hasAudiobookEdition }, releaseYear?.toString()).joinToString(", ")
 
 private fun String.withDetail(detail: String): String = if (detail.isEmpty()) this else "$this ($detail)"
+
+/**
+ * What a Pick says after "Pick": the title, then every tell the row draws — "Project Hail Mary, Andy
+ * Weir, Ray Porter, Audiobook, 2021, 8.1k ratings". The names and the ratings are what tell the real
+ * book from a summary of it.
+ */
+private fun HardcoverCandidateRow.spokenDetail(): String =
+    listOfNotNull(
+        title,
+        names(authors),
+        AUDIOBOOK.takeIf { hasAudiobookEdition },
+        releaseYear?.toString(),
+        ratingsLine(ratingsCount),
+    ).joinToString(", ")
 
 private fun ratingsLine(count: Int?): String =
     when {

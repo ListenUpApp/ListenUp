@@ -152,7 +152,7 @@ class HardcoverRoutesTest :
                 )
 
             try {
-                host.button("Find on Hardcover").click()
+                host.button("Find on Hardcover: Piranesi").click()
                 awaitFrame()
                 window.location.pathname shouldBe "/book/b7/hardcover"
             } finally {
@@ -283,7 +283,7 @@ class HardcoverRoutesTest :
             try {
                 awaitFrame()
                 host.querySelector("h1")!!.textContent shouldBe "Kept off Hardcover"
-                host.button("Sync again").click()
+                host.button("Sync again: Educated").click()
                 synced shouldBe listOf("b1")
                 events.emit(KeptOffBooksEvent.SyncingAgain(title = "Educated", wasLast = true))
                 awaitFrame()
