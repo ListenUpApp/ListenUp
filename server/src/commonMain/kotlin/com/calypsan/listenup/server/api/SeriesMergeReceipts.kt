@@ -25,13 +25,15 @@ internal class SeriesMergeReceipts(
     private val sqlDb: ListenUpDatabase,
     private val seriesRepo: SeriesRepository,
     private val bookRepo: BookRepository,
+    private val hierarchy: SeriesHierarchyWrites,
     private val clock: Clock,
 ) {
     private val receipts get() = sqlDb.seriesMergeReceiptsQueries
 
     /**
      * Records [source] → [target] by [mergedBy]. Must be called inside the merge's transaction and
-     * BEFORE its membership relink — the snapshot reads the memberships the relink rewrites.
+     * BEFORE its membership relink — the snapshot reads the memberships the relink rewrites — and
+     * BEFORE the merge re-parents the source's sub-series.
      */
     fun record(
         source: SeriesId,
@@ -47,6 +49,7 @@ internal class SeriesMergeReceipts(
             merged_by = mergedBy,
         )
         receipts.snapshotSourceMemberships(receipt_id = receiptId, target_id = target.value, source_id = source.value)
+        receipts.snapshotSourceChildren(receipt_id = receiptId, source_id = source.value)
     }
 
     /** Open receipts naming [target] as the survivor, newest first. */
@@ -64,7 +67,7 @@ internal class SeriesMergeReceipts(
         }
 
     /**
-     * Undoes the merge [receiptId] recorded, in four steps:
+     * Undoes the merge [receiptId] recorded, in five steps:
      *
      *  1. A read-only [decide] transaction checks the receipt is open and its target still live —
      *     nothing is written, so a refusal here leaves everything exactly as it was.
@@ -77,6 +80,8 @@ internal class SeriesMergeReceipts(
      *     is the transaction's first write.
      *  4. Every restored book is re-upserted (bumps revision, publishes `Updated`). One bad book
      *     doesn't stop the rest — the loop keeps going and the first failure is reported at the end.
+     *  5. Every sub-series the merge moved, and that is still under the target, goes back to the
+     *     source at its recorded position.
      */
     suspend fun undo(receiptId: MergeReceiptId): AppResult<MergeUndoResult> {
         val sourceId =
@@ -98,6 +103,14 @@ internal class SeriesMergeReceipts(
             when (val upserted = bookRepo.upsert(book)) {
                 is AppResult.Success -> Unit
                 is AppResult.Failure -> if (firstFailure == null) firstFailure = upserted.error
+            }
+        }
+        // Hand back the sub-series still sitting where the merge put them, at their old positions.
+        for (child in claim.restoredChildren) {
+            val payload = hierarchy.live(child.id) ?: continue
+            when (val placed = hierarchy.place(payload, claim.sourceId.value, child.position)) {
+                is AppResult.Success -> Unit
+                is AppResult.Failure -> if (firstFailure == null) firstFailure = placed.error
             }
         }
         firstFailure?.let { return AppResult.Failure(it) }
@@ -209,10 +222,16 @@ internal class SeriesMergeReceipts(
                 )
             }
         }
+        val restorableChildren =
+            receipts
+                .selectRestorableChildren(receipt_id = receipt.id, target_id = receipt.target_id)
+                .executeAsList()
+                .map { RestorableChild(SeriesId(it.child_id), it.position?.toInt()) }
         return SeriesUndoClaim.Granted(
             sourceId = SeriesId(receipt.source_id),
             restoredBookIds = restorable.map { it.book_id },
             skipped = (recorded - restorable.size).toInt(),
+            restoredChildren = restorableChildren,
         )
     }
 }
@@ -237,10 +256,17 @@ private sealed interface SeriesUndoClaim {
         val error: SeriesError,
     ) : SeriesUndoClaim
 
-    /** Memberships are restored and the receipt is marked; the source and books still need re-upserting. */
+    /** Memberships are restored and the receipt is marked; the books and sub-series still need re-upserting. */
     data class Granted(
         val sourceId: SeriesId,
         val restoredBookIds: List<String>,
         val skipped: Int,
+        val restoredChildren: List<RestorableChild>,
     ) : SeriesUndoClaim
 }
+
+/** A sub-series the merge moved under the survivor, with the sibling position it had before. */
+private data class RestorableChild(
+    val id: SeriesId,
+    val position: Int?,
+)

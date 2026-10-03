@@ -78,6 +78,7 @@ interface SeriesService {
      * Merges series [source] into series [target]. After this call:
      * - All `book_series_memberships` rows referencing [source] are re-linked to [target].
      * - All affected books are re-upserted with the new series reference.
+     * - [source]'s sub-series become [target]'s, after its existing ones.
      * - [source] is soft-deleted.
      *
      * Returns [com.calypsan.listenup.api.error.SeriesError.MergeSelfTarget] when

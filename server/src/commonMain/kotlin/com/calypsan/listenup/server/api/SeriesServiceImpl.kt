@@ -77,8 +77,8 @@ internal class SeriesServiceImpl(
     private val principal: PrincipalProvider = PrincipalProvider.None,
     private val clock: Clock = Clock.System,
 ) : SeriesService {
-    private val mergeReceipts = SeriesMergeReceipts(sqlDb, seriesRepo, bookRepo, clock)
     private val hierarchy = SeriesHierarchyWrites(seriesRepo)
+    private val mergeReceipts = SeriesMergeReceipts(sqlDb, seriesRepo, bookRepo, hierarchy, clock)
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): SeriesServiceImpl =
@@ -198,6 +198,15 @@ internal class SeriesServiceImpl(
                 is AppResult.Failure -> return AppResult.Failure(upsertResult.error)
             }
         }
+
+        // The source's sub-series follow it into the target. One that IS the target, or contains
+        // it, can't sit under the target — it takes the source's own place in the tree instead.
+        val tree = seriesRepo.liveTree()
+        val reparented =
+            hierarchy.reparentChildren(source) { childId ->
+                if (target.value in tree.subtreeOf(childId)) sourcePayload.parentId else target.value
+            }
+        if (reparented is AppResult.Failure) return reparented
 
         // Tombstone the source AND record its merge redirect, so a rescan of a book whose files
         // still carry the old name lands in the target instead of reviving the source.
