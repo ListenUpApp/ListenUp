@@ -3,10 +3,7 @@ package com.calypsan.listenup.client.presentation.bookdetail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.domain.model.CombinedScore
-import com.calypsan.listenup.client.domain.model.ExternalRating
 import com.calypsan.listenup.client.domain.model.ListenerAverage
-import com.calypsan.listenup.client.domain.model.ListenerRating
 import com.calypsan.listenup.client.domain.model.RatingLabels
 import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
@@ -22,40 +19,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.seconds
-
-/** The rating block on Book Detail. */
-sealed interface BookRatingsUiState {
-    /** Not read yet. */
-    data object Loading : BookRatingsUiState
-
-    /**
-     * @property listeners your listeners' average, or null when nobody has rated the book.
-     * @property mine the signed-in listener's rating, or null when they haven't rated it.
-     * @property external the ListenUp score — every enabled outside catalog plus this server's
-     *   listeners, calibrated over the library — or null when no source has rated the book yet.
-     *   Its [CombinedScore.shares] give each source's weight for the breakdown rows (the listeners'
-     *   under [com.calypsan.listenup.client.domain.model.ScoreSource.Listeners]) and
-     *   [CombinedScore.sourceCount] the "Combined from N sources" line. The same value the
-     *   library's Rating sort uses.
-     * @property breakdown the per-source outside ratings backing [external], highest rating count
-     *   first — the sheet one tap away from the headline. The listeners' row is [listeners].
-     * @property canRefresh whether the signed-in listener may trigger [BookRatingsViewModel.refreshExternal]
-     *   (admin or root).
-     * @property isRefreshingExternal whether a [BookRatingsViewModel.refreshExternal] is still in
-     *   flight — true until the server answers, whether or not any score changed.
-     * @property isCheckingExternal whether the server is fetching this book's Hardcover rating right now,
-     *   because Book Detail opened it — "Checking Hardcover…" holds the score's row while it does.
-     */
-    data class Ready(
-        val listeners: ListenerAverage?,
-        val mine: ListenerRating?,
-        val external: CombinedScore?,
-        val breakdown: List<ExternalRating>,
-        val canRefresh: Boolean,
-        val isRefreshingExternal: Boolean = false,
-        val isCheckingExternal: Boolean = false,
-    ) : BookRatingsUiState
-}
 
 /**
  * State and actions for rating one book. Everything is read from Room through [repository], so the
