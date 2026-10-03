@@ -133,7 +133,8 @@ struct HardcoverSettingsAccessibilityTests {
                     #expect(!spoken.contains(name), "\(name) spoken in \(history): \(stop)")
                 }
             }
-            #expect(!hosted.stops.contains(where: \.isSelected), "\(hosted.tree)")
+            let anySelected = hosted.stops.contains { $0.isSelected }
+            #expect(!anySelected, "\(hosted.tree)")
         }
     }
 }

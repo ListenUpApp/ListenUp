@@ -48,7 +48,11 @@ final class HostedView {
             .environment(HapticsSettings())
         let host = UIHostingController(rootView: root)
         host.overrideUserInterfaceStyle = .light
-        let window = UIWindow(frame: CGRect(origin: .zero, size: size))
+        guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else {
+            preconditionFailure("The test host has no window scene to host a view in.")
+        }
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(origin: .zero, size: size)
         window.overrideUserInterfaceStyle = .light
         window.rootViewController = host
         window.makeKeyAndVisible()
