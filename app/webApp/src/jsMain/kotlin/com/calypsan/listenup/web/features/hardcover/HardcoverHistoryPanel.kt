@@ -8,6 +8,7 @@ import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.WebIcon
+import com.calypsan.listenup.web.design.focusLanding
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
@@ -20,7 +21,11 @@ import org.jetbrains.compose.web.dom.Text
  * Available is the quiet row in Sync ([EarlierBooksRow]). Every string is the English text of en.json's
  * `hardcover.history_*` keys.
  *
- * @param onShowNeedsMatch Scrolls the Needs a match panel into view, from Done's "4 need a match".
+ * @param onShowNeedsMatch Scrolls the Needs a match panel into view, from Done's "4 need a match", and
+ *   puts focus on its heading.
+ *
+ * Each phase marks where focus lands when a press replaces the button it was on — the sending line,
+ * what the send came to, the quiet row's Send — for the page's [com.calypsan.listenup.web.design.FocusHold].
  */
 @Composable
 internal fun HistoryCard(
@@ -57,7 +62,12 @@ internal fun EarlierBooksRow(
                 Text(countedBooks(books, one = "1 finished before you connected") { "$it finished before you connected" })
             }
         }
-        Button(kind = ButtonKind.Secondary, onClick = onSend, label = "Send earlier books to Hardcover") { Text("Send") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = onSend,
+            label = "Send earlier books to Hardcover",
+            attrs = { focusLanding() },
+        ) { Text("Send") }
     }
 }
 
@@ -81,7 +91,9 @@ private fun Offer(
             )
         }
         Div(attrs = { classes("hc-history-acts") }) {
-            Button(kind = ButtonKind.Primary, onClick = onSend) { Text(countedBooks(books, one = "Send 1 book") { "Send $it books" }) }
+            Button(kind = ButtonKind.Primary, onClick = onSend, attrs = { focusLanding() }) {
+                Text(countedBooks(books, one = "Send 1 book") { "Send $it books" })
+            }
             Button(kind = ButtonKind.Ghost, onClick = onNotNow) { Text("Not now") }
         }
     }
@@ -93,9 +105,11 @@ private fun Sending(
     total: Int,
 ) {
     Div(attrs = { classes("hc-history") }) {
+        // Where focus lands when Send replaces the button it was pressed on.
         Div(attrs = {
             classes("hc-history-h")
             attr(ROLE, STATUS)
+            focusLanding()
         }) {
             Tile(WebIcon.Clock)
             Span(attrs = { classes("hc-history-t") }) {
@@ -122,11 +136,13 @@ private fun Done(
 ) {
     Div(attrs = { classes("hc-history", "hc-history-done") }) {
         Tile(WebIcon.Check, done = true)
-        Div(attrs = {
-            classes("hc-history-text")
-            attr(ROLE, STATUS)
-        }) {
-            Span(attrs = { classes("hc-history-t") }) { Text(doneWords(sent, needsMatch)) }
+        // The status is the sentence alone: around the button too, "3 need a match" was read as news.
+        Div(attrs = { classes("hc-history-text") }) {
+            Span(attrs = {
+                classes("hc-history-t")
+                attr(ROLE, STATUS)
+                focusLanding()
+            }) { Text(doneWords(sent, needsMatch)) }
             if (needsMatch > 0) {
                 Button(kind = ButtonKind.Ghost, onClick = onShowNeedsMatch, attrs = { classes("hc-history-link") }) {
                     Text(if (needsMatch == 1) "1 needs a match" else "$needsMatch need a match")

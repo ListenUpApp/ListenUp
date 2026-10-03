@@ -51,3 +51,26 @@ internal fun ViewportFrame.pastTheEdge(): List<String> {
             .filter { isShown(it) && rect(it).right > edge + 0.5 }
             .map { "${it.tagName.lowercase()}.${it.getAttribute("class").orEmpty()}@${rect(it).right} > $edge" }
 }
+
+/**
+ * Text-only zoom to 200% (WCAG 1.4.4): the frame's root font size doubled. Faithful because the sheet
+ * sizes all type in rem (`RemFontSizesTest`), which is exactly what a reader's larger default font
+ * size changes — while the viewport width, and every media query on it, stays put.
+ */
+internal fun ViewportFrame.zoomTextTo200() {
+    host.ownerDocument!!
+        .documentElement!!
+        .asDynamic()
+        .style.fontSize = "32px"
+}
+
+/** Every element under [selector] whose own content is clipped by its box — `tag.class h>clientH`. */
+internal fun ViewportFrame.clippedIn(selector: String): List<String> =
+    findAll("$selector, $selector *")
+        // `.sr-only` is clipped to a pixel on purpose: it is read, never drawn.
+        .filter {
+            isShown(it) && !it.classList.contains("sr-only") && css(it, "overflow") == "hidden" &&
+                it.scrollHeight > it.clientHeight + 1
+        }.map {
+            "${it.tagName.lowercase()}.${it.getAttribute("class").orEmpty()} ${it.scrollHeight}>${it.clientHeight}"
+        }

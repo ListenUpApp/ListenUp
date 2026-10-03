@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.features.settings
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -25,7 +26,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ManageSearch
-import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -45,6 +45,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -87,7 +89,7 @@ import listenup.composeapp.generated.resources.hardcover_match_matching
 import listenup.composeapp.generated.resources.hardcover_match_no_results_detail
 import listenup.composeapp.generated.resources.hardcover_match_no_results_title
 import listenup.composeapp.generated.resources.hardcover_match_other_results
-import listenup.composeapp.generated.resources.hardcover_match_pick_a11y
+import listenup.composeapp.generated.resources.hardcover_match_action
 import listenup.composeapp.generated.resources.hardcover_match_ratings
 import listenup.composeapp.generated.resources.hardcover_match_ratings_none
 import listenup.composeapp.generated.resources.hardcover_match_ratings_one
@@ -95,6 +97,7 @@ import listenup.composeapp.generated.resources.hardcover_match_remove
 import listenup.composeapp.generated.resources.hardcover_match_remove_detail
 import listenup.composeapp.generated.resources.hardcover_match_results
 import listenup.composeapp.generated.resources.hardcover_match_search_for
+import listenup.composeapp.generated.resources.hardcover_match_search_label
 import listenup.composeapp.generated.resources.hardcover_match_search_placeholder
 import listenup.composeapp.generated.resources.hardcover_match_searching
 import listenup.composeapp.generated.resources.hardcover_match_title
@@ -252,6 +255,7 @@ private fun ReadyContent(
                         onValueChange = onQueryChange,
                         onSubmit = onSearch,
                         placeholder = stringResource(Res.string.hardcover_match_search_placeholder),
+                        label = stringResource(Res.string.hardcover_match_search_label),
                         onClear = { onQueryChange("") },
                     )
                     MatchingLine(state)
@@ -467,6 +471,10 @@ private fun CurrentMatch(
 /**
  * One result. A strong one (by the book's author) sits on a tonal fill with a bold title; the rest are
  * drawn quieter, outlined on the page. Its format, year and ratings tell the real book from a summary.
+ *
+ * One tap matches, so the row ends in "Match" rather than a chevron, which would promise another screen.
+ * TalkBack reads the whole row — title, authors, format, year and ratings, the cues for choosing between
+ * editions — and "double-tap to Match".
  */
 @Composable
 private fun CandidateRow(
@@ -478,13 +486,8 @@ private fun CandidateRow(
     onPick: () -> Unit,
 ) {
     val haptics = LocalHaptics.current
-    val a11y = stringResource(Res.string.hardcover_match_pick_a11y, row.title)
+    val matchLabel = stringResource(Res.string.hardcover_match_action)
     Surface(
-        onClick = {
-            haptics.press()
-            onPick()
-        },
-        enabled = enabled,
         shape = shape,
         color = if (strong) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.surface,
         border =
@@ -493,10 +496,15 @@ private fun CandidateRow(
             } else {
                 BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceContainerHighest)
             },
-        modifier = Modifier.fillMaxWidth().semantics { contentDescription = a11y },
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier.padding(start = 20.dp, end = Spacing.lg, top = 14.dp, bottom = 14.dp),
+            modifier =
+                Modifier
+                    .clickable(enabled = enabled, onClickLabel = matchLabel, role = Role.Button) {
+                        haptics.press()
+                        onPick()
+                    }.padding(start = 20.dp, end = Spacing.lg, top = 14.dp, bottom = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -504,10 +512,13 @@ private fun CandidateRow(
             if (isLinking) {
                 ListenUpLoadingIndicatorSmall()
             } else {
-                Icon(
-                    imageVector = Icons.Outlined.ChevronRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                // Said by the click label already; drawn so a sighted tap knows it acts in place.
+                Text(
+                    text = matchLabel,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clearAndSetSemantics {},
                 )
             }
         }

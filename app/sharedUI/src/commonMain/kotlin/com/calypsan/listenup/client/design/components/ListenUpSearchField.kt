@@ -35,6 +35,9 @@ import listenup.composeapp.generated.resources.common_clear_search
  *   through [value] verbatim or not at all — never transformed (see [OwnedTextFieldState])
  * @param onSubmit Callback when Enter key is pressed
  * @param placeholder Hint text shown when empty
+ * @param label What the field searches ("Search Hardcover"), when the screen doesn't already say. Unlike
+ *   [placeholder] it stays once the field holds a search — floated above the text — so neither TalkBack nor
+ *   a sighted reader loses what the field is for.
  * @param modifier Optional modifier
  * @param enabled Whether the field is enabled for input
  * @param isLoading Whether to show loading indicator instead of clear button
@@ -50,6 +53,7 @@ fun ListenUpSearchField(
     enabled: Boolean = true,
     isLoading: Boolean = false,
     onClear: (() -> Unit)? = null,
+    label: String? = null,
 ) {
     val haptics = LocalHaptics.current
     val ownedText = rememberOwnedTextFieldState(value)
@@ -59,6 +63,7 @@ fun ListenUpSearchField(
             if (ownedText.edit(newValue)) onValueChange(newValue.text)
         },
         placeholder = { Text(placeholder) },
+        label = label?.let { { Text(it) } },
         enabled = enabled,
         singleLine = true,
         shape = MaterialTheme.shapes.medium,

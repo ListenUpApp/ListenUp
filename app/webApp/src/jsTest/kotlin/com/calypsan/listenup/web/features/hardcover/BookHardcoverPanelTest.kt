@@ -178,7 +178,7 @@ class BookHardcoverPanelTest :
         }
 
         // Decision 1: every book has the switch while Hardcover is connected.
-        test("a book never matched shows the switch alone, on, and switching it off asks nothing") {
+        test("a book never matched shows the switch, on, with one line saying so, and switching it off asks nothing") {
             val synced = mutableListOf<Boolean>()
             val host = mount(BookHardcoverUiState.Unmatched, onSetSynced = { synced += it })
             awaitFrame()
@@ -186,6 +186,8 @@ class BookHardcoverPanelTest :
             host.querySelector("h2")!!.textContent shouldBe "Hardcover"
             host.syncSwitch().checked shouldBe true
             host.querySelector(".hc-match-title") shouldBe null
+            host.querySelector(".hc-kept-off")!!.textContent shouldBe
+                "Not matched yet. ListenUp looks for it on Hardcover when you start listening."
             host.syncSwitch().click()
             awaitFrame()
             synced shouldBe listOf(false)

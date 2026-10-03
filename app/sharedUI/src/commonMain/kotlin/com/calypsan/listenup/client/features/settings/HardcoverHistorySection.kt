@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.api.dto.hardcover.HardcoverHistory
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.TonalIconTile
+import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.theme.extendedColors
@@ -119,6 +120,7 @@ internal fun HardcoverEarlierBooksRow(
         },
         trailing = {
             OutlinedButton(
+                border = listenUpOutlinedBorder(),
                 onClick = {
                     haptics.press()
                     onSend()

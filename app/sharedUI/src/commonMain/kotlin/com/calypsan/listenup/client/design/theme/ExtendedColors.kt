@@ -14,7 +14,9 @@ import androidx.compose.ui.graphics.Color
  *
  * The values are fixed greens rather than harmonised with a dynamic scheme: "active" and
  * "done" must stay recognisably green whatever the wallpaper, and every pair here clears
- * WCAG AA on the fallback surfaces (pinned by `ExtendedColorsContrastTest`).
+ * WCAG AA on the fallback surfaces (pinned by `ExtendedColorsContrastTest`). [success] is also drawn as
+ * text ("Up to date" on Book Detail's Hardcover card), so it clears 4.5:1 on every container a card sits on,
+ * with room to spare for a dynamic scheme's slightly different surfaces.
  *
  * @property success A positive live state — an active device, a completed step. Drawn as a
  *   small mark beside a text label, never as the only cue.
@@ -32,7 +34,7 @@ data class ListenUpExtendedColors(
 
 internal val LightExtendedColors =
     ListenUpExtendedColors(
-        success = Color(0xFF1E7B45),
+        success = Color(0xFF17663A),
         onSuccess = Color(0xFFFFFFFF),
         successContainer = Color(0xFFB7F1C8),
         onSuccessContainer = Color(0xFF00210F),

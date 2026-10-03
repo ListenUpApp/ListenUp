@@ -20,10 +20,14 @@ class ToastTest :
 
         fun mount(content: @Composable () -> Unit): HTMLElement = mounts.mount { WebAppSurface { content() } }
 
-        test("a queue starts with nothing on screen") {
+        test("a queue starts with no toast — but its polite live region is already there, waiting") {
+            // A region inserted together with its words is announced unreliably, and for `status` often
+            // not at all (#1562, M-T1): the region must exist before the first toast is added to it.
             val host = mount { ToastHost(ToastQueue()) }
 
-            host.querySelectorAll(".toastwrap").length shouldBe 0
+            host.querySelectorAll(".toast").length shouldBe 0
+            val region = host.querySelector(".toastwrap") as HTMLElement
+            region.getAttribute("aria-live") shouldBe "polite"
         }
 
         test("a shown toast reaches the DOM with its text") {
@@ -45,9 +49,12 @@ class ToastTest :
             val queue = ToastQueue()
             val host = mount { ToastHost(queue) }
 
+            val region = host.querySelector(".toastwrap") as HTMLElement
             queue.show("Saved.", ToastTone.Notice)
             awaitFrame()
-            (host.querySelector(".toast") as HTMLElement).getAttribute("role") shouldBe "status"
+            // Said by the region it was added to, which was already on the page.
+            host.querySelector(".toastwrap") shouldBe region
+            (host.querySelector(".toast") as HTMLElement).hasAttribute("role") shouldBe false
 
             queue.show("It broke.", ToastTone.Failure)
             awaitFrame()
@@ -69,6 +76,20 @@ class ToastTest :
 
             host.querySelectorAll(".toast").length shouldBe 1
             (host.querySelector(".toast") as HTMLElement).textContent.orEmpty() shouldContain "It broke."
+        }
+
+        test("a notice that offers Undo never retires itself: the offer is the only way back (WCAG 2.2.1)") {
+            val queue = ToastQueue()
+            val host = mount { ToastHost(queue, noticeLifetimeMs = SHORT_LIFETIME_MS) }
+
+            queue.show("Matched to Project Hail Mary", ToastTone.Notice, ToastAction("Undo") {})
+            queue.show("Saved.", ToastTone.Notice)
+            awaitFrame()
+            delay(SHORT_LIFETIME_MS * 4)
+            awaitFrame()
+
+            host.querySelectorAll(".toast").length shouldBe 1
+            (host.querySelector(".toast") as HTMLElement).textContent.orEmpty() shouldContain "Undo"
         }
 
         test("a notice under the pointer or focus waits for the reader") {

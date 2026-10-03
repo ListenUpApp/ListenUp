@@ -407,6 +407,7 @@ One beautiful library.</string>
     <string name="book_detail_cast_production">Production</string>
     <string name="book_detail_channels">Channels</string>
     <string name="book_detail_chapter_count">%1$d chapters</string>
+    <string name="book_detail_chapter_count_one">1 chapter</string>
     <string name="book_detail_chapter_label">Ch. %1$d · %2$s</string>
     <string name="book_detail_chapters">Chapters</string>
     <string name="book_detail_close">Close book</string>
@@ -507,12 +508,15 @@ One beautiful library.</string>
     <string name="book_detail_rating_updated_today">Updated today</string>
     <string name="book_detail_rating_updated_yesterday">Updated yesterday</string>
     <string name="book_detail_rating_yours">Your rating</string>
+    <string name="book_detail_reader_view_profile">View profile</string>
     <string name="book_detail_readers">Readers</string>
     <string name="book_detail_readers_a11y_finished">%1$s, finished %2$s</string>
     <string name="book_detail_readers_a11y_finished_also_on_hardcover">%1$s, finished %2$s, also on Hardcover</string>
     <string name="book_detail_readers_a11y_read_on_hardcover">%1$s, read %2$s, logged on Hardcover</string>
     <string name="book_detail_readers_a11y_reading">%1$s, %2$d percent</string>
     <string name="book_detail_readers_also_on_hardcover">Also on Hardcover</string>
+    <string name="book_detail_readers_count">%1$d readers</string>
+    <string name="book_detail_readers_count_one">1 reader</string>
     <string name="book_detail_readers_empty">No one is reading this book yet.</string>
     <string name="book_detail_readers_finished">Finished %1$s</string>
     <string name="book_detail_readers_finished_also_on_hardcover">Finished %1$s, also on Hardcover</string>
@@ -521,6 +525,7 @@ One beautiful library.</string>
     <string name="book_detail_readers_note">“%1$s”</string>
     <string name="book_detail_readers_rated">Rated</string>
     <string name="book_detail_readers_read">Read %1$s</string>
+    <string name="book_detail_readers_read_on_hardcover">Read %1$s on Hardcover</string>
     <string name="book_detail_readers_you">%1$s (You)</string>
     <string name="book_detail_released">Released</string>
     <string name="book_detail_remove_the_downloaded_files_for">Remove the downloaded files for “%1$s”? </string>
@@ -863,6 +868,7 @@ One beautiful library.</string>
     <string name="common_ok">OK</string>
     <string name="common_online">Online</string>
     <string name="common_open">Open</string>
+    <string name="common_open_in_browser">Open in browser</string>
     <string name="common_percent">%1$d%</string>
     <string name="common_permissions">Permissions</string>
     <string name="common_play">Play</string>
@@ -1179,6 +1185,7 @@ One beautiful library.</string>
     <string name="hardcover_linking_instructions">We opened the page for you. On another device, go to %1$s and enter this code.</string>
     <string name="hardcover_linking_title">Approve ListenUp on Hardcover</string>
     <string name="hardcover_loading">Checking your Hardcover connection…</string>
+    <string name="hardcover_match_action">Match</string>
     <string name="hardcover_match_audiobook">Audiobook</string>
     <string name="hardcover_match_book_missing">This book is no longer in your library.</string>
     <string name="hardcover_match_by_author">By %1$s</string>

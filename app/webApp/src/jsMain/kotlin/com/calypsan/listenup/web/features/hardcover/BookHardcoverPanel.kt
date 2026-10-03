@@ -24,8 +24,8 @@ import org.jetbrains.compose.web.dom.Text
  * Book Detail's Hardcover panel (spec B5), in the side rail between Details and Readers: the book's
  * match, where it stands, Change match and Remove match — or "Needs a match" with Find on Hardcover.
  * Silent — no panel at all — when [state] is hidden: not connected, or not known yet. Sync with
- * Hardcover (#1541) heads the panel in every other state; a book never matched is that switch alone,
- * and a book kept off is that switch and one line.
+ * Hardcover (#1541) heads the panel in every other state; a book never matched or kept off is that
+ * switch and one line.
  *
  * Right after a pick the status line reads "Matched just now", for the minute the ViewModel says so.
  */
@@ -36,24 +36,32 @@ fun BookHardcoverPanel(
     onRemoveMatch: () -> Unit,
     onSetSynced: (Boolean) -> Unit,
 ) {
-    when (state) {
-        BookHardcoverUiState.Hidden -> {
-            Unit
-        }
-
-        // Decision 1: a book never matched is the switch alone, so it can be kept off before its first listen.
-        BookHardcoverUiState.Unmatched -> {
-            Panel(title = PANEL_TITLE) {
-                Div(attrs = { classes(BOOK) }) {
-                    SyncSwitch(isOn = true, keepOffRemoves = null, divided = false, onSetSynced = onSetSynced)
+    if (state == BookHardcoverUiState.Hidden) return
+    // One panel and one switch in every state, so the switch is the same element after it moves: Keep
+    // off's dialog hands focus back to it, and a switch rebuilt for the new state would drop that focus
+    // to the top of the page the moment the state arrived.
+    Panel(title = if (state is BookHardcoverUiState.Linked) "On Hardcover" else PANEL_TITLE) {
+        Div(attrs = { classes(BOOK) }) {
+            SyncSwitch(
+                isOn = (state as? BookHardcoverUiState.KeptOff)?.isResuming ?: true,
+                keepOffRemoves = (state as? BookHardcoverUiState.Linked)?.keepOffRemoves,
+                divided = state is BookHardcoverUiState.NeedsMatch || state is BookHardcoverUiState.Linked,
+                onSetSynced = onSetSynced,
+            )
+            when (state) {
+                BookHardcoverUiState.Hidden -> {
+                    Unit
                 }
-            }
-        }
 
-        BookHardcoverUiState.NeedsMatch -> {
-            Panel(title = PANEL_TITLE) {
-                Div(attrs = { classes(BOOK) }) {
-                    SyncSwitch(isOn = true, keepOffRemoves = null, divided = true, onSetSynced = onSetSynced)
+                // Decision 1: a book never matched is the switch, so it can be kept off before its first
+                // listen — and one quiet line, so "on" does not claim a match that isn't there yet.
+                BookHardcoverUiState.Unmatched -> {
+                    P(attrs = { classes("hc-kept-off") }) {
+                        Text("Not matched yet. ListenUp looks for it on Hardcover when you start listening.")
+                    }
+                }
+
+                BookHardcoverUiState.NeedsMatch -> {
                     Span(attrs = { classes("hc-match-title") }) { Text("Needs a match") }
                     P(attrs = { classes("hc-lede") }) { Text("Pick the right book so your listening syncs.") }
                     Button(kind = ButtonKind.Primary, onClick = onFindMatch, attrs = { classes("hc-book-act") }) {
@@ -61,18 +69,8 @@ fun BookHardcoverPanel(
                         Text("Find on Hardcover")
                     }
                 }
-            }
-        }
 
-        is BookHardcoverUiState.Linked -> {
-            Panel(title = "On Hardcover") {
-                Div(attrs = { classes(BOOK) }) {
-                    SyncSwitch(
-                        isOn = true,
-                        keepOffRemoves = state.keepOffRemoves,
-                        divided = true,
-                        onSetSynced = onSetSynced,
-                    )
+                is BookHardcoverUiState.Linked -> {
                     Span(attrs = { classes("hc-match-title") }) { Text(state.match.title ?: "Matched on Hardcover") }
                     matchedLine(state.match)?.let { Span(attrs = { classes("hc-match-by") }) { Text(it) } }
                     if (state.match.chosenByYou) Span(attrs = { classes("hc-tell") }) { Text("Matched by you") }
@@ -82,19 +80,9 @@ fun BookHardcoverPanel(
                         Button(kind = ButtonKind.Secondary, onClick = onRemoveMatch) { Text("Remove match") }
                     }
                 }
-            }
-        }
 
-        is BookHardcoverUiState.KeptOff -> {
-            Panel(title = PANEL_TITLE) {
-                Div(attrs = { classes(BOOK) }) {
-                    // While syncing again saves, the switch already reads on and the line has gone.
-                    SyncSwitch(
-                        isOn = state.isResuming,
-                        keepOffRemoves = null,
-                        divided = false,
-                        onSetSynced = onSetSynced,
-                    )
+                // While syncing again saves, the switch already reads on and the line has gone.
+                is BookHardcoverUiState.KeptOff -> {
                     if (!state.isResuming) {
                         // en.json's `hardcover.kept_off_line`.
                         P(attrs = { classes("hc-kept-off") }) {

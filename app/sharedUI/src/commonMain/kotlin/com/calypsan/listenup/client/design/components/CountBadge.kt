@@ -12,6 +12,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -29,6 +31,9 @@ import androidx.compose.ui.unit.dp
  * @param contentColor Colour of the count text; pair it with [containerColor].
  * @param minSize Minimum width and height of the pill; the pill stretches for wider counts.
  * @param maxCount Counts above this render as "N+" so the badge never stretches unbounded.
+ * @param contentDescription What the count counts, spoken in place of the bare number — "28 books need a
+ *   match", not "28". Pass it whenever the badge sits beside a heading, and merge the two (as
+ *   [SectionGroup] does) so TalkBack reads them as one.
  */
 @Composable
 fun CountBadge(
@@ -38,11 +43,18 @@ fun CountBadge(
     contentColor: Color = MaterialTheme.colorScheme.onTertiaryContainer,
     minSize: Dp = 26.dp,
     maxCount: Int = Int.MAX_VALUE,
+    contentDescription: String? = null,
 ) {
     Box(
         modifier =
             modifier
-                .clip(CircleShape)
+                .then(
+                    if (contentDescription != null) {
+                        Modifier.clearAndSetSemantics { this.contentDescription = contentDescription }
+                    } else {
+                        Modifier
+                    },
+                ).clip(CircleShape)
                 .background(containerColor)
                 .defaultMinSize(minWidth = minSize, minHeight = minSize)
                 .padding(horizontal = 8.dp),

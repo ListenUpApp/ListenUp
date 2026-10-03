@@ -82,6 +82,7 @@ private fun KeptOffList(
             title = "Books",
             flush = true,
             trailing = { Span(attrs = { classes("hc-count", "mono") }) { Text(books.size.toString()) } },
+            spokenCount = if (books.size == 1) "1 book" else "${books.size} books",
         ) {
             Ul(attrs = { classes("hc-match-list") }) {
                 books.forEach { book ->
@@ -98,13 +99,16 @@ private fun KeptOffList(
                                 Span(attrs = { classes("hc-match-by") }) { Text(book.authorNames) }
                             }
                         }
-                        // en.json's `hardcover.sync_again` and `sync_again_label`: every row's button reads
-                        // the same, so each is named for its own book.
+                        // en.json's `hardcover.sync_again`: every row's button reads the same, so each
+                        // is named for its own book — after the visible words, so a voice command of
+                        // "click Sync again" still finds it (WCAG 2.5.3).
                         Button(
                             kind = ButtonKind.Secondary,
                             onClick = { onSyncAgain(book.bookId) },
-                            label = "Sync ${book.title} with Hardcover again",
-                        ) { Text("Sync again") }
+                        ) {
+                            Text("Sync again")
+                            Span(attrs = { classes("sr-only") }) { Text(": ${book.title}") }
+                        }
                     }
                 }
             }

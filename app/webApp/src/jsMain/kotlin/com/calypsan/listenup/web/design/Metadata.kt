@@ -3,6 +3,9 @@ package com.calypsan.listenup.web.design
 import androidx.compose.runtime.Composable
 import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.Li
+import org.jetbrains.compose.web.dom.Nav
+import org.jetbrains.compose.web.dom.Ol
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -41,36 +44,52 @@ fun MetaList(entries: List<MetaEntry>) {
  * The breadcrumb trail.
  *
  * The last entry is the current page and is not a link — making it one invites a click that goes
- * nowhere, which is the small lie breadcrumbs usually tell.
+ * nowhere, which is the small lie breadcrumbs usually tell. It says `aria-current="page"` instead.
+ *
+ * A `<nav aria-label="Breadcrumb">` around an `<ol>`, so a screen reader offers it as a landmark and
+ * says how many steps deep the page is; the "/" between steps is drawn, never read aloud.
  */
 @Composable
 fun Breadcrumb(
     trail: List<String>,
     onNavigate: ((Int) -> Unit)? = null,
 ) {
-    Div(attrs = { classes("crumb") }) {
-        trail.forEachIndexed { index, entry ->
-            if (index > 0) {
-                Span(attrs = { style { property("opacity", "0.5") } }) { Text("/") }
-            }
-            if (index == trail.lastIndex) {
-                Span(attrs = { classes("cur") }) { Text(entry) }
-            } else {
-                // No `href` — the trail reports a position, not an address — so the link is made
-                // reachable by hand: an `<a>` without one is not a tab stop and ignores Enter.
-                A(attrs = {
-                    onNavigate?.let { navigate ->
-                        attr("role", "link")
-                        tabIndex(0)
-                        onClick { navigate(index) }
-                        onKeyDown { event ->
-                            if (event.key == "Enter") {
-                                event.preventDefault()
-                                navigate(index)
-                            }
-                        }
+    Nav(attrs = {
+        classes("crumb")
+        attr("aria-label", "Breadcrumb")
+    }) {
+        Ol {
+            trail.forEachIndexed { index, entry ->
+                Li {
+                    if (index > 0) {
+                        Span(attrs = {
+                            classes("sep")
+                            attr("aria-hidden", "true")
+                        }) { Text("/") }
                     }
-                }) { Text(entry) }
+                    if (index == trail.lastIndex) {
+                        Span(attrs = {
+                            classes("cur")
+                            attr("aria-current", "page")
+                        }) { Text(entry) }
+                    } else {
+                        // No `href` — the trail reports a position, not an address — so the link is made
+                        // reachable by hand: an `<a>` without one is not a tab stop and ignores Enter.
+                        A(attrs = {
+                            onNavigate?.let { navigate ->
+                                attr("role", "link")
+                                tabIndex(0)
+                                onClick { navigate(index) }
+                                onKeyDown { event ->
+                                    if (event.key == "Enter") {
+                                        event.preventDefault()
+                                        navigate(index)
+                                    }
+                                }
+                            }
+                        }) { Text(entry) }
+                    }
+                }
             }
         }
     }

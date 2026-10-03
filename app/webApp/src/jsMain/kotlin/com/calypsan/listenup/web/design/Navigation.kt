@@ -127,6 +127,8 @@ class SegmentItem(
  * A named group of `<button aria-pressed>`, the same shape the sort row uses, rather than the
  * clickable `<b>`s it was. [label] names what the group chooses between ("Show").
  *
+ * The chosen segment carries a check glyph and a 3:1 outline (WCAG 1.4.11) as well as `aria-pressed`.
+ *
  * Not [enabled] — a choice still saving — its buttons say `aria-disabled` and ignore a press, rather
  * than taking `disabled`: a press is exactly what disables them, and a `disabled` button drops the
  * keyboard focus that press put on it back to the top of the page.
@@ -153,7 +155,10 @@ fun SegmentedControl(
                 if (!enabled) attr("aria-disabled", "true")
                 onSelect?.let { select -> onClick { if (enabled) select(item.key) } }
             }) {
-                item.icon?.let { Icon(it, size = SEGMENT_ICON_SIZE) }
+                // The chosen one wears a check in place of its glyph, as the apps draw it: the state is
+                // then told by a shape, not by a white fill barely lighter than the group (WCAG 1.4.1).
+                val glyph = if (isActive) WebIcon.Check else item.icon
+                glyph?.let { Icon(it, size = SEGMENT_ICON_SIZE) }
                 Text(item.label)
             }
         }

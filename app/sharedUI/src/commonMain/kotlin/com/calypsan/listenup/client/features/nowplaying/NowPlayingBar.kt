@@ -44,6 +44,7 @@ import com.calypsan.listenup.client.features.nowplaying.components.PlayPauseFab
 import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
+import com.calypsan.listenup.client.design.util.isLargeFontScale
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_cover_a11y
 import listenup.composeapp.generated.resources.player_skip_backward
@@ -157,21 +158,24 @@ private fun MiniPlayerContent(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // Cover thumbnail — 48dp, rounded 12dp corners
-            BookCoverImage(
-                bookId = state.bookId,
-                coverPath = state.coverPath,
-                coverHash = state.coverHash,
-                contentDescription = stringResource(Res.string.player_cover_a11y),
-                title = state.title,
-                author = state.author,
-                modifier =
-                    Modifier
-                        .size(48.dp)
-                        .clip(MaterialTheme.shapes.small),
-            )
+            // Cover thumbnail — 48dp, rounded 12dp corners. At a large font it steps aside: the title already
+            // names the book, and the title needs the width more than the bar needs the picture.
+            if (!isLargeFontScale()) {
+                BookCoverImage(
+                    bookId = state.bookId,
+                    coverPath = state.coverPath,
+                    coverHash = state.coverHash,
+                    contentDescription = stringResource(Res.string.player_cover_a11y),
+                    title = state.title,
+                    author = state.author,
+                    modifier =
+                        Modifier
+                            .size(48.dp)
+                            .clip(MaterialTheme.shapes.small),
+                )
 
-            Spacer(Modifier.width(4.dp))
+                Spacer(Modifier.width(4.dp))
+            }
 
             // Title + chapter info column — grows to fill available space
             Column(modifier = Modifier.weight(1f)) {

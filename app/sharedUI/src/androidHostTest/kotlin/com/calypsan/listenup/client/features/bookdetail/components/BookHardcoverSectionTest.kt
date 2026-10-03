@@ -198,7 +198,7 @@ class BookHardcoverSectionTest {
 
     // Decision 1: every book has the switch while Hardcover is connected.
     @Test
-    fun `a book never matched shows the switch alone, on, and switching it off asks nothing`() {
+    fun `a book never matched shows the switch on, with no actions, and switching it off asks nothing`() {
         render(BookHardcoverUiState.Unmatched)
         composeRule.onNodeWithText("Sync with Hardcover").assertIsOn().performClick()
         syncs shouldBe listOf(false)

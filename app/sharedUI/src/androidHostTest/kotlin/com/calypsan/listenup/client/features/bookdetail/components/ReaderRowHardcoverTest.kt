@@ -9,6 +9,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.CachedUserProfile
@@ -103,8 +104,8 @@ class ReaderRowHardcoverTest {
     fun `a Hardcover read says Read with its date and wears the Hardcover label`() {
         composeRule.setContent { WithAvatarDependencies { ReaderRow(reader = row(isOnHardcover = true), onUserClick = {}) } }
 
-        composeRule.onNodeWithText("Read Mar 2017").assertIsDisplayed()
-        composeRule.onNodeWithText("Hardcover").assertIsDisplayed()
+        // Drawn as the date beside a "Hardcover" label, read as one phrase (#1562).
+        composeRule.onNodeWithContentDescription("Read Mar 2017 on Hardcover", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("Finished Mar 2017").assertDoesNotExist()
     }
 
@@ -114,6 +115,7 @@ class ReaderRowHardcoverTest {
 
         composeRule.onNodeWithText("Finished Mar 2017").assertIsDisplayed()
         composeRule.onNodeWithText("Hardcover").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Hardcover", substring = true).assertDoesNotExist()
     }
 
     @Test

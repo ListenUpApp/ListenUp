@@ -394,9 +394,12 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .tabpanel { display:flex; flex-direction:column; gap:inherit; min-width:0; }
 
 /* ---- segmented ---- */
-.seg { display:inline-flex; padding:3px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--r-md); gap:2px; }
-.seg button { height:30px; padding:0 11px; border-radius:var(--r-sm); display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-small); font-weight:600; color:var(--ink-2); cursor:pointer; white-space:nowrap; }
-.seg button.on { background:var(--surface); color:var(--ink); box-shadow:var(--shadow-raise); }
+/* The chosen segment is told apart by more than a white fill (1.14:1 on the group): a check glyph,
+   as the apps draw it, and an outline at 3:1 (WCAG 1.4.11). A label too long for its row wraps, and
+   the segments wrap under each other, rather than spilling out of a fixed 30px box at 200% text. */
+.seg { display:inline-flex; flex-wrap:wrap; max-width:100%; padding:3px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--r-md); gap:2px; }
+.seg button { min-height:30px; padding:var(--sp-4) 11px; border-radius:var(--r-sm); display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-small); font-weight:600; line-height:1.2; color:var(--ink-2); cursor:pointer; text-align:left; }
+.seg button.on { background:var(--surface); color:var(--ink); box-shadow:var(--shadow-raise), inset 0 0 0 1.5px var(--outline); }
 .seg button[aria-disabled="true"] { opacity:.5; cursor:default; }
 
 /* ---- bulk action bar ---- */
@@ -419,7 +422,12 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 @media (hover: hover) { [data-theme="dark"] .bulk-x:hover { background:var(--surface-2); } }
 
 /* ---- breadcrumb ---- */
-.crumb { display:flex; align-items:center; gap:7px; font-size:var(--fs-small); font-weight:600; color:var(--ink-3); white-space:nowrap; }
+/* A <nav> holding an <ol>: the trail wraps onto a second line rather than pushing the page sideways
+   when it is longer than the screen is wide (WCAG 1.4.10). */
+.crumb { font-size:var(--fs-small); font-weight:600; color:var(--ink-3); }
+.crumb ol { display:flex; flex-wrap:wrap; align-items:center; gap:0.2rem 7px; margin:0; padding:0; list-style:none; }
+.crumb li { display:inline-flex; align-items:center; gap:7px; min-width:0; overflow-wrap:anywhere; }
+.crumb .sep { opacity:.5; }
 .crumb a { color:var(--ink-2); text-decoration:none; cursor:pointer; }
 @media (hover: hover) { .crumb a:hover { color:var(--coral-text); } }
 .crumb .cur { color:var(--ink); }
@@ -432,7 +440,7 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .meta-r dd.mono { font-family:var(--mono); font-weight:500; font-size:calc(var(--fsm) - 0.03125rem); }
 
 /* ---- pill / tag ---- */
-.pill { display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 11px; border-radius:var(--r-pill); background:var(--surface-2); border:1px solid var(--line); font-size:var(--fs-small); font-weight:600; color:var(--ink-2); cursor:pointer; white-space:nowrap; }
+.pill { display:inline-flex; align-items:center; gap:6px; min-height:28px; padding:2px 11px; border-radius:var(--r-pill); background:var(--surface-2); border:1px solid var(--line); font-size:var(--fs-small); font-weight:600; color:var(--ink-2); cursor:pointer; white-space:nowrap; }
 @media (hover: hover) { .pill:hover { background:var(--surface-3); color:var(--ink); } }
 .pill.on { background:var(--coral-soft); border-color:transparent; color:var(--coral-text); }
 .pill .x { display:inline-flex; align-items:center; opacity:.6; cursor:pointer; border-radius:var(--r-pill); }
