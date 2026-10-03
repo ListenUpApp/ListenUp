@@ -68,6 +68,8 @@ private val READS_CALLERS: Set<String> =
         "com/calypsan/listenup/server/services/BookReadsRepository.kt",
         "com/calypsan/listenup/server/services/PublicProfileMaintainer.kt",
         "com/calypsan/listenup/server/services/UserStatsDerivation.kt",
+        // The streak-day definition the derive and the milestone run share (finishedAtForUser).
+        "com/calypsan/listenup/server/services/StreakRun.kt",
         "com/calypsan/listenup/server/hardcover/HardcoverPushRecorder.kt",
         "com/calypsan/listenup/server/hardcover/HardcoverPullStore.kt",
         "com/calypsan/listenup/server/hardcover/HardcoverConnectionStore.kt",
