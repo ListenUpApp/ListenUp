@@ -341,6 +341,17 @@ internal class PendingOperationQueue(
     }
 
     /**
+     * The payload of the still-queued op a `coalesce = true` [enqueue] into ([channel], [entityId], [op])
+     * would replace, or null when none is queued — so a caller can carry forward what the superseded
+     * snapshot held and the new one cannot.
+     */
+    suspend fun queuedPayload(
+        channel: OutboxChannel<*>,
+        entityId: String,
+        op: OpKind,
+    ): String? = dao.latestQueuedPayload(channel.name, entityId, op.wire)
+
+    /**
      * True when a still-dispatchable local op is queued for (domainName, entityId).
      *
      * This is the anti-flicker shield's one primitive: entity-level and clientOpId-independent.

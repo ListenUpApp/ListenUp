@@ -384,4 +384,53 @@ class PlaybackPositionOutboxTest :
                 }
             }
         }
+
+        // Position writes coalesce: a later write for the same book replaces the queued one. The
+        // replacement is a fresh snapshot of the row, which carries the picked finish day (the row
+        // keeps it) but not the picked start (the row's startedAt is never sent). A picked start must
+        // still reach the server, so it is carried into the write that supersedes it.
+
+        test("a picked start and finish survive a later write that supersedes the queued finish") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(playedEntity(bookId))
+
+                    repo.markComplete(bookId, startedAt = 250L, finishedAt = 900L)
+                    repo
+                        .savePlaybackState(bookId, PlaybackUpdate.Speed(positionMs = 90_000L, speed = 1.5f, custom = true))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val request = singleQueuedRequest(db)
+                    request.playbackSpeed shouldBe 1.5f
+                    request.finished shouldBe true
+                    request.startedAt shouldBe 250L
+                    request.finishedAt shouldBe 900L
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("a reset that supersedes a queued finish drops its picked start") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(playedEntity(bookId))
+
+                    repo.markComplete(bookId, startedAt = 250L, finishedAt = 900L)
+                    repo.restartBook(bookId).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val request = singleQueuedRequest(db)
+                    request.finished shouldBe false
+                    request.startedAt shouldBe null
+                } finally {
+                    db.close()
+                }
+            }
+        }
     })

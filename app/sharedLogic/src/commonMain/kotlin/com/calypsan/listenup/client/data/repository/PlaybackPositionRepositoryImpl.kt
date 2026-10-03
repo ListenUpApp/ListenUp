@@ -192,7 +192,10 @@ internal class PlaybackPositionRepositoryImpl(
         // the just-written row regardless of tombstone status, or a still-tombstoned row (a
         // variant that doesn't heal it) would look absent here and push a blank-defaults request.
         val entity = dao.get(bookId)
-        val request = requestFor(bookId, update, entity, now = currentEpochMilliseconds()) ?: return false
+        val request =
+            requestFor(bookId, update, entity, now = currentEpochMilliseconds())
+                ?.carryingPickedStartOf(bookId)
+                ?: return false
 
         // signal = false: the row write stays in the transaction, but the drain signal must fire
         // only AFTER commit (savePlaybackState calls signalEnqueued). No swallow: a failed enqueue
@@ -207,6 +210,26 @@ internal class PlaybackPositionRepositoryImpl(
             signal = false,
         )
         return true
+    }
+
+    /**
+     * This request, keeping the picked start of the queued finish it is about to supersede.
+     *
+     * Position writes coalesce, so a later write for the book (a speed change, say) replaces a queued
+     * "Mark as finished" before it drains. The replacement is a fresh snapshot of the row: it carries
+     * the finish and the picked finish day, which the row keeps, but not the picked start, which only
+     * the [PlaybackUpdate.MarkComplete] request ever holds. Without this the start the reader picked
+     * would never reach the server. A request that is no longer a finish (a reset) drops it, as does
+     * one that already carries its own.
+     */
+    private suspend fun RecordPositionRequest.carryingPickedStartOf(bookId: BookId): RecordPositionRequest {
+        if (!finished || startedAt != null) return this
+        val queued =
+            pendingQueue
+                .queuedPayload(OutboxChannels.Positions, bookId.value, OpKind.Upsert)
+                ?.let { contractJson.decodeFromString(RecordPositionRequest.serializer(), it) }
+                ?: return this
+        return if (queued.finished && queued.startedAt != null) copy(startedAt = queued.startedAt) else this
     }
 
     /**

@@ -223,6 +223,28 @@ internal interface PendingOperationV2Dao {
         maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS,
     )
 
+    /**
+     * The payload of the newest still-queued (within retry budget) op in one (domain, entity, opType)
+     * slot — what a coalescing enqueue into that slot is about to replace — or null when none is queued.
+     */
+    @Query(
+        """
+        SELECT payload FROM pending_operation
+         WHERE domainName = :domainName
+           AND entityId = :entityId
+           AND opType = :opType
+           AND failureCount <= :maxAttempts
+         ORDER BY enqueuedAt DESC
+         LIMIT 1
+        """,
+    )
+    suspend fun latestQueuedPayload(
+        domainName: String,
+        entityId: String,
+        opType: String,
+        maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS,
+    ): String?
+
     @Query("DELETE FROM pending_operation WHERE ownerUserId != :keepUserId")
     suspend fun deleteAllExcept(keepUserId: String)
 
