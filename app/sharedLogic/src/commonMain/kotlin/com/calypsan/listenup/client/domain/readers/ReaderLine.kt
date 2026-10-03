@@ -18,9 +18,14 @@ sealed interface ReaderLineKind {
         val progressPct: Int?,
     ) : ReaderLineKind
 
-    /** The person finished the book at the instant recorded in [finishedAtMs] (epoch ms). */
+    /**
+     * The person finished the book at the instant recorded in [finishedAtMs] (epoch ms). When
+     * [alsoOnHardcover], they logged the same listen on Hardcover too, and every surface says "Also on
+     * Hardcover" on this one line rather than showing the Hardcover read as a second.
+     */
     data class Finished(
         val finishedAtMs: Long,
+        val alsoOnHardcover: Boolean = false,
     ) : ReaderLineKind
 
     /**
@@ -68,5 +73,9 @@ fun flattenToLines(readers: List<Reader>): List<ReaderLine> {
 
 /** One reader's finished lines — ListenUp's finishes and Hardcover's reads alike — each with the instant it sorts by. */
 private fun Reader.finishedLines(): List<Pair<Long, ReaderLine>> =
-    finishes.map { it to ReaderLine(userId, displayName, isYou, ReaderLineKind.Finished(it)) } +
+    finishes.map { it to ReaderLine(userId, displayName, isYou, finishedKind(it)) } +
         hardcoverFinishes.map { it to ReaderLine(userId, displayName, isYou, ReaderLineKind.FinishedOnHardcover(it)) }
+
+/** A ListenUp finish, saying so when the reader logged the same listen on Hardcover too. */
+private fun Reader.finishedKind(finishedAtMs: Long): ReaderLineKind.Finished =
+    ReaderLineKind.Finished(finishedAtMs, alsoOnHardcover = finishedAtMs in finishesAlsoOnHardcover)

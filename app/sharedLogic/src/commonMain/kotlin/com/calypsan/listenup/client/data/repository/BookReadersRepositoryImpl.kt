@@ -150,7 +150,7 @@ private fun BookReaderEntry.toEntity(
         displayName = displayName,
         avatarType = avatarType,
         currentProgressPct = currentProgressPct,
-        finishesJson = finishes.joinToString(","),
+        finishesJson = finishes.joinToString(",") { cachedFinish(it) },
         observedAt = observedAt,
         hardcoverFinishesJson = hardcoverFinishes.joinToString(","),
     )
@@ -163,11 +163,30 @@ private fun BookReadershipEntity.toReader(currentUserId: String?): Reader =
         currentProgressPct = currentProgressPct,
         finishes = timestampsIn(finishesJson),
         hardcoverFinishes = timestampsIn(hardcoverFinishesJson),
+        finishesAlsoOnHardcover = alsoOnHardcoverIn(finishesJson),
     )
+
+/**
+ * Marks a cached finish that was also logged on Hardcover: `finishesJson` holds `900:hardcover` for
+ * it beside a plain `300`, so the flag rides in the column it describes instead of a schema change.
+ */
+private const val ALSO_ON_HARDCOVER = ":hardcover"
+
+/** One finish as `finishesJson` caches it — marked when it was also logged on Hardcover. */
+private fun BookReaderEntry.cachedFinish(finishedAt: Long): String =
+    if (finishedAt in finishesAlsoOnHardcover) "$finishedAt$ALSO_ON_HARDCOVER" else "$finishedAt"
 
 /** The epoch-ms list a readership column holds, comma-joined (empty string = none). */
 private fun timestampsIn(column: String): List<Long> =
-    if (column.isEmpty()) emptyList() else column.split(",").map { it.toLong() }
+    if (column.isEmpty()) emptyList() else column.split(",").map { it.removeSuffix(ALSO_ON_HARDCOVER).toLong() }
+
+/** The finishes in a `finishesJson` column that were also logged on Hardcover. */
+private fun alsoOnHardcoverIn(column: String): List<Long> =
+    if (column.isEmpty()) {
+        emptyList()
+    } else {
+        column.split(",").filter { it.endsWith(ALSO_ON_HARDCOVER) }.map { it.removeSuffix(ALSO_ON_HARDCOVER).toLong() }
+    }
 
 private fun BookRatingEntity.toListenerRating(): ListenerRating =
     ListenerRating(

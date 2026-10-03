@@ -106,4 +106,21 @@ class ReaderLineTest :
                 )
             flattenToLines(listOf(reader)).map { it.kind } shouldBe listOf(ReaderLineKind.FinishedOnHardcover(5L))
         }
+
+        test("a finish also logged on Hardcover is one Finished line that says so") {
+            val reader =
+                Reader(
+                    "u1",
+                    "Simon",
+                    isYou = false,
+                    currentProgressPct = null,
+                    finishes = listOf(900L, 300L),
+                    finishesAlsoOnHardcover = listOf(900L),
+                )
+            flattenToLines(listOf(reader)).map { it.kind } shouldBe
+                listOf(
+                    ReaderLineKind.Finished(900L, alsoOnHardcover = true),
+                    ReaderLineKind.Finished(300L),
+                )
+        }
     })

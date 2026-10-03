@@ -16,7 +16,8 @@ import kotlinx.coroutines.flow.Flow
  *
  * `finishesJson` holds the reader's finish timestamps (epoch-ms, newest-first) as a JSON array — the
  * repository (de)serializes it; keeping it a scalar column avoids a normalized child table for a small,
- * always-replaced-together list.
+ * always-replaced-together list. A finish also logged on Hardcover carries a `:hardcover` suffix
+ * (`900:hardcover,300`), so the readers section can say so offline without a schema change.
  *
  * `hardcoverFinishesJson` holds the reader's Hardcover reads (#601 B3) the same way, so the Readers
  * section can badge them offline too.
