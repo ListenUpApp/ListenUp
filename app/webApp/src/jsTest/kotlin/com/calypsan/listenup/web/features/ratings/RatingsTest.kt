@@ -51,6 +51,8 @@ import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.KeyboardEventInit
 import org.w3c.dom.events.MouseEvent
 import org.w3c.dom.events.MouseEventInit
+import org.w3c.dom.pointerevents.PointerEvent
+import org.w3c.dom.pointerevents.PointerEventInit
 
 private fun rating(
     halfStars: Int,
@@ -107,6 +109,27 @@ private fun clickAcross(
 
 private fun EventTarget.press(key: String) {
     dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = key, bubbles = true, cancelable = true)))
+}
+
+/** Dispatches a pointer event of [type] [fraction] of the way across [element] from its left edge. */
+private fun EventTarget.pointer(
+    type: String,
+    element: HTMLElement,
+    fraction: Double,
+) {
+    val rect = element.getBoundingClientRect()
+    dispatchEvent(
+        PointerEvent(
+            type,
+            PointerEventInit(
+                pointerId = 1,
+                clientX = (rect.left + rect.width * fraction).toInt(),
+                clientY = (rect.top + rect.height / 2).toInt(),
+                bubbles = true,
+                cancelable = true,
+            ),
+        ),
+    )
 }
 
 /**
@@ -304,6 +327,62 @@ class RatingsTest :
             // Three quarters from the left is a quarter from the start: the left half of star two.
             clickAcross(slider(rtl), 0.75)
             chosen shouldBe 3
+        }
+
+        test("a key step commits as well as previews") {
+            val changes = mutableListOf<Int>()
+            val commits = mutableListOf<Int>()
+            val host =
+                mounts.mount {
+                    RatingStars(halfStars = 6, onHalfStarsChange = { changes += it }, onHalfStarsCommit = { commits += it })
+                }
+            awaitFrame()
+
+            slider(host).press("ArrowRight")
+
+            changes shouldContainExactly listOf(7)
+            commits shouldContainExactly listOf(7)
+        }
+
+        test("a drag previews as it moves and commits only where it lets go") {
+            val changes = mutableListOf<Int>()
+            val commits = mutableListOf<Int>()
+            val host =
+                mounts.mount {
+                    RatingStars(halfStars = 0, onHalfStarsChange = { changes += it }, onHalfStarsCommit = { commits += it })
+                }
+            awaitFrame()
+            val stars = slider(host)
+
+            stars.pointer("pointerdown", stars, 0.15)
+            stars.pointer("pointermove", stars, 0.55)
+            commits shouldBe emptyList()
+            changes shouldContain 6
+
+            stars.pointer("pointerup", stars, 0.55)
+            clickAcross(stars, 0.55)
+
+            commits shouldContainExactly listOf(6)
+        }
+
+        test("a move with no press first changes nothing") {
+            val changes = mutableListOf<Int>()
+            val host = mounts.mount { RatingStars(halfStars = 0, onHalfStarsChange = { changes += it }) }
+            awaitFrame()
+            val stars = slider(host)
+
+            stars.pointer("pointermove", stars, 0.55)
+
+            changes shouldBe emptyList()
+        }
+
+        test("the slider takes the name it is given, and says Rating when given none") {
+            val named = mounts.mount { RatingStars(halfStars = 0, onHalfStarsChange = {}, label = "Your rating") }
+            val plain = mounts.mount { RatingStars(halfStars = 0, onHalfStarsChange = {}) }
+            awaitFrame()
+
+            slider(named).getAttribute("aria-label") shouldBe "Your rating"
+            slider(plain).getAttribute("aria-label") shouldBe "Rating"
         }
 
         test("Save is disabled until a star is chosen, then saves the rating and the trimmed note") {
