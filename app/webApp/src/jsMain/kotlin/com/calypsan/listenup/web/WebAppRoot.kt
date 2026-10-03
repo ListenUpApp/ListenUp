@@ -12,6 +12,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -31,6 +32,7 @@ import com.calypsan.listenup.web.design.ToastAction
 import com.calypsan.listenup.web.design.ToastTone
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailNavAction
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditNavAction
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailNavAction
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailSession
@@ -1744,6 +1746,7 @@ private fun BookRouteContent(
         openBookHardcover = openBookHardcover,
         playback = playback,
         onToast = onToast,
+        onActionToast = onActionToast,
     )
 }
 
@@ -1759,9 +1762,31 @@ private fun BookDetailRoute(
     openBookHardcover: OpenBookHardcover,
     playback: PlaybackSession,
     onToast: (String) -> Unit,
+    onActionToast: ShowActionToast,
 ) {
     val detailSession = bookDetailSession(bookId, openBookDetail)
     val ratingsSession = bookRatingsSession(bookId, openBookRatings)
+    // Bumped by Undo, so focus lands on the stars it puts back rather than on the page, where the
+    // toast's vanished button would otherwise leave it.
+    var ratingStarsFocusRequest by remember(bookId) { mutableIntStateOf(0) }
+    // "Rating removed", with Undo: the one effect the rating ViewModel sends. A toast rather than a
+    // dialog, because the removal has already happened and Undo is the way back.
+    LaunchedEffect(ratingsSession) {
+        ratingsSession.events.collect { event ->
+            when (event) {
+                BookRatingsEvent.RatingRemoved -> {
+                    onActionToast(
+                        "Rating removed",
+                        ToastTone.Notice,
+                        ToastAction("Undo") {
+                            ratingsSession.undoClear()
+                            ratingStarsFocusRequest++
+                        },
+                    )
+                }
+            }
+        }
+    }
     val hardcoverSession = remember(bookId) { openBookHardcover(bookId) }
     DisposableEffect(hardcoverSession) { onDispose { hardcoverSession.close() } }
     // Sharing suspends (it asks the server who it is), and the press that starts it is not a
@@ -1843,6 +1868,8 @@ private fun BookDetailRoute(
         onRate = ratingsSession.rate,
         onClearRating = ratingsSession.clear,
         onRefreshExternalRating = ratingsSession.refreshExternal,
+        onSetStars = ratingsSession.setStars,
+        ratingStarsFocusRequest = ratingStarsFocusRequest,
         nowMs = nowMs(),
         onOpenProfile = { id -> router.navigate(Route(listOf(PROFILE_KEY, id))) },
         onSeeAllReaders = { router.navigate(Route(listOf(BOOK_KEY, bookId, READERS_KEY))) },
