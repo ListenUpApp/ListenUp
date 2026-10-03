@@ -103,6 +103,7 @@ struct BookReadersObserverTests {
         #expect(row.lastFinishedOnHardcover == false)
     }
 
+    @MainActor
     @Test func anAlsoOnHardcoverFinishIsSpokenAsPartOfTheRow() {
         let row = BookReaderRow(from: reader(
             id: "u6",
