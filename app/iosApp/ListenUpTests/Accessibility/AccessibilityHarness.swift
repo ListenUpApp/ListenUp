@@ -61,36 +61,12 @@ final class HostedView {
         await settle()
     }
 
-    /// Lets SwiftUI lay out, render, and publish its accessibility nodes — until there is a tree and neither
-    /// it nor the drawing has changed for a few passes, not for a fixed time. A fixed four passes was enough
-    /// on a fast Mac, but a loaded CI runner read back an empty tree, and a tree whose text was still a pass
-    /// from being drawn where its frames said.
+    /// Lets SwiftUI lay out, render, and publish its accessibility nodes.
     func settle() async {
-        let deadline = ContinuousClock.now + .seconds(10)
-        var previous = ""
-        var unchangedPasses = 0
-        while unchangedPasses < Self.settledAfterUnchangedPasses, ContinuousClock.now < deadline {
+        for _ in 0..<4 {
             window.layoutIfNeeded()
             try? await Task.sleep(for: .milliseconds(60))
-            let tree = tree
-            let current = tree.isEmpty ? "" : tree + "\n" + drawingFingerprint()
-            unchangedPasses = !current.isEmpty && current == previous ? unchangedPasses + 1 : 0
-            previous = current
         }
-    }
-
-    private static let settledAfterUnchangedPasses = 3
-
-    /// A cheap digest of what the window has drawn, at one pixel per point.
-    private func drawingFingerprint() -> String {
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        format.opaque = true
-        let data = UIGraphicsImageRenderer(bounds: window.bounds, format: format)
-            .pngData { window.layer.render(in: $0.cgContext) }
-        var hasher = Hasher()
-        hasher.combine(data)
-        return String(hasher.finalize())
     }
 
     /// Every stop, in tree order.
