@@ -3,7 +3,7 @@ import Shared
 
 /// Observes `LeaderboardViewModel` — flattens the sealed `LeaderboardUiState` into a
 /// SwiftUI-native `LeaderboardPhase` for the Discover leaderboard. Surfaces the period
-/// control (Week / Month / All) and the metric control (Time / Books / Streak); the
+/// control (7 days / 30 days / 12 months / All time) and the metric control (Time / Books / Streak); the
 /// snapshot already carries all three category rankings, so switching metric is a pure
 /// state transformation with no upstream re-fetch.
 ///
@@ -18,7 +18,7 @@ final class LeaderboardObserver {
     // MARK: - State
 
     private(set) var phase: LeaderboardPhase = .loading
-    private(set) var selectedPeriod: LeaderboardSelection = .week
+    private(set) var selectedPeriod: LeaderboardSelection = .sevenDays
     private(set) var selectedMetric: LeaderboardMetric = .time
 
     // MARK: - Dependencies
@@ -141,28 +141,41 @@ enum LeaderboardMetric: CaseIterable, Identifiable {
 
 // MARK: - Period selection
 
-/// The three period options the design surfaces. Maps to the KMP `LeaderboardPeriod`
-/// (which also has `Year`, not exposed here per the design's Week / Month / All control).
+/// The leaderboard's periods, in the order every platform shows them. They are trailing windows
+/// (today plus the days before it), so the labels name the window — "7 days", not "Week" — and
+/// VoiceOver hears the full "Last 7 days". Maps to the KMP `LeaderboardPeriod`.
 enum LeaderboardSelection: CaseIterable, Identifiable {
-    case week
-    case month
-    case all
+    case sevenDays
+    case thirtyDays
+    case twelveMonths
+    case allTime
 
     var id: Self { self }
 
     var kmpPeriod: LeaderboardPeriod {
         switch self {
-        case .week: LeaderboardPeriodWeek.shared
-        case .month: LeaderboardPeriodMonth.shared
-        case .all: LeaderboardPeriodAllTime.shared
+        case .sevenDays: LeaderboardPeriodWeek.shared
+        case .thirtyDays: LeaderboardPeriodMonth.shared
+        case .twelveMonths: LeaderboardPeriodYear.shared
+        case .allTime: LeaderboardPeriodAllTime.shared
         }
     }
 
     var titleKey: String.LocalizationValue {
         switch self {
-        case .week: "discover.period_week"
-        case .month: "discover.period_month"
-        case .all: "discover.period_all"
+        case .sevenDays: "discover.leaderboard_period_7_days"
+        case .thirtyDays: "discover.leaderboard_period_30_days"
+        case .twelveMonths: "discover.leaderboard_period_12_months"
+        case .allTime: "discover.leaderboard_period_all_time"
+        }
+    }
+
+    var accessibilityKey: String.LocalizationValue {
+        switch self {
+        case .sevenDays: "discover.leaderboard_period_7_days_description"
+        case .thirtyDays: "discover.leaderboard_period_30_days_description"
+        case .twelveMonths: "discover.leaderboard_period_12_months_description"
+        case .allTime: "discover.leaderboard_period_all_time"
         }
     }
 }

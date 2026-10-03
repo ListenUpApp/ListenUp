@@ -40,7 +40,7 @@ private const val CONTINUE_COVER_WIDTH = 168
  * Home — the root route, and the first thing a reader sees after signing in.
  *
  * Renders two independent upstreams side by side: [state] carries the greeting, what you are part
- * way through, and whether the library is still arriving; [stats] carries this week's listening.
+ * way through, and whether the library is still arriving; [stats] carries the last 7 days' listening.
  * They load and fail separately on purpose (see [HomeSession]), so a slow stats query never holds
  * back the row someone actually opened this page for.
  *
@@ -92,7 +92,7 @@ fun HomePage(
                 LibraryStatus(scan = state.scanProgress, isBuilding = state.isBuildingInitialLibrary)
                 ContinueListening(state.continueListening, onOpenBook, onOpenLibrary, selection)
                 MyShelves(state.myShelves, onOpenShelf, onCreateShelf)
-                ThisWeek(stats, onRetryStats)
+                LastSevenDays(stats, onRetryStats)
             }
         }
     }
@@ -212,12 +212,12 @@ private fun ContinueCard(
 }
 
 @Composable
-private fun ThisWeek(
+private fun LastSevenDays(
     stats: HomeStatsUiState,
     onRetry: () -> Unit,
 ) {
     Div(attrs = { classes("home-section") }) {
-        H2(attrs = { classes("home-section-h") }) { Text("This week") }
+        H2(attrs = { classes("home-section-h") }) { Text("Last 7 days") }
         UnderHeading(level = SECTION_HEADING_LEVEL) {
             when (stats) {
                 is HomeStatsUiState.Loading -> {
@@ -225,12 +225,15 @@ private fun ThisWeek(
                 }
 
                 is HomeStatsUiState.Empty -> {
-                    EmptyState(title = "No listening yet", body = "Your week fills in as you listen.")
+                    EmptyState(title = "No listening yet", body = "Your last 7 days fill in as you listen.")
                 }
 
                 is HomeStatsUiState.Error -> {
                     if (stats.isRetryable) {
-                        EmptyState(title = "Stats are unavailable", body = "This week could not be read just now.") {
+                        EmptyState(
+                            title = "Stats are unavailable",
+                            body = "Your last 7 days could not be read just now.",
+                        ) {
                             Button(kind = ButtonKind.Secondary, onClick = { onRetry() }) { Text("Try again") }
                         }
                     } else {

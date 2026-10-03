@@ -10181,32 +10181,72 @@
         }
       }
     },
-    "discover.leaderboard_period_all": {
+    "discover.leaderboard_period_12_months": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "All"
+            "value": "12 months"
           }
         }
       }
     },
-    "discover.leaderboard_period_month": {
+    "discover.leaderboard_period_12_months_description": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Month"
+            "value": "Last 12 months"
           }
         }
       }
     },
-    "discover.leaderboard_period_week": {
+    "discover.leaderboard_period_30_days": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Week"
+            "value": "30 days"
+          }
+        }
+      }
+    },
+    "discover.leaderboard_period_30_days_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last 30 days"
+          }
+        }
+      }
+    },
+    "discover.leaderboard_period_7_days": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 days"
+          }
+        }
+      }
+    },
+    "discover.leaderboard_period_7_days_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last 7 days"
+          }
+        }
+      }
+    },
+    "discover.leaderboard_period_all_time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All time"
           }
         }
       }
@@ -10307,36 +10347,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "No shelves to discover yet"
-          }
-        }
-      }
-    },
-    "discover.period_all": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All"
-          }
-        }
-      }
-    },
-    "discover.period_month": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Month"
-          }
-        }
-      }
-    },
-    "discover.period_week": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Week"
           }
         }
       }
@@ -12411,6 +12421,16 @@
         }
       }
     },
+    "home.last_7_days": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last 7 days"
+          }
+        }
+      }
+    },
     "home.listened": {
       "localizations": {
         "en": {
@@ -12517,16 +12537,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Start listening to see your stats here"
-          }
-        }
-      }
-    },
-    "home.this_week": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This week"
           }
         }
       }
