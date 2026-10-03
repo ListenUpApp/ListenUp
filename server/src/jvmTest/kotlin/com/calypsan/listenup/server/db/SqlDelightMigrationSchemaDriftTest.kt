@@ -131,6 +131,7 @@ private val SQ_TABLES =
         "notification_prefs",
         "series_merge_receipts",
         "series_merge_receipt_books",
+        "series_merge_receipt_children",
         "genre_merge_receipts",
         "genre_merge_receipt_books",
         "genre_merge_receipt_aliases",

@@ -8,6 +8,8 @@ import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.domain.series.SeriesNode
+import com.calypsan.listenup.domain.series.SeriesTree
 import com.calypsan.listenup.server.db.sqldelight.Book_series
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -36,7 +38,7 @@ private val log = loggerFor<SeriesRepository>()
  *
  * `idAsString(SeriesId) = id.value` is load-bearing — the base's default `toString()`
  * on a value class would corrupt every column the id is written to. Series are created
- * by the scanner through [resolveOrCreate]; there is no series write API in B1.
+ * by the scanner through [resolveOrCreate], or by hand through `SeriesService.createSeries`.
  */
 class SeriesRepository(
     db: ListenUpDatabase,
@@ -150,6 +152,14 @@ class SeriesRepository(
                 cover_path = value.coverPath,
             )
         }
+        // The hierarchy rides every upsert: a payload is the row's full truth, so a null parent
+        // clears the link. Callers that only patch metadata copy the read-back payload, which
+        // carries the current parent, so they preserve it.
+        db.seriesQueries.setHierarchy(
+            parent_id = value.parentId,
+            parent_position = value.parentPosition?.toLong(),
+            id = value.id,
+        )
     }
 
     /**
@@ -387,6 +397,27 @@ class SeriesRepository(
                 .toHashSet()
         }
 
+    /** The hierarchy of every live series. A series whose parent is gone reads as a root. */
+    suspend fun liveTree(): SeriesTree =
+        suspendTransaction(db) {
+            SeriesTree(
+                db.seriesQueries
+                    .selectLiveHierarchy()
+                    .executeAsList()
+                    .map { SeriesNode(it.id, it.parent_id, it.parent_position?.toInt()) },
+            )
+        }
+
+    /** The id of the live series whose name shares [name]'s normalized form, or null. */
+    suspend fun liveIdForName(name: String): SeriesId? =
+        suspendTransaction(db) {
+            db.seriesQueries
+                .selectByNormalizedName(normalizeForDedup(name))
+                .executeAsOneOrNull()
+                ?.takeIf { it.deleted_at == null }
+                ?.let { SeriesId(it.id) }
+        }
+
     /**
      * Returns the stored `coverPath` of every non-tombstoned series that has one — the set of
      * cover files still in use.
@@ -438,6 +469,8 @@ class SeriesRepository(
             asin = asin,
             description = description,
             coverPath = cover_path,
+            parentId = parent_id,
+            parentPosition = parent_position?.toInt(),
         )
 
     private companion object {
