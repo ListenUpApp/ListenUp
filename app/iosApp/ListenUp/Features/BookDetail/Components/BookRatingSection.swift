@@ -24,6 +24,7 @@ struct BookRatingSection: View {
     @State private var isConfirmingRemove = false
     /// Fires `.press` only on a genuine tap of the score's row.
     @State private var sourcesTapCount = 0
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -54,9 +55,15 @@ struct BookRatingSection: View {
     private var group: some View {
         if Self.isSplit(width: width) {
             HStack(alignment: .top, spacing: 0) {
-                yourRating.frame(maxWidth: .infinity, alignment: .leading)
+                // Each half is its own container, so VoiceOver reads yours through before everyone's
+                // rather than zigzagging across the two by height.
+                yourRating
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityElement(children: .contain)
                 Divider()
-                everyone.frame(maxWidth: .infinity, alignment: .leading)
+                everyone
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityElement(children: .contain)
             }
         } else {
             VStack(alignment: .leading, spacing: 0) {
@@ -199,6 +206,7 @@ struct BookRatingSection: View {
             }
             Spacer(minLength: 8)
             ProgressView()
+                .accessibilityHidden(true) // the words already say it is checking
         }
         .accessibilityElement(children: .combine)
     }
@@ -230,20 +238,29 @@ struct BookRatingSection: View {
 
     private var refreshButton: some View {
         Button(action: onRefreshExternal) {
-            if snapshot.isRefreshingExternal {
-                ProgressView()
-            } else {
-                Text(String(localized: "book.detail_rating_refresh"))
+            Group {
+                if snapshot.isRefreshingExternal {
+                    ProgressView()
+                } else {
+                    Text(String(localized: "book.detail_rating_refresh"))
+                }
             }
+            // Inside the label, so the target itself is 44 pt tall, not just the space around it.
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
         .foregroundStyle(Color.luTint)
-        .frame(minHeight: 44)
         .disabled(snapshot.isRefreshingExternal)
         .accessibilityLabel(String(localized: "book.detail_rating_refresh"))
     }
 
+    /// A 44 pt row. At accessibility text sizes its parts stack instead of squeezing side by side
+    /// (HIG, Typography: let text reflow at larger sizes).
     private func row(@ViewBuilder _ content: () -> some View) -> some View {
-        HStack(spacing: 12) { content() }
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Spacing.xxs))
+            : AnyLayout(HStackLayout(spacing: Spacing.s))
+        return layout { content() }
             .padding(.horizontal, Spacing.m)
             .padding(.vertical, Spacing.s)
             .frame(minHeight: 44)
