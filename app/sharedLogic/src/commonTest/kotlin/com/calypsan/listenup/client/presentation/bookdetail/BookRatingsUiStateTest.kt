@@ -79,7 +79,8 @@ class BookRatingsUiStateTest :
         test("the score names its sources in the breakdown's order, then your listeners") {
             val state = ready(listeners = LISTENERS, external = SCORE, breakdown = listOf(AUDIBLE, HARDCOVER))
 
-            state.outsideSourcesInScore shouldBe listOf(ExternalRatingSource.AUDIBLE, ExternalRatingSource.HARDCOVER)
+            state.outsideRatingsInScore.map { it.source } shouldBe
+                listOf(ExternalRatingSource.AUDIBLE, ExternalRatingSource.HARDCOVER)
             state.listenersInScore shouldBe true
         }
 
@@ -87,7 +88,7 @@ class BookRatingsUiStateTest :
             val audibleOnly = SCORE.copy(shares = mapOf(ScoreSource.Outside(ExternalRatingSource.AUDIBLE) to 1.0))
             val state = ready(external = audibleOnly, breakdown = listOf(AUDIBLE, HARDCOVER))
 
-            state.outsideSourcesInScore shouldBe listOf(ExternalRatingSource.AUDIBLE)
+            state.outsideRatingsInScore shouldBe listOf(AUDIBLE)
             state.listenersInScore shouldBe false
         }
     })

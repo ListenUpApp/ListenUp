@@ -60,12 +60,13 @@ sealed interface BookRatingsUiState {
         val showsInlineRefresh: Boolean
             get() = canRefresh && (scoreRow == ScoreRow.NoRatings || scoreRow == ScoreRow.Absent)
 
-        /** The outside catalogs the score draws on, in [breakdown]'s order — "Audible, Hardcover". */
-        val outsideSourcesInScore: List<ExternalRatingSource>
-            get() =
-                breakdown
-                    .map { it.source }
-                    .filter { external?.shares?.containsKey(ScoreSource.Outside(it)) == true }
+        /**
+         * The outside ratings the score draws on, in [breakdown]'s order — their sources name it ("Audible,
+         * Hardcover"). Rows, not bare [ExternalRatingSource]s: Swift Export traps on the elements of an enum
+         * list, but reads an enum property off a class element cleanly (`NoBridgedEnumCollectionsInUiStateRule`).
+         */
+        val outsideRatingsInScore: List<ExternalRating>
+            get() = breakdown.filter { external?.shares?.containsKey(ScoreSource.Outside(it.source)) == true }
 
         /** Whether your listeners are part of the score — "…, your listeners". */
         val listenersInScore: Boolean
