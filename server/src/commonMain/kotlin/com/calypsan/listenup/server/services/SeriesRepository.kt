@@ -270,11 +270,32 @@ class SeriesRepository(
      * clears `deleted_at`. The id stays stable, so junction rows written against it resolve again —
      * the same revive semantics as [BookRepository.reviveById] (clear deleted_at + bump revision +
      * publish Updated), composed from the existing substrate instead of a dedicated query.
-     * Enrichment columns survive because the payload is the row's own current content.
+     * Enrichment columns survive because the payload is the row's own current content; its place in
+     * the hierarchy is re-decided by [revived].
      */
     private suspend fun reviveTombstonedHit(idStr: String) {
         val payload = findById(idStr) ?: return
-        upsert(payload.copy(deletedAt = null), clientOpId = null)
+        upsert(revived(payload), clientOpId = null)
+    }
+
+    /**
+     * [series] as it comes back to life. A tombstone keeps the parent it had when it died, and the
+     * tree moves on without it: that parent may be gone, or may by now sit below the series. The
+     * link survives only when the parent is live and adopting it closes no loop; the series is then
+     * appended after the parent's current sub-series, because its old slot may be taken. Otherwise
+     * it comes back as a root. A series that is already live is returned unchanged.
+     */
+    private suspend fun revived(series: SeriesSyncPayload): SeriesSyncPayload {
+        if (series.deletedAt == null) return series
+        val root = series.copy(deletedAt = null, parentId = null, parentPosition = null)
+        val parentId = series.parentId ?: return root
+        val live = liveNodes()
+        if (live.none { it.id == parentId }) return root
+        // The live tree has no node for a tombstone: add this one, so the sub-series still naming
+        // it count as its subtree.
+        val tree = SeriesTree(live + SeriesNode(series.id, parentId = null, parentPosition = null))
+        if (tree.wouldCycle(series.id, parentId)) return root
+        return root.copy(parentId = parentId, parentPosition = tree.nextChildPosition(parentId))
     }
 
     /**
@@ -322,13 +343,14 @@ class SeriesRepository(
     /**
      * Brings [id] back under its own id — merge undo. The base `upsert` bumps the revision and
      * publishes `Updated`; [writePayload]'s update branch clears both `deleted_at` and the merge
-     * redirect. Re-upserting a series that is already live is harmless.
+     * redirect. Its place in the hierarchy is re-decided by [revived]. Re-upserting a series that
+     * is already live is harmless.
      */
     suspend fun revive(id: SeriesId): AppResult<Unit> {
         val payload =
             findById(id.value)
                 ?: return AppResult.Failure(SeriesError.NotFound(debugInfo = "series=${id.value}"))
-        return upsert(payload.copy(deletedAt = null), clientOpId = null).map { }
+        return upsert(revived(payload), clientOpId = null).map { }
     }
 
     /**
@@ -398,14 +420,14 @@ class SeriesRepository(
         }
 
     /** The hierarchy of every live series. A series whose parent is gone reads as a root. */
-    suspend fun liveTree(): SeriesTree =
+    suspend fun liveTree(): SeriesTree = SeriesTree(liveNodes())
+
+    private suspend fun liveNodes(): List<SeriesNode> =
         suspendTransaction(db) {
-            SeriesTree(
-                db.seriesQueries
-                    .selectLiveHierarchy()
-                    .executeAsList()
-                    .map { SeriesNode(it.id, it.parent_id, it.parent_position?.toInt()) },
-            )
+            db.seriesQueries
+                .selectLiveHierarchy()
+                .executeAsList()
+                .map { SeriesNode(it.id, it.parent_id, it.parent_position?.toInt()) }
         }
 
     /** The id of the live series whose name shares [name]'s normalized form, or null. */

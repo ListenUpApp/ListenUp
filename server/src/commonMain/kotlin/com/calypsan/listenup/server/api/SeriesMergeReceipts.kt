@@ -81,7 +81,7 @@ internal class SeriesMergeReceipts(
      *  4. Every restored book is re-upserted (bumps revision, publishes `Updated`). One bad book
      *     doesn't stop the rest — the loop keeps going and the first failure is reported at the end.
      *  5. Every sub-series the merge moved, and that is still under the target, goes back to the
-     *     source at its recorded position.
+     *     source at its recorded position — unless the source now sits below it.
      */
     suspend fun undo(receiptId: MergeReceiptId): AppResult<MergeUndoResult> {
         val sourceId =
@@ -106,7 +106,11 @@ internal class SeriesMergeReceipts(
             }
         }
         // Hand back the sub-series still sitting where the merge put them, at their old positions.
+        // The tree may have been rearranged since the merge: one that now sits above the revived
+        // source would close a loop by going back under it, so it stays where it is.
+        val tree = seriesRepo.liveTree()
         for (child in claim.restoredChildren) {
+            if (tree.wouldCycle(child.id.value, claim.sourceId.value)) continue
             val payload = hierarchy.live(child.id) ?: continue
             when (val placed = hierarchy.place(payload, claim.sourceId.value, child.position)) {
                 is AppResult.Success -> Unit

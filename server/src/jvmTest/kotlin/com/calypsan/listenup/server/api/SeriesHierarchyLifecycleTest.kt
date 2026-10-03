@@ -6,9 +6,11 @@ import com.calypsan.listenup.api.dto.MergeReceipt
 import com.calypsan.listenup.api.dto.MergeUndoResult
 import com.calypsan.listenup.api.dto.SeriesUpdate
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -57,7 +59,32 @@ class SeriesHierarchyLifecycleTest :
             }
         }
 
-        test("a rescan that resolves the same names keeps the parent") {
+        test("a rescan that revives a purged sub-series keeps its still-live parent, after the current sub-series") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeHierarchyDeps(this)
+                runTest {
+                    val cosmere = deps.seriesRepo.resolveOrCreate("Cosmere")
+                    val mistborn = deps.seriesRepo.resolveOrCreate("Mistborn")
+                    val stormlight = deps.seriesRepo.resolveOrCreate("Stormlight Archive")
+                    val elantris = deps.seriesRepo.resolveOrCreate("Elantris")
+                    deps.place(mistborn, parent = cosmere, position = 0)
+                    deps.place(stormlight, parent = cosmere, position = 1)
+                    deps.seriesRepo.softDelete(mistborn).shouldBeInstanceOf<AppResult.Success<*>>()
+                    // While Mistborn is gone, another sub-series takes the slot it held.
+                    deps.place(elantris, parent = cosmere, position = 0)
+
+                    deps.seriesRepo.resolveOrCreateAll(listOf("Mistborn", "Cosmere", "mistborn"))
+
+                    deps.series(mistborn).deletedAt shouldBe null
+                    deps.series(mistborn).parentId shouldBe cosmere.value
+                    deps.seriesRepo.liveTree().childrenOf(cosmere.value) shouldContainExactly
+                        listOf(elantris.value, stormlight.value, mistborn.value)
+                }
+            }
+        }
+
+        test("a rescan that revives a sub-series whose parent is gone brings it back as a root") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 val deps = makeHierarchyDeps(this)
@@ -65,12 +92,37 @@ class SeriesHierarchyLifecycleTest :
                     val cosmere = deps.seriesRepo.resolveOrCreate("Cosmere")
                     val mistborn = deps.seriesRepo.resolveOrCreate("Mistborn")
                     deps.place(mistborn, parent = cosmere, position = 0)
+                    deps.seriesRepo.softDelete(mistborn).shouldBeInstanceOf<AppResult.Success<*>>()
+                    deps.seriesRepo.softDelete(cosmere).shouldBeInstanceOf<AppResult.Success<*>>()
 
-                    deps.seriesRepo.resolveOrCreateAll(listOf("Mistborn", "Cosmere", "mistborn"))
-                    deps.bookRepo.upsert(bookInSeries("final-empire", mistborn)).shouldBeInstanceOf<AppResult.Success<*>>()
+                    deps.seriesRepo.resolveOrCreate("Mistborn") shouldBe mistborn
 
-                    deps.series(mistborn).parentId shouldBe cosmere.value
-                    deps.series(mistborn).parentPosition shouldBe 0
+                    deps.series(mistborn).deletedAt shouldBe null
+                    deps.series(mistborn).parentId shouldBe null
+                    deps.series(mistborn).parentPosition shouldBe null
+                }
+            }
+        }
+
+        test("a rescan that revives a series under what is now its own sub-series brings it back as a root") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeHierarchyDeps(this)
+                runTest {
+                    val cosmere = deps.seriesRepo.resolveOrCreate("Cosmere")
+                    val mistborn = deps.seriesRepo.resolveOrCreate("Mistborn")
+                    deps.place(mistborn, parent = cosmere, position = 0)
+                    deps.seriesRepo.softDelete(mistborn).shouldBeInstanceOf<AppResult.Success<*>>()
+                    // The tombstone still names Cosmere as its parent; Cosmere now names the tombstone.
+                    deps.place(cosmere, parent = mistborn, position = 0)
+
+                    deps.seriesRepo.resolveOrCreate("Mistborn") shouldBe mistborn
+
+                    deps.series(mistborn).parentId shouldBe null
+                    deps.series(mistborn).parentPosition shouldBe null
+                    val tree = deps.seriesRepo.liveTree()
+                    tree.ancestorsOf(cosmere.value) shouldContainExactly listOf(mistborn.value)
+                    tree.ancestorsOf(mistborn.value).shouldBeEmpty()
                 }
             }
         }
@@ -237,6 +289,42 @@ class SeriesHierarchyLifecycleTest :
                     deps.series(mistborn).deletedAt shouldBe null
                     deps.series(mistborn).parentId shouldBe null
                     deps.series(mistborn).parentPosition shouldBe null
+                }
+            }
+        }
+
+        test("undoing a merge never closes a loop when the tree was rearranged in between") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeHierarchyDeps(this)
+                runTest {
+                    // parent > source > child, and a separate root: the merge target.
+                    val parent = deps.seriesRepo.resolveOrCreate("Sanderson")
+                    val source = deps.seriesRepo.resolveOrCreate("The Cosmere")
+                    val child = deps.seriesRepo.resolveOrCreate("Mistborn")
+                    val target = deps.seriesRepo.resolveOrCreate("Cosmere")
+                    deps.place(source, parent = parent, position = 0)
+                    deps.place(child, parent = source, position = 0)
+                    deps.service.mergeSeries(source = source, target = target).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    // target > child > parent — the tombstoned source still names `parent` as its own.
+                    deps.service.setSeriesParent(parent, child).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val receipt =
+                        deps.service
+                            .listMergeReceipts(target)
+                            .shouldBeInstanceOf<AppResult.Success<List<MergeReceipt>>>()
+                            .data
+                            .single()
+                    deps.service.undoSeriesMerge(receipt.id).shouldBeInstanceOf<AppResult.Success<MergeUndoResult>>()
+
+                    val tree = deps.seriesRepo.liveTree()
+                    deps.series(source).deletedAt shouldBe null
+                    for (id in listOf(source, parent, child)) {
+                        val top = tree.ancestorsOf(id.value).firstOrNull() ?: id.value
+                        deps.series(SeriesId(top)).parentId shouldBe null
+                    }
+                    // The source comes back under its old parent; the child that would close the loop stays put.
+                    tree.ancestorsOf(source.value) shouldContainExactly listOf(target.value, child.value, parent.value)
                 }
             }
         }
