@@ -12,6 +12,7 @@ import com.calypsan.listenup.server.util.KeyedMutex
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import kotlin.time.Clock
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.datetime.TimeZone
 
 private val log = loggerFor<StatsRecorder>()
 
@@ -94,7 +95,7 @@ class StatsRecorder(
             val derived = deriveUserStats(sql, event.userId, clock.now().toEpochMilliseconds(), tz)
             userStatsRepo.upsert(derived, clientOpId = null, userId = event.userId)
             publicProfileMaintainer.refresh(event.userId, tz)
-            emitMilestoneCrossings(event.userId, base, derived)
+            emitMilestoneCrossings(event.userId, base, derived, tz)
         }
         activityRecorder.record(
             event.userId,
@@ -172,7 +173,7 @@ class StatsRecorder(
             publicProfileMaintainer.refresh(userId, tz)
             // Milestones fire once per forward crossing; the per-user lock in [record] makes
             // base→derived windows non-overlapping.
-            emitMilestoneCrossings(userId, base, derived)
+            emitMilestoneCrossings(userId, base, derived, tz)
         }
         activityRecorder.record(
             userId,
@@ -296,22 +297,18 @@ class StatsRecorder(
      * forward between [base] and [derived]. Enumerates the whole (base, derived] range so a jump
      * over several thresholds emits each one; a decrease (a delete/heal re-derive lowering a value)
      * emits nothing. Both milestone lists are small constants, so the filter is bounded.
+     *
+     * A streak crossing is only a candidate: [emitStreakMilestones] announces it once per streak run.
      */
     private suspend fun emitMilestoneCrossings(
         userId: String,
         base: UserStatsSyncPayload,
         derived: UserStatsSyncPayload,
+        tz: TimeZone,
     ) {
-        STREAK_MILESTONES
-            .filter { it > base.currentStreakDays && it <= derived.currentStreakDays }
-            .forEach { milestone ->
-                activityRecorder.record(
-                    userId,
-                    ActivityType.STREAK_MILESTONE,
-                    milestoneValue = milestone,
-                    milestoneUnit = "days",
-                )
-            }
+        val streakCrossings =
+            STREAK_MILESTONES.filter { it > base.currentStreakDays && it <= derived.currentStreakDays }
+        if (streakCrossings.isNotEmpty()) emitStreakMilestones(userId, streakCrossings, derived, tz)
         val prevHours = (base.totalSecondsAllTime / 3600L).toInt()
         val newHours = (derived.totalSecondsAllTime / 3600L).toInt()
         LISTENING_MILESTONES
@@ -324,6 +321,47 @@ class StatsRecorder(
                     milestoneUnit = "hours",
                 )
             }
+    }
+
+    /**
+     * Announces each crossed streak milestone at most once per streak run, dated when it was earned.
+     *
+     * The stored base streak is not a record of what was announced: the decay heal drops it to 0 the
+     * morning after a day with no *synced* listening, and when that day's listening arrives late the
+     * re-derive jumps straight back — re-crossing every milestone the run already announced. So the
+     * run itself is the key: a milestone already on record inside the current run (dated at or after
+     * its first day) is not announced again, while a real gap begins a new run that earns them afresh.
+     *
+     * Each new milestone is dated at the first listening on the run's threshold day — when it was
+     * actually earned — not at the moment the server heard about it.
+     */
+    private suspend fun emitStreakMilestones(
+        userId: String,
+        crossed: List<Int>,
+        derived: UserStatsSyncPayload,
+        tz: TimeZone,
+    ) {
+        val run = currentStreakRun(sql, userId, derived.currentStreakDays, tz) ?: return
+        crossed.forEach { milestone ->
+            val alreadyAnnounced =
+                suspendTransaction(sql) {
+                    sql.activitiesQueries
+                        .hasStreakMilestoneInRun(
+                            user_id = userId,
+                            milestone_value = milestone.toLong(),
+                            run_started_at = run.startMs,
+                        ).executeAsOne()
+                }
+            if (!alreadyAnnounced) {
+                activityRecorder.record(
+                    userId,
+                    ActivityType.STREAK_MILESTONE,
+                    milestoneValue = milestone,
+                    milestoneUnit = "days",
+                    occurredAt = run.reachedLengthAtMs(milestone),
+                )
+            }
+        }
     }
 
     private companion object {

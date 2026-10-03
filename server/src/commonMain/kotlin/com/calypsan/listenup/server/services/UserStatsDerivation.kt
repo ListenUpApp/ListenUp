@@ -123,15 +123,8 @@ suspend fun deriveUserStats(
     //    the two streaks match except for re-read finish days the client's last-write-wins position
     //    cannot see. That divergence is accepted: Home shows the locally-derived streak, leaderboards
     //    show this one (pinned by UserStatsDerivationStreakDivergenceTest).
-    val streakDays = ArrayList(listeningDays)
-    suspendTransaction(sql) {
-        sql.playbackPositionsQueries.selectLastPlayedAtForUser(userId).executeAsList().forEach { ms ->
-            streakDays += Instant.fromEpochMilliseconds(ms).toLocalDateTime(userTz).date
-        }
-        sql.bookReadsQueries.finishedAtForUser(userId).executeAsList().forEach { ms ->
-            streakDays += Instant.fromEpochMilliseconds(ms).toLocalDateTime(userTz).date
-        }
-    }
+    val streakDays =
+        streakDayInstantsMs(sql, userId, events.map { it.ended_at }).map { localDayOf(it, userTz) }
 
     // 6. Current + longest streak via the shared reducer, resolved as-of-today in the home timezone.
     val today = Instant.fromEpochMilliseconds(nowMs).toLocalDateTime(userTz).date
