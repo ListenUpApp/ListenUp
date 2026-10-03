@@ -4,6 +4,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
@@ -23,6 +25,7 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import io.kotest.matchers.comparables.shouldBeGreaterThanOrEqualTo
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.flowOf
 import org.junit.After
@@ -114,6 +117,19 @@ class BookDetailA11yTest {
     }
 
     @Test
+    fun `a never-matched book says so under the switch, in reading order`() {
+        composeRule.setContent {
+            MaterialTheme {
+                BookHardcoverContent(state = BookHardcoverUiState.Unmatched, onFindMatch = {}, onRemoveMatch = {}, onSetSynced = {})
+            }
+        }
+
+        val switch = composeRule.onNode(hasText("Sync with Hardcover")).getUnclippedBoundsInRoot()
+        val line = composeRule.onNode(hasText(NEVER_MATCHED)).assertIsDisplayed().getUnclippedBoundsInRoot()
+        line.top shouldBeGreaterThanOrEqualTo switch.bottom
+    }
+
+    @Test
     fun `a matched book's title is a heading`() {
         val match = HardcoverMatchedBook(1L, "The Two Towers", listOf("J.R.R. Tolkien"), 1954, chosenByYou = false)
         composeRule.setContent {
@@ -137,6 +153,10 @@ class BookDetailA11yTest {
         row.config[SemanticsActions.OnClick].label shouldBe "View profile"
         // The avatar no longer repeats the name, and the date and the label are one phrase.
         row.config.getOrElse(SemanticsProperties.ContentDescription) { emptyList() } shouldBe listOf("Read May 2016 on Hardcover")
+    }
+
+    private companion object {
+        const val NEVER_MATCHED = "Not matched yet. ListenUp looks for it on Hardcover when you start listening."
     }
 
     @Composable

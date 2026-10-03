@@ -75,6 +75,7 @@ import listenup.composeapp.generated.resources.hardcover_keep_off_confirm_body_t
 import listenup.composeapp.generated.resources.hardcover_keep_off_confirm_title
 import listenup.composeapp.generated.resources.hardcover_keep_off_switch
 import listenup.composeapp.generated.resources.hardcover_kept_off_line
+import listenup.composeapp.generated.resources.hardcover_never_matched_line
 import listenup.composeapp.generated.resources.hardcover_match_remove
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -89,8 +90,8 @@ private val ActionMinHeight = 48.dp
 
 /**
  * Book Detail's Hardcover card (spec B5). Draws nothing unless the user is connected. A book never matched is
- * the Sync with Hardcover switch alone (decision 1); one that needs a match, is matched, or is kept off adds its
- * own block. A null [onFindMatch] hides it entirely, without asking Koin for its
+ * the Sync with Hardcover switch and one quiet line saying it isn't matched yet; one that needs a match, is
+ * matched, or is kept off adds its own block. A null [onFindMatch] hides it entirely, without asking Koin for its
  * ViewModel — desktop is frozen and has no Find on Hardcover.
  */
 @Composable
@@ -167,9 +168,13 @@ internal fun BookHardcoverContent(
                     Unit
                 }
 
-                // Decision 1: a book never matched is the switch row alone.
+                // A book never matched says so quietly, so the switch's "on" doesn't read as "syncing" (#1562).
                 BookHardcoverUiState.Unmatched -> {
-                    Unit
+                    Text(
+                        stringResource(Res.string.hardcover_never_matched_line),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
 
                 BookHardcoverUiState.NeedsMatch -> {
