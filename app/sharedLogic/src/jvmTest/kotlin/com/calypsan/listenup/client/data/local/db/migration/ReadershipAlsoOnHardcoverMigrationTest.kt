@@ -27,7 +27,8 @@ class ReadershipAlsoOnHardcoverMigrationTest :
                 ).forEach { (userId, finishes) ->
                     v14.execSQL(
                         "INSERT INTO book_readership " +
-                            "(bookId, userId, displayName, avatarType, currentProgressPct, finishesJson, observedAt, hardcoverFinishesJson) " +
+                            "(bookId, userId, displayName, avatarType, currentProgressPct, finishesJson, observedAt, " +
+                            "hardcoverFinishesJson) " +
                             "VALUES ('b1', '$userId', 'Ann', 'auto', NULL, '$finishes', 5, '700')",
                     )
                 }
