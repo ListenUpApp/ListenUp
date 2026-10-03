@@ -53,9 +53,10 @@ private val logger = loggerFor<SeriesServiceImpl>()
  * lock, so the SQLDelight writes serialize on the lone SQLDelight connection without the
  * cross-engine `SQLITE_BUSY` the prior Exposed-junction-write split exhibited.
  *
- * Hierarchy edits ([createSeries], [setSeriesParent], [reorderChildSeries]) validate against the
- * live [com.calypsan.listenup.domain.series.SeriesTree], then write through the same substrate
- * upsert as [updateSeries].
+ * Hierarchy edits ([createSeries], [setSeriesParent], [reorderChildSeries]) are gated here and
+ * carried out by [SeriesHierarchyWrites], which validates against the live
+ * [com.calypsan.listenup.domain.series.SeriesTree] and writes through the same substrate upsert
+ * as [updateSeries].
  *
  * [getSeries] (series metadata) is open to any authenticated user, but [listBooksBySeries]
  * is access-filtered: a non-admin caller receives only the sibling books they can reach
@@ -232,31 +233,7 @@ internal class SeriesServiceImpl(
         parentId: SeriesId?,
     ): AppResult<SeriesSyncPayload> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        val trimmed = name.trim()
-        if (trimmed.isEmpty() || trimmed.length > SeriesUpdate.MAX_NAME) {
-            return AppResult.Failure(SeriesError.InvalidInput(debugInfo = "name length=${trimmed.length}"))
-        }
-        if (parentId != null && hierarchy.live(parentId) == null) return parentNotFound(parentId)
-        if (seriesRepo.liveIdForName(trimmed) != null) return nameAlreadyExists(trimmed)
-        val id = seriesRepo.resolveOrCreate(trimmed)
-        // A name that was merged away resolves to the series it was merged into — a different
-        // live series, which this call must not re-parent.
-        if (seriesRepo.liveIdForName(trimmed) != id) return nameAlreadyExists(trimmed)
-        // A revived series comes back holding its old parent and position. Clear them first, so it
-        // lands after the requested parent's current sub-series — or stays a root — like a new one.
-        val resolved = hierarchy.live(id) ?: return seriesNotFound(id)
-        if (resolved.parentId != null) {
-            when (val cleared = hierarchy.place(resolved, null, null)) {
-                is AppResult.Success -> Unit
-                is AppResult.Failure -> return AppResult.Failure(cleared.error)
-            }
-        }
-        when (val placed = setSeriesParent(id, parentId)) {
-            is AppResult.Success -> Unit
-            is AppResult.Failure -> return AppResult.Failure(placed.error)
-        }
-        val created = hierarchy.live(id) ?: return seriesNotFound(id)
-        return AppResult.Success(created)
+        return hierarchy.create(name, parentId)
     }
 
     override suspend fun setSeriesParent(
@@ -264,19 +241,7 @@ internal class SeriesServiceImpl(
         parentId: SeriesId?,
     ): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        val current = hierarchy.live(id) ?: return seriesNotFound(id)
-        if (parentId == null) {
-            return if (current.parentId == null) AppResult.Success(Unit) else hierarchy.place(current, null, null)
-        }
-        hierarchy.live(parentId) ?: return parentNotFound(parentId)
-        val tree = seriesRepo.liveTree()
-        if (tree.wouldCycle(id.value, parentId.value)) {
-            return AppResult.Failure(
-                SeriesError.HierarchyCycle(debugInfo = "series=${id.value} parent=${parentId.value}"),
-            )
-        }
-        if (current.parentId == parentId.value) return AppResult.Success(Unit)
-        return hierarchy.place(current, parentId.value, tree.nextChildPosition(parentId.value))
+        return hierarchy.setParent(id, parentId)
     }
 
     override suspend fun reorderChildSeries(
@@ -284,26 +249,7 @@ internal class SeriesServiceImpl(
         orderedChildIds: List<SeriesId>,
     ): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        hierarchy.live(parentId) ?: return seriesNotFound(parentId)
-        val current = seriesRepo.liveTree().childrenOf(parentId.value)
-        val requested = orderedChildIds.map { it.value }
-        if (requested.size != current.size || requested.toSet() != current.toSet()) {
-            return AppResult.Failure(
-                SeriesError.InvalidInput(
-                    debugInfo = "reorder of ${parentId.value} is not a permutation of its sub-series",
-                ),
-            )
-        }
-        orderedChildIds.forEachIndexed { index, childId ->
-            val child = hierarchy.live(childId) ?: return seriesNotFound(childId)
-            if (child.parentPosition != index) {
-                when (val placed = hierarchy.place(child, parentId.value, index)) {
-                    is AppResult.Success -> Unit
-                    is AppResult.Failure -> return placed
-                }
-            }
-        }
-        return AppResult.Success(Unit)
+        return hierarchy.reorderChildren(parentId, orderedChildIds)
     }
 
     override suspend fun deleteSeries(id: SeriesId): AppResult<Unit> {
@@ -381,14 +327,8 @@ private data class SeriesUpdateOutcome(
     val result: AppResult<Unit>,
 )
 
-private fun seriesNotFound(id: SeriesId): AppResult.Failure =
+internal fun seriesNotFound(id: SeriesId): AppResult.Failure =
     AppResult.Failure(SeriesError.NotFound(debugInfo = "seriesId=${id.value}"))
-
-private fun parentNotFound(parentId: SeriesId): AppResult.Failure =
-    AppResult.Failure(SeriesError.ParentNotFound(debugInfo = "parent=${parentId.value}"))
-
-private fun nameAlreadyExists(name: String): AppResult.Failure =
-    AppResult.Failure(SeriesError.NameAlreadyExists(debugInfo = "name=$name"))
 
 private fun SeriesSyncPayload.applyPatch(patch: SeriesUpdate): SeriesSyncPayload =
     copy(
