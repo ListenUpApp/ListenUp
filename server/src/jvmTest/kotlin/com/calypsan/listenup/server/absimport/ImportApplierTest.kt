@@ -137,6 +137,37 @@ class ImportApplierTest :
             }
         }
 
+        test("an imported finish is dated when ABS says it was finished, not when its progress was last touched") {
+            withSqlDatabase {
+                val dbs = this
+                runTest {
+                    val staged = stageAnalyzedImport(dbs)
+                    // book-1's progress was last touched 2022-01-16; the reader finished it six days earlier.
+                    java.sql.DriverManager
+                        .getConnection("jdbc:sqlite:${staged.paths.absDbFor(staged.importId.value)}")
+                        .use { conn ->
+                            conn.createStatement().use { st ->
+                                st.executeUpdate(
+                                    "UPDATE mediaProgresses SET finishedAt = '2022-01-10 04:33:12.000 +00:00' " +
+                                        "WHERE userId = 'user-simon' AND mediaItemId = 'book-1'",
+                                )
+                            }
+                        }
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+
+                    applier.apply(staged.importId) {}.shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val absFinishedAt = 1_641_789_192_000L // 2022-01-10T04:33:12Z
+                    staged.bookReads.finishesForUserBook(LU_USER, LU_KINGS) shouldBe listOf(absFinishedAt)
+                    staged.repo
+                        .getPosition(LU_USER, LU_KINGS)
+                        .shouldNotBeNull()
+                        .finishedAt shouldBe absFinishedAt
+                }
+            }
+        }
+
         test("stats backfill totals listen-seconds from imported sessions and counts started/finished books") {
             withSqlDatabase {
                 val dbs = this

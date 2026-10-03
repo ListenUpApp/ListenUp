@@ -290,6 +290,8 @@ class ImportApplier internal constructor(
                             ),
                         playbackSpeed = DEFAULT_PLAYBACK_SPEED,
                         currentChapterId = null,
+                        // When ABS says the book was finished — `updatedAt` moves on with any later touch.
+                        finishedAt = row.finishedAtMs,
                         // Date the imported start strictly before this book's earliest session, and never
                         // later than the un-fixed value. Null when the book has no imported sessions →
                         // live behavior (lastPlayedAt).

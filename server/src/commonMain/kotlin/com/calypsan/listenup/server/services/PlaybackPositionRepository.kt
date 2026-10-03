@@ -29,6 +29,9 @@ import kotlinx.coroutines.currentCoroutineContext
  * resolves every ABS `(user, item)` pair to one of these, then hands the whole list to
  * [PlaybackPositionRepository.recordAllForImport] so the writes commit in chunked transactions
  * instead of one read+write commit pair per row.
+ *
+ * [finishedAt] is when the source says the book was finished, if it says — it dates the finish in
+ * place of [lastPlayedAt], exactly as a reader's picked day does on [PlaybackPositionRepository.recordPosition].
  */
 data class ImportPositionWrite(
     val userId: String,
@@ -41,6 +44,7 @@ data class ImportPositionWrite(
     val volumeBoostDb: Float = 0f,
     val measuredGainDb: Float? = null,
     val startedBookOccurredAt: Long? = null,
+    val finishedAt: Long? = null,
 )
 
 /**
@@ -230,7 +234,11 @@ class PlaybackPositionRepository(
      * the re-read [StatsEvent.BookRestarted] branches). The ABS-import backfill uses it to date the
      * imported start strictly before the book's imported sessions; live callers leave it null and the
      * activity keeps using the clamped `lastPlayedAt`. Position `lastPlayedAt` semantics (the
-     * wins-guard, the payload, the `BookCompleted` date) are untouched by this parameter.
+     * wins-guard, the payload, the `BookCompleted` fallback date) are untouched by this parameter.
+     *
+     * [finishedAt] is the day the reader said they finished — "Mark as finished" lets them pick it. It
+     * dates the finish everywhere it lands (`book_reads`, the `FINISHED_BOOK` activity, the Hardcover
+     * FINISH) in place of the moment the write arrived; see [resolveFinishedAt] for how it is bounded.
      */
     suspend fun recordPosition(
         userId: String,
@@ -291,6 +299,7 @@ class PlaybackPositionRepository(
         // device has an OLD timestamp, which this clamp never touches — only future-dating is capped.
         // This clamped value is what gets persisted below and what ships in the sync payload.
         val clampedLastPlayedAt = min(lastPlayedAt, now + SKEW_TOLERANCE_MS)
+        val resolvedFinishedAt = resolveFinishedAt(finishedAt, now)
 
         val existing = getPosition(userId, bookId)
         // Clamp #2 (comparison-only, never rewrites the stored row): a row poisoned before this
@@ -320,7 +329,7 @@ class PlaybackPositionRepository(
                 currentChapterId = currentChapterId,
                 volumeBoostDb = volumeBoostDb,
                 measuredGainDb = measuredGainDb,
-                finishedAt = finishedAt,
+                finishedAt = resolvedFinishedAt,
                 hasCustomSpeed = hasCustomSpeed,
                 hasCustomBoost = hasCustomBoost,
                 revision = 0L,
@@ -343,7 +352,7 @@ class PlaybackPositionRepository(
                 StatsEvent.BookCompleted(
                     userId = userId,
                     bookId = bookId,
-                    occurredAt = Instant.fromEpochMilliseconds(clampedLastPlayedAt),
+                    occurredAt = Instant.fromEpochMilliseconds(resolvedFinishedAt ?: clampedLastPlayedAt),
                 ),
             )
         } else if (!finished) {
@@ -440,10 +449,9 @@ class PlaybackPositionRepository(
                     currentChapterId = row.currentChapterId,
                     volumeBoostDb = row.volumeBoostDb,
                     measuredGainDb = row.measuredGainDb,
-                    // ImportPositionWrite carries no cross-device fields: an imported row has no
-                    // original finish date and no record of whether the listener chose its speed,
-                    // so these take the defaults rather than inventing values.
-                    finishedAt = null,
+                    finishedAt = resolveFinishedAt(row.finishedAt, now),
+                    // ImportPositionWrite carries no record of whether the listener chose their speed
+                    // or boost, so these take the defaults rather than inventing values.
                     hasCustomSpeed = false,
                     hasCustomBoost = false,
                     revision = 0L,
@@ -484,7 +492,7 @@ class PlaybackPositionRepository(
                     StatsEvent.BookCompleted(
                         userId = row.userId,
                         bookId = bookId,
-                        occurredAt = Instant.fromEpochMilliseconds(lastPlayedAt),
+                        occurredAt = Instant.fromEpochMilliseconds(row.payload.finishedAt ?: lastPlayedAt),
                     ),
                 )
             } else if (!finished) {
@@ -531,6 +539,23 @@ class PlaybackPositionRepository(
                 .executeAsOneOrNull()
                 ?.toSyncPayload()
         }
+
+    /**
+     * The finish date a write may claim, or null when it claims none the server can use — the caller
+     * then dates the finish by its clamped `lastPlayedAt`, as it always has.
+     *
+     * Bounded above by the same skew ceiling as `lastPlayedAt`: the picker refuses future days, so a
+     * later value is a fast device clock, and a finish dated in the future would put a book in a stats
+     * window that has not happened yet. NOT bounded below by anything but the epoch: a reader may be
+     * recording a book they finished years before ListenUp — or before this server had the book at
+     * all — and a floor such as the book's `created_at` would refuse exactly what the picker exists
+     * for. A non-positive value is the unset sentinel (an ABS backup's blank `finishedAt` parses to 0),
+     * never a real day.
+     */
+    private fun resolveFinishedAt(
+        finishedAt: Long?,
+        now: Long,
+    ): Long? = finishedAt?.takeIf { it > 0 }?.let { min(it, now + SKEW_TOLERANCE_MS) }
 
     /** Test-only accessor for the protected [idAsString]. */
     internal fun idAsStringForTest(id: PlaybackPositionId): String = idAsString(id)
