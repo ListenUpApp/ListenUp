@@ -526,6 +526,85 @@ class BookRatingsViewModelTest :
                 }
             }
         }
+
+        test("removing your rating offers an undo that puts back the stars and the note") {
+            runTest {
+                val repo = FakeBookRatingRepository()
+                repo.seed(ListenerRating("b1", "me", 8, "Loved it.", 1L))
+                val vm =
+                    BookRatingsViewModel(
+                        bookId = "b1",
+                        repository = repo,
+                        currentUserId = flowOf("me"),
+                        errorBus = ErrorBus(),
+                        userRepository = userRepository(),
+                    )
+
+                vm.events.test {
+                    vm.clear()
+                    advanceUntilIdle()
+                    awaitItem() shouldBe BookRatingsEvent.RatingRemoved
+                }
+                repo.lastClear shouldBe "b1"
+
+                vm.undoClear()
+                advanceUntilIdle()
+
+                repo.lastRate shouldBe Triple("b1", 8, "Loved it.")
+            }
+        }
+
+        test("a second undo does nothing") {
+            runTest {
+                val repo = FakeBookRatingRepository()
+                repo.seed(ListenerRating("b1", "me", 8, null, 1L))
+                val vm =
+                    BookRatingsViewModel(
+                        bookId = "b1",
+                        repository = repo,
+                        currentUserId = flowOf("me"),
+                        errorBus = ErrorBus(),
+                        userRepository = userRepository(),
+                    )
+
+                vm.clear()
+                advanceUntilIdle()
+                vm.undoClear()
+                vm.undoClear()
+                advanceUntilIdle()
+
+                repo.rateCalls shouldBe 1
+            }
+        }
+
+        test("a refused removal reports the error and offers no undo") {
+            runTest {
+                val failure = TransportError.NetworkUnavailable()
+                val repo = FakeBookRatingRepository().apply { failNext = AppResult.Failure(failure) }
+                repo.seed(ListenerRating("b1", "me", 8, null, 1L))
+                val errorBus = ErrorBus()
+                val vm =
+                    BookRatingsViewModel(
+                        bookId = "b1",
+                        repository = repo,
+                        currentUserId = flowOf("me"),
+                        errorBus = errorBus,
+                        userRepository = userRepository(),
+                    )
+
+                errorBus.errors.test {
+                    vm.events.test {
+                        vm.clear()
+                        advanceUntilIdle()
+                        expectNoEvents()
+                    }
+                    awaitItem() shouldBe failure
+                }
+                vm.undoClear()
+                advanceUntilIdle()
+                repo.rateCalls shouldBe 0
+            }
+        }
     })
 
 /**
@@ -555,6 +634,9 @@ private class FakeBookRatingRepository : BookRatingRepository {
 
     /** When set, [refreshExternal] waits on it before answering — a refresh still in flight. */
     var refreshGate: CompletableDeferred<Unit>? = null
+
+    /** How many times [rate] has been called. */
+    var rateCalls = 0
 
     /** When set, [rate] waits on it before answering — a save still in flight. */
     var rateGate: CompletableDeferred<Unit>? = null
@@ -604,6 +686,7 @@ private class FakeBookRatingRepository : BookRatingRepository {
         note: String?,
     ): AppResult<Unit> {
         rateGate?.await()
+        rateCalls++
         lastRate = Triple(bookId, halfStars, note)
         failNext?.let {
             failNext = null

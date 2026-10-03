@@ -89,3 +89,9 @@ sealed interface ScoreRow {
     /** Only your listeners have rated it: their own row says so, and no second number is drawn. */
     data object Absent : ScoreRow
 }
+
+/** One-shot effects of the rating block. */
+sealed interface BookRatingsEvent {
+    /** Your rating was removed: Android and web offer Undo; iOS tells VoiceOver. */
+    data object RatingRemoved : BookRatingsEvent
+}

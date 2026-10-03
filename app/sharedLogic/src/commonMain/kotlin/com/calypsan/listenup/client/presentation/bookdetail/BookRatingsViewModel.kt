@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.domain.ListenerRatingLimits
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -55,6 +57,14 @@ class BookRatingsViewModel(
     private val isRefreshingExternal = MutableStateFlow(false)
     private val isCheckingExternal = MutableStateFlow(false)
     private val pendingStars = MutableStateFlow<Int?>(null)
+
+    private val eventChannel = Channel<BookRatingsEvent>(Channel.BUFFERED)
+
+    /** One-shot effects: [BookRatingsEvent.RatingRemoved] after a [clear], for an Undo. */
+    val events: Flow<BookRatingsEvent> = eventChannel.receiveAsFlow()
+
+    /** What the last [clear] removed, until [undoClear] puts it back or another clear replaces it. */
+    private var lastRemoved: ListenerRating? = null
 
     /** The block's state. */
     val state: StateFlow<BookRatingsUiState> =
@@ -152,9 +162,34 @@ class BookRatingsViewModel(
         pendingStars.compareAndSet(expect = halfStars, update = null)
     }
 
-    /** Remove my rating. */
+    /**
+     * Remove my rating, note and all. Android and web then offer Undo on [BookRatingsEvent.RatingRemoved];
+     * iOS asks first when a note would be lost.
+     */
     fun clear() {
-        viewModelScope.launch { report(repository.clear(bookId)) }
+        viewModelScope.launch {
+            val removed = myRating()
+            pendingStars.value = null
+            when (val result = repository.clear(bookId)) {
+                is AppResult.Success -> {
+                    if (removed != null) {
+                        lastRemoved = removed
+                        eventChannel.send(BookRatingsEvent.RatingRemoved)
+                    }
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                }
+            }
+        }
+    }
+
+    /** Put back the rating, stars and note, that the last [clear] removed. A second Undo does nothing. */
+    fun undoClear() {
+        val removed = lastRemoved ?: return
+        lastRemoved = null
+        viewModelScope.launch { report(repository.rate(bookId, removed.halfStars, removed.note)) }
     }
 
     /**

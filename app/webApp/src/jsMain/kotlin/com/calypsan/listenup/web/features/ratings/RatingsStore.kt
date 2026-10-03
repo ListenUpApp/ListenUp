@@ -1,10 +1,13 @@
 package com.calypsan.listenup.web.features.ratings
 
 import androidx.lifecycle.ViewModelStore
+import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsEvent
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import org.koin.core.Koin
 import org.koin.core.parameter.parametersOf
 
@@ -20,6 +23,9 @@ class BookRatingsSession(
     val rate: (halfStars: Int, note: String?) -> Unit,
     val setStars: (halfStars: Int) -> Unit,
     val clear: () -> Unit,
+    val undoClear: () -> Unit,
+    /** One-shot effects — the route shows "Rating removed" with Undo for [BookRatingsEvent.RatingRemoved]. */
+    val events: Flow<BookRatingsEvent>,
     val refreshExternal: () -> Unit,
     val close: () -> Unit,
 )
@@ -40,6 +46,8 @@ fun graphBookRatings(koin: Koin): OpenBookRatings =
             rate = viewModel::rate,
             setStars = viewModel::setStars,
             clear = viewModel::clear,
+            undoClear = viewModel::undoClear,
+            events = viewModel.events,
             refreshExternal = viewModel::refreshExternal,
             close = store::clear,
         )
@@ -51,6 +59,8 @@ fun fixedBookRatings(
     onRate: (halfStars: Int, note: String?) -> Unit = { _, _ -> },
     onSetStars: (halfStars: Int) -> Unit = {},
     onClear: () -> Unit = {},
+    onUndoClear: () -> Unit = {},
+    events: Flow<BookRatingsEvent> = emptyFlow(),
     onRefreshExternal: () -> Unit = {},
 ): OpenBookRatings =
     {
@@ -59,6 +69,8 @@ fun fixedBookRatings(
             rate = onRate,
             setStars = onSetStars,
             clear = onClear,
+            undoClear = onUndoClear,
+            events = events,
             refreshExternal = onRefreshExternal,
             close = {},
         )
