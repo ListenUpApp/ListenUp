@@ -16,6 +16,9 @@ struct HardcoverConnectedPhase: View {
     let onFindMatch: (String) -> Void
     let onDisconnect: () -> Void
 
+    /// Show All pressed: the whole Needs a match list, not just its first rows.
+    @State private var isShowingAllBooksToMatch = false
+
     var body: some View {
         ScrollViewReader { proxy in
             Form {
@@ -49,10 +52,9 @@ struct HardcoverConnectedPhase: View {
                 disconnectSection
             }
             .readableListWidth(720)
-            .onChange(of: model.sync) { _, sync in
-                // The notice appears beneath the row the user just pressed; say it as well as show it.
-                if case .syncNowFailed(let notice) = sync {
-                    AccessibilityNotification.Announcement(notice).post()
+            .onChange(of: model.sync) { old, new in
+                if let announcement = Self.syncAnnouncement(from: old, to: new) {
+                    AccessibilityNotification.Announcement(announcement).post()
                 }
             }
         }
@@ -60,6 +62,27 @@ struct HardcoverConnectedPhase: View {
 
     /// Where Done's "need a match" row scrolls to.
     private static let needsMatchID = "hardcover.needs-match"
+
+    /// How many books Needs a match lists before Show All: enough to act on, few enough that what ListenUp
+    /// shares stays a short scroll away at the largest text sizes. The same five as Android.
+    static let booksToMatchShown = 5
+
+    /// The Needs a match rows on screen: the first few, or every one once Show All is pressed.
+    static func booksShown(_ books: [HardcoverBookToMatchRow], showingAll: Bool) -> [HardcoverBookToMatchRow] {
+        showingAll ? books : Array(books.prefix(booksToMatchShown))
+    }
+
+    /// What VoiceOver hears when the sync line changes without focus moving: a Sync Now that didn't finish
+    /// (its notice appears beneath the row just pressed), and a sync that finished — the row only swaps
+    /// "Syncing…" back to "Last synced just now", so the confirmation is otherwise silent. HIG, VoiceOver:
+    /// keep people informed when content changes. Nothing for the minute ticking over.
+    static func syncAnnouncement(from old: HardcoverSyncLine, to new: HardcoverSyncLine) -> String? {
+        switch (old, new) {
+        case (_, .syncNowFailed(let notice)): notice
+        case (.syncing, .idle): String(localized: "hardcover.synced_status")
+        default: nil
+        }
+    }
 
     // MARK: - Identity
 
@@ -78,9 +101,17 @@ struct HardcoverConnectedPhase: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(model.username)
                         .font(.headline)
-                    Label(String(localized: "hardcover.connected"), systemImage: "checkmark")
-                        .font(.subheadline)
-                        .foregroundStyle(.green)
+                    // The word in the primary colour, the glyph green: system green on white is 2.22:1,
+                    // under the 4.5:1 text needs (HIG, Accessibility), and the word says it without the hue
+                    // (HIG, Color).
+                    Label {
+                        Text(String(localized: "hardcover.connected"))
+                            .foregroundStyle(Color.primary)
+                    } icon: {
+                        Image(systemName: "checkmark")
+                            .foregroundStyle(.green)
+                    }
+                    .font(.subheadline)
                     Text(String(format: String(localized: "hardcover.connected_since"), sinceText))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -192,13 +223,28 @@ struct HardcoverConnectedPhase: View {
 
     /// The books ListenUp couldn't match, each opening Find on Hardcover; one quiet line once the
     /// server has said there are none; nothing at all before it has answered.
+    ///
+    /// The first few, then Show All: at the largest text sizes each row is half a screen, and an unbounded
+    /// list buried What ListenUp Shares and Disconnect under it. HIG, Lists and tables: keep a list
+    /// scannable; Show All expands in place, as Android's does.
     @ViewBuilder
     private var needsMatchSection: some View {
         if !model.booksToMatch.isEmpty {
             Section {
-                ForEach(model.booksToMatch) { book in
+                ForEach(Self.booksShown(model.booksToMatch, showingAll: isShowingAllBooksToMatch)) { book in
                     Button { onFindMatch(book.id) } label: {
                         BookToMatchRowView(book: book)
+                    }
+                }
+                if model.booksToMatch.count > Self.booksToMatchShown && !isShowingAllBooksToMatch {
+                    Button {
+                        withAnimation { isShowingAllBooksToMatch = true }
+                    } label: {
+                        Text(String(
+                            format: String(localized: "hardcover.needs_match_show_all"),
+                            model.booksToMatch.count
+                        ).titleStyled)
+                        .foregroundStyle(Color.luTint)
                     }
                 }
             } header: {

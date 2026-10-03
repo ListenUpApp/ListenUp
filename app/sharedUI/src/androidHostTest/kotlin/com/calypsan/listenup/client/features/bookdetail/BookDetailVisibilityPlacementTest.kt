@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.features.bookdetail
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasText
@@ -9,7 +11,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
-import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.readers.BookReaders
@@ -31,7 +33,6 @@ import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.MockMode
 import dev.mokkery.answering.returns
 import dev.mokkery.every
-import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.matchers.comparables.shouldBeLessThan
@@ -136,7 +137,7 @@ class BookDetailVisibilityPlacementTest {
         show(ready(restrictedToKids))
         val about = composeRule.onNodeWithText("About this book").getUnclippedBoundsInRoot()
         val visibility = composeRule.onNodeWithText("Visibility").getUnclippedBoundsInRoot()
-        val rating = composeRule.onNodeWithText("Rate").getUnclippedBoundsInRoot()
+        val rating = composeRule.onNodeWithText("Ratings").getUnclippedBoundsInRoot()
         about.bottom shouldBeLessThanOrEqualTo visibility.top
         visibility.bottom shouldBeLessThan rating.top
     }
@@ -211,7 +212,7 @@ class BookDetailVisibilityPlacementTest {
                 every { observeForBook(any()) } returns flowOf(emptyList())
                 every { observeExternalForBook(any()) } returns flowOf(emptyList())
                 every { observeCombinedScore(any()) } returns flowOf(null)
-                everySuspend { ensureExternal(any()) } returns AppResult.Success(Unit)
+                every { observeExternalCheck(any()) } returns flowOf()
             }
         val users = mock<UserRepository>(MockMode.autoUnit) { every { observeIsAdmin() } returns flowOf(true) }
         composeRule.setContent {
@@ -227,45 +228,48 @@ class BookDetailVisibilityPlacementTest {
                     )
                 },
             ) {
+                // Book Detail's rating block offers Undo through the app's snackbar host.
                 MaterialTheme {
-                    BookDetailContent(
-                        bookId = "b1",
-                        state = state,
-                        downloadStatus = BookDownloadStatus.NotDownloaded("b1"),
-                        isComplete = false,
-                        hasProgress = false,
-                        isAdmin = true,
-                        isWaitingForWifi = false,
-                        showPlaybackActions = !state.isHeld,
-                        onBackClick = {},
-                        onEditClick = {},
-                        onFindMetadataClick = {},
-                        onEditChaptersClick = {},
-                        onMarkCompleteClick = {},
-                        onMarkNotStartedClick = {},
-                        onRestartClick = {},
-                        onAddToShelfClick = {},
-                        onAddToCollectionClick = { pickers++ },
-                        onShareClick = {},
-                        onDeleteBookClick = {},
-                        onPlayClick = {},
-                        canPlay = state.canPlay,
-                        canDownload = false,
-                        showServerWarning = false,
-                        onRetryConnection = {},
-                        onPlayDisabledClick = {},
-                        onDownloadClick = {},
-                        onCancelClick = {},
-                        onDeleteClick = {},
-                        onSeriesClick = {},
-                        onContributorClick = {},
-                        onGenreClick = {},
-                        onTagClick = { _, _ -> },
-                        onMoodClick = { _, _ -> },
-                        onUserProfileClick = {},
-                        onCollectionClick = { opened = it },
-                        onRestoreToAllBooksClick = { restores++ },
-                    )
+                    CompositionLocalProvider(LocalSnackbarHostState provides SnackbarHostState()) {
+                        BookDetailContent(
+                            bookId = "b1",
+                            state = state,
+                            downloadStatus = BookDownloadStatus.NotDownloaded("b1"),
+                            isComplete = false,
+                            hasProgress = false,
+                            isAdmin = true,
+                            isWaitingForWifi = false,
+                            showPlaybackActions = !state.isHeld,
+                            onBackClick = {},
+                            onEditClick = {},
+                            onFindMetadataClick = {},
+                            onEditChaptersClick = {},
+                            onMarkCompleteClick = {},
+                            onMarkNotStartedClick = {},
+                            onRestartClick = {},
+                            onAddToShelfClick = {},
+                            onAddToCollectionClick = { pickers++ },
+                            onShareClick = {},
+                            onDeleteBookClick = {},
+                            onPlayClick = {},
+                            canPlay = state.canPlay,
+                            canDownload = false,
+                            showServerWarning = false,
+                            onRetryConnection = {},
+                            onPlayDisabledClick = {},
+                            onDownloadClick = {},
+                            onCancelClick = {},
+                            onDeleteClick = {},
+                            onSeriesClick = {},
+                            onContributorClick = {},
+                            onGenreClick = {},
+                            onTagClick = { _, _ -> },
+                            onMoodClick = { _, _ -> },
+                            onUserProfileClick = {},
+                            onCollectionClick = { opened = it },
+                            onRestoreToAllBooksClick = { restores++ },
+                        )
+                    }
                 }
             }
         }

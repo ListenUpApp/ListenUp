@@ -40,6 +40,9 @@ class ContrastTest :
                             Span(attrs = { classes("rs-s", "is-empty") }) { Text("★") }
                         }
                         Button(kind = ButtonKind.Primary) { Text("Sign in") }
+                        Span(attrs = { classes("mdx-from") }) { Text("from Hardcover") }
+                        Div(attrs = { id("sw-off") }) { SwitchField(label = "Sync", checked = false, onChange = {}) }
+                        Div(attrs = { id("sw-on") }) { SwitchField(label = "Sync", checked = true, onChange = {}) }
                     }
                 },
                 theme,
@@ -98,6 +101,70 @@ class ContrastTest :
                 listOf("--surface", "--surface-2").forEach { ground ->
                     palette.assertContrast(palette.elementColour(star, "color"), ground, AA_NON_TEXT, ".rs-s.is-empty")
                 }
+            }
+
+            // #1562: the controls a low-vision reader has to find by their edges alone (WCAG 1.4.11).
+            test("$theme: a control's outline marks its edge at 3:1 on paper and on every surface") {
+                val palette = palette(theme)
+
+                GROUNDS.forEach { palette.assertContrast("--outline", it, AA_NON_TEXT) }
+            }
+
+            test("$theme: an outlined button draws its edge in the outline, not the 1.2:1 divider") {
+                val palette = palette(theme)
+                val probe =
+                    palette.frame.host.ownerDocument!!
+                        .createElement("button")
+                probe.className = "btn btn-secondary btn-md"
+                palette.frame.find(".luw").appendChild(probe)
+
+                palette.elementColour(probe, "border-top-color") shouldBe palette.token("--outline")
+            }
+
+            test("$theme: an off switch's track stands out from its card, and its thumb from the track") {
+                val palette = palette(theme)
+                val track = palette.frame.find("#sw-off .sw-track")
+                val thumb = palette.frame.find("#sw-off .sw-thumb")
+
+                val edge = palette.elementColour(track, "border-top-color").over(palette.token("--surface"))
+                palette.assertContrast(edge, "--surface", AA_NON_TEXT, "off track edge")
+                palette.assertContrast(palette.elementColour(thumb, "background-color"), "--surface-3", AA_NON_TEXT, "off thumb")
+            }
+
+            test("$theme: an on switch's thumb stands out from its coral track") {
+                val palette = palette(theme)
+                val track = palette.elementColour(palette.frame.find("#sw-on .sw-track"), "background-color")
+                val thumb = palette.elementColour(palette.frame.find("#sw-on .sw-thumb"), "background-color")
+
+                withClue("on thumb on track: ${contrastRatio(thumb, track)}") {
+                    contrastRatio(thumb, track) shouldBeGreaterThanOrEqual AA_NON_TEXT
+                }
+            }
+
+            test("$theme: a chosen segment's outline shows at 3:1 against the group around it") {
+                val palette = palette(theme)
+                val ring = palette.token("--outline").over(palette.token("--surface"))
+
+                palette.assertContrast(ring, "--surface-2", AA_NON_TEXT, "segment ring")
+            }
+
+            test("$theme: success reads at 4.5:1 on its own wash and on the Hardcover hero's coral wash") {
+                val palette = palette(theme)
+                val heroWash = palette.token("--coral-soft").over(palette.token("--paper"))
+
+                palette.assertContrast("--success", "--success-soft", AA_TEXT)
+                withClue("success on the hero wash: ${contrastRatio(palette.token("--success"), heroWash)}") {
+                    contrastRatio(palette.token("--success"), heroWash) shouldBeGreaterThanOrEqual AA_TEXT
+                }
+            }
+
+            test("$theme: the 'from Hardcover' chip reads at 4.5:1 on its own fill") {
+                val palette = palette(theme)
+                val chip = palette.frame.find(".mdx-from")
+                val fill = palette.elementColour(chip, "background-color").over(palette.token("--surface"))
+                val ink = palette.elementColour(chip, "color").over(fill)
+
+                withClue("chip: ${contrastRatio(ink, fill)}") { contrastRatio(ink, fill) shouldBeGreaterThanOrEqual AA_TEXT }
             }
 
             test("$theme: the primary button is filled with coral-fill, not the brand mark's coral") {

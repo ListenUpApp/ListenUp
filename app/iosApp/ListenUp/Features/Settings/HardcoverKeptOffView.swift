@@ -11,6 +11,11 @@ struct HardcoverKeptOffView: View {
     @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
     @State private var observer: HardcoverKeptOffObserver?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// At accessibility sizes the large title truncates to "Kept off Har…"; the inline title holds it whole.
+    /// HIG, Navigation bars: a large title is for when it helps, and here it costs the words.
+    static func usesInlineTitle(at size: DynamicTypeSize) -> Bool { size.isAccessibilitySize }
 
     var body: some View {
         Group {
@@ -22,7 +27,7 @@ struct HardcoverKeptOffView: View {
         }
         .background(Color.luSurface)
         .navigationTitle(String(localized: "hardcover.kept_off_title").titleStyled)
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(Self.usesInlineTitle(at: dynamicTypeSize) ? .inline : .large)
         .onAppear {
             if observer == nil {
                 observer = HardcoverKeptOffObserver(viewModel: deps.createKeptOffBooksViewModel())
@@ -62,31 +67,51 @@ struct HardcoverKeptOffView: View {
 }
 
 /// A kept-off book: its cover, title and author, and Sync Again named by the book.
-private struct KeptOffBookRowView: View {
+///
+/// Side by side at the regular sizes. At the accessibility sizes the three crushed the title to a word a line
+/// and broke "Sync Again" mid-word, so the cover steps aside and Sync Again goes under the book. HIG,
+/// Typography: at large sizes, stack content that sat side by side.
+struct KeptOffBookRowView: View {
     let book: KeptOffBookRow
     let onSyncAgain: () -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        HStack(spacing: Spacing.s) {
-            BookCoverImage(bookId: book.id, coverPath: book.coverPath, coverHash: book.coverHash)
-                .frame(width: 40, height: 60)
-                .clipShape(RoundedRectangle(cornerRadius: Radius.xs))
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(book.title)
-                    .font(.body)
-                if !book.authorNames.isEmpty {
-                    Text(book.authorNames)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: Spacing.s) {
+                bookText
+                syncAgainButton
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .combine)
-            Button(String(localized: "hardcover.sync_again").titleStyled, action: onSyncAgain)
-                .buttonStyle(.bordered)
-                .buttonBorderShape(.capsule)
-                .accessibilityLabel(String(format: String(localized: "hardcover.sync_again_label"), book.title))
+        } else {
+            HStack(spacing: Spacing.s) {
+                BookCoverImage(bookId: book.id, coverPath: book.coverPath, coverHash: book.coverHash)
+                    .frame(width: 40, height: 60)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.xs))
+                    .accessibilityHidden(true)
+                bookText
+                syncAgainButton
+            }
         }
+    }
+
+    private var bookText: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(book.title)
+                .font(.body)
+            if !book.authorNames.isEmpty {
+                Text(book.authorNames)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var syncAgainButton: some View {
+        Button(String(localized: "hardcover.sync_again").titleStyled, action: onSyncAgain)
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
+            .accessibilityLabel(String(format: String(localized: "hardcover.sync_again_label"), book.title))
     }
 }

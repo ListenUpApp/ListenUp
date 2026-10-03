@@ -64,6 +64,9 @@ private val TITLE_SIZED_ALLOWED =
         ".cd-avatar",
         ".luw .hc-avatar",
         ".rs-input",
+        // The ListenUp score at the head of its sources view, a numeral like Home's week total.
+        "dialog.dlg .rt-src-big",
+        "dialog.dlg .rt-src-big .rt-star",
         // The sign-in screen's brand line, beside the page's own H1 — a poster, not a title.
         ".auth-hd",
     )

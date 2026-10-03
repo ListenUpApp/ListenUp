@@ -1,63 +1,57 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.calypsan.listenup.client.design.components.ListenUpButton
-import com.calypsan.listenup.client.design.components.RatingStars
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.design.theme.ContentShapes
+import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
-import com.calypsan.listenup.client.domain.model.CombinedScore
+import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsEvent
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsViewModel
-import com.calypsan.listenup.domain.ListenerRatingLimits
-import com.calypsan.listenup.domain.averageLabel
-import com.calypsan.listenup.domain.compactCount
+import com.calypsan.listenup.core.currentEpochMilliseconds
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.book_detail_rating_edit
-import listenup.composeapp.generated.resources.book_detail_rating_external
-import listenup.composeapp.generated.resources.book_detail_rating_external_a11y
-import listenup.composeapp.generated.resources.book_detail_rating_external_a11y_one
-import listenup.composeapp.generated.resources.book_detail_rating_external_one
-import listenup.composeapp.generated.resources.book_detail_rating_listeners
-import listenup.composeapp.generated.resources.book_detail_rating_listeners_a11y
-import listenup.composeapp.generated.resources.book_detail_rating_listeners_a11y_one
-import listenup.composeapp.generated.resources.book_detail_rating_rate
-import listenup.composeapp.generated.resources.book_detail_rating_refresh
-import listenup.composeapp.generated.resources.book_detail_rating_yours
+import listenup.composeapp.generated.resources.book_detail_rating_heading
+import listenup.composeapp.generated.resources.book_detail_rating_removed
+import listenup.composeapp.generated.resources.book_detail_rating_undo
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
+/** At this width of its own, the block splits into your half and everyone's, side by side. */
+internal val RatingsSplitMinWidth = 560.dp
+
 /**
- * The rating block on Book Detail, bound to [BookRatingsViewModel]: the [BookRatingSection], and
- * the [RateBookSheet] that "Rate" and "Edit" open. Renders nothing until the ratings are read.
+ * The rating block on Book Detail, bound to [BookRatingsViewModel]: the [BookRatingSection], the
+ * [RateBookSheet] for your note, the [RatingBreakdownSheet] the score's row opens, and "Rating removed"
+ * with Undo after you remove your rating. Renders nothing until the ratings are read.
  *
  * @param bookId The book being rated; scopes the [BookRatingsViewModel].
  * @param modifier Optional modifier.
@@ -74,12 +68,32 @@ fun BookRatingBlock(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var isSheetOpen by rememberSaveable { mutableStateOf(false) }
     var isBreakdownOpen by rememberSaveable { mutableStateOf(false) }
+    val snackbarHostState = LocalSnackbarHostState.current
+    val removed = stringResource(Res.string.book_detail_rating_removed)
+    val undo = stringResource(Res.string.book_detail_rating_undo)
+
+    LaunchedEffect(viewModel) {
+        viewModel.events.collect { event ->
+            when (event) {
+                BookRatingsEvent.RatingRemoved -> {
+                    val result =
+                        snackbarHostState.showSnackbar(
+                            message = removed,
+                            actionLabel = undo,
+                            duration = SnackbarDuration.Short,
+                        )
+                    if (result == SnackbarResult.ActionPerformed) viewModel.undoClear()
+                }
+            }
+        }
+    }
 
     BookRatingSection(
         state = state,
-        onRate = { isSheetOpen = true },
-        onEdit = { isSheetOpen = true },
-        onOpenBreakdown = { isBreakdownOpen = true },
+        onSetStars = viewModel::setStars,
+        onEditNote = { isSheetOpen = true },
+        onRemove = viewModel::clear,
+        onOpenSources = { isBreakdownOpen = true },
         onRefreshExternal = viewModel::refreshExternal,
         isCard = isCard,
         modifier = modifier,
@@ -96,6 +110,7 @@ fun BookRatingBlock(
     }
 
     if (isBreakdownOpen && ready != null) {
+        val nowMs = remember { currentEpochMilliseconds() }
         RatingBreakdownSheet(
             breakdown = ready.breakdown,
             score = ready.external,
@@ -104,106 +119,91 @@ fun BookRatingBlock(
             isRefreshingExternal = ready.isRefreshingExternal,
             onRefresh = viewModel::refreshExternal,
             onDismiss = { isBreakdownOpen = false },
+            nowMs = nowMs,
         )
     }
 }
 
 /**
- * Stateless rating section: your listeners' average when anyone has rated the book, then either an
- * invitation to rate it or your own stars with a way to edit them. [BookRatingsUiState.Loading]
- * renders nothing, so the section never flashes an invitation you have already answered.
+ * Book Detail's ratings, yours first: a "Ratings" heading, then [RatingsYouCard] — your stars as the
+ * control — then [RatingsEveryoneRows], the ListenUp score and your listeners in labelled rows. Below
+ * [RatingsSplitMinWidth] the two stack; at it and above they sit side by side as two halves. Inside a
+ * card ([isCard]) "You" sits flat rather than nesting a second card.
+ * [BookRatingsUiState.Loading] renders nothing, so the section never flashes an invitation you have
+ * already answered.
  *
  * @param state The rating state to show.
- * @param onRate Opens the rate sheet when you have not rated the book.
- * @param onEdit Opens the rate sheet on your existing rating.
- * @param onOpenBreakdown Opens the per-source breakdown sheet; invoked when the headline is tapped.
- * @param onRefreshExternal Re-fetches every enabled outside source now; invoked from the quiet
- *   "Refresh ratings" action shown where the headline would sit, before any score exists.
+ * @param onSetStars Saves the stars you settled on — a tap, the end of a drag, a key or TalkBack step.
+ * @param onEditNote Opens the rate sheet for your note.
+ * @param onRemove Removes your rating.
  * @param modifier Optional modifier.
+ * @param onOpenSources Opens the sources sheet; the score's row invokes it.
+ * @param onRefreshExternal Re-fetches every enabled outside source now (admin).
  * @param isCard When true, wraps the section in a `surfaceContainerLow` card, like the Readers card.
  */
 @Composable
 fun BookRatingSection(
     state: BookRatingsUiState,
-    onRate: () -> Unit,
-    onEdit: () -> Unit,
-    onOpenBreakdown: () -> Unit = {},
-    onRefreshExternal: () -> Unit = {},
+    onSetStars: (Int) -> Unit,
+    onEditNote: () -> Unit,
+    onRemove: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenSources: () -> Unit = {},
+    onRefreshExternal: () -> Unit = {},
     isCard: Boolean = false,
 ) {
     val ready = state as? BookRatingsUiState.Ready ?: return
-    val haptics = LocalHaptics.current
     val innerPadding = if (isCard) Spacing.screenMargin else 0.dp
 
     val content: @Composable () -> Unit = {
         Column(
             modifier = Modifier.fillMaxWidth().padding(innerPadding),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            ExternalHeadlineOrRefresh(
-                // A listeners-only score would repeat the listeners' line below as a second,
-                // recalibrated number; their line says it plainly instead.
-                external = ready.external?.takeUnless { it.isListenersOnly },
-                canRefresh = ready.canRefresh,
-                isRefreshingExternal = ready.isRefreshingExternal,
-                onOpenBreakdown = onOpenBreakdown,
-                onRefreshExternal = onRefreshExternal,
+            Text(
+                text = stringResource(Res.string.book_detail_rating_heading),
+                style =
+                    MaterialTheme.typography.titleLarge.copy(
+                        fontFamily = DisplayFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                    ),
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics { heading() },
             )
-
-            ready.listeners?.let { listeners ->
-                val stars = ListenerRatingLimits.starsLabel(listeners.averageHalfStars)
-                val spoken =
-                    if (listeners.count == 1) {
-                        stringResource(Res.string.book_detail_rating_listeners_a11y_one, stars)
-                    } else {
-                        stringResource(Res.string.book_detail_rating_listeners_a11y, stars, listeners.count)
-                    }
-                Text(
-                    text =
-                        stringResource(
-                            Res.string.book_detail_rating_listeners,
-                            "$STAR_GLYPH $stars",
-                            listeners.count,
-                        ),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.clearAndSetSemantics { contentDescription = spoken },
-                )
-            }
-
-            val mine = ready.mine
-            if (mine == null) {
-                ListenUpButton(
-                    text = stringResource(Res.string.book_detail_rating_rate),
-                    onClick = onRate,
-                    filled = false,
-                    fillMaxWidth = false,
-                )
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(Res.string.book_detail_rating_yours),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val you: @Composable (Modifier) -> Unit = {
+                    RatingsYouCard(
+                        mine = ready.mine,
+                        onSetStars = onSetStars,
+                        onEditNote = onEditNote,
+                        onRemove = onRemove,
+                        modifier = it,
+                        isContained = !isCard,
                     )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    RatingStars(halfStars = mine.halfStars)
-                    Spacer(modifier = Modifier.weight(1f))
-                    TextButton(
-                        onClick = {
-                            haptics.press()
-                            onEdit()
-                        },
+                }
+                val everyone: @Composable (Modifier) -> Unit = {
+                    RatingsEveryoneRows(
+                        ready = ready,
+                        onOpenSources = onOpenSources,
+                        onRefreshExternal = onRefreshExternal,
+                        modifier = it,
+                    )
+                }
+                if (maxWidth >= RatingsSplitMinWidth) {
+                    // A-And-Tablet: two equal halves, a hairline between them.
+                    Row(
+                        modifier = Modifier.height(IntrinsicSize.Min),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
+                        verticalAlignment = Alignment.Top,
                     ) {
-                        Text(
-                            text = stringResource(Res.string.book_detail_rating_edit),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                        )
+                        you(Modifier.weight(1f))
+                        VerticalDivider()
+                        everyone(Modifier.weight(1f))
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                        you(Modifier)
+                        everyone(Modifier)
                     }
                 }
             }
@@ -221,68 +221,3 @@ fun BookRatingSection(
         Box(modifier = modifier) { content() }
     }
 }
-
-/**
- * The ListenUp score's headline ("★ 4.4 · 12k ratings"), tappable to open the breakdown sheet — or,
- * before any enabled outside source has rated the book, the quiet "Refresh ratings" action an
- * admin sees in its place, since there is no headline yet to open that sheet from. A book only
- * your listeners have rated has no headline: [BookRatingSection] passes null for its score.
- *
- * @param external The headline score, or null when no outside source has rated the book yet.
- * @param canRefresh Whether the signed-in listener may trigger [onRefreshExternal] (admin or root).
- * @param isRefreshingExternal Whether a refresh is currently in flight.
- * @param onOpenBreakdown Opens the per-source breakdown sheet; invoked when the headline is tapped.
- * @param onRefreshExternal Re-fetches every enabled outside source now.
- */
-@Composable
-private fun ExternalHeadlineOrRefresh(
-    external: CombinedScore?,
-    canRefresh: Boolean,
-    isRefreshingExternal: Boolean,
-    onOpenBreakdown: () -> Unit,
-    onRefreshExternal: () -> Unit,
-) {
-    if (external != null) {
-        val haptics = LocalHaptics.current
-        val average = averageLabel(external.average)
-        val compact = compactCount(external.count)
-        val spoken =
-            if (external.count == 1) {
-                stringResource(Res.string.book_detail_rating_external_a11y_one, average)
-            } else {
-                stringResource(Res.string.book_detail_rating_external_a11y, average, compact)
-            }
-        val display =
-            if (external.count == 1) {
-                stringResource(Res.string.book_detail_rating_external_one, "$STAR_GLYPH $average")
-            } else {
-                stringResource(Res.string.book_detail_rating_external, "$STAR_GLYPH $average", compact)
-            }
-        Text(
-            text = display,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier =
-                Modifier
-                    .clearAndSetSemantics {
-                        contentDescription = spoken
-                        role = Role.Button
-                    }.clickable {
-                        haptics.press()
-                        onOpenBreakdown()
-                    },
-        )
-    } else if (canRefresh) {
-        ListenUpButton(
-            text = stringResource(Res.string.book_detail_rating_refresh),
-            onClick = onRefreshExternal,
-            isLoading = isRefreshingExternal,
-            filled = false,
-            fillMaxWidth = false,
-            modifier = Modifier.testTag("refreshRatingsInlineButton"),
-        )
-    }
-}
-
-/** The star shown before your listeners' average; TalkBack reads a plain sentence instead. */
-private const val STAR_GLYPH = "★"

@@ -329,7 +329,9 @@ private struct HardcoverHero: View {
     }
 }
 
-/// One promise about what connecting does, with its glyph.
+/// One promise about what connecting does, with its glyph. The glyph is decorative — the sentence says it
+/// all — so VoiceOver never speaks a symbol's own label ("Selected" for `checkmark`). HIG, VoiceOver: hide
+/// purely decorative images.
 struct HardcoverStatementRow: View {
     let systemImage: String
     let text: String
@@ -341,6 +343,7 @@ struct HardcoverStatementRow: View {
         } icon: {
             Image(systemName: systemImage)
                 .foregroundStyle(tint)
+                .accessibilityHidden(true)
         }
     }
 }

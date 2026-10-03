@@ -2,11 +2,15 @@ package com.calypsan.listenup.client.domain.model
 
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 
-/** One outside catalog's rating of a book, as the UI reads it. */
+/**
+ * One outside catalog's rating of a book, as the UI reads it. [fetchedAtMs] is when the server last
+ * fetched it, for "Updated 3 days ago"; null when the server didn't say.
+ */
 data class ExternalRating(
     val source: ExternalRatingSource,
     val average: Double,
     val count: Int,
+    val fetchedAtMs: Long? = null,
 )
 
 /**

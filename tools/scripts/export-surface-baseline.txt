@@ -118,6 +118,8 @@ BookMultiSelectEvent
 BookMultiSelectEvent_SealedType
 BookMultiSelectViewModel
 BookRatingRepository
+BookRatingsEvent
+BookRatingsEvent_SealedType
 BookRatingsUiState
 BookRatingsUiState_SealedType
 BookRatingsViewModel
@@ -657,6 +659,8 @@ ScanError_SealedType
 ScanIssue
 ScanIssueReason
 ScanProgressState
+ScoreRow
+ScoreRow_SealedType
 ScoreSource
 ScoreSource_SealedType
 ScrubDrag

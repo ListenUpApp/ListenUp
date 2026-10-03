@@ -1,7 +1,12 @@
 package com.calypsan.listenup.client.features.metadata
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -17,6 +22,9 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
+import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.testing.AtFontScale
+import io.kotest.matchers.comparables.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -36,43 +44,45 @@ class MatchPreviewHardcoverTest {
 
     private val moodsToggled = mutableListOf<String>()
 
-    private fun show() {
+    private fun show(fontScale: Float = 1f) {
         composeRule.setContent {
-            MaterialTheme {
-                MatchPreviewScreen(
-                    currentBook = CURRENT_BOOK,
-                    newMetadata = MATCH,
-                    selections =
-                        MetadataSelections(
-                            selectedGenres = setOf("Science Fiction", "Space Opera"),
-                            selectedMoods = setOf("Hopeful", "Funny"),
-                        ),
-                    isApplying = false,
-                    applyError = null,
-                    previewNotFound = false,
-                    selectedRegion = MetadataLocale.DEFAULT,
-                    coverOptions = emptyList(),
-                    isLoadingCovers = false,
-                    selectedCoverUrl = null,
-                    onSelectCover = {},
-                    chapterSuggestion = ChapterSuggestion.Unavailable,
-                    onReviewChapters = {},
-                    fallbackSources = mapOf(BookField.MOODS to "Hardcover"),
-                    genreSources = mapOf("Space Opera" to "Hardcover"),
-                    coverSourceLabel = null,
-                    coverResolution = null,
-                    contributingSources = listOf("Audible", "Hardcover"),
-                    onRegionSelected = {},
-                    onToggleField = {},
-                    onToggleAuthor = {},
-                    onToggleNarrator = {},
-                    onToggleSeries = {},
-                    onToggleGenre = {},
-                    onToggleMood = { moodsToggled += it },
-                    onToggleTag = {},
-                    onApply = {},
-                    onBack = {},
-                )
+            AtFontScale(fontScale) {
+                MaterialTheme {
+                    MatchPreviewScreen(
+                        currentBook = CURRENT_BOOK,
+                        newMetadata = MATCH,
+                        selections =
+                            MetadataSelections(
+                                selectedGenres = setOf("Science Fiction", "Space Opera"),
+                                selectedMoods = setOf("Hopeful", "Funny"),
+                            ),
+                        isApplying = false,
+                        applyError = null,
+                        previewNotFound = false,
+                        selectedRegion = MetadataLocale.DEFAULT,
+                        coverOptions = emptyList(),
+                        isLoadingCovers = false,
+                        selectedCoverUrl = null,
+                        onSelectCover = {},
+                        chapterSuggestion = ChapterSuggestion.Unavailable,
+                        onReviewChapters = {},
+                        fallbackSources = mapOf(BookField.MOODS to "Hardcover"),
+                        genreSources = mapOf("Space Opera" to "Hardcover"),
+                        coverSourceLabel = null,
+                        coverResolution = null,
+                        contributingSources = listOf("Audible", "Hardcover"),
+                        onRegionSelected = {},
+                        onToggleField = {},
+                        onToggleAuthor = {},
+                        onToggleNarrator = {},
+                        onToggleSeries = {},
+                        onToggleGenre = {},
+                        onToggleMood = { moodsToggled += it },
+                        onToggleTag = {},
+                        onApply = {},
+                        onBack = {},
+                    )
+                }
             }
         }
     }
@@ -91,6 +101,46 @@ class MatchPreviewHardcoverTest {
         composeRule.onNodeWithText("Hopeful").performClick()
 
         moodsToggled shouldBe listOf("Hopeful")
+    }
+
+    @Test
+    fun `the classification section and its fields are headings`() {
+        show()
+
+        listOf("CLASSIFICATION", "Genres", "Moods").forEach { label ->
+            composeRule.onNode(isHeading() and hasText(label)).assertExists()
+        }
+    }
+
+    @Test
+    fun `a chip Hardcover added says so itself, and the match's own does not`() {
+        show()
+
+        composeRule.onNode(hasText("Space Opera") and hasContentDescription("Space Opera, from Hardcover")).assertExists()
+        composeRule.onNode(hasText("Hopeful") and hasContentDescription("Hopeful, from Hardcover")).assertExists()
+        composeRule
+            .onNode(hasText("Science Fiction"))
+            .fetchSemanticsNode()
+            .config
+            .getOrElse(SemanticsProperties.ContentDescription) { emptyList() } shouldBe emptyList()
+    }
+
+    @Test
+    fun `at the default font where the fields were merged from sits in the apply bar`() {
+        show()
+
+        val merged = composeRule.onNodeWithText("Merged from Audible, Hardcover").getUnclippedBoundsInRoot()
+        val apply = composeRule.onNodeWithText("Apply selected metadata", useUnmergedTree = true).getUnclippedBoundsInRoot()
+        apply.top shouldBeLessThan merged.bottom + 40.dp
+    }
+
+    @Test
+    fun `at the largest font where the fields were merged from leaves the apply bar for the list`() {
+        show(fontScale = 2f)
+
+        val merged = composeRule.onNodeWithText("Merged from Audible, Hardcover").getUnclippedBoundsInRoot()
+        val region = composeRule.onNodeWithText("REGION").getUnclippedBoundsInRoot()
+        merged.bottom shouldBeLessThan region.top
     }
 
     private companion object {

@@ -47,8 +47,10 @@ interface BookRatingRepository {
     suspend fun refreshExternal(bookId: String): AppResult<Unit>
 
     /**
-     * Tell the server this book was opened, so it fetches a missing or stale Hardcover rating in the
-     * background (#1542). Fire-and-forget: the rating arrives through sync; a failure changes nothing.
+     * Tell the server Book Detail opened [bookId], so it fetches a missing or stale Hardcover rating in
+     * the background (#1542), and follow that fetch: true while it runs, then false when it ends,
+     * fails, or the stream drops. Emits nothing when no fetch is needed. The rating itself arrives
+     * through sync; this only says whether one may be on its way.
      */
-    suspend fun ensureExternal(bookId: String): AppResult<Unit>
+    fun observeExternalCheck(bookId: String): Flow<Boolean>
 }

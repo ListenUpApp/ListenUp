@@ -119,9 +119,9 @@ class BookExternalRatingRepository(
         return idStrs.mapNotNull { byId[it]?.toPayload() }
     }
 
-    /** A tombstone crosses the wire ungated, so it must not name the book. */
+    /** A tombstone crosses the wire ungated, so it names neither the book nor when it was last fetched. */
     override fun minimizeTombstone(payload: ExternalRatingSyncPayload): ExternalRatingSyncPayload =
-        payload.copy(bookId = "")
+        payload.copy(bookId = "", fetchedAt = null)
 
     /**
      * Writes [value]'s content columns for an existing row, or inserts a fresh one. `enabled` is
@@ -130,7 +130,7 @@ class BookExternalRatingRepository(
      * never needs to *preserve* a prior disabled flag because it can never observe one. Toggling a
      * source off is [setSourceEnabled]'s job, not this method's.
      *
-     * `region`/`fetchedAt` are server-only and not on [ExternalRatingSyncPayload] — [recordFetch]
+     * `region` is server-only and `fetchedAt` is read back from the row, not trusted from the payload — [recordFetch]
      * threads them through an [ExternalRatingWrite] extra installed via [TransactionLocal], the same
      * pattern `BookWriteExtras` uses for `BookRepository.writePayload`.
      */
@@ -344,6 +344,7 @@ class BookExternalRatingRepository(
             enabled = enabled != 0L,
             revision = revision,
             deletedAt = deleted_at,
+            fetchedAt = fetched_at,
         )
 
     private companion object {

@@ -2,6 +2,8 @@
 
 package com.calypsan.listenup.server.api
 
+import app.cash.turbine.test
+import com.calypsan.listenup.api.dto.ExternalRatingsCheck
 import com.calypsan.listenup.api.dto.RateBookRequest
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.SessionId
@@ -13,6 +15,7 @@ import com.calypsan.listenup.api.error.RatingError
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -43,8 +46,11 @@ import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.runTest
 
 class BookRatingServiceImplTest :
@@ -260,6 +266,147 @@ class BookRatingServiceImplTest :
                 val service = BookRatingServiceImpl(repo, BookAccessPolicy(sql, driver), principal("u1"), onOpen = onOpen)
                 runTest {
                     service.ensureExternalRatings(BookId("b1")).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                }
+            }
+        }
+
+        test("checkExternalRatings says CHECKING while the on-open fetch runs, then DONE when it ends") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("b1")
+                sql.seedTestUser("u1")
+                makeBookAccessible(sql, driver, bookId = "b1", viewerId = "u1")
+                val gate = CompletableDeferred<Unit>()
+                val asked = mutableListOf<String>()
+                val onOpen =
+                    HardcoverRatingOnOpen(
+                        lastTried = { null },
+                        fetch = {
+                            asked += it.value
+                            gate.await()
+                        },
+                        scope = CoroutineScope(Dispatchers.Unconfined),
+                    )
+                val repo = BookRatingRepository(sql, ChangeBus(), SyncRegistry(), driver = driver)
+                val service = BookRatingServiceImpl(repo, BookAccessPolicy(sql, driver), principal("u1"), onOpen = onOpen)
+                runTest {
+                    service.checkExternalRatings(BookId("b1")).test {
+                        awaitItem() shouldBe RpcEvent.Data(ExternalRatingsCheck.CHECKING)
+                        expectNoEvents()
+                        gate.complete(Unit)
+                        awaitItem() shouldBe RpcEvent.Data(ExternalRatingsCheck.DONE)
+                        awaitComplete()
+                    }
+                    asked shouldBe listOf("b1")
+                }
+            }
+        }
+
+        test("a second open of the same book follows the fetch already running, and starts no other") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("b1")
+                sql.seedTestUser("u1")
+                makeBookAccessible(sql, driver, bookId = "b1", viewerId = "u1")
+                val gate = CompletableDeferred<Unit>()
+                var fetches = 0
+                val onOpen =
+                    HardcoverRatingOnOpen(
+                        lastTried = { null },
+                        fetch = {
+                            fetches++
+                            gate.await()
+                        },
+                        scope = CoroutineScope(Dispatchers.Unconfined),
+                    )
+                val repo = BookRatingRepository(sql, ChangeBus(), SyncRegistry(), driver = driver)
+                val service = BookRatingServiceImpl(repo, BookAccessPolicy(sql, driver), principal("u1"), onOpen = onOpen)
+                runTest {
+                    service.checkExternalRatings(BookId("b1")).test {
+                        awaitItem() shouldBe RpcEvent.Data(ExternalRatingsCheck.CHECKING)
+                        service.checkExternalRatings(BookId("b1")).test {
+                            awaitItem() shouldBe RpcEvent.Data(ExternalRatingsCheck.CHECKING)
+                            gate.complete(Unit)
+                            awaitItem() shouldBe RpcEvent.Data(ExternalRatingsCheck.DONE)
+                            awaitComplete()
+                        }
+                        awaitItem() shouldBe RpcEvent.Data(ExternalRatingsCheck.DONE)
+                        awaitComplete()
+                    }
+                    fetches shouldBe 1
+                }
+            }
+        }
+
+        test("a fetch that outlasts the server's bound still ends the check") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("b1")
+                sql.seedTestUser("u1")
+                makeBookAccessible(sql, driver, bookId = "b1", viewerId = "u1")
+                val fetchScope = CoroutineScope(Dispatchers.Unconfined)
+                val onOpen =
+                    HardcoverRatingOnOpen(
+                        lastTried = { null },
+                        fetch = { awaitCancellation() },
+                        scope = fetchScope,
+                    )
+                val repo = BookRatingRepository(sql, ChangeBus(), SyncRegistry(), driver = driver)
+                val service = BookRatingServiceImpl(repo, BookAccessPolicy(sql, driver), principal("u1"), onOpen = onOpen)
+                runTest {
+                    service.checkExternalRatings(BookId("b1")).test {
+                        awaitItem() shouldBe RpcEvent.Data(ExternalRatingsCheck.CHECKING)
+                        // Virtual time: Turbine collects on the test scheduler, so the 20 s bound passes
+                        // without waiting for it.
+                        awaitItem() shouldBe RpcEvent.Data(ExternalRatingsCheck.DONE)
+                        awaitComplete()
+                    }
+                }
+                fetchScope.cancel()
+            }
+        }
+
+        test("a fresh rating needs no check: the stream ends without a word") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("b1")
+                sql.seedTestUser("u1")
+                makeBookAccessible(sql, driver, bookId = "b1", viewerId = "u1")
+                val onOpen =
+                    HardcoverRatingOnOpen(
+                        lastTried = {
+                            kotlin.time.Clock.System
+                                .now()
+                                .toEpochMilliseconds()
+                        },
+                        fetch = { error("a fresh rating is never fetched") },
+                        scope = CoroutineScope(Dispatchers.Unconfined),
+                    )
+                val repo = BookRatingRepository(sql, ChangeBus(), SyncRegistry(), driver = driver)
+                val service = BookRatingServiceImpl(repo, BookAccessPolicy(sql, driver), principal("u1"), onOpen = onOpen)
+                runTest {
+                    service.checkExternalRatings(BookId("b1")).test { awaitComplete() }
+                }
+            }
+        }
+
+        test("a book the caller cannot open gets no check, and nothing is fetched") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("b1")
+                sql.seedTestUser("u1")
+                val asked = mutableListOf<String>()
+                val onOpen =
+                    HardcoverRatingOnOpen(
+                        lastTried = { null },
+                        fetch = { asked += it.value },
+                        scope = CoroutineScope(Dispatchers.Unconfined),
+                    )
+                val repo = BookRatingRepository(sql, ChangeBus(), SyncRegistry(), driver = driver)
+                val service = BookRatingServiceImpl(repo, BookAccessPolicy(sql, driver), principal("u1"), onOpen = onOpen)
+                runTest {
+                    service.checkExternalRatings(BookId("b1")).test { awaitComplete() }
+                    asked shouldBe emptyList()
                 }
             }
         }

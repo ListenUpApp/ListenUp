@@ -119,13 +119,14 @@ class HardcoverMatchPageTest :
             awaitFrame()
 
             val picks = host.querySelectorAll(".hc-result button").asList().map { it as HTMLButtonElement }
-            picks.map { it.textContent.orEmpty().trim() }.distinct() shouldBe listOf("Pick")
-            picks.map { it.getAttribute("aria-label") } shouldBe
+            // "Pick" first, so a voice command finds it; then everything the row says (WCAG 2.5.3).
+            picks.map { it.textContent.orEmpty().trim() } shouldBe
                 listOf(
-                    "Match to Project Hail Mary (Audiobook, 2021)",
-                    "Match to Summary of Project Hail Mary (2022)",
-                    "Match to Project Hail Mary: Study Guide",
+                    "Pick Project Hail Mary, Andy Weir, Ray Porter, Audiobook, 2021, 8.1k ratings",
+                    "Pick Summary of Project Hail Mary, 2022, No ratings yet",
+                    "Pick Project Hail Mary: Study Guide, Quick Reads, 1 rating",
                 )
+            picks.forEach { it.hasAttribute("aria-label") shouldBe false }
             picks[0].click()
             picks[1].click()
             picked shouldBe listOf(427_578L, 1L)
@@ -137,7 +138,8 @@ class HardcoverMatchPageTest :
             awaitFrame()
 
             val picks = host.querySelectorAll(".hc-result button").asList().map { it as HTMLButtonElement }
-            picks.all { it.disabled } shouldBe true
+            // Unavailable, never `disabled`: that would drop the focus of the Pick just pressed.
+            picks.all { it.getAttribute("aria-disabled") == "true" && !it.disabled } shouldBe true
             picks[0].getAttribute("aria-busy") shouldBe "true"
             picks[1].click()
             picked.shouldBeEmpty()

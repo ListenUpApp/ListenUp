@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.features.admin
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -23,6 +23,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -51,10 +55,13 @@ import listenup.composeapp.generated.resources.admin_hardcover_token_label
 import listenup.composeapp.generated.resources.admin_hardcover_token_placeholder
 import listenup.composeapp.generated.resources.admin_hardcover_token_rejected
 import listenup.composeapp.generated.resources.admin_hardcover_token_remove_body
+import listenup.composeapp.generated.resources.admin_hardcover_token_remove_label
 import listenup.composeapp.generated.resources.admin_hardcover_token_remove_title
 import listenup.composeapp.generated.resources.admin_hardcover_token_replace
+import listenup.composeapp.generated.resources.admin_hardcover_token_replace_label
 import listenup.composeapp.generated.resources.admin_hardcover_token_save
 import listenup.composeapp.generated.resources.admin_hardcover_token_set
+import listenup.composeapp.generated.resources.common_open_in_browser
 import listenup.composeapp.generated.resources.common_remove
 import listenup.composeapp.generated.resources.rating_source_hardcover
 import org.jetbrains.compose.resources.stringResource
@@ -112,6 +119,7 @@ internal fun HardcoverSourceGroup(
             title = stringResource(Res.string.admin_hardcover_token_get),
             icon = Icons.AutoMirrored.Outlined.OpenInNew,
             onClick = { uriHandler.openUri(HARDCOVER_API_PAGE) },
+            onClickLabel = stringResource(Res.string.common_open_in_browser),
         )
         SettingToggleRow(
             icon = Icons.Outlined.Category,
@@ -158,12 +166,19 @@ private fun SavedToken(
                 text = stringResource(Res.string.admin_hardcover_token_set, username),
                 style = MaterialTheme.typography.bodyLarge,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            // Flows, so at a large font Remove wraps beneath Replace instead of being squeezed to "Re".
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                val replaceLabel = stringResource(Res.string.admin_hardcover_token_replace_label)
+                val removeLabel = stringResource(Res.string.admin_hardcover_token_remove_label)
                 ListenUpButton(
                     text = stringResource(Res.string.admin_hardcover_token_replace),
                     onClick = onReplace,
                     filled = false,
                     fillMaxWidth = false,
+                    modifier = Modifier.semantics { contentDescription = replaceLabel },
                 )
                 ListenUpButton(
                     text = stringResource(Res.string.common_remove),
@@ -172,7 +187,7 @@ private fun SavedToken(
                     filled = false,
                     fillMaxWidth = false,
                     danger = true,
-                    modifier = Modifier.testTag("hardcoverTokenRemove"),
+                    modifier = Modifier.testTag("hardcoverTokenRemove").semantics { contentDescription = removeLabel },
                 )
             }
         }
@@ -197,6 +212,7 @@ private fun TokenEntry(
                     text = stringResource(Res.string.admin_hardcover_token_rejected),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                 )
             }
             ListenUpTextField(
@@ -236,6 +252,7 @@ private fun TokenEntry(
                     text = stringResource(Res.string.admin_hardcover_token_checking),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                 )
             }
             ListenUpButton(

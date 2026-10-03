@@ -307,3 +307,18 @@ internal val MIGRATION_12_13 =
             connection.executeDdl("ALTER TABLE `admin_user_roster` DROP COLUMN `canShare`")
         }
     }
+
+/**
+ * v13 → v14: `book_external_ratings.fetchedAt` — when the server last fetched each outside rating, so
+ * Book Detail can say how fresh it is ("Updated 3 days ago"). A nullable `ADD COLUMN`, per the migration
+ * policy in [ListenUpDatabase]. Rows mirrored before it have no time, so this also rewinds that
+ * domain's cursor, as [MIGRATION_10_11] did: a missing cursor is `since = 0`, and the next catch-up
+ * re-pulls every row with its time. The domain has no outbox, so nothing unsynced is touched.
+ */
+internal val MIGRATION_13_14 =
+    object : Migration(13, 14) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE `book_external_ratings` ADD COLUMN `fetchedAt` INTEGER")
+            connection.executeDdl("DELETE FROM `sync_cursor` WHERE `domainName` = 'book_external_ratings'")
+        }
+    }

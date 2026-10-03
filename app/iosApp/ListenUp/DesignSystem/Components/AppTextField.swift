@@ -181,8 +181,11 @@ struct AppTextField: View {
         switch kind {
         case .secure:
             Button { isSecure.toggle() } label: {
+                // A 44-point target around a small glyph (HIG, Buttons); it sits in a row at least that tall.
                 Image(systemName: isSecure ? "eye.slash" : "eye")
                     .foregroundStyle(.secondary)
+                    .frame(width: TapTarget.minimum, height: TapTarget.minimum)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(String(localized: isSecure ? "common.show_password" : "common.hide_password"))
@@ -205,13 +208,16 @@ struct AppTextField: View {
             .padding(.leading, Self.leadingIcon(explicit: icon, kind: kind) == nil ? Spacing.m : 46)
     }
 
+    /// The glyph red, the words primary: system red text on white is 3.57:1, under the 4.5:1 text needs
+    /// (HIG, Accessibility); the red glyph and VoiceOver's "Error:" still mark it as an error.
     private func errorCaption(_ message: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: "exclamationmark.circle.fill")
+                .foregroundStyle(.red)
             Text(message)
+                .foregroundStyle(Color.primary)
         }
         .font(.caption)
-        .foregroundStyle(.red)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(format: String(localized: "common.error_a11y"), message))
         .accessibilityAddTraits(.isStaticText)

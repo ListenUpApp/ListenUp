@@ -75,11 +75,13 @@ import listenup.composeapp.generated.resources.hardcover_keep_off_confirm_body_t
 import listenup.composeapp.generated.resources.hardcover_keep_off_confirm_title
 import listenup.composeapp.generated.resources.hardcover_keep_off_switch
 import listenup.composeapp.generated.resources.hardcover_kept_off_line
+import listenup.composeapp.generated.resources.hardcover_never_matched_line
 import listenup.composeapp.generated.resources.hardcover_match_remove
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
+import androidx.compose.ui.semantics.heading
 
 private val CardCorner = 20.dp
 private val StatusIconSize = 18.dp
@@ -88,8 +90,8 @@ private val ActionMinHeight = 48.dp
 
 /**
  * Book Detail's Hardcover card (spec B5). Draws nothing unless the user is connected. A book never matched is
- * the Sync with Hardcover switch alone (decision 1); one that needs a match, is matched, or is kept off adds its
- * own block. A null [onFindMatch] hides it entirely, without asking Koin for its
+ * the Sync with Hardcover switch and one quiet line saying it isn't matched yet; one that needs a match, is
+ * matched, or is kept off adds its own block. A null [onFindMatch] hides it entirely, without asking Koin for its
  * ViewModel — desktop is frozen and has no Find on Hardcover.
  */
 @Composable
@@ -166,9 +168,13 @@ internal fun BookHardcoverContent(
                     Unit
                 }
 
-                // Decision 1: a book never matched is the switch row alone.
+                // A book never matched says so quietly, so the switch's "on" doesn't read as "syncing" (#1562).
                 BookHardcoverUiState.Unmatched -> {
-                    Unit
+                    Text(
+                        stringResource(Res.string.hardcover_never_matched_line),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
 
                 BookHardcoverUiState.NeedsMatch -> {
@@ -261,6 +267,7 @@ private fun NeedsMatchBody(onFindMatch: () -> Unit) {
             stringResource(Res.string.hardcover_book_row_needs_match),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
+            modifier = Modifier.semantics { heading() },
         )
         Text(
             stringResource(Res.string.hardcover_book_row_needs_match_detail),
@@ -287,6 +294,7 @@ private fun LinkedBody(
             state.match.title ?: stringResource(Res.string.hardcover_book_row_matched_unnamed),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
+            modifier = Modifier.semantics { heading() },
         )
         byline(state.match.authors, state.match.releaseYear)?.let {
             Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

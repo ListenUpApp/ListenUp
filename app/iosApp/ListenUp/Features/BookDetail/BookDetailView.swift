@@ -101,7 +101,8 @@ struct BookDetailView: View {
                     canRefresh: snapshot.canRefresh,
                     isRefreshingExternal: snapshot.isRefreshingExternal,
                     onRefresh: { ratingsObserver.refreshExternal() },
-                    onClose: { showRatingBreakdown = false }
+                    onClose: { showRatingBreakdown = false },
+                    nowMs: Int64(Date().timeIntervalSince1970 * 1000)
                 )
             }
         }
@@ -204,31 +205,7 @@ struct BookDetailView: View {
 
                 descriptionAndVisibility(observer)
 
-                Divider()
-
-                BookChaptersSection(chapters: observer.chapters)
-
-                if observer.layout.showsSocial {
-                    ratingSection
-
-                    readersSection
-
-                    hardcoverSection
-                }
-
-                Divider()
-
-                if !observer.documents.isEmpty {
-                    SupplementaryMaterialsSection(
-                        documents: observer.documents,
-                        openingDocIds: observer.openingDocIds,
-                        onOpen: { observer.openDocument(docId: $0) }
-                    )
-
-                    Divider()
-                }
-
-                detailsSection(observer)
+                contentSections(observer)
             }
             .padding(.horizontal)
         }
@@ -267,31 +244,7 @@ struct BookDetailView: View {
             VStack(alignment: .leading, spacing: 28) {
                 descriptionAndVisibility(observer)
 
-                Divider()
-
-                BookChaptersSection(chapters: observer.chapters)
-
-                if observer.layout.showsSocial {
-                    ratingSection
-
-                    readersSection
-
-                    hardcoverSection
-                }
-
-                Divider()
-
-                if !observer.documents.isEmpty {
-                    SupplementaryMaterialsSection(
-                        documents: observer.documents,
-                        openingDocIds: observer.openingDocIds,
-                        onOpen: { observer.openDocument(docId: $0) }
-                    )
-
-                    Divider()
-                }
-
-                detailsSection(observer)
+                contentSections(observer)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -347,16 +300,18 @@ struct BookDetailView: View {
         )
     }
 
-    /// The rating block, directly above Readers. Renders nothing while the ratings are loading, so
-    /// it never flashes "Rate" at someone who already has.
+    /// The rating block, above Readers and Chapters. Renders nothing while the ratings are loading, so it
+    /// never flashes an invitation at someone who has already rated.
     @ViewBuilder
-    private var ratingSection: some View {
+    var ratingSection: some View {
         if case .ready(let snapshot) = ratingsObserver?.phase {
             Divider()
             BookRatingSection(
                 snapshot: snapshot,
-                onOpenSheet: { showRateSheet = true },
-                onOpenBreakdown: { showRatingBreakdown = true },
+                onSetStars: { ratingsObserver?.setStars($0) },
+                onEditNote: { showRateSheet = true },
+                onRemove: { ratingsObserver?.clear() },
+                onOpenSources: { showRatingBreakdown = true },
                 onRefreshExternal: { ratingsObserver?.refreshExternal() }
             )
         }
@@ -365,14 +320,14 @@ struct BookDetailView: View {
     /// The social "Readers" block. Renders only when the readers VM has data; loading, empty,
     /// and error phases keep the section (and its surrounding divider) out of the layout entirely.
     @ViewBuilder
-    private var readersSection: some View {
+    var readersSection: some View {
         if case .data(let rows) = readersObserver?.phase {
             Divider()
             BookReadersSection(readers: rows)
         }
     }
 
-    private func detailsSection(_ observer: BookDetailObserver) -> some View {
+    func detailsSection(_ observer: BookDetailObserver) -> some View {
         let audioFormat = observer.audioFormat
         return BookDetailsSection(
             authors: observer.authors,

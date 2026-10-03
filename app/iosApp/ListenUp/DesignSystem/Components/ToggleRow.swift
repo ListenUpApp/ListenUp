@@ -16,6 +16,11 @@ struct ToggleRow: View {
     var subtitle: String?
     @Binding var isOn: Bool
     var isBusy: Bool = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// The tile is decorative (and hidden from VoiceOver). At the accessibility sizes it took ~45 points
+    /// from a column narrow enough to hyphenate "Hardcov-er", so it steps aside there. HIG, Typography.
+    static func showsIconTile(at size: DynamicTypeSize) -> Bool { !size.isAccessibilitySize }
 
     var body: some View {
         if isBusy {
@@ -32,8 +37,10 @@ struct ToggleRow: View {
 
     private var label: some View {
         HStack(spacing: 13) {
-            IconTile(systemImage: systemImage, tint: tint)
-                .accessibilityHidden(true)
+            if Self.showsIconTile(at: dynamicTypeSize) {
+                IconTile(systemImage: systemImage, tint: tint)
+                    .accessibilityHidden(true)
+            }
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
                     .font(.body)

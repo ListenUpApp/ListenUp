@@ -82,7 +82,7 @@
   --warn:             #7A5A11;
   --warn-soft:        #FBF1D8;
   --on-warn:          #FFFFFF;
-  --success:          #1E7A4E;
+  --success:          #1A6E46;   /* 4.5:1 on the hero's coral wash too, where #1E7A4E read 4.08 */
   --success-soft:     #E4F2EA;
 
   /* type voices */
@@ -103,6 +103,10 @@
   --line:      rgba(28,23,20,0.10);
   --line-2:    rgba(28,23,20,0.07);
   --hairline:  rgba(28,23,20,0.14);
+  /* The edge of a control that must be found by its outline alone (WCAG 1.4.11, 3:1): an outlined
+     button, an off switch's track. `--line` is a divider at 1.2:1 — right for a card, invisible on a
+     control. */
+  --outline:   rgba(28,23,20,0.52);
   /* Elevation. Warm-brown shadows on paper; black, and deeper, at night — a brown shadow on a
      near-black page is invisible, and a coral glow there reads as a halo rather than as light. */
   --shadow-card: 0 1px 2px rgba(40,28,18,0.05), 0 18px 50px rgba(40,28,18,0.10);
@@ -187,6 +191,7 @@
   --line:      rgba(255,255,255,0.10);
   --line-2:    rgba(255,255,255,0.06);
   --hairline:  rgba(255,255,255,0.14);
+  --outline:   rgba(255,255,255,0.38);
   --coral-soft: rgba(240,81,47,0.18);
   --coral-ring: rgba(240,81,47,0.30);
   /* White on Lamp Coral fails at night too, so the fill stays Coral Fill; Night Coral, the

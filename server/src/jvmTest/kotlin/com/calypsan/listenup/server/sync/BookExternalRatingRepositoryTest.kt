@@ -90,6 +90,31 @@ class BookExternalRatingRepositoryTest :
             }
         }
 
+        test("a fetched row carries its fetch time to clients, and a refetch moves it") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1", asin = "B001")
+                val repo =
+                    BookExternalRatingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver)
+                runTest {
+                    repo
+                        .recordFetch("book1", ExternalRatingSource.HARDCOVER, 4.1, 88, null, 1_000L)
+                        .shouldBeInstanceOf<AppResult.Success<ExternalRatingSyncPayload>>()
+                        .data
+                        .fetchedAt shouldBe 1_000L
+
+                    repo.recordFetch("book1", ExternalRatingSource.HARDCOVER, 4.2, 90, null, 5_000L)
+
+                    repo.findForBook("book1").single().fetchedAt shouldBe 5_000L
+                    repo
+                        .pullSince(userId = null, cursor = 0L, limit = 10)
+                        .items
+                        .single()
+                        .fetchedAt shouldBe 5_000L
+                }
+            }
+        }
+
         test("setSourceEnabled(false) flips every row of that source and emits one Updated per row, leaving other sources untouched") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
@@ -308,6 +333,7 @@ class BookExternalRatingRepositoryTest :
                     val tombstone = repo.pullSince(userId = null, cursor = 0L, limit = 10).items.single()
                     tombstone.id shouldBe stored.id
                     tombstone.bookId shouldBe ""
+                    tombstone.fetchedAt shouldBe null
                     tombstone.deletedAt shouldNotBe null
                 }
             }

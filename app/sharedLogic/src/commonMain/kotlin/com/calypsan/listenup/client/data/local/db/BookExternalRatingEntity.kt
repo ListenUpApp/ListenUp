@@ -23,6 +23,8 @@ import kotlinx.coroutines.flow.Flow
  * @property count How many ratings the average is over.
  * @property enabled False when an admin has switched this source off; the row stays (so
  *   re-enabling restores the score at once), but combined-score computation excludes it.
+ * @property fetchedAt When the server last fetched this rating (epoch ms), for "Updated 3 days ago";
+ *   null for a row from a server older than the field.
  */
 @Entity(
     tableName = "book_external_ratings",
@@ -41,6 +43,7 @@ internal data class BookExternalRatingEntity(
     val enabled: Boolean,
     val revision: Long = 0,
     val deletedAt: Long? = null,
+    val fetchedAt: Long? = null,
 )
 
 /**

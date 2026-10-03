@@ -14,16 +14,29 @@ import androidx.compose.material3.TopAppBarColors
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.util.isLargeFontScale
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
 import org.jetbrains.compose.resources.stringResource
+
+/** The most lines a bar title takes at a large font before it ellipsizes. */
+private const val LARGE_TEXT_TITLE_LINES = 2
+
+/** The breathing room above and below a large-font title in its grown bar. */
+private val LargeTextBarPadding = 16.dp
 
 /**
  * The canonical standard top app bar — every feature screen's bar is this one. A thin wrapper over
@@ -48,6 +61,9 @@ import org.jetbrains.compose.resources.stringResource
  *   while content scrolls under it.
  * @param colors The bar's container and content colours.
  * @param actions Trailing action slot.
+ *
+ * At a large font one line holds only a few letters of a title ("The Two To…"), so the title may take a
+ * second line and the bar grows to hold what it shows, as Material's flexible bars do.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,22 +79,41 @@ fun ListenUpTopAppBar(
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val haptics = LocalHaptics.current
+    val largeText = isLargeFontScale()
+    val titleStyle = MaterialTheme.typography.headlineSmall
+    val subtitleStyle = MaterialTheme.typography.labelMedium
+    var titleLines by remember { mutableIntStateOf(1) }
+    val density = LocalDensity.current
+    val expandedHeight =
+        if (largeText) {
+            with(density) {
+                val subtitleHeight = if (subtitle != null) subtitleStyle.lineHeight.toDp() else 0.dp
+                maxOf(
+                    TopAppBarDefaults.TopAppBarExpandedHeight,
+                    titleStyle.lineHeight.toDp() * titleLines + subtitleHeight + LargeTextBarPadding,
+                )
+            }
+        } else {
+            TopAppBarDefaults.TopAppBarExpandedHeight
+        }
     TopAppBar(
         modifier = modifier,
+        expandedHeight = expandedHeight,
         title = {
             Column {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = titleStyle,
                     fontWeight = FontWeight.ExtraBold,
-                    maxLines = 1,
+                    maxLines = if (largeText) LARGE_TEXT_TITLE_LINES else 1,
                     overflow = TextOverflow.Ellipsis,
+                    onTextLayout = { titleLines = it.lineCount },
                     modifier = Modifier.semantics { heading() },
                 )
                 subtitle?.let {
                     Text(
                         text = it,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = subtitleStyle,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

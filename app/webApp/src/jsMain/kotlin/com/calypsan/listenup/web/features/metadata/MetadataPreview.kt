@@ -281,13 +281,24 @@ private fun FieldRow(
     clamp: Boolean = false,
     onToggle: () -> Unit,
 ) {
+    val fromId = "mdx-from-${label.idSlug()}"
     Div(attrs = { classes("mdx-field") }) {
-        CheckboxField(label = label, checked = checked, onChange = { onToggle() })
+        CheckboxField(
+            label = label,
+            checked = checked,
+            onChange = { onToggle() },
+            describedBy = source?.let { fromId },
+        )
         Div(attrs = {
             classes("mdx-field-v")
             if (clamp) classes("clamp")
         }) { Text(value) }
-        source?.let { Span(attrs = { classes("mdx-from") }) { Text("from $it") } }
+        source?.let {
+            Span(attrs = {
+                classes("mdx-from")
+                id(fromId)
+            }) { Text("from $it") }
+        }
     }
 }
 
@@ -305,12 +316,34 @@ private fun ValueRows(
     sourceOf: (String) -> String? = { null },
 ) {
     if (values.isEmpty()) return
-    Div(attrs = { classes("mdx-values") }) {
-        Span(attrs = { classes("mdx-values-l") }) { Text(label) }
-        values.forEach { (valueKey, text) ->
+    val labelId = "mdx-values-${label.idSlug()}"
+    // A named group, so "Space Opera, checkbox" is heard as one of the Genres; and each value's
+    // provenance is its description, so a Hardcover value does not sound like any other.
+    Div(attrs = {
+        classes("mdx-values")
+        attr("role", "group")
+        attr("aria-labelledby", labelId)
+    }) {
+        Span(attrs = {
+            classes("mdx-values-l")
+            id(labelId)
+        }) { Text(label) }
+        values.forEachIndexed { index, (valueKey, text) ->
             key(valueKey) {
-                CheckboxField(label = text, checked = valueKey in selected, onChange = { onToggle(valueKey) })
-                sourceOf(valueKey)?.let { source -> Span(attrs = { classes("mdx-from") }) { Text("from $source") } }
+                val source = sourceOf(valueKey)
+                val fromId = "$labelId-from-$index"
+                CheckboxField(
+                    label = text,
+                    checked = valueKey in selected,
+                    onChange = { onToggle(valueKey) },
+                    describedBy = source?.let { fromId },
+                )
+                source?.let {
+                    Span(attrs = {
+                        classes("mdx-from")
+                        id(fromId)
+                    }) { Text("from $it") }
+                }
             }
         }
     }
@@ -438,3 +471,6 @@ private const val ATTR_TYPE = "type"
 private const val VALUE_BUTTON = "button"
 
 private const val SMALL_ICON = 16
+
+/** A field's label as an id fragment: "Narrators" → "narrators". */
+private fun String.idSlug(): String = lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')

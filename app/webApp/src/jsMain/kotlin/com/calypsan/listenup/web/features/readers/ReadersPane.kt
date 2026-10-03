@@ -120,6 +120,12 @@ private fun ReaderRows(
     onOpenProfile: (String) -> Unit,
 ) {
     Div(attrs = { classes("rdr-list") }) {
+        // What every row does, said once and pointed at by each: the row's own words say who, not that
+        // pressing it opens their profile.
+        Span(attrs = {
+            id(OPENS_PROFILE_ID)
+            attr("hidden", "")
+        }) { Text("View profile") }
         lines.forEach { line ->
             key(line.stableKey()) {
                 ReaderRow(line, nowMs, onOpenProfile)
@@ -159,19 +165,28 @@ private fun ReaderRow(
         classes("rdr-row")
         if (kind is ReaderLineKind.Reading) classes("is-live")
         attr("type", "button")
+        attr("aria-describedby", OPENS_PROFILE_ID)
         onClick { onOpenProfile(line.userId) }
     }) {
         UserAvatar(userId = line.userId, name = name, size = AVATAR_SIZE)
         Div(attrs = { classes("rdr-who") }) {
             Div(attrs = { classes("rdr-nl") }) {
-                Span(attrs = { classes("rdr-n") }) { Text(name) }
+                // Two lines, then an ellipsis — with the whole name on hover, so a long one is never lost.
+                Span(attrs = {
+                    classes("rdr-n")
+                    attr("title", name)
+                }) { Text(name) }
                 // The rating rides on a person's first line only — see `flattenToLines`.
                 line.rating?.let { RatingStars(halfStars = it.halfStars) }
             }
             if (kind is ReaderLineKind.FinishedOnHardcover) {
                 // Where the read was logged, named in text — never the service's logo.
+                // Read aloud as "Read October 2018 on Hardcover", not a run-on "2018Hardcover".
                 Div(attrs = { classes("rdr-sl") }) {
-                    Span(attrs = { classes("rdr-s") }) { Text(stateLine(kind, nowMs)) }
+                    Span(attrs = { classes("rdr-s") }) {
+                        Text(stateLine(kind, nowMs))
+                        Span(attrs = { classes("sr-only") }) { Text(" on") }
+                    }
                     Span(attrs = { classes("rdr-src") }) { Text(HARDCOVER) }
                 }
             } else if (kind is ReaderLineKind.Finished && kind.alsoOnHardcover) {
@@ -244,3 +259,6 @@ private const val READERS = "Readers"
 private const val HARDCOVER = "Hardcover"
 
 private const val ALSO_ON_HARDCOVER = "Also on Hardcover"
+
+/** The one "View profile" every reader row is described by. */
+private const val OPENS_PROFILE_ID = "rdr-opens-profile"

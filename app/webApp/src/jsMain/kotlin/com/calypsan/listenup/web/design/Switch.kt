@@ -26,6 +26,9 @@ import org.w3c.dom.HTMLInputElement
  * the server has declared ineligible must be unreachable by keyboard too, and must say so when
  * read aloud.
  *
+ * [describedBy] is the id of the sentence beside the switch that says what it does, so a screen reader
+ * reads it with the switch rather than as a stray line somewhere near it.
+ *
  * Fully controlled (#1541): the box only ever shows [checked]. A change asks [onChange] and snaps
  * back; the state moving is what moves the box. A switch that asks for confirmation stays on behind
  * the dialog, and one whose save is refused reads as it was.
@@ -36,6 +39,7 @@ fun SwitchField(
     checked: Boolean,
     onChange: (Boolean) -> Unit,
     enabled: Boolean = true,
+    describedBy: String? = null,
 ) {
     Label(attrs = {
         classes("sw")
@@ -47,6 +51,7 @@ fun SwitchField(
             attr("role", "switch")
             if (checked) attr("checked", "")
             if (!enabled) attr("disabled", "")
+            describedBy?.let { attr("aria-describedby", it) }
             // The attribute stops governing the box once it has been clicked, so the property is set
             // from state on every change of it.
             prop({ input: HTMLInputElement, on: Boolean -> input.checked = on }, checked)

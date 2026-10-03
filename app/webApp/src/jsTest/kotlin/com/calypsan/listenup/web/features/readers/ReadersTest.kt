@@ -154,7 +154,9 @@ class ReadersTest :
                     ),
                 )
 
-            rows(host).map { it.textContent?.trim() } shouldContainExactly listOf("Grace HopperRead yesterdayHardcover")
+            // " on" is said, not drawn: "Read yesterday on Hardcover" rather than a run-on "yesterdayHardcover".
+            rows(host).map { it.textContent?.trim() } shouldContainExactly listOf("Grace HopperRead yesterday onHardcover")
+            (host.querySelector(".rdr-s .sr-only") as HTMLElement).textContent shouldBe " on"
             text(host, ".rdr-src") shouldBe "Hardcover"
         }
 

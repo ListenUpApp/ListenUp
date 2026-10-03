@@ -7,12 +7,15 @@ import Shared
 /// and read by VoiceOver as one element ("3.5 out of 5 stars"). Built with `onChange`, it's an
 /// input: tap or drag across the stars to pick a half-star rating, with a selection tick for every
 /// half crossed. VoiceOver hears a static "Rating" label, the value, and can swipe up or down to
-/// step one half. Every count it shows or speaks goes through `ListenerRatingLimits.starsLabel`, so
+/// step one half. Built with `onCommit` too, it saves as you go: `onChange` previews each half a
+/// drag crosses, and `onCommit` receives the rating you settled on. Every count it shows or speaks goes through `ListenerRatingLimits.starsLabel`, so
 /// iOS says what Android and web say.
 struct RatingStarsView: View {
     let halfStars: Int
     let starSize: CGFloat
     private let onChange: ((Int) -> Void)?
+    private let onCommit: ((Int) -> Void)?
+    private let onCancel: (() -> Void)?
 
     @Environment(\.layoutDirection) private var layoutDirection
     /// The input's frame in global coordinates. Global space is never mirrored, so the touch maths
@@ -24,6 +27,8 @@ struct RatingStarsView: View {
         self.halfStars = halfStars
         self.starSize = starSize
         self.onChange = nil
+        self.onCommit = nil
+        self.onCancel = nil
     }
 
     /// Input stars; `onChange` receives the picked rating (2...10).
@@ -31,6 +36,26 @@ struct RatingStarsView: View {
         self.halfStars = halfStars
         self.starSize = starSize
         self.onChange = onChange
+        self.onCommit = nil
+        self.onCancel = nil
+    }
+
+    /// Input stars that save as you go: `onChange` previews every half a drag crosses, and `onCommit`
+    /// receives the rating you settled on — where your finger lifts, or each VoiceOver adjustment.
+    /// A mostly vertical swipe is someone scrolling the page past the stars, not rating: it saves
+    /// nothing and calls `onCancel`, so the preview goes back to the saved rating.
+    init(
+        halfStars: Int,
+        starSize: CGFloat,
+        onChange: @escaping (Int) -> Void,
+        onCommit: @escaping (Int) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.halfStars = halfStars
+        self.starSize = starSize
+        self.onChange = onChange
+        self.onCommit = onCommit
+        self.onCancel = onCancel
     }
 
     var body: some View {
@@ -63,8 +88,9 @@ struct RatingStarsView: View {
                 let symbol = Self.symbol(halfStars: halfStars, index: index)
                 starGlyph(Image(systemName: symbol))
                     .foregroundStyle(symbol == Self.emptySymbol ? Color.secondary : Color.listenUpOrange)
-                    // Five equal slots, so a slot is exactly a fifth of the input's width.
-                    .frame(width: onChange == nil ? nil : starSize * 1.3)
+                    // Five equal slots, so a slot is exactly a fifth of the input's width — never narrower
+                    // than Apple's 44 pt touch target.
+                    .frame(width: onChange == nil ? nil : max(starSize * 1.3, Self.minInputHeight))
             }
         }
     }
@@ -77,12 +103,20 @@ struct RatingStarsView: View {
             .gesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .global)
                     .onChanged { value in
-                        let picked = Self.halfStars(
-                            forX: value.location.x - globalFrame.minX,
-                            width: globalFrame.width,
-                            isRightToLeft: layoutDirection == .rightToLeft
-                        )
+                        if onCommit != nil, Self.isScrollAttempt(value.translation) {
+                            onCancel?()
+                            return
+                        }
+                        let picked = pick(at: value.location.x)
                         if picked != halfStars { onChange(picked) }
+                    }
+                    .onEnded { value in
+                        guard let onCommit else { return }
+                        if Self.isScrollAttempt(value.translation) {
+                            onCancel?()
+                        } else {
+                            onCommit(pick(at: value.location.x))
+                        }
                     }
             )
             .haptic(.selectionTick, trigger: halfStars)
@@ -90,12 +124,24 @@ struct RatingStarsView: View {
             .accessibilityLabel(String(localized: "rating.stars_label"))
             .accessibilityValue(Self.spokenValue(halfStars: halfStars))
             .accessibilityAdjustableAction { direction in
+                let next: Int
                 switch direction {
-                case .increment: onChange(Self.stepped(halfStars, by: 1))
-                case .decrement: onChange(Self.stepped(halfStars, by: -1))
-                @unknown default: break
+                case .increment: next = Self.stepped(halfStars, by: 1)
+                case .decrement: next = Self.stepped(halfStars, by: -1)
+                @unknown default: return
                 }
+                onChange(next)
+                // No finger lifts under VoiceOver, so each step is the rating you settled on.
+                onCommit?(next)
             }
+    }
+
+    private func pick(at globalX: CGFloat) -> Int {
+        Self.halfStars(
+            forX: globalX - globalFrame.minX,
+            width: globalFrame.width,
+            isRightToLeft: layoutDirection == .rightToLeft
+        )
     }
 
     // MARK: - Pure helpers (unit-tested)
@@ -140,6 +186,12 @@ struct RatingStarsView: View {
         let fromStart = isRightToLeft ? width - x : x
         let halves = Int((fromStart / (width / CGFloat(starCount)) * 2).rounded(.up))
         return min(max(halves, minHalfStars), maxHalfStars)
+    }
+
+    /// Whether a drag of `translation` is someone scrolling past the stars rather than rating: it has
+    /// travelled further up or down than across, beyond a tap's wobble.
+    nonisolated static func isScrollAttempt(_ translation: CGSize) -> Bool {
+        abs(translation.height) > 12 && abs(translation.height) > abs(translation.width)
     }
 
     /// One VoiceOver step of `delta` halves. The first step up from unrated lands on one star; a

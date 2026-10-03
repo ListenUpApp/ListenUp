@@ -95,9 +95,15 @@ class ToastQueue {
 /**
  * Renders [queue] over the page, and retires each notice on a timer.
  *
- * A [ToastTone.Failure] never times out. It is the only report a failure gets on web, and a message
- * that disappears after seven seconds is gone before a slow reader or a busy screen reader reaches
- * it (WCAG 2.2.1); the stack cap in [ToastQueue] is what keeps failures from piling up instead. A
+ * The stack is ONE polite live region, mounted before any toast arrives and never taken down. A
+ * region inserted together with its words is announced unreliably — for `status`, often not at all —
+ * so a notice is said because it is added to a region the screen reader is already watching. A
+ * failure also carries `role="alert"`, the one insertion screen readers reliably interrupt for.
+ *
+ * Nothing that carries a [ToastAction] times out, and neither does a [ToastTone.Failure]. Undo after a
+ * one-press pick is the only way back from it, and an offer that vanished after seven seconds was gone
+ * before a keyboard reader on the next page could reach it, or a screen reader's queue got to it
+ * (WCAG 2.2.1); the stack cap in [ToastQueue] is what keeps them from piling up instead. A plain
  * [ToastTone.Notice] only confirms what the reader just did, so it still retires itself — but not
  * while the pointer or keyboard focus is on it, since that is someone in the middle of reading it.
  *
@@ -110,14 +116,15 @@ fun ToastHost(
     queue: ToastQueue,
     noticeLifetimeMs: Long = TOAST_LIFETIME_MS,
 ) {
-    if (queue.messages.isEmpty()) return
-
     var held by remember { mutableStateOf(emptySet<Long>()) }
 
-    Div(attrs = { classes("toastwrap") }) {
+    Div(attrs = {
+        classes("toastwrap")
+        attr("aria-live", "polite")
+    }) {
         queue.messages.forEach { message ->
             key(message.id) {
-                if (message.tone == ToastTone.Notice) {
+                if (message.tone == ToastTone.Notice && message.action == null) {
                     LaunchedEffect(message.id, message.id in held) {
                         if (message.id in held) return@LaunchedEffect
                         delay(noticeLifetimeMs)
@@ -132,8 +139,8 @@ fun ToastHost(
                     onFocusIn { held = held + message.id }
                     onFocusOut { held = held - message.id }
                     // A failure is the only report the reader gets, so it interrupts; a notice waits
-                    // for a pause. `alert` and `status` carry their own aria-live semantics.
-                    attr("role", if (message.tone == ToastTone.Failure) "alert" else "status")
+                    // for a pause, said by the polite region it is added to.
+                    if (message.tone == ToastTone.Failure) attr("role", "alert")
                 }) {
                     Div(attrs = {
                         classes("t-dot")

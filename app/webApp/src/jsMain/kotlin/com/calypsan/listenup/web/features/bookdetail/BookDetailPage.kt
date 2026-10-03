@@ -88,13 +88,16 @@ fun BookDetailPage(
     onOpenSeries: (String) -> Unit = {},
     readers: BookReadersUiState = BookReadersUiState.Loading,
     /**
-     * The rating panel's state and the ViewModel's two actions. Defaulted to Loading, which draws
-     * no panel at all, so the no-op actions below are unreachable until a caller supplies a state.
+     * The rating panel's state and the ViewModel's actions. Defaulted to Loading, which draws no
+     * panel at all, so the no-op actions below are unreachable until a caller supplies a state.
+     * [ratingStarsFocusRequest] moves focus to your stars each time it changes (after an Undo).
      */
     ratings: BookRatingsUiState = BookRatingsUiState.Loading,
     onRate: (halfStars: Int, note: String?) -> Unit = { _, _ -> },
     onClearRating: () -> Unit = {},
     onRefreshExternalRating: () -> Unit = {},
+    onSetStars: (halfStars: Int) -> Unit = {},
+    ratingStarsFocusRequest: Int = 0,
     /**
      * The book's supplementary documents, from the sibling flow of the same name. Defaulted empty
      * because most books have none, and a book with none renders no Documents panel at all.
@@ -247,6 +250,8 @@ fun BookDetailPage(
                                 onRate = onRate,
                                 onClearRating = onClearRating,
                                 onRefreshExternalRating = onRefreshExternalRating,
+                                onSetStars = onSetStars,
+                                ratingStarsFocusRequest = ratingStarsFocusRequest,
                                 readers = readers,
                                 nowMs = nowMs,
                                 onOpenProfile = onOpenProfile,
@@ -474,6 +479,8 @@ private fun OverviewPane(
     onRate: (halfStars: Int, note: String?) -> Unit,
     onClearRating: () -> Unit,
     onRefreshExternalRating: () -> Unit,
+    onSetStars: (halfStars: Int) -> Unit,
+    ratingStarsFocusRequest: Int,
     readers: BookReadersUiState,
     nowMs: Long,
     onOpenProfile: (String) -> Unit,
@@ -534,9 +541,12 @@ private fun OverviewPane(
                 // Directly above Readers, as on Android and iOS; silent while loading — see [RatingsPanel].
                 RatingsPanel(
                     state = ratings,
+                    onSetStars = onSetStars,
                     onRate = onRate,
                     onClear = onClearRating,
                     onRefreshExternal = onRefreshExternalRating,
+                    nowMs = nowMs,
+                    starsFocusRequest = ratingStarsFocusRequest,
                 )
                 // Under Details, and silent when there is nothing to say — see [ReadersPanel].
                 ReadersPanel(

@@ -60,6 +60,7 @@ import com.calypsan.listenup.client.features.auth.components.AuthBadge
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
 import com.calypsan.listenup.client.design.components.FlowStepRow
 import com.calypsan.listenup.client.design.components.FlowStepState
+import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
 import com.calypsan.listenup.client.features.auth.components.CodeBoxes
 import com.calypsan.listenup.client.presentation.auth.ForgotPasswordUiState
 import com.calypsan.listenup.client.presentation.auth.ForgotPasswordViewModel
@@ -533,6 +534,7 @@ private fun DeniedContent(
             horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
         ) {
             OutlinedButton(
+                border = listenUpOutlinedBorder(),
                 onClick = onBackToSignIn,
                 shape = ButtonGroupDefaults.connectedLeadingButtonShape,
                 modifier = Modifier.weight(1f).height(PAIR_HEIGHT),

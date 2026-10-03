@@ -78,11 +78,6 @@ struct MetadataSelectBody: View {
     var showChangeRow = true
     var onChange: () -> Void = {}
 
-    private var fieldsSelectedText: String {
-        let format = String(localized: "metadata.fields_selected")
-        return String(format: format, preview.selectedCount, preview.totalCount)
-    }
-
     var body: some View {
         Group {
             Section {
@@ -97,9 +92,11 @@ struct MetadataSelectBody: View {
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             } footer: {
-                Text(fieldsSelectedText)
-                    .textCase(.uppercase)
-                    .padding(.top, Spacing.xs)
+                MetadataSelectionSummary(
+                    selectedCount: preview.selectedCount,
+                    totalCount: preview.totalCount,
+                    contributingSources: preview.contributingSources
+                )
             }
 
             section(String(localized: "metadata.section_identity")) {
@@ -266,73 +263,36 @@ struct MetadataSelectBody: View {
         }
     }
 
+    // One chip and flow per source, so Hardcover's additions say where they came from (#1542).
     private var genresRow: some View {
-        MetadataFieldRow(
+        MetadataChipField(
             systemImage: "tag",
             label: String(localized: "metadata.field_genres"),
-            isOn: preview.genres.contains { $0.isSelected },
-            onToggle: { toggleAllGenres() }
-        ) {
-            // One chip and flow per source, so Hardcover's additions say where they came from (#1542).
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(MetadataMatchMapping.sourceRuns(preview.genres)) { run in
-                    MetadataSourceChip(source: run.source)
-                    FlowLayout(spacing: 8) {
-                        ForEach(run.items) { genre in
-                            MetadataGenreChip(label: genre.label, isOn: genre.isSelected) {
-                                observer.toggleGenre(genre.id)
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(.top, Spacing.xxs)
-        }
+            runs: MetadataMatchMapping.sourceRuns(preview.genres),
+            onToggleAll: { toggleAllGenres() },
+            onToggle: { observer.toggleGenre($0) }
+        )
     }
 
     private var moodsRow: some View {
-        MetadataFieldRow(
+        MetadataChipField(
             systemImage: "theatermasks",
             label: String(localized: "metadata.field_moods"),
-            isOn: preview.moods.contains { $0.isSelected },
-            onToggle: { toggleAllMoods() }
-        ) {
-            // One chip and flow per source, so Hardcover's additions say where they came from (#1542).
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(MetadataMatchMapping.sourceRuns(preview.moods)) { run in
-                    MetadataSourceChip(source: run.source)
-                    FlowLayout(spacing: 8) {
-                        ForEach(run.items) { mood in
-                            MetadataGenreChip(label: mood.label, isOn: mood.isSelected) {
-                                observer.toggleMood(mood.id)
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(.top, Spacing.xxs)
-        }
+            runs: MetadataMatchMapping.sourceRuns(preview.moods),
+            onToggleAll: { toggleAllMoods() },
+            onToggle: { observer.toggleMood($0) }
+        )
     }
 
+    /// Tags carry one field-level source, so they are a single run under one source chip.
     private var tagsRow: some View {
-        MetadataFieldRow(
+        MetadataChipField(
             systemImage: "number",
             label: String(localized: "metadata.field_tags"),
-            isOn: preview.tags.contains { $0.isSelected },
-            onToggle: { toggleAllTags() }
-        ) {
-            VStack(alignment: .leading, spacing: 4) {
-                MetadataSourceChip(source: preview.tags.first?.sourceLabel)
-                FlowLayout(spacing: 8) {
-                    ForEach(preview.tags) { tag in
-                        MetadataGenreChip(label: tag.label, isOn: tag.isSelected) {
-                            observer.toggleTag(tag.id)
-                        }
-                    }
-                }
-            }
-            .padding(.top, Spacing.xxs)
-        }
+            runs: [MetadataSourceRun(source: preview.tags.first?.sourceLabel, items: preview.tags)],
+            onToggleAll: { toggleAllTags() },
+            onToggle: { observer.toggleTag($0) }
+        )
     }
 
     private var chaptersSection: some View {
@@ -449,28 +409,45 @@ struct MetadataSourceChip: View {
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, Spacing.xs).padding(.vertical, 2)
-                .background(Capsule().fill(Color.luFill))
+                // A capsule on one line; a rounded card once a large size wraps it.
+                .background(RoundedRectangle(cornerRadius: Radius.m, style: .continuous).fill(Color.luFill))
         }
     }
 }
 
 /// A single genre opt-in chip: a coral check + label when on, neutral when off.
+///
+/// Its target is 44 points tall around the drawn capsule (HIG, Accessibility: "at least 44x44 pt"), and at
+/// large sizes its label wraps inside the width `FlowLayout` offers rather than running off the card. A chip
+/// from a fallback provider names its `source` for VoiceOver ("Fantasy, from Hardcover"). The glyph is hidden:
+/// `checkmark`'s own label is "Selected", which the trait already says.
 struct MetadataGenreChip: View {
     let label: String
     let isOn: Bool
+    var source: String?
     let onTap: () -> Void
 
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 5) {
                 Image(systemName: isOn ? "checkmark" : "plus").font(.caption2.weight(.bold))
+                    .accessibilityHidden(true)
                 Text(label).font(.caption.weight(.semibold))
+                    .multilineTextAlignment(.leading)
             }
             .foregroundStyle(isOn ? Color.luTint : Color.secondary)
             .padding(.horizontal, Spacing.s).padding(.vertical, Spacing.xs)
-            .background(Capsule().fill(isOn ? Color.luTint.opacity(0.13) : Color.luFill))
+            // A capsule on one line; a rounded card once a large size wraps the label.
+            .background(
+                RoundedRectangle(cornerRadius: Radius.l, style: .continuous)
+                    .fill(isOn ? Color.luTint.opacity(0.13) : Color.luFill)
+            )
+            .frame(minHeight: TapTarget.minimum)
+            .contentShape(Rectangle())
         }
         .buttonStyle(PressScaleButtonStyle(scale: .chip))
+        .accessibilityLabel(source.map { String(format: String(localized: "metadata.chip_from_source"), label, $0) }
+            ?? label)
         .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 }
@@ -487,9 +464,19 @@ struct MetadataApplyTray: View {
     var contributingSources: [String] = []
     let action: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// "Merged from Audible, Hardcover" when more than one provider contributed.
+    static func mergedFromText(_ sources: [String]) -> String? {
+        guard sources.count > 1 else { return nil }
+        return String(format: String(localized: "metadata.merged_from"), sources.joined(separator: ", "))
+    }
+
+    /// At the accessibility sizes the line and a two-line button filled ~45% of the screen over the fields
+    /// being reviewed, so the line moves into the list (`MetadataSelectionSummary`) and the bar keeps only
+    /// the button. HIG, Layout: keep primary content visible.
     private var mergedFromText: String? {
-        guard contributingSources.count > 1 else { return nil }
-        return String(format: String(localized: "metadata.merged_from"), contributingSources.joined(separator: ", "))
+        dynamicTypeSize.isAccessibilitySize ? nil : Self.mergedFromText(contributingSources)
     }
 
     var body: some View {
@@ -506,8 +493,12 @@ struct MetadataApplyTray: View {
                 }
                 Button(action: action) {
                     ActionLabel(title: title, systemImage: "checkmark", isBusy: isApplying)
+                        // A bar over the content stays compact, as the system's bars do: past the first
+                        // accessibility size a long press shows the label in the large content viewer.
+                        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
                 }
                 .prominentAction()
+                .accessibilityShowsLargeContentViewer()
                 .disabled(isApplying || !isEnabled)
             }
             .padding(Spacing.m)
