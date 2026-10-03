@@ -15,6 +15,24 @@ import SwiftUI
 /// observer's `.empty` phase keeps it out of the layout entirely).
 struct BookReadersSection: View {
     let readers: [BookReaderRow]
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// How a reader row lays out at a text size. At the accessibility sizes a one-line name beside the
+    /// stars and a body-sized trailing glyph truncated to "Rig Rea…", or to nothing at all; there the name
+    /// wraps, the stars take their own line, and the glyph — which repeats what the row already says —
+    /// steps aside. HIG, Typography: let text wrap rather than truncate at large sizes.
+    struct RowLayout: Equatable {
+        let starsBelowName: Bool
+        let nameLineLimit: Int?
+        let showsTrailingGlyph: Bool
+
+        init(_ size: DynamicTypeSize) {
+            let isLarge = size.isAccessibilitySize
+            starsBelowName = isLarge
+            nameLineLimit = isLarge ? nil : 1
+            showsTrailingGlyph = !isLarge
+        }
+    }
 
     private var listeningCount: Int {
         readers.lazy.filter(\.isReading).count
@@ -45,6 +63,7 @@ struct BookReadersSection: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(String(localized: "book.detail_readers"))
                 .font(.headline)
+                .accessibilityAddTraits(.isHeader)
 
             if listeningCount > 0 {
                 Text(String(format: String(localized: "book.detail_readers_listening_now"), listeningCount))
@@ -57,17 +76,26 @@ struct BookReadersSection: View {
     // MARK: - Row
 
     private func readerRow(_ reader: BookReaderRow) -> some View {
-        HStack(spacing: 13) {
+        let layout = RowLayout(dynamicTypeSize)
+        return HStack(spacing: 13) {
             avatar(reader)
 
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    Text(name(for: reader))
-                        .font(.body.weight(.medium))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
+                let nameText = Text(name(for: reader))
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(layout.nameLineLimit)
+                if layout.starsBelowName {
+                    nameText
                     if let halfStars = reader.halfStars {
                         RatingStarsView(halfStars: halfStars, starSize: 11)
+                    }
+                } else {
+                    HStack(spacing: 8) {
+                        nameText
+                        if let halfStars = reader.halfStars {
+                            RatingStarsView(halfStars: halfStars, starSize: 11)
+                        }
                     }
                 }
 
@@ -98,7 +126,9 @@ struct BookReadersSection: View {
 
             Spacer(minLength: 8)
 
-            trailingGlyph(reader)
+            if layout.showsTrailingGlyph {
+                trailingGlyph(reader)
+            }
         }
         .padding(.vertical, Spacing.s)
         .accessibilityElement(children: .combine)
@@ -121,7 +151,8 @@ struct BookReadersSection: View {
                 badge
             }
             VStack(alignment: .leading, spacing: Spacing.xxs) {
-                read
+                // Wraps rather than truncating to "Read Apr 30,…" at the accessibility sizes.
+                read.fixedSize(horizontal: false, vertical: true)
                 badge
             }
         }
@@ -161,8 +192,16 @@ struct BookReadersSection: View {
         }
     }
 
-    @ViewBuilder
+    /// Decorative: the row's words already say reading, rated or finished. Hidden, so the combined row
+    /// doesn't take on the `checkmark` symbol's implicit Selected trait — "selected" on a navigation row with
+    /// no selection. HIG, VoiceOver: traits describe the element truthfully.
     private func trailingGlyph(_ reader: BookReaderRow) -> some View {
+        trailingSymbol(reader)
+            .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private func trailingSymbol(_ reader: BookReaderRow) -> some View {
         if reader.isReading {
             Image(systemName: "sparkles")
                 .font(.body)

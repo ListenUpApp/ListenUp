@@ -5,7 +5,7 @@ import SwiftUI
 /// Nothing at all when hidden, as Readers is when it has nothing to say.
 ///
 /// The section heading follows `BookReadersSection`'s, so the two read as siblings. Change Match is
-/// the quiet bordered action and Remove Match a plain destructive one beside it; Needs a Match has a
+/// the filled action and Remove Match a plain destructive one beside it; Needs a Match has a
 /// single thing to do, so Find on Hardcover is prominent. HIG, Buttons: "use a more prominent button
 /// style for that option and a less prominent style for the remaining ones". Remove Match confirms
 /// first (the caller's dialog): it parks the book's syncing until a new match is picked.
@@ -49,6 +49,7 @@ struct BookHardcoverSection: View {
                         Button(String(localized: "hardcover.find_on_hardcover").titleStyled, action: onFindMatch)
                             .buttonStyle(.borderedProminent)
                             .buttonBorderShape(.capsule)
+                            .controlSize(.large)
                             .onBrandFillLabel()
                     }
                 }
@@ -111,15 +112,32 @@ struct BookHardcoverSection: View {
 
     /// Change Match and Remove Match. `fitted` holds each label on one line, so the side-by-side
     /// arrangement only fits when both do; stacked, a label may wrap rather than run off the card.
+    ///
+    /// Both reach 44 points tall (HIG, Accessibility: "at least 44x44 pt"), and both labels clear 4.5:1 on
+    /// the card. The tint on its own tinted fill was 3.27:1, so Change Match is the filled capsule with the
+    /// on-brand label; system red on the card was 3.20:1, so Remove Match keeps a red glyph and sets its
+    /// words in the primary colour — the glyph and the destructive role still mark it.
     @ViewBuilder
     private func linkedActions(fitted: Bool) -> some View {
         Button(String(localized: "hardcover.book_row_change_match").titleStyled, action: onFindMatch)
-            .buttonStyle(.bordered)
+            .buttonStyle(.borderedProminent)
             .buttonBorderShape(.capsule)
+            .controlSize(.large)
+            .onBrandFillLabel()
             .fixedSize(horizontal: fitted, vertical: false)
-        Button(String(localized: "hardcover.match_remove").titleStyled, role: .destructive, action: onRemoveMatch)
-            .buttonStyle(.borderless)
-            .fixedSize(horizontal: fitted, vertical: false)
+        Button(role: .destructive, action: onRemoveMatch) {
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: "minus.circle")
+                    .foregroundStyle(.red)
+                    .accessibilityHidden(true)
+                Text(String(localized: "hardcover.match_remove").titleStyled)
+                    .foregroundStyle(Color.primary)
+            }
+            .frame(minHeight: TapTarget.minimum)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .fixedSize(horizontal: fitted, vertical: false)
     }
 
     private func linkedSummary(_ model: BookHardcoverLinkedModel) -> some View {
