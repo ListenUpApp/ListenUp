@@ -97,6 +97,7 @@ internal class AbsBackupReader {
                     "${AbsSchema.PROGRESS_CURRENT_TIME} AS currentTime, " +
                     "${AbsSchema.PROGRESS_DURATION} AS duration, " +
                     "${AbsSchema.PROGRESS_IS_FINISHED} AS isFinished, " +
+                    "${AbsSchema.PROGRESS_FINISHED_AT} AS finishedAt, " +
                     "${AbsSchema.PROGRESS_UPDATED_AT} AS updatedAt " +
                     "FROM ${AbsSchema.MEDIA_PROGRESSES} " +
                     "WHERE ${AbsSchema.PROGRESS_MEDIA_ITEM_TYPE} = ?"
@@ -110,6 +111,7 @@ internal class AbsBackupReader {
                     isFinished = row.getBoolean("isFinished"),
                     progress = if (duration > 0.0) (currentTime / duration).coerceIn(0.0, 1.0) else 0.0,
                     lastUpdateMs = parseAbsTimestampMs(row.getString("updatedAt")),
+                    finishedAtMs = parseAbsTimestampMs(row.getString("finishedAt")).takeIf { it > 0 },
                 )
             }
         }

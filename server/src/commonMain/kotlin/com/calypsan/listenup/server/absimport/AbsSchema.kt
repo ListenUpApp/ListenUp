@@ -52,7 +52,8 @@ package com.calypsan.listenup.server.absimport
  *   (`currentTime / duration`). We compute it in the reader rather than selecting it.
  * - **Timestamp unit:** `updatedAt` is `DataTypes.DATE`, which Sequelize stores in SQLite as an
  *   **ISO-8601 text string** (e.g. `2022-01-17T04:33:12.000Z`), NOT epoch millis. The reader
- *   parses it to epoch millis for [AbsModels.AbsProgress.lastUpdateMs].
+ *   parses it to epoch millis for [AbsModels.AbsProgress.lastUpdateMs]. `finishedAt` is the same
+ *   text form, NULL until the book is finished; it becomes [AbsModels.AbsProgress.finishedAtMs].
  *
  * ### `playbackSessions` — `server/models/PlaybackSession.js` (`modelName: 'playbackSession'` → `playbackSessions`)
  * - Defined columns (from the model `init()`): `id` (UUID, PK), `mediaItemId` (UUID, nullable),
@@ -138,6 +139,7 @@ internal object AbsSchema {
     const val PROGRESS_CURRENT_TIME = "currentTime"
     const val PROGRESS_DURATION = "duration"
     const val PROGRESS_IS_FINISHED = "isFinished"
+    const val PROGRESS_FINISHED_AT = "finishedAt"
     const val PROGRESS_UPDATED_AT = "updatedAt"
 
     // ── playbackSessions ──────────────────────────────────────────────────────

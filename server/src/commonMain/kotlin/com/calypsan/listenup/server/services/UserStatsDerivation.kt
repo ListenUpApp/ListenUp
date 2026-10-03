@@ -33,7 +33,9 @@ suspend fun reconcileBookReadsFromPositions(
                     id = Uuid.random().toString(),
                     user_id = userId,
                     book_id = finished.book_id,
-                    finished_at = finished.last_played_at,
+                    // The day the reader said they finished, when the position kept one — the
+                    // completion cascade that was lost would have dated the read by it too.
+                    finished_at = resolveFinishedAt(finished.finished_at, nowMs) ?: finished.last_played_at,
                     source = BookReadSource.RECONCILE,
                     created_at = nowMs,
                 )

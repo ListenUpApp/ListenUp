@@ -267,7 +267,7 @@ private fun buildMinimalAbsZipSource(): FileSource {
                 "CREATE TABLE mediaProgresses (" +
                     "userId TEXT, libraryItemId TEXT, mediaItemId TEXT, " +
                     "mediaItemType TEXT, currentTime REAL, duration REAL, " +
-                    "isFinished INTEGER, updatedAt TEXT)",
+                    "isFinished INTEGER, finishedAt TEXT, updatedAt TEXT)",
             )
             // Column names match AbsSchema: SESSION_STARTED_AT="createdAt", SESSION_DEVICE="mediaPlayer",
             // SESSION_START_TIME="startTime" — not the legacy field names the client used to send.

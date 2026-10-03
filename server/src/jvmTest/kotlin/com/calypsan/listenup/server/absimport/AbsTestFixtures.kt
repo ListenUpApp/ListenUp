@@ -69,6 +69,7 @@ private fun java.sql.Connection.createAbsTables() {
                 "${AbsSchema.PROGRESS_CURRENT_TIME} REAL, " +
                 "${AbsSchema.PROGRESS_DURATION} REAL, " +
                 "${AbsSchema.PROGRESS_IS_FINISHED} INTEGER, " +
+                "${AbsSchema.PROGRESS_FINISHED_AT} TEXT, " +
                 "${AbsSchema.PROGRESS_UPDATED_AT} TEXT)",
         )
         st.executeUpdate(

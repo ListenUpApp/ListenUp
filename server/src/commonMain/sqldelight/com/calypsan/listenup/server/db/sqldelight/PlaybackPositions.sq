@@ -135,11 +135,11 @@ countFinishedForUser:
 SELECT COUNT(*) FROM playback_positions
 WHERE user_id = :userId AND finished = 1 AND deleted_at IS NULL;
 
--- Stats support: (book_id, last_played_at) for every finished, non-deleted position of a user. The
+-- Stats support: (book_id, last_played_at, finished_at) for every finished, non-deleted position of a user. The
 -- book_reads reconcile inserts a completion row for any of these lacking one (crash between the
 -- position commit and the book_reads insert, or a pre-Spec-004 import that never wrote book_reads).
 selectFinishedBooksForUser:
-SELECT book_id, last_played_at FROM playback_positions
+SELECT book_id, last_played_at, finished_at FROM playback_positions
 WHERE user_id = :userId AND finished = 1 AND deleted_at IS NULL;
 
 -- Stats support: last-played timestamp of every live position of a user. Feeds the streak day-set so

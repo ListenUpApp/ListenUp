@@ -1,7 +1,7 @@
 -- book_reads: per-completion read history — one row per time a user finished a book. Re-reads stack
 -- as distinct rows. PLAIN (NON-syncable) server-only persistence, read by the readership RPC, never
 -- streamed over sync. source says whose read it is:
---   'playback'  — ListenUp listening (recordCompletion); a replay may move its finished_at forward;
+--   'playback'  — ListenUp listening (recordCompletion); a replay may move its finished_at;
 --   'reconcile' — a finish recovered from a finished position during a stats rebuild;
 --   'hardcover' — a read logged on Hardcover and pulled (#601 B3). hc_read_id names it; it is deleted
 --                 when that read vanishes from Hardcover, and it never counts as listening.

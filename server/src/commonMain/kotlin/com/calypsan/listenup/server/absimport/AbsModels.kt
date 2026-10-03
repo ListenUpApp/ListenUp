@@ -35,6 +35,7 @@ internal data class AbsItem(
  * [itemId] is the ABS `mediaItemId` (= `books.id`), so it joins to [AbsItem.id].
  * [progress] is computed (`currentTime / duration`) — ABS stores it as a getter, not a column.
  * [lastUpdateMs] is epoch **millis**, parsed from the ISO-8601 `updatedAt` text column.
+ * [finishedAtMs] is epoch millis from the `finishedAt` column — null when ABS recorded no finish.
  */
 internal data class AbsProgress(
     val userId: String,
@@ -43,6 +44,7 @@ internal data class AbsProgress(
     val isFinished: Boolean,
     val progress: Double,
     val lastUpdateMs: Long,
+    val finishedAtMs: Long? = null,
 )
 
 /**

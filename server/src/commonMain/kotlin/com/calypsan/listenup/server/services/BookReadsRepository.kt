@@ -61,8 +61,9 @@ class BookReadsRepository(
      * rule: a new [book_reads] row is appended only when the user covered at least
      * [RE_READ_COVERAGE_THRESHOLD] of the book's duration since their previous finish — a genuine
      * re-read. A below-threshold replay (e.g. finishing, then rewinding just the last chapter and
-     * "finishing" again) instead moves the existing row's `finished_at` forward, so it counts as the
-     * same read. The first-ever finish always appends; when the book's duration is unknown or zero the
+     * "finishing" again) instead moves the existing row's `finished_at` to this finish, so it counts as the
+     * same read. That move may go backward: a reader who re-dates a finish to the day they picked is
+     * correcting the one read they made, and that day is the truth about it. The first-ever finish always appends; when the book's duration is unknown or zero the
      * coverage can't be assessed, so it appends (matching the pre-rule always-append behavior).
      *
      * The whole decision runs in one transaction so a concurrent completion can't interleave between
