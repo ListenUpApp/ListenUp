@@ -9,11 +9,13 @@ import com.calypsan.listenup.api.error.SocialError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.services.BookReadSource
 import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
+import com.calypsan.listenup.server.services.homeTimeZone
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
@@ -38,7 +40,10 @@ import kotlin.time.Duration.Companion.minutes
  *   dropped — there is nobody to display.
  * - [bookReadership] returns `NotFound` when the caller cannot access the book — never
  *   revealing the book exists — and otherwise lists its full readership (including the
- *   caller): each reader's current progress (if reading) and their dated finish history.
+ *   caller): each reader's current progress (if reading) and their dated finish history. A
+ *   Hardcover read within three calendar days of a ListenUp finish is the same listen: it is paired
+ *   with that finish at request time ([pairWithHardcover]) and reported as the finish's
+ *   `finishesAlsoOnHardcover`, never as a second row. Stored reads are untouched.
  *
  * Route handlers call [copyWith] to bind each request to the authenticated principal;
  * the Koin singleton carries an unscoped placeholder [PrincipalProvider] that throws
@@ -52,6 +57,7 @@ internal class SocialServiceImpl(
     private val playbackPositions: PlaybackPositionRepository,
     private val bookReads: BookReadsRepository,
     private val books: BookRepository,
+    private val sql: ListenUpDatabase,
     private val principal: PrincipalProvider,
     private val clock: Clock = Clock.System,
 ) : SocialService {
@@ -135,6 +141,14 @@ internal class SocialServiceImpl(
         val entries =
             userIds.mapNotNull { uid ->
                 val identity = identities[uid] ?: return@mapNotNull null
+                val listenedAt = finishesByUser[uid]?.map { it.finishedAt } ?: emptyList()
+                // A listen logged both here and on Hardcover is one row, badged — not two.
+                val paired =
+                    pairWithHardcover(
+                        own = listenedAt,
+                        hardcover = hardcoverByUser[uid]?.map { it.finishedAt } ?: emptyList(),
+                        zone = sql.homeTimeZone(uid),
+                    )
                 val positionMs = inProgress.firstOrNull { it.first == uid }?.second
                 val pct =
                     positionMs?.let {
@@ -145,8 +159,9 @@ internal class SocialServiceImpl(
                     displayName = identity.displayName,
                     avatarType = identity.avatarType,
                     currentProgressPct = pct,
-                    finishes = finishesByUser[uid]?.map { it.finishedAt } ?: emptyList(),
-                    hardcoverFinishes = hardcoverByUser[uid]?.map { it.finishedAt } ?: emptyList(),
+                    finishes = listenedAt,
+                    hardcoverFinishes = paired.hardcoverOnly,
+                    finishesAlsoOnHardcover = paired.alsoOnHardcover,
                 )
             }
         // Reading-first, then most-recent finish (either kind) desc.
@@ -172,6 +187,7 @@ internal class SocialServiceImpl(
             playbackPositions = playbackPositions,
             bookReads = bookReads,
             books = books,
+            sql = sql,
             principal = principal,
             clock = clock,
         )

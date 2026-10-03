@@ -5,6 +5,7 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.social.BookReaderEntry
 import com.calypsan.listenup.api.error.SocialError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
@@ -40,6 +41,9 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 
 /**
  * Contract and ACL tests for [SocialServiceImpl] — the crown-jewel ACL surface.
@@ -107,6 +111,7 @@ class SocialServiceTest :
                 playbackPositions = PlaybackPositionRepository(db = sql, bus = bus, registry = registry),
                 bookReads = BookReadsRepository(db = sql),
                 books = books,
+                sql = sql,
                 principal = principal,
                 clock = FixedClock(Instant.fromEpochMilliseconds(nowMs)),
             )
@@ -382,7 +387,8 @@ class SocialServiceTest :
                 sql.seedPublicProfile("u2", displayName = "User Two")
                 runTest {
                     makeBookAccessible(sql, driver, bookId = "b1", viewerId = "u1")
-                    sql.seedFinish("u1-a", userId = "u1", bookId = "b1", finishedAt = 300L)
+                    // A month apart: a different listen, not one logged in both places.
+                    sql.seedFinish("u1-a", userId = "u1", bookId = "b1", finishedAt = A_MONTH_LATER)
                     sql.seedFinish("u1-h", userId = "u1", bookId = "b1", finishedAt = 100L, source = "hardcover")
                     sql.seedFinish("u2-h", userId = "u2", bookId = "b1", finishedAt = 200L, source = "hardcover")
 
@@ -392,10 +398,131 @@ class SocialServiceTest :
                             .value()
                             .readers
 
-                    readers.first { it.userId == "u1" }.finishes shouldBe listOf(300L)
+                    readers.first { it.userId == "u1" }.finishes shouldBe listOf(A_MONTH_LATER)
                     readers.first { it.userId == "u1" }.hardcoverFinishes shouldBe listOf(100L)
                     readers.first { it.userId == "u2" }.finishes shouldBe emptyList()
                     readers.first { it.userId == "u2" }.hardcoverFinishes shouldBe listOf(200L)
+                }
+            }
+        }
+
+        // ── 3b: a listen logged both in ListenUp and on Hardcover reads as one ───────────
+
+        /**
+         * u1's readership of b1, after seeding u1 (home [timezone]) with ListenUp finishes [own] and
+         * Hardcover reads [hardcover], all epoch ms.
+         */
+        suspend fun SqlTestDatabases.readershipOf(
+            own: List<Long>,
+            hardcover: List<Long>,
+            timezone: String = "UTC",
+        ): BookReaderEntry {
+            sql.seedTestLibraryAndFolder()
+            sql.seedTestUser("u1", timezone = timezone)
+            sql.seedTestBook("b1")
+            sql.seedPublicProfile("u1", displayName = "Simon")
+            makeBookAccessible(sql, driver, bookId = "b1", viewerId = "u1")
+            own.forEachIndexed { i, at -> sql.seedFinish("own-$i", userId = "u1", bookId = "b1", finishedAt = at) }
+            hardcover.forEachIndexed { i, at ->
+                sql.seedFinish("hc-$i", userId = "u1", bookId = "b1", finishedAt = at, source = "hardcover")
+            }
+            return makeService(sql, driver, principalFor("u1"))
+                .bookReadership(BookId("b1"))
+                .value()
+                .readers
+                .single()
+        }
+
+        test("a Hardcover read the day before a ListenUp finish is the same listen: one row, also on Hardcover") {
+            withSqlDatabase {
+                runTest {
+                    // 11/22/63: logged on Hardcover for Sep 30 (pulled at local noon), finished in ListenUp
+                    // Oct 1 at 19:59 Edmonton — which is already Oct 2 in UTC.
+                    val hardcover = at("2026-09-30T12:00", EDMONTON)
+                    val listened = at("2026-10-01T19:59", EDMONTON)
+
+                    val simon = readershipOf(own = listOf(listened), hardcover = listOf(hardcover), timezone = EDMONTON)
+
+                    simon.finishes shouldBe listOf(listened)
+                    simon.finishesAlsoOnHardcover shouldBe listOf(listened)
+                    simon.hardcoverFinishes.shouldBeEmpty()
+                }
+            }
+        }
+
+        test("two ListenUp finishes and one Hardcover read are two rows, one of them also on Hardcover") {
+            withSqlDatabase {
+                runTest {
+                    val first = at("2025-03-10T20:00", "UTC")
+                    val reread = at("2026-10-01T20:00", "UTC")
+                    val hardcover = at("2026-09-30T12:00", "UTC")
+
+                    val simon = readershipOf(own = listOf(first, reread), hardcover = listOf(hardcover))
+
+                    simon.finishes shouldBe listOf(reread, first)
+                    simon.finishesAlsoOnHardcover shouldBe listOf(reread)
+                    simon.hardcoverFinishes.shouldBeEmpty()
+                }
+            }
+        }
+
+        test("one ListenUp finish and two Hardcover reads are two rows: the nearer read pairs, the other stays") {
+            withSqlDatabase {
+                runTest {
+                    val listened = at("2026-10-01T20:00", "UTC")
+                    val near = at("2026-10-01T12:00", "UTC")
+                    val alsoInWindow = at("2026-09-29T12:00", "UTC")
+
+                    val simon = readershipOf(own = listOf(listened), hardcover = listOf(near, alsoInWindow))
+
+                    simon.finishes shouldBe listOf(listened)
+                    simon.finishesAlsoOnHardcover shouldBe listOf(listened)
+                    simon.hardcoverFinishes shouldBe listOf(alsoInWindow)
+                }
+            }
+        }
+
+        test("a Hardcover read four days from a ListenUp finish is a different listen") {
+            withSqlDatabase {
+                runTest {
+                    val listened = at("2026-10-05T20:00", "UTC")
+                    val hardcover = at("2026-10-01T12:00", "UTC")
+
+                    val simon = readershipOf(own = listOf(listened), hardcover = listOf(hardcover))
+
+                    simon.finishes shouldBe listOf(listened)
+                    simon.finishesAlsoOnHardcover.shouldBeEmpty()
+                    simon.hardcoverFinishes shouldBe listOf(hardcover)
+                }
+            }
+        }
+
+        test("three calendar days apart in the reader's home timezone pairs, though UTC would call it four") {
+            withSqlDatabase {
+                runTest {
+                    // Sep 28 → Oct 1 at home in Edmonton; the finish is already Oct 2 in UTC.
+                    val hardcover = at("2026-09-28T12:00", EDMONTON)
+                    val listened = at("2026-10-01T23:30", EDMONTON)
+
+                    val simon = readershipOf(own = listOf(listened), hardcover = listOf(hardcover), timezone = EDMONTON)
+
+                    simon.finishesAlsoOnHardcover shouldBe listOf(listened)
+                    simon.hardcoverFinishes.shouldBeEmpty()
+                }
+            }
+        }
+
+        test("a reader with no home timezone is paired by UTC calendar days") {
+            withSqlDatabase {
+                runTest {
+                    // Three days apart in Edmonton, but four in UTC — and UTC is the frame without a home.
+                    val hardcover = at("2026-09-28T12:00", "UTC")
+                    val listened = at("2026-10-02T01:00", "UTC")
+
+                    val simon = readershipOf(own = listOf(listened), hardcover = listOf(hardcover))
+
+                    simon.finishesAlsoOnHardcover.shouldBeEmpty()
+                    simon.hardcoverFinishes shouldBe listOf(hardcover)
                 }
             }
         }
@@ -844,6 +971,16 @@ class SocialServiceTest :
             }
         }
     })
+
+private const val EDMONTON = "America/Edmonton"
+
+private const val A_MONTH_LATER = 30L * 24 * 60 * 60 * 1000
+
+/** Epoch ms of the wall-clock [localDateTime] (ISO, minutes precision) in [zone]. */
+private fun at(
+    localDateTime: String,
+    zone: String,
+): Long = LocalDateTime.parse(localDateTime).toInstant(TimeZone.of(zone)).toEpochMilliseconds()
 
 /**
  * Gates [bookId] into a private collection owned by [collectionOwner] so it is

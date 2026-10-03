@@ -61,6 +61,14 @@ data class BookReaderEntry(
     val finishes: List<Long>,
     /** Hardcover reads, finished_at epoch ms, newest-first; empty when the user has none. */
     val hardcoverFinishes: List<Long> = emptyList(),
+    /**
+     * The [finishes] that were also logged on Hardcover, newest-first — a subset of [finishes]. Each
+     * was paired 1:1 with a Hardcover read within three calendar days of it in the reader's home
+     * timezone, and that read is left out of [hardcoverFinishes], so one listen is one row badged
+     * "Also on Hardcover" rather than two. Empty from a server that predates the pairing.
+     */
+    @SerialName("finishesAlsoOnHardcover")
+    val finishesAlsoOnHardcover: List<Long> = emptyList(),
 )
 
 /** The full readership of a book: everyone (incl. the caller) who is reading or has finished it. */
