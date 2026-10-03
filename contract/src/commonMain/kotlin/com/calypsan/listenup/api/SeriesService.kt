@@ -18,8 +18,9 @@ import kotlinx.rpc.annotations.Rpc
  *   repeatedly. Cache-miss reads for OUR series entities — clients observe
  *   Room locally; when a series is referenced but not yet synced, they call
  *   this service for the single-entity fallback.
- * - **Mutation** — [updateSeries], [deleteSeries] mutate server state; the sync firehose
- *   delivers the authoritative payload back to all connected clients.
+ * - **Mutation** — [updateSeries], [deleteSeries], [createSeries], [setSeriesParent],
+ *   [reorderChildSeries] mutate server state; the sync firehose delivers the authoritative
+ *   payload back to all connected clients.
  *
  * External metadata lookups live on [MetadataLookupService] — separate service
  * because local reads (fast, no external calls) and external lookups (slow,
@@ -108,4 +109,47 @@ interface SeriesService {
      * been merged away — undo that first). Requires the caller's `canEdit` flag.
      */
     suspend fun undoSeriesMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult>
+
+    // ── Hierarchy ────────────────────────────────────────────────────────────
+
+    /**
+     * Creates an empty series named [name], optionally as the last sub-series of [parentId].
+     * Exists for series no scanned book names on its own — a universe such as "Cosmere".
+     * A name whose series was deleted brings that series back, placed where this call asks.
+     *
+     * Returns [com.calypsan.listenup.api.error.SeriesError.InvalidInput] for a blank or overlong
+     * name, [com.calypsan.listenup.api.error.SeriesError.NameAlreadyExists] when a live series
+     * already has it or the name was merged into one, or
+     * [com.calypsan.listenup.api.error.SeriesError.ParentNotFound].
+     * Requires the caller's `canEdit` flag.
+     */
+    suspend fun createSeries(
+        name: String,
+        parentId: SeriesId? = null,
+    ): AppResult<SeriesSyncPayload>
+
+    /**
+     * Makes [parentId] the parent of [id], appended after the parent's existing sub-series; a null
+     * [parentId] makes [id] a root. Setting the parent a series already has is a no-op.
+     *
+     * Returns [com.calypsan.listenup.api.error.SeriesError.NotFound],
+     * [com.calypsan.listenup.api.error.SeriesError.ParentNotFound], or
+     * [com.calypsan.listenup.api.error.SeriesError.HierarchyCycle] when [parentId] is [id] itself
+     * or one of its sub-series. Requires the caller's `canEdit` flag.
+     */
+    suspend fun setSeriesParent(
+        id: SeriesId,
+        parentId: SeriesId?,
+    ): AppResult<Unit>
+
+    /**
+     * Rewrites the sibling order of [parentId]'s sub-series to [orderedChildIds], which must be a
+     * permutation of its live sub-series —
+     * [com.calypsan.listenup.api.error.SeriesError.InvalidInput] otherwise.
+     * Requires the caller's `canEdit` flag.
+     */
+    suspend fun reorderChildSeries(
+        parentId: SeriesId,
+        orderedChildIds: List<SeriesId>,
+    ): AppResult<Unit>
 }
