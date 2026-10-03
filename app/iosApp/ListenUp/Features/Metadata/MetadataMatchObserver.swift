@@ -102,7 +102,9 @@ final class MetadataMatchObserver {
 
     func toggleChapter(_ ordinal: Int) { viewModel.toggleChapter(ordinal: Int32(ordinal)) }
     func applyChapterNames() {
-        if case .preview(let status) = phase { chaptersNamedPending = MetadataMatchMapping.selectedChapterCount(status) }
+        if case .preview(let status) = phase {
+            chaptersNamedPending = MetadataMatchMapping.selectedChapterCount(status)
+        }
         viewModel.applyChapterNames()
     }
 
