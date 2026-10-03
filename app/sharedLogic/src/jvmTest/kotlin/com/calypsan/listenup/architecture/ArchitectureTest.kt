@@ -144,6 +144,11 @@ class ArchitectureTest :
                 // an AccessGate — a runtime data comparison (no source-parsing). Reading the real server
                 // registration is the whole point. Same exemption class — confined to jvmTest, not production.
                 .filter { "data/sync/domains/AccessGateParitySpec" !in it.path }
+                // Week parity spec: runs the real client StatsRepositoryImpl and the real server
+                // deriveUserStats over the same events, timezone and moment, and asserts Home's "This week"
+                // equals the Leaderboard's Week. Both real ends are the whole point. Same exemption class —
+                // confined to jvmTest.
+                .filter { "data/repository/HomeAndLeaderboardWeekParityTest" !in it.path }
                 .assertFalse { file ->
                     file.imports.any { it.name.startsWith("com.calypsan.listenup.server.") }
                 }

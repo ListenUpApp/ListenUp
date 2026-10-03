@@ -2,23 +2,16 @@
 
 package com.calypsan.listenup.client.domain.leaderboard
 
+import com.calypsan.listenup.domain.stats.StatsWindow
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
-import kotlinx.datetime.DatePeriod
-import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.atStartOfDayIn
-import kotlinx.datetime.minus
-import kotlinx.datetime.toLocalDateTime
 
 /**
- * The four time-range periods on the Discover leaderboard. Each computes its
- * `(startMs, endMs)` window in the user's local timezone — DST-safe via
- * `kotlinx.datetime` LocalDate arithmetic.
- *
- * Also reused by [com.calypsan.listenup.client.data.repository.StatsRepositoryImpl]
- * for the Home Stats 7-day window. Single source of truth for window math;
- * tested standalone in `LeaderboardPeriodTest`.
+ * The four time-range periods on the Discover leaderboard. The bounded periods are the shared
+ * [StatsWindow]s — today plus the previous days back to local midnight in [bounds]' timezone — so the
+ * Leaderboard's Week is the same week Home's "This week" counts, and both match the server's
+ * `user_stats` / `public_profiles` windows. DST-safe via `kotlinx.datetime` LocalDate arithmetic.
  */
 sealed interface LeaderboardPeriod {
     /**
@@ -34,40 +27,28 @@ sealed interface LeaderboardPeriod {
         tz: TimeZone,
     ): Pair<Long, Long>
 
-    /** Last 7 days ending at [now], day-aligned in [tz]. */
+    /** Today and the previous six days in [tz] — [StatsWindow.Week]. */
     data object Week : LeaderboardPeriod {
         override fun bounds(
             now: Instant,
             tz: TimeZone,
-        ): Pair<Long, Long> {
-            val today = now.toLocalDateTime(tz).date
-            val startDate = today.minus(DatePeriod(days = 6))
-            return startDate.atStartOfDayIn(tz).toEpochMilliseconds() to now.toEpochMilliseconds()
-        }
+        ): Pair<Long, Long> = StatsWindow.Week.startMs(now, tz) to now.toEpochMilliseconds()
     }
 
-    /** Current calendar month in [tz]. */
+    /** Today and the previous 29 days in [tz] — [StatsWindow.Month]. */
     data object Month : LeaderboardPeriod {
         override fun bounds(
             now: Instant,
             tz: TimeZone,
-        ): Pair<Long, Long> {
-            val today = now.toLocalDateTime(tz).date
-            val firstOfMonth = LocalDate(today.year, today.month, 1)
-            return firstOfMonth.atStartOfDayIn(tz).toEpochMilliseconds() to now.toEpochMilliseconds()
-        }
+        ): Pair<Long, Long> = StatsWindow.Month.startMs(now, tz) to now.toEpochMilliseconds()
     }
 
-    /** Current calendar year in [tz]. */
+    /** Today and the previous 364 days in [tz] — [StatsWindow.Year]. */
     data object Year : LeaderboardPeriod {
         override fun bounds(
             now: Instant,
             tz: TimeZone,
-        ): Pair<Long, Long> {
-            val today = now.toLocalDateTime(tz).date
-            val firstOfYear = LocalDate(today.year, 1, 1)
-            return firstOfYear.atStartOfDayIn(tz).toEpochMilliseconds() to now.toEpochMilliseconds()
-        }
+        ): Pair<Long, Long> = StatsWindow.Year.startMs(now, tz) to now.toEpochMilliseconds()
     }
 
     /** All recorded history. */

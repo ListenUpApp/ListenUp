@@ -9,10 +9,10 @@ import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.domain.DayBucket
 import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.WeeklyStats
-import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.StatsRepository
+import com.calypsan.listenup.domain.stats.StatsWindow
 import com.calypsan.listenup.domain.stats.StreakReducer
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -86,9 +86,12 @@ internal class StatsRepositoryImpl(
             .flatMapLatest { userId ->
                 if (userId == null) return@flatMapLatest flowOf(WeeklyStats.empty())
                 val tz = timeZone()
-                val (startMs, endMs) = LeaderboardPeriod.Week.bounds(clock.now(), tz)
+                val now = clock.now()
+                // The shared week (StatsWindow.Week): the server's user_stats and the leaderboard count
+                // the same window with the same whole-span rule, so Home and the Leaderboard agree.
+                val weekStartMs = StatsWindow.Week.startMs(now, tz)
                 combine(
-                    listeningEventDao.observeWithinWindow(userId, startMs, endMs),
+                    listeningEventDao.observeWithinWindow(userId, weekStartMs, now.toEpochMilliseconds()),
                     listeningEventDao.observeEndedAt(userId),
                     playbackPositionDao.observeListenedDayTimestamps(),
                 ) { events, allEndedAt, playbackDays -> aggregate(events, allEndedAt, playbackDays, tz) }
