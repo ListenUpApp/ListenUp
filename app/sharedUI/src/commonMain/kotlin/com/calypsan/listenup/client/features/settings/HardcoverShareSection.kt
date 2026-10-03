@@ -2,8 +2,11 @@ package com.calypsan.listenup.client.features.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -155,7 +158,8 @@ private fun ShareModeChoice(
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         Text(text = stringResource(Res.string.hardcover_share_mode_label), style = MaterialTheme.typography.titleMedium)
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        // Intrinsic height, so both segments take the taller one's height when a large font wraps a label.
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
             SHARE_MODES.forEachIndexed { index, mode ->
                 SegmentedButton(
                     selected = mode == shareMode,
@@ -165,7 +169,7 @@ private fun ShareModeChoice(
                     },
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = SHARE_MODES.size),
                     enabled = !isSaving,
-                    modifier = Modifier.heightIn(min = ShareModeMinHeight),
+                    modifier = Modifier.fillMaxHeight().heightIn(min = ShareModeMinHeight),
                 ) {
                     Text(text = stringResource(mode.label))
                 }
