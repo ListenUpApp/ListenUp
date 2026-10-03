@@ -7,9 +7,10 @@ import kotlinx.serialization.Serializable
  * Wire DTO for one user's materialized listening stats — the lean fixed-shape
  * row that powers stats screens with a single row read. Maintained server-side
  * by `UserStatsUpdater` as listening events arrive and as playback positions
- * flip `finished`; rolling windows (`totalSecondsLast7Days` /
- * `totalSecondsLast30Days`) are lazily recomputed on catch-up to handle idle
- * users without a cron.
+ * flip `finished`. The window totals (`totalSecondsLast7Days` /
+ * `totalSecondsLast30Days`) cover the shared
+ * [com.calypsan.listenup.domain.stats.StatsWindow]s in the user's home timezone and
+ * roll over at local midnight via the server's freshness sweep.
  *
  * `id` equals the owning user id (1:1 with the user). `lastEventDate` is
  * `"YYYY-MM-DD"` in the user's TZ — drives streak math; null until the user's

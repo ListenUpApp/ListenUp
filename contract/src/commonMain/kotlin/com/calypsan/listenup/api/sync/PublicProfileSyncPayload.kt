@@ -13,9 +13,10 @@ import kotlinx.serialization.Serializable
  * whenever a user's stats or identity change. It carries only aggregates and identity —
  * no per-book data — so it can never leak book access.
  *
- * `id` equals the owning user id (1:1 with the user). The rolling-window second totals
- * ([totalSecondsLast7Days] / [totalSecondsLast30Days] / [totalSecondsLast365Days]) are
- * anchored at the present, mirroring `UserStatsUpdater`'s window math.
+ * `id` equals the owning user id (1:1 with the user). The windowed second totals
+ * ([totalSecondsLast7Days] / [totalSecondsLast30Days] / [totalSecondsLast365Days]) cover the
+ * shared [com.calypsan.listenup.domain.stats.StatsWindow]s — today plus the previous days back to
+ * local midnight in the user's home timezone.
  *
  * Implements [Tombstoned]: a deleted user's row is soft-deleted so clients prune it.
  */
@@ -33,8 +34,8 @@ data class PublicProfileSyncPayload(
     val booksFinished: Int,
     val currentStreakDays: Int,
     val longestStreakDays: Int,
-    // Windowed leaderboard metrics, computed live by PublicProfileMaintainer.refresh() and anchored
-    // at the present (like the rolling-window seconds above). Books = distinct books finished in the
+    // Windowed leaderboard metrics, computed live by PublicProfileMaintainer.refresh() over the same
+    // StatsWindows as the seconds above. Books = distinct books finished in the
     // window; streak = the longest consecutive listening-day run whose days fall inside the window
     // (so it caps at the window length). Default 0 so pre-V45 rows and non-projection callers omit them.
     val booksFinishedLast7Days: Int = 0,
