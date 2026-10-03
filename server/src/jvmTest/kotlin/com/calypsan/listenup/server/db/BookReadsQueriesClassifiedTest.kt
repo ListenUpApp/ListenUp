@@ -34,6 +34,7 @@ private enum class ReadsSide {
 private val CLASSIFIED: Map<String, ReadsSide> =
     mapOf(
         "BookReads.insert" to ReadsSide.LISTENUP_WRITE,
+        "BookReads.insertWithStart" to ReadsSide.LISTENUP_WRITE,
         // Readers: shown, badged — SocialServiceImpl.bookReadership splits by source.
         "BookReads.finishesForBook" to ReadsSide.INCLUDES_HARDCOVER,
         "BookReads.finishesForUserBook" to ReadsSide.LISTENUP_ONLY,
@@ -41,6 +42,7 @@ private val CLASSIFIED: Map<String, ReadsSide> =
         "BookReads.countForUser" to ReadsSide.LISTENUP_ONLY,
         "BookReads.latestFinishForUserBook" to ReadsSide.LISTENUP_ONLY,
         "BookReads.updateFinishedAtById" to ReadsSide.BY_ID,
+        "BookReads.updateStartedAtById" to ReadsSide.BY_ID,
         "BookReads.existsForUserBook" to ReadsSide.LISTENUP_ONLY,
         "BookReads.finishedAtForUser" to ReadsSide.LISTENUP_ONLY,
         "BookReads.insertPulled" to ReadsSide.HARDCOVER_ONLY,

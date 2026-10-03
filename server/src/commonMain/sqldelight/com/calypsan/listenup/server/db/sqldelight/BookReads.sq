@@ -5,6 +5,8 @@
 --   'reconcile' — a finish recovered from a finished position during a stats rebuild;
 --   'hardcover' — a read logged on Hardcover and pulled (#601 B3). hc_read_id names it; it is deleted
 --                 when that read vanishes from Hardcover, and it never counts as listening.
+-- started_at is the day the reader said they started, when they picked one in "Mark as finished"; NULL
+-- otherwise. It dates the read's start when the read is sent to Hardcover as history.
 -- EVERY query below is classified in BookReadsQueriesClassifiedTest: a query that means "what the user
 -- listened to" carries `source <> 'hardcover'` literally.
 CREATE TABLE book_reads (
@@ -14,7 +16,8 @@ CREATE TABLE book_reads (
     finished_at INTEGER NOT NULL,
     source      TEXT    NOT NULL,
     created_at  INTEGER NOT NULL,
-    hc_read_id  INTEGER
+    hc_read_id  INTEGER,
+    started_at  INTEGER
 );
 
 CREATE INDEX idx_book_reads_book      ON book_reads(book_id);
@@ -25,6 +28,11 @@ CREATE UNIQUE INDEX idx_book_reads_user_hc_read ON book_reads(user_id, hc_read_i
 insert:
 INSERT INTO book_reads (id, user_id, book_id, finished_at, source, created_at)
 VALUES (:id, :user_id, :book_id, :finished_at, :source, :created_at);
+
+-- Append a completion row the reader dated the start of (a picked start in "Mark as finished").
+insertWithStart:
+INSERT INTO book_reads (id, user_id, book_id, finished_at, source, created_at, started_at)
+VALUES (:id, :user_id, :book_id, :finished_at, :source, :created_at, :started_at);
 
 -- Every finish of a book across all users, newest-first — Hardcover reads INCLUDED: the Readers section
 -- shows them, badged. SocialServiceImpl.bookReadership splits them from ListenUp's by source.
@@ -62,6 +70,11 @@ LIMIT 1;
 -- given an id from latestFinishForUserBook, which excludes Hardcover reads.
 updateFinishedAtById:
 UPDATE book_reads SET finished_at = :finished_at WHERE id = :id;
+
+-- Re-date an existing completion's start to the day the reader picked (the same "same read" case). Only
+-- ever given an id from latestFinishForUserBook.
+updateStartedAtById:
+UPDATE book_reads SET started_at = :started_at WHERE id = :id;
 
 -- True iff the user has a ListenUp completion row for this book — gates the idempotent reconcile insert.
 existsForUserBook:

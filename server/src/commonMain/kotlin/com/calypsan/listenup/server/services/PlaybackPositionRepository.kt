@@ -239,6 +239,10 @@ class PlaybackPositionRepository(
      * [finishedAt] is the day the reader said they finished — "Mark as finished" lets them pick it. It
      * dates the finish everywhere it lands (`book_reads`, the `FINISHED_BOOK` activity, the Hardcover
      * FINISH) in place of the moment the write arrived; see [resolveFinishedAt] for how it is bounded.
+     *
+     * [startedAt] is the day the reader said they STARTED, picked in the same form. On a finish it dates
+     * the read's start (`book_reads.started_at`, the Hardcover FINISH); see [resolveStartedAt] for when
+     * it is ignored. It never touches the position row or the listen-through.
      */
     suspend fun recordPosition(
         userId: String,
@@ -254,6 +258,7 @@ class PlaybackPositionRepository(
         hasCustomSpeed: Boolean = false,
         hasCustomBoost: Boolean = false,
         startedBookOccurredAt: Long? = null,
+        startedAt: Long? = null,
     ): AppResult<PlaybackPositionSyncPayload> =
         recordPositionDetailed(
             userId,
@@ -269,6 +274,7 @@ class PlaybackPositionRepository(
             hasCustomSpeed,
             hasCustomBoost,
             startedBookOccurredAt,
+            startedAt,
         ).map { it.position }
 
     /**
@@ -290,6 +296,7 @@ class PlaybackPositionRepository(
         hasCustomSpeed: Boolean = false,
         hasCustomBoost: Boolean = false,
         startedBookOccurredAt: Long? = null,
+        startedAt: Long? = null,
     ): AppResult<RecordPositionResult> {
         val now = clock.now().toEpochMilliseconds()
         // Clamp #1 (persisted): a device with a clock set into the future must not be able to plant
@@ -300,6 +307,7 @@ class PlaybackPositionRepository(
         // This clamped value is what gets persisted below and what ships in the sync payload.
         val clampedLastPlayedAt = min(lastPlayedAt, now + SKEW_TOLERANCE_MS)
         val resolvedFinishedAt = resolveFinishedAt(finishedAt, now)
+        val resolvedStartedAt = resolveStartedAt(startedAt, finishedAt = resolvedFinishedAt ?: clampedLastPlayedAt, now)
 
         val existing = getPosition(userId, bookId)
         // Clamp #2 (comparison-only, never rewrites the stored row): a row poisoned before this
@@ -353,6 +361,7 @@ class PlaybackPositionRepository(
                     userId = userId,
                     bookId = bookId,
                     occurredAt = Instant.fromEpochMilliseconds(resolvedFinishedAt ?: clampedLastPlayedAt),
+                    startedAt = resolvedStartedAt?.let(Instant::fromEpochMilliseconds),
                 ),
             )
         } else if (!finished) {
@@ -728,6 +737,20 @@ internal fun resolveFinishedAt(
     finishedAt: Long?,
     nowMs: Long,
 ): Long? = finishedAt?.takeIf { it > 0 }?.let { min(it, nowMs + SKEW_TOLERANCE_MS) }
+
+/**
+ * The start day a finishing write may claim, or null when it claims none the server can use — the read
+ * is then started as it always was (the listen-through's start, or derived from listening).
+ *
+ * Unlike [resolveFinishedAt] it is ignored, not clamped, when out of bounds: a start after the read's
+ * [finishedAt], or beyond the skew ceiling, is not a day the picker could have produced (it refuses
+ * both), so there is no nearby true value to clamp to. A non-positive value is the unset sentinel.
+ */
+internal fun resolveStartedAt(
+    startedAt: Long?,
+    finishedAt: Long,
+    nowMs: Long,
+): Long? = startedAt?.takeIf { it > 0 && it <= finishedAt && it <= nowMs + SKEW_TOLERANCE_MS }
 
 /**
  * One user's most-recently-played unfinished book — the presence section's recent-fill row before
