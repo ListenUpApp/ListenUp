@@ -74,8 +74,11 @@ private val FocusRingWidth = 2.dp
  *
  * @param halfStars The rating in half-star units.
  * @param modifier Optional modifier.
- * @param onHalfStarsChange Called with the new rating (2..10) when the listener picks one; null for
- *   read-only stars.
+ * @param onHalfStarsChange Called with the new rating (2..10) for every half the listener crosses — the
+ *   preview while dragging; null for read-only stars.
+ * @param onHalfStarsCommit Called once with the rating the listener settled on: on a tap, where a drag
+ *   lets go, on each key step, and on each TalkBack adjustment. Null when nothing saves until a button
+ *   does (the rate sheet).
  * @param starSize The size of each star.
  */
 @Composable
@@ -83,6 +86,7 @@ fun RatingStars(
     halfStars: Int,
     modifier: Modifier = Modifier,
     onHalfStarsChange: ((Int) -> Unit)? = null,
+    onHalfStarsCommit: ((Int) -> Unit)? = null,
     starSize: Dp = if (onHalfStarsChange == null) ReadOnlyStarSize else InputStarSize,
 ) {
     val spoken =
@@ -103,6 +107,7 @@ fun RatingStars(
                             spoken
                         },
                     onHalfStarsChange = onHalfStarsChange,
+                    onHalfStarsCommit = onHalfStarsCommit,
                 )
         }
     val filled = MaterialTheme.colorScheme.primary
@@ -131,11 +136,13 @@ private fun Modifier.ratingInput(
     description: String,
     state: String,
     onHalfStarsChange: (Int) -> Unit,
+    onHalfStarsCommit: ((Int) -> Unit)?,
 ): Modifier {
     val haptics = LocalHaptics.current
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val current by rememberUpdatedState(halfStars)
     val onChange by rememberUpdatedState(onHalfStarsChange)
+    val onCommit by rememberUpdatedState(onHalfStarsCommit)
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
     val focusRing =
@@ -157,6 +164,12 @@ private fun Modifier.ratingInput(
         return picked
     }
 
+    // Commits a value [report] already previewed. Never `onCommit?.invoke(report(…))`: a null safe-call
+    // skips its argument, so the preview would vanish wherever nothing commits (the rate sheet).
+    fun commit(picked: Int) {
+        onCommit?.invoke(picked)
+    }
+
     fun pickAt(
         x: Float,
         width: Int,
@@ -167,16 +180,21 @@ private fun Modifier.ratingInput(
         .onPreviewKeyEvent { event ->
             val step = ratingKeyStepFor(event.key)
             if (event.type != KeyEventType.KeyDown || step == null) return@onPreviewKeyEvent false
-            report(step.applyTo(current), current)
+            commit(report(step.applyTo(current), current))
             true
         }.focusable(interactionSource = interactionSource)
-        .pointerInput(isRtl) { detectTapGestures { report(pickAt(it.x, size.width), current) } }
         .pointerInput(isRtl) {
+            detectTapGestures { commit(report(pickAt(it.x, size.width), current)) }
+        }.pointerInput(isRtl) {
             // The last half this drag reported, tracked here rather than read back from
             // composition, so a fast drag ticks once per half even before the parent recomposes.
             var last = current
             detectHorizontalDragGestures(
                 onDragStart = { last = report(pickAt(it.x, size.width), current) },
+                // A cancelled drag commits too: the preview already shows that value, and leaving it
+                // unsaved would strand the stars on a rating that never reached the server.
+                onDragEnd = { commit(last) },
+                onDragCancel = { commit(last) },
                 onHorizontalDrag = { change, _ -> last = report(pickAt(change.position.x, size.width), last) },
             )
         }.clearAndSetSemantics {
@@ -195,7 +213,7 @@ private fun Modifier.ratingInput(
                     target
                         .roundToInt()
                         .coerceIn(ListenerRatingLimits.MIN_HALF_STARS, ListenerRatingLimits.MAX_HALF_STARS)
-                report(picked, current)
+                commit(report(picked, current))
                 true
             }
         }
