@@ -100,6 +100,18 @@ class SeriesTreeTest :
             tree.defaultBookOrder("cosmere", memberships) shouldContainExactly listOf("final-empire", "elantris")
         }
 
+        test("a book in two sibling sub-series is listed once on the parent, under the first, but counts in both") {
+            val memberships =
+                listOf(
+                    SeriesMembership("crossover", "stormlight", 2.0),
+                    SeriesMembership("crossover", "mistborn", 5.0),
+                    SeriesMembership("way-of-kings", "stormlight", 1.0),
+                )
+            tree.defaultBookOrder("cosmere", memberships) shouldContainExactly listOf("crossover", "way-of-kings")
+            tree.defaultBookOrder("mistborn", memberships) shouldContainExactly listOf("crossover")
+            tree.defaultBookOrder("stormlight", memberships) shouldContainExactly listOf("way-of-kings", "crossover")
+        }
+
         test("a flat series orders by sequence, unnumbered last, ties in input order") {
             val memberships =
                 listOf(
