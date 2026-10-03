@@ -666,7 +666,8 @@ class SeriesEditViewModelTest :
                 // The parent is the nearest ancestor, not the root.
                 viewModel.state.value.parentId shouldBe "cosmere"
                 viewModel.state.value.parentName shouldBe "Cosmere"
-                viewModel.state.value.childSeries.map { it.displayName } shouldBe listOf("Era 1", "Era 2")
+                viewModel.state.value.childSeries
+                    .map { it.displayName } shouldBe listOf("Era 1", "Era 2")
                 viewModel.state.value.name shouldBe "Mistborn"
 
                 lineage.value = SeriesLineage.Flat

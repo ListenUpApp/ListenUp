@@ -327,7 +327,11 @@ class SeriesEditViewModel internal constructor(
                             parentName = parent?.name,
                             childSeries =
                                 lineage.children.map { child ->
-                                    SeriesCandidate(id = child.series.id, displayName = child.series.name, bookCount = 0)
+                                    SeriesCandidate(
+                                        id = child.series.id,
+                                        displayName = child.series.name,
+                                        bookCount = 0,
+                                    )
                                 },
                         )
                     }
@@ -495,7 +499,9 @@ class SeriesEditViewModel internal constructor(
             }
 
             is SeriesEditUiEvent.ChildSeriesReordered -> {
-                changeHierarchy { id -> seriesEditRepository.reorderChildren(id, event.orderedChildIds.map(::SeriesId)) }
+                changeHierarchy { id ->
+                    seriesEditRepository.reorderChildren(id, event.orderedChildIds.map(::SeriesId))
+                }
             }
         }
     }

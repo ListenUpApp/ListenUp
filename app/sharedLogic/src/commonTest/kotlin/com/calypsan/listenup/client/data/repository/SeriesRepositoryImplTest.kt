@@ -1002,7 +1002,11 @@ class SeriesRepositoryImplTest :
                 verify {
                     bookDao.observeBySeriesIdsWithContributors(listOf("cosmere", "mistborn", "stormlight"))
                 }
-                repository.observeSeriesLineage("orphan").first().ancestors.shouldBeEmpty()
+                repository
+                    .observeSeriesLineage("orphan")
+                    .first()
+                    .ancestors
+                    .shouldBeEmpty()
             }
         }
 
