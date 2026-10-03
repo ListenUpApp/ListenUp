@@ -80,6 +80,9 @@ class PublicProfileRepository(
                     .executeAsList()
         }
 
+    /** The stored projection row for [id] (live or tombstoned), or `null` when there is none. */
+    suspend fun getById(id: String): PublicProfileSyncPayload? = suspendTransaction(db) { readPayload(id) }
+
     override fun readPayload(idStr: String): PublicProfileSyncPayload? =
         db.publicProfilesQueries
             .selectById(idStr)

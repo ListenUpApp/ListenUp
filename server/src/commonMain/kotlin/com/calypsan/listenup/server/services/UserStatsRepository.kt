@@ -19,7 +19,7 @@ import kotlin.time.Clock
  * SQLDelight syncable repository for per-user materialized listening stats (Playback P2).
  *
  * One row per user (`id == userId`) — the current summary of a user's entire listening
- * history. Updated in place on every stats recomputation; rolling-window columns
+ * history. Updated in place on every stats recomputation; calendar-window columns
  * (`totalSecondsLast7Days` / `totalSecondsLast30Days`) are lazily refreshed on catch-up.
  *
  * `userScoped = true` — every `upsert`, `softDelete`, `pullSince`, and `digest` call routes
@@ -190,7 +190,7 @@ class UserStatsRepository(
         }
 
     /**
-     * Overrides [SqlSyncableRepository.pullSince] to lazily refresh the rolling-window fields
+     * Overrides [SqlSyncableRepository.pullSince] to lazily refresh the calendar-window fields
      * (`totalSecondsLast7Days` / `totalSecondsLast30Days`) when the stats row is stale
      * (older than [STATS_STALENESS_LIMIT_MS]).
      *
@@ -212,7 +212,7 @@ class UserStatsRepository(
     }
 
     /**
-     * Re-derives [userId]'s stats (rolling windows AND current streak) and refreshes the projection
+     * Re-derives [userId]'s stats (window totals AND current streak) and refreshes the projection
      * when the stats row is older than [STATS_STALENESS_LIMIT_MS] — the lazy correction path described
      * on [pullSince]. A no-op when no updater is wired, the user has no stats row yet, or nothing drifted.
      */

@@ -3,9 +3,10 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 
 /**
- * Stale-stats self-heal for the two clock-relative reads that drift on inactivity: the rolling
- * 7/30-day window totals AND the current streak (a lapsed user's streak must fall to 0 once their
- * last listening day is older than yesterday). Both are pure functions of the committed primitives, so
+ * Stale-stats self-heal for the clock-relative reads that drift on inactivity: the calendar
+ * week/month window totals (which move at the listener's local midnight) AND the current streak (a
+ * lapsed user's streak must fall to 0 once their last listening day is older than yesterday). Both are
+ * pure functions of the committed primitives, so
  * healing is a full [deriveUserStats] re-run against the current clock — the same derivation the event
  * cascade and the bulk rebuild use, so a healed row can't diverge from a freshly-written one.
  *
@@ -27,12 +28,13 @@ class UserStatsUpdater(
     private val publicProfileMaintainer: PublicProfileMaintainer? = null,
 ) {
     /**
-     * Re-derive [userId]'s stats as of [asOfMs] and, if the decay-sensitive fields (rolling windows or
-     * current streak) changed, write the row and refresh the projection. A no-op — returning `false`
-     * without writing — when the user has no stats row or nothing drifted, so it's cheap to call on
-     * every pull and on every sweep tick.
+     * Re-derive [userId]'s stats as of [asOfMs] and, if the decay-sensitive fields (window totals or
+     * current streak) changed, write the row. Then refresh the projection if *its* row moved — its
+     * windowed books and streak columns roll over at midnight even when `user_stats` doesn't. A no-op —
+     * returning `false` without writing — when the user has no stats row or nothing drifted, so it's
+     * safe to call on every pull and on every sweep tick.
      *
-     * @return `true` if the row was healed (and the projection refreshed), `false` otherwise.
+     * @return `true` if the stats row or the projection row was healed, `false` otherwise.
      */
     internal suspend fun healStaleStats(
         userId: String,
@@ -44,9 +46,8 @@ class UserStatsUpdater(
             derived.totalSecondsLast7Days != existing.totalSecondsLast7Days ||
                 derived.totalSecondsLast30Days != existing.totalSecondsLast30Days ||
                 derived.currentStreakDays != existing.currentStreakDays
-        if (!drifted) return false
-        userStatsRepo.upsert(derived, clientOpId = null, userId = userId)
-        publicProfileMaintainer?.refreshBestEffort(userId)
-        return true
+        if (drifted) userStatsRepo.upsert(derived, clientOpId = null, userId = userId)
+        val projectionHealed = publicProfileMaintainer?.refreshIfChangedBestEffort(userId) ?: false
+        return drifted || projectionHealed
     }
 }
