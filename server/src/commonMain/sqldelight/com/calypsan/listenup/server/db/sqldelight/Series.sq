@@ -126,3 +126,7 @@ UPDATE book_series SET parent_id = :parent_id, parent_position = :parent_positio
 -- Every live series as the tree sees it. Hundreds of rows at most; SeriesTree walks them in memory.
 selectLiveHierarchy:
 SELECT id, parent_id, parent_position FROM book_series WHERE deleted_at IS NULL;
+
+-- Whether a live series names this one as its parent — a parent with sub-series is never an orphan.
+hasLiveChildren:
+SELECT EXISTS(SELECT 1 FROM book_series WHERE parent_id = :id AND deleted_at IS NULL);

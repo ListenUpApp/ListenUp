@@ -430,6 +430,10 @@ class SeriesRepository(
                 .map { SeriesNode(it.id, it.parent_id, it.parent_position?.toInt()) }
         }
 
+    /** Whether at least one live series names [id] as its parent. */
+    suspend fun hasLiveChildren(id: SeriesId): Boolean =
+        suspendTransaction(db) { db.seriesQueries.hasLiveChildren(id.value).executeAsOne() }
+
     /** The id of the live series whose name shares [name]'s normalized form, or null. */
     suspend fun liveIdForName(name: String): SeriesId? =
         suspendTransaction(db) {
