@@ -47,19 +47,73 @@
 .rs-input:focus { outline: none; }
 .rs-input:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
 
-.luw .rt { display: flex; flex-direction: column; gap: 10px; padding: 14px var(--sp-16); }
-.luw .rt-avg { font-size: var(--fs-ui); font-weight: 600; color: var(--ink-2); }
-.luw .rt-avg-star { color: var(--coral); }
-.luw .rt-rate { align-self: flex-start; }
-.luw .rt-refresh-first { align-self: flex-start; }
-.luw .rt-mine { display: flex; align-items: center; gap: 10px; }
-.luw .rt-mine-l { font-size: var(--fs-ui); font-weight: 700; color: var(--ink); }
-.luw .rt-mine .rs { font-size: var(--fs-body); }
-.luw .rt-edit { margin-left: auto; }
-/* Read by a screen reader in place of the average's glyph-and-brackets shorthand. */
+/* Ratings, yours first: your stars, then everyone else in labelled rows. Side by side once the panel
+   itself is 560px wide — a container query, so it follows the panel's column, not the window. */
+.luw .rt { container-type: inline-size; }
+.luw .rt-body { display: flex; flex-direction: column; }
+@container (min-width: 560px) {
+  .luw .rt-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .luw .rt-body .rt-ev { border-top: none; border-left: 1px solid var(--line); }
+}
+.luw .rt-you { display: flex; flex-direction: column; gap: 2px; padding: 14px var(--sp-16) 8px; }
+.luw .rt-you-top { display: flex; align-items: baseline; justify-content: space-between; }
+.luw .rt-you-l { font-size: var(--fs-ui); font-weight: 700; color: var(--ink); }
+.luw .rt-you-v { font-size: var(--fs-ui); font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.luw .rt-you-v.is-unrated { font-weight: 600; color: var(--ink-2); }
+/* Each star a 44px target, glyph centred, with no gap: a click's half is measured across equal stars. */
+.luw .rt-you .rs-input { align-self: flex-start; gap: 0; margin-left: -8px; }
+.luw .rt-you .rs-s { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+.luw .rt-hint, .luw .rt-mut { font-size: 0.8125rem; color: var(--ink-2); }
+.luw .rt-hint { padding-bottom: 6px; }
+.luw .rt-note { margin: 2px 0 0; font-size: 0.8125rem; font-style: italic; color: var(--ink-2); overflow-wrap: anywhere; }
+.luw .rt-you-acts { display: flex; flex-wrap: wrap; gap: 2px; margin-left: -12px; }
+.luw .rt-quiet { color: var(--ink-2); }
+/* The key caps show only while the stars hold keyboard focus: a hint for the keyboard, not for a tap. */
+.luw .rt-keys { display: none; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; font-size: 0.8125rem; color: var(--ink-2); }
+.luw .rt-you:has(.rs-input:focus-visible) .rt-keys { display: flex; }
+.luw .rt-kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface-2); font-size: 0.75rem; font-weight: 700; color: var(--ink); }
+.luw .rt-ev { border-top: 1px solid var(--line); padding: 4px 8px 8px; }
+.luw .rt-er { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 6px 8px; border: none; border-radius: 10px; background: transparent; text-align: left; color: inherit; font: inherit; box-sizing: border-box; }
+.luw .rt-er-vis { display: contents; }
+/* The ListenUp score's row is a real button that opens the sources view. */
+.luw .rt-score { cursor: pointer; }
+@media (hover: hover) { .luw .rt-score:hover { background: var(--coral-soft); } }
+.luw .rt-score:active { transform: translateY(1px); }
+.luw .rt-score:focus { outline: none; }
+.luw .rt-score:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+.luw .rt-en { width: 52px; flex: none; display: flex; align-items: center; gap: 3px; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.luw .rt-star { color: var(--coral); font-size: 0.95rem; }
+.luw .rt-et { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.luw .rt-eh { font-size: var(--fs-ui); font-weight: 700; color: var(--ink); }
+.luw .rt-chev { flex: none; color: var(--ink-2); }
+.luw .rt-skel { width: 40px; height: 14px; border-radius: 7px; background: var(--surface-3); }
+.luw .rt-nobody { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-8); flex-wrap: wrap; min-height: 48px; padding: 4px 0 0 8px; }
+/* Read by a screen reader in place of the figures beside it; the live region in the everyone half too. */
 .rt-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 dialog.dlg .rt-input { display: flex; justify-content: center; }
+
+/* The sources view: the score, then a row per source — name, average, count and share over a bar. */
+dialog.dlg .rt-src-head { display: flex; align-items: baseline; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+dialog.dlg .rt-src-big { font-size: 2.25rem; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: var(--ink); }
+dialog.dlg .rt-src-big .rt-star { font-size: 1.6rem; color: var(--coral); }
+dialog.dlg .rt-src-sub { font-size: var(--fs-ui); font-weight: 600; color: var(--ink-2); }
+dialog.dlg .rt-srcs { display: flex; flex-direction: column; }
+dialog.dlg .rt-src { position: relative; display: grid; grid-template-columns: minmax(0, 7.5rem) 4rem minmax(0, 1fr); gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+dialog.dlg .rt-src:last-child { border-bottom: none; }
+dialog.dlg .rt-src-name, dialog.dlg .rt-src-avg { font-size: var(--fs-ui); font-weight: 700; color: var(--ink); }
+dialog.dlg .rt-src-avg { font-variant-numeric: tabular-nums; }
+dialog.dlg .rt-src-avg .rt-star { color: var(--coral); }
+dialog.dlg .rt-src-fig { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+dialog.dlg .rt-src-line { display: flex; justify-content: space-between; gap: var(--sp-8); font-size: 0.8125rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+dialog.dlg .rt-bar { display: block; height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+dialog.dlg .rt-bar > span { display: block; height: 100%; border-radius: 4px; background: var(--coral); }
+dialog.dlg .rt-upd { font-size: 0.75rem; color: var(--ink-2); }
+dialog.dlg .rt-src-acts { justify-content: space-between; }
+@media (max-width: 639px) {
+  dialog.dlg .rt-src { grid-template-columns: minmax(0, 1fr) auto; }
+  dialog.dlg .rt-src-fig { grid-column: 1 / -1; }
+}
 /* "Combined from N sources": a quiet caption under the breakdown's title, above its rows. */
 dialog.dlg .rt-combined { margin-top: -8px; font-size: var(--fs-ui); color: var(--ink-2); }
 dialog.dlg .rt-count { align-self: flex-end; margin-top: -8px; font-size: 0.75rem; font-weight: 600; color: var(--ink-3); font-variant-numeric: tabular-nums; }

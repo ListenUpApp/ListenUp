@@ -47,7 +47,7 @@ struct BookRatingsTests {
     }
 
     private func externalRating(source: ExternalRatingSource, average: Double, count: Int) -> ExternalRating {
-        ExternalRating(source: source, average: average, count: Int32(count))
+        ExternalRating(source: source, average: average, count: Int32(count), fetchedAtMs: nil)
     }
 
     @Test func readyWithNobodyRatingHasNoAverageAndNoRatingOfMine() {
@@ -57,7 +57,8 @@ struct BookRatingsTests {
             external: nil,
             breakdown: [],
             canRefresh: false,
-            isRefreshingExternal: false
+            isRefreshingExternal: false,
+            isCheckingExternal: false
         ))
 
         #expect(phase == .ready(BookRatingsSnapshot(
@@ -77,7 +78,8 @@ struct BookRatingsTests {
             external: nil,
             breakdown: [],
             canRefresh: false,
-            isRefreshingExternal: false
+            isRefreshingExternal: false,
+            isCheckingExternal: false
         )
 
         let phase = BookRatingsObserver.phase(from: state)
@@ -88,7 +90,9 @@ struct BookRatingsTests {
             external: nil,
             breakdown: [],
             canRefresh: false,
-            isRefreshingExternal: false
+            isRefreshingExternal: false,
+            // Only your listeners rated it: their own row says so, and no score row is drawn.
+            scoreRow: .absent
         )))
     }
 
@@ -110,26 +114,30 @@ struct BookRatingsTests {
                 externalRating(source: .goodreads, average: 4.1, count: 3_900)
             ],
             canRefresh: true,
-            isRefreshingExternal: true
+            isRefreshingExternal: true,
+            isCheckingExternal: false
         )
 
         let phase = BookRatingsObserver.phase(from: state)
 
+        let score = ExternalScore(
+            average: 4.4,
+            count: 12_000,
+            outsideShares: [.audible: 0.6, .goodreads: 0.4],
+            listenersShare: nil
+        )
         #expect(phase == .ready(BookRatingsSnapshot(
             listeners: nil,
             mine: nil,
-            external: ExternalScore(
-                average: 4.4,
-                count: 12_000,
-                outsideShares: [.audible: 0.6, .goodreads: 0.4],
-                listenersShare: nil
-            ),
+            external: score,
             breakdown: [
                 ExternalRatingRow(source: .audible, average: 4.5, count: 8_100),
                 ExternalRatingRow(source: .goodreads, average: 4.1, count: 3_900)
             ],
             canRefresh: true,
-            isRefreshingExternal: true
+            isRefreshingExternal: true,
+            scoreRow: .shown(score),
+            outsideSourcesInScore: [.audible, .goodreads]
         )))
     }
 
@@ -145,7 +153,8 @@ struct BookRatingsTests {
             ),
             breakdown: [externalRating(source: .audible, average: 4.7, count: 1_007)],
             canRefresh: false,
-            isRefreshingExternal: false
+            isRefreshingExternal: false,
+            isCheckingExternal: false
         )
 
         guard case .ready(let snapshot) = BookRatingsObserver.phase(from: state) else {
@@ -155,68 +164,11 @@ struct BookRatingsTests {
         #expect(snapshot.external?.outsideShares == [.audible: 0.8])
         #expect(snapshot.external?.listenersShare == 0.2)
         #expect(snapshot.external?.sourceCount == 2)
+        #expect(snapshot.outsideSourcesInScore == [.audible])
+        #expect(snapshot.listenersInScore)
     }
 
-    // MARK: - Headline text (averageLabel + compactCount, NOT starsLabel — starsLabel rounds to a
-    // half-star, which read wrong for the outside-world headline)
-
-    @Test func externalHeadlineShowsOneDecimalAndCompactCount() {
-        let headline = BookRatingSection.externalHeadline(ExternalScore(average: 4.4, count: 12_000))
-        #expect(headline == "\u{2605} 4.4 · 12k ratings")
-    }
-
-    @Test func externalHeadlineShowsAWholeNumberWithATrailingZero() {
-        let headline = BookRatingSection.externalHeadline(ExternalScore(average: 4.0, count: 812))
-        #expect(headline == "\u{2605} 4.0 · 812 ratings")
-    }
-
-    @Test func externalHeadlineSaysOneRatingForExactlyOne() {
-        let headline = BookRatingSection.externalHeadline(ExternalScore(average: 4.4, count: 1))
-        #expect(headline == "\u{2605} 4.4 · 1 rating")
-    }
-
-    @Test func externalSentenceSpeaksAverageAndCompactCount() {
-        let sentence = BookRatingSection.externalSentence(ExternalScore(average: 4.4, count: 12_000))
-        #expect(sentence == "Rated 4.4 out of 5 stars from 12k ratings")
-    }
-
-    @Test func externalSentenceSaysOneRatingForExactlyOne() {
-        let sentence = BookRatingSection.externalSentence(ExternalScore(average: 4.4, count: 1))
-        #expect(sentence == "Rated 4.4 out of 5 stars from 1 rating")
-    }
-
-    // MARK: - A score only your listeners gave
-
-    private func snapshot(external: ExternalScore?, canRefresh: Bool = false) -> BookRatingsSnapshot {
-        BookRatingsSnapshot(
-            listeners: ListenersAverage(averageHalfStars: 10, count: 1),
-            mine: nil,
-            external: external,
-            breakdown: [],
-            canRefresh: canRefresh,
-            isRefreshingExternal: false
-        )
-    }
-
-    @Test func aListenersOnlyScoreHasNoHeadline() {
-        // Their own line already says it; a second number read off ListenUp's curve would look
-        // like a contradiction (a lone 5 stars scores about 4.4).
-        let listenersOnly = ExternalScore(average: 4.4, count: 1, outsideShares: [:], listenersShare: 1)
-        #expect(listenersOnly.isListenersOnly)
-        #expect(BookRatingSection.headline(snapshot(external: listenersOnly)) == nil)
-    }
-
-    @Test func aScoreAnOutsideSourceJoinsKeepsItsHeadline() {
-        let mixed = ExternalScore(average: 4.3, count: 1_008, outsideShares: [.audible: 0.9], listenersShare: 0.1)
-        #expect(!mixed.isListenersOnly)
-        #expect(BookRatingSection.headline(snapshot(external: mixed)) == mixed)
-    }
-
-    @Test func anAdminSeesRefreshWhereAListenersOnlyHeadlineWouldSit() {
-        let listenersOnly = ExternalScore(average: 4.4, count: 1, outsideShares: [:], listenersShare: 1)
-        #expect(BookRatingSection.showsRefreshAction(snapshot(external: listenersOnly, canRefresh: true)))
-        #expect(!BookRatingSection.showsRefreshAction(snapshot(external: listenersOnly, canRefresh: false)))
-    }
+    // MARK: - Stars
 
     @Test func starsLabelSpeaksTheSharedDefinition() {
         #expect(RatingStarsView.starsLabel(8) == "4")
@@ -225,86 +177,7 @@ struct BookRatingsTests {
         #expect(RatingStarsView.starsLabel(7.4) == "3.5")
     }
 
-    @Test func oneListenersRatingIsSpokenAsOneRating() {
-        let sentence = BookRatingSection.listenersSentence(ListenersAverage(averageHalfStars: 8, count: 1))
-        #expect(sentence == "Your listeners: 4 out of 5 stars, from 1 rating")
-    }
-
-    @Test func severalListenersRatingsAreSpokenAsRatings() {
-        let sentence = BookRatingSection.listenersSentence(ListenersAverage(averageHalfStars: 7, count: 3))
-        #expect(sentence == "Your listeners: 3.5 out of 5 stars, from 3 ratings")
-    }
-
-    // MARK: - Refresh before a score exists
-
-    @Test func refreshActionShowsForAnAdminWithNoScoreYet() {
-        let snapshot = BookRatingsSnapshot(
-            listeners: nil,
-            mine: nil,
-            external: nil,
-            breakdown: [],
-            canRefresh: true,
-            isRefreshingExternal: false
-        )
-
-        #expect(BookRatingSection.showsRefreshAction(snapshot) == true)
-    }
-
-    @Test func refreshActionIsHiddenForANonAdmin() {
-        let snapshot = BookRatingsSnapshot(
-            listeners: nil,
-            mine: nil,
-            external: nil,
-            breakdown: [],
-            canRefresh: false,
-            isRefreshingExternal: false
-        )
-
-        #expect(BookRatingSection.showsRefreshAction(snapshot) == false)
-    }
-
-    @Test func refreshActionIsHiddenOnceAScoreExists() {
-        let snapshot = BookRatingsSnapshot(
-            listeners: nil,
-            mine: nil,
-            external: ExternalScore(average: 4.4, count: 12_000),
-            breakdown: [],
-            canRefresh: true,
-            isRefreshingExternal: false
-        )
-
-        #expect(BookRatingSection.showsRefreshAction(snapshot) == false)
-    }
-
-    @Test func refreshActionStaysVisibleAndBusyWhileRefreshing() {
-        let snapshot = BookRatingsSnapshot(
-            listeners: nil,
-            mine: nil,
-            external: nil,
-            breakdown: [],
-            canRefresh: true,
-            isRefreshingExternal: true
-        )
-
-        // Still shown while a refresh is in flight — it doesn't disappear, it goes busy.
-        #expect(BookRatingSection.showsRefreshAction(snapshot) == true)
-        #expect(snapshot.isRefreshingExternal == true)
-    }
-
     // MARK: - Breakdown sheet
-
-    @Test func sourceRowShowsNameAverageAndCompactCount() {
-        let row = RatingBreakdownSheet.sourceRow(ExternalRatingRow(source: .audible, average: 4.5, count: 8_100))
-        #expect(row == "Audible · 4.5 · 8.1k")
-    }
-
-    @Test func aSourceRowCarriesItsShareOfTheScore() {
-        let row = RatingBreakdownSheet.sourceRow(
-            ExternalRatingRow(source: .audible, average: 4.7, count: 1_007),
-            share: 0.38
-        )
-        #expect(row == "Audible · 4.7 · 1k · 38%")
-    }
 
     @Test func combinedFromNamesHowManySourcesWhenThereAreSeveral() {
         let three = ExternalScore(
@@ -322,29 +195,148 @@ struct BookRatingsTests {
         #expect(RatingBreakdownSheet.combinedFrom(nil) == nil)
     }
 
-    @Test func yourListenersAreARowWhenTheyArePartOfTheScore() {
-        let score = ExternalScore(average: 4.3, count: 1_010, outsideShares: [.audible: 0.8], listenersShare: 0.2)
-        let rows = RatingBreakdownSheet.rows(
-            breakdown: [ExternalRatingRow(source: .audible, average: 4.7, count: 1_007)],
-            score: score,
-            listeners: ListenersAverage(averageHalfStars: 8, count: 3)
+    // MARK: - Yours first
+
+    private let day: Int64 = 86_400_000
+
+    private func snapshot(
+        mine: MyRating? = nil,
+        listeners: ListenersAverage? = nil,
+        external: ExternalScore? = nil,
+        breakdown: [ExternalRatingRow] = [],
+        canRefresh: Bool = false,
+        scoreRow: ScoreRowModel = .noRatings,
+        outsideSourcesInScore: [ExternalRatingSource] = [],
+        listenersInScore: Bool = false
+    ) -> BookRatingsSnapshot {
+        BookRatingsSnapshot(
+            listeners: listeners,
+            mine: mine,
+            external: external,
+            breakdown: breakdown,
+            canRefresh: canRefresh,
+            isRefreshingExternal: false,
+            isCheckingExternal: scoreRow == .checking,
+            scoreRow: scoreRow,
+            showsInlineRefresh: canRefresh && (scoreRow == .noRatings || scoreRow == .absent),
+            outsideSourcesInScore: outsideSourcesInScore,
+            listenersInScore: listenersInScore
         )
-        #expect(rows == ["Audible · 4.7 · 1k · 80%", "Your listeners · 4.0 · 3 · 20%"])
     }
 
-    @Test func yourListenersAreNoRowWhenTheScoreLeavesThemOut() {
-        let score = ExternalScore(average: 4.4, count: 1_007, outsideShares: [.audible: 1], listenersShare: nil)
-        let rows = RatingBreakdownSheet.rows(
-            breakdown: [ExternalRatingRow(source: .audible, average: 4.7, count: 1_007)],
-            score: score,
-            listeners: ListenersAverage(averageHalfStars: 8, count: 3)
-        )
-        #expect(rows == ["Audible · 4.7 · 1k · 100%"])
+    @Test func readyCarriesTheScoreRowTheSharedStateDecided() {
+        let checking = BookRatingsObserver.phase(from: BookRatingsUiStateReady(
+            listeners: nil, mine: nil, external: nil, breakdown: [],
+            canRefresh: true, isRefreshingExternal: false, isCheckingExternal: true
+        ))
+        guard case .ready(let snap) = checking else { Issue.record("expected ready"); return }
+        #expect(snap.scoreRow == .checking)
+        #expect(snap.isCheckingExternal)
+        #expect(!snap.showsInlineRefresh)
+
+        let nothing = BookRatingsObserver.phase(from: BookRatingsUiStateReady(
+            listeners: nil, mine: nil, external: nil, breakdown: [],
+            canRefresh: true, isRefreshingExternal: false, isCheckingExternal: false
+        ))
+        guard case .ready(let none) = nothing else { Issue.record("expected ready"); return }
+        #expect(none.scoreRow == .noRatings)
+        #expect(none.showsInlineRefresh)
     }
 
-    @Test func sourceRowSpeaksAGoodreadsRowToo() {
-        let row = RatingBreakdownSheet.sourceRow(ExternalRatingRow(source: .goodreads, average: 4.1, count: 620))
-        #expect(row == "Goodreads · 4.1 · 620")
+    @Test func readyCarriesEachSourcesFetchTime() {
+        let state = BookRatingsUiStateReady(
+            listeners: nil, mine: nil, external: nil,
+            breakdown: [ExternalRating(source: .hardcover, average: 4.1, count: 88, fetchedAtMs: 1_790_000_000_000)],
+            canRefresh: false, isRefreshingExternal: false, isCheckingExternal: false
+        )
+        guard case .ready(let snap) = BookRatingsObserver.phase(from: state) else {
+            Issue.record("expected ready")
+            return
+        }
+        #expect(snap.breakdown.first?.fetchedAtMs == 1_790_000_000_000)
+    }
+
+    @Test func theScoreRowNamesItsCountAndSources() {
+        let score = ExternalScore(average: 4.6, count: 12_203)
+        let snap = snapshot(
+            external: score,
+            scoreRow: .shown(score),
+            outsideSourcesInScore: [.audible, .hardcover],
+            listenersInScore: true
+        )
+        #expect(BookRatingSection.scoreDetail(score, snap) == "12k ratings · Audible, Hardcover, your listeners")
+        #expect(BookRatingSection.scoreSentence(score, snap)
+            == "ListenUp score: Rated 4.6 out of 5 stars from 12k ratings. Audible, Hardcover, your listeners.")
+    }
+
+    @Test func oneRatingIsSaidOnce() {
+        #expect(BookRatingSection.countLabel(1) == "1 rating")
+        #expect(BookRatingSection.countLabel(3) == "3 ratings")
+    }
+
+    @Test func yourListenersReadToOneDecimal() {
+        let listeners = ListenersAverage(averageHalfStars: 8, count: 3)
+        #expect(listeners.label == "4.0")
+        #expect(BookRatingSection.listenersSentence(listeners) == "Your listeners: 4.0 out of 5 stars, from 3 ratings")
+        #expect(BookRatingSection.listenersSentence(ListenersAverage(averageHalfStars: 9, count: 1))
+            == "Your listeners: 4.5 out of 5 stars, from 1 rating")
+    }
+
+    @Test func removingARatingAsksFirstOnlyWhenANoteWouldBeLost() {
+        #expect(BookRatingSection.removeNeedsConfirmation(MyRating(halfStars: 8, note: "Loved it")))
+        #expect(!BookRatingSection.removeNeedsConfirmation(MyRating(halfStars: 8, note: nil)))
+        #expect(!BookRatingSection.removeNeedsConfirmation(MyRating(halfStars: 8, note: "")))
+    }
+
+    @Test func theNoteActionSaysAddOrEdit() {
+        #expect(BookRatingSection.noteActionTitle(MyRating(halfStars: 8, note: nil)) == "Add a Note")
+        #expect(BookRatingSection.noteActionTitle(MyRating(halfStars: 8, note: "Loved it")) == "Edit Note")
+    }
+
+    @Test func theValueSaysNotRatedUntilAStarIsChosen() {
+        #expect(BookRatingSection.valueLabel(0) == "Not rated")
+        #expect(BookRatingSection.valueLabel(9) == "4.5")
+    }
+
+    @Test func theSectionSplitsAt560Points() {
+        #expect(!BookRatingSection.isSplit(width: 559))
+        #expect(BookRatingSection.isSplit(width: 560))
+    }
+
+    @Test func freshnessIsSaidInDays() {
+        let now: Int64 = 1_000 * day
+        #expect(RatingBreakdownSheet.updatedLabel(fetchedAtMs: now - 5, nowMs: now) == "Updated today")
+        #expect(RatingBreakdownSheet.updatedLabel(fetchedAtMs: now - day, nowMs: now) == "Updated yesterday")
+        #expect(RatingBreakdownSheet.updatedLabel(fetchedAtMs: now - 3 * day, nowMs: now) == "Updated 3 days ago")
+        #expect(RatingBreakdownSheet.updatedLabel(fetchedAtMs: nil, nowMs: now) == nil)
+    }
+
+    @Test func eachSourceRowCarriesItsShareAndFreshness() {
+        let now: Int64 = 1_000 * day
+        let score = ExternalScore(
+            average: 4.6, count: 12_203,
+            outsideShares: [.audible: 0.62], listenersShare: 0.08
+        )
+        let rows = RatingBreakdownSheet.rows(
+            breakdown: [ExternalRatingRow(source: .audible, average: 4.8, count: 11_000, fetchedAtMs: now - 3 * day)],
+            score: score,
+            listeners: ListenersAverage(averageHalfStars: 8, count: 3),
+            nowMs: now
+        )
+        #expect(rows == [
+            SourceRowModel(label: "Audible", average: "4.8", count: "11k ratings", share: 0.62, shareLabel: "62%",
+                           updated: "Updated 3 days ago"),
+            SourceRowModel(label: "Your listeners", average: "4.0", count: "3 ratings", share: 0.08, shareLabel: "8%",
+                           updated: nil)
+        ])
+    }
+
+    @Test func removingIsAnnouncedToVoiceOver() {
+        #expect(BookRatingsObserver.announcement(for: BookRatingsEventRatingRemoved.shared) == "Rating removed")
+    }
+
+    @Test func bookDetailPutsTheSocialSectionsAboveChapters() {
+        #expect(BookDetailContentSection.allCases == [.social, .chapters, .documents, .details])
     }
 
     // MARK: - Hit-testing
@@ -369,6 +361,15 @@ struct BookRatingsTests {
         #expect(RatingStarsView.halfStars(forX: 95, width: 100, isRightToLeft: true) == 2)
         #expect(RatingStarsView.halfStars(forX: 31, width: 100, isRightToLeft: true) == 7)
         #expect(RatingStarsView.halfStars(forX: 0, width: 100, isRightToLeft: true) == 10)
+    }
+
+    @Test func aVerticalSwipeOverTheStarsIsAScrollNotARating() {
+        // Saving on lift must not rate a book for someone scrolling Book Detail past its stars.
+        #expect(RatingStarsView.isScrollAttempt(CGSize(width: 2, height: 40)))
+        #expect(RatingStarsView.isScrollAttempt(CGSize(width: -10, height: -30)))
+        #expect(!RatingStarsView.isScrollAttempt(CGSize(width: 60, height: 20)))
+        #expect(!RatingStarsView.isScrollAttempt(CGSize(width: 0, height: 5)))   // a tap's wobble
+        #expect(!RatingStarsView.isScrollAttempt(.zero))
     }
 
     @Test func glyphsFillInHalves() {

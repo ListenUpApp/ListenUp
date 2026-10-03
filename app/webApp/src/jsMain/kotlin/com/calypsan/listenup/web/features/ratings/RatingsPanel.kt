@@ -1,350 +1,374 @@
 package com.calypsan.listenup.web.features.ratings
 
-import com.calypsan.listenup.web.design.ButtonKind
-import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.domain.model.CombinedScore
-import com.calypsan.listenup.client.domain.model.ExternalRating
 import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.domain.model.ListenerRating
-import com.calypsan.listenup.client.domain.model.ScoreSource
+import com.calypsan.listenup.client.domain.model.RatingLabels
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
+import com.calypsan.listenup.client.presentation.bookdetail.ScoreRow
 import com.calypsan.listenup.domain.ListenerRatingLimits
 import com.calypsan.listenup.domain.averageLabel
 import com.calypsan.listenup.domain.compactCount
-import com.calypsan.listenup.web.design.DialogActions
-import com.calypsan.listenup.web.design.ModalDialog
+import com.calypsan.listenup.web.design.Button
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.RatingStars
-import com.calypsan.listenup.web.design.TextAreaField
-import org.jetbrains.compose.web.dom.Button
+import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
-import kotlin.math.roundToInt
+import org.w3c.dom.HTMLElement
+import org.jetbrains.compose.web.dom.Button as DomButton
 
 /**
- * The rating panel on Book Detail, above Readers: the ListenUp score's headline (when any enabled
- * outside source has rated the book), then your listeners' average, then either "Rate" or your
- * own stars with "Edit". [RateBookDialog] opens from the listener half; [BreakdownDialog] opens
- * from the headline. Before any score exists, an admin sees [RefreshRatingsAction] where the
- * headline would sit instead — there is no headline yet to open the breakdown from. A book only
- * your listeners have rated has no headline either: their own line already says what they think,
- * and a second number read off ListenUp's curve would look like a contradiction.
+ * The rating panel on Book Detail, yours first: your stars as the control itself — a click, a drag or
+ * the keyboard, saved as it settles — then your note with "Add a note" / "Edit note" and "Remove"; then,
+ * under a hairline, everyone else in labelled rows ([BookRatingsUiState.Ready.scoreRow]): the ListenUp
+ * score (a button opening [RatingSourcesDialog]) and your listeners, in one notation. While Book Detail's
+ * Hardcover check runs and no score shows yet, "Checking Hardcover…" holds the score's row.
  *
- * Loading draws **nothing**, like the Readers panel beside it — a panel that flashed "Rate" and
- * then swapped it for the rating you already left would be inviting you to do something done.
+ * Loading draws **nothing**, like the Readers panel beside it — a panel that flashed "Not rated" and then
+ * swapped in the rating you already left would be inviting you to do something done.
  *
- * [onRate], [onClear] and [onRefreshExternal] are the ViewModel's own actions, passed straight
- * through; the two dialogs' open flags are the only state this layer owns.
+ * Focus is never dropped on the floor. Remove hands it to the stars before its own button goes, and each
+ * change of [starsFocusRequest] (the route bumps it when the toast's Undo puts a rating back) lands it
+ * there too. One live region in the everyone half stays mounted, so the end of a Hardcover check is
+ * heard: a status inserted together with its words is announced unreliably.
+ *
+ * [onSetStars], [onRate], [onClear] and [onRefreshExternal] are the ViewModel's own actions, passed
+ * straight through; "Rating removed" with Undo is the route's toast. The two dialogs' open flags and the
+ * drag's preview are the only state this layer owns. [nowMs] is what "Updated 3 days ago" counts from.
  */
 @Composable
 fun RatingsPanel(
     state: BookRatingsUiState,
+    onSetStars: (halfStars: Int) -> Unit,
     onRate: (halfStars: Int, note: String?) -> Unit,
     onClear: () -> Unit,
     onRefreshExternal: () -> Unit = {},
+    nowMs: Long = 0L,
+    starsFocusRequest: Int = 0,
 ) {
     val ready = state as? BookRatingsUiState.Ready ?: return
-    var isDialogOpen by remember { mutableStateOf(false) }
-    var isBreakdownOpen by remember { mutableStateOf(false) }
+    var isNoteDialogOpen by remember { mutableStateOf(false) }
+    var isSourcesOpen by remember { mutableStateOf(false) }
+    val stars = remember { StarsFocus() }
+
+    LaunchedEffect(starsFocusRequest) {
+        if (starsFocusRequest > 0) stars.focus()
+    }
 
     Panel(title = "Ratings") {
         Div(attrs = { classes("rt") }) {
-            // A listeners-only score would repeat the listeners' line below as a second,
-            // recalibrated number; their line says it plainly instead.
-            val external = ready.external?.takeUnless { it.isListenersOnly }
-            if (external != null) {
-                ExternalHeadline(external, onOpen = { isBreakdownOpen = true })
-            } else if (ready.canRefresh) {
-                RefreshRatingsAction(isRefreshing = ready.isRefreshingExternal, onRefresh = onRefreshExternal)
-            }
-            ready.listeners?.let { ListenersAverage(it) }
-            val mine = ready.mine
-            if (mine == null) {
-                Button(
-                    kind = ButtonKind.Secondary,
-                    onClick = { isDialogOpen = true },
-                    attrs = {
-                        classes("rt-rate")
-                    },
-                ) { Text("Rate") }
-            } else {
-                Div(attrs = { classes("rt-mine") }) {
-                    Span(attrs = { classes("rt-mine-l") }) { Text("Your rating") }
-                    RatingStars(halfStars = mine.halfStars)
-                    Button(attrs = {
-                        classes("rdr-all", "rt-edit")
-                        attr("type", TYPE_BUTTON)
-                        onClick { isDialogOpen = true }
-                    }) { Text("Edit") }
-                }
+            Div(attrs = { classes("rt-body") }) {
+                YourRating(
+                    mine = ready.mine,
+                    stars = stars,
+                    onSetStars = onSetStars,
+                    onEditNote = { isNoteDialogOpen = true },
+                    onRemove = onClear,
+                )
+                Everyone(ready = ready, onOpenSources = { isSourcesOpen = true }, onRefreshExternal = onRefreshExternal)
             }
         }
     }
 
     RateBookDialog(
-        open = isDialogOpen,
+        open = isNoteDialogOpen,
         current = ready.mine,
         onSave = onRate,
         onClear = onClear,
-        onDismiss = { isDialogOpen = false },
+        onDismiss = { isNoteDialogOpen = false },
     )
 
-    BreakdownDialog(
-        open = isBreakdownOpen,
-        breakdown = ready.breakdown,
-        score = ready.external,
-        listeners = ready.listeners,
-        canRefresh = ready.canRefresh,
-        isRefreshing = ready.isRefreshingExternal,
+    RatingSourcesDialog(
+        open = isSourcesOpen,
+        ready = ready,
+        nowMs = nowMs,
         onRefresh = onRefreshExternal,
-        onDismiss = { isBreakdownOpen = false },
+        onDismiss = { isSourcesOpen = false },
     )
 }
 
-/**
- * The quiet action shown where [ExternalHeadline] would sit before any enabled source has rated
- * the book — admin only ([BookRatingsUiState.Ready.canRefresh]). Lets an admin fetch a first score
- * directly, rather than being stranded behind a headline that only exists once one arrives.
- *
- * [isRefreshing] is the ViewModel's own
- * [com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState.Ready.isRefreshingExternal] —
- * bound the same way [BreakdownDialog]'s own refresh button binds it.
- */
-@Composable
-private fun RefreshRatingsAction(
-    isRefreshing: Boolean,
-    onRefresh: () -> Unit,
-) {
-    Button(
-        kind = ButtonKind.Secondary,
-        onClick = onRefresh,
-        enabled = !isRefreshing,
-        attrs = { classes("rt-refresh-first") },
-    ) { Text(refreshLabel(isRefreshing)) }
+/** Where the "you" half's stars are, so focus can be handed to them. */
+private class StarsFocus {
+    var root: HTMLElement? = null
+
+    fun focus() {
+        (root?.querySelector("[role=slider]") as? HTMLElement)?.focus()
+    }
 }
 
-/** "Refresh ratings", or "Refreshing…" while [isRefreshing] — the one refresh action label. */
-private fun refreshLabel(isRefreshing: Boolean): String = if (isRefreshing) "Refreshing…" else "Refresh ratings"
+@Composable
+private fun YourRating(
+    mine: ListenerRating?,
+    stars: StarsFocus,
+    onSetStars: (Int) -> Unit,
+    onEditNote: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    var dragging by remember { mutableStateOf<Int?>(null) }
+    val shown = dragging ?: mine?.halfStars ?: 0
+    val isRated = shown >= ListenerRatingLimits.MIN_HALF_STARS
+
+    Div(attrs = {
+        classes("rt-you")
+        ref { element ->
+            stars.root = element
+            onDispose { stars.root = null }
+        }
+    }) {
+        Div(attrs = { classes("rt-you-top") }) {
+            Span(attrs = { classes("rt-you-l") }) { Text("Your rating") }
+            // The slider says its own value; this is for the eye.
+            Span(attrs = {
+                classes("rt-you-v")
+                if (!isRated) classes("is-unrated")
+                attr(ARIA_HIDDEN, "true")
+            }) { Text(if (isRated) ListenerRatingLimits.starsLabel(shown.toDouble()) else "Not rated") }
+        }
+        RatingStars(
+            halfStars = shown,
+            onHalfStarsChange = { dragging = it },
+            onHalfStarsCommit = { picked ->
+                dragging = null
+                onSetStars(picked)
+            },
+            label = "Your rating",
+        )
+        Div(attrs = {
+            classes("rt-keys")
+            attr(ARIA_HIDDEN, "true")
+        }) {
+            KeyCap("←")
+            KeyCap("→")
+            Text("half a star ·")
+            KeyCap("Home")
+            KeyCap("End")
+        }
+        if (mine != null) {
+            NoteAndActions(
+                mine = mine,
+                onEditNote = onEditNote,
+                onRemove = {
+                    // The button is about to go: hand focus to the stars first, or it falls to the page.
+                    stars.focus()
+                    onRemove()
+                },
+            )
+        } else {
+            Div(attrs = { classes("rt-hint") }) { Text("Tap a star. Drag for half stars.") }
+        }
+    }
+}
+
+@Composable
+private fun KeyCap(label: String) {
+    Span(attrs = { classes("rt-kbd") }) { Text(label) }
+}
+
+@Composable
+private fun NoteAndActions(
+    mine: ListenerRating,
+    onEditNote: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    mine.note?.let { note -> P(attrs = { classes("rt-note") }) { Text("“$note”") } }
+    Div(attrs = { classes("rt-you-acts") }) {
+        Button(kind = ButtonKind.Ghost, size = ButtonSize.Sm, onClick = onEditNote) {
+            Text(if (mine.note == null) "Add a note" else "Edit note")
+        }
+        Button(kind = ButtonKind.Ghost, size = ButtonSize.Sm, onClick = onRemove, attrs = { classes("rt-quiet") }) {
+            Text("Remove")
+        }
+    }
+}
+
+@Composable
+private fun Everyone(
+    ready: BookRatingsUiState.Ready,
+    onOpenSources: () -> Unit,
+    onRefreshExternal: () -> Unit,
+) {
+    val scoreRow = ready.scoreRow
+    val check = remember { CheckMemory() }
+    Div(attrs = { classes("rt-ev") }) {
+        Div(attrs = {
+            classes("rt-sr")
+            attr("role", "status")
+        }) { Text(check.announcement(scoreRow)) }
+        when (scoreRow) {
+            is ScoreRow.Shown -> {
+                ScoreButton(scoreRow.score, ready, onOpenSources)
+            }
+
+            ScoreRow.Checking -> {
+                CheckingRow()
+            }
+
+            ScoreRow.NoRatings -> {
+                Div(attrs = { classes("rt-nobody") }) {
+                    Muted(NO_RATINGS)
+                    if (ready.showsInlineRefresh) RefreshAction(ready.isRefreshingExternal, onRefreshExternal)
+                }
+            }
+
+            ScoreRow.Absent -> {
+                Unit
+            }
+        }
+        ready.listeners?.let { ListenersRow(it) }
+        if (scoreRow == ScoreRow.Absent && ready.showsInlineRefresh) {
+            RefreshAction(ready.isRefreshingExternal, onRefreshExternal)
+        }
+    }
+}
 
 /**
- * The ListenUp score's headline: "★ 4.4 · 12k ratings" on screen; "Rated 4.4 out of 5 stars from
- * 12k ratings" to a screen reader (en.json's `book.detail_rating_external_a11y`). A button, not a label — tapping it opens [BreakdownDialog].
- *
- * The average is [averageLabel], never [ListenerRatingLimits.starsLabel]: the outside score is
- * a continuous average, not a half-star pick, and rounding it to the nearest half would print
- * "4.5" under a headline the design calls "★ 4.4".
+ * What the everyone half's live region says: "Checking Hardcover…" while the check runs, then what it
+ * found once it ends. Silent for a score that was already showing — nothing new to hear.
  */
+private class CheckMemory {
+    private var sawCheck = false
+
+    fun announcement(row: ScoreRow): String {
+        if (row == ScoreRow.Checking) sawCheck = true
+        return when {
+            row == ScoreRow.Checking -> CHECKING
+            !sawCheck -> ""
+            row is ScoreRow.Shown -> "ListenUp score: ${averageLabel(row.score.average)} out of 5 stars."
+            row == ScoreRow.NoRatings -> "$NO_RATINGS."
+            else -> ""
+        }
+    }
+}
+
 @Composable
-private fun ExternalHeadline(
-    external: CombinedScore,
+private fun ScoreButton(
+    score: CombinedScore,
+    ready: BookRatingsUiState.Ready,
     onOpen: () -> Unit,
 ) {
-    val average = averageLabel(external.average)
-    val count = compactCount(external.count)
-    val visible = if (external.count == 1) "$average · 1 rating" else "$average · $count ratings"
-    val a11y =
-        if (external.count == 1) {
-            "Rated $average out of 5 stars from 1 rating"
-        } else {
-            "Rated $average out of 5 stars from $count ratings"
+    val average = averageLabel(score.average)
+    val sources = scoreSources(ready)
+    val count = ratingsCount(score.count)
+    val spoken =
+        "ListenUp score: Rated $average out of 5 stars from $count." + if (sources.isEmpty()) "" else " $sources."
+    DomButton(attrs = {
+        classes("rt-er", "rt-score")
+        attr("type", "button")
+        attr("aria-label", spoken)
+        onClick { onOpen() }
+    }) {
+        Figure(average)
+        Span(attrs = { classes("rt-et") }) {
+            Span(attrs = { classes("rt-eh") }) { Text("ListenUp score") }
+            Muted(if (sources.isEmpty()) count else "$count · $sources")
         }
-    Button(
-        kind = ButtonKind.Secondary,
-        onClick = onOpen,
-        label = a11y,
-        attrs = { classes("rt-external") },
-    ) {
-        Span(attrs = { attr("aria-hidden", "true") }) {
-            Span(attrs = { classes("rt-ext-star") }) { Text("★ ") }
-            Text(visible)
+        Icon(WebIcon.ChevronRight, size = CHEVRON_SIZE, attrs = { classes("rt-chev") })
+    }
+}
+
+/** The score's row while Hardcover is checked. The live region beside it speaks; this is for the eye. */
+@Composable
+private fun CheckingRow() {
+    Div(attrs = {
+        classes("rt-er")
+        attr(ARIA_HIDDEN, "true")
+    }) {
+        Span(attrs = { classes("rt-en") }) {
+            Span(attrs = { classes("rt-skel") })
+        }
+        Span(attrs = { classes("rt-et") }) {
+            Span(attrs = { classes("rt-eh") }) { Text("ListenUp score") }
+            Muted(CHECKING)
         }
     }
 }
 
 /**
- * The ListenUp score's breakdown, opened from [ExternalHeadline]: "Combined from N sources" when
- * [score] has more than one, one row per outside source in [breakdown] with its share of the score
- * ("Audible · 4.7 · 1k · 38%"), a "Your listeners" row when they are part of it ("Your listeners ·
- * 4.0 · 3 · 20%"), and — admin only — a refresh. Each row's average is on the source's own curve,
- * not ListenUp's.
- *
- * [onRefresh] calls [com.calypsan.listenup.client.presentation.bookdetail.BookRatingsViewModel.refreshExternal];
- * [isRefreshing] is the ViewModel's own
- * [com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState.Ready.isRefreshingExternal] —
- * true while that RPC is in flight, whether or not any score ends up changing. A failure still
- * surfaces normally, through the app's error bus.
+ * "★ 4.0 · Your listeners · 3 ratings"; a screen reader hears "Your listeners: 4.0 out of 5 stars, from 3
+ * ratings" instead of the star and the dots.
  */
 @Composable
-private fun BreakdownDialog(
-    open: Boolean,
-    breakdown: List<ExternalRating>,
-    score: CombinedScore?,
-    listeners: ListenerAverage?,
-    canRefresh: Boolean,
+private fun ListenersRow(listeners: ListenerAverage) {
+    val label = RatingLabels.listenerAverageLabel(listeners)
+    val count = ratingsCount(listeners.count)
+    Div(attrs = { classes("rt-er") }) {
+        Span(attrs = { classes("rt-sr") }) { Text("Your listeners: $label out of 5 stars, from $count") }
+        Span(attrs = {
+            classes("rt-er-vis")
+            attr(ARIA_HIDDEN, "true")
+        }) {
+            Figure(label)
+            Span(attrs = { classes("rt-et") }) {
+                Span(attrs = { classes("rt-eh") }) { Text("Your listeners") }
+                Muted(count)
+            }
+        }
+    }
+}
+
+/** A quiet secondary line: a row's count and sources, or "No ratings yet". */
+@Composable
+private fun Muted(text: String) {
+    Span(attrs = { classes("rt-mut") }) { Text(text) }
+}
+
+@Composable
+private fun Figure(average: String) {
+    Span(attrs = { classes("rt-en") }) {
+        Span(attrs = {
+            classes("rt-star")
+            attr(ARIA_HIDDEN, "true")
+        }) { Text("★") }
+        Text(average)
+    }
+}
+
+/**
+ * The quiet "Refresh ratings", or "Refreshing…" while one is in flight. Busy is `aria-disabled` and an
+ * ignored press, never `disabled`: a disabled button drops the focus that was on it, so a keyboard user
+ * who pressed it would be thrown back to the top of the page.
+ */
+@Composable
+internal fun RefreshAction(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
-    onDismiss: () -> Unit,
 ) {
-    if (!open) return
-
-    ModalDialog(open = true, title = "Ratings", onDismiss = onDismiss) {
-        if (score != null && score.sourceCount >= 2) {
-            Div(attrs = { classes("rt-combined") }) { Text("Combined from ${score.sourceCount} sources") }
-        }
-        Div(attrs = { classes("rt-sources") }) {
-            breakdown.forEach { rating ->
-                key(rating.source) {
-                    SourceRow(
-                        label = sourceDisplayName(rating.source),
-                        average = rating.average,
-                        count = rating.count,
-                        share = score?.shares?.get(ScoreSource.Outside(rating.source)),
-                    )
-                }
-            }
-            val listenersShare = score?.shares?.get(ScoreSource.Listeners)
-            if (listeners != null && listenersShare != null) {
-                SourceRow(
-                    label = "Your listeners",
-                    average = listeners.averageHalfStars / 2,
-                    count = listeners.count,
-                    share = listenersShare,
-                )
-            }
-        }
-        if (canRefresh) {
-            Button(
-                kind = ButtonKind.Secondary,
-                onClick = onRefresh,
-                enabled = !isRefreshing,
-                attrs = { classes("rt-refresh") },
-            ) { Text(refreshLabel(isRefreshing)) }
-        }
-        Div(attrs = { classes("dlg-actions") }) {
-            Button(kind = ButtonKind.Primary, onClick = onDismiss) { Text("Close") }
-        }
+    Button(
+        kind = ButtonKind.Ghost,
+        size = ButtonSize.Sm,
+        onClick = { if (!isRefreshing) onRefresh() },
+        attrs = { if (isRefreshing) attr("aria-disabled", "true") },
+    ) {
+        Text(if (isRefreshing) "Refreshing…" else "Refresh ratings")
     }
 }
 
-/**
- * One source's row: "Audible · 4.7 · 1k", and its share of the score as a whole percent when it
- * has one ("Audible · 4.7 · 1k · 38%").
- */
-@Composable
-private fun SourceRow(
-    label: String,
-    average: Double,
-    count: Int,
-    share: Double?,
-) {
-    val figures = "$label · ${averageLabel(average)} · ${compactCount(count)}"
-    Div(attrs = { classes("rt-source-row") }) {
-        Text(if (share == null) figures else "$figures · ${(share * PERCENT).roundToInt()}%")
-    }
-}
+/** "12k ratings", or "1 rating". */
+internal fun ratingsCount(count: Int): String = if (count == 1) "1 rating" else "${compactCount(count)} ratings"
 
-/** The source name every platform shows: "Audible", "Hardcover", "Goodreads". */
-private fun sourceDisplayName(source: ExternalRatingSource): String =
-    when (source) {
-        ExternalRatingSource.AUDIBLE -> "Audible"
-        ExternalRatingSource.HARDCOVER -> "Hardcover"
-        ExternalRatingSource.GOODREADS -> "Goodreads"
-        ExternalRatingSource.UNKNOWN -> "Unknown"
-    }
+/** "Audible, Hardcover, your listeners": the sources the score draws on, in the breakdown's order. */
+private fun scoreSources(ready: BookRatingsUiState.Ready): String =
+    (
+        ready.outsideRatingsInScore.map { sourceDisplayName(it.source) } +
+            listOfNotNull("your listeners".takeIf { ready.listenersInScore })
+    ).joinToString(", ")
 
-/**
- * "Your listeners ★ 4 (3)" on screen; "Your listeners: 4 out of 5 stars, from 3 ratings" to a
- * screen reader, which would otherwise read the star and the brackets literally.
- */
-@Composable
-private fun ListenersAverage(listeners: ListenerAverage) {
-    val stars = ListenerRatingLimits.starsLabel(listeners.averageHalfStars)
-    val ratings = if (listeners.count == 1) "1 rating" else "${listeners.count} ratings"
-    Div(attrs = { classes("rt-avg") }) {
-        Span(attrs = { classes("rt-sr") }) { Text("Your listeners: $stars out of 5 stars, from $ratings") }
-        Span(attrs = { attr("aria-hidden", "true") }) {
-            Text("Your listeners ")
-            Span(attrs = { classes("rt-avg-star") }) { Text("★") }
-            Text(" $stars (${listeners.count})")
-        }
-    }
-}
+private const val NO_RATINGS = "No ratings yet"
 
-/**
- * Rate this book: input stars, an optional note with an "n/280" counter, Save, and — only when you
- * have already rated it — Remove rating. Opens on your [current] rating, or on no stars.
- *
- * Save stays genuinely disabled below one star rather than accepting the press and letting the
- * server refuse it. Save and Remove both close the dialog: the write is offline-first, so the
- * panel behind it already shows the result.
- *
- * The note's cap is the textarea's own `maxlength`, which refuses the *inserted* text at the limit
- * — typing mid-note never trims its ending. The counter counts UTF-16 units, as the server does.
- */
-@Composable
-fun RateBookDialog(
-    open: Boolean,
-    current: ListenerRating?,
-    onSave: (halfStars: Int, note: String?) -> Unit,
-    onClear: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    if (!open) return
-    var halfStars by remember { mutableIntStateOf(current?.halfStars ?: 0) }
-    var note by remember { mutableStateOf(current?.note.orEmpty()) }
+private const val CHECKING = "Checking Hardcover…"
 
-    ModalDialog(open = true, title = "Rate this book", onDismiss = onDismiss) {
-        Div(attrs = { classes("rt-input") }) {
-            RatingStars(halfStars = halfStars, onHalfStarsChange = { halfStars = it })
-        }
-        TextAreaField(
-            label = "Add a note (optional)",
-            value = note,
-            onInput = { note = it },
-            rows = NOTE_ROWS,
-            maxLength = ListenerRatingLimits.NOTE_MAX_CHARS,
-        )
-        Div(attrs = { classes("rt-count") }) {
-            Text("${note.length}/${ListenerRatingLimits.NOTE_MAX_CHARS}")
-        }
-        if (current != null) {
-            Button(attrs = {
-                classes("rt-remove")
-                attr("type", TYPE_BUTTON)
-                onClick {
-                    onClear()
-                    onDismiss()
-                }
-            }) { Text("Remove rating") }
-        }
-        DialogActions(
-            confirmLabel = "Save",
-            confirmEnabled =
-                halfStars >= ListenerRatingLimits.MIN_HALF_STARS &&
-                    note.length <= ListenerRatingLimits.NOTE_MAX_CHARS,
-            onConfirm = {
-                onSave(halfStars, ListenerRatingLimits.normalizeNote(note))
-                onDismiss()
-            },
-            onDismiss = onDismiss,
-        )
-    }
-}
+private const val CHEVRON_SIZE = 16
 
-/** A share of the score, as a whole percent. */
-private const val PERCENT = 100
-
-/** Room for a couple of sentences — the note is capped at 280 characters. */
-private const val NOTE_ROWS = 3
-
-/** Every button here is an action, never a form submit. */
-private const val TYPE_BUTTON = "button"
+private const val ARIA_HIDDEN = "aria-hidden"

@@ -16,4 +16,18 @@ object RatingLabels {
 
     /** [count] as every platform shows it next to a score: "812", "1.2k", "12k", "1.2M". */
     fun compactCount(count: Int): String = domainCompactCount(count)
+
+    /** Your listeners' [average] as every platform shows it: one decimal, like the score ("4.0", never "4"). */
+    fun listenerAverageLabel(average: ListenerAverage): String = domainAverageLabel(average.averageHalfStars / 2)
+
+    /**
+     * Whole days from [fetchedAtMs] to [nowMs], for "Updated 3 days ago": 0 is today, 1 yesterday. A fetch
+     * time ahead of the device's clock counts as today rather than as a negative age.
+     */
+    fun daysSince(
+        fetchedAtMs: Long,
+        nowMs: Long,
+    ): Int = ((nowMs - fetchedAtMs).coerceAtLeast(0L) / MILLIS_PER_DAY).toInt()
 }
+
+private const val MILLIS_PER_DAY = 86_400_000L

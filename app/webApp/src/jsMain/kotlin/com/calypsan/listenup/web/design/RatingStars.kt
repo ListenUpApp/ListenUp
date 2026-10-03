@@ -1,22 +1,31 @@
 package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffectResult
+import androidx.compose.runtime.DisposableEffectScope
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import com.calypsan.listenup.domain.ListenerRatingLimits
 import com.calypsan.listenup.domain.RatingKeyStep
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import kotlinx.browser.window
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.events.Event
+import org.w3c.dom.pointerevents.PointerEvent
 import kotlin.math.ceil
 
 /**
  * Five stars filled in halves from [halfStars] (2..10; 0 draws five empty stars).
  *
  * Read-only when [onHalfStarsChange] is null — small, for reader lines — and announced as one
- * image ("3.5 out of 5 stars"). With a callback it is an input: a focusable `role="slider"` that a
- * click sets by where it lands, measured from the start edge (the first half of a star counts half
- * of it; in a right-to-left page the stars run from the right), and that the keyboard
- * steps one half at a time — the arrows, with Home and End jumping to one and five stars.
+ * image ("3.5 out of 5 stars"). With a callback it is an input: a focusable `role="slider"` named
+ * [label], that a click sets by where it lands, measured from the start edge (the first half of a
+ * star counts half of it; in a right-to-left page the stars run from the right); that a pointer
+ * drags across, previewing each half; and that the keyboard steps one half at a time — the arrows,
+ * with Home and End jumping to one and five stars. [onHalfStarsCommit] hears the value the listener
+ * settled on: a click (which also ends every drag), or each key step. Without it nothing saves until
+ * a button does (the rate dialog).
  *
  * Every star count it shows or speaks goes through [ListenerRatingLimits.starsLabel], so the
  * browser says exactly what Android and iOS say — and never "3.0", which is what a JS double
@@ -26,8 +35,13 @@ import kotlin.math.ceil
 fun RatingStars(
     halfStars: Int,
     onHalfStarsChange: ((Int) -> Unit)? = null,
+    onHalfStarsCommit: ((Int) -> Unit)? = null,
+    label: String = "Rating",
 ) {
     val spoken = "${ListenerRatingLimits.starsLabel(halfStars.toDouble())} out of $STAR_COUNT stars"
+    // The drag's listeners are attached once, so they read the latest value and callback through these.
+    val latestHalfStars by rememberUpdatedState(halfStars)
+    val latestOnChange by rememberUpdatedState(onHalfStarsChange)
     Span(attrs = {
         classes("rs")
         if (onHalfStarsChange == null) {
@@ -37,7 +51,7 @@ fun RatingStars(
             classes("rs-input")
             attr("role", "slider")
             // A static name: the slider role says it is adjustable, and the value says the rest.
-            attr("aria-label", "Rating")
+            attr("aria-label", label)
             attr("aria-valuemin", "1")
             attr("aria-valuemax", STAR_COUNT.toString())
             val isRated = halfStars >= ListenerRatingLimits.MIN_HALF_STARS
@@ -49,11 +63,14 @@ fun RatingStars(
                 val next = halfStarsForKey(event.key, halfStars) ?: return@onKeyDown
                 event.preventDefault()
                 if (next != halfStars) onHalfStarsChange(next)
+                onHalfStarsCommit?.invoke(next)
             }
+            ref { element -> dragGestures(element, { latestHalfStars }, { latestOnChange }) }
             onClick { event ->
                 val element = event.nativeEvent.currentTarget as? HTMLElement ?: return@onClick
                 val picked = halfStarsForClick(element, event.clientX.toDouble()) ?: return@onClick
                 if (picked != halfStars) onHalfStarsChange(picked)
+                onHalfStarsCommit?.invoke(picked)
             }
         }
     }) {
@@ -63,6 +80,55 @@ fun RatingStars(
                 attr("aria-hidden", "true")
             }) { Text(STAR_GLYPH) }
         }
+    }
+}
+
+/**
+ * A pointer pressed on the stars and moved across them previews each half it crosses, through
+ * [onChange]; the `click` the browser fires when it lets go (on the element that captured it) is
+ * what commits, so a tap and a drag share one commit path. A move with no press is ignored.
+ */
+private fun DisposableEffectScope.dragGestures(
+    element: HTMLElement,
+    halfStars: () -> Int,
+    onChange: () -> ((Int) -> Unit)?,
+): DisposableEffectResult {
+    var pressed: Int? = null
+    val onDown: (Event) -> Unit = { event ->
+        val pointer = event as PointerEvent
+        pressed = pointer.pointerId
+        capturePointer(element, pointer.pointerId)
+    }
+    val onMove: (Event) -> Unit = { event ->
+        val pointer = event as PointerEvent
+        if (pressed == pointer.pointerId) {
+            val picked = halfStarsForClick(element, pointer.clientX.toDouble())
+            if (picked != null && picked != halfStars()) onChange()?.invoke(picked)
+        }
+    }
+    val onEnd: (Event) -> Unit = { pressed = null }
+    val listeners =
+        mapOf(
+            "pointerdown" to onDown,
+            "pointermove" to onMove,
+            "pointerup" to onEnd,
+            "pointercancel" to onEnd,
+            "lostpointercapture" to onEnd,
+        )
+    listeners.forEach { (type, listener) -> element.addEventListener(type, listener) }
+    return onDispose { listeners.forEach { (type, listener) -> element.removeEventListener(type, listener) } }
+}
+
+/** Pointer capture keeps a drag alive past the stars' edge; a synthetic pointer may refuse it. */
+private fun capturePointer(
+    element: HTMLElement,
+    pointerId: Int,
+) {
+    try {
+        element.asDynamic().setPointerCapture(pointerId)
+    } catch (_: Throwable) {
+        // Not capturable (a synthetic event, or a pointer already released): the drag still works
+        // while the pointer stays over the stars.
     }
 }
 

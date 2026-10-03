@@ -1,8 +1,10 @@
 package com.calypsan.listenup.api
 
+import com.calypsan.listenup.api.dto.ExternalRatingsCheck
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceUnavailable
 import com.calypsan.listenup.api.error.RatingError
+import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.api.sync.ExternalRatingSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
@@ -28,6 +30,31 @@ class ExternalRatingContractTest :
                     deletedAt = null,
                 )
             contractJson.decodeFromString<ExternalRatingSyncPayload>(contractJson.encodeToString(payload)) shouldBe payload
+        }
+
+        test("ExternalRatingSyncPayload carries when the rating was fetched") {
+            val payload =
+                ExternalRatingSyncPayload(
+                    id = "x1",
+                    bookId = "b1",
+                    source = ExternalRatingSource.HARDCOVER,
+                    average = 4.1,
+                    count = 88,
+                    enabled = true,
+                    revision = 4L,
+                    fetchedAt = 1_790_000_000_000L,
+                )
+            val json = contractJson.encodeToString(payload)
+
+            json.contains("\"fetchedAt\":1790000000000") shouldBe true
+            contractJson.decodeFromString<ExternalRatingSyncPayload>(json) shouldBe payload
+        }
+
+        test("a payload from a server older than fetchedAt still decodes, with no fetch time") {
+            val legacy =
+                """{"id":"x1","bookId":"b1","source":"AUDIBLE","average":4.6,"count":12,"enabled":true,"revision":3}"""
+
+            contractJson.decodeFromString<ExternalRatingSyncPayload>(legacy).fetchedAt shouldBe null
         }
 
         test("an unknown source from a newer server decodes rather than failing the whole page") {
@@ -90,6 +117,15 @@ class ExternalRatingContractTest :
             averageLabel(4.449) shouldBe "4.4"
             averageLabel(5.0) shouldBe "5.0"
             averageLabel(0.0) shouldBe "0.0"
+        }
+
+        test("the on-open check's states cross the wire inside an RpcEvent") {
+            val events: List<RpcEvent<ExternalRatingsCheck>> =
+                listOf(RpcEvent.Data(ExternalRatingsCheck.CHECKING), RpcEvent.Data(ExternalRatingsCheck.DONE))
+
+            events.forEach { event ->
+                contractJson.decodeFromString<RpcEvent<ExternalRatingsCheck>>(contractJson.encodeToString(event)) shouldBe event
+            }
         }
 
         test("the domain is in the catalog") {

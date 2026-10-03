@@ -9,6 +9,10 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverSyncProblem
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.domain.model.ListenerRating
+import com.calypsan.listenup.client.domain.model.ScoreSource
+import com.calypsan.listenup.api.sync.ExternalRatingSource
+import com.calypsan.listenup.client.domain.model.ExternalRating
+import com.calypsan.listenup.client.domain.model.CombinedScore
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.hardcover.BookHardcoverUiState
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverBookToMatch
@@ -24,6 +28,7 @@ import com.calypsan.listenup.web.features.hardcover.BookHardcoverPanel
 import com.calypsan.listenup.web.features.hardcover.KeptOffBooksPage
 import com.calypsan.listenup.web.features.hardcover.HardcoverMatchPage
 import com.calypsan.listenup.web.features.ratings.RateBookDialog
+import com.calypsan.listenup.web.features.ratings.RatingSourcesDialog
 import com.calypsan.listenup.web.features.ratings.RatingsPanel
 import com.calypsan.listenup.web.features.admin.MergeHistoryActions
 import com.calypsan.listenup.api.error.TransportError
@@ -2577,8 +2582,19 @@ private fun ratingShapes(): List<@Composable () -> Unit> {
             canRefresh = false,
         )
     val ratedReader = reader(userId = "me", displayName = "Ada Lovelace", rating = mine)
+    val sourcesScore =
+        CombinedScore(
+            average = 4.6,
+            count = 12_203,
+            shares =
+                mapOf(
+                    ScoreSource.Outside(ExternalRatingSource.AUDIBLE) to 0.92,
+                    ScoreSource.Listeners to 0.08,
+                ),
+        )
+    val sourcesBreakdown = listOf(ExternalRating(ExternalRatingSource.AUDIBLE, 4.8, 11_000, fetchedAtMs = 1L))
     return listOf(
-        { RatingsPanel(state = rated, onRate = { _, _ -> }, onClear = {}) },
+        { RatingsPanel(state = rated, onSetStars = {}, onRate = { _, _ -> }, onClear = {}) },
         {
             RatingsPanel(
                 state =
@@ -2587,10 +2603,58 @@ private fun ratingShapes(): List<@Composable () -> Unit> {
                         mine = null,
                         external = null,
                         breakdown = emptyList(),
-                        canRefresh = false,
+                        canRefresh = true,
                     ),
+                onSetStars = {},
                 onRate = { _, _ -> },
                 onClear = {},
+            )
+        },
+        {
+            RatingsPanel(
+                state =
+                    BookRatingsUiState.Ready(
+                        listeners = ListenerAverage(9.0, 1),
+                        mine = mine,
+                        external = null,
+                        breakdown = emptyList(),
+                        canRefresh = false,
+                        isCheckingExternal = true,
+                    ),
+                onSetStars = {},
+                onRate = { _, _ -> },
+                onClear = {},
+            )
+        },
+        {
+            RatingsPanel(
+                state =
+                    BookRatingsUiState.Ready(
+                        listeners = ListenerAverage(8.0, 3),
+                        mine = null,
+                        external = sourcesScore,
+                        breakdown = sourcesBreakdown,
+                        canRefresh = false,
+                    ),
+                onSetStars = {},
+                onRate = { _, _ -> },
+                onClear = {},
+            )
+        },
+        {
+            RatingSourcesDialog(
+                open = true,
+                ready =
+                    BookRatingsUiState.Ready(
+                        listeners = ListenerAverage(8.0, 3),
+                        mine = mine,
+                        external = sourcesScore,
+                        breakdown = sourcesBreakdown,
+                        canRefresh = true,
+                    ),
+                nowMs = 86_400_000L * 3,
+                onRefresh = {},
+                onDismiss = {},
             )
         },
         { RateBookDialog(open = true, current = mine, onSave = { _, _ -> }, onClear = {}, onDismiss = {}) },
