@@ -34,15 +34,26 @@ class FinishDatesTest :
                 FinishDates(started = LocalDate(2026, 9, 2), finished = localToday)
         }
 
-        test("untouched dates send exactly what the one-tap finish always sent") {
-            // Android's dialog confirmed (startedAtMs ?: now, now) when nothing was changed, and
-            // iOS and web sent that without asking. Confirming without editing must not move it.
+        test("untouched dates claim no start and finish now, as the one-tap finish always did") {
+            // A start day the reader left alone is not a day they picked: it claims nothing, so the
+            // server keeps dating the read by when they actually started listening in ListenUp.
             val startedAtMs = Instant.parse("2026-09-02T18:00:00Z").toEpochMilliseconds()
 
             FinishDates.initial(startedAtMs, nowMs, pacific).toTimestamps(startedAtMs, nowMs, pacific) shouldBe
-                FinishTimestamps(startedAtMs = startedAtMs, finishedAtMs = nowMs)
+                FinishTimestamps(startedAtMs = null, finishedAtMs = nowMs)
             FinishDates.initial(null, nowMs, pacific).toTimestamps(null, nowMs, pacific) shouldBe
-                FinishTimestamps(startedAtMs = nowMs, finishedAtMs = nowMs)
+                FinishTimestamps(startedAtMs = null, finishedAtMs = nowMs)
+        }
+
+        test("a start day the reader changed is sent, even when the finish was left alone") {
+            val startedAtMs = Instant.parse("2026-09-02T18:00:00Z").toEpochMilliseconds()
+            val dates = FinishDates(started = LocalDate(2026, 9, 1), finished = localToday)
+
+            dates.toTimestamps(startedAtMs, nowMs, pacific) shouldBe
+                FinishTimestamps(
+                    startedAtMs = Instant.parse("2026-09-01T07:00:00Z").toEpochMilliseconds(),
+                    finishedAtMs = nowMs,
+                )
         }
 
         test("a chosen day is the start of that day where the reader is, not in UTC") {
@@ -62,7 +73,7 @@ class FinishDatesTest :
             val dates = FinishDates(started = LocalDate(2026, 9, 2), finished = LocalDate(2026, 9, 2))
 
             dates.toTimestamps(startedAtMs, nowMs, pacific) shouldBe
-                FinishTimestamps(startedAtMs = startedAtMs, finishedAtMs = startedAtMs)
+                FinishTimestamps(startedAtMs = null, finishedAtMs = startedAtMs)
         }
 
         test("finished before started cannot be saved") {

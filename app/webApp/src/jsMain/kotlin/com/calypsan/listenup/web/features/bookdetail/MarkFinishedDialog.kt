@@ -31,7 +31,7 @@ import org.jetbrains.compose.web.dom.Text
 fun MarkFinishedDialog(
     open: Boolean,
     startedAtMs: Long?,
-    onConfirm: (startedAt: Long, finishedAt: Long) -> Unit,
+    onConfirm: (startedAt: Long?, finishedAt: Long) -> Unit,
     onDismiss: () -> Unit,
     nowMs: Long = remember(open) { currentEpochMilliseconds() },
     timeZone: TimeZone = remember { TimeZone.currentSystemDefault() },

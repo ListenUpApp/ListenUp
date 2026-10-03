@@ -44,7 +44,7 @@ struct BookDetailObserverTintTests {
         #expect(days.finished == Self.day(2026, 9, 29))
     }
 
-    @Test("untouched days send exactly what the one-tap finish always sent")
+    @Test("untouched days claim no start and finish now, as the one-tap finish always did")
     func untouchedDaysKeepTheirInstants() {
         let opened = BookDetailObserver.finishDaysOpened(
             startedAtMs: Self.startedAt, now: Self.now, calendar: Self.pacific
@@ -53,7 +53,7 @@ struct BookDetailObserverTintTests {
             started: opened.started, finished: opened.finished,
             startedAtMs: Self.startedAt, now: Self.now, calendar: Self.pacific
         )
-        #expect(ts.start == Self.startedAt)
+        #expect(ts.start == nil)
         #expect(ts.finish == Self.now)
 
         let fresh = BookDetailObserver.finishDaysOpened(startedAtMs: nil, now: Self.now, calendar: Self.pacific)
@@ -61,8 +61,18 @@ struct BookDetailObserverTintTests {
             started: fresh.started, finished: fresh.finished,
             startedAtMs: nil, now: Self.now, calendar: Self.pacific
         )
-        #expect(freshTs.start == Self.now)
+        #expect(freshTs.start == nil)
         #expect(freshTs.finish == Self.now)
+    }
+
+    @Test("a start day the reader changed is sent, even when the finish was left alone")
+    func changedStartDayIsSent() {
+        let ts = BookDetailObserver.markCompleteTimestamps(
+            started: Self.day(2026, 9, 1), finished: Self.day(2026, 9, 29),
+            startedAtMs: Self.startedAt, now: Self.now, calendar: Self.pacific
+        )
+        #expect(ts.start == Self.ms("2026-09-01T07:00:00Z"))
+        #expect(ts.finish == Self.now)
     }
 
     @Test("chosen days are the start of those days in the reader's zone, not UTC")
@@ -81,7 +91,7 @@ struct BookDetailObserverTintTests {
             started: Self.day(2026, 9, 2), finished: Self.day(2026, 9, 2),
             startedAtMs: Self.startedAt, now: Self.now, calendar: Self.pacific
         )
-        #expect(ts.start == Self.startedAt)
+        #expect(ts.start == nil)
         #expect(ts.finish == Self.startedAt)
     }
 

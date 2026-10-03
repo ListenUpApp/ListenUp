@@ -306,9 +306,8 @@ final class BookDetailObserver {
     /// in-flight write; the shared VM resets progress/complete on success.
     func restartBook() { viewModel.restartBook() }
 
-    /// Mark the book finished on the days the reader chose in the sheet. Days they left alone keep
-    /// the instant the sheet opened with, so confirming untouched sends exactly what the one-tap
-    /// finish always sent.
+    /// Mark the book finished on the days the reader chose in the sheet. A start day they left alone
+    /// claims nothing (the server keeps the start it knows); one they picked dates the read.
     func markFinished(started: Date, finished: Date) {
         let ts = Self.markCompleteTimestamps(
             started: started,
@@ -351,24 +350,25 @@ final class BookDetailObserver {
         return nil
     }
 
-    /// Pure: the epoch milliseconds for the chosen days. An unchanged day keeps the instant it
-    /// opened with; a changed one is the start of that day in [calendar]; the finish never precedes
-    /// the start. Mirrors `FinishDates.toTimestamps`.
+    /// Pure: the epoch milliseconds for the chosen days. An unchanged start day is nil — only a
+    /// picked one is sent; a changed day is the start of that day in [calendar]; an unchanged finish
+    /// is now; the finish never precedes the start (picked, or the instant the sheet opened with).
+    /// Mirrors `FinishDates.toTimestamps`.
     nonisolated static func markCompleteTimestamps(
         started: Date,
         finished: Date,
         startedAtMs: Int64?,
         now: Int64,
         calendar: Calendar
-    ) -> (start: Int64, finish: Int64) {
+    ) -> (start: Int64?, finish: Int64) {
         let openedStart = startedAtMs ?? now
-        let start = calendar.isDate(started, inSameDayAs: date(ms: openedStart))
-            ? openedStart
+        let pickedStart = calendar.isDate(started, inSameDayAs: date(ms: openedStart))
+            ? nil
             : ms(calendar.startOfDay(for: started))
         let finish = calendar.isDate(finished, inSameDayAs: date(ms: now))
             ? now
             : ms(calendar.startOfDay(for: finished))
-        return (start: start, finish: max(finish, start))
+        return (start: pickedStart, finish: max(finish, pickedStart ?? openedStart))
     }
 
     private nonisolated static func date(ms: Int64) -> Date { Date(timeIntervalSince1970: Double(ms) / 1000) }

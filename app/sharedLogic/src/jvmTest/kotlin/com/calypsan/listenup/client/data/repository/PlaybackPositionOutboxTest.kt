@@ -315,4 +315,73 @@ class PlaybackPositionOutboxTest :
                 }
             }
         }
+
+        // "Mark as finished" lets the reader pick the day they started. That day — and only a picked
+        // one — rides the request, so the server can date the read by it; a start the reader left
+        // alone (null here) claims nothing, and no other write ever carries the locally-kept start.
+
+        test("marking finished with a picked start sends that start") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(playedEntity(bookId))
+
+                    repo
+                        .markComplete(bookId, startedAt = 250L, finishedAt = 900L)
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val request = singleQueuedRequest(db)
+                    request.finished shouldBe true
+                    request.startedAt shouldBe 250L
+                    request.finishedAt shouldBe 900L
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("marking finished without a picked start sends no start, though the row keeps its own") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(playedEntity(bookId))
+
+                    repo
+                        .markComplete(bookId, startedAt = null, finishedAt = 900L)
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    singleQueuedRequest(db).startedAt shouldBe null
+                    db
+                        .playbackPositionDao()
+                        .get(bookId)
+                        .shouldNotBeNull()
+                        .startedAt shouldBe 500L
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("an ordinary position write never carries the locally-kept start") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(finishedEntity(bookId))
+
+                    repo
+                        .savePlaybackState(bookId, PlaybackUpdate.Position(positionMs = 5_000L, speed = 1.25f))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    singleQueuedRequest(db).startedAt shouldBe null
+                } finally {
+                    db.close()
+                }
+            }
+        }
     })

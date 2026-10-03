@@ -107,7 +107,7 @@ fun BookDetailPage(
     onRetryConnection: () -> Unit,
     /** True while a play request for this book is in flight — see the Play button. */
     isPreparing: Boolean = false,
-    onMarkComplete: (startedAt: Long, finishedAt: Long) -> Unit = { _, _ -> },
+    onMarkComplete: (startedAt: Long?, finishedAt: Long) -> Unit = { _, _ -> },
     onDiscardProgress: () -> Unit = {},
     onRestart: () -> Unit = {},
     onShare: () -> Unit = {},
@@ -290,7 +290,7 @@ private fun SharedHeader(
     state: BookDetailUiState,
     bookId: String?,
     isPreparing: Boolean,
-    onMarkComplete: (startedAt: Long, finishedAt: Long) -> Unit,
+    onMarkComplete: (startedAt: Long?, finishedAt: Long) -> Unit,
     onDiscardProgress: () -> Unit,
     onRestart: () -> Unit,
     onShare: () -> Unit,
@@ -373,7 +373,7 @@ private fun SharedHeader(
 private fun HeroActions(
     ready: BookDetailUiState.Ready,
     isPreparing: Boolean,
-    onMarkComplete: (startedAt: Long, finishedAt: Long) -> Unit,
+    onMarkComplete: (startedAt: Long?, finishedAt: Long) -> Unit,
     onDiscardProgress: () -> Unit,
     onRestart: () -> Unit,
     onShare: () -> Unit,

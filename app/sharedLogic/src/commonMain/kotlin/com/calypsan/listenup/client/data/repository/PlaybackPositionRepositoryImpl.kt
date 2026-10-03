@@ -306,15 +306,25 @@ internal class PlaybackPositionRepositoryImpl(
                 snapshotRequest(bookId, entity, update.finalPositionMs, now, finished = true)
             }
 
+            // The start rides the wire only here, and only when the reader picked it: the server
+            // dates the read it records by that day. A start they left alone is null on the update,
+            // and the row's own startedAt (local playback bookkeeping) is never sent.
             is PlaybackUpdate.MarkComplete -> {
-                snapshotRequest(bookId, entity, entity?.positionMs ?: 0L, now, finished = true)
+                snapshotRequest(
+                    bookId,
+                    entity,
+                    entity?.positionMs ?: 0L,
+                    now,
+                    finished = true,
+                    startedAt = update.startedAt,
+                )
             }
 
             // User-command resets: enqueue the post-reset row so the discard/restart
             // reaches the server immediately (NewerWins on lastPlayedAt lets it beat
             // stale positions from other devices). coalesce=true supersedes any queued
-            // periodic write for this book. The startedAt reset stays local-only:
-            // RecordPositionRequest carries no startedAt and this arc makes no wire changes.
+            // periodic write for this book. The startedAt reset stays local-only: the
+            // request's startedAt is a picked start for a finish, never a reset.
             // No row means nothing to push (null).
             PlaybackUpdate.DiscardProgress,
             PlaybackUpdate.Restart,
@@ -348,6 +358,7 @@ internal class PlaybackPositionRepositoryImpl(
         finishedAt: Long? = entity?.finishedAt,
         hasCustomSpeed: Boolean = entity?.hasCustomSpeed ?: false,
         hasCustomBoost: Boolean = entity?.hasCustomBoost ?: false,
+        startedAt: Long? = null,
     ): RecordPositionRequest =
         RecordPositionRequest(
             bookId = bookId.value,
@@ -361,6 +372,7 @@ internal class PlaybackPositionRepositoryImpl(
             finishedAt = finishedAt,
             hasCustomSpeed = hasCustomSpeed,
             hasCustomBoost = hasCustomBoost,
+            startedAt = startedAt,
         )
 
     // ----- Per-variant handlers -------------------------------------------------------------
