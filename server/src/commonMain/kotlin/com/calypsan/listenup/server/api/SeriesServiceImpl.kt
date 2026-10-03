@@ -202,9 +202,10 @@ internal class SeriesServiceImpl(
         // The source's sub-series follow it into the target. One that IS the target, or contains
         // it, can't sit under the target — it takes the source's own place in the tree instead.
         val tree = seriesRepo.liveTree()
+        val sourceParent = hierarchy.liveParentOf(sourcePayload)
         val reparented =
             hierarchy.reparentChildren(source) { childId ->
-                if (target.value in tree.subtreeOf(childId)) sourcePayload.parentId else target.value
+                if (target.value in tree.subtreeOf(childId)) sourceParent else target.value
             }
         if (reparented is AppResult.Failure) return reparented
 
@@ -241,7 +242,15 @@ internal class SeriesServiceImpl(
         // A name that was merged away resolves to the series it was merged into — a different
         // live series, which this call must not re-parent.
         if (seriesRepo.liveIdForName(trimmed) != id) return nameAlreadyExists(trimmed)
-        // Always place, a root included: a revived series comes back holding its old parent.
+        // A revived series comes back holding its old parent and position. Clear them first, so it
+        // lands after the requested parent's current sub-series — or stays a root — like a new one.
+        val resolved = hierarchy.live(id) ?: return seriesNotFound(id)
+        if (resolved.parentId != null) {
+            when (val cleared = hierarchy.place(resolved, null, null)) {
+                is AppResult.Success -> Unit
+                is AppResult.Failure -> return AppResult.Failure(cleared.error)
+            }
+        }
         when (val placed = setSeriesParent(id, parentId)) {
             is AppResult.Success -> Unit
             is AppResult.Failure -> return AppResult.Failure(placed.error)
@@ -315,7 +324,8 @@ internal class SeriesServiceImpl(
                 ?: return seriesNotFound(id)
         // Sub-series outlive their parent: lift them to the grandparent (or to the root) before
         // the tombstone, so no live series is ever left pointing at a dead one.
-        when (val lifted = hierarchy.reparentChildren(id) { doomed.parentId }) {
+        val grandparent = hierarchy.liveParentOf(doomed)
+        when (val lifted = hierarchy.reparentChildren(id) { grandparent }) {
             is AppResult.Success -> Unit
             is AppResult.Failure -> return lifted
         }

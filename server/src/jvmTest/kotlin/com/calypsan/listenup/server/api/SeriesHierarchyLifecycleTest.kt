@@ -197,4 +197,47 @@ class SeriesHierarchyLifecycleTest :
                 }
             }
         }
+
+        test("deleting a series whose own parent is already gone leaves its sub-series as roots") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeHierarchyDeps(this)
+                runTest {
+                    val gone = deps.seriesRepo.resolveOrCreate("Cosmere")
+                    val mistborn = deps.seriesRepo.resolveOrCreate("Mistborn")
+                    val era1 = deps.seriesRepo.resolveOrCreate("Mistborn Era 1")
+                    deps.place(mistborn, parent = gone, position = 0)
+                    deps.place(era1, parent = mistborn, position = 0)
+                    // Tombstone the parent underneath the service, so mistborn keeps a stale parent.
+                    deps.seriesRepo.softDelete(gone).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    deps.service.deleteSeries(mistborn).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    deps.series(era1).deletedAt shouldBe null
+                    deps.series(era1).parentId shouldBe null
+                    deps.series(era1).parentPosition shouldBe null
+                }
+            }
+        }
+
+        test("merging into a sub-series when the source's own parent is already gone makes the survivor a root") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeHierarchyDeps(this)
+                runTest {
+                    val gone = deps.seriesRepo.resolveOrCreate("Sanderson")
+                    val cosmere = deps.seriesRepo.resolveOrCreate("Cosmere")
+                    val mistborn = deps.seriesRepo.resolveOrCreate("Mistborn")
+                    deps.place(cosmere, parent = gone, position = 0)
+                    deps.place(mistborn, parent = cosmere, position = 0)
+                    deps.seriesRepo.softDelete(gone).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    deps.service.mergeSeries(source = cosmere, target = mistborn).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    deps.series(mistborn).deletedAt shouldBe null
+                    deps.series(mistborn).parentId shouldBe null
+                    deps.series(mistborn).parentPosition shouldBe null
+                }
+            }
+        }
     })

@@ -125,6 +125,38 @@ class SeriesHierarchyServiceTest :
             }
         }
 
+        test("createSeries reviving a deleted series under its old parent appends it after the newer sub-series") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeHierarchyDeps(this)
+                runTest {
+                    val cosmere = deps.seriesRepo.resolveOrCreate("Cosmere")
+                    val mistborn =
+                        deps.service
+                            .createSeries("Mistborn", parentId = cosmere)
+                            .shouldBeInstanceOf<AppResult.Success<SeriesSyncPayload>>()
+                            .data
+                    deps.service.deleteSeries(SeriesId(mistborn.id)).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    val stormlight =
+                        deps.service
+                            .createSeries("Stormlight Archive", parentId = cosmere)
+                            .shouldBeInstanceOf<AppResult.Success<SeriesSyncPayload>>()
+                            .data
+
+                    val revived =
+                        deps.service
+                            .createSeries("Mistborn", parentId = cosmere)
+                            .shouldBeInstanceOf<AppResult.Success<SeriesSyncPayload>>()
+                            .data
+
+                    revived.id shouldBe mistborn.id
+                    revived.parentPosition shouldBe 1
+                    deps.seriesRepo.liveTree().childrenOf(cosmere.value) shouldContainExactly
+                        listOf(stormlight.id, mistborn.id)
+                }
+            }
+        }
+
         // ── setSeriesParent ────────────────────────────────────────────────────
 
         test("setSeriesParent appends the series to its new parent, and null makes it a root again") {

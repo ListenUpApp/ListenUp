@@ -16,6 +16,13 @@ internal class SeriesHierarchyWrites(
     /** The live payload of [id], or null when the series is missing or tombstoned. */
     suspend fun live(id: SeriesId): SeriesSyncPayload? = seriesRepo.findById(id.value)?.takeIf { it.deletedAt == null }
 
+    /**
+     * The id of [series]' parent when that parent is live, else null. A stored parent can name a
+     * tombstoned series; nothing may be lifted onto one.
+     */
+    suspend fun liveParentOf(series: SeriesSyncPayload): String? =
+        series.parentId?.takeIf { live(SeriesId(it)) != null }
+
     /** Writes [parentId] + [position] onto [series]. */
     suspend fun place(
         series: SeriesSyncPayload,
