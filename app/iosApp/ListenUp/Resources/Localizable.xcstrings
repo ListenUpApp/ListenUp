@@ -781,6 +781,16 @@
         }
       }
     },
+    "admin.hardcover_token_remove_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Hardcover API token"
+          }
+        }
+      }
+    },
     "admin.hardcover_token_remove_title": {
       "localizations": {
         "en": {
@@ -797,6 +807,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Replace"
+          }
+        }
+      }
+    },
+    "admin.hardcover_token_replace_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace Hardcover API token"
           }
         }
       }
@@ -11151,6 +11171,16 @@
         }
       }
     },
+    "hardcover.find_on_hardcover_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find %1$@ on Hardcover"
+          }
+        }
+      }
+    },
     "hardcover.history_needs_match": {
       "localizations": {
         "en": {
@@ -11761,6 +11791,16 @@
         }
       }
     },
+    "hardcover.match_results_for": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Results for “%1$@”"
+          }
+        }
+      }
+    },
     "hardcover.match_search": {
       "localizations": {
         "en": {
@@ -11851,6 +11891,26 @@
         }
       }
     },
+    "hardcover.needs_match_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books need a match"
+          }
+        }
+      }
+    },
+    "hardcover.needs_match_count_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 book needs a match"
+          }
+        }
+      }
+    },
     "hardcover.needs_match_detail": {
       "localizations": {
         "en": {
@@ -11877,6 +11937,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Needs a match"
+          }
+        }
+      }
+    },
+    "hardcover.needs_match_show_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show all %1$d books"
           }
         }
       }
@@ -12187,6 +12257,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sync"
+          }
+        }
+      }
+    },
+    "hardcover.synced_status": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synced with Hardcover"
           }
         }
       }
@@ -14981,6 +15061,16 @@
         }
       }
     },
+    "metadata.chip_from_source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, from %2$@"
+          }
+        }
+      }
+    },
     "metadata.clear_all": {
       "localizations": {
         "en": {
@@ -15197,6 +15287,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Title"
+          }
+        }
+      }
+    },
+    "metadata.field_toggle_all_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turns every one on or off."
           }
         }
       }
