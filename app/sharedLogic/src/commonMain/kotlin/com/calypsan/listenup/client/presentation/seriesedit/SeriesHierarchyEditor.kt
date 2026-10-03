@@ -48,8 +48,8 @@ internal class SeriesHierarchyEditor(
     private val reorderChildren: suspend (SeriesId, List<SeriesId>) -> AppResult<Unit>,
 ) {
     /**
-     * Candidates for the parent picker — every live series this one may sit under (never itself
-     * or its own sub-series), filtered by [SeriesEditUiState.parentQuery]. Computed only while the
+     * Candidates for the parent picker — every live series this one may move under (never itself,
+     * its own sub-series, or the parent it already has), filtered by [SeriesEditUiState.parentQuery]. Computed only while the
      * picker is visible: hidden emits an empty list without ever reading the series table.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -86,7 +86,7 @@ internal class SeriesHierarchyEditor(
                                     SeriesCandidate(
                                         id = child.series.id,
                                         displayName = child.series.name,
-                                        bookCount = 0,
+                                        bookCount = child.bookIds.size,
                                     )
                                 },
                         )
@@ -116,18 +116,24 @@ internal class SeriesHierarchyEditor(
     /** Rewrites the sub-series' sibling order to [orderedChildIds]. */
     fun reorderChildSeries(orderedChildIds: List<SeriesId>) = change { id -> reorderChildren(id, orderedChildIds) }
 
-    /** Sends one hierarchy change to the server; the result reaches the screen through Room. */
+    /**
+     * Sends one hierarchy change to the server; the result reaches the screen through Room. One at
+     * a time: a change asked for while another is still on its way is dropped, because it was
+     * chosen against a tree the first one is about to rearrange.
+     */
     private fun change(write: suspend (SeriesId) -> AppResult<Unit>) {
         val seriesId = state.value.seriesId
         if (seriesId.isBlank()) {
             logger.error { "Cannot change hierarchy: series ID is empty" }
             return
         }
+        if (state.value.hierarchyBusy) return
+        // Marked busy before the launch, so a second change in the same frame is dropped too.
+        state.update {
+            it.copy(hierarchyBusy = true, parentPickerVisible = false, parentQuery = "", error = null)
+        }
 
         scope.launch {
-            state.update {
-                it.copy(hierarchyBusy = true, parentPickerVisible = false, parentQuery = "", error = null)
-            }
             when (val result = write(SeriesId(seriesId))) {
                 is AppResult.Success -> {
                     state.update { it.copy(hierarchyBusy = false) }

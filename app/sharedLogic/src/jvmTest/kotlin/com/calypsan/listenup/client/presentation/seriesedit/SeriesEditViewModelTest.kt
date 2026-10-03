@@ -33,6 +33,7 @@ import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -668,6 +669,9 @@ class SeriesEditViewModelTest :
                 viewModel.state.value.parentName shouldBe "Cosmere"
                 viewModel.state.value.childSeries
                     .map { it.displayName } shouldBe listOf("Era 1", "Era 2")
+                // Each sub-series row carries the book count of its own subtree.
+                viewModel.state.value.childSeries
+                    .map { it.bookCount } shouldBe listOf(1, 0)
                 viewModel.state.value.name shouldBe "Mistborn"
 
                 lineage.value = SeriesLineage.Flat
@@ -686,7 +690,7 @@ class SeriesEditViewModelTest :
                     MutableStateFlow(
                         listOf(
                             createSeriesEntity("cosmere", "Cosmere"),
-                            createSeriesEntity("mistborn", "Mistborn", parentId = "cosmere", parentPosition = 0),
+                            createSeriesEntity("mistborn", "Mistborn"),
                             createSeriesEntity("era1", "Era 1", parentId = "mistborn", parentPosition = 0),
                             createSeriesEntity("narnia", "Narnia"),
                             createSeriesEntity("gone", "Gone", deletedAt = 123L),
@@ -758,6 +762,34 @@ class SeriesEditViewModelTest :
             }
         }
 
+        test("a hierarchy change is ignored while another is still on its way to the server") {
+            runTest {
+                val fixture = createFixture()
+                val serverAnswer = CompletableDeferred<AppResult<Unit>>()
+                everySuspend {
+                    fixture.seriesEditRepository.setParent(SeriesId("mistborn"), SeriesId("cosmere"))
+                } calls { serverAnswer.await() }
+                val viewModel = loaded(fixture)
+                advanceUntilIdle()
+
+                viewModel.onEvent(SeriesEditUiEvent.ParentSelected("cosmere"))
+                // Sent before the first write has even started, and again once it is in flight.
+                viewModel.onEvent(SeriesEditUiEvent.ParentSelected("narnia"))
+                advanceUntilIdle()
+                viewModel.state.value.hierarchyBusy shouldBe true
+                viewModel.onEvent(SeriesEditUiEvent.ParentCleared)
+                viewModel.onEvent(SeriesEditUiEvent.ChildSeriesReordered(listOf("era2", "era1")))
+                advanceUntilIdle()
+
+                serverAnswer.complete(AppResult.Success(Unit))
+                advanceUntilIdle()
+
+                viewModel.state.value.hierarchyBusy shouldBe false
+                verifySuspend(VerifyMode.exactly(1)) { fixture.seriesEditRepository.setParent(any(), any()) }
+                verifySuspend(VerifyMode.not) { fixture.seriesEditRepository.reorderChildren(any(), any()) }
+            }
+        }
+
         test("clearing the parent and reordering sub-series go to the repository") {
             runTest {
                 val fixture = createFixture()
@@ -769,6 +801,7 @@ class SeriesEditViewModelTest :
                 advanceUntilIdle()
 
                 viewModel.onEvent(SeriesEditUiEvent.ParentCleared)
+                advanceUntilIdle()
                 viewModel.onEvent(SeriesEditUiEvent.ChildSeriesReordered(listOf("era2", "era1")))
                 advanceUntilIdle()
 

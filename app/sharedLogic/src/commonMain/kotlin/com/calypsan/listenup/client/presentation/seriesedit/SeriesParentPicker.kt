@@ -8,8 +8,9 @@ import com.calypsan.listenup.domain.series.SeriesTree
 internal const val MAX_PARENT_CANDIDATES = MAX_MERGE_CANDIDATES
 
 /**
- * The series [currentId] may be placed under: every live series except itself and its own
- * sub-series (the server would refuse those as a cycle), filtered by [query], by name.
+ * The series [currentId] may be moved under: every live series except itself and its own
+ * sub-series (the server would refuse those as a cycle) and the parent it already has (choosing
+ * it would change nothing), filtered by [query], by name.
  */
 internal fun parentCandidates(
     allSeries: List<SeriesEntity>,
@@ -17,8 +18,10 @@ internal fun parentCandidates(
     query: String,
 ): List<SeriesCandidate> {
     val live = allSeries.filter { it.deletedAt == null }
+    val currentParentId = live.firstOrNull { it.id.value == currentId }?.parentId
     val excluded =
-        SeriesTree(live.map { SeriesNode(it.id.value, it.parentId, it.parentPosition) }).subtreeOf(currentId)
+        SeriesTree(live.map { SeriesNode(it.id.value, it.parentId, it.parentPosition) }).subtreeOf(currentId) +
+            setOfNotNull(currentParentId)
     return live
         .asSequence()
         .filter { it.id.value !in excluded }

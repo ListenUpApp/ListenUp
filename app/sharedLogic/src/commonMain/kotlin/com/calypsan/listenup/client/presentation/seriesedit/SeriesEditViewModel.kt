@@ -43,11 +43,12 @@ const val MAX_MERGE_CANDIDATES = 30
 private const val STOP_TIMEOUT_MS = 5_000L
 
 /**
- * Lightweight projection of a series as a merge-target candidate.
+ * Lightweight projection of a series as a row the editor lists: a merge-target or parent
+ * candidate, or one of the series' own sub-series.
  *
- * Used by [SeriesEditViewModel.mergeCandidates] to populate the series merge
- * picker dialog. [bookCount] is a placeholder (always `0`) — there is no per-series
- * book-count query yet, so the dialog hides it.
+ * [bookCount] is real for a sub-series ([SeriesEditUiState.childSeries]) — every book in it and
+ * below it. For a picker candidate it is always `0`: there is no per-series book-count query
+ * for the pickers yet, so their dialogs hide it.
  */
 data class SeriesCandidate(
     val id: SeriesId,
@@ -85,7 +86,7 @@ data class SeriesEditUiState(
     val parentId: String? = null,
     /** The parent series' name, for display. */
     val parentName: String? = null,
-    /** This series' sub-series, in sibling order. */
+    /** This series' sub-series, in sibling order, each with the book count of its own subtree. */
     val childSeries: List<SeriesCandidate> = emptyList(),
     /** Whether the parent picker is open — candidates are computed only while true. */
     val parentPickerVisible: Boolean = false,

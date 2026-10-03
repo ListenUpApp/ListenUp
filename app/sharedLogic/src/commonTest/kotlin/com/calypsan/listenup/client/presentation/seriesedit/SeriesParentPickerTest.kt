@@ -35,7 +35,14 @@ class SeriesParentPickerTest :
             )
 
         test("a series can't be placed under itself or its own sub-series") {
+            parentCandidates(all, currentId = "Cosmere", query = "").map { it.displayName } shouldContainExactly
+                listOf("Narnia")
+        }
+
+        test("the parent a series already has is not offered — choosing it would change nothing") {
             parentCandidates(all, currentId = "Mistborn", query = "").map { it.displayName } shouldContainExactly
+                listOf("Narnia", "Stormlight")
+            parentCandidates(all, currentId = "Era 1", query = "").map { it.displayName } shouldContainExactly
                 listOf("Cosmere", "Narnia", "Stormlight")
         }
 
