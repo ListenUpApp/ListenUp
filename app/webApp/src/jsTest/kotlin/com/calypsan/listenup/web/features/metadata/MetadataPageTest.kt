@@ -11,7 +11,15 @@ import com.calypsan.listenup.client.presentation.metadata.MetadataSelections
 import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
 import com.calypsan.listenup.client.presentation.metadata.PreviewLoadState
 import com.calypsan.listenup.client.presentation.metadata.SearchLoadState
+import com.calypsan.listenup.web.InShell
+import com.calypsan.listenup.web.SMALL_PHONE
+import com.calypsan.listenup.web.ViewportFrames
 import com.calypsan.listenup.web.awaitFrame
+import com.calypsan.listenup.web.contentOverflow
+import com.calypsan.listenup.web.pastTheEdge
+import com.calypsan.listenup.web.zoomTextTo200
+import io.kotest.assertions.withClue
+import io.kotest.matchers.doubles.shouldBeLessThanOrEqual
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
@@ -678,4 +686,70 @@ class MetadataPageTest :
                     .map { it.previousElementSibling?.textContent?.trim() to it.textContent }
             labelled shouldContainExactly listOf("Space Opera" to "from Hardcover", "Hopeful" to "from Hardcover")
         }
+
+        // #1562, m-G3: each list is a named group, and a value's provenance is its description.
+        test("Genres and Moods are named groups, and each Hardcover value is described by where it came from") {
+            val host = page(previewState(hardcoverPreview()))
+
+            val groupNames =
+                host.querySelectorAll(".mdx-values[role=group]").asList().filterIsInstance<HTMLElement>().map {
+                    document.getElementById(it.getAttribute("aria-labelledby")!!)!!.textContent.orEmpty()
+                }
+            groupNames shouldContainExactly listOf("Genres", "Moods")
+            val spaceOpera = checkbox(host, "Space Opera").shouldNotBeNull()
+            document.getElementById(spaceOpera.getAttribute("aria-describedby")!!)!!.textContent shouldBe "from Hardcover"
+            checkbox(host, "Science Fiction").shouldNotBeNull().hasAttribute("aria-describedby") shouldBe false
+        }
+
+        test("M-G2: at 320px and 200% text the preview does not scroll sideways, and Apply is wholly on screen") {
+            val frames = ViewportFrames()
+            try {
+                val frame =
+                    frames.mount(SMALL_PHONE, height = 900) {
+                        InShell {
+                            MetadataPage(
+                                state = previewState(hardcoverPreview()),
+                                onQuery = {},
+                                onRegion = {},
+                                onSearch = {},
+                                onSelectMatch = {},
+                                onClearSelection = {},
+                                onToggleField = {},
+                                onToggleAuthor = {},
+                                onToggleNarrator = {},
+                                onToggleSeries = {},
+                                onToggleGenre = {},
+                                onToggleMood = {},
+                                onToggleTag = {},
+                                onSelectCover = {},
+                                onToggleChapter = {},
+                                onApplyChapterNames = {},
+                                onApply = {},
+                                onLeave = {},
+                                reviewingChapters = false,
+                                onReviewChapters = {},
+                            )
+                        }
+                    }
+                frame.zoomTextTo200()
+
+                withClue(frame.pastTheEdge().joinToString("\n")) { frame.contentOverflow() shouldBe 0 }
+                val apply = frame.findAll(".mdx-apply .btn").last()
+                frame.rect(apply).right shouldBeLessThanOrEqual frame.rect(frame.find(".shell-main")).right
+            } finally {
+                frames.disposeAll()
+            }
+        }
     })
+
+/** A preview where Hardcover proposed a genre and the moods (#1542). */
+private fun hardcoverPreview() =
+    readyPreview(
+        preview =
+            metadataBook(genres = listOf("Science Fiction", "Space Opera"), moods = listOf("Hopeful")).copy(
+                matchProvenance = MatchProvenance(genreSources = mapOf("Space Opera" to "Hardcover")),
+            ),
+        genreCandidates = listOf("Science Fiction", "Space Opera"),
+        moodCandidates = listOf("Tense", "Hopeful"),
+        fallbackSources = mapOf(BookField.MOODS to "Hardcover"),
+    )

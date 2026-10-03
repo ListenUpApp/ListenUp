@@ -706,8 +706,12 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .srv-hint { margin: 0; font-size: var(--fs-ui); color: var(--ink-3); line-height: 1.5; }
 /* The description leads and the switch trails, so a column of switches lines up down the right
    edge and the eye can run the settings without reading every sentence. */
-.luw .srv-toggle { display: flex; align-items: center; justify-content: space-between; gap: 1.2rem; }
-.luw .srv-toggle-d { flex: 1; min-width: 0; font-size: var(--fs-ui); color: var(--ink-2); line-height: 1.45; }
+/* The words and the control share a line while there is room; when there is not — a phone at 200%
+   text — the control drops beneath the words instead of crushing them to nothing (WCAG 1.4.10). */
+.luw .srv-toggle { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem 1.2rem; }
+.luw .srv-toggle-d { flex: 1 1 10rem; min-width: 0; font-size: var(--fs-ui); color: var(--ink-2); line-height: 1.45; overflow-wrap: anywhere; }
+.luw .srv-toggle-acts { display: flex; flex-wrap: wrap; gap: var(--sp-8); max-width: 100%; }
+.luw .srv-ext { display: inline-flex; align-items: center; gap: var(--sp-4); align-self: flex-start; }
 .luw .srv-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--r-md); background: var(--coral-soft); color: var(--coral-text); font-size: var(--fs-ui); font-weight: 600; }
 .luw .srv-err-t { flex: 1; min-width: 0; margin: 0; }
 .luw .srv-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: var(--r-sm); background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
@@ -1024,7 +1028,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .mdx-ctx-a { font-size: var(--fs-ui); color: var(--ink-3); }
 
 .luw .mdx-search { display: flex; align-items: flex-end; gap: var(--sp-12); }
-.luw .mdx-search .f-wrap { flex: 1; min-width: 12rem; }
+.luw .mdx-search .f-wrap { flex: 1; min-width: min(12rem, 100%); }
 .luw .mdx-regions { display: flex; align-items: center; gap: var(--sp-8); flex-wrap: wrap; }
 .luw .mdx-regions-l { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
 
@@ -1039,9 +1043,9 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .mdx-result-meta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 3px; font-size: 0.74rem; color: var(--ink-3); }
 .luw .mdx-asin { font-family: var(--mono); }
 
-.luw .mdx-hero { display: flex; align-items: center; gap: var(--sp-16); padding: 14px; border-radius: var(--r-lg); background: var(--surface-2); }
+.luw .mdx-hero { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-16); padding: 14px; border-radius: var(--r-lg); background: var(--surface-2); }
 .luw .mdx-hero-c { width: 84px; height: 84px; flex: none; border-radius: 10px; object-fit: cover; background: var(--surface-3); }
-.luw .mdx-hero-m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.luw .mdx-hero-m { flex: 1 1 10rem; min-width: 0; overflow-wrap: anywhere; display: flex; flex-direction: column; gap: 3px; }
 .luw .mdx-hero-t { font-size: var(--fs-title); font-weight: 750; color: var(--ink); }
 .luw .mdx-hero-s { font-size: var(--fs-ui); color: var(--ink-3); }
 .luw .mdx-src { align-self: flex-start; padding: 2px 9px; border-radius: var(--r-pill); background: var(--surface-3); font-size: 0.72rem; font-weight: 700; color: var(--ink-2); }
@@ -1049,14 +1053,14 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 /* One field: the tick, what it would become, and where it came from. The value is muted against
    the label because the decision is "take this or not", not "read this". */
 .luw .mdx-field { display: flex; align-items: baseline; gap: var(--sp-12); padding: 7px 0; flex-wrap: wrap; }
-.luw .mdx-field .f-check { flex: none; min-width: 8.5rem; font-weight: 650; }
-.luw .mdx-field-v { flex: 1; min-width: 10rem; font-size: var(--fs-ui); color: var(--ink-2); }
+.luw .mdx-field .f-check { flex: none; min-width: min(8.5rem, 100%); font-weight: 650; }
+.luw .mdx-field-v { flex: 1; min-width: min(10rem, 100%); overflow-wrap: anywhere; font-size: var(--fs-ui); color: var(--ink-2); }
 .luw .mdx-field-v.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 /* Provenance. A field merged in from another provider is still worth taking — but the reader is
    entitled to know it is not what the edition they picked says. */
-.luw .mdx-from { flex: none; padding: 1px var(--sp-8); border-radius: var(--r-pill); background: var(--surface-3); font-size: var(--fs-caption); font-weight: 700; color: var(--ink-3); }
+.luw .mdx-from { flex: none; padding: 1px var(--sp-8); border-radius: var(--r-pill); background: var(--surface-3); font-size: var(--fs-caption); font-weight: 700; color: var(--ink-2); }
 .luw .mdx-values { display: flex; align-items: baseline; gap: var(--sp-12); padding: 7px 0; flex-wrap: wrap; }
-.luw .mdx-values-l { min-width: 8.5rem; font-size: var(--fs-ui); font-weight: 650; color: var(--ink); }
+.luw .mdx-values-l { min-width: min(8.5rem, 100%); font-size: var(--fs-ui); font-weight: 650; color: var(--ink); }
 
 .luw .mdx-covers { display: flex; gap: 10px; flex-wrap: wrap; margin-top: var(--sp-8); }
 .luw .mdx-cover { display: flex; flex-direction: column; align-items: center; gap: var(--sp-4); padding: var(--sp-8); border: 1.5px solid transparent; border-radius: var(--r-md); background: var(--surface-2); color: var(--ink); cursor: pointer; font-family: inherit; }
