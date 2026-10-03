@@ -301,8 +301,15 @@ internal class SeriesServiceImpl(
      * matching the established cutover shape.
      */
     private suspend fun deleteCore(id: SeriesId): AppResult<Unit> {
-        seriesRepo.findById(id.value)
-            ?: return seriesNotFound(id)
+        val doomed =
+            seriesRepo.findById(id.value)
+                ?: return seriesNotFound(id)
+        // Sub-series outlive their parent: lift them to the grandparent (or to the root) before
+        // the tombstone, so no live series is ever left pointing at a dead one.
+        when (val lifted = hierarchy.reparentChildren(id) { doomed.parentId }) {
+            is AppResult.Success -> Unit
+            is AppResult.Failure -> return lifted
+        }
         // Snapshot affected book IDs, then hard-delete every membership row for the series —
         // both over the single SQLDelight connection in one mini-transaction.
         val affectedBookIds =

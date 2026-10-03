@@ -70,6 +70,7 @@ interface SeriesService {
      * Hard-deletes all `book_series_memberships` junction rows referencing [id],
      * re-upserts each affected book, then soft-deletes the series row. Books that
      * lose their series association stay as books.
+     * Its sub-series are not deleted: they move up to its own parent, or become roots.
      */
     suspend fun deleteSeries(id: SeriesId): AppResult<Unit>
 

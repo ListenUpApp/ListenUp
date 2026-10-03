@@ -72,4 +72,45 @@ class SeriesHierarchyLifecycleTest :
                 }
             }
         }
+
+        test("deleting a parent lifts its sub-series to the grandparent, after the existing ones") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeHierarchyDeps(this)
+                runTest {
+                    val cosmere = deps.seriesRepo.resolveOrCreate("Cosmere")
+                    val stormlight = deps.seriesRepo.resolveOrCreate("Stormlight Archive")
+                    val mistborn = deps.seriesRepo.resolveOrCreate("Mistborn")
+                    val era1 = deps.seriesRepo.resolveOrCreate("Mistborn Era 1")
+                    val era2 = deps.seriesRepo.resolveOrCreate("Mistborn Era 2")
+                    deps.place(stormlight, parent = cosmere, position = 0)
+                    deps.place(mistborn, parent = cosmere, position = 1)
+                    deps.place(era1, parent = mistborn, position = 0)
+                    deps.place(era2, parent = mistborn, position = 1)
+
+                    deps.service.deleteSeries(mistborn).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    deps.seriesRepo.liveTree().childrenOf(cosmere.value) shouldContainExactly
+                        listOf(stormlight.value, era1.value, era2.value)
+                }
+            }
+        }
+
+        test("deleting a root parent leaves its sub-series as roots") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeHierarchyDeps(this)
+                runTest {
+                    val cosmere = deps.seriesRepo.resolveOrCreate("Cosmere")
+                    val mistborn = deps.seriesRepo.resolveOrCreate("Mistborn")
+                    deps.place(mistborn, parent = cosmere, position = 0)
+
+                    deps.service.deleteSeries(cosmere).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    deps.series(mistborn).deletedAt shouldBe null
+                    deps.series(mistborn).parentId shouldBe null
+                    deps.series(mistborn).parentPosition shouldBe null
+                }
+            }
+        }
     })
