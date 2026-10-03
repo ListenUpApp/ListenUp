@@ -4771,16 +4771,6 @@
         }
       }
     },
-    "book.detail_rating_edit": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Edit"
-          }
-        }
-      }
-    },
     "book.detail_rating_edit_note": {
       "localizations": {
         "en": {
@@ -4791,62 +4781,12 @@
         }
       }
     },
-    "book.detail_rating_external": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ · %2$@ ratings"
-          }
-        }
-      }
-    },
-    "book.detail_rating_external_a11y": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rated %1$@ out of 5 stars from %2$@ ratings"
-          }
-        }
-      }
-    },
-    "book.detail_rating_external_a11y_one": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rated %1$@ out of 5 stars from 1 rating"
-          }
-        }
-      }
-    },
-    "book.detail_rating_external_one": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ · 1 rating"
-          }
-        }
-      }
-    },
     "book.detail_rating_heading": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Ratings"
-          }
-        }
-      }
-    },
-    "book.detail_rating_listeners": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your listeners %1$@ (%2$d)"
           }
         }
       }
@@ -4907,16 +4847,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rating options"
-          }
-        }
-      }
-    },
-    "book.detail_rating_rate": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rate"
           }
         }
       }
@@ -5037,26 +4967,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Show rating sources"
-          }
-        }
-      }
-    },
-    "book.detail_rating_source_row": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ · %2$@"
-          }
-        }
-      }
-    },
-    "book.detail_rating_source_row_share": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ · %2$@ · %3$@ · %4$@%%"
           }
         }
       }
