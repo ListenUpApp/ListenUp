@@ -95,6 +95,31 @@ struct BookDetailHardcoverAccessibilityTests {
         #expect(find.frame.height >= TapTarget.minimum - 0.5, "\(find)")
     }
 
+    // MARK: m9 — a never-matched book says why there is only a switch
+
+    /// The card held only "Sync with Hardcover, on", with nothing saying the book isn't matched yet. A quiet
+    /// line follows the switch, in reading order, as Kept Off's does.
+    @Test func anUnmatchedBookSaysItIsNotMatchedYet() async throws {
+        let hosted = await hardcoverCard(.unmatched)
+        defer { hosted.close() }
+        let line = String(localized: "hardcover.never_matched_line")
+        let stops = hosted.stops
+        let toggle = try #require(stops.firstIndex { $0.label == String(localized: "hardcover.keep_off_switch") },
+                                  "\(hosted.tree)")
+        let quiet = try #require(stops.firstIndex { $0.label == line }, "\(hosted.tree)")
+        #expect(quiet == toggle + 1, "\(hosted.tree)")
+        #expect(stops[quiet].frame.minY >= stops[toggle].frame.maxY - 1)
+    }
+
+    @Test func onlyAnUnmatchedBookShowsTheLine() async {
+        let line = String(localized: "hardcover.never_matched_line")
+        for phase in [linked, .needsMatch, .keptOff(isResuming: false)] {
+            let hosted = await hardcoverCard(phase)
+            defer { hosted.close() }
+            #expect(hosted.stops(labelled: line).isEmpty, "\(phase): \(hosted.tree)")
+        }
+    }
+
     // MARK: m8 — the card's action labels clear 4.5:1
 
     /// Remove Match was system red on the card (3.20:1); Change Match the tint on its own tinted fill (3.27:1).

@@ -11,7 +11,8 @@ import SwiftUI
 /// first (the caller's dialog): it parks the book's syncing until a new match is picked.
 ///
 /// Sync with Hardcover (#1541) heads the card in every state; kept off, the card holds only it, with a
-/// footer saying what that means. A book never matched gets the card with only the Toggle, on.
+/// footer saying what that means. A book never matched gets the card with only the Toggle, on, and a footer
+/// saying it isn't matched yet and when ListenUp will look.
 struct BookHardcoverSection: View {
     let phase: BookHardcoverPhase
     let onFindMatch: () -> Void
@@ -29,6 +30,9 @@ struct BookHardcoverSection: View {
             VStack(alignment: .leading, spacing: Spacing.s) {
                 header(String(localized: "hardcover.book_row_title"))
                 card { syncToggle(keepOffMessage: nil) }
+                // The switch alone said nothing about the book not being matched yet. A footer under it, as
+                // the HIG places explanatory text for a toggle (HIG, Toggles), read straight after it.
+                footer(String(localized: "hardcover.never_matched_line"))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         case .needsMatch:
@@ -80,10 +84,7 @@ struct BookHardcoverSection: View {
                 card { syncToggle(keepOffMessage: nil) }
                 // A footer under the toggle, as the HIG places explanatory text for one.
                 if !isResuming {
-                    Text(String(localized: "hardcover.kept_off_line"))
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, Spacing.m)
+                    footer(String(localized: "hardcover.kept_off_line"))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -174,6 +175,14 @@ struct BookHardcoverSection: View {
         case .quiet: .secondary
         case .caution: .luWarning
         }
+    }
+
+    /// A quiet line under the card, the way a grouped section's footer sits under its rows.
+    private func footer(_ text: String) -> some View {
+        Text(text)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, Spacing.m)
     }
 
     private func header(_ title: String) -> some View {

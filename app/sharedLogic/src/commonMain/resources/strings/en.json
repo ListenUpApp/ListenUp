@@ -1809,6 +1809,7 @@
       "history_row_send_label": "Send earlier books to Hardcover",
       "keep_off_switch": "Sync with Hardcover",
       "kept_off_line": "Kept off Hardcover — nothing about this book is shared or brought in.",
+      "never_matched_line": "Not matched yet. ListenUp looks for it on Hardcover when you start listening.",
       "keep_off_confirm_title": "Keep this book off Hardcover?",
       "keep_off_confirm_body": "Its Hardcover reads leave Readers here and it comes off your To Read shelf. Nothing on Hardcover changes.",
       "keep_off_confirm_body_reads": "Its Hardcover reads leave Readers here. Nothing on Hardcover changes.",

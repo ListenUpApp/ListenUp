@@ -11951,6 +11951,16 @@
         }
       }
     },
+    "hardcover.never_matched_line": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not matched yet. ListenUp looks for it on Hardcover when you start listening."
+          }
+        }
+      }
+    },
     "hardcover.never_synced": {
       "localizations": {
         "en": {

@@ -1196,6 +1196,7 @@ One beautiful library.</string>
     <string name="hardcover_needs_match_none">Every book you've started is matched</string>
     <string name="hardcover_needs_match_section">Needs a match</string>
     <string name="hardcover_needs_match_show_all">Show all %1$d books</string>
+    <string name="hardcover_never_matched_line">Not matched yet. ListenUp looks for it on Hardcover when you start listening.</string>
     <string name="hardcover_never_synced">Not synced yet</string>
     <string name="hardcover_not_connected_title">Share what you finish</string>
     <string name="hardcover_not_offered">Hardcover isn't set up on this server.</string>
