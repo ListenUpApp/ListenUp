@@ -39,6 +39,7 @@ struct HardcoverHistorySection: View {
             } icon: {
                 Image(systemName: "clock.arrow.circlepath")
                     .foregroundStyle(Color.luTint)
+                    .accessibilityHidden(true)
             }
             .padding(.vertical, Spacing.xxs)
             Button(action: onSend) {
@@ -62,6 +63,7 @@ struct HardcoverHistorySection: View {
                 } icon: {
                     Image(systemName: "clock.arrow.circlepath")
                         .foregroundStyle(Color.luTint)
+                        .accessibilityHidden(true)
                 }
                 ProgressView(value: Double(sent), total: Double(max(total, 1)))
                     .tint(Color.luTint)
@@ -82,6 +84,7 @@ struct HardcoverHistorySection: View {
             } icon: {
                 Image(systemName: "checkmark.circle")
                     .foregroundStyle(.green)
+                    .accessibilityHidden(true)
             }
             if needsMatch > 0 {
                 // It moves you to Needs a match, so it reads as navigation: a chevron (HIG, Lists and tables).
@@ -122,11 +125,14 @@ struct HardcoverEarlierBooksRow: View {
                         .foregroundStyle(Color.luTint)
                     Text(HardcoverHistoryText.availableDetail(books: books))
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        // `Color`, not the hierarchical style: inside a Button label `.secondary` is the tint
+                        // at secondary opacity (2.19:1 on white), not the grey it reads as everywhere else.
+                        .foregroundStyle(Color.secondary)
                 }
             } icon: {
                 Image(systemName: "clock.arrow.circlepath")
                     .foregroundStyle(Color.luTint)
+                    .accessibilityHidden(true)
             }
         }
         .accessibilityLabel(String(localized: "hardcover.history_row_send_label"))
