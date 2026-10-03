@@ -4061,6 +4061,16 @@
         }
       }
     },
+    "book.detail_chapter_count_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 chapter"
+          }
+        }
+      }
+    },
     "book.detail_chapter_label": {
       "localizations": {
         "en": {
@@ -5061,6 +5071,16 @@
         }
       }
     },
+    "book.detail_reader_view_profile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View profile"
+          }
+        }
+      }
+    },
     "book.detail_readers": {
       "localizations": {
         "en": {
@@ -5117,6 +5137,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Also on Hardcover"
+          }
+        }
+      }
+    },
+    "book.detail_readers_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d readers"
+          }
+        }
+      }
+    },
+    "book.detail_readers_count_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 reader"
           }
         }
       }
@@ -5197,6 +5237,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Read %1$@"
+          }
+        }
+      }
+    },
+    "book.detail_readers_read_on_hardcover": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read %1$@ on Hardcover"
           }
         }
       }
@@ -8621,6 +8671,16 @@
         }
       }
     },
+    "common.open_in_browser": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open in browser"
+          }
+        }
+      }
+    },
     "common.percent": {
       "localizations": {
         "en": {
@@ -11777,6 +11837,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Checking your Hardcover connection…"
+          }
+        }
+      }
+    },
+    "hardcover.match_action": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Match"
           }
         }
       }

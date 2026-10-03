@@ -49,6 +49,7 @@ import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorPreviewLoadState
@@ -236,7 +237,7 @@ private fun MissingProfileContent(
             Spacer(Modifier.height(16.dp))
             RegionChips(selectedRegion = selectedRegion, onRegionSelected = onRegionSelected)
             Spacer(Modifier.height(Spacing.xl))
-            OutlinedButton(onClick = onChangeMatch) {
+            OutlinedButton(onClick = onChangeMatch, border = listenUpOutlinedBorder()) {
                 Text(stringResource(Res.string.contributor_change_match))
             }
         }
@@ -320,7 +321,7 @@ private fun PreviewActions(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            OutlinedButton(onClick = onChangeMatch, modifier = Modifier.weight(1f)) {
+            OutlinedButton(onClick = onChangeMatch, border = listenUpOutlinedBorder(), modifier = Modifier.weight(1f)) {
                 Text(stringResource(Res.string.contributor_change_match))
             }
             Button(

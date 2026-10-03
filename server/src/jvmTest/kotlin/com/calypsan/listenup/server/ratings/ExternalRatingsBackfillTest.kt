@@ -403,6 +403,9 @@ class ExternalRatingsBackfillTest :
                             )
                         val events = MutableSharedFlow<ScanEvent>(extraBufferCapacity = 1)
                         scope.triggerExternalRatingsBackfillOnScanCompletion(events, backfill)
+                        // The listener subscribes on its own coroutine; a SharedFlow drops what is emitted
+                        // before anyone collects, so emitting first would lose the event and time out.
+                        events.subscriptionCount.first { it > 0 }
 
                         events.emit(
                             ScanEvent.Completed(
