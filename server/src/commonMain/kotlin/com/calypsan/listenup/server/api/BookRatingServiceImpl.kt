@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.BookRatingService
+import com.calypsan.listenup.api.dto.ExternalRatingsCheck
 import com.calypsan.listenup.api.dto.RateBookRequest
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.AuthError
@@ -8,6 +9,7 @@ import com.calypsan.listenup.api.error.RatingError
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
+import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.api.sync.BookRatingSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.domain.ListenerRatingLimits
@@ -15,6 +17,10 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.ratings.ExternalRatingsFetcher
 import com.calypsan.listenup.server.ratings.HardcoverRatingOnOpen
 import com.calypsan.listenup.server.sync.BookRatingRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * [BookRatingService] on the authed mount. The listener is always the principal, and a book the
@@ -25,8 +31,8 @@ import com.calypsan.listenup.server.sync.BookRatingRepository
  * neighbours in [AdminSettingsServiceImpl]. [fetcher] is nullable — non-null in production, absent
  * in the direct-construction unit tests that never call this method, where it is a no-op.
  *
- * [ensureExternalRatings] is open to any listener who can open the book; it only ever starts a
- * background fetch.
+ * [ensureExternalRatings] and [checkExternalRatings] are open to any listener who can open the book;
+ * they only ever start (or follow) a background fetch.
  */
 class BookRatingServiceImpl(
     private val ratings: BookRatingRepository,
@@ -82,6 +88,15 @@ class BookRatingServiceImpl(
         return AppResult.Success(Unit)
     }
 
+    override fun checkExternalRatings(bookId: BookId): Flow<RpcEvent<ExternalRatingsCheck>> =
+        flow {
+            if (callerWithAccessTo(bookId) == null) return@flow
+            val fetch = onOpen?.ensure(bookId) ?: return@flow
+            emit(RpcEvent.Data(ExternalRatingsCheck.CHECKING))
+            withTimeoutOrNull(EXTERNAL_CHECK_BOUND) { fetch.join() }
+            emit(RpcEvent.Data(ExternalRatingsCheck.DONE))
+        }
+
     fun copyWith(principal: PrincipalProvider): BookRatingServiceImpl =
         BookRatingServiceImpl(ratings, accessPolicy, principal, fetcher, onOpen)
 
@@ -103,3 +118,9 @@ class BookRatingServiceImpl(
         }
     }
 }
+
+/**
+ * How long [BookRatingServiceImpl.checkExternalRatings] follows a fetch before saying DONE anyway:
+ * Hardcover's 15 s HTTP timeout, plus the shared rate limiter's queue.
+ */
+private val EXTERNAL_CHECK_BOUND = 20.seconds

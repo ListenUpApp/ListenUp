@@ -1,8 +1,10 @@
 package com.calypsan.listenup.api
 
+import com.calypsan.listenup.api.dto.ExternalRatingsCheck
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceUnavailable
 import com.calypsan.listenup.api.error.RatingError
+import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.api.sync.ExternalRatingSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
@@ -115,6 +117,15 @@ class ExternalRatingContractTest :
             averageLabel(4.449) shouldBe "4.4"
             averageLabel(5.0) shouldBe "5.0"
             averageLabel(0.0) shouldBe "0.0"
+        }
+
+        test("the on-open check's states cross the wire inside an RpcEvent") {
+            val events: List<RpcEvent<ExternalRatingsCheck>> =
+                listOf(RpcEvent.Data(ExternalRatingsCheck.CHECKING), RpcEvent.Data(ExternalRatingsCheck.DONE))
+
+            events.forEach { event ->
+                contractJson.decodeFromString<RpcEvent<ExternalRatingsCheck>>(contractJson.encodeToString(event)) shouldBe event
+            }
         }
 
         test("the domain is in the catalog") {
