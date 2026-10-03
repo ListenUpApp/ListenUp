@@ -52,6 +52,7 @@ import com.calypsan.listenup.client.design.components.LocalNowPlayingInsets
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.components.BookCoverImage
+import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
 import com.calypsan.listenup.client.design.transitions.bookCoverHeroKey
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
@@ -991,6 +992,7 @@ private fun ImmersiveBookDetail(
                         contentAlignment = Alignment.Center,
                     ) {
                         OutlinedButton(
+                            border = listenUpOutlinedBorder(),
                             onClick = { isChaptersExpanded = true },
                             shape = ContentShapes.card,
                         ) {

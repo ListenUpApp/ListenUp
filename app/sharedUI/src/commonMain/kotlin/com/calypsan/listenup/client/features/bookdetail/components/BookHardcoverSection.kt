@@ -80,6 +80,7 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
+import androidx.compose.ui.semantics.heading
 
 private val CardCorner = 20.dp
 private val StatusIconSize = 18.dp
@@ -261,6 +262,7 @@ private fun NeedsMatchBody(onFindMatch: () -> Unit) {
             stringResource(Res.string.hardcover_book_row_needs_match),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
+            modifier = Modifier.semantics { heading() },
         )
         Text(
             stringResource(Res.string.hardcover_book_row_needs_match_detail),
@@ -287,6 +289,7 @@ private fun LinkedBody(
             state.match.title ?: stringResource(Res.string.hardcover_book_row_matched_unnamed),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
+            modifier = Modifier.semantics { heading() },
         )
         byline(state.match.authors, state.match.releaseYear)?.let {
             Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

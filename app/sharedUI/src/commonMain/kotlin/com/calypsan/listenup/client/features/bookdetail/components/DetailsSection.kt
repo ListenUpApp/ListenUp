@@ -36,6 +36,7 @@ import listenup.composeapp.generated.resources.book_detail_published
 import listenup.composeapp.generated.resources.book_detail_publisher
 import listenup.composeapp.generated.resources.book_detail_sample_rate
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.semantics.heading
 
 /**
  * Book "Details" section: the contributor credits grouped by role, followed by the formal metadata
@@ -119,7 +120,7 @@ fun DetailsSection(
                     fontWeight = FontWeight.SemiBold,
                 ),
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 12.dp),
+            modifier = Modifier.semantics { heading() }.padding(bottom = 12.dp),
         )
         rows.forEachIndexed { index, row ->
             row()

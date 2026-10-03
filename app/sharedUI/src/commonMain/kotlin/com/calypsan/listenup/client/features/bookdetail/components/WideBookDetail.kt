@@ -43,6 +43,7 @@ import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_show_all_chapters
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
 
 private const val CHAPTER_PREVIEW_LIMIT = 10
 
@@ -586,6 +587,7 @@ internal fun WideChaptersContent(
                 contentAlignment = Alignment.Center,
             ) {
                 OutlinedButton(
+                    border = listenUpOutlinedBorder(),
                     onClick = onExpand,
                     shape = ContentShapes.card,
                 ) {

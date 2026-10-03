@@ -9,6 +9,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.SectionColumns
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.Role
@@ -101,6 +103,7 @@ import listenup.composeapp.generated.resources.metadata_field_language
 import listenup.composeapp.generated.resources.metadata_field_moods
 import listenup.composeapp.generated.resources.metadata_field_narrators
 import listenup.composeapp.generated.resources.metadata_field_publisher
+import listenup.composeapp.generated.resources.metadata_chip_from_source
 import listenup.composeapp.generated.resources.metadata_field_source
 import listenup.composeapp.generated.resources.metadata_field_tags
 import listenup.composeapp.generated.resources.metadata_field_subtitle
@@ -118,7 +121,10 @@ import listenup.composeapp.generated.resources.metadata_select_metadata
 import listenup.composeapp.generated.resources.metadata_try_selecting_a_different_region
 import listenup.composeapp.generated.resources.metadata_your_book_already_has_all
 import com.calypsan.listenup.client.design.theme.HeroInk
+import com.calypsan.listenup.client.design.util.isLargeFontScale
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import com.calypsan.listenup.client.design.components.rememberHeroScrollBehavior
 
 private const val DESCRIPTION_PREVIEW_LIMIT = 200
 
@@ -206,23 +212,30 @@ fun MatchPreviewScreen(
         } else {
             emptyList()
         }
+    // At a large font the pinned apply bar keeps only the button: where the fields were merged from moves to
+    // the head of the list, so the bar doesn't take the room the fields are reviewed in.
+    val mergedFromInList = !panelBeside && isLargeFontScale()
     val applyActions: @Composable (Modifier) -> Unit = { modifier ->
         ApplyActions(
             applyError = applyError,
             isApplying = isApplying,
             hasAnySelected = hasAnySelected,
-            contributingSources = contributingSources,
+            contributingSources = if (mergedFromInList) emptyList() else contributingSources,
             onApply = onApply,
             modifier = modifier,
         )
     }
 
+    // At a large font the hero slides away as the fields scroll, rather than holding a third of the screen.
+    val heroScroll = rememberHeroScrollBehavior()
     ListenUpScaffold(
+        modifier = heroScroll?.let { Modifier.nestedScroll(it.nestedScrollConnection) } ?: Modifier,
         topBar = {
             ColorBlockHero(
                 title = stringResource(Res.string.metadata_select_metadata),
                 badgeIcon = Icons.AutoMirrored.Outlined.MenuBook,
                 onBack = onBack,
+                scrollBehavior = heroScroll,
             )
         },
         bottomBar = {
@@ -258,6 +271,7 @@ fun MatchPreviewScreen(
         } else {
             MatchPreviewPhoneList(
                 padding = padding,
+                mergedFrom = if (mergedFromInList) contributingSources else emptyList(),
                 hero = hero,
                 regionPicker = regionPicker,
                 sections = sections,
@@ -323,6 +337,7 @@ private fun MatchPreviewWideLayout(
 @Composable
 private fun MatchPreviewPhoneList(
     padding: PaddingValues,
+    mergedFrom: List<String>,
     hero: @Composable () -> Unit,
     regionPicker: @Composable () -> Unit,
     sections: List<@Composable () -> Unit>,
@@ -336,6 +351,7 @@ private fun MatchPreviewPhoneList(
         contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 20.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
+        if (mergedFrom.size > 1) item { MergedFromLine(mergedFrom) }
         item { hero() }
         item { regionPicker() }
         if (sections.isEmpty()) {
@@ -541,12 +557,7 @@ private fun ApplyActions(
         modifier = modifier.fillMaxWidth(),
     ) {
         if (contributingSources.size > 1) {
-            Text(
-                text = stringResource(Res.string.metadata_merged_from, contributingSources.joinToString(", ")),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
+            MergedFromLine(contributingSources, modifier = Modifier.padding(bottom = 8.dp))
         }
 
         applyError?.let { error ->
@@ -566,6 +577,20 @@ private fun ApplyActions(
             leadingIcon = Icons.Outlined.Check,
         )
     }
+}
+
+/** "Merged from Audible, Hardcover, iTunes": which providers the preview's fields came from. */
+@Composable
+private fun MergedFromLine(
+    sources: List<String>,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = stringResource(Res.string.metadata_merged_from, sources.joinToString(", ")),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier,
+    )
 }
 
 /**
@@ -876,6 +901,7 @@ private fun FieldGroup(
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = accent,
+                modifier = Modifier.semantics { heading() },
             )
         }
         Surface(
@@ -1422,6 +1448,7 @@ private fun GenreFieldRow(
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.semantics { heading() },
             )
             FieldSourceChip(sourceLabel?.takeIf { null in runs })
         }
@@ -1438,6 +1465,7 @@ private fun GenreFieldRow(
                         label = genre,
                         selected = genre in selectedGenres,
                         onClick = { onToggle(genre) },
+                        source = source ?: sourceLabel,
                     )
                 }
             }
@@ -1460,6 +1488,7 @@ private fun MoodFieldRow(
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.semantics { heading() },
             )
             FieldSourceChip(sourceLabel)
         }
@@ -1472,6 +1501,7 @@ private fun MoodFieldRow(
                     label = mood,
                     selected = mood in selectedMoods,
                     onClick = { onToggle(mood) },
+                    source = sourceLabel,
                 )
             }
         }
@@ -1491,7 +1521,7 @@ private fun TagFieldRow(
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.tertiary,
-            modifier = Modifier.padding(bottom = 10.dp),
+            modifier = Modifier.padding(bottom = 10.dp).semantics { heading() },
         )
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1508,22 +1538,32 @@ private fun TagFieldRow(
     }
 }
 
-/** A toggleable genre chip — filled `tertiaryContainer` with a leading check when selected. */
+/**
+ * A toggleable genre chip — filled `tertiaryContainer` with a leading check when selected. A chip a fallback
+ * provider supplied names its [source] itself ("Funny, from Hardcover"), so it isn't heard apart from the
+ * "from Hardcover" chip that heads its run.
+ */
 @Composable
 private fun GenreToggleChip(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
+    source: String? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     val haptics = LocalHaptics.current
+    val spoken = source?.let { stringResource(Res.string.metadata_chip_from_source, label, it) }
     Surface(
         selected = selected,
         onClick = {
             haptics.selectionTick()
             onClick()
         },
-        modifier = Modifier.semantics { role = Role.Checkbox },
+        modifier =
+            Modifier.semantics {
+                role = Role.Checkbox
+                spoken?.let { contentDescription = it }
+            },
         shape = CircleShape,
         color = if (selected) colors.tertiaryContainer else colors.surfaceContainerHighest,
         contentColor = if (selected) colors.onTertiaryContainer else colors.onSurfaceVariant,

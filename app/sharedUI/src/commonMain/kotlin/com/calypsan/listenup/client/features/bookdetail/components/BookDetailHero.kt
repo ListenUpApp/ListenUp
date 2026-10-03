@@ -52,6 +52,8 @@ import listenup.composeapp.generated.resources.book_detail_unabridged
 import listenup.composeapp.generated.resources.series_book_sequence
 import org.jetbrains.compose.resources.stringResource
 import com.calypsan.listenup.client.design.theme.HeroInk
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 /**
  * Centered "compact" hero for the Book Detail screen (phone layout).
@@ -151,6 +153,7 @@ fun CompactHero(
             textAlign = TextAlign.Center,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.semantics { heading() },
         )
 
         // Subtitle — an independent quiet, italic line; hidden when null/blank
@@ -400,7 +403,7 @@ private fun WideHeroIdentity(
             color = MaterialTheme.colorScheme.onPrimaryContainer,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 2.dp),
+            modifier = Modifier.padding(top = 2.dp).semantics { heading() },
         )
 
         // Subtitle — an independent quiet, italic line; hidden when null/blank
