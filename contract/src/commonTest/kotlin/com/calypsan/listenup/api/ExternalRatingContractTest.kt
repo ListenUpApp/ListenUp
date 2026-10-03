@@ -30,6 +30,31 @@ class ExternalRatingContractTest :
             contractJson.decodeFromString<ExternalRatingSyncPayload>(contractJson.encodeToString(payload)) shouldBe payload
         }
 
+        test("ExternalRatingSyncPayload carries when the rating was fetched") {
+            val payload =
+                ExternalRatingSyncPayload(
+                    id = "x1",
+                    bookId = "b1",
+                    source = ExternalRatingSource.HARDCOVER,
+                    average = 4.1,
+                    count = 88,
+                    enabled = true,
+                    revision = 4L,
+                    fetchedAt = 1_790_000_000_000L,
+                )
+            val json = contractJson.encodeToString(payload)
+
+            json.contains("\"fetchedAt\":1790000000000") shouldBe true
+            contractJson.decodeFromString<ExternalRatingSyncPayload>(json) shouldBe payload
+        }
+
+        test("a payload from a server older than fetchedAt still decodes, with no fetch time") {
+            val legacy =
+                """{"id":"x1","bookId":"b1","source":"AUDIBLE","average":4.6,"count":12,"enabled":true,"revision":3}"""
+
+            contractJson.decodeFromString<ExternalRatingSyncPayload>(legacy).fetchedAt shouldBe null
+        }
+
         test("an unknown source from a newer server decodes rather than failing the whole page") {
             // Follow the repo's existing unknown-enum fallback convention (see UnknownEnumValueFallbackTest).
             contractJson.decodeFromString<ExternalRatingSource>("\"STORYGRAPH\"") shouldBe ExternalRatingSource.UNKNOWN
