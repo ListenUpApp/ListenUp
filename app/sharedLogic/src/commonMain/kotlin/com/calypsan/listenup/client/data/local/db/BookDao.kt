@@ -389,6 +389,21 @@ internal interface BookDao {
     fun observeBySeriesIdWithContributors(seriesId: String): Flow<List<BookWithContributors>>
 
     /**
+     * Observe every book that belongs to any of [seriesIds] — the books of a series and its
+     * sub-series. Unordered: the caller orders them by the series tree. Held books are excluded,
+     * as in [observeBySeriesIdWithContributors].
+     */
+    @Transaction
+    @Query(
+        """
+        SELECT DISTINCT b.* FROM books b
+        INNER JOIN book_series bs ON b.id = bs.bookId
+        WHERE bs.seriesId IN (:seriesIds) AND b.deletedAt IS NULL AND b.id NOT IN ($HELD_BOOK_IDS_SQL)
+    """,
+    )
+    fun observeBySeriesIdsWithContributors(seriesIds: List<String>): Flow<List<BookWithContributors>>
+
+    /**
      * Observe all books for a specific contributor in a specific role.
      *
      * Used for contributor detail pages to show books grouped by role.
