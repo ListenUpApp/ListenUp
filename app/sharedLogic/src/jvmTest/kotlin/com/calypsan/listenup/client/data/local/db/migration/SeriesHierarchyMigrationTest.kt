@@ -8,9 +8,10 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
 /**
- * Validates v13 → v14: `series` gains the hierarchy columns (#962). A pure `ADD COLUMN` pair plus
- * an index, so the assertions are that the hand-written DDL validates against the exported
- * `14.json` and that an existing series survives as a root.
+ * Validates v13 → v14: `series` gains the hierarchy columns (#962). An `ADD COLUMN` pair plus an
+ * index, so the assertions are that the hand-written DDL validates against the exported `14.json`
+ * and that an existing series survives as a root — and a rewound `series` sync cursor, so the next
+ * catch-up re-pulls the parents an older build dropped.
  */
 class SeriesHierarchyMigrationTest :
     FunSpec({
@@ -31,6 +32,27 @@ class SeriesHierarchyMigrationTest :
                     statement.getLong(1) shouldBe 7L
                     statement.isNull(2) shouldBe true
                     statement.isNull(3) shouldBe true
+                    statement.step() shouldBe false
+                }
+            } finally {
+                helper.close()
+            }
+        }
+
+        test("MIGRATION_13_14 rewinds the series sync cursor and leaves every other domain's alone") {
+            val helper = createMigrationTestHelper()
+            try {
+                val v13 = helper.createDatabase(version = 13)
+                v13.execSQL("INSERT INTO sync_cursor (domainName, revision) VALUES ('series', 42)")
+                v13.execSQL("INSERT INTO sync_cursor (domainName, revision) VALUES ('books', 99)")
+                v13.close()
+
+                val v14 = helper.runMigrationsAndValidate(version = 14, migrations = listOf(MIGRATION_13_14))
+
+                v14.withStatement("SELECT domainName, revision FROM sync_cursor ORDER BY domainName") { statement ->
+                    statement.step() shouldBe true
+                    statement.getText(0) shouldBe "books"
+                    statement.getLong(1) shouldBe 99L
                     statement.step() shouldBe false
                 }
             } finally {

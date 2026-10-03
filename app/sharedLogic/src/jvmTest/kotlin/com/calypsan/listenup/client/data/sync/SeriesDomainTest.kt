@@ -123,6 +123,34 @@ class SeriesDomainTest :
             }
         }
 
+        test("a re-pulled series at the revision already stored still lands its parent") {
+            // The state MIGRATION_13_14 leaves behind: an older build stored the bumped revision but
+            // dropped the parent, and the rewound cursor makes catch-up re-send the row unchanged.
+            withHandler { handler, db ->
+                db.seriesDao().upsert(
+                    SeriesEntity(
+                        id = SeriesId("s1"),
+                        name = "Mistborn",
+                        description = null,
+                        revision = 7L,
+                        createdAt = Timestamp(1L),
+                        updatedAt = Timestamp(1L),
+                    ),
+                )
+
+                handler
+                    .onCatchUpItem(
+                        payload("s1", "Mistborn", revision = 7).copy(parentId = "cosmere", parentPosition = 1),
+                        isTombstone = false,
+                    ).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                val row = db.seriesDao().getById("s1")!!
+                row.revision shouldBe 7L
+                row.parentId shouldBe "cosmere"
+                row.parentPosition shouldBe 1
+            }
+        }
+
         test("handler self-registers under domainName 'series'") {
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
