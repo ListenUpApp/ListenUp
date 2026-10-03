@@ -1,11 +1,12 @@
 import SwiftUI
 import Shared
 
-/// The ListenUp score's breakdown, one tap away from `BookRatingSection`'s headline: "Combined from
-/// N sources" when `score` has more than one, one row per outside source in `breakdown` with its
-/// share of the score ("Audible · 4.7 · 1k · 38%"), a "Your listeners" row when they are part of it
-/// ("Your listeners · 4.0 · 3 · 20%"), plus a "Refresh ratings" action when `canRefresh` (admin or
-/// root). Each row's average is on the source's own curve, not ListenUp's.
+/// The ListenUp score's sources, one tap away from `BookRatingSection`'s score row: "Combined from
+/// N sources" when `score` has more than one, the score itself ("★ 4.6 · ListenUp score · 12k
+/// ratings"), then one row per outside source in `breakdown` — its average, rating count, share of
+/// the score as a number and a bar, and how fresh it is ("Updated 3 days ago") — and a "Your
+/// listeners" row when they are part of it, plus a quiet "Refresh ratings" action when `canRefresh`
+/// (admin or root). Each row's average is on the source's own curve, not ListenUp's.
 /// `isRefreshingExternal` is the view model's own in-flight flag — true from the moment the RPC is
 /// sent until the server answers, whether or not any score changed — so the button's busy/disabled
 /// state binds to it directly rather than being guessed at locally: a refresh that finds nothing
@@ -20,14 +21,27 @@ struct RatingBreakdownSheet: View {
     let isRefreshingExternal: Bool
     let onRefresh: () -> Void
     let onClose: () -> Void
+    /// Now, in epoch ms, for each source's "Updated N days ago".
+    let nowMs: Int64
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    ForEach(Array(rowTexts.enumerated()), id: \.offset) { _, row in
-                        Text(row)
+                    if let score {
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Text("\u{2605} \(RatingLabels.shared.averageLabel(average: score.average))")
+                                .font(.largeTitle.weight(.bold))
+                            Text(String(
+                                format: String(localized: "book.detail_rating_score_detail"),
+                                String(localized: "book.detail_rating_score"),
+                                BookRatingSection.countLabel(score.count)
+                            ))
+                            .foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .combine)
                     }
+                    ForEach(sourceRows, id: \.label) { sourceRow($0) }
                 } header: {
                     if let combinedFrom = Self.combinedFrom(score) {
                         Text(combinedFrom)
@@ -53,8 +67,37 @@ struct RatingBreakdownSheet: View {
         .presentationDragIndicator(.visible)
     }
 
-    private var rowTexts: [String] {
-        Self.rows(breakdown: breakdown, score: score, listeners: listeners)
+    private var sourceRows: [SourceRowModel] {
+        Self.rows(breakdown: breakdown, score: score, listeners: listeners, nowMs: nowMs)
+    }
+
+    private func sourceRow(_ row: SourceRowModel) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(row.label).fontWeight(.semibold)
+                Spacer()
+                Text("\u{2605} \(row.average)").fontWeight(.semibold)
+            }
+            HStack {
+                Text(row.count)
+                Spacer()
+                if let shareLabel = row.shareLabel { Text(shareLabel) }
+            }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            if let share = row.share {
+                ProgressView(value: share)
+                    .tint(Color.luTint)
+                    .accessibilityHidden(true) // the share is spoken as its percentage
+            }
+            if let updated = row.updated {
+                Text(updated)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
     }
 
     private var refreshButton: some View {
@@ -78,17 +121,26 @@ struct RatingBreakdownSheet: View {
     nonisolated static func rows(
         breakdown: [ExternalRatingRow],
         score: ExternalScore?,
-        listeners: ListenersAverage?
-    ) -> [String] {
-        let outside = breakdown.map { sourceRow($0, share: score?.outsideShares[$0.source]) }
+        listeners: ListenersAverage?,
+        nowMs: Int64
+    ) -> [SourceRowModel] {
+        let outside = breakdown.map {
+            row(
+                label: $0.source.displayName,
+                average: $0.average,
+                count: $0.count,
+                share: score?.outsideShares[$0.source],
+                updated: updatedLabel(fetchedAtMs: $0.fetchedAtMs, nowMs: nowMs)
+            )
+        }
         guard let listeners, let share = score?.listenersShare else { return outside }
-        let listenersRow = row(
+        return outside + [row(
             label: String(localized: "rating.source_listeners"),
             average: listeners.averageHalfStars / 2,
             count: listeners.count,
-            share: share
-        )
-        return outside + [listenersRow]
+            share: share,
+            updated: nil
+        )]
     }
 
     /// "Combined from 3 sources" — only when the score draws on more than one.
@@ -97,30 +149,45 @@ struct RatingBreakdownSheet: View {
         return String(format: String(localized: "book.detail_rating_combined_from"), "\(score.sourceCount)")
     }
 
-    /// "Audible · 4.5 · 8.1k", or with its share of the score, "Audible · 4.5 · 8.1k · 38%".
-    nonisolated static func sourceRow(_ rating: ExternalRatingRow, share: Double? = nil) -> String {
-        row(label: rating.source.displayName, average: rating.average, count: rating.count, share: share)
+    /// "Updated today", "Updated yesterday", "Updated 3 days ago"; nil when the server never said.
+    nonisolated static func updatedLabel(fetchedAtMs: Int64?, nowMs: Int64) -> String? {
+        guard let fetchedAtMs else { return nil }
+        let days = Int(RatingLabels.shared.daysSince(fetchedAtMs: fetchedAtMs, nowMs: nowMs))
+        switch days {
+        case 0: return String(localized: "book.detail_rating_updated_today")
+        case 1: return String(localized: "book.detail_rating_updated_yesterday")
+        default: return String(format: String(localized: "book.detail_rating_updated_days"), days)
+        }
     }
 
-    private nonisolated static func row(label: String, average: Double, count: Int, share: Double?) -> String {
-        let averageText = RatingLabels.shared.averageLabel(average: average)
-        let countText = RatingLabels.shared.compactCount(count: Int32(count))
-        guard let share else {
-            return String(
-                format: String(localized: "book.detail_rating_source_row"),
-                label,
-                "\(averageText) · \(countText)"
-            )
-        }
-        let percent = "\(Int((share * 100).rounded()))"
-        return String(
-            format: String(localized: "book.detail_rating_source_row_share"),
-            label,
-            averageText,
-            countText,
-            percent
+    private nonisolated static func row(
+        label: String,
+        average: Double,
+        count: Int,
+        share: Double?,
+        updated: String?
+    ) -> SourceRowModel {
+        SourceRowModel(
+            label: label,
+            average: RatingLabels.shared.averageLabel(average: average),
+            count: BookRatingSection.countLabel(count),
+            share: share,
+            shareLabel: share.map {
+                String(format: String(localized: "book.detail_rating_share"), "\(Int(($0 * 100).rounded()))")
+            },
+            updated: updated
         )
     }
+}
+
+/// One row of the sources sheet, as native values.
+struct SourceRowModel: Equatable {
+    let label: String
+    let average: String
+    let count: String
+    let share: Double?
+    let shareLabel: String?
+    let updated: String?
 }
 
 // MARK: - Preview
@@ -128,8 +195,8 @@ struct RatingBreakdownSheet: View {
 #Preview("RatingBreakdownSheet") {
     RatingBreakdownSheet(
         breakdown: [
-            ExternalRatingRow(source: .audible, average: 4.5, count: 8_100),
-            ExternalRatingRow(source: .goodreads, average: 4.1, count: 620)
+            ExternalRatingRow(source: .audible, average: 4.5, count: 8_100, fetchedAtMs: nil),
+            ExternalRatingRow(source: .goodreads, average: 4.1, count: 620, fetchedAtMs: nil)
         ],
         score: ExternalScore(
             average: 4.3,
@@ -141,6 +208,7 @@ struct RatingBreakdownSheet: View {
         canRefresh: true,
         isRefreshingExternal: false,
         onRefresh: {},
-        onClose: {}
+        onClose: {},
+        nowMs: 0
     )
 }

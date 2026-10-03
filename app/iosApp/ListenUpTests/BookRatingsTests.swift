@@ -363,6 +363,15 @@ struct BookRatingsTests {
         #expect(RatingStarsView.halfStars(forX: 0, width: 100, isRightToLeft: true) == 10)
     }
 
+    @Test func aVerticalSwipeOverTheStarsIsAScrollNotARating() {
+        // Saving on lift must not rate a book for someone scrolling Book Detail past its stars.
+        #expect(RatingStarsView.isScrollAttempt(CGSize(width: 2, height: 40)))
+        #expect(RatingStarsView.isScrollAttempt(CGSize(width: -10, height: -30)))
+        #expect(!RatingStarsView.isScrollAttempt(CGSize(width: 60, height: 20)))
+        #expect(!RatingStarsView.isScrollAttempt(CGSize(width: 0, height: 5)))   // a tap's wobble
+        #expect(!RatingStarsView.isScrollAttempt(.zero))
+    }
+
     @Test func glyphsFillInHalves() {
         let glyphs = (0..<5).map { RatingStarsView.symbol(halfStars: 7, index: $0) }
         #expect(glyphs == ["star.fill", "star.fill", "star.fill", "star.leadinghalf.filled", "star"])
