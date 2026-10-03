@@ -54,6 +54,31 @@ class ReadersAccessibilityTest :
             }
         }
 
+        test("a listen also logged on Hardcover reads as one phrase, with no stray ' on', and still says it opens a profile") {
+            val host =
+                mounts.mount {
+                    ReadersPanel(
+                        state =
+                            readersData(
+                                reader(
+                                    userId = "u2",
+                                    displayName = "Grace Hopper",
+                                    finishes = listOf(READERS_NOW - DAY_MS),
+                                    finishesAlsoOnHardcover = listOf(READERS_NOW - DAY_MS),
+                                ),
+                            ),
+                        nowMs = READERS_NOW,
+                        onOpenProfile = {},
+                        onSeeAll = {},
+                    )
+                }
+            awaitFrame()
+
+            val row = host.querySelector(".rdr-row").shouldNotBeNull()
+            row.querySelectorAll(".sr-only").asList().map { it.textContent } shouldBe listOf("Finished yesterday, also on Hardcover")
+            document.getElementById(row.getAttribute("aria-describedby").shouldNotBeNull())!!.textContent shouldBe "View profile"
+        }
+
         test("m-R3: at 320px and 200% text a name wraps to a second line rather than being cut, and says itself on hover") {
             val frame =
                 frames.mount(SMALL_PHONE) {
