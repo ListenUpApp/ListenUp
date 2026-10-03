@@ -82,7 +82,8 @@ class OrphanParentPurger(
         for (id in parents.seriesIds) {
             // A series with no book of its own is still the parent of its sub-series (a universe
             // holding only sub-series is the normal shape), so it is an orphan only without those too.
-            val bookless = liveBookCount { bookSeriesMembershipsQueries.liveBookCountForSeries(id).executeAsOne() } == 0L
+            val bookless =
+                liveBookCount { bookSeriesMembershipsQueries.liveBookCountForSeries(id).executeAsOne() } == 0L
             if (bookless && !seriesRepository.hasLiveChildren(SeriesId(id))) {
                 seriesRepository.softDelete(SeriesId(id))
             }
