@@ -374,7 +374,11 @@ class BookRatingServiceImplTest :
                 makeBookAccessible(sql, driver, bookId = "b1", viewerId = "u1")
                 val onOpen =
                     HardcoverRatingOnOpen(
-                        lastTried = { kotlin.time.Clock.System.now().toEpochMilliseconds() },
+                        lastTried = {
+                            kotlin.time.Clock.System
+                                .now()
+                                .toEpochMilliseconds()
+                        },
                         fetch = { error("a fresh rating is never fetched") },
                         scope = CoroutineScope(Dispatchers.Unconfined),
                     )

@@ -257,7 +257,11 @@ class BookRatingRepositoryImplTest :
                 )
                 val repo = repo(db)
 
-                repo.observeExternalForBook("b1").first().single().fetchedAtMs shouldBe 1_790_000_000_000L
+                repo
+                    .observeExternalForBook("b1")
+                    .first()
+                    .single()
+                    .fetchedAtMs shouldBe 1_790_000_000_000L
                 db.close()
             }
         }
@@ -376,7 +380,8 @@ class BookRatingRepositoryImplTest :
                             bookId: com.calypsan.listenup.core.BookId,
                         ): kotlinx.coroutines.flow.Flow<
                             com.calypsan.listenup.api.streaming.RpcEvent<com.calypsan.listenup.api.dto.ExternalRatingsCheck>,
-                        > = kotlinx.coroutines.flow.emptyFlow()
+                        > =
+                            kotlinx.coroutines.flow.emptyFlow()
                     }
                 val repo = repo(db, ratingChannel = RpcChannel.forTest(service))
 

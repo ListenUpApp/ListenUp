@@ -106,7 +106,11 @@ class BookExternalRatingRepositoryTest :
                     repo.recordFetch("book1", ExternalRatingSource.HARDCOVER, 4.2, 90, null, 5_000L)
 
                     repo.findForBook("book1").single().fetchedAt shouldBe 5_000L
-                    repo.pullSince(userId = null, cursor = 0L, limit = 10).items.single().fetchedAt shouldBe 5_000L
+                    repo
+                        .pullSince(userId = null, cursor = 0L, limit = 10)
+                        .items
+                        .single()
+                        .fetchedAt shouldBe 5_000L
                 }
             }
         }

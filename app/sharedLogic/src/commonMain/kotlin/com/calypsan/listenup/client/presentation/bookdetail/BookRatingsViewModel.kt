@@ -131,7 +131,10 @@ class BookRatingsViewModel(
         pendingStars.value = halfStars
         viewModelScope.launch {
             when (val result = repository.rate(bookId, halfStars, myRating()?.note)) {
-                is AppResult.Success -> settle(halfStars)
+                is AppResult.Success -> {
+                    settle(halfStars)
+                }
+
                 is AppResult.Failure -> {
                     pendingStars.compareAndSet(expect = halfStars, update = null)
                     errorBus.emit(result.error)
@@ -157,7 +160,10 @@ class BookRatingsViewModel(
     private suspend fun settle(halfStars: Int) {
         withTimeoutOrNull(SETTLE_TIMEOUT) {
             val me = currentUserId.first()
-            repository.observeForBook(bookId).first { rows -> rows.firstOrNull { it.userId == me }?.halfStars == halfStars }
+            repository.observeForBook(bookId).first { rows ->
+                rows.firstOrNull { it.userId == me }?.halfStars ==
+                    halfStars
+            }
         }
         pendingStars.compareAndSet(expect = halfStars, update = null)
     }

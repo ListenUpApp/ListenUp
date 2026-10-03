@@ -454,7 +454,10 @@ class BookRatingsViewModelTest :
 
                     gate.complete(Unit)
                     advanceUntilIdle()
-                    vm.state.value.shouldBeInstanceOf<BookRatingsUiState.Ready>().mine?.halfStars shouldBe 9
+                    vm.state.value
+                        .shouldBeInstanceOf<BookRatingsUiState.Ready>()
+                        .mine
+                        ?.halfStars shouldBe 9
                     cancelAndIgnoreRemainingEvents()
                 }
             }
