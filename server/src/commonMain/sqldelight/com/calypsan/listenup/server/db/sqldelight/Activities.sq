@@ -61,6 +61,20 @@ LIMIT :limit;
 hasAnyForUser:
 SELECT EXISTS(SELECT 1 FROM activities WHERE user_id = :user_id);
 
+-- True iff a streak milestone of :milestone_value is already on record for the run that began at
+-- :run_started_at (local midnight of the run's first day). A milestone belongs to the run it was
+-- announced in, so any such row dated inside the run means this run already announced it — whether the
+-- row is dated at the qualifying listen or, for rows written before that, at announcement time.
+-- Tombstones count: a milestone once announced is not announced again.
+hasStreakMilestoneInRun:
+SELECT EXISTS(
+    SELECT 1 FROM activities
+    WHERE user_id = :user_id
+      AND type = 'streak_milestone'
+      AND milestone_value = :milestone_value
+      AND occurred_at >= :run_started_at
+);
+
 -- Total row count — used by ActivitySeederTest to assert the exact number of seeded rows.
 countAll:
 SELECT COUNT(*) FROM activities;
