@@ -141,8 +141,9 @@ fun MatchPreviewRoute(
                 selectedRegion = preview.region,
                 coverOptions = ready.coverEntries,
                 isLoadingCovers = false,
-                selectedCoverUrl = ready.selectedCoverUrl,
+                appliedCover = ready.appliedCover,
                 onSelectCover = metadataViewModel::selectCover,
+                onKeepCurrentCover = metadataViewModel::keepCurrentCover,
                 chapterSuggestion = ready.chapterSuggestion,
                 onReviewChapters = { showChapterReview = true },
                 fallbackSources = ready.fallbackSources,
@@ -150,8 +151,6 @@ fun MatchPreviewRoute(
                     ready.preview.matchProvenance
                         ?.genreSources
                         .orEmpty(),
-                coverSourceLabel = ready.coverSourceLabel,
-                coverResolution = ready.coverResolution,
                 contributingSources = ready.contributingSources,
                 onRegionSelected = metadataViewModel::changeRegion,
                 onToggleField = metadataViewModel::toggleField,

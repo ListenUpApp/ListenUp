@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.metadata
 
 import com.calypsan.listenup.api.dto.MatchProvenance
 import com.calypsan.listenup.api.dto.MetadataBook
+import com.calypsan.listenup.api.dto.MetadataContributorRef
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
@@ -52,7 +53,9 @@ private fun page(
     onToggleGenre: (String) -> Unit = {},
     onToggleMood: (String) -> Unit = {},
     onToggleTag: (String) -> Unit = {},
-    onSelectCover: (String?) -> Unit = {},
+    onSelectCover: (String) -> Unit = {},
+    onKeepCurrentCover: () -> Unit = {},
+    currentCoverUrl: String? = null,
     onToggleChapter: (Int) -> Unit = {},
     onApplyChapterNames: () -> Unit = {},
     onApply: () -> Unit = {},
@@ -79,6 +82,8 @@ private fun page(
             onToggleMood = onToggleMood,
             onToggleTag = onToggleTag,
             onSelectCover = onSelectCover,
+            onKeepCurrentCover = onKeepCurrentCover,
+            currentCoverUrl = currentCoverUrl,
             onToggleChapter = onToggleChapter,
             onApplyChapterNames = onApplyChapterNames,
             onApply = onApply,
@@ -113,6 +118,14 @@ private fun checkbox(
         ?.querySelector("input") as? HTMLInputElement
 
 private fun results(host: HTMLElement) = host.querySelectorAll(".mdx-result").asList().filterIsInstance<HTMLButtonElement>()
+
+private fun coverTiles(host: HTMLElement) = host.querySelectorAll(".mdx-cover").asList().filterIsInstance<HTMLButtonElement>()
+
+private val TWO_COVERS =
+    listOf(
+        CoverEntry(url = "https://a/hd.jpg", label = "iTunes HD", resolution = "7000×7000"),
+        CoverEntry(url = "https://a/audible.jpg", label = "Audible", resolution = null),
+    )
 
 private fun fields(host: HTMLElement) = host.querySelectorAll(".mdx-field").asList().filterIsInstance<HTMLElement>()
 
@@ -387,9 +400,7 @@ class MetadataPageTest :
             host.querySelector(".mdx-from").shouldBeNull()
         }
 
-        // ⛔ Keyed by ASIN. The ViewModel's selection sets are ASIN sets, so a contributor Audible
-        // gave no ASIN has no key to be selected by — a tick that cannot be recorded is worse than
-        // no tick.
+        // ⛔ Keyed exactly as the ViewModel and the server key them: a contributor's ASIN, else its name.
         test("each contributor and series is its own decision") {
             val authors = mutableListOf<String>()
             val narrators = mutableListOf<String>()
@@ -445,45 +456,122 @@ class MetadataPageTest :
             genres shouldContainExactly listOf("Epic Fantasy")
         }
 
-        test("cover options appear once the cover is being taken, and picking one reports it") {
-            val picked = mutableListOf<String?>()
-            val entries =
-                listOf(
-                    CoverEntry(url = "https://a/1.jpg", label = "Audible", resolution = "500×500"),
-                    CoverEntry(url = "https://a/2.jpg", label = "iTunes HD", resolution = "7000×7000"),
-                )
+        // ⛔ What is marked is what Apply writes. The cover used to sit unmarked while Apply took the HD
+        // one, under a row that said "from Audible" whatever was chosen.
+        test("exactly one cover is marked, and it is the one Apply will write") {
             val host =
                 page(
                     previewState(
                         readyPreview(
                             selections = MetadataSelections(cover = true),
-                            coverEntries = entries,
-                            selectedCoverUrl = "https://a/1.jpg",
+                            coverEntries = TWO_COVERS,
+                            selectedCoverUrl = "https://a/hd.jpg",
                         ),
                     ),
-                    onSelectCover = { picked += it },
                 )
 
-            val options = host.querySelectorAll(".mdx-cover").asList().filterIsInstance<HTMLButtonElement>()
-            options.map { it.getAttribute("aria-pressed") } shouldContainExactly listOf("true", "false")
-            options[1].click()
-            awaitFrame()
-
-            picked shouldContainExactly listOf("https://a/2.jpg")
+            coverTiles(host).map { it.getAttribute("aria-pressed") } shouldContainExactly listOf("false", "true", "false")
+            coverTiles(host).map { it.querySelector(".mdx-cover-l")?.textContent } shouldContainExactly
+                listOf("Current cover", "iTunes HD", "Audible")
         }
 
-        test("cover options are hidden while the cover is not being taken") {
+        test("the cover row names the real source of the chosen cover") {
+            val itunes =
+                page(
+                    previewState(
+                        readyPreview(
+                            selections = MetadataSelections(cover = true),
+                            coverEntries = TWO_COVERS,
+                            selectedCoverUrl = "https://a/hd.jpg",
+                        ),
+                    ),
+                )
+            val audible =
+                page(
+                    previewState(
+                        readyPreview(
+                            selections = MetadataSelections(cover = true),
+                            coverEntries = TWO_COVERS,
+                            selectedCoverUrl = "https://a/audible.jpg",
+                        ),
+                    ),
+                )
+
+            fieldValue(itunes, "Cover") shouldBe "New artwork from iTunes HD"
+            fieldValue(audible, "Cover") shouldBe "New artwork from Audible"
+        }
+
+        test("keeping the current cover marks Current, shows it, and says so") {
             val host =
                 page(
                     previewState(
                         readyPreview(
                             selections = MetadataSelections(cover = false),
-                            coverEntries = listOf(CoverEntry("https://a/1.jpg", "Audible", null)),
+                            coverEntries = TWO_COVERS,
+                            selectedCoverUrl = "https://a/hd.jpg",
                         ),
                     ),
+                    currentCoverUrl = "/api/v1/books/b1/cover?v=abc",
                 )
 
-            host.querySelector(".mdx-cover").shouldBeNull()
+            coverTiles(host).map { it.getAttribute("aria-pressed") } shouldContainExactly listOf("true", "false", "false")
+            coverTiles(host).first().querySelector("img")?.getAttribute("src") shouldBe "/api/v1/books/b1/cover?v=abc"
+            fieldValue(host, "Cover") shouldBe "Keep the current cover"
+        }
+
+        test("picking Current keeps the cover, and picking a candidate reports exactly its URL") {
+            var kept = 0
+            val picked = mutableListOf<String>()
+            val host =
+                page(
+                    previewState(
+                        readyPreview(
+                            selections = MetadataSelections(cover = true),
+                            coverEntries = TWO_COVERS,
+                            selectedCoverUrl = "https://a/hd.jpg",
+                        ),
+                    ),
+                    onSelectCover = { picked += it },
+                    onKeepCurrentCover = { kept++ },
+                )
+
+            coverTiles(host)[0].click()
+            coverTiles(host)[2].click()
+            awaitFrame()
+
+            kept shouldBe 1
+            picked shouldContainExactly listOf("https://a/audible.jpg")
+        }
+
+        // ⛔ Audible usually sends narrators without an ASIN. The ViewModel selects them by name and the
+        // server writes them by name, so a row hidden here was a narrator written that nobody saw.
+        test("a narrator without an ASIN is shown, ticked as selected, and toggled by name") {
+            val narrators = mutableListOf<String>()
+            val host =
+                page(
+                    previewState(
+                        readyPreview(
+                            preview =
+                                metadataBook().copy(
+                                    narrators =
+                                        listOf(
+                                            MetadataContributorRef(asin = "n0", name = "Michael Kramer"),
+                                            MetadataContributorRef(asin = null, name = "Kate Reading"),
+                                        ),
+                                ),
+                            selections = MetadataSelections(selectedNarrators = setOf("n0", "Kate Reading")),
+                        ),
+                    ),
+                    onToggleNarrator = { narrators += it },
+                )
+
+            checkbox(host, "Michael Kramer").shouldNotBeNull().checked shouldBe true
+            val kate = checkbox(host, "Kate Reading").shouldNotBeNull()
+            kate.checked shouldBe true
+            kate.click()
+            awaitFrame()
+
+            narrators shouldContainExactly listOf("Kate Reading")
         }
 
         // ⛔ Apply is the only thing that writes, and nothing ticked is nothing to write.
@@ -722,6 +810,7 @@ class MetadataPageTest :
                                 onToggleMood = {},
                                 onToggleTag = {},
                                 onSelectCover = {},
+                                onKeepCurrentCover = {},
                                 onToggleChapter = {},
                                 onApplyChapterNames = {},
                                 onApply = {},

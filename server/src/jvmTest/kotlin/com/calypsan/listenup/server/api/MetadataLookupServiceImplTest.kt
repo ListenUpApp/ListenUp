@@ -393,6 +393,7 @@ class MetadataLookupServiceImplTest :
                             authorAsins = emptySet(),
                             narratorAsins = emptySet(),
                             seriesAsins = emptySet(),
+                            coverUrl = "https://example.test/cover.jpg",
                         )
 
                     val result =

@@ -1593,6 +1593,7 @@ One beautiful library.</string>
     <string name="metadata_try_a_different_search_term_or_region">Try a different search term or region</string>
     <string name="metadata_try_selecting_a_different_region">Try selecting a different region above.</string>
     <string name="metadata_updated_chapters_named">Chapters named</string>
+    <string name="metadata_updated_cover_kept">Cover kept</string>
     <string name="metadata_updated_cover_replaced">Cover replaced</string>
     <string name="metadata_updated_fields_applied">Fields applied</string>
     <string name="metadata_updated_subtitle">%1$s now matches its Audible edition.</string>

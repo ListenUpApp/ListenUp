@@ -83,7 +83,6 @@ internal fun readyPreview(
     moodCandidates: List<String> = emptyList(),
     tagCandidates: List<String> = emptyList(),
     fallbackSources: Map<BookField, String> = emptyMap(),
-    coverSourceLabel: String? = null,
     contributingSources: List<String> = emptyList(),
 ) = PreviewLoadState.Ready(
     preview = preview,
@@ -98,8 +97,6 @@ internal fun readyPreview(
     moodCandidates = moodCandidates,
     tagCandidates = tagCandidates,
     fallbackSources = fallbackSources,
-    coverSourceLabel = coverSourceLabel,
-    coverResolution = null,
     contributingSources = contributingSources,
 )
 

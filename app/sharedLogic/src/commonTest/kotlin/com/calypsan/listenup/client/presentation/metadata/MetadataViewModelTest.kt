@@ -504,6 +504,7 @@ class MetadataViewModelTest :
                             authorAsins = emptySet(),
                             narratorAsins = setOf("N1"),
                             seriesAsins = emptySet(),
+                            coverUrl = "https://example.com/cover-max.jpg",
                             genres = setOf("Fantasy", "Sci-Fi"),
                             moods = setOf("Dark", "Hopeful"),
                             tags = setOf("Found Family", "Slow Burn"),
@@ -525,7 +526,7 @@ class MetadataViewModelTest :
                 vm.selectMatch(book)
                 advanceUntilIdle()
 
-                vm.selectCover("https://itunes/hd.jpg")
+                vm.selectCover("https://example.com/cover.jpg")
                 vm.applyMatch()
                 advanceUntilIdle()
 
@@ -545,7 +546,7 @@ class MetadataViewModelTest :
                             authorAsins = setOf("A1"),
                             narratorAsins = setOf("N1"),
                             seriesAsins = emptySet(),
-                            coverUrl = "https://itunes/hd.jpg",
+                            coverUrl = "https://example.com/cover.jpg",
                             genres = setOf("Fantasy", "Sci-Fi"),
                             moods = setOf("Dark", "Hopeful"),
                             tags = setOf("Found Family", "Slow Burn"),
@@ -587,7 +588,7 @@ class MetadataViewModelTest :
                             authorAsins = setOf("A1"),
                             narratorAsins = setOf("N1"),
                             seriesAsins = emptySet(),
-                            coverUrl = null,
+                            coverUrl = "https://example.com/cover-max.jpg",
                             genres = setOf("Fantasy"),
                             moods = setOf("Dark", "Hopeful"),
                             tags = setOf("Found Family", "Slow Burn"),
@@ -630,7 +631,7 @@ class MetadataViewModelTest :
                             authorAsins = setOf("A1"),
                             narratorAsins = setOf("N1"),
                             seriesAsins = emptySet(),
-                            coverUrl = null,
+                            coverUrl = "https://example.com/cover-max.jpg",
                             genres = setOf("Fantasy", "Sci-Fi"),
                             moods = setOf("Dark"),
                             tags = setOf("Found Family"),
@@ -1109,8 +1110,8 @@ class MetadataViewModelTest :
 
                 val ready = (vm.state.value as MetadataUiState.Preview).loadState as PreviewLoadState.Ready
                 ready.fallbackSources shouldBe mapOf(BookField.DESCRIPTION to "Audnexus")
-                ready.coverSourceLabel shouldBe "iTunes"
-                ready.coverResolution shouldBe "3000×3000"
+                ready.appliedCover?.label shouldBe "iTunes"
+                ready.appliedCover?.resolution shouldBe "3000×3000"
                 ready.contributingSources shouldBe listOf("Audible", "Audnexus", "iTunes")
             }
         }
