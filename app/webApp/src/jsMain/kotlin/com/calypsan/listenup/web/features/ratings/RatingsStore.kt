@@ -18,6 +18,7 @@ import org.koin.core.parameter.parametersOf
 class BookRatingsSession(
     val state: StateFlow<BookRatingsUiState>,
     val rate: (halfStars: Int, note: String?) -> Unit,
+    val setStars: (halfStars: Int) -> Unit,
     val clear: () -> Unit,
     val refreshExternal: () -> Unit,
     val close: () -> Unit,
@@ -37,6 +38,7 @@ fun graphBookRatings(koin: Koin): OpenBookRatings =
         BookRatingsSession(
             state = viewModel.state,
             rate = viewModel::rate,
+            setStars = viewModel::setStars,
             clear = viewModel::clear,
             refreshExternal = viewModel::refreshExternal,
             close = store::clear,
@@ -47,6 +49,7 @@ fun graphBookRatings(koin: Koin): OpenBookRatings =
 fun fixedBookRatings(
     state: BookRatingsUiState,
     onRate: (halfStars: Int, note: String?) -> Unit = { _, _ -> },
+    onSetStars: (halfStars: Int) -> Unit = {},
     onClear: () -> Unit = {},
     onRefreshExternal: () -> Unit = {},
 ): OpenBookRatings =
@@ -54,6 +57,7 @@ fun fixedBookRatings(
         BookRatingsSession(
             state = MutableStateFlow(state),
             rate = onRate,
+            setStars = onSetStars,
             clear = onClear,
             refreshExternal = onRefreshExternal,
             close = {},

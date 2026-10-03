@@ -402,6 +402,130 @@ class BookRatingsViewModelTest :
                 }
             }
         }
+
+        test("a tap on the stars saves at once and keeps the note") {
+            runTest {
+                val repo = FakeBookRatingRepository()
+                repo.seed(ListenerRating("b1", "me", 6, "Mine.", 1L))
+                val vm =
+                    BookRatingsViewModel(
+                        bookId = "b1",
+                        repository = repo,
+                        currentUserId = flowOf("me"),
+                        errorBus = ErrorBus(),
+                        userRepository = userRepository(),
+                    )
+
+                vm.setStars(9)
+                advanceUntilIdle()
+
+                repo.lastRate shouldBe Triple("b1", 9, "Mine.")
+                vm.state.test {
+                    awaitItem() shouldBe BookRatingsUiState.Loading
+                    val mine = awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().mine
+                    mine?.halfStars shouldBe 9
+                    mine?.note shouldBe "Mine."
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("the stars show the new rating before the save lands") {
+            runTest {
+                val gate = CompletableDeferred<Unit>()
+                val repo = FakeBookRatingRepository().apply { rateGate = gate }
+                repo.seed(ListenerRating("b1", "me", 6, null, 1L))
+                val vm =
+                    BookRatingsViewModel(
+                        bookId = "b1",
+                        repository = repo,
+                        currentUserId = flowOf("me"),
+                        errorBus = ErrorBus(),
+                        userRepository = userRepository(),
+                    )
+
+                vm.state.test {
+                    awaitItem() shouldBe BookRatingsUiState.Loading
+                    awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().mine?.halfStars shouldBe 6
+
+                    vm.setStars(9)
+                    runCurrent()
+                    awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().mine?.halfStars shouldBe 9
+
+                    gate.complete(Unit)
+                    advanceUntilIdle()
+                    vm.state.value.shouldBeInstanceOf<BookRatingsUiState.Ready>().mine?.halfStars shouldBe 9
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a first rating shows at once, with no note") {
+            runTest {
+                val gate = CompletableDeferred<Unit>()
+                val repo = FakeBookRatingRepository().apply { rateGate = gate }
+                val vm =
+                    BookRatingsViewModel(
+                        bookId = "b1",
+                        repository = repo,
+                        currentUserId = flowOf("me"),
+                        errorBus = ErrorBus(),
+                        userRepository = userRepository(),
+                    )
+
+                vm.state.test {
+                    awaitItem() shouldBe BookRatingsUiState.Loading
+                    awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().mine.shouldBeNull()
+
+                    vm.setStars(7)
+                    runCurrent()
+                    val mine = awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().mine
+                    mine?.halfStars shouldBe 7
+                    mine?.note.shouldBeNull()
+                    gate.complete(Unit)
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a refused save puts the stars back and reports the error") {
+            runTest {
+                val gate = CompletableDeferred<Unit>()
+                val failure = TransportError.NetworkUnavailable()
+                val repo =
+                    FakeBookRatingRepository().apply {
+                        rateGate = gate
+                        failNext = AppResult.Failure(failure)
+                    }
+                repo.seed(ListenerRating("b1", "me", 6, null, 1L))
+                val errorBus = ErrorBus()
+                val vm =
+                    BookRatingsViewModel(
+                        bookId = "b1",
+                        repository = repo,
+                        currentUserId = flowOf("me"),
+                        errorBus = errorBus,
+                        userRepository = userRepository(),
+                    )
+
+                errorBus.errors.test {
+                    vm.state.test {
+                        awaitItem() shouldBe BookRatingsUiState.Loading
+                        awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().mine?.halfStars shouldBe 6
+
+                        vm.setStars(9)
+                        runCurrent()
+                        awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().mine?.halfStars shouldBe 9
+
+                        gate.complete(Unit)
+                        advanceUntilIdle()
+                        awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().mine?.halfStars shouldBe 6
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                    awaitItem() shouldBe failure
+                }
+            }
+        }
     })
 
 /**
@@ -431,6 +555,9 @@ private class FakeBookRatingRepository : BookRatingRepository {
 
     /** When set, [refreshExternal] waits on it before answering — a refresh still in flight. */
     var refreshGate: CompletableDeferred<Unit>? = null
+
+    /** When set, [rate] waits on it before answering — a save still in flight. */
+    var rateGate: CompletableDeferred<Unit>? = null
 
     /** What the next [refreshExternal] call answers. */
     var refreshExternalResult: AppResult<Unit> = AppResult.Success(Unit)
@@ -476,6 +603,7 @@ private class FakeBookRatingRepository : BookRatingRepository {
         halfStars: Int,
         note: String?,
     ): AppResult<Unit> {
+        rateGate?.await()
         lastRate = Triple(bookId, halfStars, note)
         failNext?.let {
             failNext = null

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.ListenerAverage
+import com.calypsan.listenup.client.domain.model.ListenerRating
 import com.calypsan.listenup.client.domain.model.RatingLabels
 import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -32,7 +34,7 @@ import kotlin.time.Duration.Companion.seconds
 class BookRatingsViewModel(
     private val bookId: String,
     private val repository: BookRatingRepository,
-    currentUserId: Flow<String?>,
+    private val currentUserId: Flow<String?>,
     private val errorBus: ErrorBus,
     userRepository: UserRepository,
 ) : ViewModel() {
@@ -52,22 +54,23 @@ class BookRatingsViewModel(
 
     private val isRefreshingExternal = MutableStateFlow(false)
     private val isCheckingExternal = MutableStateFlow(false)
+    private val pendingStars = MutableStateFlow<Int?>(null)
 
     /** The block's state. */
     val state: StateFlow<BookRatingsUiState> =
         combine(
-            repository.observeForBook(bookId),
+            repository.observeForBook(bookId).combine(pendingStars, ::Pair),
             currentUserId,
             repository.observeExternalForBook(bookId).combine(repository.observeCombinedScore(bookId), ::Pair),
             userRepository.observeIsAdmin(),
             isRefreshingExternal.combine(isCheckingExternal, ::Pair),
-        ) { ratings, me, (external, score), isAdmin, (refreshing, checking) ->
+        ) { (ratings, pending), me, (external, score), isAdmin, (refreshing, checking) ->
             BookRatingsUiState.Ready(
                 listeners =
                     ratings.takeIf { it.isNotEmpty() }?.let { rs ->
                         ListenerAverage(averageHalfStars = rs.map { it.halfStars }.average(), count = rs.size)
                     },
-                mine = ratings.firstOrNull { it.userId == me },
+                mine = ratings.firstOrNull { it.userId == me }.withPendingStars(pending, bookId, me),
                 external = score,
                 breakdown = external,
                 canRefresh = isAdmin,
@@ -109,6 +112,46 @@ class BookRatingsViewModel(
         viewModelScope.launch { report(repository.rate(bookId, halfStars, note)) }
     }
 
+    /**
+     * Rate the book [halfStars] (2..10) straight from the stars, keeping any note: what a tap, the end of a
+     * drag, a key step or an accessibility adjustment commits. The stars show it at once; a refused save
+     * puts them back and reports the error.
+     */
+    fun setStars(halfStars: Int) {
+        pendingStars.value = halfStars
+        viewModelScope.launch {
+            when (val result = repository.rate(bookId, halfStars, myRating()?.note)) {
+                is AppResult.Success -> settle(halfStars)
+                is AppResult.Failure -> {
+                    pendingStars.compareAndSet(expect = halfStars, update = null)
+                    errorBus.emit(result.error)
+                }
+            }
+        }
+    }
+
+    /**
+     * The signed-in listener's rating as Room holds it now, pending stars aside. Read from the repository,
+     * never from [state]: with no subscriber, [state] is still [BookRatingsUiState.Loading], and a note
+     * read from it would be lost.
+     */
+    private suspend fun myRating(): ListenerRating? {
+        val me = currentUserId.first()
+        return repository.observeForBook(bookId).first().firstOrNull { it.userId == me }
+    }
+
+    /**
+     * Drops the pending [halfStars] once Room shows them, so the stars never flick back to the old value
+     * for a frame. Bounded by [SETTLE_TIMEOUT]; a newer pick is never dropped by an older one's settle.
+     */
+    private suspend fun settle(halfStars: Int) {
+        withTimeoutOrNull(SETTLE_TIMEOUT) {
+            val me = currentUserId.first()
+            repository.observeForBook(bookId).first { rows -> rows.firstOrNull { it.userId == me }?.halfStars == halfStars }
+        }
+        pendingStars.compareAndSet(expect = halfStars, update = null)
+    }
+
     /** Remove my rating. */
     fun clear() {
         viewModelScope.launch { report(repository.clear(bookId)) }
@@ -136,3 +179,18 @@ class BookRatingsViewModel(
 
 /** How long "Checking Hardcover…" may hold the score row: a backstop past the server's own 20 s bound. */
 private val EXTERNAL_CHECK_TIMEOUT = 30.seconds
+
+/** How long stars you just set may wait for Room to echo them before the overlay lets go. */
+private val SETTLE_TIMEOUT = 2.seconds
+
+/** This rating with [pending] stars over it, or a fresh rating of them when there was none. */
+private fun ListenerRating?.withPendingStars(
+    pending: Int?,
+    bookId: String,
+    me: String?,
+): ListenerRating? =
+    when {
+        pending == null -> this
+        this != null -> copy(halfStars = pending)
+        else -> ListenerRating(bookId = bookId, userId = me.orEmpty(), halfStars = pending, note = null, ratedAtMs = 0L)
+    }
