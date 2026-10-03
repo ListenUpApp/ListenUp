@@ -11,7 +11,10 @@ import com.calypsan.listenup.api.result.AppResult
 import app.cash.turbine.test
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
+import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.client.domain.model.Series
+import com.calypsan.listenup.client.domain.model.SeriesChild
+import com.calypsan.listenup.client.domain.model.SeriesLineage
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
@@ -32,6 +35,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -49,7 +53,10 @@ class SeriesEditViewModelTest :
         // ========== Test Fixture ==========
 
         class TestFixture {
-            val seriesRepository: SeriesRepository = mock()
+            val seriesRepository: SeriesRepository =
+                mock {
+                    every { observeSeriesLineage(any()) } returns MutableStateFlow(SeriesLineage.Flat)
+                }
             val updateSeriesUseCase: UpdateSeriesUseCase = mock()
             val imageRepository: ImageRepository = mock()
             val imageStagingRepository: ImageStagingRepository = mock()
@@ -95,12 +102,16 @@ class SeriesEditViewModelTest :
             id: String,
             name: String,
             deletedAt: Long? = null,
+            parentId: String? = null,
+            parentPosition: Int? = null,
         ) = SeriesEntity(
             id =
                 com.calypsan.listenup.core
                     .SeriesId(id),
             name = name,
             description = null,
+            parentId = parentId,
+            parentPosition = parentPosition,
             deletedAt = deletedAt,
             createdAt = Timestamp(0),
             updatedAt = Timestamp(0),
@@ -614,6 +625,157 @@ class SeriesEditViewModelTest :
                                 .SeriesId("series-2"),
                         )
                 }
+            }
+        }
+
+        // #962: where the series sits in the hierarchy.
+
+        fun loaded(
+            fixture: TestFixture,
+            lineage: MutableStateFlow<SeriesLineage> = MutableStateFlow(SeriesLineage.Flat),
+        ): SeriesEditViewModel {
+            every { fixture.seriesRepository.observeSeriesLineage("mistborn") } returns lineage
+            everySuspend { fixture.seriesRepository.getById("mistborn") } returns createSeries(id = "mistborn", name = "Mistborn")
+            everySuspend { fixture.seriesRepository.getBookIdsForSeries("mistborn") } returns emptyList()
+            everySuspend { fixture.imageRepository.seriesCoverExists("mistborn") } returns false
+            return fixture.build().also { it.loadSeries("mistborn") }
+        }
+
+        test("loading a series shows its parent and its sub-series, and follows Room") {
+            runTest {
+                val fixture = createFixture()
+                val lineage =
+                    MutableStateFlow(
+                        SeriesLineage(
+                            ancestors =
+                                listOf(
+                                    createSeries(id = "sanderson", name = "Sanderson"),
+                                    createSeries(id = "cosmere", name = "Cosmere"),
+                                ),
+                            children =
+                                listOf(
+                                    SeriesChild(createSeries(id = "era1", name = "Era 1"), bookIds = listOf("b1")),
+                                    SeriesChild(createSeries(id = "era2", name = "Era 2"), bookIds = emptyList()),
+                                ),
+                            subtreeBooks = emptyList(),
+                        ),
+                    )
+                val viewModel = loaded(fixture, lineage)
+                advanceUntilIdle()
+
+                // The parent is the nearest ancestor, not the root.
+                viewModel.state.value.parentId shouldBe "cosmere"
+                viewModel.state.value.parentName shouldBe "Cosmere"
+                viewModel.state.value.childSeries.map { it.displayName } shouldBe listOf("Era 1", "Era 2")
+                viewModel.state.value.name shouldBe "Mistborn"
+
+                lineage.value = SeriesLineage.Flat
+                advanceUntilIdle()
+
+                viewModel.state.value.parentId shouldBe null
+                viewModel.state.value.parentName shouldBe null
+                viewModel.state.value.childSeries shouldBe emptyList()
+            }
+        }
+
+        test("the parent picker offers every live series but this one and its own sub-series") {
+            runTest {
+                val fixture = createFixture()
+                every { fixture.seriesDao.observeAll() } returns
+                    MutableStateFlow(
+                        listOf(
+                            createSeriesEntity("cosmere", "Cosmere"),
+                            createSeriesEntity("mistborn", "Mistborn", parentId = "cosmere", parentPosition = 0),
+                            createSeriesEntity("era1", "Era 1", parentId = "mistborn", parentPosition = 0),
+                            createSeriesEntity("narnia", "Narnia"),
+                            createSeriesEntity("gone", "Gone", deletedAt = 123L),
+                        ),
+                    )
+                val viewModel = loaded(fixture)
+                advanceUntilIdle()
+
+                viewModel.parentCandidates.test {
+                    awaitItem() shouldBe emptyList()
+
+                    viewModel.onEvent(SeriesEditUiEvent.ParentPickerOpened)
+                    advanceUntilIdle()
+                    awaitItem().map { it.displayName } shouldBe listOf("Cosmere", "Narnia")
+
+                    viewModel.onEvent(SeriesEditUiEvent.ParentQueryChanged("nar"))
+                    advanceUntilIdle()
+                    awaitItem().map { it.displayName } shouldBe listOf("Narnia")
+
+                    viewModel.onEvent(SeriesEditUiEvent.ParentPickerDismissed)
+                    advanceUntilIdle()
+                    awaitItem() shouldBe emptyList()
+                }
+                viewModel.state.value.parentQuery shouldBe ""
+                viewModel.state.value.parentPickerVisible shouldBe false
+            }
+        }
+
+        test("choosing a parent sends it to the repository and closes the picker") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend {
+                    fixture.seriesEditRepository.setParent(SeriesId("mistborn"), SeriesId("cosmere"))
+                } returns AppResult.Success(Unit)
+                val viewModel = loaded(fixture)
+                advanceUntilIdle()
+
+                viewModel.onEvent(SeriesEditUiEvent.ParentPickerOpened)
+                viewModel.onEvent(SeriesEditUiEvent.ParentQueryChanged("cos"))
+                viewModel.state.value.parentPickerVisible shouldBe true
+                viewModel.onEvent(SeriesEditUiEvent.ParentSelected("cosmere"))
+                advanceUntilIdle()
+
+                verifySuspend { fixture.seriesEditRepository.setParent(SeriesId("mistborn"), SeriesId("cosmere")) }
+                viewModel.state.value.parentPickerVisible shouldBe false
+                viewModel.state.value.parentQuery shouldBe ""
+                viewModel.state.value.hierarchyBusy shouldBe false
+                viewModel.state.value.error shouldBe null
+            }
+        }
+
+        test("a refused parent shows the typed error's message and reaches the error bus") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend {
+                    fixture.seriesEditRepository.setParent(SeriesId("mistborn"), SeriesId("cosmere"))
+                } returns AppResult.Failure(SeriesError.HierarchyCycle())
+                val viewModel = loaded(fixture)
+                advanceUntilIdle()
+
+                fixture.errorBus.errors.test {
+                    viewModel.onEvent(SeriesEditUiEvent.ParentSelected("cosmere"))
+                    advanceUntilIdle()
+                    awaitItem() shouldBe SeriesError.HierarchyCycle()
+                }
+
+                viewModel.state.value.error shouldBe SeriesError.HierarchyCycle().message
+                viewModel.state.value.hierarchyBusy shouldBe false
+            }
+        }
+
+        test("clearing the parent and reordering sub-series go to the repository") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesEditRepository.setParent(SeriesId("mistborn"), null) } returns AppResult.Success(Unit)
+                everySuspend {
+                    fixture.seriesEditRepository.reorderChildren(SeriesId("mistborn"), listOf(SeriesId("era2"), SeriesId("era1")))
+                } returns AppResult.Success(Unit)
+                val viewModel = loaded(fixture)
+                advanceUntilIdle()
+
+                viewModel.onEvent(SeriesEditUiEvent.ParentCleared)
+                viewModel.onEvent(SeriesEditUiEvent.ChildSeriesReordered(listOf("era2", "era1")))
+                advanceUntilIdle()
+
+                verifySuspend { fixture.seriesEditRepository.setParent(SeriesId("mistborn"), null) }
+                verifySuspend {
+                    fixture.seriesEditRepository.reorderChildren(SeriesId("mistborn"), listOf(SeriesId("era2"), SeriesId("era1")))
+                }
+                viewModel.state.value.hierarchyBusy shouldBe false
             }
         }
     })

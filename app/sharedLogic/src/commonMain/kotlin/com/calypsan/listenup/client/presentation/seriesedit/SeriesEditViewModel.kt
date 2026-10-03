@@ -19,6 +19,7 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -81,6 +82,18 @@ data class SeriesEditUiState(
     val mergeDialogVisible: Boolean = false,
     // Merge-target picker query (drives candidate filtering)
     val mergeQuery: String = "",
+    /** The parent series' id, or null when this series is a root. */
+    val parentId: String? = null,
+    /** The parent series' name, for display. */
+    val parentName: String? = null,
+    /** This series' sub-series, in sibling order. */
+    val childSeries: List<SeriesCandidate> = emptyList(),
+    /** Whether the parent picker is open — candidates are computed only while true. */
+    val parentPickerVisible: Boolean = false,
+    /** The parent picker's search text. */
+    val parentQuery: String = "",
+    /** True while a hierarchy change is on its way to the server. */
+    val hierarchyBusy: Boolean = false,
     // Track if changes have been made
     val hasChanges: Boolean = false,
 ) {
@@ -140,6 +153,30 @@ sealed interface SeriesEditUiEvent {
     data class MergeInto(
         val targetId: SeriesId,
     ) : SeriesEditUiEvent
+
+    /** The user opened the parent picker. */
+    data object ParentPickerOpened : SeriesEditUiEvent
+
+    /** The user closed the parent picker without choosing. */
+    data object ParentPickerDismissed : SeriesEditUiEvent
+
+    /** The user typed in the parent picker's search field. */
+    data class ParentQueryChanged(
+        val query: String,
+    ) : SeriesEditUiEvent
+
+    /** The user chose [parentId] as this series' parent. */
+    data class ParentSelected(
+        val parentId: String,
+    ) : SeriesEditUiEvent
+
+    /** The user made this series a root. */
+    data object ParentCleared : SeriesEditUiEvent
+
+    /** The user dragged the sub-series into [orderedChildIds]. */
+    data class ChildSeriesReordered(
+        val orderedChildIds: List<String>,
+    ) : SeriesEditUiEvent
 }
 
 /**
@@ -169,6 +206,7 @@ sealed interface SeriesEditNavAction {
  * - Saving metadata changes
  * - Cover image staging and upload
  * - Server-canonical merge via [SeriesEditRepository]
+ * - Placing the series in the hierarchy: its parent, and the order of its sub-series
  * - Tracking unsaved changes
  *
  * @property seriesRepository Repository for loading series data
@@ -251,6 +289,79 @@ class SeriesEditViewModel internal constructor(
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
 
     /**
+     * Candidates for the parent picker — every live series this one may sit under (never itself
+     * or its own sub-series), filtered by [SeriesEditUiState.parentQuery]. Computed only while the
+     * picker is visible, like [mergeCandidates].
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val parentCandidates: StateFlow<List<SeriesCandidate>> =
+        state
+            .map { it.parentPickerVisible }
+            .distinctUntilChanged()
+            .flatMapLatest { pickerVisible ->
+                if (!pickerVisible) {
+                    flowOf(emptyList())
+                } else {
+                    combine(
+                        state.map { it.seriesId to it.parentQuery }.distinctUntilChanged(),
+                        seriesDao.observeAll(),
+                    ) { (currentId, query), allSeries -> parentCandidates(allSeries, currentId, query) }
+                }
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
+
+    private var placementJob: Job? = null
+
+    /**
+     * Keeps the parent and sub-series in step with Room for [seriesId]. A hierarchy write never
+     * touches this state itself: the server's answer arrives through sync and lands here.
+     */
+    private fun observePlacement(seriesId: String) {
+        placementJob?.cancel()
+        placementJob =
+            viewModelScope.launch {
+                seriesRepository.observeSeriesLineage(seriesId).collect { lineage ->
+                    val parent = lineage.ancestors.lastOrNull()
+                    state.update {
+                        it.copy(
+                            parentId = parent?.id?.value,
+                            parentName = parent?.name,
+                            childSeries =
+                                lineage.children.map { child ->
+                                    SeriesCandidate(id = child.series.id, displayName = child.series.name, bookCount = 0)
+                                },
+                        )
+                    }
+                }
+            }
+    }
+
+    /** Sends one hierarchy change to the server; the result reaches the screen through Room. */
+    private fun changeHierarchy(change: suspend (SeriesId) -> AppResult<Unit>) {
+        val seriesId = state.value.seriesId
+        if (seriesId.isBlank()) {
+            logger.error { "Cannot change hierarchy: series ID is empty" }
+            return
+        }
+
+        viewModelScope.launch {
+            state.update {
+                it.copy(hierarchyBusy = true, parentPickerVisible = false, parentQuery = "", error = null)
+            }
+            when (val result = change(SeriesId(seriesId))) {
+                is AppResult.Success -> {
+                    state.update { it.copy(hierarchyBusy = false) }
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to change series hierarchy: ${result.message}" }
+                    state.update { it.copy(hierarchyBusy = false, error = result.error.message) }
+                }
+            }
+        }
+    }
+
+    /**
      * Update the merge-target picker's search query. The [mergeCandidates] Flow
      * re-emits a filtered list whenever this changes.
      */
@@ -276,6 +387,7 @@ class SeriesEditViewModel internal constructor(
                 return@launch
             }
             history.refresh()
+            observePlacement(seriesId)
 
             val bookCount = seriesRepository.getBookIdsForSeries(seriesId).size
 
@@ -360,6 +472,30 @@ class SeriesEditViewModel internal constructor(
 
             is SeriesEditUiEvent.RetryMergeHistory -> {
                 history.refresh()
+            }
+
+            is SeriesEditUiEvent.ParentPickerOpened -> {
+                state.update { it.copy(parentPickerVisible = true) }
+            }
+
+            is SeriesEditUiEvent.ParentPickerDismissed -> {
+                state.update { it.copy(parentPickerVisible = false, parentQuery = "") }
+            }
+
+            is SeriesEditUiEvent.ParentQueryChanged -> {
+                state.update { it.copy(parentQuery = event.query) }
+            }
+
+            is SeriesEditUiEvent.ParentSelected -> {
+                changeHierarchy { id -> seriesEditRepository.setParent(id, SeriesId(event.parentId)) }
+            }
+
+            is SeriesEditUiEvent.ParentCleared -> {
+                changeHierarchy { id -> seriesEditRepository.setParent(id, null) }
+            }
+
+            is SeriesEditUiEvent.ChildSeriesReordered -> {
+                changeHierarchy { id -> seriesEditRepository.reorderChildren(id, event.orderedChildIds.map(::SeriesId)) }
             }
         }
     }
