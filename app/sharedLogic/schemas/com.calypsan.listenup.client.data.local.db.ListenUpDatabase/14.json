@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 14,
-    "identityHash": "a8596fb4dd2196e4396cee915876e7a8",
+    "identityHash": "37ad73b9316882269e9c7f49941cfd9b",
     "entities": [
       {
         "tableName": "users",
@@ -441,7 +441,7 @@
       },
       {
         "tableName": "series",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `sortName` TEXT, `description` TEXT, `asin` TEXT, `coverPath` TEXT, `parentId` TEXT, `parentPosition` INTEGER, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `sortName` TEXT, `description` TEXT, `asin` TEXT, `coverPath` TEXT, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -476,16 +476,6 @@
             "affinity": "TEXT"
           },
           {
-            "fieldPath": "parentId",
-            "columnName": "parentId",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "parentPosition",
-            "columnName": "parentPosition",
-            "affinity": "INTEGER"
-          },
-          {
             "fieldPath": "revision",
             "columnName": "revision",
             "affinity": "INTEGER",
@@ -514,18 +504,7 @@
           "columnNames": [
             "id"
           ]
-        },
-        "indices": [
-          {
-            "name": "index_series_parentId",
-            "unique": false,
-            "columnNames": [
-              "parentId"
-            ],
-            "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_series_parentId` ON `${TABLE_NAME}` (`parentId`)"
-          }
-        ]
+        }
       },
       {
         "tableName": "contributors",
@@ -3058,7 +3037,7 @@
       },
       {
         "tableName": "book_external_ratings",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`bookId` TEXT NOT NULL, `source` TEXT NOT NULL, `syncId` TEXT NOT NULL, `average` REAL NOT NULL, `count` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`bookId`, `source`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`bookId` TEXT NOT NULL, `source` TEXT NOT NULL, `syncId` TEXT NOT NULL, `average` REAL NOT NULL, `count` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, `fetchedAt` INTEGER, PRIMARY KEY(`bookId`, `source`))",
         "fields": [
           {
             "fieldPath": "bookId",
@@ -3106,6 +3085,11 @@
             "fieldPath": "deletedAt",
             "columnName": "deletedAt",
             "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "fetchedAt",
+            "columnName": "fetchedAt",
+            "affinity": "INTEGER"
           }
         ],
         "primaryKey": {
@@ -3139,7 +3123,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'a8596fb4dd2196e4396cee915876e7a8')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '37ad73b9316882269e9c7f49941cfd9b')"
     ]
   }
 }

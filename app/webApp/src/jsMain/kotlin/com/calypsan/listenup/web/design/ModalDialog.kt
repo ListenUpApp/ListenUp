@@ -6,7 +6,9 @@ import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Text
+import kotlinx.browser.window
 import org.w3c.dom.HTMLDialogElement
+import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.Event
 
 /**
@@ -31,6 +33,11 @@ import org.w3c.dom.events.Event
  *
  * [showTitle] false is for a surface whose field says what it is (the command palette): the title
  * then names the dialog through `aria-label` instead of a heading nobody sees.
+ *
+ * Closing hands focus back to whatever opened it — Cancel, Escape and the confirming verb alike. The
+ * dialog is torn down rather than closed in place, so the browser's own restore never runs, and focus
+ * fell to `<body>`: the reader's next Tab started again from the top of the page. When the opener has
+ * gone (the verb removed it), focus goes to the heading of the section it was in.
  */
 @Composable
 fun ModalDialog(
@@ -51,6 +58,7 @@ fun ModalDialog(
         if (showTitle) attr("aria-labelledby", titleId) else attr("aria-label", title)
         ref { element ->
             val dialog = element as HTMLDialogElement
+            val returnTo = FocusReturn.from(dialog)
             if (!dialog.open) dialog.showModal()
             // Escape and the backdrop both fire `cancel`/`close` without touching our buttons, so
             // the caller has to hear about it or its `open` flag drifts out of step with reality.
@@ -59,6 +67,7 @@ fun ModalDialog(
             onDispose {
                 dialog.removeEventListener("close", onClose)
                 if (dialog.open) dialog.close()
+                returnTo.restore()
             }
         }
     }) {
@@ -70,6 +79,36 @@ fun ModalDialog(
                 }) { Text(title) }
             }
             content()
+        }
+    }
+}
+
+/** Where focus was when a dialog opened, and where it goes back to when it closes. */
+private class FocusReturn(
+    private val opener: HTMLElement?,
+    private val sectionHeading: HTMLElement?,
+) {
+    /**
+     * After the update that closed the dialog has landed — the verb may remove its own opener in that
+     * same update — and only if focus is then nowhere: focus something else took on purpose stays.
+     */
+    fun restore() {
+        window.setTimeout({
+            val anchor = opener ?: return@setTimeout
+            if (!focusIsLost(anchor)) return@setTimeout
+            when {
+                opener.isConnected -> opener.focus()
+                sectionHeading?.isConnected == true -> focusAsLanding(sectionHeading)
+            }
+        }, 0)
+    }
+
+    companion object {
+        fun from(dialog: HTMLDialogElement): FocusReturn {
+            val document = dialog.ownerDocument
+            val opener = (document?.activeElement as? HTMLElement)?.takeIf { it != document?.body }
+            val heading = opener?.closest("section")?.querySelector("h1, h2, h3") as? HTMLElement
+            return FocusReturn(opener, heading)
         }
     }
 }

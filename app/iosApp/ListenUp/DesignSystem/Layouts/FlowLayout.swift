@@ -3,6 +3,9 @@ import SwiftUI
 /// A layout that arranges subviews in a flowing, wrapping horizontal layout.
 /// Used for genre chips, tags, and other variable-width items.
 ///
+/// A subview wider than the whole row is offered the row's width instead of its ideal one, so a long
+/// chip at a large text size wraps its label inside the container rather than running past its edge.
+///
 /// Rows are left-aligned by default. Pass `alignment: .center` to center each row's content
 /// within the available width — used by the centered Book Detail hero (author / "Narrated by"
 /// lines) so wrapping contributor links stay centered under the cover.
@@ -32,10 +35,11 @@ struct FlowLayout: Layout {
             }()
 
             for index in row.indices {
-                let size = subviews[index].sizeThatFits(.unspecified)
+                let proposal = fittedProposal(for: subviews[index], maxWidth: bounds.width)
+                let size = subviews[index].sizeThatFits(proposal)
                 subviews[index].place(
                     at: CGPoint(x: x, y: y + (row.height - size.height) / 2),
-                    proposal: .unspecified
+                    proposal: proposal
                 )
                 x += size.width + spacing
             }
@@ -44,6 +48,12 @@ struct FlowLayout: Layout {
     }
 
     // MARK: - Row grouping
+
+    /// The subview's ideal size when it fits the row; otherwise the row's width, to wrap within.
+    private func fittedProposal(for subview: LayoutSubview, maxWidth: CGFloat) -> ProposedViewSize {
+        guard maxWidth.isFinite, subview.sizeThatFits(.unspecified).width > maxWidth else { return .unspecified }
+        return ProposedViewSize(width: maxWidth, height: nil)
+    }
 
     /// One wrapped line: which subviews it holds, its content width (no trailing spacing), and its height.
     private struct Row {
@@ -59,7 +69,7 @@ struct FlowLayout: Layout {
         var x: CGFloat = 0
 
         for index in subviews.indices {
-            let size = subviews[index].sizeThatFits(.unspecified)
+            let size = subviews[index].sizeThatFits(fittedProposal(for: subviews[index], maxWidth: maxWidth))
             // Wrap when the next subview would overflow — but never leave a row empty.
             if !row.indices.isEmpty, x + size.width > maxWidth {
                 row.width = x - spacing // drop the trailing spacing added after the last item

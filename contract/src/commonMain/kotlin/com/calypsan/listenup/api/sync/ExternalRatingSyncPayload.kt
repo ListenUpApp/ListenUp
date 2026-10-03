@@ -52,7 +52,8 @@ object ExternalRatingSourceSerializer : KSerializer<ExternalRatingSource> {
  * How one outside catalog rates one book — the `book_external_ratings` sync row. Written only by the
  * server; readable by everyone who can open [bookId]. [enabled] is false when an admin has switched
  * [source] off: the row is kept (switching it back on restores the score at once) but clients leave
- * it out of the headline. Health detail (last error, fetch time) never crosses the wire.
+ * it out of the headline. Health detail (last error) never crosses the wire; the fetch time does, as
+ * [fetchedAt], so a client can say how fresh a score is.
  */
 @Serializable
 @SerialName("ExternalRatingSyncPayload")
@@ -73,4 +74,9 @@ data class ExternalRatingSyncPayload(
     @SerialName("revision") override val revision: Long,
     /** Tombstone instant, else null. */
     @SerialName("deletedAt") override val deletedAt: Long? = null,
+    /**
+     * When the server last fetched this rating from [source] (epoch ms), for "Updated 3 days ago".
+     * Null from a server older than this field, and on a tombstone.
+     */
+    @SerialName("fetchedAt") val fetchedAt: Long? = null,
 ) : SyncPayload

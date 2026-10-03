@@ -781,6 +781,16 @@
         }
       }
     },
+    "admin.hardcover_token_remove_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Hardcover API token"
+          }
+        }
+      }
+    },
     "admin.hardcover_token_remove_title": {
       "localizations": {
         "en": {
@@ -797,6 +807,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Replace"
+          }
+        }
+      }
+    },
+    "admin.hardcover_token_replace_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace Hardcover API token"
           }
         }
       }
@@ -4711,6 +4731,26 @@
         }
       }
     },
+    "book.detail_rating_add_note": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a note"
+          }
+        }
+      }
+    },
+    "book.detail_rating_checking": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking Hardcover…"
+          }
+        }
+      }
+    },
     "book.detail_rating_clear": {
       "localizations": {
         "en": {
@@ -4731,62 +4771,42 @@
         }
       }
     },
-    "book.detail_rating_edit": {
+    "book.detail_rating_count": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Edit"
+            "value": "%1$@ ratings"
           }
         }
       }
     },
-    "book.detail_rating_external": {
+    "book.detail_rating_count_one": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ · %2$@ ratings"
+            "value": "1 rating"
           }
         }
       }
     },
-    "book.detail_rating_external_a11y": {
+    "book.detail_rating_edit_note": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rated %1$@ out of 5 stars from %2$@ ratings"
+            "value": "Edit note"
           }
         }
       }
     },
-    "book.detail_rating_external_a11y_one": {
+    "book.detail_rating_heading": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rated %1$@ out of 5 stars from 1 rating"
-          }
-        }
-      }
-    },
-    "book.detail_rating_external_one": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ · 1 rating"
-          }
-        }
-      }
-    },
-    "book.detail_rating_listeners": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your listeners %1$@ (%2$d)"
+            "value": "Ratings"
           }
         }
       }
@@ -4811,6 +4831,16 @@
         }
       }
     },
+    "book.detail_rating_no_ratings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No ratings yet"
+          }
+        }
+      }
+    },
     "book.detail_rating_note_counter": {
       "localizations": {
         "en": {
@@ -4831,12 +4861,12 @@
         }
       }
     },
-    "book.detail_rating_rate": {
+    "book.detail_rating_options": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rate"
+            "value": "Rating options"
           }
         }
       }
@@ -4851,12 +4881,92 @@
         }
       }
     },
+    "book.detail_rating_remove_confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove your rating and note?"
+          }
+        }
+      }
+    },
+    "book.detail_rating_removed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rating removed"
+          }
+        }
+      }
+    },
     "book.detail_rating_save": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Save"
+          }
+        }
+      }
+    },
+    "book.detail_rating_saved_on_lift": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved as you lift your finger"
+          }
+        }
+      }
+    },
+    "book.detail_rating_score": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ListenUp score"
+          }
+        }
+      }
+    },
+    "book.detail_rating_score_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ListenUp score: Rated %1$@ out of 5 stars from %2$@ ratings. %3$@."
+          }
+        }
+      }
+    },
+    "book.detail_rating_score_a11y_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ListenUp score: Rated %1$@ out of 5 stars from 1 rating. %2$@."
+          }
+        }
+      }
+    },
+    "book.detail_rating_score_detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "book.detail_rating_share": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@%%"
           }
         }
       }
@@ -4871,22 +4981,12 @@
         }
       }
     },
-    "book.detail_rating_source_row": {
+    "book.detail_rating_show_sources": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ · %2$@"
-          }
-        }
-      }
-    },
-    "book.detail_rating_source_row_share": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ · %2$@ · %3$@ · %4$@%%"
+            "value": "Show rating sources"
           }
         }
       }
@@ -4897,6 +4997,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ratings"
+          }
+        }
+      }
+    },
+    "book.detail_rating_tap_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap a star. Drag for half stars."
+          }
+        }
+      }
+    },
+    "book.detail_rating_undo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo"
+          }
+        }
+      }
+    },
+    "book.detail_rating_updated_days": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updated %1$d days ago"
+          }
+        }
+      }
+    },
+    "book.detail_rating_updated_today": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updated today"
+          }
+        }
+      }
+    },
+    "book.detail_rating_updated_yesterday": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updated yesterday"
           }
         }
       }
@@ -11201,6 +11351,16 @@
         }
       }
     },
+    "hardcover.find_on_hardcover_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find %1$@ on Hardcover"
+          }
+        }
+      }
+    },
     "hardcover.history_needs_match": {
       "localizations": {
         "en": {
@@ -11811,6 +11971,16 @@
         }
       }
     },
+    "hardcover.match_results_for": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Results for “%1$@”"
+          }
+        }
+      }
+    },
     "hardcover.match_search": {
       "localizations": {
         "en": {
@@ -11901,6 +12071,26 @@
         }
       }
     },
+    "hardcover.needs_match_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books need a match"
+          }
+        }
+      }
+    },
+    "hardcover.needs_match_count_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 book needs a match"
+          }
+        }
+      }
+    },
     "hardcover.needs_match_detail": {
       "localizations": {
         "en": {
@@ -11927,6 +12117,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Needs a match"
+          }
+        }
+      }
+    },
+    "hardcover.needs_match_show_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show all %1$d books"
+          }
+        }
+      }
+    },
+    "hardcover.never_matched_line": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not matched yet. ListenUp looks for it on Hardcover when you start listening."
           }
         }
       }
@@ -12237,6 +12447,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sync"
+          }
+        }
+      }
+    },
+    "hardcover.synced_status": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synced with Hardcover"
           }
         }
       }
@@ -15031,6 +15251,16 @@
         }
       }
     },
+    "metadata.chip_from_source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, from %2$@"
+          }
+        }
+      }
+    },
     "metadata.clear_all": {
       "localizations": {
         "en": {
@@ -15247,6 +15477,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Title"
+          }
+        }
+      }
+    },
+    "metadata.field_toggle_all_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turns every one on or off."
           }
         }
       }
@@ -16967,6 +17207,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your listeners"
+          }
+        }
+      }
+    },
+    "rating.source_listeners_inline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "your listeners"
           }
         }
       }

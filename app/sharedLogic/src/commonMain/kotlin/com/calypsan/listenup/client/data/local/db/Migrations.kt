@@ -309,7 +309,22 @@ internal val MIGRATION_12_13 =
     }
 
 /**
- * v13 → v14: `series.parentId` / `series.parentPosition` — the series tree (#962), mirroring the
+ * v13 → v14: `book_external_ratings.fetchedAt` — when the server last fetched each outside rating, so
+ * Book Detail can say how fresh it is ("Updated 3 days ago"). A nullable `ADD COLUMN`, per the migration
+ * policy in [ListenUpDatabase]. Rows mirrored before it have no time, so this also rewinds that
+ * domain's cursor, as [MIGRATION_10_11] did: a missing cursor is `since = 0`, and the next catch-up
+ * re-pulls every row with its time. The domain has no outbox, so nothing unsynced is touched.
+ */
+internal val MIGRATION_13_14 =
+    object : Migration(13, 14) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE `book_external_ratings` ADD COLUMN `fetchedAt` INTEGER")
+            connection.executeDdl("DELETE FROM `sync_cursor` WHERE `domainName` = 'book_external_ratings'")
+        }
+    }
+
+/**
+ * v14 → v15: `series.parentId` / `series.parentPosition` — the series tree (#962), mirroring the
  * server's `V85__series_hierarchy.sql`. Two `ADD COLUMN`s and an index, per the migration policy in
  * [ListenUpDatabase], so every cached series starts out as a root.
  *
@@ -322,8 +337,8 @@ internal val MIGRATION_12_13 =
  * [com.calypsan.listenup.client.data.sync.domains.RevisionGuard] lets through (only a strictly
  * older revision is stale). Server-written data only; the outbox is untouched.
  */
-internal val MIGRATION_13_14 =
-    object : Migration(13, 14) {
+internal val MIGRATION_14_15 =
+    object : Migration(14, 15) {
         override suspend fun migrate(connection: SQLiteConnection) {
             connection.executeDdl("ALTER TABLE `series` ADD COLUMN `parentId` TEXT")
             connection.executeDdl("ALTER TABLE `series` ADD COLUMN `parentPosition` INTEGER")

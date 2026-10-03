@@ -1,8 +1,11 @@
 package com.calypsan.listenup.api
 
+import com.calypsan.listenup.api.dto.ExternalRatingsCheck
 import com.calypsan.listenup.api.dto.RateBookRequest
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.core.BookId
+import kotlinx.coroutines.flow.Flow
 import kotlinx.rpc.annotations.Rpc
 
 /**
@@ -32,6 +35,18 @@ interface BookRatingService {
      * freshness window, the server fetches it in the background (#1542). Answers at once, before any
      * fetch, and never fails because a fetch did; the rating, when it comes, arrives through the ratings
      * sync. Any listener who can open the book may ask; one who can't gets `NotFound`. Idempotent.
+     *
+     * Kept for clients that predate [checkExternalRatings]; current clients call that instead.
      */
     suspend fun ensureExternalRatings(bookId: BookId): AppResult<Unit>
+
+    /**
+     * Book Detail opened [bookId]: start its Hardcover fetch when the rating is missing or stale, exactly
+     * as [ensureExternalRatings] does, and say how it goes. Emits [ExternalRatingsCheck.CHECKING] when a
+     * fetch is running — this open's, or one already in flight for the book — then
+     * [ExternalRatingsCheck.DONE] when it ends, fails or outlasts the server's bound, and completes.
+     * Completes without emitting when nothing needs fetching, when Hardcover can't be asked, or when the
+     * caller can't open the book. The rating itself arrives through the ratings sync.
+     */
+    fun checkExternalRatings(bookId: BookId): Flow<RpcEvent<ExternalRatingsCheck>>
 }

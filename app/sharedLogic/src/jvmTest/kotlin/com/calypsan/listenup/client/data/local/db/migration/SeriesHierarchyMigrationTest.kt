@@ -1,32 +1,32 @@
 package com.calypsan.listenup.client.data.local.db.migration
 
 import androidx.sqlite.execSQL
-import com.calypsan.listenup.client.data.local.db.MIGRATION_13_14
+import com.calypsan.listenup.client.data.local.db.MIGRATION_14_15
 import com.calypsan.listenup.client.test.db.createMigrationTestHelper
 import com.calypsan.listenup.client.test.db.withStatement
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
 /**
- * Validates v13 → v14: `series` gains the hierarchy columns (#962). An `ADD COLUMN` pair plus an
- * index, so the assertions are that the hand-written DDL validates against the exported `14.json`
+ * Validates v14 → v15: `series` gains the hierarchy columns (#962). An `ADD COLUMN` pair plus an
+ * index, so the assertions are that the hand-written DDL validates against the exported `15.json`
  * and that an existing series survives as a root — and a rewound `series` sync cursor, so the next
  * catch-up re-pulls the parents an older build dropped.
  */
 class SeriesHierarchyMigrationTest :
     FunSpec({
-        test("MIGRATION_13_14 adds parentId and parentPosition, keeps every series as a root, and validates against 14.json") {
+        test("MIGRATION_14_15 adds parentId and parentPosition, keeps every series as a root, and validates against 15.json") {
             val helper = createMigrationTestHelper()
             try {
-                val v13 = helper.createDatabase(version = 13)
-                v13.execSQL(
+                val v14 = helper.createDatabase(version = 14)
+                v14.execSQL(
                     "INSERT INTO series (id, name, revision, createdAt, updatedAt) VALUES ('s1', 'Mistborn', 7, 1, 2)",
                 )
-                v13.close()
+                v14.close()
 
-                val v14 = helper.runMigrationsAndValidate(version = 14, migrations = listOf(MIGRATION_13_14))
+                val v15 = helper.runMigrationsAndValidate(version = 15, migrations = listOf(MIGRATION_14_15))
 
-                v14.withStatement("SELECT name, revision, parentId, parentPosition FROM series") { statement ->
+                v15.withStatement("SELECT name, revision, parentId, parentPosition FROM series") { statement ->
                     statement.step() shouldBe true
                     statement.getText(0) shouldBe "Mistborn"
                     statement.getLong(1) shouldBe 7L
@@ -39,17 +39,17 @@ class SeriesHierarchyMigrationTest :
             }
         }
 
-        test("MIGRATION_13_14 rewinds the series sync cursor and leaves every other domain's alone") {
+        test("MIGRATION_14_15 rewinds the series sync cursor and leaves every other domain's alone") {
             val helper = createMigrationTestHelper()
             try {
-                val v13 = helper.createDatabase(version = 13)
-                v13.execSQL("INSERT INTO sync_cursor (domainName, revision) VALUES ('series', 42)")
-                v13.execSQL("INSERT INTO sync_cursor (domainName, revision) VALUES ('books', 99)")
-                v13.close()
+                val v14 = helper.createDatabase(version = 14)
+                v14.execSQL("INSERT INTO sync_cursor (domainName, revision) VALUES ('series', 42)")
+                v14.execSQL("INSERT INTO sync_cursor (domainName, revision) VALUES ('books', 99)")
+                v14.close()
 
-                val v14 = helper.runMigrationsAndValidate(version = 14, migrations = listOf(MIGRATION_13_14))
+                val v15 = helper.runMigrationsAndValidate(version = 15, migrations = listOf(MIGRATION_14_15))
 
-                v14.withStatement("SELECT domainName, revision FROM sync_cursor ORDER BY domainName") { statement ->
+                v15.withStatement("SELECT domainName, revision FROM sync_cursor ORDER BY domainName") { statement ->
                     statement.step() shouldBe true
                     statement.getText(0) shouldBe "books"
                     statement.getLong(1) shouldBe 99L

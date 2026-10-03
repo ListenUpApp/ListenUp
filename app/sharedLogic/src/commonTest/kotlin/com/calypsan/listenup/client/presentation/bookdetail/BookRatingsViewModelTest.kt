@@ -22,15 +22,21 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlin.time.Duration.Companion.seconds
 
 /** A [UserRepository] mock stubbed with a fixed [isAdmin] answer for [UserRepository.observeIsAdmin]. */
 private fun userRepository(isAdmin: Boolean = false): UserRepository =
@@ -286,7 +292,7 @@ class BookRatingsViewModelTest :
             }
         }
 
-        test("opening a book asks the server, once, to make sure its outside ratings are fresh") {
+        test("opening a book asks the server, once, to check its outside ratings") {
             runTest {
                 val repo = FakeBookRatingRepository()
                 BookRatingsViewModel(
@@ -298,13 +304,83 @@ class BookRatingsViewModelTest :
                 )
                 advanceUntilIdle()
 
-                repo.ensured shouldBe listOf("b1")
+                repo.checked shouldBe listOf("b1")
             }
         }
 
-        test("a failed ask is dropped silently: no error is shown, and the block still loads") {
+        test("isCheckingExternal holds while the on-open fetch runs, and clears when it is done") {
             runTest {
-                val repo = FakeBookRatingRepository().apply { ensureResult = AppResult.Failure(TransportError.NetworkUnavailable()) }
+                val gate = CompletableDeferred<Unit>()
+                val repo =
+                    FakeBookRatingRepository().apply {
+                        externalCheck =
+                            flow {
+                                emit(true)
+                                gate.await()
+                                emit(false)
+                            }
+                    }
+                val vm =
+                    BookRatingsViewModel(
+                        bookId = "b1",
+                        repository = repo,
+                        currentUserId = flowOf("me"),
+                        errorBus = ErrorBus(),
+                        userRepository = userRepository(),
+                    )
+
+                vm.state.test {
+                    awaitItem() shouldBe BookRatingsUiState.Loading
+                    runCurrent()
+                    expectMostRecentItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().isCheckingExternal shouldBe true
+
+                    gate.complete(Unit)
+                    runCurrent()
+                    awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().isCheckingExternal shouldBe false
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a check that never answers stops holding the row after thirty seconds") {
+            runTest {
+                val repo =
+                    FakeBookRatingRepository().apply {
+                        externalCheck =
+                            flow {
+                                emit(true)
+                                awaitCancellation()
+                            }
+                    }
+                val vm =
+                    BookRatingsViewModel(
+                        bookId = "b1",
+                        repository = repo,
+                        currentUserId = flowOf("me"),
+                        errorBus = ErrorBus(),
+                        userRepository = userRepository(),
+                    )
+
+                vm.state.test {
+                    awaitItem() shouldBe BookRatingsUiState.Loading
+                    runCurrent()
+                    expectMostRecentItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().isCheckingExternal shouldBe true
+
+                    advanceTimeBy(29.seconds)
+                    runCurrent()
+                    expectNoEvents()
+
+                    advanceTimeBy(2.seconds)
+                    runCurrent()
+                    awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().isCheckingExternal shouldBe false
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("no check needed, or a failed one, shows nothing and reports nothing") {
+            runTest {
+                val repo = FakeBookRatingRepository().apply { externalCheck = emptyFlow() }
                 val errorBus = ErrorBus()
                 val vm =
                     BookRatingsViewModel(
@@ -321,9 +397,215 @@ class BookRatingsViewModelTest :
                 }
                 vm.state.test {
                     awaitItem() shouldBe BookRatingsUiState.Loading
-                    awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>()
+                    awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().isCheckingExternal shouldBe false
                     cancelAndIgnoreRemainingEvents()
                 }
+            }
+        }
+
+        test("a tap on the stars saves at once and keeps the note") {
+            runTest {
+                val repo = FakeBookRatingRepository()
+                repo.seed(ListenerRating("b1", "me", 6, "Mine.", 1L))
+                val vm =
+                    BookRatingsViewModel(
+                        bookId = "b1",
+                        repository = repo,
+                        currentUserId = flowOf("me"),
+                        errorBus = ErrorBus(),
+                        userRepository = userRepository(),
+                    )
+
+                vm.setStars(9)
+                advanceUntilIdle()
+
+                repo.lastRate shouldBe Triple("b1", 9, "Mine.")
+                vm.state.test {
+                    awaitItem() shouldBe BookRatingsUiState.Loading
+                    val mine = awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().mine
+                    mine?.halfStars shouldBe 9
+                    mine?.note shouldBe "Mine."
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("the stars show the new rating before the save lands") {
+            runTest {
+                val gate = CompletableDeferred<Unit>()
+                val repo = FakeBookRatingRepository().apply { rateGate = gate }
+                repo.seed(ListenerRating("b1", "me", 6, null, 1L))
+                val vm =
+                    BookRatingsViewModel(
+                        bookId = "b1",
+                        repository = repo,
+                        currentUserId = flowOf("me"),
+                        errorBus = ErrorBus(),
+                        userRepository = userRepository(),
+                    )
+
+                vm.state.test {
+                    awaitItem() shouldBe BookRatingsUiState.Loading
+                    awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().mine?.halfStars shouldBe 6
+
+                    vm.setStars(9)
+                    runCurrent()
+                    awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().mine?.halfStars shouldBe 9
+
+                    gate.complete(Unit)
+                    advanceUntilIdle()
+                    vm.state.value
+                        .shouldBeInstanceOf<BookRatingsUiState.Ready>()
+                        .mine
+                        ?.halfStars shouldBe 9
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a first rating shows at once, with no note") {
+            runTest {
+                val gate = CompletableDeferred<Unit>()
+                val repo = FakeBookRatingRepository().apply { rateGate = gate }
+                val vm =
+                    BookRatingsViewModel(
+                        bookId = "b1",
+                        repository = repo,
+                        currentUserId = flowOf("me"),
+                        errorBus = ErrorBus(),
+                        userRepository = userRepository(),
+                    )
+
+                vm.state.test {
+                    awaitItem() shouldBe BookRatingsUiState.Loading
+                    awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().mine.shouldBeNull()
+
+                    vm.setStars(7)
+                    runCurrent()
+                    val mine = awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().mine
+                    mine?.halfStars shouldBe 7
+                    mine?.note.shouldBeNull()
+                    gate.complete(Unit)
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a refused save puts the stars back and reports the error") {
+            runTest {
+                val gate = CompletableDeferred<Unit>()
+                val failure = TransportError.NetworkUnavailable()
+                val repo =
+                    FakeBookRatingRepository().apply {
+                        rateGate = gate
+                        failNext = AppResult.Failure(failure)
+                    }
+                repo.seed(ListenerRating("b1", "me", 6, null, 1L))
+                val errorBus = ErrorBus()
+                val vm =
+                    BookRatingsViewModel(
+                        bookId = "b1",
+                        repository = repo,
+                        currentUserId = flowOf("me"),
+                        errorBus = errorBus,
+                        userRepository = userRepository(),
+                    )
+
+                errorBus.errors.test {
+                    vm.state.test {
+                        awaitItem() shouldBe BookRatingsUiState.Loading
+                        awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().mine?.halfStars shouldBe 6
+
+                        vm.setStars(9)
+                        runCurrent()
+                        awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().mine?.halfStars shouldBe 9
+
+                        gate.complete(Unit)
+                        advanceUntilIdle()
+                        awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().mine?.halfStars shouldBe 6
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                    awaitItem() shouldBe failure
+                }
+            }
+        }
+
+        test("removing your rating offers an undo that puts back the stars and the note") {
+            runTest {
+                val repo = FakeBookRatingRepository()
+                repo.seed(ListenerRating("b1", "me", 8, "Loved it.", 1L))
+                val vm =
+                    BookRatingsViewModel(
+                        bookId = "b1",
+                        repository = repo,
+                        currentUserId = flowOf("me"),
+                        errorBus = ErrorBus(),
+                        userRepository = userRepository(),
+                    )
+
+                vm.events.test {
+                    vm.clear()
+                    advanceUntilIdle()
+                    awaitItem() shouldBe BookRatingsEvent.RatingRemoved
+                }
+                repo.lastClear shouldBe "b1"
+
+                vm.undoClear()
+                advanceUntilIdle()
+
+                repo.lastRate shouldBe Triple("b1", 8, "Loved it.")
+            }
+        }
+
+        test("a second undo does nothing") {
+            runTest {
+                val repo = FakeBookRatingRepository()
+                repo.seed(ListenerRating("b1", "me", 8, null, 1L))
+                val vm =
+                    BookRatingsViewModel(
+                        bookId = "b1",
+                        repository = repo,
+                        currentUserId = flowOf("me"),
+                        errorBus = ErrorBus(),
+                        userRepository = userRepository(),
+                    )
+
+                vm.clear()
+                advanceUntilIdle()
+                vm.undoClear()
+                vm.undoClear()
+                advanceUntilIdle()
+
+                repo.rateCalls shouldBe 1
+            }
+        }
+
+        test("a refused removal reports the error and offers no undo") {
+            runTest {
+                val failure = TransportError.NetworkUnavailable()
+                val repo = FakeBookRatingRepository().apply { failNext = AppResult.Failure(failure) }
+                repo.seed(ListenerRating("b1", "me", 8, null, 1L))
+                val errorBus = ErrorBus()
+                val vm =
+                    BookRatingsViewModel(
+                        bookId = "b1",
+                        repository = repo,
+                        currentUserId = flowOf("me"),
+                        errorBus = errorBus,
+                        userRepository = userRepository(),
+                    )
+
+                errorBus.errors.test {
+                    vm.events.test {
+                        vm.clear()
+                        advanceUntilIdle()
+                        expectNoEvents()
+                    }
+                    awaitItem() shouldBe failure
+                }
+                vm.undoClear()
+                advanceUntilIdle()
+                repo.rateCalls shouldBe 0
             }
         }
     })
@@ -356,18 +638,24 @@ private class FakeBookRatingRepository : BookRatingRepository {
     /** When set, [refreshExternal] waits on it before answering — a refresh still in flight. */
     var refreshGate: CompletableDeferred<Unit>? = null
 
+    /** How many times [rate] has been called. */
+    var rateCalls = 0
+
+    /** When set, [rate] waits on it before answering — a save still in flight. */
+    var rateGate: CompletableDeferred<Unit>? = null
+
     /** What the next [refreshExternal] call answers. */
     var refreshExternalResult: AppResult<Unit> = AppResult.Success(Unit)
 
-    /** Every bookId [ensureExternal] was called with. */
-    val ensured = mutableListOf<String>()
+    /** Every bookId [observeExternalCheck] was asked for. */
+    val checked = mutableListOf<String>()
 
-    /** What [ensureExternal] answers. */
-    var ensureResult: AppResult<Unit> = AppResult.Success(Unit)
+    /** What [observeExternalCheck] answers: nothing to check, by default. */
+    var externalCheck: Flow<Boolean> = emptyFlow()
 
-    override suspend fun ensureExternal(bookId: String): AppResult<Unit> {
-        ensured += bookId
-        return ensureResult
+    override fun observeExternalCheck(bookId: String): Flow<Boolean> {
+        checked += bookId
+        return externalCheck
     }
 
     fun seed(vararg rows: ListenerRating) {
@@ -400,6 +688,8 @@ private class FakeBookRatingRepository : BookRatingRepository {
         halfStars: Int,
         note: String?,
     ): AppResult<Unit> {
+        rateGate?.await()
+        rateCalls++
         lastRate = Triple(bookId, halfStars, note)
         failNext?.let {
             failNext = null

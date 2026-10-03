@@ -81,7 +81,10 @@ private fun widthConditions(): List<String> {
         for (i in 0 until length) {
             val rule: dynamic = rules.item(i)
             val condition = rule.conditionText as? String
-            if (condition != null) {
+            // A container query measures a component's own width, not the viewport's, so the
+            // viewport's breakpoints do not apply to it (the ratings panel splits at 560px of itself).
+            val isContainerQuery = rule.containerQuery != null
+            if (condition != null && !isContainerQuery) {
                 WIDTH_CONDITION.findAll(condition).forEach { found += it.value }
             }
             val nested = rule.cssRules

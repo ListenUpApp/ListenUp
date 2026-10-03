@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.hardcover
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,6 +25,7 @@ import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.EmptyLook
 import com.calypsan.listenup.web.design.EmptyState
+import com.calypsan.listenup.web.design.FocusHold
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.LoadingState
 import com.calypsan.listenup.web.design.PageHeader
@@ -32,7 +34,10 @@ import com.calypsan.listenup.web.design.SegmentItem
 import com.calypsan.listenup.web.design.SegmentedControl
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
+import com.calypsan.listenup.web.design.focusAsLanding
+import com.calypsan.listenup.web.design.focusLanding
 import kotlinx.browser.document
+import org.w3c.dom.HTMLElement
 import org.jetbrains.compose.web.dom.B
 import org.jetbrains.compose.web.dom.Button as DomButton
 import org.jetbrains.compose.web.dom.Div
@@ -277,6 +282,12 @@ private fun Linking(
                     Text("Copy code")
                 }
             }
+            // A button that renames itself is not announced, so the copy is said here: a polite region
+            // that is on the page before its words change, which is what makes the change heard.
+            Span(attrs = {
+                classes("sr-only")
+                attr(ROLE, STATUS)
+            }) { if (copied) Text("Code copied") }
         }
 
         Section(attrs = { classes(CARD) }) {
@@ -348,84 +359,123 @@ private fun Connected(
     PageHeader(title = SCREEN_TITLE)
     Div(attrs = { classes("hc-cols", "hc-cols-top") }) {
         Div(attrs = { classes("hc-col") }) {
-            Section(attrs = { classes(CARD, "hc-hero", "hc-who") }) {
-                Span(attrs = {
-                    classes("hc-avatar")
-                    attr(ARIA_HIDDEN, "true")
-                }) { Text(state.username.take(1).uppercase()) }
-                Div(attrs = { classes("hc-who-text") }) {
-                    Span(attrs = { classes("hc-badge") }) {
-                        Icon(WebIcon.Check, size = BADGE_ICON)
-                        Text("Connected")
-                    }
-                    H2(attrs = { classes("hc-user") }) { Text(state.username) }
-                    Span(attrs = { classes("hc-since") }) { Text("Since ${formatDateLong(state.since)}") }
-                }
-            }
-            // Canvas: the earlier-books card sits between who you are and Sync.
-            HistoryCard(
-                history = state.history,
-                onSend = onSendHistory,
-                onDismiss = onDismissHistory,
-                onShowNeedsMatch = { document.getElementById(NEEDS_MATCH_ID)?.scrollIntoView() },
-            )
-            Panel(title = "Sync") {
-                SyncBlock(lastSyncedAt = state.lastSyncedAt, sync = state.sync, nowMs = nowMs, onSyncNow = onSyncNow)
-                val history = state.history
-                if (history is HardcoverHistory.Available) EarlierBooksRow(books = history.bookCount, onSend = onSendHistory)
-                if (state.keptOffBookCount > 0) KeptOffRow(books = state.keptOffBookCount, onOpen = onOpenKeptOff)
-            }
-            Div(attrs = {
-                id(NEEDS_MATCH_ID)
-                classes("hc-anchor")
-            }) {
-                NeedsMatch(books = state.booksToMatch, isKnown = state.isMatchListKnown, onFindMatch = onFindMatch)
+            // Send, Not now, Dismiss and the quiet row's Send each replace the button they were pressed
+            // on; focus lands on what the press came to rather than falling to the top of the page.
+            FocusHold(key = state.history) {
+                ConnectedColumn(state, nowMs, onSyncNow, onSendHistory, onDismissHistory, onFindMatch, onOpenKeptOff)
             }
         }
 
         Div(attrs = { classes("hc-col") }) {
-            Panel(title = "What ListenUp shares") {
-                ShareModeChoice(mode = state.shareMode, isSaving = state.isSavingShareMode, onSetShareMode = onSetShareMode)
-                Ul(attrs = { classes("hc-list") }) {
-                    when (state.shareMode) {
-                        HardcoverShareMode.AS_I_LISTEN -> {
-                            ListItem(WebIcon.Book, "Books you start, as Currently reading")
-                            ListItem(WebIcon.Headphones, "How far you've listened")
-                            ListItem(WebIcon.Check, "Books you finish, marked as read")
-                        }
-
-                        HardcoverShareMode.FINISHED_ONLY -> {
-                            ListItem(WebIcon.Check, "Only books you finish, marked as read, with when you started and finished")
-                            QuietItem(WebIcon.Headphones, "Nothing is shared while you're still listening")
-                        }
-                    }
-                }
-                H3(attrs = { classes("hc-label", "hc-back-h") }) { Text("What comes back") }
-                Ul(attrs = { classes("hc-list") }) {
-                    Li(attrs = { classes("hc-item") }) {
-                        Span(attrs = {
-                            classes("hc-item-i")
-                            attr(ARIA_HIDDEN, "true")
-                        }) { Icon(WebIcon.Download, size = ITEM_ICON) }
-                        Span {
-                            Text("Books you've read elsewhere appear in Readers with a Hardcover label. ")
-                            Span(attrs = { classes("hc-quiet") }) { Text("They never count as listening.") }
-                        }
-                    }
-                    ListItem(WebIcon.Bookmark, "Your Want to Read list, on your To Read shelf")
-                }
-            }
-            Div(attrs = { classes("hc-actions") }) {
-                Button(
-                    kind = ButtonKind.Secondary,
-                    onClick = { confirming = true },
-                    enabled = !state.isDisconnecting,
-                ) { Text("Disconnect") }
-            }
+            ShareColumn(state, onSetShareMode, onAskDisconnect = { confirming = true })
         }
     }
 
     DisconnectConfirm(open = confirming, onDisconnect = onDisconnect, onDismiss = { confirming = false })
+}
+
+/** The left column: who you are, the earlier-books card, Sync, and the books that need a match. */
+@Composable
+private fun ConnectedColumn(
+    state: HardcoverSettingsUiState.Connected,
+    nowMs: Long,
+    onSyncNow: () -> Unit,
+    onSendHistory: () -> Unit,
+    onDismissHistory: () -> Unit,
+    onFindMatch: (bookId: String) -> Unit,
+    onOpenKeptOff: () -> Unit,
+) {
+    Section(attrs = { classes(CARD, "hc-hero", "hc-who") }) {
+        Span(attrs = {
+            classes("hc-avatar")
+            attr(ARIA_HIDDEN, "true")
+        }) { Text(state.username.take(1).uppercase()) }
+        Div(attrs = { classes("hc-who-text") }) {
+            Span(attrs = { classes("hc-badge") }) {
+                Icon(WebIcon.Check, size = BADGE_ICON)
+                Text("Connected")
+            }
+            H2(attrs = { classes("hc-user") }) { Text(state.username) }
+            Span(attrs = { classes("hc-since") }) { Text("Since ${formatDateLong(state.since)}") }
+        }
+    }
+    // Canvas: the earlier-books card sits between who you are and Sync.
+    HistoryCard(
+        history = state.history,
+        onSend = onSendHistory,
+        onDismiss = onDismissHistory,
+        onShowNeedsMatch = ::showNeedsMatch,
+    )
+    Panel(title = "Sync") {
+        SyncBlock(lastSyncedAt = state.lastSyncedAt, sync = state.sync, nowMs = nowMs, onSyncNow = onSyncNow)
+        val history = state.history
+        if (history is HardcoverHistory.Available) EarlierBooksRow(books = history.bookCount, onSend = onSendHistory)
+        if (state.keptOffBookCount > 0) KeptOffRow(books = state.keptOffBookCount, onOpen = onOpenKeptOff)
+    }
+    Div(attrs = {
+        id(NEEDS_MATCH_ID)
+        classes("hc-anchor")
+    }) {
+        NeedsMatch(books = state.booksToMatch, isKnown = state.isMatchListKnown, onFindMatch = onFindMatch)
+    }
+}
+
+/** The right column: what is shared, what comes back, and Disconnect. */
+@Composable
+private fun ShareColumn(
+    state: HardcoverSettingsUiState.Connected,
+    onSetShareMode: (HardcoverShareMode) -> Unit,
+    onAskDisconnect: () -> Unit,
+) {
+    Panel(title = "What ListenUp shares") {
+        ShareModeChoice(mode = state.shareMode, isSaving = state.isSavingShareMode, onSetShareMode = onSetShareMode)
+        Ul(attrs = { classes("hc-list") }) {
+            when (state.shareMode) {
+                HardcoverShareMode.AS_I_LISTEN -> {
+                    ListItem(WebIcon.Book, "Books you start, as Currently reading")
+                    ListItem(WebIcon.Headphones, "How far you've listened")
+                    ListItem(WebIcon.Check, "Books you finish, marked as read")
+                }
+
+                HardcoverShareMode.FINISHED_ONLY -> {
+                    ListItem(WebIcon.Check, "Only books you finish, marked as read, with when you started and finished")
+                    QuietItem(WebIcon.Headphones, "Nothing is shared while you're still listening")
+                }
+            }
+        }
+        H3(attrs = { classes("hc-label", "hc-back-h") }) { Text("What comes back") }
+        Ul(attrs = { classes("hc-list") }) {
+            Li(attrs = { classes("hc-item") }) {
+                Span(attrs = {
+                    classes("hc-item-i")
+                    attr(ARIA_HIDDEN, "true")
+                }) { Icon(WebIcon.Download, size = ITEM_ICON) }
+                Span {
+                    Text("Books you've read elsewhere appear in Readers with a Hardcover label. ")
+                    Span(attrs = { classes("hc-quiet") }) { Text("They never count as listening.") }
+                }
+            }
+            ListItem(WebIcon.Bookmark, "Your Want to Read list, on your To Read shelf")
+        }
+    }
+    Div(attrs = { classes("hc-actions") }) {
+        // Pressable rather than disabled while it disconnects: the dialog hands focus back here.
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = onAskDisconnect,
+            pressable = !state.isDisconnecting,
+        ) { Text("Disconnect") }
+    }
+}
+
+/**
+ * Done's "N need a match": brings the list into view and puts focus on its heading, so the reader's
+ * next Tab is the first book that needs one — not wherever the scroll left the page.
+ */
+private fun showNeedsMatch() {
+    val heading = document.getElementById(NEEDS_MATCH_ID)?.querySelector("h2") as? HTMLElement ?: return
+    heading.scrollIntoView()
+    focusAsLanding(heading)
 }
 
 /**
@@ -455,7 +505,7 @@ private fun SyncBlock(
             P { Text(stuck.words()) }
         }
         Div(attrs = { classes("hc-problem-act") }) {
-            Button(kind = ButtonKind.Secondary, onClick = onSyncNow) {
+            Button(kind = ButtonKind.Secondary, onClick = onSyncNow, attrs = { focusLanding(priority = 2) }) {
                 Icon(WebIcon.Refresh, size = BUTTON_ICON)
                 Text("Try again")
             }
@@ -483,11 +533,16 @@ private fun SyncBlock(
                 },
             )
         }
+        // Pressable, never disabled, while the sync it started runs: a `disabled` button drops the
+        // focus that pressed it to the top of the page. The fallback landing of its column, too.
         Button(
             kind = ButtonKind.Secondary,
             onClick = onSyncNow,
-            enabled = !syncing,
-            attrs = { if (syncing) attr("aria-busy", "true") },
+            pressable = !syncing,
+            attrs = {
+                if (syncing) attr("aria-busy", "true")
+                focusLanding(priority = 2)
+            },
         ) {
             Icon(WebIcon.Refresh, size = BUTTON_ICON)
             Text("Sync now")
@@ -516,6 +571,8 @@ private fun KeptOffRow(
         }) { Icon(WebIcon.LinkOff, size = SYNC_ICON) }
         Span(attrs = { classes("hc-earlier-t") }) {
             Text("Kept off Hardcover")
+            // Said, not drawn: without it the row's name runs "Kept off Hardcover2 books".
+            Span(attrs = { classes("sr-only") }) { Text(", ") }
             Span(attrs = { classes("hc-earlier-d") }) { Text(if (books == 1) "1 book" else "$books books") }
         }
         Span(attrs = {
@@ -529,6 +586,10 @@ private fun KeptOffRow(
  * The books ListenUp couldn't match, each with Find on Hardcover — or, once the server has said there
  * are none, one quiet line. Nothing at all while the list is not known: an unanswered read must not
  * claim that everything is matched.
+ *
+ * The first [NEEDS_MATCH_SHOWN] rows, then "Show all N books", as the apps do: with every row in
+ * place, What ListenUp shares — the setting most people come here for — sat 28 rows deep in the Tab
+ * order on a narrow screen. Show all puts focus on the first book it revealed.
  */
 @Composable
 private fun NeedsMatch(
@@ -544,17 +605,20 @@ private fun NeedsMatch(
         }
         return
     }
+    var showingAll by remember { mutableStateOf(false) }
+    var revealed by remember { mutableStateOf(false) }
+    val shown = if (showingAll) books else books.take(NEEDS_MATCH_SHOWN)
     Panel(
         title = NEEDS_MATCH,
         flush = true,
         trailing = { Span(attrs = { classes("hc-count", "mono") }) { Text(books.size.toString()) } },
+        spokenCount = if (books.size == 1) "1 book" else "${books.size} books",
     ) {
         P(attrs = { classes("hc-match-lede") }) {
             Text("ListenUp couldn't tell which Hardcover book these are. Pick each one and it starts syncing.")
         }
         Ul(attrs = { classes("hc-match-list") }) {
-            books.forEach { book ->
-                val titleId = "hc-nm-${book.bookId}"
+            shown.forEachIndexed { index, book ->
                 Li(attrs = { classes("hc-match-row") }) {
                     Cover(
                         title = book.title,
@@ -563,25 +627,39 @@ private fun NeedsMatch(
                         decorative = true,
                     )
                     Div(attrs = { classes("hc-match-text") }) {
-                        Span(attrs = {
-                            classes("hc-match-title")
-                            id(titleId)
-                        }) { Text(book.title) }
+                        Span(attrs = { classes("hc-match-title") }) { Text(book.title) }
                         if (book.authorNames.isNotBlank()) {
                             Span(attrs = { classes("hc-match-by") }) { Text(book.authorNames) }
                         }
                     }
-                    // Every row's button reads the same, so it is described by its own book's title.
+                    // Every row's button reads the same, so its name goes on with its own book's title —
+                    // after the visible words, so "click Find on Hardcover" still finds it (WCAG 2.5.3).
                     Button(
                         kind = ButtonKind.Secondary,
                         onClick = { onFindMatch(book.bookId) },
-                        attrs = { attr("aria-describedby", titleId) },
+                        attrs = { if (revealed && index == NEEDS_MATCH_SHOWN) id(FIRST_REVEALED_ID) },
                     ) {
                         Icon(WebIcon.Search, size = BUTTON_ICON)
                         Text("Find on Hardcover")
+                        Span(attrs = { classes("sr-only") }) { Text(": ${book.title}") }
                     }
                 }
             }
+        }
+        if (!showingAll && books.size > NEEDS_MATCH_SHOWN) {
+            Div(attrs = { classes("hc-match-more") }) {
+                // en.json's `hardcover.needs_match_show_all`.
+                Button(kind = ButtonKind.Ghost, onClick = {
+                    showingAll = true
+                    revealed = true
+                }) { Text("Show all ${books.size} books") }
+            }
+        }
+    }
+    LaunchedEffect(revealed) {
+        if (revealed) {
+            (document.getElementById(FIRST_REVEALED_ID) as? HTMLElement)?.focus()
+            revealed = false
         }
     }
 }
@@ -710,3 +788,9 @@ private const val SHARE_MODE_LABEL = "Update Hardcover"
 
 /** Where Done's "need a match" scrolls to. */
 private const val NEEDS_MATCH_ID = "hc-needs-match"
+
+/** How many books Needs a match lists before "Show all" — the apps' number. */
+private const val NEEDS_MATCH_SHOWN = 5
+
+/** The first book "Show all" revealed, which takes focus from the button that went. */
+private const val FIRST_REVEALED_ID = "hc-nm-first-revealed"

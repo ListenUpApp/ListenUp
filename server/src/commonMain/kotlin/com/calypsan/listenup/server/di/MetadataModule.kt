@@ -282,6 +282,7 @@ private fun Module.ratingsBindings() {
                 )
             },
             scope = get<CoroutineScope>(),
+            canRun = { ExternalRatingSource.HARDCOVER in fetcher.runnableSources() },
         )
     }
     single {

@@ -46,6 +46,9 @@ enum class WebIcon(
         "M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0-18 0 M15.6 8.4l-2.2 5.2-5.2 2.2 2.2-5.2z",
     ),
     Download("M12 3v11 M8 10.5l4 4 4-4 M4 20h16"),
+
+    // A link that leaves the app for another site, beside the words that say it opens a new tab.
+    External("M14 4h6v6 M20 4l-9 9 M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"),
     Eye(
         "M2.5 12s3.6-6.5 9.5-6.5S21.5 12 21.5 12s-3.6 6.5-9.5 6.5S2.5 12 2.5 12z " +
             "M12 12m-2.75 0a2.75 2.75 0 1 0 5.5 0a2.75 2.75 0 1 0-5.5 0",

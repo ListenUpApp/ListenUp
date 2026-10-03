@@ -115,6 +115,7 @@ struct HardcoverMatchList: View {
     let onRetry: () -> Void
     let onPick: (Int64) -> Void
     let onRemove: () -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         List {
@@ -144,9 +145,22 @@ struct HardcoverMatchList: View {
         if !model.bookAuthors.isEmpty {
             caption += AttributedString(" · \(model.bookAuthors)")
         }
-        return Text(caption)
-            .font(.footnote)
-            .textCase(nil)
+        return VStack(alignment: .leading, spacing: Spacing.xxs) {
+            Text(caption)
+            if let resultsFor {
+                Text(resultsFor)
+            }
+        }
+        .font(.footnote)
+        .textCase(nil)
+    }
+
+    /// At the accessibility sizes the one-line search field shows only the start of a long query, so the
+    /// results say in full what they are for. At the regular sizes the field holds it, and this would repeat it.
+    private var resultsFor: String? {
+        guard dynamicTypeSize.isAccessibilitySize, case .results = model.search,
+              !model.query.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
+        return String(format: String(localized: "hardcover.match_results_for"), model.query)
     }
 
     private func currentMatchSection(_ current: HardcoverCurrentMatch) -> some View {

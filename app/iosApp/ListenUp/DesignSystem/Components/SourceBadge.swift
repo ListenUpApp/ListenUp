@@ -14,7 +14,8 @@ struct SourceBadge: View {
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .font(.caption2.weight(.semibold))
-            .foregroundStyle(.secondary)
+            // Primary, not secondary: secondary grey on the fill is 3.1:1, under the 4.5:1 text needs.
+            .foregroundStyle(.primary)
             .padding(.horizontal, Spacing.xs)
             .padding(.vertical, Spacing.xxs)
             .background(Capsule().fill(Color.luFill))

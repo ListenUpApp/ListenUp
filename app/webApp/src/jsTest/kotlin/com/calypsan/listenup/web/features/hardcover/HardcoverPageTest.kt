@@ -315,10 +315,15 @@ class HardcoverPageTest :
             host.querySelector("dialog.dlg") shouldBe null
         }
 
-        test("a disconnect in flight cannot be started twice") {
+        test("a disconnect in flight cannot be started twice, and keeps the focus the dialog hands back") {
             val host = mount(CONNECTED.copy(isDisconnecting = true))
 
-            host.button("Disconnect").disabled shouldBe true
+            val press = host.button("Disconnect")
+            press.disabled shouldBe false
+            press.getAttribute("aria-disabled") shouldBe "true"
+            press.click()
+            awaitFrame()
+            host.querySelector("dialog.dlg") shouldBe null
         }
 
         test("broken names the reason and who it was, and reconnects") {
@@ -396,7 +401,9 @@ class HardcoverPageTest :
             line.textContent shouldBe "Syncing…"
             line.getAttribute("role") shouldBe "status"
             val press = host.button("Sync now")
-            press.disabled shouldBe true
+            // Unavailable, but never `disabled`: that would drop the focus of the press that started it.
+            press.disabled shouldBe false
+            press.getAttribute("aria-disabled") shouldBe "true"
             press.getAttribute("aria-busy") shouldBe "true"
             press.click()
             syncs shouldBe 0
@@ -436,7 +443,7 @@ class HardcoverPageTest :
 
             host.querySelector(".hc-problem") shouldBe null
             host.querySelector(".hc-sync-t")!!.textContent shouldBe "Last synced just now"
-            host.button("Sync now").disabled shouldBe false
+            host.button("Sync now").hasAttribute("aria-disabled") shouldBe false
         }
 
         test("the books that need a match are listed and counted, and each opens Find on Hardcover") {
@@ -454,16 +461,16 @@ class HardcoverPageTest :
             val rows = section.querySelectorAll(".hc-match-row").asList().map { it as HTMLElement }
             rows.map { it.querySelector(".hc-match-title")!!.textContent } shouldBe listOf("Project Hail Mary", "Piranesi")
             rows[1].querySelector(".hc-match-by")!!.textContent shouldBe "Susanna Clarke"
-            rows[1].button("Find on Hardcover").click()
+            rows[1].button("Find on Hardcover: Piranesi").click()
             opened shouldBe listOf("b2")
         }
 
-        test("each Find on Hardcover is described by the book it finds, so a screen reader can tell them apart") {
+        test("each Find on Hardcover is named for the book it finds, after its visible words, so they can be told apart") {
             val host = mount(CONNECTED.copy(booksToMatch = listOf(HAIL_MARY, PIRANESI), isMatchListKnown = true))
 
             val press = host.panel("Needs a match").querySelectorAll("button").item(1) as HTMLElement
-            val described = document.getElementById(press.getAttribute("aria-describedby")!!)!!
-            described.textContent shouldBe "Piranesi"
+            press.textContent shouldBe "Find on Hardcover: Piranesi"
+            press.querySelector(".sr-only")!!.textContent shouldBe ": Piranesi"
         }
 
         test("a known empty list says every started book is matched") {
@@ -653,7 +660,8 @@ private fun HTMLElement.panel(title: String): HTMLElement =
     querySelectorAll("section")
         .asList()
         .map { it as HTMLElement }
-        .first { it.querySelector("h2")?.textContent == title }
+        // The heading's own words — a counted panel says its count after them, for a screen reader only.
+        .first { it.querySelector("h2")?.firstChild?.textContent == title }
 
 /** Whether [this] comes before [other] in document order. */
 private fun HTMLElement.isBefore(other: HTMLElement): Boolean =
