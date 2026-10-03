@@ -7,7 +7,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.readers.BookReaders
@@ -28,7 +27,6 @@ import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.MockMode
 import dev.mokkery.answering.returns
 import dev.mokkery.every
-import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import kotlinx.coroutines.flow.flowOf
@@ -92,7 +90,7 @@ class BookDetailPaneWidthTest {
                 every { observeForBook(any()) } returns flowOf(emptyList())
                 every { observeExternalForBook(any()) } returns flowOf(emptyList())
                 every { observeCombinedScore(any()) } returns flowOf(null)
-                everySuspend { ensureExternal(any()) } returns AppResult.Success(Unit)
+                every { observeExternalCheck(any()) } returns flowOf()
             }
         val users =
             mock<UserRepository>(MockMode.autoUnit) {

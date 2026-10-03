@@ -3,7 +3,10 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.BookRatingService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.BookRatingMutation
+import com.calypsan.listenup.api.dto.ExternalRatingsCheck
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.api.sync.ExternalRatingSource.AUDIBLE
 import com.calypsan.listenup.api.sync.ExternalRatingSource.HARDCOVER
 import com.calypsan.listenup.client.data.local.db.BookExternalRatingEntity
@@ -24,9 +27,8 @@ import com.calypsan.listenup.client.domain.model.listenUpScore
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import dev.mokkery.answering.returns
-import dev.mokkery.everySuspend
+import dev.mokkery.every
 import dev.mokkery.mock
-import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.maps.shouldContainExactly
@@ -36,6 +38,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -384,26 +387,44 @@ class BookRatingRepositoryImplTest :
             }
         }
 
-        test("ensureExternal asks the rating service for the book") {
+        test("observeExternalCheck follows the server's check: true while it runs, false when it is done") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 val service = mock<BookRatingService>()
-                everySuspend {
-                    service.ensureExternalRatings(
+                every {
+                    service.checkExternalRatings(
                         com.calypsan.listenup.core
                             .BookId("b1"),
                     )
-                } returns AppResult.Success(Unit)
+                } returns
+                    kotlinx.coroutines.flow.flowOf(
+                        RpcEvent.Data(ExternalRatingsCheck.CHECKING),
+                        RpcEvent.Data(ExternalRatingsCheck.DONE),
+                    )
                 val repo = repo(db, ratingChannel = RpcChannel.forTest(service))
 
-                repo.ensureExternal("b1").shouldBeInstanceOf<AppResult.Success<*>>()
+                repo.observeExternalCheck("b1").toList() shouldBe listOf(true, false)
+                db.close()
+            }
+        }
 
-                verifySuspend {
-                    service.ensureExternalRatings(
+        test("a check the stream drops reads as not checking") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val service = mock<BookRatingService>()
+                every {
+                    service.checkExternalRatings(
                         com.calypsan.listenup.core
                             .BookId("b1"),
                     )
-                }
+                } returns
+                    kotlinx.coroutines.flow.flowOf(
+                        RpcEvent.Data(ExternalRatingsCheck.CHECKING),
+                        RpcEvent.Error(TransportError.NetworkUnavailable()),
+                    )
+                val repo = repo(db, ratingChannel = RpcChannel.forTest(service))
+
+                repo.observeExternalCheck("b1").toList() shouldBe listOf(true, false)
                 db.close()
             }
         }

@@ -2,7 +2,9 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.BookRatingService
 import com.calypsan.listenup.api.dto.BookRatingMutation
+import com.calypsan.listenup.api.dto.ExternalRatingsCheck
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.core.error.ClientValidationException
 import com.calypsan.listenup.client.core.error.ErrorMapper
@@ -178,8 +180,10 @@ internal class BookRatingRepositoryImpl(
     override suspend fun refreshExternal(bookId: String): AppResult<Unit> =
         ratingChannel.call { it.refreshExternalRatings(BookId(bookId)) }
 
-    override suspend fun ensureExternal(bookId: String): AppResult<Unit> =
-        ratingChannel.call(idempotent = true) { it.ensureExternalRatings(BookId(bookId)) }
+    override fun observeExternalCheck(bookId: String): Flow<Boolean> =
+        ratingChannel
+            .stream { it.checkExternalRatings(BookId(bookId)) }
+            .map { event -> event is RpcEvent.Data && event.value == ExternalRatingsCheck.CHECKING }
 }
 
 private fun BookRatingEntity.toDomain(): ListenerRating =

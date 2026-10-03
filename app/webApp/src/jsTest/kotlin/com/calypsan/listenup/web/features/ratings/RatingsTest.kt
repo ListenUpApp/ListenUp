@@ -158,7 +158,7 @@ private class FakeBookRatingRepository(
         return AppResult.Success(Unit)
     }
 
-    override suspend fun ensureExternal(bookId: String): AppResult<Unit> = AppResult.Success(Unit)
+    override fun observeExternalCheck(bookId: String): Flow<Boolean> = flowOf()
 }
 
 /** [BookRatingsViewModel] only reads [observeIsAdmin] here — [isAdmin] governs `canRefresh`. */

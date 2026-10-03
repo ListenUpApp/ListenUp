@@ -16,9 +16,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration.Companion.seconds
 
 /** The rating block on Book Detail. */
 sealed interface BookRatingsUiState {
@@ -40,6 +43,8 @@ sealed interface BookRatingsUiState {
      *   (admin or root).
      * @property isRefreshingExternal whether a [BookRatingsViewModel.refreshExternal] is still in
      *   flight — true until the server answers, whether or not any score changed.
+     * @property isCheckingExternal whether the server is fetching this book's Hardcover rating right now,
+     *   because Book Detail opened it — "Checking Hardcover…" holds the score's row while it does.
      */
     data class Ready(
         val listeners: ListenerAverage?,
@@ -48,6 +53,7 @@ sealed interface BookRatingsUiState {
         val breakdown: List<ExternalRating>,
         val canRefresh: Boolean,
         val isRefreshingExternal: Boolean = false,
+        val isCheckingExternal: Boolean = false,
     ) : BookRatingsUiState
 }
 
@@ -82,6 +88,7 @@ class BookRatingsViewModel(
     val ratingLabels: RatingLabels = RatingLabels
 
     private val isRefreshingExternal = MutableStateFlow(false)
+    private val isCheckingExternal = MutableStateFlow(false)
 
     /** The block's state. */
     val state: StateFlow<BookRatingsUiState> =
@@ -90,8 +97,8 @@ class BookRatingsViewModel(
             currentUserId,
             repository.observeExternalForBook(bookId).combine(repository.observeCombinedScore(bookId), ::Pair),
             userRepository.observeIsAdmin(),
-            isRefreshingExternal,
-        ) { ratings, me, (external, score), isAdmin, refreshing ->
+            isRefreshingExternal.combine(isCheckingExternal, ::Pair),
+        ) { ratings, me, (external, score), isAdmin, (refreshing, checking) ->
             BookRatingsUiState.Ready(
                 listeners =
                     ratings.takeIf { it.isNotEmpty() }?.let { rs ->
@@ -102,15 +109,33 @@ class BookRatingsViewModel(
                 breakdown = external,
                 canRefresh = isAdmin,
                 isRefreshingExternal = refreshing,
+                isCheckingExternal = checking,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BookRatingsUiState.Loading)
 
     init {
-        // Ratings on open (#1542): ask the server to fetch this book's Hardcover rating in the background
-        // if it is missing or stale. Fire-and-forget — never shown, never blocking the block; the rating
-        // reaches every device through the ratings sync. Every platform's Book Detail builds this
+        // Ratings on open (#1542): ask the server to fetch this book's Hardcover rating if it is missing or
+        // stale, and hold the score row's space while it does. Every platform's Book Detail builds this
         // ViewModel per book, so this one call covers Android, iOS and web.
-        viewModelScope.launch { val _ = repository.ensureExternal(bookId) }
+        viewModelScope.launch { followExternalCheck() }
+    }
+
+    /**
+     * [BookRatingsUiState.Ready.isCheckingExternal] for as long as the server's check says it runs. It
+     * clears when the check ends, fails, or outlasts [EXTERNAL_CHECK_TIMEOUT]; a failure is never shown,
+     * because the rating arrives (or doesn't) through sync either way.
+     */
+    private suspend fun followExternalCheck() {
+        try {
+            withTimeoutOrNull(EXTERNAL_CHECK_TIMEOUT) {
+                repository
+                    .observeExternalCheck(bookId)
+                    .catch { emit(false) }
+                    .collect { isCheckingExternal.value = it }
+            }
+        } finally {
+            isCheckingExternal.value = false
+        }
     }
 
     /** Rate the book [halfStars] (2..10) with an optional [note]. */
@@ -145,3 +170,6 @@ class BookRatingsViewModel(
         if (result is AppResult.Failure) errorBus.emit(result.error)
     }
 }
+
+/** How long "Checking Hardcover…" may hold the score row: a backstop past the server's own 20 s bound. */
+private val EXTERNAL_CHECK_TIMEOUT = 30.seconds
