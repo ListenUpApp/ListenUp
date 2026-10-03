@@ -221,10 +221,20 @@ sealed interface PreviewLoadState {
         val moodCandidates: List<String>,
         val tagCandidates: List<String>,
         val fallbackSources: Map<BookField, String> = emptyMap(),
-        val coverSourceLabel: String? = null,
-        val coverResolution: String? = null,
         val contributingSources: List<String> = emptyList(),
     ) : PreviewLoadState {
+        /**
+         * The cover Apply will write — the one candidate every client marks as chosen — or null when
+         * the book keeps its current cover. This and [keepsCurrentCover] are the only reads a cover
+         * picker needs; the apply request is built from the same value, so the screen cannot show one
+         * cover and write another.
+         */
+        val appliedCover: CoverEntry?
+            get() = if (selections.cover) coverEntries.firstOrNull { it.url == selectedCoverUrl } else null
+
+        /** True when Apply leaves the book's current cover alone: the "Current cover" tile is the chosen one. */
+        val keepsCurrentCover: Boolean get() = appliedCover == null
+
         /**
          * Bridge-safe per-field provenance lookup: the [fallbackSources] subscript happens HERE, in
          * Kotlin, so Swift only ever passes a [BookField] as a function argument.
@@ -489,16 +499,20 @@ class MetadataViewModel(
 
     /** Toggle a simple metadata field selection (cover, title, etc.). */
     fun toggleField(field: MetadataField) {
-        updateReadySelections { selections ->
-            when (field) {
-                MetadataField.COVER -> selections.copy(cover = !selections.cover)
-                MetadataField.TITLE -> selections.copy(title = !selections.title)
-                MetadataField.SUBTITLE -> selections.copy(subtitle = !selections.subtitle)
-                MetadataField.DESCRIPTION -> selections.copy(description = !selections.description)
-                MetadataField.PUBLISHER -> selections.copy(publisher = !selections.publisher)
-                MetadataField.RELEASE_DATE -> selections.copy(releaseDate = !selections.releaseDate)
-                MetadataField.LANGUAGE -> selections.copy(language = !selections.language)
-            }
+        updateReady { ready ->
+            val selections = ready.selections
+            // With no candidate to take there is nothing to tick: the current cover stays chosen.
+            val toggled =
+                when (field) {
+                    MetadataField.COVER -> selections.copy(cover = !selections.cover && ready.coverEntries.isNotEmpty())
+                    MetadataField.TITLE -> selections.copy(title = !selections.title)
+                    MetadataField.SUBTITLE -> selections.copy(subtitle = !selections.subtitle)
+                    MetadataField.DESCRIPTION -> selections.copy(description = !selections.description)
+                    MetadataField.PUBLISHER -> selections.copy(publisher = !selections.publisher)
+                    MetadataField.RELEASE_DATE -> selections.copy(releaseDate = !selections.releaseDate)
+                    MetadataField.LANGUAGE -> selections.copy(language = !selections.language)
+                }
+            ready.copy(selections = toggled)
         }
     }
 
@@ -516,10 +530,19 @@ class MetadataViewModel(
 
     fun toggleTag(tag: String) = updateReadySelections { it.copy(selectedTags = it.selectedTags.toggle(tag)) }
 
-    /** Pick a cover URL (null = use the Audible default from the preview). */
-    fun selectCover(coverUrl: String?) {
-        updateReady { it.copy(selectedCoverUrl = coverUrl) }
+    /** Choose candidate [coverUrl] as the cover Apply writes. A URL the preview does not offer is ignored. */
+    fun selectCover(coverUrl: String) {
+        updateReady { ready ->
+            if (ready.coverEntries.none { it.url == coverUrl }) {
+                ready
+            } else {
+                ready.copy(selectedCoverUrl = coverUrl, selections = ready.selections.copy(cover = true))
+            }
+        }
     }
+
+    /** Keep the book's current cover: Apply writes no cover. The last candidate chosen is remembered for re-ticking. */
+    fun keepCurrentCover() = updateReadySelections { it.copy(cover = false) }
 
     /**
      * Apply the selected match. Calls [MetadataRepository.applyBookMetadata]
@@ -541,7 +564,7 @@ class MetadataViewModel(
                         bookId = BookId(preview.context.bookId),
                         asin = preview.match.asin,
                         region = preview.region,
-                        selection = ready.selections.toApplySelection(coverUrl = ready.selectedCoverUrl),
+                        selection = ready.selections.toApplySelection(appliedCover = ready.appliedCover),
                     )
             ) {
                 is AppResult.Success -> {
@@ -804,17 +827,24 @@ class MetadataViewModel(
         val tagCandidates = unionCandidates(currentTags, preview.tags)
 
         val prov = preview.matchProvenance
-        val coverRes =
-            if (prov?.coverWidth != null && prov.coverHeight != null) "${prov.coverWidth}×${prov.coverHeight}" else null
+        val coverEntries = buildCoverEntries(preview)
 
         state.update { latest ->
             if (latest !is MetadataUiState.Preview || latest.match.asin != match.asin) return@update latest
             val ready =
                 PreviewLoadState.Ready(
                     preview = preview,
-                    selections = initializeSelections(preview, genreCandidates, moodCandidates, tagCandidates),
-                    coverEntries = buildCoverEntries(preview),
-                    selectedCoverUrl = null,
+                    selections =
+                        initializeSelections(
+                            preview,
+                            coverEntries,
+                            genreCandidates,
+                            moodCandidates,
+                            tagCandidates,
+                        ),
+                    coverEntries = coverEntries,
+                    // The best candidate is chosen up front and shown as chosen — never an unmarked default.
+                    selectedCoverUrl = coverEntries.firstOrNull()?.url,
                     isApplying = false,
                     applyError = null,
                     previewNotFound = previewNotFound,
@@ -823,8 +853,6 @@ class MetadataViewModel(
                     moodCandidates = moodCandidates,
                     tagCandidates = tagCandidates,
                     fallbackSources = prov?.fallbackFields ?: emptyMap(),
-                    coverSourceLabel = prov?.coverSource,
-                    coverResolution = coverRes,
                     contributingSources = prov?.contributingSources ?: emptyList(),
                 )
             latest.copy(loadState = ready)
@@ -846,7 +874,7 @@ class MetadataViewModel(
         updateReady { it.copy(selections = transform(it.selections)) }
     }
 
-    private fun MetadataSelections.toApplySelection(coverUrl: String?): MetadataApplySelection =
+    private fun MetadataSelections.toApplySelection(appliedCover: CoverEntry?): MetadataApplySelection =
         MetadataApplySelection(
             title = title,
             subtitle = subtitle,
@@ -854,11 +882,11 @@ class MetadataViewModel(
             publisher = publisher,
             releaseDate = releaseDate,
             language = language,
-            cover = cover,
+            cover = appliedCover != null,
             authorAsins = selectedAuthors,
             narratorAsins = selectedNarrators,
             seriesAsins = selectedSeries,
-            coverUrl = coverUrl,
+            coverUrl = appliedCover?.url,
             genres = selectedGenres,
             moods = selectedMoods,
             tags = selectedTags,
@@ -866,12 +894,13 @@ class MetadataViewModel(
 
     private fun initializeSelections(
         preview: MetadataBook,
+        coverEntries: List<CoverEntry>,
         genreCandidates: List<String>,
         moodCandidates: List<String>,
         tagCandidates: List<String>,
     ): MetadataSelections =
         MetadataSelections(
-            cover = preview.coverUrl != null,
+            cover = coverEntries.isNotEmpty(),
             title = preview.title.isNotBlank(),
             subtitle = !preview.subtitle.isNullOrBlank(),
             description = !preview.description.isNullOrBlank(),

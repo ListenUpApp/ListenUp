@@ -339,6 +339,7 @@ private val APPLY_SELECTION =
         authorAsins = setOf("A123"),
         narratorAsins = emptySet(),
         seriesAsins = emptySet(),
+        coverUrl = "https://example.com/way-of-kings.jpg",
     )
 
 private fun buildService(

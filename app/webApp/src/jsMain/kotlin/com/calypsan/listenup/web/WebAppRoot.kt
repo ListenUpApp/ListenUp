@@ -164,6 +164,7 @@ import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.LocalCompositionProbe
 import com.calypsan.listenup.web.design.WebIcon
+import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
 import com.calypsan.listenup.web.features.seriesdetail.SeriesDetailPage
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditNavAction
@@ -2021,10 +2022,12 @@ private fun MetadataRoute(
         onToggleMood = session.onToggleMood,
         onToggleTag = session.onToggleTag,
         onSelectCover = session.onSelectCover,
+        onKeepCurrentCover = session.onKeepCurrentCover,
         onToggleChapter = session.onToggleChapter,
         onApplyChapterNames = session.onApplyChapterNames,
         onApply = session.onApply,
         onLeave = { router.navigate(target) },
+        currentCoverUrl = coverUrl(bookId, book.coverHash, width = MATCH_CURRENT_COVER_WIDTH),
         reviewingChapters = reviewingChapters,
         onReviewChapters = { reviewingChapters = it },
     )
@@ -3285,6 +3288,9 @@ private const val SHELF_KEY = "shelf"
 private const val NEW_KEY = "new"
 
 private const val BOOK_KEY = "book"
+
+/** The match page's "Current cover" tile is 88 px square; twice that keeps it sharp on a 2× screen. */
+private const val MATCH_CURRENT_COVER_WIDTH = 176
 
 /** The trailing segment that turns a book route into its edit form. */
 private const val EDIT_KEY = "edit"

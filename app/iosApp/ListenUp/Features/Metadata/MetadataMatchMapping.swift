@@ -111,7 +111,7 @@ enum MetadataMatchMapping {
             authorsLine: joinedNames(book.authors),
             narratorsLine: joinedNames(book.narrators),
             runtimeMinutes: book.runtimeMinutes.map { Int($0) },
-            coverURL: ready.selectedCoverUrl ?? book.coverUrl,
+            coverURL: book.coverUrl,
             identityFields: identity,
             detailFields: details,
             authors: authors,
@@ -127,6 +127,9 @@ enum MetadataMatchMapping {
             coverOptions: ready.coverEntries.map {
                 MetadataCoverOption(url: $0.url, label: $0.label, resolution: $0.resolution)
             },
+            // The shared ViewModel decides which cover Apply writes; read it, never re-derive it.
+            appliedCoverURL: ready.appliedCover?.url,
+            appliedCoverLabel: ready.appliedCover?.label,
             // Copy into a native array at the boundary — never hold the bridged Kotlin list.
             contributingSources: Array(ready.contributingSources),
             chapters: chapterState(from: ready.chapterSuggestion),
@@ -292,6 +295,31 @@ enum MetadataMatchMapping {
     }
 
     // MARK: - Selection counts
+
+    // MARK: - After apply
+
+    /// The confirmation's receipt: the cover's real source (nil = kept) and only the chapter names
+    /// that were actually written, never the pre-ticked selection.
+    static func receipt(from preview: MetadataPreview, chaptersNamed: Int) -> MetadataApplyReceipt {
+        MetadataApplyReceipt(
+            fieldsApplied: preview.selectedCount,
+            coverSource: preview.appliedCoverLabel,
+            chaptersNamed: chaptersNamed
+        )
+    }
+
+    /// An apply error to raise, once: only when one has just appeared (the ViewModel clears it while
+    /// a retry is in flight, so a repeated failure appears again).
+    static func surfacedApplyError(previous: String?, current: String?) -> String? {
+        guard let current, previous == nil else { return nil }
+        return current
+    }
+
+    /// How many chapter names are ticked in [phase], or zero when chapter names are not on offer.
+    static func selectedChapterCount(_ status: MetadataPreviewStatus?) -> Int {
+        guard case .ready(let preview) = status, case .available(let available) = preview.chapters else { return 0 }
+        return available.selectedCount
+    }
 
     private struct Counts { let selected: Int; let total: Int }
 

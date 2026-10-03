@@ -144,10 +144,12 @@ class MatchApplySelectionTest :
             match: MetadataBook,
             coverBytes: ByteArray? = null,
             ladders: List<List<String>> = emptyList(),
+            fetchedUrls: MutableList<String> = mutableListOf(),
         ): BookMetadataApplier {
             val tempDir = Files.createTempDirectory("matchapply-").also { it.toFile().deleteOnExit() }
             val engine =
-                MockEngine {
+                MockEngine { request ->
+                    fetchedUrls += request.url.toString()
                     if (coverBytes != null) {
                         respond(coverBytes, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, ContentType.Image.PNG.toString()))
                     } else {
@@ -309,6 +311,106 @@ class MatchApplySelectionTest :
                     val saved = books.findById(BookId("b1"))!!
                     saved.cover.shouldNotBeNull()
                     saved.cover!!.source shouldBe CoverSource.UPLOADED
+                }
+            }
+        }
+
+        test("cover=on fetches exactly the chosen coverUrl, never the match's own") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
+                val genreRepo = GenreRepository(sql, bus, registry)
+                val books = BookRepository(sql, bus, registry, driver, contributors, series, genreRepo)
+                runTest {
+                    val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
+                    books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
+                    val fetched = mutableListOf<String>()
+                    val match = matchBook().copy(coverUrlMaxSize = "https://itunes/max.png")
+                    val a =
+                        applier(
+                            this@withSqlDatabase,
+                            genreRepo,
+                            books,
+                            contributors,
+                            series,
+                            match,
+                            coverBytes = ONE_PX_PNG,
+                            fetchedUrls = fetched,
+                        )
+                    val sel = allButCover().copy(cover = true, coverUrl = "https://audible/new.jpg")
+                    a.apply(BookId("b1"), "B0NEW", MetadataLocale("us"), sel).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    fetched shouldBe listOf("https://audible/new.jpg")
+                }
+            }
+        }
+
+        test("keeping the current cover (cover=off) leaves it untouched even when the match has artwork") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
+                val genreRepo = GenreRepository(sql, bus, registry)
+                val books = BookRepository(sql, bus, registry, driver, contributors, series, genreRepo)
+                runTest {
+                    val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
+                    books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
+                    books.setManagedCover(BookId("b1"), "covers/old.png", "oldhash", CoverSource.EMBEDDED)
+                    val fetched = mutableListOf<String>()
+                    val a =
+                        applier(
+                            this@withSqlDatabase,
+                            genreRepo,
+                            books,
+                            contributors,
+                            series,
+                            matchBook().copy(coverUrlMaxSize = "https://itunes/max.png"),
+                            coverBytes = ONE_PX_PNG,
+                            fetchedUrls = fetched,
+                        )
+                    a.apply(BookId("b1"), "B0NEW", MetadataLocale("us"), allButCover()).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    fetched shouldBe emptyList()
+                    books.findById(BookId("b1"))!!.cover?.hash shouldBe "oldhash"
+                }
+            }
+        }
+
+        test("cover=on without a coverUrl names no cover, so none is written — the match's own is never assumed") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
+                val genreRepo = GenreRepository(sql, bus, registry)
+                val books = BookRepository(sql, bus, registry, driver, contributors, series, genreRepo)
+                runTest {
+                    val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
+                    books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
+                    books.setManagedCover(BookId("b1"), "covers/old.png", "oldhash", CoverSource.EMBEDDED)
+                    val fetched = mutableListOf<String>()
+                    val a =
+                        applier(
+                            this@withSqlDatabase,
+                            genreRepo,
+                            books,
+                            contributors,
+                            series,
+                            matchBook().copy(coverUrlMaxSize = "https://itunes/max.png"),
+                            coverBytes = ONE_PX_PNG,
+                            fetchedUrls = fetched,
+                        )
+                    val sel = allButCover().copy(cover = true, coverUrl = null)
+                    a.apply(BookId("b1"), "B0NEW", MetadataLocale("us"), sel).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    fetched shouldBe emptyList()
+                    books.findById(BookId("b1"))!!.cover?.hash shouldBe "oldhash"
                 }
             }
         }
