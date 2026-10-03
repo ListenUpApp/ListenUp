@@ -238,6 +238,27 @@ class BookRatingRepositoryImplTest :
             }
         }
 
+        test("an outside rating reaches the UI with its fetch time") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                db.bookExternalRatingDao().upsert(
+                    BookExternalRatingEntity(
+                        bookId = "b1",
+                        source = "HARDCOVER",
+                        syncId = "e1",
+                        average = 4.1,
+                        count = 88,
+                        enabled = true,
+                        fetchedAt = 1_790_000_000_000L,
+                    ),
+                )
+                val repo = repo(db)
+
+                repo.observeExternalForBook("b1").first().single().fetchedAtMs shouldBe 1_790_000_000_000L
+                db.close()
+            }
+        }
+
         test("observeCombinedScores calibrates over every enabled known-source row and scores each book with it") {
             runTest {
                 val db = createInMemoryTestDatabase()

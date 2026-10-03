@@ -192,4 +192,4 @@ private fun BookRatingEntity.toDomain(): ListenerRating =
  * additionally filter `"UNKNOWN"` rows out before they ever reach here, so [valueOf] is safe.
  */
 private fun BookExternalRatingEntity.toExternalRating(): ExternalRating =
-    ExternalRating(source = ExternalRatingSource.valueOf(source), average = average, count = count)
+    ExternalRating(source = ExternalRatingSource.valueOf(source), average = average, count = count, fetchedAtMs = fetchedAt)

@@ -66,6 +66,7 @@ internal class BookExternalRatingMirrorApply(
                 enabled = payload.enabled,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,
+                fetchedAt = payload.fetchedAt,
             ),
         )
     }

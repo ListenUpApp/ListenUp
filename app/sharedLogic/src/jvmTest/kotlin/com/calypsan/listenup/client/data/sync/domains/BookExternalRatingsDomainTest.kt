@@ -113,6 +113,35 @@ class BookExternalRatingsDomainTest :
             }
         }
 
+        test("an upsert mirrors when the server fetched the rating") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    BookExternalRatingMirrorApply(db).upsert(
+                        ExternalRatingSyncPayload(
+                            id = "e3",
+                            bookId = "b3",
+                            source = ExternalRatingSource.HARDCOVER,
+                            average = 4.1,
+                            count = 88,
+                            enabled = true,
+                            revision = 2L,
+                            fetchedAt = 1_790_000_000_000L,
+                        ),
+                    )
+
+                    db
+                        .bookExternalRatingDao()
+                        .observeForBook("b3")
+                        .first()
+                        .single()
+                        .fetchedAt shouldBe 1_790_000_000_000L
+                }
+            } finally {
+                db.close()
+            }
+        }
+
         test("the domain is access-gated, like every book-scoped domain") {
             val db = createInMemoryTestDatabase()
             try {
