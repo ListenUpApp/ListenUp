@@ -73,7 +73,10 @@ internal suspend fun currentStreakRun(
     if (currentStreakDays <= 0) return null
     val listeningEndedAtMs =
         suspendTransaction(sql) {
-            sql.listeningEventsQueries.selectForUserOrderedByEndedAt(userId).executeAsList().map { it.ended_at }
+            sql.listeningEventsQueries
+                .selectForUserOrderedByEndedAt(userId)
+                .executeAsList()
+                .map { it.ended_at }
         }
     val firstInstantByDay =
         streakDayInstantsMs(sql, userId, listeningEndedAtMs)

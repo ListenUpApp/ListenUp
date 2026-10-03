@@ -139,7 +139,10 @@ class StatsRecorderStreakMilestoneRunTest :
                     val syncedAt = at(LocalDate(2026, 10, 3), 7)
                     rig.clock.instant = syncedAt
                     rig.updater.healStaleStats(userId, asOfMs = syncedAt.toEpochMilliseconds()) shouldBe true
-                    rig.userStatsRepo.getForUser(userId).shouldNotBeNull().currentStreakDays shouldBe 0
+                    rig.userStatsRepo
+                        .getForUser(userId)
+                        .shouldNotBeNull()
+                        .currentStreakDays shouldBe 0
 
                     // The phone syncs Oct 2's three evening sessions. The streak is restored to 43, but it
                     // is the same streak: 7, 14 and 30 were already earned in it.
@@ -148,7 +151,10 @@ class StatsRecorderStreakMilestoneRunTest :
                     rig.arrive(span("late-2", endedAt = at(oct2, 22, 35)))
                     rig.arrive(span("late-3", endedAt = at(oct2, 22, 50)))
 
-                    rig.userStatsRepo.getForUser(userId).shouldNotBeNull().currentStreakDays shouldBe 43
+                    rig.userStatsRepo
+                        .getForUser(userId)
+                        .shouldNotBeNull()
+                        .currentStreakDays shouldBe 43
                     rig.streakMilestones().map { it.milestoneValue } shouldBe listOf(7, 14, 30)
                 }
             }
@@ -183,7 +189,10 @@ class StatsRecorderStreakMilestoneRunTest :
                     rig.clock.instant = syncedAt
                     rig.arrive(span("late", endedAt = at(LocalDate(2026, 10, 2), 22, 17)))
 
-                    rig.userStatsRepo.getForUser(userId).shouldNotBeNull().currentStreakDays shouldBe 43
+                    rig.userStatsRepo
+                        .getForUser(userId)
+                        .shouldNotBeNull()
+                        .currentStreakDays shouldBe 43
                     rig.streakMilestones() shouldHaveSize 3
                 }
             }
@@ -260,14 +269,20 @@ class StatsRecorderStreakMilestoneRunTest :
                     val seventh = LocalDate(2026, 9, 7)
                     rig.clock.instant = at(seventh, 19)
                     rig.arrive(span("seventh", endedAt = at(seventh, 18, 30)))
-                    rig.userStatsRepo.getForUser(userId).shouldNotBeNull().currentStreakDays shouldBe 1
+                    rig.userStatsRepo
+                        .getForUser(userId)
+                        .shouldNotBeNull()
+                        .currentStreakDays shouldBe 1
 
                     // Sept 6's session ended at 23:40 local — 05:40 UTC on Sept 7 — and arrives the next
                     // morning, after Sept 7's. In Edmonton it is Sept 6, and it closes the gap.
                     rig.clock.instant = at(LocalDate(2026, 9, 8), 7)
                     rig.arrive(span("sixth-late", endedAt = at(sixth, 23, 40)))
 
-                    rig.userStatsRepo.getForUser(userId).shouldNotBeNull().currentStreakDays shouldBe 7
+                    rig.userStatsRepo
+                        .getForUser(userId)
+                        .shouldNotBeNull()
+                        .currentStreakDays shouldBe 7
                     val milestones = rig.streakMilestones()
                     milestones shouldHaveSize 1
                     milestones.single().milestoneValue shouldBe 7
