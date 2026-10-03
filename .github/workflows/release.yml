@@ -28,6 +28,10 @@ on:
         description: "Release server (GHCR)"
         type: boolean
         default: true
+      ios_dry_run:
+        description: "iOS signing dry run: archive + export an IPA, no TestFlight upload, no GitHub Release"
+        type: boolean
+        default: false
 
 concurrency:
   group: release
@@ -54,6 +58,10 @@ jobs:
         run: |
           set -euo pipefail
           INPUT="${{ inputs.version }}"
+          if [ -n "$INPUT" ] && [ "${{ inputs.ios_dry_run }}" = "true" ]; then
+            echo "::error::An iOS dry run ships nothing, so it must not bump VERSION or tag. Leave version blank."
+            exit 1
+          fi
           if [ -n "$INPUT" ]; then
             CLEAN="${INPUT#v}"
             echo "$CLEAN" > VERSION
@@ -84,7 +92,7 @@ jobs:
     name: Android → Play (internal/draft)
     runs-on: ubuntu-latest
     needs: set-version
-    if: ${{ inputs.android }}
+    if: ${{ inputs.android && !inputs.ios_dry_run }}
     permissions:
       contents: write
     steps:
@@ -171,6 +179,7 @@ jobs:
     # platform's success only when its boolean input selected it.
     if: >-
       always() &&
+      inputs.ios_dry_run == false &&
       needs.set-version.result == 'success' &&
       (inputs.android == false || needs.android.result == 'success') &&
       (inputs.ios == false || needs.ios.result == 'success') &&
@@ -248,10 +257,32 @@ jobs:
           security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PW" "$KEYCHAIN"
 
+      # Every archive below mints an Apple Development certificate: automatic signing wants a
+      # development identity, a fresh runner never has one, and `-allowProvisioningUpdates`
+      # creates one through the ASC API key. The private key dies with the runner, so the
+      # certificates pile up until Apple's cap refuses the next one — which is how the 0.9.6
+      # release died on "Choose a certificate to revoke". (Ad hoc archiving can't avoid it:
+      # the app group, aps-environment and CarPlay entitlements require development signing.)
+      # So before archiving, revoke the development certificates earlier runs minted — the
+      # API names them "Created via API"; certificates made in Xcode or the portal, and every
+      # distribution certificate, are never touched. Best effort: never fails the release.
+      - name: Revoke development certificates minted by earlier runs
+        continue-on-error: true
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+          export ASC_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          echo "$ASC_KEY_P8" | base64 -d > "$ASC_KEY_PATH"
+          python3 .github/scripts/revoke_ci_dev_certs.py
+
       # Apple-native build → upload. `xcodebuild -exportArchive` with destination=upload
       # in ExportOptions.plist delivers the build to App Store Connect / TestFlight directly,
       # authenticated by the ASC API key. `-allowProvisioningUpdates` lets xcodebuild manage
       # signing via that key (no manual provisioning profile needed). No Ruby/Fastlane.
+      # A dry run swaps the destination to `export` and inspects the signed IPA instead.
       - name: Archive, export & upload to TestFlight
         working-directory: app/iosApp
         env:
@@ -260,11 +291,13 @@ jobs:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8_BASE64 }}
           MARKETING_VERSION: ${{ needs.set-version.outputs.version }}
           BUILD_NUMBER: ${{ github.run_number }}
+          DRY_RUN: ${{ inputs.ios_dry_run }}
         run: |
           set -euo pipefail
           KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
           echo "$ASC_KEY_P8" | base64 -d > "$KEY_PATH"
           ARCHIVE="$RUNNER_TEMP/ListenUp.xcarchive"
+          EXPORT_DIR="$RUNNER_TEMP/export"
 
           xcodebuild archive \
             -scheme ListenUp \
@@ -278,14 +311,39 @@ jobs:
             MARKETING_VERSION="$MARKETING_VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
 
+          EXPORT_OPTIONS="ExportOptions.plist"
+          if [ "$DRY_RUN" = "true" ]; then
+            EXPORT_OPTIONS="$RUNNER_TEMP/ExportOptions.dry-run.plist"
+            cp ExportOptions.plist "$EXPORT_OPTIONS"
+            plutil -replace destination -string export "$EXPORT_OPTIONS"
+          fi
+
           xcodebuild -exportArchive \
             -archivePath "$ARCHIVE" \
-            -exportOptionsPlist ExportOptions.plist \
-            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$EXPORT_OPTIONS" \
+            -exportPath "$EXPORT_DIR" \
             -authenticationKeyPath "$KEY_PATH" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             -allowProvisioningUpdates
+
+          if [ "$DRY_RUN" = "true" ]; then
+            # What TestFlight would have received: the signing identity and entitlements of
+            # the app and every extension (expect Apple Distribution, aps-environment
+            # production, the app group, CarPlay audio, associated domains).
+            unzip -q "$EXPORT_DIR"/*.ipa -d "$RUNNER_TEMP/ipa"
+            {
+              echo "### iOS signing dry run — not uploaded"
+              find "$RUNNER_TEMP/ipa/Payload" -maxdepth 3 \( -name '*.app' -o -name '*.appex' \) | while read -r bundle; do
+                echo
+                echo "#### $(basename "$bundle")"
+                echo '```'
+                codesign -dvv "$bundle" 2>&1 | grep -E '^(Authority|TeamIdentifier|Identifier)=' || true
+                codesign -d --entitlements - --xml "$bundle" 2>/dev/null | plutil -convert xml1 -o - - || true
+                echo '```'
+              done
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   server:
     name: Server → GHCR
@@ -295,7 +353,7 @@ jobs:
     # server.kexe would fail to start on an older-glibc base with "GLIBC_x.y not found".
     runs-on: ubuntu-24.04
     needs: set-version
-    if: ${{ inputs.server }}
+    if: ${{ inputs.server && !inputs.ios_dry_run }}
     permissions:
       contents: read
       packages: write
