@@ -27,6 +27,10 @@ import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_chapters
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import listenup.composeapp.generated.resources.book_detail_chapter_count
+import listenup.composeapp.generated.resources.book_detail_chapter_count_one
 
 private val tabularNumsStyle: TextStyle
     @Composable get() =
@@ -47,22 +51,34 @@ fun ChaptersHeader(
     modifier: Modifier = Modifier,
     trailingContent: (@Composable () -> Unit)? = null,
 ) {
+    val countDescription =
+        if (chapterCount == 1) {
+            stringResource(Res.string.book_detail_chapter_count_one)
+        } else {
+            stringResource(Res.string.book_detail_chapter_count, chapterCount)
+        }
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = stringResource(Res.string.book_detail_chapters),
-            style =
-                MaterialTheme.typography.titleLarge.copy(
-                    fontFamily = DisplayFontFamily,
-                    fontWeight = FontWeight.SemiBold,
-                ),
-        )
+        // The title and its count are one heading: "Chapters, 19 chapters". The trailing control keeps its own node.
+        Row(
+            modifier = Modifier.semantics(mergeDescendants = true) { heading() },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(Res.string.book_detail_chapters),
+                style =
+                    MaterialTheme.typography.titleLarge.copy(
+                        fontFamily = DisplayFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                    ),
+            )
 
-        Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(8.dp))
 
-        CountBadge(count = chapterCount)
+            CountBadge(count = chapterCount, contentDescription = countDescription)
+        }
 
         Spacer(modifier = Modifier.weight(1f))
 

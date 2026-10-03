@@ -44,6 +44,8 @@ import listenup.composeapp.generated.resources.common_genres
 import listenup.composeapp.generated.resources.common_read_less
 import listenup.composeapp.generated.resources.common_read_more
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 private const val DESCRIPTION_PREVIEW_MAX_LINES = 4
 private const val DESCRIPTION_EXPAND_THRESHOLD = 200
@@ -112,7 +114,7 @@ fun AboutSection(
                         fontWeight = FontWeight.SemiBold,
                     ),
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 8.dp),
+                modifier = Modifier.semantics { heading() }.padding(bottom = 8.dp),
             )
 
             AboutDescriptionBlock(

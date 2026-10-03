@@ -1,7 +1,12 @@
 package com.calypsan.listenup.client.features.settings
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -12,6 +17,7 @@ import com.calypsan.listenup.client.presentation.hardcover.HardcoverCandidateRow
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverMatchUiState
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverMatchedBook
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverSearchState
+import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -98,7 +104,26 @@ class HardcoverMatchContentTest {
     @Test
     fun `each result says what tapping it does`() {
         render(ready())
-        composeRule.onNodeWithContentDescription("Match to Project Hail Mary (Summary)").assertIsDisplayed()
+        composeRule
+            .onNode(hasText("Project Hail Mary (Summary)") and hasClickAction())
+            .fetchSemanticsNode()
+            .config[SemanticsActions.OnClick]
+            .label shouldBe "Match"
+    }
+
+    @Test
+    fun `each result is read whole - title, author, format, year and ratings`() {
+        render(ready())
+        val row = composeRule.onNode(hasText("Project Hail Mary") and hasClickAction() and !hasSetTextAction()).fetchSemanticsNode()
+        row.config.getOrElse(SemanticsProperties.ContentDescription) { emptyList() } shouldBe emptyList()
+        row.config[SemanticsProperties.Text].map { it.text } shouldContainAll
+            listOf("Project Hail Mary", "Andy Weir, Ray Porter", "Audiobook", "2021 · 8.1k ratings")
+    }
+
+    @Test
+    fun `the search field keeps its label once it holds a search`() {
+        render(ready())
+        composeRule.onNode(hasSetTextAction() and hasText("Search Hardcover", substring = true)).assertExists()
     }
 
     @Test

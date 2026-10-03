@@ -59,7 +59,9 @@ private val md_theme_light_surfaceContainer = Color(0xFFFCEAE3)
 private val md_theme_light_surfaceContainerHigh = Color(0xFFF7E3DC)
 private val md_theme_light_surfaceContainerHighest = Color(0xFFF1DDD6)
 
-private val md_theme_light_outline = Color(0xFFA08C84)
+// Dark enough to clear 3:1 on every light surface up to surfaceContainerHighest: it is the edge of an
+// outlined button and a text field, which low-vision readers find the control by (WCAG 1.4.11).
+private val md_theme_light_outline = Color(0xFF85736E)
 private val md_theme_light_outlineVariant = Color(0xFFE3D0C9)
 private val md_theme_light_inverseSurface = Color(0xFF362F2D)
 private val md_theme_light_inverseOnSurface = Color(0xFFFBEEEB)

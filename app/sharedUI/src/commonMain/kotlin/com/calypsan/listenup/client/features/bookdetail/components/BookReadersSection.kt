@@ -70,6 +70,14 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import kotlin.time.Clock
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import listenup.composeapp.generated.resources.book_detail_readers_read_on_hardcover
+import listenup.composeapp.generated.resources.book_detail_readers_count
+import listenup.composeapp.generated.resources.book_detail_readers_count_one
+import listenup.composeapp.generated.resources.book_detail_reader_view_profile
 
 private const val MAX_COLLAPSED_READERS = 5
 
@@ -278,19 +286,25 @@ fun BookReadersContent(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = stringResource(Res.string.book_detail_readers),
-                    style =
-                        MaterialTheme.typography.titleLarge.copy(
-                            fontFamily = DisplayFontFamily,
-                            fontWeight = FontWeight.SemiBold,
-                        ),
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+                // The title and its count are one heading: "Readers, 3 readers". See all keeps its own node.
+                Row(
+                    modifier = Modifier.semantics(mergeDescendants = true) { heading() },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(Res.string.book_detail_readers),
+                        style =
+                            MaterialTheme.typography.titleLarge.copy(
+                                fontFamily = DisplayFontFamily,
+                                fontWeight = FontWeight.SemiBold,
+                            ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
 
-                Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
 
-                CountBadge(count = totalCount)
+                    CountBadge(count = totalCount, contentDescription = readerCount(totalCount))
+                }
 
                 Spacer(modifier = Modifier.weight(1f))
 
@@ -368,8 +382,9 @@ internal fun ReaderRow(
     Row(
         modifier =
             modifier
-                .clickable { onUserClick(reader.userId) }
-                .padding(vertical = 6.dp, horizontal = 2.dp),
+                .clickable(onClickLabel = stringResource(Res.string.book_detail_reader_view_profile)) {
+                    onUserClick(reader.userId)
+                }.padding(vertical = 6.dp, horizontal = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Start,
     ) {
@@ -387,10 +402,11 @@ internal fun ReaderRow(
                 Modifier
             }
 
+        // The name is read beside it; the avatar saying it first was "Ada, Ada".
         UserAvatar(
             userId = reader.userId,
             size = AvatarSize.Medium,
-            modifier = avatarModifier,
+            modifier = Modifier.clearAndSetSemantics {}.then(avatarModifier),
         )
 
         Spacer(modifier = Modifier.width(13.dp))
@@ -482,8 +498,10 @@ private fun ReaderStateLine(reader: ReaderRowUi) {
     } else if (reader.finishedWhen != null && reader.isOnHardcover) {
         // Flows rather than a Row: at a large font scale the label wraps beneath the date instead of
         // crushing it.
+        // One phrase for TalkBack — "Read May 2016 on Hardcover" — where the eye reads the date beside the label.
+        val spoken = stringResource(Res.string.book_detail_readers_read_on_hardcover, reader.finishedWhen)
         FlowRow(
-            modifier = Modifier.padding(top = 2.dp),
+            modifier = Modifier.padding(top = 2.dp).clearAndSetSemantics { contentDescription = spoken },
             itemVerticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -559,3 +577,12 @@ private fun ProgressBar(
         )
     }
 }
+
+/** "1 reader" or "N readers": what the Readers count badge counts. */
+@Composable
+private fun readerCount(count: Int): String =
+    if (count == 1) {
+        stringResource(Res.string.book_detail_readers_count_one)
+    } else {
+        stringResource(Res.string.book_detail_readers_count, count)
+    }

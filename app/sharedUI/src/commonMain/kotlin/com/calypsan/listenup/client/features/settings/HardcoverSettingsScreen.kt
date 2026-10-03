@@ -40,6 +40,7 @@ import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.design.components.SectionColumns
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.design.util.isLargeFontScale
 import com.calypsan.listenup.client.presentation.error.localizedString
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsEvent
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsUiState
@@ -250,7 +251,8 @@ private fun heroBarColors(): TopAppBarColors =
     )
 
 /**
- * Narrow: one column, with the actions held at the bottom edge where a thumb reaches them. Wide: the
+ * Narrow: one column, with the actions held at the bottom edge where a thumb reaches them — or, at a large
+ * font, following the content so the content keeps the screen. Wide: the
  * lead region and the detail as [SectionColumns] sections — side by side once the window affords two
  * columns — with the actions following the detail.
  */
@@ -288,6 +290,16 @@ private fun PhaseLayout(
             }
         }
     } else {
+        // At a large font a pinned footer would leave the content a slot to be read through, so the actions
+        // follow the content and scroll with it instead.
+        val actionsScroll = isLargeFontScale()
+        val actions: @Composable (Modifier) -> Unit = { actionsModifier ->
+            Column(
+                modifier = actionsModifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
+                verticalArrangement = Arrangement.spacedBy(Spacing.titleGap),
+                content = phase.actions,
+            )
+        }
         Column(modifier = modifier.fillMaxSize()) {
             Column(
                 modifier =
@@ -316,16 +328,9 @@ private fun PhaseLayout(
                         content = detail,
                     )
                 }
+                if (actionsScroll) actions(Modifier)
             }
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Spacing.screenMargin)
-                        .padding(bottom = Spacing.sectionGap),
-                verticalArrangement = Arrangement.spacedBy(Spacing.titleGap),
-                content = phase.actions,
-            )
+            if (!actionsScroll) actions(Modifier.padding(bottom = Spacing.sectionGap))
         }
     }
 }

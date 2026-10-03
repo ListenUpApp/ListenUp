@@ -5,10 +5,11 @@ import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
@@ -25,6 +26,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+
+/** The button's height at the default font: a 56dp pill. A label that wraps at a large font grows it. */
+private val ButtonHeight = 56.dp
+
+/** Material's disabled-outline opacity. */
+private const val DISABLED_OUTLINE_ALPHA = 0.12f
 
 /**
  * The canonical Material 3 Expressive button — a fully-rounded pill with an animated
@@ -46,6 +53,10 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
  * @param trailingIcon Optional icon shown after the text (hidden while loading)
  * @param danger `true` for a destructive action (Disconnect, Delete): the error colour takes the
  *   place of primary — an error fill when [filled], error text inside the outline otherwise
+ *
+ * The pill is 56dp tall at least, never exactly: at a large font a label wraps and the button grows
+ * around it rather than clipping its second line. The outlined variant draws its edge in
+ * [listenUpOutlinedBorder], so its tappable bounds stay visible.
  */
 @Composable
 fun ListenUpButton(
@@ -108,7 +119,7 @@ fun ListenUpButton(
             enabled = enabled && !isLoading,
             shape = CircleShape,
             colors = filledColors(danger),
-            modifier = modifier.then(widthModifier).height(56.dp),
+            modifier = modifier.then(widthModifier).heightIn(min = ButtonHeight),
         ) { label() }
     } else {
         OutlinedButton(
@@ -116,7 +127,8 @@ fun ListenUpButton(
             enabled = enabled && !isLoading,
             shape = CircleShape,
             colors = outlinedColors(danger),
-            modifier = modifier.then(widthModifier).height(56.dp),
+            border = listenUpOutlinedBorder(enabled = enabled && !isLoading),
+            modifier = modifier.then(widthModifier).heightIn(min = ButtonHeight),
         ) { label() }
     }
 }
@@ -154,3 +166,23 @@ private fun outlinedColors(danger: Boolean): ButtonColors =
     } else {
         ButtonDefaults.outlinedButtonColors()
     }
+
+/**
+ * The edge of an outlined button: Material's `outline` role, not the faint `outlineVariant` Material 3
+ * Expressive defaults to, so a low-vision reader can see where the button is (at least 3:1 against the
+ * surfaces it sits on). Raw [OutlinedButton]s pass it as their `border`, so every outlined button in the app
+ * has the same visible edge.
+ *
+ * @param enabled When false, the edge fades as Material's disabled outline does.
+ */
+@Composable
+fun listenUpOutlinedBorder(enabled: Boolean = true): BorderStroke =
+    BorderStroke(
+        width = 1.dp,
+        color =
+            if (enabled) {
+                MaterialTheme.colorScheme.outline
+            } else {
+                MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_OUTLINE_ALPHA)
+            },
+    )

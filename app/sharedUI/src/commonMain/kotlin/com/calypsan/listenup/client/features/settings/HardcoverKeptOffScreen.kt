@@ -38,6 +38,7 @@ import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.SettingNavigationRow
+import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.error.localizedString
@@ -191,6 +192,7 @@ private fun KeptOffBookRow(
                 }
             }
             OutlinedButton(
+                border = listenUpOutlinedBorder(),
                 onClick = {
                     haptics.press()
                     onSyncAgain()

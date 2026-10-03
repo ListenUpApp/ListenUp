@@ -92,6 +92,7 @@ import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.UserAvatar
+import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
 import com.calypsan.listenup.client.design.util.ratingSourceLabel
 import com.calypsan.listenup.client.design.util.isJustNow
 import com.calypsan.listenup.client.design.util.relativeTime
@@ -185,6 +186,8 @@ import listenup.composeapp.generated.resources.connect_listenup_server
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import com.calypsan.listenup.client.design.components.rememberHeroScrollBehavior
 
 /**
  * Combined admin screen showing server settings, users, pending registrations & invites, and the
@@ -253,14 +256,17 @@ fun AdminScreen(
         }
     }
 
+    // At a large font the hero slides away as the settings scroll, rather than holding a third of the screen.
+    val heroScroll = rememberHeroScrollBehavior()
     ListenUpScaffold(
-        modifier = modifier,
+        modifier = modifier.then(heroScroll?.let { Modifier.nestedScroll(it.nestedScrollConnection) } ?: Modifier),
         topBar = {
             ColorBlockHero(
                 title = stringResource(Res.string.common_administration),
                 badgeIcon = Icons.Outlined.Shield,
                 onBack = onBackClick,
                 overline = serverName,
+                scrollBehavior = heroScroll,
                 actions = { SaveAction(onClick = onSave, enabled = isDirty) },
             )
         },
@@ -1185,6 +1191,7 @@ private fun PendingUserRow(
                 else -> {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
+                            border = listenUpOutlinedBorder(),
                             onClick = {
                                 haptics.press()
                                 onDenyClick()

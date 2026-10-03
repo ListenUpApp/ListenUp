@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -414,9 +415,11 @@ private fun ConnectedHero(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Decorative: the name it stands for is read in the heading beside it.
             Box(
                 modifier =
                     Modifier
+                        .clearAndSetSemantics {}
                         .size(ConnectedAvatarSize)
                         .background(MaterialTheme.colorScheme.primary, cookieScallopShape()),
                 contentAlignment = Alignment.Center,

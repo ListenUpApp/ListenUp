@@ -25,17 +25,21 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -49,19 +53,25 @@ import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.TonalIconTile
+import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.design.util.isLargeFontScale
 import com.calypsan.listenup.client.design.util.relativeTime
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverBookToMatch
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverSyncStatus
 import kotlinx.coroutines.delay
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.hardcover_find_on_hardcover
+import listenup.composeapp.generated.resources.hardcover_find_on_hardcover_label
 import listenup.composeapp.generated.resources.hardcover_last_synced
 import listenup.composeapp.generated.resources.hardcover_last_synced_just_now
+import listenup.composeapp.generated.resources.hardcover_needs_match_count
+import listenup.composeapp.generated.resources.hardcover_needs_match_count_one
 import listenup.composeapp.generated.resources.hardcover_needs_match_detail
 import listenup.composeapp.generated.resources.hardcover_needs_match_none
 import listenup.composeapp.generated.resources.hardcover_needs_match_section
+import listenup.composeapp.generated.resources.hardcover_needs_match_show_all
 import listenup.composeapp.generated.resources.hardcover_never_synced
 import listenup.composeapp.generated.resources.hardcover_problem_pull_stalled
 import listenup.composeapp.generated.resources.hardcover_problem_push_stalled
@@ -69,6 +79,7 @@ import listenup.composeapp.generated.resources.hardcover_problem_sync_now_failed
 import listenup.composeapp.generated.resources.hardcover_sync_now
 import listenup.composeapp.generated.resources.hardcover_sync_now_failed_notice
 import listenup.composeapp.generated.resources.hardcover_sync_section
+import listenup.composeapp.generated.resources.hardcover_synced_status
 import listenup.composeapp.generated.resources.hardcover_syncing
 import listenup.composeapp.generated.resources.hardcover_try_again
 import org.jetbrains.compose.resources.StringResource
@@ -80,6 +91,9 @@ private val StatusTileSize = 40.dp
 private val NeedsMatchCoverWidth = 48.dp
 private val NeedsMatchCoverHeight = 72.dp
 private val ActionMinHeight = 48.dp
+
+/** How many books Needs a match lists before "Show all": enough to act on, few enough to reach the settings below. */
+private const val NEEDS_MATCH_SHOWN = 5
 
 /** The failed Sync now, which the line itself doesn't show: the screen says it once, as a snackbar. */
 private val HardcoverSyncStatus.isSyncNowFailure: Boolean
@@ -125,6 +139,12 @@ internal fun HardcoverSyncBlock(
     }
 }
 
+/**
+ * The minute ticks on screen only. The line's text is re-read every minute so "just now" ages honestly, but it
+ * is not a live region — TalkBack would announce "1m ago", "2m ago"… for as long as the screen is open. The
+ * status glyph is the live region instead: it says "Syncing…" when a sync starts and "Synced with Hardcover"
+ * when it finishes, the only changes worth interrupting someone for.
+ */
 @Composable
 private fun SyncLine(
     lastSyncedAt: Long?,
@@ -138,15 +158,30 @@ private fun SyncLine(
             minuteTick++
         }
     }
-    key(minuteTick) {
-        SettingRow(
-            title = if (isSyncing) stringResource(Res.string.hardcover_syncing) else lastSyncedLine(lastSyncedAt),
-            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-            leading = {
+    // Keyed on the tick so the relative time is re-read; only this text is rebuilt, never the row's nodes.
+    val title =
+        key(minuteTick) {
+            if (isSyncing) stringResource(Res.string.hardcover_syncing) else lastSyncedLine(lastSyncedAt)
+        }
+    val status =
+        when {
+            isSyncing -> stringResource(Res.string.hardcover_syncing)
+            lastSyncedAt != null -> stringResource(Res.string.hardcover_synced_status)
+            else -> null
+        }
+    SettingRow(
+        title = title,
+        leading = {
+            Box(
+                modifier =
+                    Modifier.size(StatusTileSize).semantics {
+                        liveRegion = LiveRegionMode.Polite
+                        status?.let { contentDescription = it }
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
                 if (isSyncing) {
-                    Box(modifier = Modifier.size(StatusTileSize), contentAlignment = Alignment.Center) {
-                        ListenUpLoadingIndicatorSmall()
-                    }
+                    ListenUpLoadingIndicatorSmall()
                 } else {
                     TonalIconTile(
                         icon = Icons.Outlined.Schedule,
@@ -154,10 +189,10 @@ private fun SyncLine(
                         accent = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-            },
-            trailing = { TonalAction(stringResource(Res.string.hardcover_sync_now), onSyncNow, enabled = !isSyncing) },
-        )
-    }
+            }
+        },
+        trailing = { TonalAction(stringResource(Res.string.hardcover_sync_now), onSyncNow, enabled = !isSyncing) },
+    )
 }
 
 /** A push or pull that is stuck: amber and calm, never red — nothing is lost, and it keeps trying. */
@@ -226,10 +261,17 @@ internal fun HardcoverNeedsMatch(
     modifier: Modifier = Modifier,
 ) {
     if (!isKnown) return
+    var showingAll by rememberSaveable { mutableStateOf(false) }
+    val countDescription =
+        if (books.size == 1) {
+            stringResource(Res.string.hardcover_needs_match_count_one)
+        } else {
+            stringResource(Res.string.hardcover_needs_match_count, books.size)
+        }
     SectionGroup(
         label = stringResource(Res.string.hardcover_needs_match_section),
         modifier = modifier,
-        trailing = { if (books.isNotEmpty()) CountBadge(count = books.size) },
+        trailing = { if (books.isNotEmpty()) CountBadge(count = books.size, contentDescription = countDescription) },
     ) {
         if (books.isEmpty()) {
             QuietLine(icon = Icons.Outlined.TaskAlt, text = stringResource(Res.string.hardcover_needs_match_none))
@@ -240,32 +282,45 @@ internal fun HardcoverNeedsMatch(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.sm),
             )
-            books.forEach { book -> NeedsMatchRow(book = book, onFindMatch = { onFindMatch(book.bookId) }) }
+            val shown = if (showingAll) books else books.take(NEEDS_MATCH_SHOWN)
+            shown.forEach { book -> NeedsMatchRow(book = book, onFindMatch = { onFindMatch(book.bookId) }) }
+            if (shown.size < books.size) {
+                ShowAllRow(count = books.size, onClick = { showingAll = true })
+            }
         }
     }
 }
 
+/**
+ * One book to match: its cover, title and author, and "Find on Hardcover" — named for the book, so a list of
+ * them can be told apart by TalkBack, Switch Access and Voice Access. At a large font the cover steps aside
+ * and the button takes the row's width, so its label never breaks mid-word.
+ */
 @Composable
 private fun NeedsMatchRow(
     book: HardcoverBookToMatch,
     onFindMatch: () -> Unit,
 ) {
     val haptics = LocalHaptics.current
+    val largeText = isLargeFontScale()
+    val findLabel = stringResource(Res.string.hardcover_find_on_hardcover_label, book.title)
     SectionSegment {
         Row(
             modifier = Modifier.padding(horizontal = 20.dp, vertical = Spacing.lg),
             horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            BookCoverImage(
-                bookId = book.bookId,
-                coverPath = book.coverPath,
-                coverHash = book.coverHash,
-                contentDescription = null,
-                title = book.title,
-                author = book.authorNames,
-                modifier = Modifier.size(width = NeedsMatchCoverWidth, height = NeedsMatchCoverHeight),
-            )
+            if (!largeText) {
+                BookCoverImage(
+                    bookId = book.bookId,
+                    coverPath = book.coverPath,
+                    coverHash = book.coverHash,
+                    contentDescription = null,
+                    title = book.title,
+                    author = book.authorNames,
+                    modifier = Modifier.size(width = NeedsMatchCoverWidth, height = NeedsMatchCoverHeight),
+                )
+            }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(text = book.title, style = MaterialTheme.typography.titleMedium)
                 if (book.authorNames.isNotBlank()) {
@@ -280,7 +335,13 @@ private fun NeedsMatchRow(
                         haptics.press()
                         onFindMatch()
                     },
-                    modifier = Modifier.padding(top = 6.dp).heightIn(min = ActionMinHeight),
+                    border = listenUpOutlinedBorder(),
+                    modifier =
+                        Modifier
+                            .padding(top = 6.dp)
+                            .heightIn(min = ActionMinHeight)
+                            .then(if (largeText) Modifier.fillMaxWidth() else Modifier)
+                            .semantics { contentDescription = findLabel },
                     contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
                 ) {
                     Icon(
@@ -294,6 +355,29 @@ private fun NeedsMatchRow(
                     )
                 }
             }
+        }
+    }
+}
+
+/** "Show all 28 books": the rest of a long Needs a match list, in place — the share settings stay near. */
+@Composable
+private fun ShowAllRow(
+    count: Int,
+    onClick: () -> Unit,
+) {
+    val haptics = LocalHaptics.current
+    SectionSegment {
+        TextButton(
+            onClick = {
+                haptics.press()
+                onClick()
+            },
+            modifier = Modifier.fillMaxWidth().heightIn(min = ActionMinHeight),
+        ) {
+            Text(
+                text = stringResource(Res.string.hardcover_needs_match_show_all, count),
+                fontWeight = FontWeight.SemiBold,
+            )
         }
     }
 }

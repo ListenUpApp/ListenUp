@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.PillChip
+import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
 import com.calypsan.listenup.client.playback.SleepTimerMode
@@ -181,7 +182,7 @@ private fun ActiveTimerDisplay(
             is SleepTimerMode.EndOfChapter -> EndOfChapterCountdown()
         }
         Spacer(Modifier.height(32.dp))
-        OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = onCancel, border = listenUpOutlinedBorder(), modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(Res.string.player_cancel_timer))
         }
     }

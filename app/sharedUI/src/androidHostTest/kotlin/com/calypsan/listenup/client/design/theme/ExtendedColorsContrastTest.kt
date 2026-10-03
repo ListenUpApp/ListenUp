@@ -27,6 +27,33 @@ class ExtendedColorsContrastTest :
                 }
             }
 
+            test("$name: success text clears AA on every container a card sits on") {
+                mapOf(
+                    "surface" to scheme.surface,
+                    "surfaceContainerLow" to scheme.surfaceContainerLow,
+                    "surfaceContainer (Book Detail's Hardcover card)" to scheme.surfaceContainer,
+                    "surfaceContainerHigh" to scheme.surfaceContainerHigh,
+                ).forEach { (surfaceName, surface) ->
+                    withClue("success text on $surfaceName") {
+                        contrastRatio(extended.success, surface) shouldBeGreaterThanOrEqual AA_TEXT
+                    }
+                }
+            }
+
+            test("$name: the outline that edges outlined buttons is visible on every surface") {
+                mapOf(
+                    "surface" to scheme.surface,
+                    "surfaceContainerLow" to scheme.surfaceContainerLow,
+                    "surfaceContainer" to scheme.surfaceContainer,
+                    "surfaceContainerHigh" to scheme.surfaceContainerHigh,
+                    "surfaceContainerHighest" to scheme.surfaceContainerHighest,
+                ).forEach { (surfaceName, surface) ->
+                    withClue("outline on $surfaceName") {
+                        contrastRatio(scheme.outline, surface) shouldBeGreaterThanOrEqual AA_NON_TEXT
+                    }
+                }
+            }
+
             test("$name: the success mark reads on every surface it sits on") {
                 mapOf(
                     "surface" to scheme.surface,
