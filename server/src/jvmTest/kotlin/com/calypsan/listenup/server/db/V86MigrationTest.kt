@@ -19,20 +19,20 @@ private fun DataSource.single(sql: String): Any? =
     }
 
 /**
- * V85 adds `book_reads.started_at`: the day the reader said they started a read. Every read that
+ * V86 adds `book_reads.started_at`: the day the reader said they started a read. Every read that
  * existed before has no picked start, so it keeps deriving its start from listening, as it did.
  */
-class V85MigrationTest :
+class V86MigrationTest :
     FunSpec({
-        test("V85 keeps every existing read, with no picked start, and takes one on a new read") {
+        test("V86 keeps every existing read, with no picked start, and takes one on a new read") {
             val path =
                 Files
-                    .createTempFile("listenup-v85-", ".db")
+                    .createTempFile("listenup-v86-", ".db")
                     .toFile()
                     .apply { deleteOnExit() }
                     .absolutePath
             val ds = fileBackedTestDataSource("jdbc:sqlite:$path")
-            MigrationRunner(path).migrate(upTo = 84)
+            MigrationRunner(path).migrate(upTo = 85)
             ds.execute(
                 "INSERT INTO book_reads (id, user_id, book_id, finished_at, source, created_at) " +
                     "VALUES ('r1', 'u1', 'b1', 100, 'playback', 100)",
