@@ -638,7 +638,7 @@ class SeriesEditViewModelTest :
             everySuspend { fixture.seriesRepository.getById("mistborn") } returns createSeries(id = "mistborn", name = "Mistborn")
             everySuspend { fixture.seriesRepository.getBookIdsForSeries("mistborn") } returns emptyList()
             everySuspend { fixture.imageRepository.seriesCoverExists("mistborn") } returns false
-            return fixture.build().also { it.loadSeries("mistborn") }
+            return fixture.build().apply { loadSeries("mistborn") }
         }
 
         test("loading a series shows its parent and its sub-series, and follows Room") {

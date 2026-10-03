@@ -19,7 +19,6 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -288,82 +287,24 @@ class SeriesEditViewModel internal constructor(
                 }
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
 
+    /** Where the series sits in the hierarchy, the parent picker, and the writes that move it. */
+    private val hierarchy =
+        SeriesHierarchyEditor(
+            scope = viewModelScope,
+            errorBus = errorBus,
+            state = state,
+            observeLineage = seriesRepository::observeSeriesLineage,
+            observeAllSeries = seriesDao::observeAll,
+            setParent = seriesEditRepository::setParent,
+            reorderChildren = seriesEditRepository::reorderChildren,
+        )
+
     /**
      * Candidates for the parent picker — every live series this one may sit under (never itself
      * or its own sub-series), filtered by [SeriesEditUiState.parentQuery]. Computed only while the
      * picker is visible, like [mergeCandidates].
      */
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val parentCandidates: StateFlow<List<SeriesCandidate>> =
-        state
-            .map { it.parentPickerVisible }
-            .distinctUntilChanged()
-            .flatMapLatest { pickerVisible ->
-                if (!pickerVisible) {
-                    flowOf(emptyList())
-                } else {
-                    combine(
-                        state.map { it.seriesId to it.parentQuery }.distinctUntilChanged(),
-                        seriesDao.observeAll(),
-                    ) { (currentId, query), allSeries -> parentCandidates(allSeries, currentId, query) }
-                }
-            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
-
-    private var placementJob: Job? = null
-
-    /**
-     * Keeps the parent and sub-series in step with Room for [seriesId]. A hierarchy write never
-     * touches this state itself: the server's answer arrives through sync and lands here.
-     */
-    private fun observePlacement(seriesId: String) {
-        placementJob?.cancel()
-        placementJob =
-            viewModelScope.launch {
-                seriesRepository.observeSeriesLineage(seriesId).collect { lineage ->
-                    val parent = lineage.ancestors.lastOrNull()
-                    state.update {
-                        it.copy(
-                            parentId = parent?.id?.value,
-                            parentName = parent?.name,
-                            childSeries =
-                                lineage.children.map { child ->
-                                    SeriesCandidate(
-                                        id = child.series.id,
-                                        displayName = child.series.name,
-                                        bookCount = 0,
-                                    )
-                                },
-                        )
-                    }
-                }
-            }
-    }
-
-    /** Sends one hierarchy change to the server; the result reaches the screen through Room. */
-    private fun changeHierarchy(change: suspend (SeriesId) -> AppResult<Unit>) {
-        val seriesId = state.value.seriesId
-        if (seriesId.isBlank()) {
-            logger.error { "Cannot change hierarchy: series ID is empty" }
-            return
-        }
-
-        viewModelScope.launch {
-            state.update {
-                it.copy(hierarchyBusy = true, parentPickerVisible = false, parentQuery = "", error = null)
-            }
-            when (val result = change(SeriesId(seriesId))) {
-                is AppResult.Success -> {
-                    state.update { it.copy(hierarchyBusy = false) }
-                }
-
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Failed to change series hierarchy: ${result.message}" }
-                    state.update { it.copy(hierarchyBusy = false, error = result.error.message) }
-                }
-            }
-        }
-    }
+    val parentCandidates: StateFlow<List<SeriesCandidate>> = hierarchy.parentCandidates
 
     /**
      * Update the merge-target picker's search query. The [mergeCandidates] Flow
@@ -391,7 +332,7 @@ class SeriesEditViewModel internal constructor(
                 return@launch
             }
             history.refresh()
-            observePlacement(seriesId)
+            hierarchy.observePlacement(seriesId)
 
             val bookCount = seriesRepository.getBookIdsForSeries(seriesId).size
 
@@ -479,29 +420,27 @@ class SeriesEditViewModel internal constructor(
             }
 
             is SeriesEditUiEvent.ParentPickerOpened -> {
-                state.update { it.copy(parentPickerVisible = true) }
+                hierarchy.openParentPicker()
             }
 
             is SeriesEditUiEvent.ParentPickerDismissed -> {
-                state.update { it.copy(parentPickerVisible = false, parentQuery = "") }
+                hierarchy.dismissParentPicker()
             }
 
             is SeriesEditUiEvent.ParentQueryChanged -> {
-                state.update { it.copy(parentQuery = event.query) }
+                hierarchy.changeParentQuery(event.query)
             }
 
             is SeriesEditUiEvent.ParentSelected -> {
-                changeHierarchy { id -> seriesEditRepository.setParent(id, SeriesId(event.parentId)) }
+                hierarchy.changeParent(SeriesId(event.parentId))
             }
 
             is SeriesEditUiEvent.ParentCleared -> {
-                changeHierarchy { id -> seriesEditRepository.setParent(id, null) }
+                hierarchy.changeParent(null)
             }
 
             is SeriesEditUiEvent.ChildSeriesReordered -> {
-                changeHierarchy { id ->
-                    seriesEditRepository.reorderChildren(id, event.orderedChildIds.map(::SeriesId))
-                }
+                hierarchy.reorderChildSeries(event.orderedChildIds.map(::SeriesId))
             }
         }
     }
