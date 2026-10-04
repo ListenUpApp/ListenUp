@@ -16,11 +16,11 @@ import kotlinx.coroutines.flow.Flow
  *
  * `finishesJson` holds the reader's finish timestamps (epoch-ms, newest-first) as a JSON array — the
  * repository (de)serializes it; keeping it a scalar column avoids a normalized child table for a small,
- * always-replaced-together list. A finish also logged on Hardcover carries a `:hardcover` suffix
- * (`900:hardcover,300`), so the readers section can say so offline without a schema change.
+ * always-replaced-together list.
  *
  * `hardcoverFinishesJson` holds the reader's Hardcover reads (#601 B3) the same way, so the Readers
- * section can badge them offline too.
+ * section can badge them offline too. `finishesAlsoOnHardcoverJson` holds, the same way, which of the
+ * finishes in `finishesJson` were also logged on Hardcover, so the section can say so offline.
  */
 @Entity(tableName = "book_readership", primaryKeys = ["bookId", "userId"])
 internal data class BookReadershipEntity(
@@ -32,6 +32,7 @@ internal data class BookReadershipEntity(
     val finishesJson: String,
     val observedAt: Long,
     val hardcoverFinishesJson: String = "",
+    val finishesAlsoOnHardcoverJson: String = "",
 )
 
 @Dao

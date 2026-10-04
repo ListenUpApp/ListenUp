@@ -38,6 +38,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -227,6 +228,65 @@ class BookReadersRepositoryImplTest :
                         jake.finishes shouldBe listOf(900L, 300L)
                         jake.finishesAlsoOnHardcover shouldBe listOf(900L)
                         jake.hardcoverFinishes shouldBe emptyList()
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
+
+        test("the cache keeps finishes plain and the also-on-Hardcover flag in its own column") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { bookReadership(BookId("b1")) } returns
+                            AppResult.Success(
+                                BookReadership(
+                                    listOf(entry("u2", "Jake", finishes = listOf(900L, 300L), finishesAlsoOnHardcover = listOf(900L))),
+                                ),
+                            )
+                    }
+                val dao = FakeBookReadershipDao()
+
+                repo(RpcChannel.forTest(service), dao, currentUser = user(id = "me"))
+                    .observeReadersFor("b1")
+                    .test {
+                        awaitNonEmpty()
+                        val row = dao.observeForBook("b1").first().single()
+                        row.finishesJson shouldBe "900,300"
+                        row.finishesAlsoOnHardcoverJson shouldBe "900"
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
+
+        test("a cached reader reads the also-on-Hardcover flag from its own column") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { bookReadership(BookId("b1")) } returns
+                            AppResult.Failure(TransportError.NetworkUnavailable())
+                    }
+                val dao = FakeBookReadershipDao()
+                dao.upsertAll(
+                    listOf(
+                        BookReadershipEntity(
+                            bookId = "b1",
+                            userId = "u2",
+                            displayName = "Jake",
+                            avatarType = "auto",
+                            currentProgressPct = null,
+                            finishesJson = "900,300",
+                            observedAt = 1L,
+                            finishesAlsoOnHardcoverJson = "900",
+                        ),
+                    ),
+                )
+
+                repo(RpcChannel.forTest(service), dao, currentUser = user(id = "me"))
+                    .observeReadersFor("b1")
+                    .test {
+                        val jake = awaitNonEmpty().single()
+                        jake.finishes shouldBe listOf(900L, 300L)
+                        jake.finishesAlsoOnHardcover shouldBe listOf(900L)
                         cancelAndIgnoreRemainingEvents()
                     }
             }

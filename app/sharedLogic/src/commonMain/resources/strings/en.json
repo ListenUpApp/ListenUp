@@ -737,6 +737,7 @@
     "updated_fields_applied": "Fields applied",
     "updated_chapters_named": "Chapters named",
     "updated_cover_replaced": "Cover replaced",
+    "updated_cover_kept": "Cover kept",
     "merged_from": "Merged from %1$s",
     "field_source": "from %1$s",
     "chip_from_source": "%1$s, from %2$s",

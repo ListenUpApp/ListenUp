@@ -156,16 +156,15 @@ fun MatchPreviewScreen(
     // Cover selection
     coverOptions: List<CoverEntry>,
     isLoadingCovers: Boolean,
-    selectedCoverUrl: String?,
-    onSelectCover: (String?) -> Unit,
+    appliedCover: CoverEntry?,
+    onSelectCover: (String) -> Unit,
+    onKeepCurrentCover: () -> Unit,
     // Chapter names
     chapterSuggestion: ChapterSuggestion,
     onReviewChapters: () -> Unit,
     // Provenance
     fallbackSources: Map<BookField, String>,
     genreSources: Map<String, String> = emptyMap(),
-    coverSourceLabel: String?,
-    coverResolution: String?,
     contributingSources: List<String>,
     // Callbacks
     onRegionSelected: (MetadataLocale) -> Unit,
@@ -193,14 +192,13 @@ fun MatchPreviewScreen(
                 selections = selections,
                 coverOptions = coverOptions,
                 isLoadingCovers = isLoadingCovers,
-                selectedCoverUrl = selectedCoverUrl,
+                appliedCover = appliedCover,
                 onSelectCover = onSelectCover,
+                onKeepCurrentCover = onKeepCurrentCover,
                 chapterSuggestion = chapterSuggestion,
                 onReviewChapters = onReviewChapters,
                 fallbackSources = fallbackSources,
                 genreSources = genreSources,
-                coverSourceLabel = coverSourceLabel,
-                coverResolution = coverResolution,
                 onToggleField = onToggleField,
                 onToggleAuthor = onToggleAuthor,
                 onToggleNarrator = onToggleNarrator,
@@ -608,14 +606,13 @@ private fun metadataFieldSections(
     selections: MetadataSelections,
     coverOptions: List<CoverEntry>,
     isLoadingCovers: Boolean,
-    selectedCoverUrl: String?,
-    onSelectCover: (String?) -> Unit,
+    appliedCover: CoverEntry?,
+    onSelectCover: (String) -> Unit,
+    onKeepCurrentCover: () -> Unit,
     chapterSuggestion: ChapterSuggestion,
     onReviewChapters: () -> Unit,
     fallbackSources: Map<BookField, String>,
     genreSources: Map<String, String>,
-    coverSourceLabel: String?,
-    coverResolution: String?,
     onToggleField: (MetadataField) -> Unit,
     onToggleAuthor: (String) -> Unit,
     onToggleNarrator: (String) -> Unit,
@@ -637,11 +634,10 @@ private fun metadataFieldSections(
                     selections = selections,
                     coverOptions = coverOptions,
                     isLoadingCovers = isLoadingCovers,
-                    selectedCoverUrl = selectedCoverUrl,
+                    appliedCover = appliedCover,
                     onSelectCover = onSelectCover,
+                    onKeepCurrentCover = onKeepCurrentCover,
                     fallbackSources = fallbackSources,
-                    coverSourceLabel = coverSourceLabel,
-                    coverResolution = coverResolution,
                     onToggleField = onToggleField,
                     onToggleAuthor = onToggleAuthor,
                     onToggleNarrator = onToggleNarrator,
@@ -728,11 +724,10 @@ private fun IdentitySectionContent(
     selections: MetadataSelections,
     coverOptions: List<CoverEntry>,
     isLoadingCovers: Boolean,
-    selectedCoverUrl: String?,
-    onSelectCover: (String?) -> Unit,
+    appliedCover: CoverEntry?,
+    onSelectCover: (String) -> Unit,
+    onKeepCurrentCover: () -> Unit,
     fallbackSources: Map<BookField, String>,
-    coverSourceLabel: String?,
-    coverResolution: String?,
     onToggleField: (MetadataField) -> Unit,
     onToggleAuthor: (String) -> Unit,
     onToggleNarrator: (String) -> Unit,
@@ -744,12 +739,11 @@ private fun IdentitySectionContent(
         currentCoverPath = currentBook.coverPath,
         coverOptions = coverOptions,
         isLoading = isLoadingCovers,
-        selectedUrl = selectedCoverUrl,
+        appliedCover = appliedCover,
         isCoverEnabled = selections.cover,
         onSelectCover = onSelectCover,
+        onKeepCurrentCover = onKeepCurrentCover,
         onToggleCover = { onToggleField(MetadataField.COVER) },
-        coverSourceLabel = coverSourceLabel,
-        coverResolution = coverResolution,
         showDivider = !first,
     )
     first = false
@@ -1006,19 +1000,21 @@ private fun ChapterNamesItem(
 
 /**
  * Cover field row: the leading [ExpressiveCheckbox] toggles whether a new cover is applied, beside a
- * "Cover" label and a horizontally scrollable strip of source options.
+ * "Cover" label naming the source of the cover Apply will write, and a horizontally scrollable strip
+ * of the choices — "Current cover" first, then every candidate. Exactly one tile is ever selected,
+ * and it is [appliedCover] (or the current cover when that is null): the tile you see chosen is the
+ * cover Apply writes.
  */
 @Composable
 private fun CoverFieldRow(
     currentCoverPath: String?,
     coverOptions: List<CoverEntry>,
     isLoading: Boolean,
-    selectedUrl: String?,
+    appliedCover: CoverEntry?,
     isCoverEnabled: Boolean,
-    onSelectCover: (String?) -> Unit,
+    onSelectCover: (String) -> Unit,
+    onKeepCurrentCover: () -> Unit,
     onToggleCover: () -> Unit,
-    coverSourceLabel: String?,
-    coverResolution: String?,
     showDivider: Boolean,
 ) {
     val haptics = LocalHaptics.current
@@ -1045,17 +1041,30 @@ private fun CoverFieldRow(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
                 )
-                if (coverSourceLabel != null) {
-                    Text(
-                        text =
-                            coverResolution?.let {
-                                stringResource(Res.string.metadata_cover_source_resolution, coverSourceLabel, it)
-                            } ?: coverSourceLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
-                }
+                val resolution = appliedCover?.resolution
+                Text(
+                    text =
+                        when {
+                            appliedCover == null -> {
+                                stringResource(Res.string.metadata_current_cover)
+                            }
+
+                            resolution != null -> {
+                                stringResource(
+                                    Res.string.metadata_cover_source_resolution,
+                                    appliedCover.label,
+                                    resolution,
+                                )
+                            }
+
+                            else -> {
+                                appliedCover.label
+                            }
+                        },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
             }
         }
 
@@ -1063,20 +1072,19 @@ private fun CoverFieldRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.md, bottom = 15.dp),
         ) {
-            if (currentCoverPath != null) {
-                item {
-                    CoverOptionCard(
-                        label = stringResource(Res.string.metadata_current_cover),
-                        source = null,
-                        isSelected = selectedUrl == null && isCoverEnabled,
-                        onClick = { onSelectCover(null) },
-                    ) {
-                        ListenUpAsyncImage(
-                            path = currentCoverPath,
-                            contentDescription = stringResource(Res.string.metadata_current_cover),
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
+            // Always offered, even for a book with no artwork yet: keeping what the book has is a choice.
+            item {
+                CoverOptionCard(
+                    label = stringResource(Res.string.metadata_current_cover),
+                    source = null,
+                    isSelected = appliedCover == null,
+                    onClick = onKeepCurrentCover,
+                ) {
+                    ListenUpAsyncImage(
+                        path = currentCoverPath,
+                        contentDescription = stringResource(Res.string.metadata_current_cover),
+                        modifier = Modifier.fillMaxSize(),
+                    )
                 }
             }
 
@@ -1084,7 +1092,7 @@ private fun CoverFieldRow(
                 CoverOptionCard(
                     label = cover.label,
                     source = cover.label,
-                    isSelected = selectedUrl == cover.url,
+                    isSelected = appliedCover?.url == cover.url,
                     onClick = { onSelectCover(cover.url) },
                 ) {
                     AsyncImage(

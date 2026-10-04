@@ -133,16 +133,22 @@ struct MetadataSelectBody: View {
     // MARK: - Rows
 
     // A bespoke cover section (not a MetadataFieldRow — its whole body is one toggle Button, which
-    // would swallow taps on the individual cover cards). A header toggles whether the cover applies;
-    // below it a horizontal, honestly-labelled picker of every candidate the match returned.
+    // would swallow taps on the individual cover cards). A header toggles whether a new cover applies and
+    // names the source of the one that will; below it the book's current cover and every candidate, with
+    // exactly one marked — the cover Apply writes.
     private var coverRow: some View {
         VStack(alignment: .leading, spacing: 10) {
             Button(action: { observer.toggleField(.cover) }) {
                 HStack(spacing: 12) {
                     IconTile(systemImage: "photo", isActive: preview.coverEnabled)
-                    Text(String(localized: "metadata.field_cover"))
-                        .font(.body)
-                        .foregroundStyle(.primary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(String(localized: "metadata.field_cover"))
+                            .font(.body)
+                            .foregroundStyle(.primary)
+                        Text(preview.appliedCoverLabel ?? String(localized: "metadata.current_cover"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     Spacer(minLength: 8)
                     CircularCheckMark(isOn: preview.coverEnabled)
                 }
@@ -154,32 +160,58 @@ struct MetadataSelectBody: View {
             if !preview.coverOptions.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(alignment: .top, spacing: 14) {
+                        currentCoverCard
                         ForEach(preview.coverOptions) { coverOptionCard($0) }
                     }
                     .padding(.horizontal, 2)
                 }
-                .opacity(preview.coverEnabled ? 1 : 0.4)
-                .disabled(!preview.coverEnabled)
             }
         }
     }
 
+    private var currentCoverCard: some View {
+        coverCard(
+            label: String(localized: "metadata.current_cover"),
+            resolution: nil,
+            isSelected: preview.keepsCurrentCover,
+            action: { observer.keepCurrentCover() }
+        ) {
+            BookCoverImage(bookId: observer.bookId, coverPath: nil)
+        }
+    }
+
     private func coverOptionCard(_ option: MetadataCoverOption) -> some View {
-        let isSelected = option.url == preview.coverURL
-        return Button(action: { observer.selectCover(option.url) }) {
+        coverCard(
+            label: option.label,
+            resolution: option.resolution,
+            isSelected: option.url == preview.appliedCoverURL,
+            action: { observer.selectCover(option.url) }
+        ) {
+            MetadataRemoteCover(url: option.url)
+        }
+    }
+
+    private func coverCard(
+        label: String,
+        resolution: String?,
+        isSelected: Bool,
+        action: @escaping () -> Void,
+        @ViewBuilder art: () -> some View
+    ) -> some View {
+        Button(action: action) {
             VStack(spacing: 6) {
-                MetadataRemoteCover(url: option.url)
+                art()
                     .frame(width: 72, height: 72)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
                             .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 2.5)
                     }
-                Text(option.label)
+                Text(label)
                     .font(.caption2)
                     .fontWeight(isSelected ? .semibold : .regular)
                     .foregroundStyle(isSelected ? .primary : .secondary)
-                if let resolution = option.resolution {
+                if let resolution {
                     Text(resolution)
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
@@ -189,7 +221,7 @@ struct MetadataSelectBody: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(option.label)
+        .accessibilityLabel(label)
         .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : [.isButton])
     }
 

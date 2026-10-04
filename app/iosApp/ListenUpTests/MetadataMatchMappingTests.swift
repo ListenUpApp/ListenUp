@@ -184,6 +184,81 @@ struct MetadataMatchMappingTests {
         #expect(preview.coverOptions.first?.url == "https://cdn/itunes.jpg")
     }
 
+    // MARK: - The cover Apply writes (what is marked is what is written)
+
+    @Test func theAppliedCandidateIsTheMarkedCoverAndNamesItsRealSource() {
+        let book = makeBook(asin: "B23", title: "Title", coverUrl: "https://cdn/audible.jpg")
+        let state = ready(
+            book: book,
+            coverEntries: twoCovers,
+            selectedCoverUrl: "https://cdn/itunes.jpg"
+        )
+        let preview = MetadataMatchMapping.preview(from: state, match: book)
+
+        #expect(preview.appliedCoverURL == "https://cdn/itunes.jpg")
+        #expect(preview.appliedCoverLabel == "iTunes HD")
+        #expect(!preview.keepsCurrentCover)
+        // The hero is the matched edition's own art — choosing a cover does not change which edition this is.
+        #expect(preview.coverURL == "https://cdn/audible.jpg")
+    }
+
+    @Test func keepingTheCurrentCoverMarksNoCandidate() {
+        let book = makeBook(asin: "B24", title: "Title", coverUrl: "https://cdn/audible.jpg")
+        let state = ready(
+            book: book,
+            selections: makeSelections(cover: false),
+            coverEntries: twoCovers,
+            selectedCoverUrl: "https://cdn/itunes.jpg"
+        )
+        let preview = MetadataMatchMapping.preview(from: state, match: book)
+
+        #expect(preview.keepsCurrentCover)
+        #expect(preview.appliedCoverURL == nil)
+        #expect(preview.appliedCoverLabel == nil)
+    }
+
+    // MARK: - The receipt says what was applied
+
+    @Test func receiptNamesTheRealCoverSourceAndNoChaptersWhenNoneWereNamed() {
+        let book = makeBook(asin: "B25", title: "Title")
+        let preview = MetadataMatchMapping.preview(
+            from: ready(book: book, coverEntries: twoCovers, selectedCoverUrl: "https://cdn/itunes.jpg"),
+            match: book
+        )
+        let receipt = MetadataMatchMapping.receipt(from: preview, chaptersNamed: 0)
+
+        #expect(receipt.coverSource == "iTunes HD")
+        #expect(receipt.chaptersNamed == 0)
+        #expect(receipt.fieldsApplied == preview.selectedCount)
+    }
+
+    @Test func receiptSaysTheCoverWasKeptAndCountsOnlyChaptersActuallyNamed() {
+        let book = makeBook(asin: "B26", title: "Title")
+        let preview = MetadataMatchMapping.preview(
+            from: ready(
+                book: book,
+                selections: makeSelections(cover: false),
+                coverEntries: twoCovers,
+                selectedCoverUrl: "https://cdn/itunes.jpg"
+            ),
+            match: book
+        )
+        let receipt = MetadataMatchMapping.receipt(from: preview, chaptersNamed: 12)
+
+        #expect(receipt.coverSource == nil)
+        #expect(receipt.chaptersNamed == 12)
+    }
+
+    // MARK: - A failed apply is surfaced
+
+    @Test func aNewApplyErrorIsSurfacedOnceAndAClearedOneIsNot() {
+        #expect(MetadataMatchMapping.surfacedApplyError(previous: nil, current: "The server refused that.")
+            == "The server refused that.")
+        #expect(MetadataMatchMapping.surfacedApplyError(previous: "The server refused that.",
+                                                        current: "The server refused that.") == nil)
+        #expect(MetadataMatchMapping.surfacedApplyError(previous: "The server refused that.", current: nil) == nil)
+    }
+
     @Test func previewProvenanceDefaultsAreEmpty() {
         let book = makeBook(asin: "B21", title: "Title", description: "Desc.")
         let preview = MetadataMatchMapping.preview(from: ready(book: book), match: book)
@@ -237,6 +312,13 @@ struct MetadataMatchMappingTests {
     }
 
     // MARK: - Fixtures
+
+    private var twoCovers: [CoverEntry] {
+        [
+            CoverEntry(url: "https://cdn/itunes.jpg", label: "iTunes HD", resolution: "2400×2400"),
+            CoverEntry(url: "https://cdn/audible.jpg", label: "Audible", resolution: nil)
+        ]
+    }
 
     private func ref(_ name: String, asin: String? = nil) -> MetadataContributorRef {
         MetadataContributorRef(asin: asin, name: name)
@@ -317,15 +399,14 @@ struct MetadataMatchMappingTests {
         book: MetadataBook,
         selections: MetadataSelections? = nil,
         coverEntries: [CoverEntry] = [],
-        coverSourceLabel: String? = nil,
-        coverResolution: String? = nil,
+        selectedCoverUrl: String? = nil,
         contributingSources: [String] = []
     ) -> PreviewLoadStateReady {
         PreviewLoadStateReady(
             preview: book,
             selections: selections ?? makeSelections(),
             coverEntries: coverEntries,
-            selectedCoverUrl: nil,
+            selectedCoverUrl: selectedCoverUrl,
             isApplying: false,
             applyError: nil,
             previewNotFound: false,
@@ -334,8 +415,6 @@ struct MetadataMatchMappingTests {
             moodCandidates: book.moods,
             tagCandidates: book.tags,
             fallbackSources: [:],
-            coverSourceLabel: coverSourceLabel,
-            coverResolution: coverResolution,
             contributingSources: contributingSources
         )
     }

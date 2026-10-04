@@ -8,7 +8,6 @@ import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
-import com.calypsan.listenup.client.presentation.metadata.CoverEntry
 import com.calypsan.listenup.client.presentation.metadata.MetadataField
 import com.calypsan.listenup.client.presentation.metadata.MetadataSelections
 import com.calypsan.listenup.client.presentation.metadata.PreviewLoadState
@@ -50,7 +49,9 @@ internal fun MetadataPreviewPhase(
     onToggleGenre: (String) -> Unit,
     onToggleMood: (String) -> Unit,
     onToggleTag: (String) -> Unit,
-    onSelectCover: (String?) -> Unit,
+    onSelectCover: (String) -> Unit,
+    onKeepCurrentCover: () -> Unit,
+    currentCoverUrl: String?,
     onReviewChapters: () -> Unit,
     onApply: () -> Unit,
 ) {
@@ -76,7 +77,9 @@ internal fun MetadataPreviewPhase(
         return
     }
 
-    FormSection(title = "Cover") { CoverField(ready, onToggleField, onSelectCover) }
+    FormSection(
+        title = "Cover",
+    ) { CoverField(ready, currentCoverUrl, onToggleField, onSelectCover, onKeepCurrentCover) }
     FormSection(title = "Identity") {
         IdentityFields(ready, onToggleField, onToggleAuthor, onToggleNarrator, onToggleSeries)
     }
@@ -116,56 +119,80 @@ private fun MatchedHero(
 /**
  * The artwork, and which one.
  *
- * The cover checkbox and the cover *choice* are two decisions: taking new artwork at all, and which
- * of several sources it comes from. Ticking the box without choosing takes the matched edition's
- * own cover, which is the answer most readers want and never have to think about.
+ * One choice, shown as one: the book's current cover or one of the match's candidates, and exactly one
+ * of them is marked — the one Apply writes. The checkbox is the same choice from the other side: unticked
+ * is "keep the current cover", ticked takes the marked candidate. The row names the chosen cover's real
+ * source; it never assumes Audible.
  */
 @Composable
 private fun CoverField(
     ready: PreviewLoadState.Ready,
+    currentCoverUrl: String?,
     onToggleField: (MetadataField) -> Unit,
-    onSelectCover: (String?) -> Unit,
+    onSelectCover: (String) -> Unit,
+    onKeepCurrentCover: () -> Unit,
 ) {
+    val applied = ready.appliedCover
     FieldRow(
         label = "Cover",
-        value = "New artwork from Audible",
+        value = applied?.let { "New artwork from ${it.label}" } ?: "Keep the current cover",
         checked = ready.selections.cover,
-        source = ready.coverSourceLabel,
+        source = null,
         onToggle = { onToggleField(MetadataField.COVER) },
     )
-    if (!ready.selections.cover || ready.coverEntries.isEmpty()) return
+    if (ready.coverEntries.isEmpty()) return
 
     Div(attrs = { classes("mdx-covers") }) {
+        CoverTile(
+            label = "Current cover",
+            resolution = null,
+            isSelected = ready.keepsCurrentCover,
+            onPick = onKeepCurrentCover,
+        ) {
+            // A book with no artwork yet still offers this tile: keeping what it has is a choice.
+            if (currentCoverUrl != null) CoverArt(currentCoverUrl) else Div(attrs = { classes("mdx-cover-i") })
+        }
         ready.coverEntries.forEach { entry ->
             key(entry.url) {
-                CoverOption(entry, ready.selectedCoverUrl, onSelectCover)
+                CoverTile(
+                    label = entry.label,
+                    resolution = entry.resolution,
+                    isSelected = applied?.url == entry.url,
+                    onPick = { onSelectCover(entry.url) },
+                ) { CoverArt(entry.url) }
             }
         }
     }
 }
 
 @Composable
-private fun CoverOption(
-    entry: CoverEntry,
-    selectedUrl: String?,
-    onSelectCover: (String?) -> Unit,
+private fun CoverTile(
+    label: String,
+    resolution: String?,
+    isSelected: Boolean,
+    onPick: () -> Unit,
+    art: @Composable () -> Unit,
 ) {
-    val isSelected = entry.url == selectedUrl
     Button(attrs = {
         classes("mdx-cover")
         if (isSelected) classes("on")
         attr(ATTR_TYPE, VALUE_BUTTON)
         attr("aria-pressed", isSelected.toString())
-        onClick { onSelectCover(entry.url) }
+        onClick { onPick() }
     }) {
-        Img(src = entry.url, alt = "", attrs = {
-            classes("mdx-cover-i")
-            attr("loading", "lazy")
-            attr("referrerpolicy", "no-referrer")
-        })
-        Span(attrs = { classes("mdx-cover-l") }) { Text(entry.label) }
-        entry.resolution?.let { Span(attrs = { classes("mdx-cover-r") }) { Text(it) } }
+        art()
+        Span(attrs = { classes("mdx-cover-l") }) { Text(label) }
+        resolution?.let { Span(attrs = { classes("mdx-cover-r") }) { Text(it) } }
     }
+}
+
+@Composable
+private fun CoverArt(url: String) {
+    Img(src = url, alt = "", attrs = {
+        classes("mdx-cover-i")
+        attr("loading", "lazy")
+        attr("referrerpolicy", "no-referrer")
+    })
 }
 
 @Composable
@@ -185,23 +212,25 @@ private fun IdentityFields(
             onToggleField(MetadataField.SUBTITLE)
         }
     }
-    // ⛔ Keyed by ASIN, and skipped when Audible omits one. The ViewModel's selection sets are ASIN
-    // sets, so a contributor with no ASIN has no key to be selected by — offering a tick that
-    // cannot be recorded is worse than not offering one.
+    // ⛔ Keyed `asin ?: name`, exactly as the ViewModel selects contributors and the server applies
+    // them. Audible usually sends narrators without an ASIN; skipping those rows hid a narrator the
+    // apply still wrote.
     ValueRows(
         "Authors",
-        preview.authors.mapNotNull { c ->
-            c.asin?.let { it to c.name }
+        preview.authors.map { c ->
+            (c.asin ?: c.name) to c.name
         },
         ready.selections.selectedAuthors,
         onToggleAuthor,
     )
     ValueRows(
         "Narrators",
-        preview.narrators.mapNotNull { c -> c.asin?.let { it to c.name } },
+        preview.narrators.map { c -> (c.asin ?: c.name) to c.name },
         ready.selections.selectedNarrators,
         onToggleNarrator,
     )
+    // Series are selected by ASIN alone (the ViewModel never selects one without), so an ASIN-less
+    // series is neither offered nor written.
     ValueRows(
         "Series",
         preview.series.mapNotNull { s -> s.asin?.let { it to seriesLabel(s.title, s.sequence) } },

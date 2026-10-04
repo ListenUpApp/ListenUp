@@ -31,8 +31,16 @@ final class MetadataMatchObserver {
     /// The live query string (the view binds an editable copy and pushes via `updateQuery`).
     private(set) var query: String = ""
 
-    /// Native error surface; rendered as an alert / inline banner.
+    /// Native error surface; rendered as an alert. Raised when an apply fails, on every layout.
     private(set) var lastError: String?
+
+    /// The book being matched — its current cover is one of the cover choices.
+    let bookId: String
+
+    /// Chapter names actually written this session (zero until `ChapterNamesApplied` lands), for the receipt.
+    private(set) var chaptersNamed: Int = 0
+    /// The ticked count when chapter names were last sent; becomes [chaptersNamed] once the write lands.
+    private var chaptersNamedPending: Int = 0
 
     /// Bumped when `MetadataEvent.MatchApplied` lands — drives the confirmation screen.
     private(set) var appliedToken: Int = 0
@@ -54,6 +62,7 @@ final class MetadataMatchObserver {
         asin: String?
     ) {
         self.viewModel = viewModel
+        self.bookId = bookId
         viewModel.initForBook(bookId: bookId, title: title, author: author, asin: asin)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.events) { [weak self] in self?.applyEvent($0) }
@@ -86,12 +95,18 @@ final class MetadataMatchObserver {
     func toggleGenre(_ genre: String) { viewModel.toggleGenre(genre: genre) }
     func toggleMood(_ mood: String) { viewModel.toggleMood(mood: mood) }
     func toggleTag(_ tag: String) { viewModel.toggleTag(tag: tag) }
-    func selectCover(_ url: String?) { viewModel.selectCover(coverUrl: url) }
+    func selectCover(_ url: String) { viewModel.selectCover(coverUrl: url) }
+    func keepCurrentCover() { viewModel.keepCurrentCover() }
 
     func applyMatch() { viewModel.applyMatch() }
 
     func toggleChapter(_ ordinal: Int) { viewModel.toggleChapter(ordinal: Int32(ordinal)) }
-    func applyChapterNames() { viewModel.applyChapterNames() }
+    func applyChapterNames() {
+        if case .preview(let status) = phase {
+            chaptersNamedPending = MetadataMatchMapping.selectedChapterCount(status)
+        }
+        viewModel.applyChapterNames()
+    }
 
     func dismissError() { lastError = nil }
 
@@ -120,8 +135,19 @@ final class MetadataMatchObserver {
             let previewState = previewStateType.value
             query = previewState.query
             rawResults = Dictionary(previewState.searchResults.map { ($0.asin, $0) }) { first, _ in first }
-            phase = .preview(MetadataMatchMapping.previewPhase(from: previewState))
+            let status = MetadataMatchMapping.previewPhase(from: previewState)
+            let surfaced = MetadataMatchMapping.surfacedApplyError(
+                previous: applyError(of: phase),
+                current: applyError(of: .preview(status))
+            )
+            if let surfaced { lastError = surfaced }
+            phase = .preview(status)
         }
+    }
+
+    private func applyError(of phase: Phase) -> String? {
+        if case .preview(.ready(let preview)) = phase { return preview.applyError }
+        return nil
     }
 
     private func applyEvent(_ event: MetadataEvent) {
@@ -129,6 +155,7 @@ final class MetadataMatchObserver {
         case .matchApplied:
             appliedToken += 1
         case .chapterNamesApplied:
+            chaptersNamed = chaptersNamedPending
             chapterAppliedToken += 1
         }
     }

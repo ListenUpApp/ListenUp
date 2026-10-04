@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 15,
-    "identityHash": "966f1092646605e007c49690c2a1218a",
+    "version": 16,
+    "identityHash": "7db993980d431f3e39c6fb39912da2b4",
     "entities": [
       {
         "tableName": "users",
@@ -441,7 +441,7 @@
       },
       {
         "tableName": "series",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `sortName` TEXT, `description` TEXT, `asin` TEXT, `coverPath` TEXT, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `sortName` TEXT, `description` TEXT, `asin` TEXT, `coverPath` TEXT, `parentId` TEXT, `parentPosition` INTEGER, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -476,6 +476,16 @@
             "affinity": "TEXT"
           },
           {
+            "fieldPath": "parentId",
+            "columnName": "parentId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "parentPosition",
+            "columnName": "parentPosition",
+            "affinity": "INTEGER"
+          },
+          {
             "fieldPath": "revision",
             "columnName": "revision",
             "affinity": "INTEGER",
@@ -504,7 +514,18 @@
           "columnNames": [
             "id"
           ]
-        }
+        },
+        "indices": [
+          {
+            "name": "index_series_parentId",
+            "unique": false,
+            "columnNames": [
+              "parentId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_series_parentId` ON `${TABLE_NAME}` (`parentId`)"
+          }
+        ]
       },
       {
         "tableName": "contributors",
@@ -3129,7 +3150,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '966f1092646605e007c49690c2a1218a')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '7db993980d431f3e39c6fb39912da2b4')"
     ]
   }
 }

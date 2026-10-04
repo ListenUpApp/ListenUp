@@ -124,7 +124,7 @@ class SeriesDomainTest :
         }
 
         test("a re-pulled series at the revision already stored still lands its parent") {
-            // The state MIGRATION_14_15 leaves behind: an older build stored the bumped revision but
+            // The state MIGRATION_15_16 leaves behind: an older build stored the bumped revision but
             // dropped the parent, and the rewound cursor makes catch-up re-send the row unchanged.
             withHandler { handler, db ->
                 db.seriesDao().upsert(

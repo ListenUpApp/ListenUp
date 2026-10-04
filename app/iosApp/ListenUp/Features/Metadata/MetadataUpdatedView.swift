@@ -55,35 +55,37 @@ struct MetadataUpdatedView: View {
 
     @ViewBuilder
     private var summary: some View {
-        if let preview = lastPreview {
+        if let receipt {
             Section {
                 summaryRow(
                     icon: "checkmark.circle",
                     label: String(localized: "metadata.updated_fields_applied"),
-                    value: "\(preview.selectedCount)"
+                    value: "\(receipt.fieldsApplied)"
                 )
-                if case .available(let available) = preview.chapters, available.selectedCount > 0 {
+                if receipt.chaptersNamed > 0 {
                     summaryRow(
                         icon: "waveform",
                         label: String(localized: "metadata.updated_chapters_named"),
-                        value: "\(available.selectedCount)"
+                        value: "\(receipt.chaptersNamed)"
                     )
                 }
-                if preview.coverEnabled {
-                    let source = String(localized: "metadata.audible_source")
+                if let coverSource = receipt.coverSource {
                     summaryRow(
                         icon: "photo",
                         label: String(localized: "metadata.updated_cover_replaced"),
-                        value: String(format: source, observer.region.displayName)
+                        value: coverSource
                     )
+                } else {
+                    summaryRow(icon: "photo", label: String(localized: "metadata.updated_cover_kept"), value: "")
                 }
             }
         }
     }
 
-    private var lastPreview: MetadataPreview? {
-        if case .preview(.ready(let preview)) = observer.phase { return preview }
-        return nil
+    /// What the apply did — read from the applied preview, with only the chapter names actually written.
+    private var receipt: MetadataApplyReceipt? {
+        guard case .preview(.ready(let preview)) = observer.phase else { return nil }
+        return MetadataMatchMapping.receipt(from: preview, chaptersNamed: observer.chaptersNamed)
     }
 
     private func summaryRow(icon: String, label: String, value: String) -> some View {
