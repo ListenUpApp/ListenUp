@@ -402,7 +402,7 @@ class BookDetailViewModel(
     /**
      * Mark the current book as complete with optional date overrides.
      *
-     * @param startedAt Optional start date in epoch milliseconds
+     * @param startedAt The start day the reader picked, in epoch milliseconds; null when they left it
      * @param finishedAt Optional finish date in epoch milliseconds
      */
     fun markComplete(

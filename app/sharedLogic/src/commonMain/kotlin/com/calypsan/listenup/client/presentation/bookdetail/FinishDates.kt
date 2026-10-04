@@ -33,10 +33,12 @@ data class FinishDates(
     /**
      * The epoch milliseconds `BookDetailViewModel.markComplete` takes.
      *
-     * A day the reader left alone keeps the instant it was opened with — the recorded start, or
-     * now — so confirming without editing sends exactly what the one-tap finish always did. A day
-     * they changed becomes the start of that day in [timeZone]. The finish is never earlier than the
-     * start: finishing on the day a book was started at 11:00 must not record 00:00 that day.
+     * A start day the reader left alone claims nothing: it resolves to null, so the server keeps the
+     * start it already knows and the device keeps the one it recorded. A start day they changed is the
+     * start of that day in [timeZone], and it travels to the server to date the read. An untouched
+     * finish is now; a changed one is the start of that day. The finish is never earlier than the
+     * start — the picked one, or the instant the form opened with: finishing on the day a book was
+     * started at 11:00 must not record 00:00 that day.
      */
     fun toTimestamps(
         startedAtMs: Long?,
@@ -44,9 +46,10 @@ data class FinishDates(
         timeZone: TimeZone,
     ): FinishTimestamps {
         val opened = initial(startedAtMs, nowMs, timeZone)
-        val startMs = if (started == opened.started) startedAtMs ?: nowMs else started.startMs(timeZone)
+        val pickedStartMs = if (started == opened.started) null else started.startMs(timeZone)
+        val startMs = pickedStartMs ?: startedAtMs ?: nowMs
         val finishMs = if (finished == opened.finished) nowMs else finished.startMs(timeZone)
-        return FinishTimestamps(startedAtMs = startMs, finishedAtMs = maxOf(finishMs, startMs))
+        return FinishTimestamps(startedAtMs = pickedStartMs, finishedAtMs = maxOf(finishMs, startMs))
     }
 
     /** How the form opens. */
@@ -70,9 +73,12 @@ data class FinishDates(
     }
 }
 
-/** The instants a [FinishDates] resolves to, in epoch milliseconds. */
+/**
+ * The instants a [FinishDates] resolves to, in epoch milliseconds. [startedAtMs] is null when the
+ * reader left the start day as the form opened it — only a day they picked is a claim worth sending.
+ */
 data class FinishTimestamps(
-    val startedAtMs: Long,
+    val startedAtMs: Long?,
     val finishedAtMs: Long,
 )
 

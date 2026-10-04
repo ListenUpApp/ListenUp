@@ -15,8 +15,8 @@ import org.robolectric.RobolectricTestRunner
 import kotlin.time.Instant
 
 /**
- * "Mark as finished" asks for the days, and confirming without touching them sends exactly what the
- * one-tap finish on iOS and web used to: the recorded start (or now), and now.
+ * "Mark as finished" asks for the days, and confirming without touching them claims no start day —
+ * the reader picked none, so the server keeps the start it already knows — and finishes now.
  *
  * JUnit4 + Robolectric, consistent with the other Book Detail component tests in this lane.
  */
@@ -29,9 +29,9 @@ class MarkCompleteDialogTest {
     private val nowMs = Instant.parse("2026-09-30T03:00:00Z").toEpochMilliseconds()
 
     @Test
-    fun `confirming untouched dates sends the recorded start and now`() {
+    fun `confirming untouched dates sends no start and finishes now`() {
         val startedAtMs = Instant.parse("2026-09-02T18:00:00Z").toEpochMilliseconds()
-        var confirmed: Pair<Long, Long>? = null
+        var confirmed: Pair<Long?, Long>? = null
         composeRule.setContent {
             MarkCompleteDialog(
                 startedAtMs = startedAtMs,
@@ -44,7 +44,7 @@ class MarkCompleteDialogTest {
 
         composeRule.onNode(hasText("Mark as finished") and hasClickAction()).performClick()
 
-        assertEquals(startedAtMs to nowMs, confirmed)
+        assertEquals(null to nowMs, confirmed)
     }
 
     @Test

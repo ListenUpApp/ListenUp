@@ -468,10 +468,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Select stable Xcode
+      - name: Select Xcode 27.0
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
         with:
-          xcode-version: 'latest-stable'
+          xcode-version: '27.0'
 
       - name: Set up JDK 21
         uses: actions/setup-java@v6.0.1
@@ -507,6 +507,11 @@ jobs:
 
       - name: Run iOS tests
         working-directory: app/iosApp
+        # xcodebuild does not hand the runner's environment to the test process; a TEST_RUNNER_
+        # prefix is the documented way through (stripped, so tests see `CI`). Tests quarantined
+        # on CI only (`.disabled(if: CI)`) read it — they still run on a Mac at the desk.
+        env:
+          TEST_RUNNER_CI: 'true'
         run: |
           set -o pipefail
           # Per-test timeouts: a hung test (never-completing await / black-hole Flow) fails fast with
@@ -683,10 +688,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Select stable Xcode
+      - name: Select Xcode 27.0
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
         with:
-          xcode-version: 'latest-stable'
+          xcode-version: '27.0'
 
       - name: Set up JDK 21
         uses: actions/setup-java@v6.0.1

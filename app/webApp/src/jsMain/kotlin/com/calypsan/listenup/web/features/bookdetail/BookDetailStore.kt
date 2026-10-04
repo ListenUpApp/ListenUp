@@ -34,7 +34,7 @@ class BookDetailSession(
      * relationship to it. `BookDetailViewModel` has had all three since it was written, and both
      * native clients offer them from the book's overflow menu.
      */
-    val onMarkComplete: (startedAt: Long, finishedAt: Long) -> Unit,
+    val onMarkComplete: (startedAt: Long?, finishedAt: Long) -> Unit,
     /** Clear progress entirely — the "start over / did not finish" answer. */
     val onDiscardProgress: () -> Unit,
     /** Keep the book started but send the position back to zero. */
@@ -179,7 +179,7 @@ fun graphBookDetail(koin: Koin): OpenBookDetail =
 @Suppress("LongParameterList")
 fun fixedBookDetail(
     state: BookDetailUiState,
-    onMarkComplete: (Long, Long) -> Unit = { _, _ -> },
+    onMarkComplete: (Long?, Long) -> Unit = { _, _ -> },
     onDiscardProgress: () -> Unit = {},
     onRestart: () -> Unit = {},
     myShelves: List<Shelf> = emptyList(),

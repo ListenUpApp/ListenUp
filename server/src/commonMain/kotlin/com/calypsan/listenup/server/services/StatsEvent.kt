@@ -27,11 +27,14 @@ sealed interface StatsEvent {
      * A book crossed unfinished → finished. [occurredAt] is the book's finished date (may be
      * backdated by an import or a manual edit) — it drives the `book_reads.finished_at` row, the
      * windowed recompute, and the `FINISHED_BOOK` activity's `occurred_at`, all from one timestamp.
+     * [startedAt] is the day the reader said they started this read, when they picked one — it dates
+     * the read's start (`book_reads.started_at`, and the Hardcover FINISH); null when they picked none.
      */
     data class BookCompleted(
         override val userId: String,
         val bookId: String,
         val occurredAt: Instant,
+        val startedAt: Instant? = null,
     ) : StatsEvent
 
     /**
