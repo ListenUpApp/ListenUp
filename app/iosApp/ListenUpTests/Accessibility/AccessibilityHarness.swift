@@ -5,8 +5,8 @@ import UIKit
 @testable import ListenUp
 
 extension Trait where Self == ConditionTrait {
-    /// Skips a harness test on the CI runner only, where it passes and fails on the same Xcode; it still
-    /// runs on a Mac at the desk. CI hands `CI` to the test process as `TEST_RUNNER_CI` (see ci.yml).
+    /// Skips the harness suites on the CI runner only: the in-process accessibility tree and pixel capture
+    /// pass and fail on the same Xcode there, test after test. They still run on a Mac at the desk. CI hands `CI` to the test process as `TEST_RUNNER_CI` (see ci.yml).
     static var flakyOnCI: Self {
         .disabled(
             if: ProcessInfo.processInfo.environment["CI"] != nil,
