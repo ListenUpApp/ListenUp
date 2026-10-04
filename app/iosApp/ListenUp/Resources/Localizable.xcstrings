@@ -15921,6 +15921,16 @@
         }
       }
     },
+    "metadata.updated_cover_kept": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cover kept"
+          }
+        }
+      }
+    },
     "metadata.updated_cover_replaced": {
       "localizations": {
         "en": {

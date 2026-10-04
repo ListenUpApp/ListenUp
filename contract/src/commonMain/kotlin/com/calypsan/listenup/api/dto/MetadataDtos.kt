@@ -290,7 +290,11 @@ data class MetadataApplySelection(
     @SerialName("authorAsins") val authorAsins: Set<String>,
     @SerialName("narratorAsins") val narratorAsins: Set<String>,
     @SerialName("seriesAsins") val seriesAsins: Set<String>,
-    /** The user's chosen cover URL when [cover] is true; null = the match's default-max cover. */
+    /**
+     * The exact cover URL to apply when [cover] is true — the candidate the user saw chosen. The server
+     * never substitutes the match's own cover: [cover] true with no URL writes no cover, and [cover]
+     * false keeps the book's current cover.
+     */
     @SerialName("coverUrl") val coverUrl: String? = null,
     /** Selected raw genre labels from the match; resolved server-side through the genre cascade. Empty = leave genres untouched. */
     @SerialName("genres") val genres: Set<String> = emptySet(),

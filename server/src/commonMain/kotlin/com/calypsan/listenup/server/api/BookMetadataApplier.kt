@@ -154,15 +154,10 @@ internal class BookMetadataApplier(
 
             applyExternalRatingsBestEffort(bookId, locale)
 
+            // The cover is written only when the request names one. A missing URL is never read as
+            // "the match's own cover": that guess is how a preview showing "keep current" replaced it.
             if (selection.cover) {
-                applyChosenCover(
-                    bookId = bookId,
-                    coverUrl =
-                        selection.coverUrl?.takeIf {
-                            it.isNotBlank()
-                        } ?: match.coverUrlMaxSize ?: match.coverUrl,
-                    asin = asin,
-                )
+                applyChosenCover(bookId = bookId, coverUrl = selection.coverUrl, asin = asin)
             }
 
             AppResult.Success(Unit)
@@ -410,7 +405,11 @@ internal class BookMetadataApplier(
         coverUrl: String?,
         asin: String,
     ) {
-        val url = coverUrl?.takeIf { it.isNotBlank() } ?: return
+        val url =
+            coverUrl?.takeIf { it.isNotBlank() } ?: run {
+                log.warn { "Apply for ${bookId.value} (ASIN $asin) ticked cover without naming one — cover left as is" }
+                return
+            }
         val bytes =
             when (val fetched = imageStorage.downloadBytes(url)) {
                 is AppResult.Success -> {

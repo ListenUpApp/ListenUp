@@ -43,6 +43,7 @@ struct MetadataPreview: Equatable {
     let authorsLine: String
     let narratorsLine: String
     let runtimeMinutes: Int?
+    /// The matched edition's own art, for the hero card. Not the cover Apply writes — see [appliedCoverURL].
     let coverURL: String?
 
     /// Simple scalar fields the user toggles as a unit, in display order. Empty entries
@@ -60,9 +61,12 @@ struct MetadataPreview: Equatable {
     let descriptionField: MetadataFieldSelection?
 
     /// The selectable cover candidates (Audible, iTunes HD, …), each honestly labelled by its own
-    /// source and pixel dimensions. The user picks one; the currently-chosen url is [coverURL].
+    /// source and pixel dimensions. Beside them sits the book's current cover; exactly one is marked.
     let coverEnabled: Bool
     let coverOptions: [MetadataCoverOption]
+    /// The cover Apply writes, and its source label; both nil when the book keeps its current cover.
+    let appliedCoverURL: String?
+    let appliedCoverLabel: String?
 
     /// Every provider that contributed a winning field to this match, for the "Merged from …"
     /// footer. One entry means a single source (footer hidden); more than one means a blend.
@@ -77,6 +81,18 @@ struct MetadataPreview: Equatable {
     /// Count of selected fields and the total selectable — drives the "N of M selected" header.
     let selectedCount: Int
     let totalCount: Int
+
+    /// True when Apply leaves the book's current cover alone: the "Current cover" card is the marked one.
+    var keepsCurrentCover: Bool { appliedCoverURL == nil }
+}
+
+/// What an apply actually did, for the confirmation screen — never what was merely on offer.
+struct MetadataApplyReceipt: Equatable {
+    let fieldsApplied: Int
+    /// The applied cover's real source ("iTunes HD", "Audible"…), or nil when the cover was kept.
+    let coverSource: String?
+    /// Chapter names written this session; zero when none were applied.
+    let chaptersNamed: Int
 }
 
 /// One selectable cover candidate for the match picker. Each carries its OWN source label and pixel
