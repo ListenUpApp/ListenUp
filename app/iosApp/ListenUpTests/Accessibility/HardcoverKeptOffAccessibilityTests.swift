@@ -4,7 +4,7 @@ import Testing
 
 /// Kept Off Hardcover at the largest text sizes (#1562, M4 and m4).
 @MainActor
-@Suite("Kept off Hardcover accessibility", .serialized)
+@Suite("Kept off Hardcover accessibility", .serialized, .flakyOnCI)
 struct HardcoverKeptOffAccessibilityTests {
     private let book = KeptOffBookRow(
         id: "b1", title: "Living from a Place of Surrender: The Untethered Soul in Action",

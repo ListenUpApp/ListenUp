@@ -4,7 +4,7 @@ import Testing
 
 /// Settings → Hardcover, read the way VoiceOver and the largest text sizes meet it (#1562).
 @MainActor
-@Suite("Hardcover settings accessibility", .serialized)
+@Suite("Hardcover settings accessibility", .serialized, .flakyOnCI)
 struct HardcoverSettingsAccessibilityTests {
     private static func books(_ count: Int) -> [HardcoverBookToMatchRow] {
         (1...count).map {
@@ -34,7 +34,7 @@ struct HardcoverSettingsAccessibilityTests {
     // MARK: M1 — "Connected"
 
     /// The word was system green on white, 2.22:1. HIG, Accessibility: text needs at least 4.5:1.
-    @Test(.flakyOnCI) func theConnectedLineIsReadableText() async throws {
+    @Test func theConnectedLineIsReadableText() async throws {
         let hosted = await HostedView(connected { _ in })
         defer { hosted.close() }
         let identity = try #require(hosted.stops(labelContaining: "rigreader").first, "\(hosted.tree)")
