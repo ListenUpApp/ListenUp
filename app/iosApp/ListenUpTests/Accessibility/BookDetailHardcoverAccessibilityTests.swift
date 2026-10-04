@@ -4,7 +4,7 @@ import Testing
 
 /// Book Detail's Readers and Hardcover card, read the way VoiceOver and large text meet them (#1562).
 @MainActor
-@Suite("Book Detail Hardcover accessibility", .serialized)
+@Suite("Book Detail Hardcover accessibility", .serialized, .flakyOnCI)
 struct BookDetailHardcoverAccessibilityTests {
     private let readers = [
         BookReaderRow(id: "u1", displayName: "Rig Reader", initials: "RR", isYou: true, progressPercent: nil,
@@ -42,7 +42,7 @@ struct BookDetailHardcoverAccessibilityTests {
 
     /// The combined row folded the trailing `checkmark` symbol's implicit Selected trait into a
     /// navigation row that has no selection.
-    @Test(.flakyOnCI) func readerRowsAreNotSelected() async throws {
+    @Test func readerRowsAreNotSelected() async throws {
         let hosted = await readersSection()
         defer { hosted.close() }
         let rows = hosted.stops.filter { $0.label.contains("Rig Reader") || $0.label.contains("Lena Ortiz") }
