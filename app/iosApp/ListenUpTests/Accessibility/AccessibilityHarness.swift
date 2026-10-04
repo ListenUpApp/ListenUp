@@ -4,6 +4,17 @@ import Testing
 import UIKit
 @testable import ListenUp
 
+extension Trait where Self == ConditionTrait {
+    /// Skips a harness test on the CI runner only, where it passes and fails on the same Xcode; it still
+    /// runs on a Mac at the desk. CI hands `CI` to the test process as `TEST_RUNNER_CI` (see ci.yml).
+    static var flakyOnCI: Self {
+        .disabled(
+            if: ProcessInfo.processInfo.environment["CI"] != nil,
+            "Flaky on the CI runner; tracked in https://github.com/ListenUpApp/ListenUp/issues/1578"
+        )
+    }
+}
+
 /// One stop VoiceOver would make, read back from a hosted view's accessibility tree.
 struct AccessibilityStop: CustomStringConvertible {
     let label: String
