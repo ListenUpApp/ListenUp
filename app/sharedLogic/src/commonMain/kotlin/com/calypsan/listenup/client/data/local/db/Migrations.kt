@@ -322,3 +322,42 @@ internal val MIGRATION_13_14 =
             connection.executeDdl("DELETE FROM `sync_cursor` WHERE `domainName` = 'book_external_ratings'")
         }
     }
+
+/**
+ * v14 → v15: `book_readership.finishesAlsoOnHardcoverJson` — which of a reader's finishes were also
+ * logged on Hardcover, in a column of its own. #1567 shipped the flag as a `:hardcover` suffix inside
+ * `finishesJson` (`900:hardcover,300`) to stay off a schema bump; this moves it out.
+ *
+ * The readership mirror has no sync cursor to rewind (it is replaced wholesale per book on each presence
+ * ping), so rather than blank it the migration converts in place: split each `finishesJson` on commas,
+ * keep the suffixed tokens (suffix stripped) as the new column, then strip every suffix from
+ * `finishesJson`. Cached readers keep every finish and every flag offline. SQL only, because `prepare`
+ * is not callable from common code (see [executeDdl]); the table holds no outbox rows.
+ */
+internal val MIGRATION_14_15 =
+    object : Migration(14, 15) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl(
+                "ALTER TABLE `book_readership` ADD COLUMN `finishesAlsoOnHardcoverJson` TEXT NOT NULL DEFAULT ''",
+            )
+            connection.executeDdl(
+                """
+                UPDATE `book_readership` SET `finishesAlsoOnHardcoverJson` = COALESCE((
+                    WITH RECURSIVE finish(token, rest) AS (
+                        SELECT '', `book_readership`.`finishesJson` || ','
+                        UNION ALL
+                        SELECT substr(rest, 1, instr(rest, ',') - 1), substr(rest, instr(rest, ',') + 1)
+                        FROM finish WHERE rest <> ''
+                    )
+                    SELECT group_concat(replace(token, ':hardcover', ''), ',')
+                    FROM finish WHERE token LIKE '%:hardcover'
+                ), '')
+                WHERE `finishesJson` LIKE '%:hardcover%'
+                """.trimIndent(),
+            )
+            connection.executeDdl(
+                "UPDATE `book_readership` SET `finishesJson` = replace(`finishesJson`, ':hardcover', '') " +
+                    "WHERE `finishesJson` LIKE '%:hardcover%'",
+            )
+        }
+    }
