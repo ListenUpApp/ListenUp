@@ -78,16 +78,17 @@ class StatsRecorder(
      */
     private suspend fun recordBookCompleted(event: StatsEvent.BookCompleted) {
         val finishedAtMs = event.occurredAt.toEpochMilliseconds()
+        val startedAtMs = event.startedAt?.toEpochMilliseconds()
         // The coverage rule decides append-vs-merge on `book_reads`; the re-derive then reads the new
         // count. booksFinished is a pure function of `book_reads`, so a merge leaves it unchanged.
-        val appended = bookReadsRepository.recordCompletion(event.userId, event.bookId, finishedAtMs)
+        val appended = bookReadsRepository.recordCompletion(event.userId, event.bookId, finishedAtMs, startedAtMs)
         closeAwaitingListenThrough(event.userId, event.bookId, finishedAtMs)
         // Only a genuinely new read reaches Hardcover: a merged replay is the same read, already pushed.
         if (appended) {
             pushToHardcover(
                 event.userId,
                 "finish",
-            ) { onReadAppended(event.userId, event.bookId, finishedAtMs) }
+            ) { onReadAppended(event.userId, event.bookId, finishedAtMs, startedAtMs) }
         }
         if (currentCoroutineContext()[StatsCascadeDeferred.Key] == null) {
             val tz = sql.homeTimeZone(event.userId)

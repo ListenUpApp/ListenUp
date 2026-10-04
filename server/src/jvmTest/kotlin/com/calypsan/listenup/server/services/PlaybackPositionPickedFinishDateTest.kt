@@ -12,6 +12,7 @@ import com.calypsan.listenup.server.hardcover.HardcoverPushPayload
 import com.calypsan.listenup.server.hardcover.HardcoverPushRecorder
 import com.calypsan.listenup.server.hardcover.HardcoverTokenCipher
 import com.calypsan.listenup.server.hardcover.HardcoverTokens
+import com.calypsan.listenup.server.hardcover.unsentHardcoverHistory
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -42,6 +43,9 @@ private val PRESSED_AT = LocalDateTime(2026, 10, 3, 12, 0).toInstant(EDMONTON).t
 
 /** The day they said they finished: Sep 30, as the client sends it — local midnight in their zone. */
 private val SEP_30 = LocalDate(2026, 9, 30).atStartOfDayIn(EDMONTON).toEpochMilliseconds()
+
+/** The day they said they started: Sep 1, sent the same way. */
+private val SEP_1 = LocalDate(2026, 9, 1).atStartOfDayIn(EDMONTON).toEpochMilliseconds()
 
 private const val ONE_MINUTE_MS = 60_000L
 private const val THREE_DAYS_MS = 3L * 24 * 60 * 60 * 1000
@@ -111,6 +115,7 @@ private class FinishRig(
         finished: Boolean,
         lastPlayedAt: Long,
         finishedAt: Long? = null,
+        startedAt: Long? = null,
     ) = positions.recordPosition(
         userId = USER,
         bookId = BOOK,
@@ -120,6 +125,7 @@ private class FinishRig(
         playbackSpeed = 1.0f,
         currentChapterId = null,
         finishedAt = finishedAt,
+        startedAt = startedAt,
     )
 
     fun readsFinishedAt(): List<Long> = sql.bookReadsQueries.finishesForUserBook(USER, BOOK).executeAsList()
@@ -136,6 +142,16 @@ private class FinishRig(
             .map { it.payload }
             .filterIsInstance<HardcoverPushPayload.Finish>()
             .map { it.finishedAt }
+
+    suspend fun queuedFinishStarts(): List<Long?> =
+        outbox
+            .pendingFor(USER)
+            .map { it.payload }
+            .filterIsInstance<HardcoverPushPayload.Finish>()
+            .map { it.startedAt }
+
+    /** When each read history would send began, as Hardcover would be told on connecting after [at]. */
+    suspend fun historyStartsBefore(at: Long): List<Long?> = sql.unsentHardcoverHistory(USER, at).map { it.startedAt }
 }
 
 private fun finishTest(block: suspend FinishRig.() -> Unit) = withSqlDatabase { runTest { FinishRig(this@withSqlDatabase).block() } }
@@ -262,6 +278,78 @@ class PlaybackPositionPickedFinishDateTest :
                 record(finished = true, lastPlayedAt = PRESSED_AT + 2 * ONE_MINUTE_MS, finishedAt = SEP_30)
 
                 readsFinishedAt() shouldBe listOf(SEP_30)
+            }
+        }
+
+        // ── The day they STARTED ───────────────────────────────────────────────────────────────────
+        // The same form lets the reader say when they started. That day dates the read's start on
+        // Hardcover — whether the push is live (the FINISH) or sent later as history.
+
+        test("a picked start rides the FINISH Hardcover receives") {
+            finishTest {
+                connectHardcover()
+
+                record(finished = true, lastPlayedAt = PRESSED_AT, finishedAt = SEP_30, startedAt = SEP_1)
+
+                queuedFinishes() shouldBe listOf(SEP_30)
+                queuedFinishStarts() shouldBe listOf(SEP_1)
+            }
+        }
+
+        test("a picked start after the finish is ignored") {
+            finishTest {
+                connectHardcover()
+
+                record(finished = true, lastPlayedAt = PRESSED_AT, finishedAt = SEP_1, startedAt = SEP_30)
+
+                queuedFinishes() shouldBe listOf(SEP_1)
+                queuedFinishStarts() shouldBe listOf(null)
+            }
+        }
+
+        test("a picked start in the future is ignored") {
+            finishTest {
+                connectHardcover()
+
+                record(finished = true, lastPlayedAt = PRESSED_AT, startedAt = PRESSED_AT + THREE_DAYS_MS)
+
+                queuedFinishStarts() shouldBe listOf(null)
+            }
+        }
+
+        test("a picked start that is not a real instant is ignored") {
+            finishTest {
+                connectHardcover()
+
+                record(finished = true, lastPlayedAt = PRESSED_AT, finishedAt = SEP_30, startedAt = 0L)
+
+                queuedFinishStarts() shouldBe listOf(null)
+            }
+        }
+
+        test("a finish with no picked start carries none, as before") {
+            finishTest {
+                connectHardcover()
+
+                record(finished = true, lastPlayedAt = PRESSED_AT, finishedAt = SEP_30)
+
+                queuedFinishStarts() shouldBe listOf(null)
+            }
+        }
+
+        test("a picked start on a book finished before connecting is the start history sends") {
+            finishTest {
+                record(finished = true, lastPlayedAt = PRESSED_AT, finishedAt = SEP_30, startedAt = SEP_1)
+
+                historyStartsBefore(PRESSED_AT + ONE_MINUTE_MS) shouldBe listOf(SEP_1)
+            }
+        }
+
+        test("history still has no start for a read finished with none picked and nothing listened") {
+            finishTest {
+                record(finished = true, lastPlayedAt = PRESSED_AT, finishedAt = SEP_30)
+
+                historyStartsBefore(PRESSED_AT + ONE_MINUTE_MS) shouldBe listOf(null)
             }
         }
     })

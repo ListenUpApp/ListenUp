@@ -21,12 +21,12 @@ CREATE TABLE hardcover_history_reads (
 CREATE INDEX idx_hardcover_history_reads_read ON hardcover_history_reads(read_id);
 
 -- The user's own reads finished before :connected_at that are neither in the ledger nor queued as HISTORY,
--- oldest first, each with the start ListenUp can vouch for: the earliest listening on the book after the
--- previous own read finished (or from the beginning), and no later than this read's finish. NULL when there
--- is none. Books removed from the library, and books kept off Hardcover (#1541), are left out.
+-- oldest first, each with the start ListenUp can vouch for: the day the reader said they started, when they
+-- picked one; else the earliest listening on the book after the previous own read finished (or from the
+-- beginning), and no later than this read's finish. NULL when there is neither. Books removed from the library, and books kept off Hardcover (#1541), are left out.
 selectUnsentHistory:
 SELECT r.id, r.book_id, r.finished_at,
-    (
+    COALESCE(r.started_at, (
         SELECT MIN(e.started_at) FROM listening_events AS e
         WHERE e.user_id = r.user_id AND e.book_id = r.book_id AND e.deleted_at IS NULL
           AND e.started_at <= r.finished_at
@@ -38,7 +38,7 @@ SELECT r.id, r.book_id, r.finished_at,
               ),
               -1
           )
-    ) AS derived_started_at
+    )) AS derived_started_at
 FROM book_reads AS r
 JOIN books AS b ON b.id = r.book_id AND b.deleted_at IS NULL
 WHERE r.user_id = :user_id AND r.source <> 'hardcover' AND r.finished_at < :connected_at
@@ -131,7 +131,7 @@ WHERE o.user_id = :user_id AND o.op = 'HISTORY' AND (l.match_state IS NULL OR l.
 -- (as selectUnsentHistory). Live books only.
 selectCatchUpHistory:
 SELECT r.id, r.book_id, r.finished_at,
-    (
+    COALESCE(r.started_at, (
         SELECT MIN(e.started_at) FROM listening_events AS e
         WHERE e.user_id = r.user_id AND e.book_id = r.book_id AND e.deleted_at IS NULL
           AND e.started_at <= r.finished_at
@@ -143,7 +143,7 @@ SELECT r.id, r.book_id, r.finished_at,
               ),
               -1
           )
-    ) AS derived_started_at
+    )) AS derived_started_at
 FROM book_reads AS r
 JOIN books AS b ON b.id = r.book_id AND b.deleted_at IS NULL
 WHERE r.user_id = :user_id AND r.book_id = :book_id AND r.source <> 'hardcover' AND r.finished_at >= :since

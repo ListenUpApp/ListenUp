@@ -70,6 +70,12 @@ data class RecordPositionRequest(
     @SerialName("hasCustomSpeed") val hasCustomSpeed: Boolean = false,
     /** True when the listener explicitly chose [volumeBoostDb] for this book. See [hasCustomSpeed]. */
     @SerialName("hasCustomBoost") val hasCustomBoost: Boolean = false,
+    /**
+     * The day the reader said they started, epoch ms — sent only with a finish whose start they picked
+     * in "Mark as finished", and null otherwise. It dates the start of the read that finish records
+     * (on Hardcover, live or as history); a server that predates it ignores it.
+     */
+    @SerialName("startedAt") val startedAt: Long? = null,
 )
 
 /**

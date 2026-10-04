@@ -136,6 +136,18 @@ private class FakePendingOperationV2Dao : PendingOperationV2Dao {
 
     override suspend fun countDeadLetters(maxAttempts: Int): Int = 0
 
+    override suspend fun latestQueuedPayload(
+        domainName: String,
+        entityId: String,
+        opType: String,
+        maxAttempts: Int,
+    ): String? =
+        inserted
+            .filter {
+                it.domainName == domainName && it.entityId == entityId && it.opType == opType && it.failureCount <= maxAttempts
+            }.maxByOrNull { it.enqueuedAt }
+            ?.payload
+
     override suspend fun deleteAllExcept(keepUserId: String) {
         inserted.removeAll { it.ownerUserId != keepUserId }
     }

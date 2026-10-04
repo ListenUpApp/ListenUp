@@ -34,11 +34,15 @@ interface HardcoverPushHook {
         positionMs: Long,
     )
 
-    /** The coverage rule appended a new read of [bookId], finished at [finishedAt]. */
+    /**
+     * The coverage rule appended a new read of [bookId], finished at [finishedAt]. [startedAt] is the
+     * day the reader said they started it, when they picked one; null when they picked none.
+     */
     suspend fun onReadAppended(
         userId: String,
         bookId: String,
         finishedAt: Long,
+        startedAt: Long? = null,
     )
 
     /** The hook that pushes nothing. */
@@ -63,6 +67,7 @@ interface HardcoverPushHook {
                     userId: String,
                     bookId: String,
                     finishedAt: Long,
+                    startedAt: Long?,
                 ) = Unit
             }
     }
@@ -87,7 +92,9 @@ fun interface HardcoverPushNudge {
  * The listener's [HardcoverShareMode] is enforced here, where a push is queued, so nothing private is
  * ever queued to leak out after a switch: Only when I finish queues no START and no PROGRESS, and FINISH
  * as ever. A FINISH's row is its listen-through, whose start dates the read Hardcover gets — the executor
- * shelves the book, adopts the read Hardcover opens, and moves it to that start.
+ * shelves the book, adopts the read Hardcover opens, and moves it to that start — unless the reader picked
+ * a start day, which the FINISH carries and which wins. The row stays keyed by its listen-through either
+ * way, so the deletion rule and suppression see the same key they always did.
  */
 class HardcoverPushRecorder(
     private val sql: ListenUpDatabase,
@@ -136,6 +143,7 @@ class HardcoverPushRecorder(
         userId: String,
         bookId: String,
         finishedAt: Long,
+        startedAt: Long?,
     ) {
         if (!connections.hasConnection(userId)) return
         // Kept off Hardcover (#1541): nothing about this book is queued — not even a lifted suppression.
@@ -146,7 +154,7 @@ class HardcoverPushRecorder(
             ) { sql.listenThroughsQueries.selectCurrent(userId, bookId).executeAsOneOrNull() }?.started_at
                 ?: LEGACY_LISTEN_THROUGH
         if (links.linkFor(userId, bookId)?.suppressedListenThrough == listenThrough) return
-        outbox.enqueueFinish(userId, bookId, listenThrough, finishedAt)
+        outbox.enqueueFinish(userId, bookId, listenThrough, finishedAt, startedAt)
         nudge.nudge(userId)
     }
 

@@ -184,6 +184,7 @@ internal class PlaybackServiceImpl(
             finishedAt = request.finishedAt,
             hasCustomSpeed = request.hasCustomSpeed,
             hasCustomBoost = request.hasCustomBoost,
+            startedAt = request.startedAt,
         )
     }
 
