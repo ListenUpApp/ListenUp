@@ -147,6 +147,7 @@ private object ExplodingHook : HardcoverPushHook {
         userId: String,
         bookId: String,
         finishedAt: Long,
+        startedAt: Long?,
     ): Unit = error("outbox down")
 }
 

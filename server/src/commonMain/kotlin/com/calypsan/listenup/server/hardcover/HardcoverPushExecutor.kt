@@ -128,10 +128,21 @@ class HardcoverPushExecutor(
             return PushOutcome.Done
         }
 
+        /**
+         * Finishes the read. A start the reader picked ([HardcoverPushPayload.Finish.startedAt]) dates it,
+         * over whatever start the read already has; without one the read keeps the start it was opened
+         * with — the listen-through's, or Hardcover's own.
+         */
         suspend fun finish(payload: HardcoverPushPayload.Finish): PushOutcome {
-            val open = openRead(startedAt = listenThroughStart).valueOr { return PushOutcome.Failed(it) }
+            val open =
+                openRead(startedAt = payload.startedAt ?: listenThroughStart).valueOr { return PushOutcome.Failed(it) }
+            val finished =
+                open.read.copy(
+                    startedAt = payload.startedAt?.let { dateOf(it).toString() } ?: open.read.startedAt,
+                    finishedAt = dateOf(payload.finishedAt).toString(),
+                )
             userBooks
-                .updateRead(token, open.read.copy(finishedAt = dateOf(payload.finishedAt).toString()))
+                .updateRead(token, finished)
                 .valueOr { return PushOutcome.Failed(it) }
             if (shelf == null || shelf.statusId != HardcoverStatus.READ) {
                 userBooks

@@ -67,7 +67,7 @@ import listenup.composeapp.generated.resources.common_select_date
 @Composable
 fun MarkCompleteDialog(
     startedAtMs: Long?,
-    onConfirm: (startedAt: Long, finishedAt: Long) -> Unit,
+    onConfirm: (startedAt: Long?, finishedAt: Long) -> Unit,
     onDismiss: () -> Unit,
     nowMs: Long = remember { currentEpochMilliseconds() },
     timeZone: TimeZone = remember { TimeZone.currentSystemDefault() },

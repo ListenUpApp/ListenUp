@@ -71,7 +71,9 @@ interface PlaybackPositionRepository {
      * On server failure, rolls back to previous state.
      *
      * @param bookId The book to mark as complete
-     * @param startedAt Optional start date in epoch milliseconds (overrides existing)
+     * @param startedAt The start day the reader picked, in epoch milliseconds, or null when they
+     *   picked none. A picked start overrides the recorded one and is sent to the server to date the
+     *   read; null keeps the recorded start and sends nothing.
      * @param finishedAt Optional finish date in epoch milliseconds (defaults to now)
      * @return Result with Unit on success, or Failure on error
      */

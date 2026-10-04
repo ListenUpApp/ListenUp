@@ -85,6 +85,19 @@ class MigrationRunnerTest :
             ds.tableExists("b") shouldBe true
         }
 
+        test("a gap in the versions boots, and the missing version still applies once it lands") {
+            // Parallel PRs reserve numbers: one can merge V86 while V85 is still in review. A database
+            // migrated across the gap must accept V85 when it arrives, not skip it as already passed.
+            val m3 = Migration(3, "third", "ck3", "CREATE TABLE c (z INTEGER);")
+            val (path, ds) = freshDb()
+            MigrationRunner(path, listOf(m1, m3)).migrate() shouldBe "3"
+            ds.tableExists("b") shouldBe false
+            ds.tableExists("c") shouldBe true
+
+            MigrationRunner(path, listOf(m1, m2, m3)).migrate() shouldBe "3"
+            ds.tableExists("b") shouldBe true
+        }
+
         test("migrate(upTo) applies only migrations at or below the target version") {
             val (path, ds) = freshDb()
             MigrationRunner(path, listOf(m1, m2)).migrate(upTo = 1) shouldBe "1"
