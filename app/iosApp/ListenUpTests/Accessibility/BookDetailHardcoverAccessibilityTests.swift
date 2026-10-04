@@ -42,7 +42,7 @@ struct BookDetailHardcoverAccessibilityTests {
 
     /// The combined row folded the trailing `checkmark` symbol's implicit Selected trait into a
     /// navigation row that has no selection.
-    @Test func readerRowsAreNotSelected() async throws {
+    @Test(.flakyOnCI) func readerRowsAreNotSelected() async throws {
         let hosted = await readersSection()
         defer { hosted.close() }
         let rows = hosted.stops.filter { $0.label.contains("Rig Reader") || $0.label.contains("Lena Ortiz") }

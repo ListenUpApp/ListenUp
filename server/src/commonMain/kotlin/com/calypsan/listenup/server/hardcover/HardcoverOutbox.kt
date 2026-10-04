@@ -24,11 +24,16 @@ sealed interface HardcoverPushPayload {
         @SerialName("positionSeconds") val positionSeconds: Long,
     ) : HardcoverPushPayload
 
-    /** The listener finished the book at [finishedAt] (epoch ms): "Read". */
+    /**
+     * The listener finished the book at [finishedAt] (epoch ms): "Read". [startedAt] is the day they
+     * said they started, when they picked one in "Mark as finished": it dates the read's start over the
+     * listen-through's. Null — and absent from rows queued before it existed — when they picked none.
+     */
     @Serializable
     @SerialName("FINISH")
     data class Finish(
         @SerialName("finishedAt") val finishedAt: Long,
+        @SerialName("startedAt") val startedAt: Long? = null,
     ) : HardcoverPushPayload
 
     /**
@@ -118,12 +123,16 @@ class HardcoverOutbox(
         }
     }
 
-    /** Queues FINISH for [listenThrough], dropping the book's queued PROGRESS, which it supersedes. */
+    /**
+     * Queues FINISH for [listenThrough], dropping the book's queued PROGRESS, which it supersedes.
+     * [startedAt] is the reader's picked start day, carried on the payload; see [HardcoverPushPayload.Finish].
+     */
     suspend fun enqueueFinish(
         userId: String,
         bookId: String,
         listenThrough: Long,
         finishedAt: Long,
+        startedAt: Long? = null,
     ) {
         val at = now()
         suspendTransaction(sql) {
@@ -133,7 +142,7 @@ class HardcoverOutbox(
                 book_id = bookId,
                 listen_through_started_at = listenThrough,
                 op = OP_FINISH,
-                payload = encode(HardcoverPushPayload.Finish(finishedAt)),
+                payload = encode(HardcoverPushPayload.Finish(finishedAt, startedAt)),
                 created_at = at,
                 next_attempt_at = at,
             )

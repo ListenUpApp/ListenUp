@@ -36,7 +36,7 @@ class MarkFinishedDialogTest :
 
         fun dialog(
             startedAt: Long? = startedAtMs,
-            onConfirm: (Long, Long) -> Unit = { _, _ -> },
+            onConfirm: (Long?, Long) -> Unit = { _, _ -> },
         ): HTMLElement =
             mounts.mount {
                 WebAppSurface {
@@ -84,17 +84,28 @@ class MarkFinishedDialogTest :
             dateInputs(dialog()).map { it.getAttribute("max") } shouldBe listOf("2026-09-29", "2026-09-29")
         }
 
-        test("confirming untouched dates sends the recorded start and now, as Android does") {
-            var sent: Pair<Long, Long>? = null
+        test("confirming untouched dates claims no start and finishes now, as Android does") {
+            var sent: Pair<Long?, Long>? = null
             val host = dialog(onConfirm = { start, finish -> sent = start to finish })
 
             confirm(host).click()
 
-            sent shouldBe (startedAtMs to nowMs)
+            sent shouldBe (null to nowMs)
+        }
+
+        test("a changed start day is sent, with the untouched finish still now") {
+            var sent: Pair<Long?, Long>? = null
+            val host = dialog(onConfirm = { start, finish -> sent = start to finish })
+
+            type(dateInputs(host)[0], "2026-09-01")
+            awaitFrame()
+            confirm(host).click()
+
+            sent shouldBe (Instant.parse("2026-09-01T07:00:00Z").toEpochMilliseconds() to nowMs)
         }
 
         test("chosen days are sent as the start of those days in the reader's zone") {
-            var sent: Pair<Long, Long>? = null
+            var sent: Pair<Long?, Long>? = null
             val host = dialog(onConfirm = { start, finish -> sent = start to finish })
             val (started, finished) = dateInputs(host)
 
@@ -111,7 +122,7 @@ class MarkFinishedDialogTest :
         }
 
         test("a finish before the start is refused, and the form says why") {
-            var sent: Pair<Long, Long>? = null
+            var sent: Pair<Long?, Long>? = null
             val host = dialog(onConfirm = { start, finish -> sent = start to finish })
 
             type(dateInputs(host)[1], "2026-09-01")

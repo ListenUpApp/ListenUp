@@ -69,11 +69,15 @@ class BookReadsRepository(
      * The whole decision runs in one transaction so a concurrent completion can't interleave between
      * the coverage read and the write. Returns true when it appended a new read, and false when it
      * merged into the previous one.
+     *
+     * [startedAtMs] is the day the reader said they started, when they picked one: the read — new or
+     * merged into — keeps it as its start. Null leaves a merged read's start as it was.
      */
     suspend fun recordCompletion(
         userId: String,
         bookId: String,
         finishedAtMs: Long,
+        startedAtMs: Long? = null,
     ): Boolean {
         val createdAt = clock.now().toEpochMilliseconds()
         return suspendTransaction(db) {
@@ -95,16 +99,18 @@ class BookReadsRepository(
                     if (isNewRead) null else previous.id
                 }
             if (mergeIntoId == null) {
-                db.bookReadsQueries.insert(
+                db.bookReadsQueries.insertWithStart(
                     id = Uuid.random().toString(),
                     user_id = userId,
                     book_id = bookId,
                     finished_at = finishedAtMs,
                     source = BookReadSource.PLAYBACK,
                     created_at = createdAt,
+                    started_at = startedAtMs,
                 )
             } else {
                 db.bookReadsQueries.updateFinishedAtById(finished_at = finishedAtMs, id = mergeIntoId)
+                startedAtMs?.let { db.bookReadsQueries.updateStartedAtById(started_at = it, id = mergeIntoId) }
             }
             mergeIntoId == null
         }
