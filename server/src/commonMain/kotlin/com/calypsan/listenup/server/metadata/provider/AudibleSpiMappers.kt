@@ -14,6 +14,8 @@ import com.calypsan.listenup.server.metadata.spi.ChapterListMeta
 import com.calypsan.listenup.server.metadata.spi.ChapterMeta
 import com.calypsan.listenup.server.metadata.spi.CoverMeta
 import com.calypsan.listenup.server.metadata.spi.ExternalRatingMeta
+import com.calypsan.listenup.server.metadata.spi.FoundBook
+import com.calypsan.listenup.server.metadata.spi.editionFormatOf
 import com.calypsan.listenup.server.metadata.spi.GenreKind
 import com.calypsan.listenup.server.metadata.spi.GenreMeta
 import com.calypsan.listenup.server.metadata.spi.SeriesMeta
@@ -146,3 +148,41 @@ internal fun List<AudibleSearchResult>.toCoverMetas(): List<CoverMeta> =
     firstOrNull { it.coverUrl.isNotBlank() }
         ?.let { listOf(CoverMeta(url = it.coverUrl, sourceKey = it.asin)) }
         ?: emptyList()
+
+/** An Audible search hit as Find reads it, found in [region]'s store. */
+internal fun AudibleSearchResult.toFoundBook(region: AudibleRegion): FoundBook =
+    FoundBook(
+        key = asin,
+        title = title,
+        subtitle = subtitle.takeIf { it.isNotBlank() },
+        authors = authors.map { it.name },
+        narrators = narrators.map { it.name },
+        durationMs = runtimeMinutes.takeIf { it > 0 }?.let { it * MS_PER_MINUTE },
+        releaseDate = releaseDate.takeIf { it.isNotBlank() },
+        format = editionFormatOf(formatType.takeIf { it.isNotBlank() }, title, subtitle),
+        asin = asin,
+        coverUrl = coverUrl.takeIf { it.isNotBlank() },
+        region = region.code,
+    )
+
+/** A book Audible returned for one of its ASINs, as Find reads it — [viaLink] when the ASIN was the book's link. */
+internal fun AudibleBook.toFoundBook(
+    region: AudibleRegion,
+    viaLink: Boolean,
+    chapterCount: Int?,
+): FoundBook =
+    FoundBook(
+        key = asin,
+        title = title,
+        subtitle = subtitle.takeIf { it.isNotBlank() },
+        authors = authors.map { it.name },
+        narrators = narrators.map { it.name },
+        durationMs = runtimeMinutes.takeIf { it > 0 }?.let { it * MS_PER_MINUTE },
+        releaseDate = releaseDate.takeIf { it.isNotBlank() },
+        format = editionFormatOf(formatType.takeIf { it.isNotBlank() }, title, subtitle),
+        asin = asin,
+        coverUrl = coverUrl.takeIf { it.isNotBlank() },
+        region = region.code,
+        chapterCount = chapterCount,
+        viaLink = viaLink,
+    )

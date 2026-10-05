@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.metadata.audnexus
 
+import com.calypsan.listenup.server.metadata.retryAfterSeconds
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
@@ -9,6 +10,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
@@ -107,7 +109,11 @@ internal class AudnexusClient(
 
                 HttpStatusCode.TooManyRequests -> {
                     logger.warn { "Audnexus rate-limited: path=$path region=$region" }
-                    AppResult.Failure(MetadataError.ExternalRateLimited())
+                    AppResult.Failure(
+                        MetadataError.ExternalRateLimited(
+                            retryAfterSeconds = retryAfterSeconds(response.headers[HttpHeaders.RetryAfter]),
+                        ),
+                    )
                 }
 
                 else -> {
