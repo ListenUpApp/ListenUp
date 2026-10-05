@@ -39,7 +39,7 @@ import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookContributor
-import com.calypsan.listenup.client.domain.model.BookSeries
+import com.calypsan.listenup.client.presentation.bookdetail.BookSeriesPath
 import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.contributors.ClickableContributorLine
 import com.calypsan.listenup.client.presentation.bookdetail.HERO_CONTRIBUTOR_FOLD_LIMIT
@@ -72,7 +72,7 @@ import androidx.compose.ui.semantics.semantics
  *   genre label
  * @param subtitle Independent subtitle line (e.g. "The Final Empire"); null/blank hides it. The
  *   caller suppresses subtitles that merely restate a series, so this is shown verbatim when present
- * @param series Series memberships rendered as tappable chips; empty hides the row
+ * @param seriesPaths Where the book sits, one tappable path line per series; empty hides the block
  * @param authors Author contributors — each name is individually tappable
  * @param narrators Narrator contributors — each name is individually tappable; empty hides the row
  * @param onContributorClick Invoked with a contributor id when an author or narrator name is tapped
@@ -93,7 +93,7 @@ fun CompactHero(
     genre: String?,
     abridged: Boolean,
     subtitle: String?,
-    series: List<BookSeries>,
+    seriesPaths: List<BookSeriesPath>,
     authors: List<BookContributor>,
     narrators: List<BookContributor>,
     onContributorClick: (contributorId: String) -> Unit,
@@ -205,10 +205,10 @@ fun CompactHero(
             )
         }
 
-        // Series — tappable chips, one per membership (Mistborn · Book 1, The Cosmere · Book 3)
-        if (series.isNotEmpty()) {
-            SeriesChips(
-                series = series,
+        // Series — one path line per series (Cosmere › Mistborn #1), every name a link
+        if (seriesPaths.isNotEmpty()) {
+            SeriesPathLines(
+                paths = seriesPaths,
                 onSeriesClick = onSeriesClick,
                 contentColor = MaterialTheme.colorScheme.onSurface,
                 centered = true,
@@ -238,7 +238,7 @@ fun CompactHero(
  *   genre label
  * @param subtitle Independent subtitle line (e.g. "The Final Empire"); null/blank hides it. The
  *   caller suppresses subtitles that merely restate a series, so this is shown verbatim when present
- * @param series Series memberships rendered as tappable chips; empty hides the row
+ * @param seriesPaths Where the book sits, one tappable path line per series; empty hides the block
  * @param authors Author contributors — each name is individually tappable
  * @param narrators Narrator contributors — each name is individually tappable; empty hides the row
  * @param onContributorClick Invoked with a contributor id when an author or narrator name is tapped
@@ -262,7 +262,7 @@ fun WideHeroBand(
     genre: String?,
     abridged: Boolean,
     subtitle: String?,
-    series: List<BookSeries>,
+    seriesPaths: List<BookSeriesPath>,
     authors: List<BookContributor>,
     narrators: List<BookContributor>,
     onContributorClick: (contributorId: String) -> Unit,
@@ -340,7 +340,7 @@ fun WideHeroBand(
                     genre = genre,
                     abridged = abridged,
                     subtitle = subtitle,
-                    series = series,
+                    seriesPaths = seriesPaths,
                     authors = authors,
                     narrators = narrators,
                     onContributorClick = onContributorClick,
@@ -358,7 +358,7 @@ fun WideHeroBand(
 
 /**
  * The identity text column inside [WideHeroBand]: classification flag, title, optional subtitle,
- * the author · narrator row, optional series chips, and — as the last element, matching the design —
+ * the author · narrator row, optional series path lines, and — as the last element, matching the design —
  * the [StatsRow] recoloured to read on the colour band. Extracted so [WideHeroBand] stays within the
  * method-length budget.
  */
@@ -369,7 +369,7 @@ private fun WideHeroIdentity(
     genre: String?,
     abridged: Boolean,
     subtitle: String?,
-    series: List<BookSeries>,
+    seriesPaths: List<BookSeriesPath>,
     authors: List<BookContributor>,
     narrators: List<BookContributor>,
     onContributorClick: (contributorId: String) -> Unit,
@@ -428,10 +428,10 @@ private fun WideHeroIdentity(
             modifier = Modifier.padding(top = 14.dp),
         )
 
-        // Series — tappable chips, one per membership; hidden when empty
-        if (series.isNotEmpty()) {
-            SeriesChips(
-                series = series,
+        // Series — one path line per series, every name a link; hidden when empty
+        if (seriesPaths.isNotEmpty()) {
+            SeriesPathLines(
+                paths = seriesPaths,
                 onSeriesClick = onSeriesClick,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 centered = false,
@@ -556,90 +556,6 @@ private fun WideContributorRow(
                 foldLimit = HERO_CONTRIBUTOR_FOLD_LIMIT,
                 overflowTextRes = Res.string.book_detail_other_narrators,
                 onOverflowClick = { onShowCast(CastRole.Narrators) },
-            )
-        }
-    }
-}
-
-/**
- * A wrapping row of tappable series chips — one per [BookSeries] membership, so a book in several
- * series (e.g. "Mistborn · Book 1" and "The Cosmere · Book 3") shows one chip each.
- *
- * Each chip is a tonal pill (a faint [contentColor] wash) carrying a stacked-books icon, the series
- * name, and — when a sequence is known — a "Book N" position. The whole chip routes to the series
- * via [onSeriesClick]. Colours are passed in so the same component reads correctly both on the wide
- * hero's colour band ([MaterialTheme.colorScheme.onPrimaryContainer]) and the compact hero's
- * surface ([MaterialTheme.colorScheme.onSurface]).
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-internal fun SeriesChips(
-    series: List<BookSeries>,
-    onSeriesClick: (seriesId: String) -> Unit,
-    contentColor: Color,
-    centered: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    FlowRow(
-        modifier = modifier,
-        horizontalArrangement =
-            Arrangement.spacedBy(8.dp, if (centered) Alignment.CenterHorizontally else Alignment.Start),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        series.forEach { membership ->
-            SeriesChip(
-                membership = membership,
-                contentColor = contentColor,
-                onClick = { onSeriesClick(membership.seriesId) },
-            )
-        }
-    }
-}
-
-/** A single series pill: stacked-books icon · series name · optional "Book N" position. */
-@Composable
-private fun SeriesChip(
-    membership: BookSeries,
-    contentColor: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val haptics = LocalHaptics.current
-    Row(
-        modifier =
-            modifier
-                .clip(CircleShape)
-                .clickable {
-                    haptics.press()
-                    onClick()
-                }.background(contentColor.copy(alpha = 0.12f))
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.MenuBook,
-            contentDescription = null,
-            modifier = Modifier.size(17.dp),
-            tint = contentColor,
-        )
-        Text(
-            text = membership.seriesName,
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-            color = contentColor,
-        )
-        val sequenceLabel = membership.sequenceLabel
-        if (sequenceLabel != null) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(3.5.dp)
-                        .background(contentColor.copy(alpha = 0.45f), CircleShape),
-            )
-            Text(
-                text = stringResource(Res.string.series_book_sequence, sequenceLabel),
-                style = MaterialTheme.typography.labelLarge,
-                color = contentColor.copy(alpha = 0.72f),
             )
         }
     }

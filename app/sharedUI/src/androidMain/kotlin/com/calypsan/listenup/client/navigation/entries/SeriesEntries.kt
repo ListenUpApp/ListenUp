@@ -31,6 +31,9 @@ internal fun EntryProviderScope<NavKey>.seriesEntries(backStack: NavBackStack<Na
                 onContributorClick = { contributorId ->
                     backStack.navigateFrom(args, ContributorDetail(contributorId))
                 },
+                onSeriesClick = { seriesId ->
+                    backStack.navigateFrom(args, SeriesDetail(seriesId))
+                },
             )
         }
     }

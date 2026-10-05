@@ -53,6 +53,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.client.features.seriesdetail.components.seriesPlacementLine
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -949,7 +950,7 @@ private fun PersonResultRow(
 }
 
 @Composable
-private fun SeriesResultRow(
+internal fun SeriesResultRow(
     hit: SearchHit,
     query: String,
     onClick: () -> Unit,
@@ -972,9 +973,10 @@ private fun SeriesResultRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            // Where the series sits — "in Cosmere › Mistborn · 8 books"; a root shows just its count.
             hit.bookCount?.let { count ->
                 Text(
-                    text = bookCountLabel(count),
+                    text = seriesPlacementLine(hit.seriesPath, count),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

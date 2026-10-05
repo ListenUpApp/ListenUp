@@ -432,6 +432,7 @@ private fun DetailScreen(
                 onBookClick = { navigateTo(DetailDestination.Book(it)) },
                 onEditClick = { navigateTo(DetailDestination.SeriesEdit(it)) },
                 onContributorClick = { navigateTo(DetailDestination.Contributor(it)) },
+                onSeriesClick = { navigateTo(DetailDestination.Series(it)) },
             )
         }
 
