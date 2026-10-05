@@ -931,7 +931,7 @@ class SeriesEditViewModelTest :
             }
         }
 
-        test("a refused parent shows the typed error's message and reaches the error bus") {
+        test("a refused parent reaches the error bus once, and leaves the editor's own error alone") {
             runTest {
                 val fixture = createFixture()
                 everySuspend {
@@ -946,7 +946,9 @@ class SeriesEditViewModelTest :
                     awaitItem() shouldBe SeriesError.HierarchyCycle()
                 }
 
-                viewModel.state.value.error shouldBe SeriesError.HierarchyCycle().message
+                // Shown once, by the global error surface — never also as the editor's own error,
+                // which on some platforms replaces the whole form.
+                viewModel.state.value.error shouldBe null
                 viewModel.state.value.hierarchyBusy shouldBe false
             }
         }

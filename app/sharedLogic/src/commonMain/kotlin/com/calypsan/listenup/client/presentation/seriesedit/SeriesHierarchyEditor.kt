@@ -37,7 +37,7 @@ private const val STOP_TIMEOUT_MS = 5_000L
  *
  * Placement is read from Room through [observeLineage] and never written here: a hierarchy change
  * goes to the server, and its answer arrives through sync and lands in [state] on its own. A
- * refused change goes to the [errorBus] and into `state.error`.
+ * refused change goes to the [errorBus] only.
  */
 internal class SeriesHierarchyEditor(
     private val scope: CoroutineScope,
@@ -216,7 +216,9 @@ internal class SeriesHierarchyEditor(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to change series hierarchy: ${result.message}" }
-                    state.update { it.copy(hierarchyBusy = false, error = result.error.message) }
+                    // The error bus is the one place a refusal shows. `state.error` stays for load and
+                    // save failures, which some platforms render in place of the whole form.
+                    state.update { it.copy(hierarchyBusy = false) }
                 }
             }
         }

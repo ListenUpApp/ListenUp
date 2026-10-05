@@ -396,7 +396,6 @@ class BookDetailViewModel(
             isComplete = isComplete,
             startedAtMs = position?.startedAtMs,
             subtitle = displaySubtitle,
-            series = detail.fullSeriesTitle,
             seriesPaths = bookSeriesPaths(detail.series, latestHierarchy),
             descriptionText = detail.description ?: "",
             narrators = detail.narratorNames,
@@ -796,10 +795,6 @@ sealed interface BookDetailUiState {
         val isDiscardingProgress: Boolean = false,
         val isRestarting: Boolean = false,
         val subtitle: String? = null,
-        // Single formatted "Series #N" string (first membership). The Compose UI renders series as
-        // chips from book.series, but the iOS SwiftUI Book Detail (BookDetailObserver/BookDetailView)
-        // still consumes this string — keep it so iOS compiles and reads series as before.
-        val series: String? = null,
         /**
          * The book's series as paths — one line per series, "Cosmere › Mistborn #1" — with every
          * part a link. A membership already implied by a deeper one is left out.
