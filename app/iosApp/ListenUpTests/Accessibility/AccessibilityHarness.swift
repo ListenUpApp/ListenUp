@@ -9,7 +9,7 @@ extension Trait where Self == ConditionTrait {
     /// pass and fail on the same Xcode there, test after test. They still run on a Mac at the desk. CI hands `CI` to the test process as `TEST_RUNNER_CI` (see ci.yml).
     static var flakyOnCI: Self {
         .disabled(
-            if: ProcessInfo.processInfo.environment["CI"] != nil,
+            if: false,
             "Flaky on the CI runner; tracked in https://github.com/ListenUpApp/ListenUp/issues/1578"
         )
     }
@@ -47,6 +47,12 @@ struct AccessibilityStop: CustomStringConvertible {
 final class HostedView {
     let window: UIWindow
     private let fit: (CGSize) -> CGSize
+    private let host: UIViewController
+    private let started = Date()
+    private let ordinal: Int
+    private let liveAtStart: Int
+    static var created = 0
+    static var live = 0
 
     init<Content: View>(
         _ content: Content,
@@ -68,6 +74,11 @@ final class HostedView {
         window.rootViewController = host
         window.makeKeyAndVisible()
         self.window = window
+        self.host = host
+        Self.created += 1
+        Self.live += 1
+        self.ordinal = Self.created
+        self.liveAtStart = Self.live
         self.fit = { host.sizeThatFits(in: $0) }
         await settle()
     }
@@ -102,7 +113,36 @@ final class HostedView {
 
     /// The tree as text, for an assertion message that shows what was there instead.
     var tree: String {
-        stops.map(\.description).joined(separator: "\n")
+        stops.map(\.description).joined(separator: "\n") + "\n--diag--\n" + diagnostics
+    }
+
+    var diagnostics: String {
+        var out: [String] = []
+        let scene = window.windowScene
+        out.append("ordinal=\(ordinal) liveAtStart=\(liveAtStart) liveNow=\(Self.live) elapsed=\(Int(Date().timeIntervalSince(started) * 1000))ms")
+        out.append("appState=\(UIApplication.shared.applicationState.rawValue) sceneState=\(scene.map { String($0.activationState.rawValue) } ?? "nil") scenes=\(UIApplication.shared.connectedScenes.count)")
+        out.append("isKey=\(window.isKeyWindow) hidden=\(window.isHidden) bounds=\(window.bounds) automation=\(Self.automationEnabled())")
+        for w in scene?.windows ?? [] {
+            out.append("  win \(type(of: w)) key=\(w.isKeyWindow) hidden=\(w.isHidden) level=\(w.windowLevel.rawValue) root=\(w.rootViewController.map { String(describing: type(of: $0)) } ?? "nil") presented=\(w.rootViewController?.presentedViewController.map { String(describing: type(of: $0)) } ?? "nil")")
+        }
+        func vcs(_ vc: UIViewController, _ depth: Int) {
+            out.append(String(repeating: "  ", count: depth) + "vc \(type(of: vc)) loaded=\(vc.isViewLoaded) inWindow=\(vc.viewIfLoaded?.window != nil) frame=\(vc.viewIfLoaded?.frame ?? .zero) subviews=\(vc.viewIfLoaded?.subviews.count ?? -1)")
+            for child in vc.children { vcs(child, depth + 1) }
+        }
+        vcs(host, 0)
+        func views(_ v: UIView, _ depth: Int) {
+            guard depth < 7 else { return }
+            out.append(String(repeating: " ", count: depth) + "v \(type(of: v)) \(v.frame.integral) h=\(v.isHidden) a=\(v.alpha) ax=\(v.isAccessibilityElement) axCount=\(v.accessibilityElementCount())")
+            for s in v.subviews { views(s, depth + 1) }
+        }
+        views(window, 0)
+        return out.joined(separator: "\n")
+    }
+
+    private static func automationEnabled() -> String {
+        guard let handle = dlopen("/usr/lib/libAccessibility.dylib", RTLD_NOW), let sym = dlsym(handle, "_AXSAutomationEnabled") else { return "?" }
+        typealias Get = @convention(c) () -> Bool
+        return String(unsafeBitCast(sym, to: Get.self)())
     }
 
     /// The SwiftUI-measured height of the hosted content at the window's width.
@@ -111,6 +151,9 @@ final class HostedView {
     }
 
     func close() {
+        let summary = diagnostics.split(separator: "\n").prefix(3).joined(separator: " | ")
+        NSLog("A11YDIAG stops=%d %@", stops.count, summary)
+        Self.live -= 1
         window.isHidden = true
         window.rootViewController = nil
     }

@@ -43,7 +43,7 @@ struct HardcoverSettingsAccessibilityTests {
                             height: identity.frame.height)
         let lines = DrawnContrast(hosted).textLines(in: column)
         // Name, Connected, Since.
-        try #require(lines.count == 3, "lines: \(lines)")
+        try #require(lines.count == 3, "lines: \(lines)\n\(hosted.diagnostics)")
         #expect(lines[1] >= ContrastMinimum.text, "Connected drawn at \(lines[1]):1")
     }
 
@@ -60,7 +60,7 @@ struct HardcoverSettingsAccessibilityTests {
         let text = CGRect(x: row.frame.minX + 44, y: row.frame.minY, width: row.frame.width - 44,
                           height: row.frame.height)
         let lines = DrawnContrast(hosted).textLines(in: text)
-        try #require(lines.count == 2, "lines: \(lines)")
+        try #require(lines.count == 2, "lines: \(lines)\n\(hosted.diagnostics)")
         // System secondary label grey here is 3.44:1 (the systemic note, left to the system and to Increase
         // Contrast); the tint faded to secondary opacity was 2.20:1.
         #expect(lines[1] >= 3.0, "detail drawn at \(lines[1]):1")
