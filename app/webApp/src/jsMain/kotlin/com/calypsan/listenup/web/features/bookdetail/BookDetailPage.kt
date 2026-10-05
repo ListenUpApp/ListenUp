@@ -336,7 +336,7 @@ private fun SharedHeader(
                 PageHeader(title = ready.book.title, display = true)
                 Byline(ready, onOpenContributor)
                 if (ready.isHeld) HeldPill()
-                SeriesChips(ready, onOpenSeries)
+                SeriesPathLines(ready.seriesPaths, onOpenSeries)
                 ready.progress?.let { fraction ->
                     ProgressBar(
                         value = fraction,
@@ -573,44 +573,6 @@ private fun details(state: BookDetailUiState.Ready): List<MetaEntry> =
         state.book.language?.let { add(MetaEntry("Language", it)) }
         if (state.book.narratorNames.isNotBlank()) add(MetaEntry("Narrator", state.book.narratorNames))
     }
-
-/**
- * The series this book belongs to, each one a way into that series' reading order.
- *
- * A book can be in several — a Cosmere novel is in both its own series and the Cosmere — so this
- * is a row of chips rather than the single formatted string
- * [BookDetailUiState.Ready.series] carries for iOS. Each chip reads
- * [com.calypsan.listenup.client.domain.model.BookSeries.sequenceLabel] rather than the raw
- * `Double`, which is what that property exists for — an interpolated `1.0` renders "Book 1.0" on
- * the JVM and on Native. ⛔ It does NOT here: Kotlin/JS hands `toString()` to a JS number, which
- * drops the trailing `.0`, so no browser spec can catch this call site regressing to `sequence`
- * (verified by sabotage). Reading `sequenceLabel` is a uniformity rule on web, not a guarded one.
- *
- * Renders nothing at all, not an empty row, when the book is in no series.
- */
-@Composable
-private fun SeriesChips(
-    state: BookDetailUiState.Ready,
-    onOpenSeries: (String) -> Unit,
-) {
-    if (state.book.series.isEmpty()) return
-    Div(attrs = { classes("bd-series") }) {
-        state.book.series.forEach { membership ->
-            key(membership.seriesId) {
-                Button(attrs = {
-                    classes("bd-series-chip")
-                    attr("type", BUTTON_VALUE)
-                    onClick { onOpenSeries(membership.seriesId) }
-                }) {
-                    Text(membership.seriesName)
-                    membership.sequenceLabel?.let { position ->
-                        Span(attrs = { classes("bd-series-seq") }) { Text("#$position") }
-                    }
-                }
-            }
-        }
-    }
-}
 
 /**
  * "Author · read by Narrator", dropping either half when the book doesn't name it — same sentence

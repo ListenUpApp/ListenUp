@@ -1783,7 +1783,7 @@ class WebAppRootTest :
             }
         }
 
-        test("a series chip on a book opens that series") {
+        test("a series name in a book's path opens that series") {
             val (host, router) =
                 mountAt(
                     "/book/42",
@@ -1796,7 +1796,7 @@ class WebAppRootTest :
                 )
 
             try {
-                (host.querySelector(".bd-series-chip") as HTMLElement).click()
+                (host.querySelector(".bd-series-link") as HTMLElement).click()
 
                 window.location.pathname shouldBe "/series/s-cosmere"
             } finally {
