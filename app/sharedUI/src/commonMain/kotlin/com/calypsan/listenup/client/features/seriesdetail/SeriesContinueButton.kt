@@ -48,6 +48,9 @@ internal fun ContinueButton(
     val haptics = LocalHaptics.current
     val targetId = state.resumeTarget ?: return
     val target = state.books.firstOrNull { it.id == targetId } ?: return
+    // The verb is the ViewModel's, shared with iOS and web: the series is under way once any book is
+    // begun or finished, even when the next one has no progress of its own.
+    val hasStarted = state.resumeBook?.hasStarted == true
     val resume = state.resumeBook?.takeIf { state.isGrouped }
 
     val title: String
@@ -55,7 +58,7 @@ internal fun ContinueButton(
     if (resume != null) {
         title =
             stringResource(
-                if (resume.hasStarted) Res.string.series_continue_title else Res.string.series_start_title,
+                if (hasStarted) Res.string.series_continue_title else Res.string.series_start_title,
                 resume.title,
             )
         where = resume.sequence?.let { stringResource(Res.string.series_continue_where, resume.seriesName, it) }
@@ -64,7 +67,7 @@ internal fun ContinueButton(
         val index = state.books.indexOfFirst { it.id == targetId }
         val positionLabel = target.seriesSequenceLabel ?: (index + 1).toString()
         title =
-            if (state.bookProgress[targetId] != null) {
+            if (hasStarted) {
                 stringResource(Res.string.series_continue_book, positionLabel)
             } else {
                 stringResource(Res.string.series_start_book, positionLabel)

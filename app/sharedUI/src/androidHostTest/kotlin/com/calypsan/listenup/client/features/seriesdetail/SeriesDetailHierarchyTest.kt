@@ -194,6 +194,16 @@ class SeriesDetailHierarchyTest {
         (top < STATUS_BAR + 48.dp) shouldBe true
     }
 
+    // The verb is the ViewModel's (resumeBook.hasStarted), the same on every platform: a series with
+    // a finished book is under way even when the next book has no progress of its own.
+    @Test
+    fun `a flat page that is under way continues the next book`() {
+        render(Cosmere.childPageUnderWay)
+
+        composeRule.onNodeWithText("Continue Book 3").assertExists()
+        composeRule.onNodeWithText("Start Book 3").assertDoesNotExist()
+    }
+
     @Test
     fun `a flat page keeps Books in series`() {
         render(Cosmere.childPage)

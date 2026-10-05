@@ -148,6 +148,25 @@ internal object Cosmere {
         )
     }
 
+    /**
+     * Mistborn Era 1 with The Final Empire finished and The Hero of Ages not yet begun: the series is
+     * under way, so the button continues it — at Book 3, which has no progress of its own.
+     */
+    val childPageUnderWay
+        get() =
+            childPage.copy(
+                finishedBookIds = setOf(finalEmpire.id),
+                resumeTarget = heroOfAges.id,
+                resumeBook =
+                    SeriesResumeUi(
+                        bookId = "hoa",
+                        title = "The Hero of Ages",
+                        seriesName = "Mistborn Era 1",
+                        sequence = "3",
+                        hasStarted = true,
+                    ),
+            )
+
     /** Mistborn Era 1's page: a flat child, under Cosmere › Mistborn. */
     val childPage =
         SeriesDetailUiState.Ready(
