@@ -1668,7 +1668,10 @@ class BookRepository(
         transform: (Map<BookField, FieldProvenance>) -> Map<BookField, FieldProvenance>,
     ) {
         val current = db.booksQueries.selectFieldProvenanceById(idStr).executeAsOneOrNull() ?: return
-        db.booksQueries.updateFieldProvenance(field_provenance = transform(current.toFieldProvenance()).toFieldProvenanceColumn(), id = idStr)
+        db.booksQueries.updateFieldProvenance(
+            field_provenance = transform(current.toFieldProvenance()).toFieldProvenanceColumn(),
+            id = idStr,
+        )
     }
 
     /**

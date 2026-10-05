@@ -454,7 +454,12 @@ internal class BookMetadataApplier(
                     relPath,
                     stored.sha256,
                     CoverSource.UPLOADED,
-                    provenance = FieldProvenance(FieldSourceKind.ENRICHMENT, provider = provider, at = currentEpochMilliseconds()),
+                    provenance =
+                        FieldProvenance(
+                            FieldSourceKind.ENRICHMENT,
+                            provider = provider,
+                            at = currentEpochMilliseconds(),
+                        ),
                 )
             if (result is AppResult.Success) {
                 log.info { "Stored wizard-chosen cover for ${bookId.value} → $relPath" }

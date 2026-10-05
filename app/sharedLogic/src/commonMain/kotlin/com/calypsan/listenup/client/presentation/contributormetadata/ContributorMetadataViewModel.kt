@@ -245,7 +245,13 @@ class ContributorMetadataViewModel(
             val libraryRegion = libraryRepository.observeAll().first().firstNotNullOfOrNull { it.metadataRegion }
             if (libraryRegion != null && !regionChosen) {
                 state.update { latest ->
-                    if (latest is ContributorMetadataUiState.Search) latest.copy(region = MetadataLocale(libraryRegion)) else latest
+                    if (latest is ContributorMetadataUiState.Search) {
+                        latest.copy(
+                            region = MetadataLocale(libraryRegion),
+                        )
+                    } else {
+                        latest
+                    }
                 }
             }
             if (!contributor?.name.isNullOrBlank() && state.value is ContributorMetadataUiState.Search) {

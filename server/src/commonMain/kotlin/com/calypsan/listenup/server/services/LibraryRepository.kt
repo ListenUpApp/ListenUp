@@ -314,7 +314,8 @@ class LibraryRepository(
     internal fun idAsStringForTest(id: LibraryId): String = idAsString(id)
 
     /** Test hook: the library payload exactly as sync would send it. */
-    internal suspend fun readPayloadForTest(idStr: String): LibrarySyncPayload? = suspendTransaction(db) { readPayload(idStr) }
+    internal suspend fun readPayloadForTest(idStr: String): LibrarySyncPayload? =
+        suspendTransaction(db) { readPayload(idStr) }
 
     /** Maps a generated [Libraries] row to the wire [LibrarySyncPayload] DTO (drops `hold_new_books_for_review`). */
     private fun Libraries.toSyncPayload(): LibrarySyncPayload =

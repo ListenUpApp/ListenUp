@@ -406,7 +406,11 @@ internal class MetadataLookupServiceImpl(
                     CoverSource.UPLOADED,
                     // A cover picked from the search results by a person is a hand choice.
                     provenance =
-                        FieldProvenance(FieldSourceKind.USER, at = currentEpochMilliseconds(), by = principal.current()?.userId?.value),
+                        FieldProvenance(
+                            FieldSourceKind.USER,
+                            at = currentEpochMilliseconds(),
+                            by = principal.current()?.userId?.value,
+                        ),
                 )
             } catch (e: CancellationException) {
                 throw e

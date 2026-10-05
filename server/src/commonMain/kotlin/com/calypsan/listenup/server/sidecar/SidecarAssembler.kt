@@ -69,8 +69,12 @@ class SidecarAssembler {
      */
     private fun curatedProvenance(book: BookSyncPayload): Map<String, FieldProvenance> =
         BookField.entries
-            .mapNotNull { field -> book.fieldProvenance[field]?.takeIf { it.tier > 0 }?.let { field.name to it.copy(by = null) } }
-            .toMap()
+            .mapNotNull { field ->
+                book.fieldProvenance[field]?.takeIf { it.tier > 0 }?.let {
+                    field.name to
+                        it.copy(by = null)
+                }
+            }.toMap()
 
     private fun userChaptersOrNull(book: BookSyncPayload): SidecarChapters? {
         if (book.chapterSource != ChapterSource.USER) return null

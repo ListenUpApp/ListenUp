@@ -24,7 +24,12 @@ internal object BookIdentityColumns {
         releaseDate: String?,
     ): String? {
         val date = fullDateOrNull(releaseDate) ?: return null
-        val year = isoDate.matchEntire(date)?.groupValues?.get(1)?.toInt()
+        val year =
+            isoDate
+                .matchEntire(date)
+                ?.groupValues
+                ?.get(1)
+                ?.toInt()
         return date.takeIf { year == publishYear }
     }
 
@@ -40,7 +45,8 @@ internal object BookIdentityColumns {
         val audibleId = asin?.trim()?.takeIf { it.isNotEmpty() }
         val audible =
             audibleId?.let { id ->
-                refs.firstOrNull { it.provider == ExternalRef.AUDIBLE && it.id == id } ?: ExternalRef(ExternalRef.AUDIBLE, id)
+                refs.firstOrNull { it.provider == ExternalRef.AUDIBLE && it.id == id }
+                    ?: ExternalRef(ExternalRef.AUDIBLE, id)
             }
         val others = refs.filter { it.provider != ExternalRef.AUDIBLE }.distinctBy { it.provider }
         return (listOfNotNull(audible) + others).sortedBy { it.provider }

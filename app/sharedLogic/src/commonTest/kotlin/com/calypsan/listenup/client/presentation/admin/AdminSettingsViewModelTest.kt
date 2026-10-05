@@ -546,7 +546,9 @@ class AdminSettingsViewModelTest :
                     AppResult.Success(createServerSettings().copy(metadataRegion = "au"))
                 val viewModel = fixture.build()
                 advanceUntilIdle()
-                viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>().metadataRegion shouldBe "uk"
+                viewModel.state.value
+                    .shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                    .metadataRegion shouldBe "uk"
 
                 viewModel.setMetadataRegion("au")
                 advanceUntilIdle()

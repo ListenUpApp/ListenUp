@@ -711,7 +711,11 @@ class MatchApplySelectionTest :
 
                     a.apply(BookId("b1"), "B0NEW", MetadataLocale("us"), withCover).shouldBeInstanceOf<AppResult.Success<*>>()
 
-                    books.findById(BookId("b1"))!!.fieldProvenance.getValue(BookField.COVER).kind shouldBe FieldSourceKind.ENRICHMENT
+                    books
+                        .findById(BookId("b1"))!!
+                        .fieldProvenance
+                        .getValue(BookField.COVER)
+                        .kind shouldBe FieldSourceKind.ENRICHMENT
                 }
             }
         }
