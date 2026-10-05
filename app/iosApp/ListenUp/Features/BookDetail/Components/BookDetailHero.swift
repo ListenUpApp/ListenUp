@@ -250,7 +250,9 @@ struct BookDetailHero: View {
                 title: "A Game of Thrones",
                 subtitle: "A Song of Ice and Fire, Book One",
                 seriesPaths: [
-                    BookSeriesPathItem(seriesId: "s", seriesName: "A Song of Ice and Fire", sequence: "1", ancestors: [])
+                    BookSeriesPathItem(
+                        seriesId: "s", seriesName: "A Song of Ice and Fire", sequence: "1", ancestors: []
+                    )
                 ],
                 authors: [],
                 author: "George R.R. Martin",

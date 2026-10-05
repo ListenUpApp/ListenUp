@@ -344,7 +344,8 @@ struct ParentPickerTests {
 @Suite("SubSeriesOrder")
 struct SubSeriesOrderTests {
     @Test func aDragProducesTheWholeNewOrder() {
-        #expect(SubSeriesOrder.moving(["a", "b", "c"], fromOffsets: IndexSet(integer: 0), toOffset: 3) == ["b", "c", "a"])
+        let order = SubSeriesOrder.moving(["a", "b", "c"], fromOffsets: IndexSet(integer: 0), toOffset: 3)
+        #expect(order == ["b", "c", "a"])
     }
 
     @Test func moveEarlierAndLaterStepOnePlace() {
@@ -362,7 +363,9 @@ struct SubSeriesOrderTests {
 @Suite("Where a series sits, elsewhere")
 struct SeriesPlacementElsewhereTests {
     @Test func aParentLibraryCardCountsSeriesAndBooks() {
-        let parent = SeriesRow(id: "c", name: "Cosmere", bookCount: 23, authorName: "Sanderson", covers: [], subSeriesCount: 4)
+        let parent = SeriesRow(
+            id: "c", name: "Cosmere", bookCount: 23, authorName: "Sanderson", covers: [], subSeriesCount: 4
+        )
         #expect(parent.isParent)
         #expect(parent.meta == "4 series · 23 books")
     }

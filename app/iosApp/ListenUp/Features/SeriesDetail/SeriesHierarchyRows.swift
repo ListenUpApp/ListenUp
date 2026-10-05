@@ -100,11 +100,11 @@ extension View {
                 ZStack {
                     RoundedRectangle(cornerRadius: cornerRadius)
                         .fill(Color.luSeparator.opacity(0.5))
-                        .padding(.horizontal, 8)
+                        .padding(.horizontal, Spacing.xs)
                         .offset(y: 6)
                     RoundedRectangle(cornerRadius: cornerRadius)
                         .fill(Color.luSeparator)
-                        .padding(.horizontal, 4)
+                        .padding(.horizontal, Spacing.xxs)
                         .offset(y: 3)
                 }
                 .accessibilityHidden(true)
