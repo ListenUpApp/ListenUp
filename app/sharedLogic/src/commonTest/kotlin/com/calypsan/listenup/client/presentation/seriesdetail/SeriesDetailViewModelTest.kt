@@ -680,11 +680,15 @@ class SeriesDetailViewModelTest :
             isAdmin: Boolean = false,
             canEdit: Boolean = false,
         ) = User(
-            id = com.calypsan.listenup.api.dto.auth.UserId("u1"),
+            id =
+                com.calypsan.listenup.api.dto.auth
+                    .UserId("u1"),
             email = "u@example.com",
             displayName = "U",
             isAdmin = isAdmin,
-            permissions = com.calypsan.listenup.client.domain.model.UserPermissions(canEdit = canEdit),
+            permissions =
+                com.calypsan.listenup.client.domain.model
+                    .UserPermissions(canEdit = canEdit),
             createdAtMs = 0L,
             updatedAtMs = 0L,
         )
@@ -736,7 +740,8 @@ class SeriesDetailViewModelTest :
 
                 viewModel.loadSeries("cosmere")
                 fixture.seriesFlow.value = createSeriesWithBooks(createSeries(id = "cosmere", name = "Cosmere"), books = emptyList())
-                fixture.lineageFlow.value = cosmereLineage(listOf("fe"), listOf("alloy"), emptyList()).copy(subtreeBooks = listOf(fe, alloy))
+                fixture.lineageFlow.value =
+                    cosmereLineage(listOf("fe"), listOf("alloy"), emptyList()).copy(subtreeBooks = listOf(fe, alloy))
                 fixture.positionsFlow.value = mapOf(BookId("fe") to createPosition("fe", isFinished = true))
                 advanceUntilIdle()
 
@@ -747,7 +752,11 @@ class SeriesDetailViewModelTest :
                 viewModel.toggleSection("era1")
                 advanceUntilIdle()
                 ready().bookSections.first { it.seriesId == "era1" }.isCollapsed shouldBe false
-                ready().bookSections.first { it.seriesId == "era1" }.books.map { it.id.value } shouldBe listOf("fe")
+                ready()
+                    .bookSections
+                    .first { it.seriesId == "era1" }
+                    .books
+                    .map { it.id.value } shouldBe listOf("fe")
             }
         }
 
@@ -758,6 +767,7 @@ class SeriesDetailViewModelTest :
                 backgroundScope.launch { viewModel.state.collect { } }
                 viewModel.loadSeries("series-1")
                 fixture.seriesFlow.value = createSeriesWithBooks(createSeries(), books = listOf(createBook()))
+
                 fun ready() = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
 
                 fixture.currentUser.value = user()
@@ -779,6 +789,7 @@ class SeriesDetailViewModelTest :
         test("adding a series from another parent asks first, then moves it here") {
             runTest {
                 val fixture = createFixture()
+
                 fun series(
                     id: String,
                     name: String,
@@ -801,12 +812,18 @@ class SeriesDetailViewModelTest :
 
                 viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.Opened)
                 advanceUntilIdle()
-                viewModel.addSubSeries.value.candidates.map { it.name } shouldBe listOf("City Watch", "Discworld", "Dune")
+                viewModel.addSubSeries.value.candidates
+                    .map { it.name } shouldBe listOf("City Watch", "Discworld", "Dune")
 
                 viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.Chosen("watch"))
                 advanceUntilIdle()
                 viewModel.addSubSeries.value.pendingMove shouldBe
-                    PendingSubSeriesMove(seriesId = "watch", seriesName = "City Watch", fromParentName = "Discworld", toParentName = "Cosmere")
+                    PendingSubSeriesMove(
+                        seriesId = "watch",
+                        seriesName = "City Watch",
+                        fromParentName = "Discworld",
+                        toParentName = "Cosmere",
+                    )
                 verifySuspend(VerifyMode.not) { fixture.seriesEditRepository.setParent(any(), any()) }
 
                 viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.MoveConfirmed)

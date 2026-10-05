@@ -187,7 +187,8 @@ internal class SeriesRepositoryImpl(
         ) { seriesEntities, allBooksWithContributors ->
             val booksById = allBooksWithContributors.associateBy { it.book.id.value }
             val live = seriesEntities.filter { it.series.deletedAt == null }
-            val tree = SeriesTree(live.map { SeriesNode(it.series.id.value, it.series.parentId, it.series.parentPosition) })
+            val tree =
+                SeriesTree(live.map { SeriesNode(it.series.id.value, it.series.parentId, it.series.parentPosition) })
             // Held books never reach booksById: observeAllWithContributors excludes them in SQL, so a
             // membership of one is dropped here and never counted.
             val memberships =

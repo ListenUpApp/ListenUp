@@ -63,7 +63,9 @@ class SeriesDetailViewModel(
     /** Who may change the hierarchy, and whether the server can be reached to do it. */
     private val hierarchyAccess: Flow<Pair<Boolean, Boolean>> =
         combine(
-            userRepository.observeCurrentUser().map { user -> user != null && (user.isAdmin || user.permissions.canEdit) },
+            userRepository.observeCurrentUser().map { user ->
+                user != null && (user.isAdmin || user.permissions.canEdit)
+            },
             networkMonitor.isOnlineFlow,
         ) { canEdit, online -> canEdit to online }
 
@@ -105,7 +107,11 @@ class SeriesDetailViewModel(
      * default (a finished sub-series starts folded) for as long as the page is open.
      */
     fun toggleSection(seriesId: String) {
-        val current = (state.value as? SeriesDetailUiState.Ready)?.bookSections?.firstOrNull { it.seriesId == seriesId && it.isCollapsible }
+        val current =
+            (state.value as? SeriesDetailUiState.Ready)?.bookSections?.firstOrNull {
+                it.seriesId == seriesId &&
+                    it.isCollapsible
+            }
         val expandedNow = current?.isCollapsed == false
         expandOverrides.update { it + (seriesId to !expandedNow) }
     }
@@ -213,7 +219,11 @@ class SeriesDetailViewModel(
                     ChildSeriesUi(
                         id = child.series.id.value,
                         name = child.series.name,
-                        coverPath = child.series.coverPath ?: child.bookIds.firstNotNullOfOrNull { id -> books.firstOrNull { it.id.value == id }?.coverPath },
+                        coverPath =
+                            child.series.coverPath
+                                ?: child.bookIds.firstNotNullOfOrNull { id ->
+                                    books.firstOrNull { it.id.value == id }?.coverPath
+                                },
                         bookCount = child.bookIds.size,
                         finishedCount = child.bookIds.count { BookId(it) in finishedBookIds },
                         subSeriesCount = child.children.size,
@@ -376,6 +386,10 @@ data class SeriesResumeUi(
 
 /** Every series id below the page, for opening every group at once. */
 private fun SeriesLineage.allSeriesIds(): List<String> {
-    fun walk(children: List<SeriesChild>): List<String> = children.flatMap { listOf(it.series.id.value) + walk(it.children) }
+    fun walk(children: List<SeriesChild>): List<String> =
+        children.flatMap {
+            listOf(it.series.id.value) +
+                walk(it.children)
+        }
     return walk(children)
 }

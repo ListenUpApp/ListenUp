@@ -300,12 +300,14 @@ class BookDetailViewModelTest :
         test("the series path follows the hierarchy, and redraws when a series moves") {
             runTest {
                 val fixture = createTestFixture()
+
                 fun series(
                     id: String,
                     name: String,
                     parent: String? = null,
                 ) = Series(id = SeriesId(id), name = name, parentId = parent?.let(::SeriesId), parentPosition = 0)
-                fixture.hierarchy.value = SeriesHierarchy(listOf(series("mistborn", "Mistborn"), series("era1", "Era 1", "mistborn")), emptyList())
+                fixture.hierarchy.value =
+                    SeriesHierarchy(listOf(series("mistborn", "Mistborn"), series("era1", "Era 1", "mistborn")), emptyList())
                 val book = TestData.bookDetail(seriesId = "era1", seriesName = "Era 1", seriesSequence = 1.0)
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
                 everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
@@ -316,16 +318,26 @@ class BookDetailViewModelTest :
                     viewModel.loadBook("book-1")
                     advanceUntilIdle()
                     val first = states.expectMostRecentItem() as BookDetailUiState.Ready
-                    first.seriesPaths.single().ancestors.map { it.name } shouldBe listOf("Mistborn")
+                    first.seriesPaths
+                        .single()
+                        .ancestors
+                        .map { it.name } shouldBe listOf("Mistborn")
 
                     fixture.hierarchy.value =
                         SeriesHierarchy(
-                            listOf(series("cosmere", "Cosmere"), series("mistborn", "Mistborn", "cosmere"), series("era1", "Era 1", "mistborn")),
+                            listOf(
+                                series("cosmere", "Cosmere"),
+                                series("mistborn", "Mistborn", "cosmere"),
+                                series("era1", "Era 1", "mistborn"),
+                            ),
                             emptyList(),
                         )
                     advanceUntilIdle()
                     val moved = states.expectMostRecentItem() as BookDetailUiState.Ready
-                    moved.seriesPaths.single().ancestors.map { it.name } shouldBe listOf("Cosmere", "Mistborn")
+                    moved.seriesPaths
+                        .single()
+                        .ancestors
+                        .map { it.name } shouldBe listOf("Cosmere", "Mistborn")
                     states.cancel()
                 }
             }

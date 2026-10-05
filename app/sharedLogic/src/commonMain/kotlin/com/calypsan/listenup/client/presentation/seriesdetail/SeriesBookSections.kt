@@ -107,13 +107,15 @@ internal fun seriesBookSections(
         if (collapsed || isLeaf) return
         child.children.forEach { addBranch(it, path, depth + 1) }
         if (child.ownBookIds.isNotEmpty()) {
-            sections += ownBooksSection(id, child.series.name, path, depth + 1, books(child.ownBookIds), finishedBookIds)
+            sections +=
+                ownBooksSection(id, child.series.name, path, depth + 1, books(child.ownBookIds), finishedBookIds)
         }
     }
 
     lineage.children.forEach { addBranch(it, parentPath = emptyList(), depth = 1) }
     if (lineage.ownBookIds.isNotEmpty()) {
-        sections += ownBooksSection(pageId, pageName, emptyList(), depth = 1, books(lineage.ownBookIds), finishedBookIds)
+        sections +=
+            ownBooksSection(pageId, pageName, emptyList(), depth = 1, books(lineage.ownBookIds), finishedBookIds)
     }
     return sections
 }

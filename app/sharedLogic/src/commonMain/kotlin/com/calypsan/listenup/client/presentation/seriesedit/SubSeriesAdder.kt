@@ -231,7 +231,12 @@ internal class SubSeriesAdder(
                 all.filter { input.query.isBlank() || it.name.contains(input.query.trim(), ignoreCase = true) },
             pendingMove =
                 pending?.currentParentName?.let { from ->
-                    PendingSubSeriesMove(pending.id, pending.name, fromParentName = from, toParentName = parent?.name.orEmpty())
+                    PendingSubSeriesMove(
+                        pending.id,
+                        pending.name,
+                        fromParentName = from,
+                        toParentName = parent?.name.orEmpty(),
+                    )
                 },
             newSeries =
                 input.newSeriesName?.let { name ->
@@ -298,9 +303,17 @@ internal class SubSeriesAdder(
 
     private fun createNew() {
         val parent = parentId() ?: return
-        val name = inputs.value.newSeriesName?.trim().orEmpty()
+        val name =
+            inputs.value.newSeriesName
+                ?.trim()
+                .orEmpty()
         if (name.isEmpty() || latest.findByName(name) != null) return
-        send { createSeries(name, SeriesId(parent)).let { if (it is AppResult.Failure) it else AppResult.Success(Unit) } }
+        send {
+            createSeries(
+                name,
+                SeriesId(parent),
+            ).let { if (it is AppResult.Failure) it else AppResult.Success(Unit) }
+        }
     }
 
     /** Closes the sheet and sends one change; a refusal reaches the error bus and [state]. */
@@ -309,7 +322,9 @@ internal class SubSeriesAdder(
         inputs.value = AdderInputs(isBusy = true)
         scope.launch {
             when (val result = write()) {
-                is AppResult.Success -> inputs.update { it.copy(isBusy = false) }
+                is AppResult.Success -> {
+                    inputs.update { it.copy(isBusy = false) }
+                }
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)

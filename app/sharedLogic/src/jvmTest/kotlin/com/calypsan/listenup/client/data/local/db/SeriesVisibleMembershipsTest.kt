@@ -43,7 +43,7 @@ class SeriesVisibleMembershipsTest :
                 db.seriesDao().observeVisibleMemberships().map { rows -> rows.map { it.seriesId to it.bookId } }.test {
                     awaitItem() shouldContainExactly listOf("s1" to "visible")
                     HeldBookFixture.applyReleaseEcho(db, "held")
-                    awaitItemMatching { ("s1" to "held") in it } shouldContainExactlyInAnyOrder
+                    awaitItemMatching { "s1" to "held" in it } shouldContainExactlyInAnyOrder
                         listOf("s1" to "visible", "s1" to "held")
                     cancelAndIgnoreRemainingEvents()
                 }

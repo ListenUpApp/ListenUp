@@ -887,12 +887,17 @@ class SeriesRepositoryImplTest :
                 val cosmere = createTestSeriesEntity(id = "cosmere", name = "Cosmere")
                 val mistborn = createTestSeriesEntity(id = "mistborn", name = "Mistborn").copy(parentId = "cosmere", parentPosition = 0)
                 val era1 = createTestSeriesEntity(id = "era1", name = "Era 1").copy(parentId = "mistborn", parentPosition = 0)
-                val stormlight = createTestSeriesEntity(id = "stormlight", name = "Stormlight").copy(parentId = "cosmere", parentPosition = 1)
+                val stormlight =
+                    createTestSeriesEntity(
+                        id = "stormlight",
+                        name = "Stormlight",
+                    ).copy(parentId = "cosmere", parentPosition = 1)
                 val dune = createTestSeriesEntity(id = "dune", name = "Dune")
                 val finalEmpire = makeBookEntity("final-empire", "The Final Empire")
                 val wayOfKings = makeBookEntity("way-of-kings", "The Way of Kings")
                 val warbreaker = makeBookEntity("warbreaker", "Warbreaker")
                 val duneBook = makeBookEntity("dune-1", "Dune")
+
                 fun rel(
                     series: SeriesEntity,
                     vararg books: BookEntity,

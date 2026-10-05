@@ -54,8 +54,16 @@ internal fun parentDisabledReason(
 ): ParentPickerDisabledReason? =
     when {
         candidateId == currentId -> ParentPickerDisabledReason.THIS_SERIES
+
         hierarchy.wouldCycle(currentId, candidateId) -> ParentPickerDisabledReason.INSIDE_THIS_SERIES
-        hierarchy.ancestorsOf(currentId).lastOrNull()?.id?.value == candidateId -> ParentPickerDisabledReason.CURRENT_PARENT
+
+        hierarchy
+            .ancestorsOf(
+                currentId,
+            ).lastOrNull()
+            ?.id
+            ?.value == candidateId -> ParentPickerDisabledReason.CURRENT_PARENT
+
         else -> null
     }
 

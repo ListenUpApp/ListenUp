@@ -153,9 +153,17 @@ class SearchRepositoryTest :
                 val seriesDao =
                     mock<SeriesDao> {
                         everySuspend { getAll() } returns
-                            listOf(series(id = "cosmere", name = "Cosmere"), series(id = "mistborn", name = "Mistborn", parentId = "cosmere"), era1)
+                            listOf(
+                                series(id = "cosmere", name = "Cosmere"),
+                                series(id = "mistborn", name = "Mistborn", parentId = "cosmere"),
+                                era1,
+                            )
                         everySuspend { getVisibleMemberships() } returns
-                            listOf(SeriesMembershipRow("era1", "b1"), SeriesMembershipRow("era1", "b2"), SeriesMembershipRow("mistborn", "b1"))
+                            listOf(
+                                SeriesMembershipRow("era1", "b1"),
+                                SeriesMembershipRow("era1", "b2"),
+                                SeriesMembershipRow("mistborn", "b1"),
+                            )
                     }
                 val repo =
                     repository(seriesDao) {

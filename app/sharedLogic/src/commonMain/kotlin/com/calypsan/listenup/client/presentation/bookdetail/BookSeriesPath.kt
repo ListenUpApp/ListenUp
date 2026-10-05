@@ -29,7 +29,9 @@ internal fun bookSeriesPaths(
     hierarchy: SeriesHierarchy,
 ): List<BookSeriesPath> {
     val ancestorsOfMemberships =
-        memberships.flatMapTo(HashSet()) { membership -> hierarchy.ancestorsOf(membership.seriesId).map { it.id.value } }
+        memberships.flatMapTo(
+            HashSet(),
+        ) { membership -> hierarchy.ancestorsOf(membership.seriesId).map { it.id.value } }
     return memberships
         .filterNot { it.seriesId in ancestorsOfMemberships }
         .distinctBy { it.seriesId }
@@ -38,7 +40,11 @@ internal fun bookSeriesPaths(
                 seriesId = membership.seriesId,
                 seriesName = membership.seriesName,
                 sequence = membership.sequenceLabel,
-                ancestors = hierarchy.ancestorsOf(membership.seriesId).map { SeriesCrumb(id = it.id.value, name = it.name) },
+                ancestors =
+                    hierarchy
+                        .ancestorsOf(
+                            membership.seriesId,
+                        ).map { SeriesCrumb(id = it.id.value, name = it.name) },
             )
         }
 }

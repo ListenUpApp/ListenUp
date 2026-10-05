@@ -739,7 +739,8 @@ class SeriesEditViewModelTest :
 
                     viewModel.onEvent(SeriesEditUiEvent.ParentPickerNodeToggled("discworld"))
                     advanceUntilIdle()
-                    awaitItem().map { it.name } shouldBe listOf("Cosmere", "Mistborn", "Era 1", "Era 2", "Stormlight", "Discworld", "City Watch")
+                    awaitItem().map { it.name } shouldBe
+                        listOf("Cosmere", "Mistborn", "Era 1", "Era 2", "Stormlight", "Discworld", "City Watch")
 
                     viewModel.onEvent(SeriesEditUiEvent.ParentQueryChanged("era"))
                     advanceUntilIdle()
@@ -777,7 +778,8 @@ class SeriesEditViewModelTest :
                 fixture.hierarchy.value = hierarchyOf(node("cosmere", "Cosmere"), node("mistborn", "Mistborn", "cosmere"))
                 everySuspend { fixture.seriesEditRepository.createSeries("Mistborn Saga", SeriesId("cosmere")) } returns
                     AppResult.Success(SeriesId("saga"))
-                everySuspend { fixture.seriesEditRepository.setParent(SeriesId("mistborn"), SeriesId("saga")) } returns AppResult.Success(Unit)
+                everySuspend { fixture.seriesEditRepository.setParent(SeriesId("mistborn"), SeriesId("saga")) } returns
+                    AppResult.Success(Unit)
                 val viewModel =
                     loaded(
                         fixture,
@@ -787,7 +789,8 @@ class SeriesEditViewModelTest :
 
                 viewModel.onEvent(SeriesEditUiEvent.NewParentStarted)
                 viewModel.onEvent(SeriesEditUiEvent.NewParentNameChanged("  Mistborn Saga "))
-                viewModel.state.value.newParent?.canCreate shouldBe true
+                viewModel.state.value.newParent
+                    ?.canCreate shouldBe true
                 viewModel.onEvent(SeriesEditUiEvent.NewParentConfirmed)
                 advanceUntilIdle()
 
@@ -808,16 +811,20 @@ class SeriesEditViewModelTest :
                 viewModel.onEvent(SeriesEditUiEvent.NewParentStarted)
                 viewModel.onEvent(SeriesEditUiEvent.NewParentNameChanged("discworld"))
 
-                viewModel.state.value.newParent?.existing shouldBe
+                viewModel.state.value.newParent
+                    ?.existing shouldBe
                     ExistingSeriesMatch(id = "discworld", name = "Discworld", isSelectable = true)
-                viewModel.state.value.newParent?.canCreate shouldBe false
+                viewModel.state.value.newParent
+                    ?.canCreate shouldBe false
                 viewModel.onEvent(SeriesEditUiEvent.NewParentConfirmed)
                 advanceUntilIdle()
                 verifySuspend(VerifyMode.not) { fixture.seriesEditRepository.createSeries(any(), any()) }
 
                 // A name inside this series can't be offered: it would form a loop.
                 viewModel.onEvent(SeriesEditUiEvent.NewParentNameChanged("Era 1"))
-                viewModel.state.value.newParent?.existing?.isSelectable shouldBe false
+                viewModel.state.value.newParent
+                    ?.existing
+                    ?.isSelectable shouldBe false
             }
         }
 
@@ -873,7 +880,8 @@ class SeriesEditViewModelTest :
             runTest {
                 val fixture = createFixture()
                 fixture.hierarchy.value = cosmere
-                everySuspend { fixture.seriesEditRepository.createSeries("Era 3", SeriesId("mistborn")) } returns AppResult.Success(SeriesId("era3"))
+                everySuspend { fixture.seriesEditRepository.createSeries("Era 3", SeriesId("mistborn")) } returns
+                    AppResult.Success(SeriesId("era3"))
                 val viewModel = loaded(fixture)
                 backgroundScope.launch { viewModel.addSubSeries.collect { } }
                 advanceUntilIdle()
@@ -882,11 +890,14 @@ class SeriesEditViewModelTest :
                 viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.NewSeriesStarted)
                 viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.NewSeriesNameChanged("Era 1"))
                 advanceUntilIdle()
-                viewModel.addSubSeries.value.newSeries?.existing?.isSelectable shouldBe false
+                viewModel.addSubSeries.value.newSeries
+                    ?.existing
+                    ?.isSelectable shouldBe false
 
                 viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.NewSeriesNameChanged("Era 3"))
                 advanceUntilIdle()
-                viewModel.addSubSeries.value.newSeries?.canCreate shouldBe true
+                viewModel.addSubSeries.value.newSeries
+                    ?.canCreate shouldBe true
                 viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.NewSeriesConfirmed)
                 advanceUntilIdle()
 
