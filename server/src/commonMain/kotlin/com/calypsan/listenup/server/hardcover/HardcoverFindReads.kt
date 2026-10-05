@@ -178,4 +178,7 @@ private fun FindEditionWire.toFindEdition() =
         isAudiobook = readingFormatId == AUDIOBOOK_READING_FORMAT,
     )
 
-private fun FindEditionWire.toFindHit(): HardcoverFindHit? = book?.let { HardcoverFindHit(toFindEdition(), it.toFindBook()) }
+private fun FindEditionWire.toFindHit(): HardcoverFindHit? =
+    book?.let {
+        HardcoverFindHit(toFindEdition(), it.toFindBook())
+    }

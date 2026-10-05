@@ -66,7 +66,8 @@ internal class BookFinder(
             coroutineScope {
                 (identifying + attaching)
                     .map { source ->
-                        async { Asked(source, ask(source, subject.lookupFor(source.id, identify, text), region.locale)) }
+                        val lookup = subject.lookupFor(source.id, identify, text)
+                        async { Asked(source, ask(source, lookup, region.locale)) }
                     }.awaitAll()
             }
         val (found, covers) = asked.partition { it.source.findRole == FindRole.IDENTIFIES }
@@ -155,9 +156,15 @@ internal class BookFinder(
         found: List<Asked>,
         query: String?,
     ): List<SearchStep> {
-        val ran = found.mapNotNull { asked -> (asked.outcome as? Outcome.Answered)?.let { asked.source to it.answer.steps } }
+        val ran =
+            found.mapNotNull { asked ->
+                val answered = asked.outcome as? Outcome.Answered ?: return@mapNotNull null
+                asked.source to answered.answer.steps
+            }
         return buildList {
-            ran.filter { FindStep.LINK in it.second }.forEach { add(SearchStep.ExistingLink(it.first.id.toMetadataSource())) }
+            ran
+                .filter { (_, steps) -> FindStep.LINK in steps }
+                .forEach { (source, _) -> add(SearchStep.ExistingLink(source.id.toMetadataSource())) }
             if (ran.any { FindStep.ASIN in it.second }) add(SearchStep.Identifier(IdentifierKind.ASIN))
             if (ran.any { FindStep.ISBN in it.second }) add(SearchStep.Identifier(IdentifierKind.ISBN))
             add(query?.let { SearchStep.YourQuery(it) } ?: SearchStep.TitleAuthorLength)

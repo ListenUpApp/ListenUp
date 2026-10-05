@@ -143,7 +143,13 @@ internal object MatchScorer {
 
     /** Each name as its sorted tokens, so "Porter, Ray" and "Ray Porter" are one person. */
     private fun List<String>.toNameSet(): Set<String> =
-        mapNotNull { name -> name.tokenize().sorted().joinToString(" ").takeIf { it.isNotEmpty() } }.toSet()
+        mapNotNull { name ->
+            name
+                .tokenize()
+                .sorted()
+                .joinToString(" ")
+                .takeIf { it.isNotEmpty() }
+        }.toSet()
 
     /**
      * Re-scores every [candidate][candidates] against [local] and returns them

@@ -81,7 +81,9 @@ internal class HardcoverFind(
             }
 
             null -> {
-                AppResult.Failure(HardcoverError.Unavailable(debugInfo = "hardcover find: no token can read the catalogue"))
+                AppResult.Failure(
+                    HardcoverError.Unavailable(debugInfo = "hardcover find: no token can read the catalogue"),
+                )
             }
 
             else -> {

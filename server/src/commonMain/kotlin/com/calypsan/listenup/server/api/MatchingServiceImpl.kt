@@ -64,7 +64,8 @@ internal class MatchingServiceImpl(
     private suspend fun requireEditableBook(bookId: BookId): AppError? {
         val caller = principal.current() ?: return AuthError.PermissionDenied()
         permissionPolicy.requireCanEdit(caller.userId, caller.role)?.let { return it }
-        return if (bookAccessPolicy.canAccess(caller.userId.value, caller.role, bookId.value)) null else notFound(bookId)
+        val canSee = bookAccessPolicy.canAccess(caller.userId.value, caller.role, bookId.value)
+        return if (canSee) null else notFound(bookId)
     }
 
     /** Per-user throttle; a no-op when no limiter or no principal is bound (direct-construction tests). */

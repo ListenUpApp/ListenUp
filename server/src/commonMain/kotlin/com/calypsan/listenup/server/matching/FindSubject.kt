@@ -60,7 +60,8 @@ internal data class FindSubject(
 
 /** A book as Find sees it. Your copy's format is abridged when the book says so, otherwise unabridged. */
 internal fun BookSyncPayload.toFindSubject(): FindSubject {
-    fun named(role: ContributorRole) = contributors.filter { ContributorRole.fromApiValue(it.role) == role }.map { it.name }
+    fun named(role: ContributorRole) =
+        contributors.filter { ContributorRole.fromApiValue(it.role) == role }.map { it.name }
     return FindSubject(
         bookId = id,
         title = title,

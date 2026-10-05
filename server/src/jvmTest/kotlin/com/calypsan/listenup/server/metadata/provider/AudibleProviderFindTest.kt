@@ -197,7 +197,11 @@ class AudibleProviderFindTest :
                     RecordingAudible(searchHits = listOf(hit("B2", title = "Project Hail Mary [Dramatized Adaptation]")))
                 runTest {
                     val answer = provider(audible, sql).findBooks(lookup(), MetadataLocale("us"))
-                    answer.shouldBeInstanceOf<AppResult.Success<FindAnswer>>().data.books.single().format shouldBe
+                    answer
+                        .shouldBeInstanceOf<AppResult.Success<FindAnswer>>()
+                        .data.books
+                        .single()
+                        .format shouldBe
                         EditionFormat.DRAMATIZED
                 }
             }

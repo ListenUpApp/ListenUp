@@ -202,7 +202,9 @@ class FakeHardcoverCatalog {
                                             putJsonObject("document") {
                                                 put("id", book.id.toString())
                                                 put("title", book.title)
-                                                putJsonArray("author_names") { book.authors.forEach { add(JsonPrimitive(it.name)) } }
+                                                putJsonArray(
+                                                    "author_names",
+                                                ) { book.authors.forEach { add(JsonPrimitive(it.name)) } }
                                                 put("release_year", JsonNull)
                                             }
                                         }
@@ -213,16 +215,29 @@ class FakeHardcoverCatalog {
                     }
 
                     "find_books" -> {
-                        val ids = variables.getValue("ids").jsonArray.map { it.jsonPrimitive.long }.toSet()
+                        val ids =
+                            variables
+                                .getValue("ids")
+                                .jsonArray
+                                .map { it.jsonPrimitive.long }
+                                .toSet()
                         putJsonArray("books") { books.filter { it.id in ids }.forEach { add(findBookJson(it)) } }
                         variables["asin"]?.let { asin ->
                             putJsonArray("byAsin") {
-                                books.firstOrNull { it.asin == asin.jsonPrimitive.content }?.let { add(findEditionJson(it, 2, nestBook = true)) }
+                                books.firstOrNull { it.asin == asin.jsonPrimitive.content }?.let {
+                                    add(
+                                        findEditionJson(it, 2, nestBook = true),
+                                    )
+                                }
                             }
                         }
                         variables["isbn"]?.let { isbn ->
                             putJsonArray("byIsbn") {
-                                books.firstOrNull { it.isbn13 == isbn.jsonPrimitive.content }?.let { add(findEditionJson(it, 1, nestBook = true)) }
+                                books.firstOrNull { it.isbn13 == isbn.jsonPrimitive.content }?.let {
+                                    add(
+                                        findEditionJson(it, 1, nestBook = true),
+                                    )
+                                }
                             }
                         }
                     }
@@ -266,7 +281,13 @@ class FakeHardcoverCatalog {
                     }
                 }
             }
-            if (book.audioSeconds == null) put("default_audio_edition", JsonNull) else put("default_audio_edition", findEditionJson(book, 2))
+            if (book.audioSeconds ==
+                null
+            ) {
+                put("default_audio_edition", JsonNull)
+            } else {
+                put("default_audio_edition", findEditionJson(book, 2))
+            }
         }
 
     /** The book's edition as Find reads it: id `book.id * 10`, its identifiers, length and credits by role. */

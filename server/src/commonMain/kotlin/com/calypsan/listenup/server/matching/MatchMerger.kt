@@ -34,7 +34,10 @@ internal object MatchMerger {
             val home =
                 groups.firstOrNull { group ->
                     group.none { it.source == hit.source } &&
-                        (group.any { sharesIdentifier(it.book, hit.book) } || isSameEdition(group.first().book, hit.book))
+                        (
+                            group.any { sharesIdentifier(it.book, hit.book) } ||
+                                isSameEdition(group.first().book, hit.book)
+                        )
                 }
             if (home != null) home += hit else groups += mutableListOf(hit)
         }

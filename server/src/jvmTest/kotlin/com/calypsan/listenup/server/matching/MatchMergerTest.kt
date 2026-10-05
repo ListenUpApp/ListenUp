@@ -68,7 +68,8 @@ class MatchMergerTest :
         }
 
         test("never merged: more than two minutes apart, a missing length, or a different format") {
-            merged(SourcedHit(AUDIBLE, phm("B1")), SourcedHit(HARDCOVER, phm("1", durationMs = 970 * MINUTE_MS + 121_000L))) shouldHaveSize 2
+            merged(SourcedHit(AUDIBLE, phm("B1")), SourcedHit(HARDCOVER, phm("1", durationMs = 970 * MINUTE_MS + 121_000L))) shouldHaveSize
+                2
             merged(SourcedHit(AUDIBLE, phm("B1")), SourcedHit(HARDCOVER, phm("2", durationMs = null))) shouldHaveSize 2
             merged(SourcedHit(AUDIBLE, phm("B1")), SourcedHit(HARDCOVER, phm("3", format = EditionFormat.ABRIDGED))) shouldHaveSize 2
         }
@@ -84,7 +85,12 @@ class MatchMergerTest :
                     SourcedHit(AUDIBLE, phm("B1", region = "us")),
                 )
             groups shouldHaveSize 1
-            val hit = groups.single().members.single().book
+            val hit =
+                groups
+                    .single()
+                    .members
+                    .single()
+                    .book
             hit.viaLink shouldBe true
             hit.region shouldBe "us"
         }

@@ -71,7 +71,9 @@ class BookFinderTest :
                 val rig = Rig()
                 rig.audible.answers(listOf(phm("B08G9PRS1K", region = "us", viaLink = true)), setOf(FindStep.LINK, FindStep.TEXT))
                 rig.hardcover.answers(listOf(phm("427578", asin = "B08G9PRS1K")))
-                rig.itunes.answers(listOf(FoundBook("111", "Project Hail Mary", authors = listOf("Andy Weir"), coverUrl = "https://i/7.jpg")))
+                rig.itunes.answers(
+                    listOf(FoundBook("111", "Project Hail Mary", authors = listOf("Andy Weir"), coverUrl = "https://i/7.jpg")),
+                )
 
                 val result = rig.find()
 
@@ -94,7 +96,9 @@ class BookFinderTest :
             runTest {
                 val rig = Rig()
                 rig.find()
-                rig.audible.asked.single().keys shouldBe listOf(FindKey("B08G9PRS1K", "us"))
+                rig.audible.asked
+                    .single()
+                    .keys shouldBe listOf(FindKey("B08G9PRS1K", "us"))
                 val hardcover = rig.hardcover.asked.single()
                 hardcover.keys shouldBe emptyList()
                 hardcover.asin shouldBe "B08G9PRS1K"
@@ -113,7 +117,9 @@ class BookFinderTest :
                         SearchStep.Identifier(IdentifierKind.ISBN),
                         SearchStep.YourQuery("hail mary"),
                     )
-                rig.hardcover.asked.last().text shouldBe "hail mary"
+                rig.hardcover.asked
+                    .last()
+                    .text shouldBe "hail mary"
             }
         }
 
@@ -141,7 +147,10 @@ class BookFinderTest :
                 val result = rig.find()
 
                 result.sources[1] shouldBe SourceStatus.TimedOut(HARDCOVER)
-                result.candidates.single().foundIn.map { it.source } shouldBe listOf(AUDIBLE)
+                result.candidates
+                    .single()
+                    .foundIn
+                    .map { it.source } shouldBe listOf(AUDIBLE)
                 currentTime shouldBe 8_000L
             }
         }

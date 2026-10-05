@@ -23,7 +23,9 @@ internal open class FakeFindSource(
     override val findRole: FindRole = FindRole.IDENTIFIES,
     var latency: Duration = Duration.ZERO,
     var availability: FindAvailability = FindAvailability.Available,
-    var answer: (FindLookup) -> AppResult<FindAnswer> = { AppResult.Success(FindAnswer(emptyList(), setOf(FindStep.TEXT))) },
+    var answer: (
+        FindLookup,
+    ) -> AppResult<FindAnswer> = { AppResult.Success(FindAnswer(emptyList(), setOf(FindStep.TEXT))) },
 ) : BookFindSource {
     val asked = mutableListOf<FindLookup>()
 

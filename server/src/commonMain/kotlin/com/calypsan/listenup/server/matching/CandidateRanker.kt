@@ -56,7 +56,13 @@ internal object CandidateRanker {
         val score =
             MatchScorer.score(
                 subject.identity(),
-                BookMatch(title = title, author = authors.firstOrNull(), durationMs = durationMs, narrators = narrators, score = 0.0),
+                BookMatch(
+                    title = title,
+                    author = authors.firstOrNull(),
+                    durationMs = durationMs,
+                    narrators = narrators,
+                    score = 0.0,
+                ),
             )
         val candidate =
             BookCandidate(
@@ -70,23 +76,30 @@ internal object CandidateRanker {
                 format = books.firstNotNullOfOrNull { it.format },
                 chapterCount = books.firstNotNullOfOrNull { it.chapterCount },
                 coverUrl = everyone.firstNotNullOfOrNull { it.book.coverUrl?.takeIf(String::isNotBlank) },
-                foundIn = everyone.map { FoundIn(it.source.toMetadataSource(), it.book.region) }.distinctBy { it.source.id },
+                foundIn = everyone.map { it.toFoundIn() }.distinctBy { it.source.id },
                 tier = if (score >= STRONG_SCORE) MatchTier.STRONG else MatchTier.MAYBE,
                 score = score,
                 isBest = false,
                 isCurrentLink = books.any { it.viaLink },
                 reasons = emptyList(),
             )
-        return candidate.copy(reasons = reasons(subject, candidate, otherStore(books.mapNotNull { it.region }, searchRegion)))
+        return candidate.copy(
+            reasons = reasons(subject, candidate, otherStore(books.mapNotNull { it.region }, searchRegion)),
+        )
     }
 
     private fun SourcedHit.toRef(): ExternalRef = ExternalRef(source.presentedAs().value, book.key, book.region)
+
+    private fun SourcedHit.toFoundIn(): FoundIn = FoundIn(source.toMetadataSource(), book.region)
 
     /** The store a candidate was found in when none of its hits came from the store searched; else null. */
     private fun otherStore(
         regions: List<String>,
         searchRegion: String,
-    ): String? = regions.takeIf { it.isNotEmpty() && it.none { region -> region.equals(searchRegion, ignoreCase = true) } }?.first()
+    ): String? {
+        if (regions.any { it.equals(searchRegion, ignoreCase = true) }) return null
+        return regions.firstOrNull()
+    }
 
     /**
      * Why the candidate ranks where it does. Within each polarity: narrator, length, chapters, store, edition.

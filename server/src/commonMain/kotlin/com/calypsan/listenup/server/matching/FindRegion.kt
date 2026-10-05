@@ -15,9 +15,20 @@ internal fun resolveFindRegion(
     libraryRegion: String?,
 ): ResolvedRegion =
     when {
-        override != null -> ResolvedRegion(override, RegionOrigin.SEARCH_OVERRIDE)
-        !libraryRegion.isNullOrBlank() -> ResolvedRegion(MetadataLocale(libraryRegion.trim().lowercase()), RegionOrigin.LIBRARY)
-        else -> ResolvedRegion(MetadataLocale.DEFAULT, RegionOrigin.SERVER_DEFAULT)
+        override != null -> {
+            ResolvedRegion(override, RegionOrigin.SEARCH_OVERRIDE)
+        }
+
+        !libraryRegion.isNullOrBlank() -> {
+            ResolvedRegion(
+                MetadataLocale(libraryRegion.trim().lowercase()),
+                RegionOrigin.LIBRARY,
+            )
+        }
+
+        else -> {
+            ResolvedRegion(MetadataLocale.DEFAULT, RegionOrigin.SERVER_DEFAULT)
+        }
     }
 
 private const val MAX_SUGGESTED_STORES = 2
@@ -73,7 +84,10 @@ internal fun suggestStores(
     val supported = MetadataLocale.SUPPORTED.map { it.region }.toSet()
     val here = current.region.lowercase()
     return buildList {
-        subject.refs.firstOrNull { it.provider == provider }?.region?.let(::add)
+        subject.refs
+            .firstOrNull { it.provider == provider }
+            ?.region
+            ?.let(::add)
         add(UNITED_STATES)
         addAll(STORES_BY_LANGUAGE[languageCode(subject.language)].orEmpty())
     }.map { it.lowercase() }

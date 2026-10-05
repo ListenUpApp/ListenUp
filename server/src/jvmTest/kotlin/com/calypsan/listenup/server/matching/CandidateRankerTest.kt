@@ -92,7 +92,11 @@ class CandidateRankerTest :
 
         test("Strong ranks above Maybe, then by score; the current link is labelled, not pinned") {
             val ranked = rank(audible("LINK", minutes = 600, viaLink = true), audible("NEAR", minutes = 975), audible("EXACT"))
-            ranked.map { it.key.refs.single().id } shouldBe listOf("EXACT", "NEAR", "LINK")
+            ranked.map {
+                it.key.refs
+                    .single()
+                    .id
+            } shouldBe listOf("EXACT", "NEAR", "LINK")
             ranked.map { it.isBest } shouldBe listOf(true, false, false)
             ranked.last().tier shouldBe MatchTier.MAYBE
             ranked.last().isCurrentLink shouldBe true
@@ -114,7 +118,11 @@ class CandidateRankerTest :
                         ),
                     ),
                 )
-            rank(audible("B1", minutes = 971), lengthless).first().key.refs.single().provider shouldBe "hardcover"
+            rank(audible("B1", minutes = 971), lengthless)
+                .first()
+                .key.refs
+                .single()
+                .provider shouldBe "hardcover"
         }
 
         test("a merged candidate lists every source it was found in, and every ref in its key") {
@@ -122,7 +130,10 @@ class CandidateRankerTest :
                 MergedHits(
                     members =
                         audible("B1").members +
-                            SourcedHit(MetadataProviderId.HARDCOVER, FoundBook("427578", "Project Hail Mary", authors = listOf("Andy Weir"))),
+                            SourcedHit(
+                                MetadataProviderId.HARDCOVER,
+                                FoundBook("427578", "Project Hail Mary", authors = listOf("Andy Weir")),
+                            ),
                     attached =
                         listOf(
                             SourcedHit(
