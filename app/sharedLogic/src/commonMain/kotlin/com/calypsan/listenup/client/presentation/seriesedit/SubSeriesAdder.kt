@@ -91,26 +91,40 @@ data class NewSeriesDraft(
 }
 
 /**
- * What the "Add sub-series" sheet shows.
+ * What the "Add sub-series" sheet shows: [Closed], or [Open] with its list.
  *
- * @property parentName the series sub-series are added to.
- * @property candidates the series it may take, filtered by [query]: never itself or a series above it.
- * @property pendingMove a move waiting for the reader to confirm.
- * @property newSeries the "New series…" dialog, while it is open.
- * @property isBusy true while a change is on its way to the server.
- * @property error the last change the server refused; the screen shows it once, then sends
- *   [AddSubSeriesEvent.ErrorDismissed].
+ * Both carry [isBusy] — true while a change is on its way to the server, which outlives the sheet
+ * because choosing closes it — and [error], the last change the server refused. The screen shows the
+ * error once, then sends [AddSubSeriesEvent.ErrorDismissed].
  */
-data class AddSubSeriesUiState(
-    val isVisible: Boolean = false,
-    val parentName: String = "",
-    val query: String = "",
-    val candidates: List<SubSeriesCandidateUi> = emptyList(),
-    val pendingMove: PendingSubSeriesMove? = null,
-    val newSeries: NewSeriesDraft? = null,
-    val isBusy: Boolean = false,
-    val error: AppError? = null,
-)
+sealed interface AddSubSeriesUiState {
+    val isBusy: Boolean
+    val error: AppError?
+
+    /** The sheet is not showing. */
+    data class Closed(
+        override val isBusy: Boolean = false,
+        override val error: AppError? = null,
+    ) : AddSubSeriesUiState
+
+    /**
+     * The sheet is open.
+     *
+     * @property parentName the series sub-series are added to.
+     * @property candidates the series it may take, filtered by [query]: never itself or a series above it.
+     * @property pendingMove a move waiting for the reader to confirm.
+     * @property newSeries the "New series…" dialog, while it is open.
+     */
+    data class Open(
+        val parentName: String,
+        val query: String,
+        val candidates: List<SubSeriesCandidateUi>,
+        val pendingMove: PendingSubSeriesMove?,
+        val newSeries: NewSeriesDraft?,
+        override val isBusy: Boolean,
+        override val error: AppError?,
+    ) : AddSubSeriesUiState
+}
 
 /** What the reader does in the "Add sub-series" sheet. */
 sealed interface AddSubSeriesEvent {
@@ -190,7 +204,12 @@ internal class SubSeriesAdder(
             .distinctUntilChanged()
             .flatMapLatest { visible ->
                 if (!visible) {
-                    inputs.map { AddSubSeriesUiState(isBusy = it.isBusy, error = it.error) }
+                    inputs.map<AdderInputs, AddSubSeriesUiState> {
+                        AddSubSeriesUiState.Closed(
+                            isBusy = it.isBusy,
+                            error = it.error,
+                        )
+                    }
                 } else {
                     combine(inputs, hierarchy) { input, tree ->
                         latest = tree
@@ -198,7 +217,7 @@ internal class SubSeriesAdder(
                     }
                 }
             }.distinctUntilChanged()
-            .stateIn(scope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), AddSubSeriesUiState())
+            .stateIn(scope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), AddSubSeriesUiState.Closed())
 
     fun onEvent(event: AddSubSeriesEvent) {
         when (event) {
@@ -223,8 +242,7 @@ internal class SubSeriesAdder(
         val parent = parentId()?.let(tree::byId)
         val all = candidates(tree, parent)
         val pending = input.pendingMoveId?.let { id -> all.firstOrNull { it.id == id } }
-        return AddSubSeriesUiState(
-            isVisible = true,
+        return AddSubSeriesUiState.Open(
             parentName = parent?.name.orEmpty(),
             query = input.query,
             candidates =

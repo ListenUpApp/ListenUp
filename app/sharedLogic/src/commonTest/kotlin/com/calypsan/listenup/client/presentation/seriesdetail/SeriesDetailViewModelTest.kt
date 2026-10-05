@@ -23,6 +23,7 @@ import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesEvent
+import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesUiState
 import com.calypsan.listenup.client.presentation.seriesedit.PendingSubSeriesMove
 import com.calypsan.listenup.core.SeriesId
 import dev.mokkery.everySuspend
@@ -812,12 +813,13 @@ class SeriesDetailViewModelTest :
 
                 viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.Opened)
                 advanceUntilIdle()
-                viewModel.addSubSeries.value.candidates
+                (viewModel.addSubSeries.value as AddSubSeriesUiState.Open)
+                    .candidates
                     .map { it.name } shouldBe listOf("City Watch", "Discworld", "Dune")
 
                 viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.Chosen("watch"))
                 advanceUntilIdle()
-                viewModel.addSubSeries.value.pendingMove shouldBe
+                (viewModel.addSubSeries.value as AddSubSeriesUiState.Open).pendingMove shouldBe
                     PendingSubSeriesMove(
                         seriesId = "watch",
                         seriesName = "City Watch",
@@ -829,7 +831,7 @@ class SeriesDetailViewModelTest :
                 viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.MoveConfirmed)
                 advanceUntilIdle()
                 verifySuspend { fixture.seriesEditRepository.setParent(SeriesId("watch"), SeriesId("cosmere")) }
-                viewModel.addSubSeries.value.isVisible shouldBe false
+                viewModel.addSubSeries.value.shouldBeInstanceOf<AddSubSeriesUiState.Closed>()
             }
         }
     })

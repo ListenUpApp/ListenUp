@@ -853,7 +853,7 @@ class SeriesEditViewModelTest :
 
                 viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.Opened)
                 advanceUntilIdle()
-                val state = viewModel.addSubSeries.value
+                val state = viewModel.addSubSeries.value as AddSubSeriesUiState.Open
                 state.parentName shouldBe "Mistborn"
                 // Never itself or a series above it; its own sub-series are listed last, not choosable.
                 state.candidates.map { it.name to it.placement } shouldBe
@@ -890,19 +890,21 @@ class SeriesEditViewModelTest :
                 viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.NewSeriesStarted)
                 viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.NewSeriesNameChanged("Era 1"))
                 advanceUntilIdle()
-                viewModel.addSubSeries.value.newSeries
+                (viewModel.addSubSeries.value as AddSubSeriesUiState.Open)
+                    .newSeries
                     ?.existing
                     ?.isSelectable shouldBe false
 
                 viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.NewSeriesNameChanged("Era 3"))
                 advanceUntilIdle()
-                viewModel.addSubSeries.value.newSeries
+                (viewModel.addSubSeries.value as AddSubSeriesUiState.Open)
+                    .newSeries
                     ?.canCreate shouldBe true
                 viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.NewSeriesConfirmed)
                 advanceUntilIdle()
 
                 verifySuspend { fixture.seriesEditRepository.createSeries("Era 3", SeriesId("mistborn")) }
-                viewModel.addSubSeries.value.isVisible shouldBe false
+                viewModel.addSubSeries.value.shouldBeInstanceOf<AddSubSeriesUiState.Closed>()
             }
         }
 
