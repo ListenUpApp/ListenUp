@@ -60,6 +60,7 @@ final class HostedView {
         dynamicTypeSize: DynamicTypeSize = .large
     ) async {
         Self.enableAccessibilityTree()
+        await Self.awaitAccessibilityReady()
         let root = content
             .environment(\.dynamicTypeSize, dynamicTypeSize)
             .environment(HapticsSettings())
@@ -257,6 +258,50 @@ final class HostedView {
     }
 
     private static var isTreeEnabled = false
+    private static var readiness: Task<Void, Never>?
+
+    /// Diagnostic: hosts a probe and waits until SwiftUI publishes it as an accessibility element.
+    static func awaitAccessibilityReady() async {
+        if readiness == nil {
+            readiness = Task { @MainActor in
+                guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else { return }
+                let probe = UIWindow(windowScene: scene)
+                probe.frame = CGRect(x: 0, y: 0, width: 200, height: 100)
+                probe.rootViewController = UIHostingController(rootView: Text(verbatim: "harness-probe"))
+                probe.makeKeyAndVisible()
+                let start = Date()
+                var polls = 0
+                var worstOvershoot = 0
+                var found = false
+                while Date().timeIntervalSince(start) < 60 {
+                    probe.layoutIfNeeded()
+                    if probeFound(in: probe) { found = true; break }
+                    polls += 1
+                    let before = Date()
+                    try? await Task.sleep(for: .milliseconds(20))
+                    worstOvershoot = max(worstOvershoot, Int(Date().timeIntervalSince(before) * 1000) - 20)
+                }
+                NSLog("A11YPROBE found=%d ms=%d polls=%d worstOvershootMs=%d", found ? 1 : 0,
+                      Int(Date().timeIntervalSince(start) * 1000), polls, worstOvershoot)
+                probe.isHidden = true
+                probe.rootViewController = nil
+            }
+        }
+        await readiness?.value
+    }
+
+    private static func probeFound(in object: NSObject) -> Bool {
+        if object.isAccessibilityElement { return object.accessibilityLabel == "harness-probe" }
+        if let elements = object.accessibilityElements as? [NSObject], !elements.isEmpty {
+            return elements.contains { probeFound(in: $0) }
+        }
+        let count = object.accessibilityElementCount()
+        if count != NSNotFound, count > 0 {
+            return (0..<count).contains { (object.accessibilityElement(at: $0) as? NSObject).map(probeFound) ?? false }
+        }
+        if let view = object as? UIView { return view.subviews.contains { probeFound(in: $0) } }
+        return false
+    }
 
     /// Turns on accessibility automation for this test process, as XCUITest does for an app under test.
     private static func enableAccessibilityTree() {
