@@ -4,9 +4,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
 import com.calypsan.listenup.client.domain.model.BookContributor
-import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.features.bookdetail.components.CompactHero
 import com.calypsan.listenup.client.features.bookdetail.components.WideHeroBand
+import com.calypsan.listenup.client.presentation.bookdetail.BookSeriesPath
+import com.calypsan.listenup.client.presentation.seriesdetail.SeriesCrumb
 
 /**
  * Design previews for [CompactHero] and [WideHeroBand], in light and dark, against the static
@@ -42,13 +43,17 @@ private val previewNarrators =
         BookContributor(id = "narrator-2", name = "Kate Reading"),
     )
 
-// Multiple series + an independent subtitle (the Mistborn case the design demos).
+// Two series lines + an independent subtitle: a deep path that folds its middle, and a short one.
 private val previewSeries =
     listOf(
-        BookSeries(seriesId = "s1", seriesName = "Mistborn", sequence = 1.0),
-        // Fractional on purpose: whole numbers alone would never show a reviewer the case the
-        // Double exists for, and would hide a regression that renders "Book 3.0".
-        BookSeries(seriesId = "s2", seriesName = "The Cosmere", sequence = 3.5),
+        BookSeriesPath(
+            seriesId = "s1",
+            seriesName = "Mistborn Era 1",
+            sequence = "1",
+            ancestors = listOf(SeriesCrumb("s0", "The Cosmere"), SeriesCrumb("s2", "Scadrial"), SeriesCrumb("s3", "Mistborn")),
+        ),
+        // Fractional on purpose: a regression that renders "#3.0" would show here.
+        BookSeriesPath(seriesId = "s4", seriesName = "Secret Projects", sequence = "3.5", ancestors = emptyList()),
     )
 
 @Composable
@@ -61,7 +66,7 @@ private fun CompactHeroPreviewBody() {
         genre = PREVIEW_GENRE,
         abridged = false,
         subtitle = PREVIEW_SUBTITLE,
-        series = previewSeries,
+        seriesPaths = previewSeries,
         authors = previewAuthors,
         narrators = previewNarrators,
         onContributorClick = {},
@@ -94,7 +99,7 @@ private fun WideHeroBandPreviewBody() {
         genre = PREVIEW_GENRE,
         abridged = false,
         subtitle = PREVIEW_SUBTITLE,
-        series = previewSeries,
+        seriesPaths = previewSeries,
         authors = previewAuthors,
         narrators = previewNarrators,
         onContributorClick = {},
