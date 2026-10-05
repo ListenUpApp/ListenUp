@@ -233,18 +233,23 @@ internal class BookFinder(
 
     /** How one source fared in one Find. */
     private sealed interface Outcome {
+        /** It answered with [answer]. */
         data class Answered(
             val answer: FindAnswer,
         ) : Outcome
 
+        /** It missed the deadline. */
         data object TimedOut : Outcome
 
+        /** It asked us to wait [retryAfterSeconds]. */
         data class RateLimited(
             val retryAfterSeconds: Long,
         ) : Outcome
 
+        /** It errored or threw. */
         data object Failed : Outcome
 
+        /** It couldn't take part, for [reason]. */
         data class Unavailable(
             val reason: UnavailableReason,
         ) : Outcome
