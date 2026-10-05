@@ -2,6 +2,8 @@ package com.calypsan.listenup.web.features.seriesdetail
 
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
+import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesEvent
+import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesUiState
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,6 +18,12 @@ import org.koin.core.Koin
  */
 class SeriesDetailSession(
     val state: StateFlow<SeriesDetailUiState>,
+    /** The "Add sub-series" dialog the page's tile opens (editors only). */
+    val addSubSeries: StateFlow<AddSubSeriesUiState>,
+    /** Fold or unfold one sub-series' group of books. */
+    val onToggleSection: (seriesId: String) -> Unit,
+    /** Every event of the "Add sub-series" dialog. */
+    val onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit,
     val close: () -> Unit,
 )
 
@@ -40,9 +48,28 @@ fun graphSeriesDetail(koin: Koin): OpenSeriesDetail =
         val viewModel = koin.get<SeriesDetailViewModel>()
         val store = ViewModelStore().apply { put(seriesId, viewModel) }
         viewModel.loadSeries(seriesId)
-        SeriesDetailSession(state = viewModel.state, close = store::clear)
+        SeriesDetailSession(
+            state = viewModel.state,
+            addSubSeries = viewModel.addSubSeries,
+            onToggleSection = viewModel::toggleSection,
+            onAddSubSeriesEvent = viewModel::onAddSubSeriesEvent,
+            close = store::clear,
+        )
     }
 
 /** A session over a state that never changes — the shape specs use in place of the graph. */
-fun fixedSeriesDetail(state: SeriesDetailUiState): OpenSeriesDetail =
-    { SeriesDetailSession(state = MutableStateFlow(state), close = {}) }
+fun fixedSeriesDetail(
+    state: SeriesDetailUiState,
+    addSubSeries: AddSubSeriesUiState = AddSubSeriesUiState.Closed(),
+    onToggleSection: (String) -> Unit = {},
+    onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit = {},
+): OpenSeriesDetail =
+    {
+        SeriesDetailSession(
+            state = MutableStateFlow(state),
+            addSubSeries = MutableStateFlow(addSubSeries),
+            onToggleSection = onToggleSection,
+            onAddSubSeriesEvent = onAddSubSeriesEvent,
+            close = {},
+        )
+    }

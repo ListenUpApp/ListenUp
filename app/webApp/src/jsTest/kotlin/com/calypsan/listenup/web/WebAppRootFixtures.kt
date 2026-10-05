@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesUiState
 import com.calypsan.listenup.web.features.admin.fixedInboxBadge
 import com.calypsan.listenup.web.features.admin.OpenInboxBadge
 import com.calypsan.listenup.web.features.admin.OpenRestrictedBooks
@@ -486,6 +487,9 @@ internal class RecordingSeriesDetail {
         requestedIds += id
         SeriesDetailSession(
             state = MutableStateFlow(readySeries(seriesId = id, seriesName = "Series $id")),
+            addSubSeries = MutableStateFlow(AddSubSeriesUiState.Closed()),
+            onToggleSection = {},
+            onAddSubSeriesEvent = {},
             close = {},
         )
     }
@@ -570,6 +574,9 @@ internal class RecordingSeriesEdit(
             navActions = navActions,
             onEvent = {},
             onMergeQuery = {},
+            parentPickerRows = MutableStateFlow(emptyList()),
+            addSubSeries = MutableStateFlow(AddSubSeriesUiState.Closed()),
+            onAddSubSeriesEvent = {},
             close = {},
         )
     }

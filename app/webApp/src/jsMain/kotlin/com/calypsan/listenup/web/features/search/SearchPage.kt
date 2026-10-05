@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.search
 
+import com.calypsan.listenup.web.features.seriesdetail.seriesPlaceLine
 import com.calypsan.listenup.web.design.RestrictedMarker
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
@@ -370,12 +371,15 @@ private fun summaryText(result: SearchResult): String {
 }
 
 /**
- * Every field this hit actually carries, joined into one line — never a field it doesn't. Most
- * contributor and series hits currently carry none of these ([SearchRepositoryImpl] leaves
- * `bookCount` null for both), so their rows show only the name, honestly.
+ * Every field this hit actually carries, joined into one line — never a field it doesn't. A series
+ * hit carries its place and a real book count; most contributor hits carry none of these, so their
+ * rows show only the name, honestly.
  */
-private fun hitMeta(hit: SearchHit): String? =
-    listOfNotNull(
+private fun hitMeta(hit: SearchHit): String? {
+    // A series hit says where it sits: "in Cosmere › Mistborn · 8 books", or "8 books" at the top.
+    val seriesBooks = hit.bookCount
+    if (hit.type == SearchHitType.SERIES && seriesBooks != null) return seriesPlaceLine(hit.seriesPath, seriesBooks)
+    return listOfNotNull(
         hit.subtitle,
         hit.author,
         hit.narrator?.let { "read by $it" },
@@ -384,6 +388,7 @@ private fun hitMeta(hit: SearchHit): String? =
         hit.bookCount?.let(::bookCountLabel),
     ).joinToString(" · ")
         .takeIf { it.isNotBlank() }
+}
 
 private fun bookCountLabel(count: Int): String = if (count == 1) "1 book" else "$count books"
 

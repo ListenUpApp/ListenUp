@@ -375,16 +375,24 @@
   border:1px solid var(--line);
 }
 
-/* A book's series memberships, on Book Detail. Sits under the byline, above the actions. */
-.bd-series { display:flex; flex-wrap:wrap; gap:var(--sp-8); }
-.bd-series-chip {
-  display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:var(--r-pill);
-  background:var(--surface-2); border:1px solid var(--line);
+/* Where a book sits among series, on Book Detail: one path line per series, every name a button.
+   A line wraps only between names (each <li> is nowrap) and never truncates one. The "›" is
+   pseudo-content with empty alt text, so a screen reader hears the list, not the chevrons. Each
+   button keeps a 44px hit area; the negative block margin keeps the line visually compact. */
+.bd-series { display:flex; flex-direction:column; gap:2px; }
+.bd-series-line { display:flex; flex-wrap:wrap; align-items:center; margin:0; padding:0; list-style:none; column-gap:2px; }
+.bd-series-line li { display:inline-flex; align-items:center; white-space:nowrap; }
+.bd-series-line li + li::before { content:"›" / ""; padding:0 4px; color:var(--ink-3); font-weight:600; }
+.bd-series-link, .bd-series-fold {
+  display:inline-flex; align-items:center; gap:4px; min-height:44px; min-width:44px; margin-block:-8px; padding:0 4px;
+  border:none; background:none; border-radius:var(--r-sm);
   font:inherit; font-size:var(--fs-small); font-weight:700; color:var(--ink-2); cursor:pointer;
 }
-@media (hover: hover) { .bd-series-chip:hover { border-color:var(--coral); color:var(--coral-text); } }
-.bd-series-chip:focus { outline:none; }
-.bd-series-chip:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+.bd-series-link.is-own { color:var(--ink); }
+@media (hover: hover) { .bd-series-link:hover, .bd-series-fold:hover { color:var(--coral-text); text-decoration:underline; } }
+.bd-series-link:focus, .bd-series-fold:focus { outline:none; }
+.bd-series-link:focus-visible, .bd-series-fold:focus-visible { outline:2px solid var(--coral); outline-offset:-2px; }
+.bd-series-fold { justify-content:center; }
 .bd-series-seq { font-family:var(--mono); font-size:var(--fs-caption); color:var(--ink-3); }
 
 /* Search — federated results across books, contributors, series and tags. */

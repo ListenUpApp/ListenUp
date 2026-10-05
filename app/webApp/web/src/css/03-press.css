@@ -102,7 +102,7 @@
 .luw .cdet-share:active,
 .luw .cat-twist:active,
 .luw .cat-bar-b:active,
-.bd-series-chip:active { transform: translateY(1px); }
+.bd-series-link:active, .bd-series-fold:active { transform: translateY(1px); }
 
 /* Cards and tiles — big targets where 1px would be invisible. */
 .luw .set-link:active,
