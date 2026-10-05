@@ -76,6 +76,28 @@ class SeriesLineageResolverTest :
                 listOf("final-empire", "well", "way-of-kings", "warbreaker")
         }
 
+        test("every series of the subtree knows the books first reached there, nested as the tree is") {
+            val books =
+                listOf(
+                    book("warbreaker", "cosmere" to null),
+                    book("way-of-kings", "stormlight" to 1.0),
+                    book("well", "era1" to 2.0),
+                    book("final-empire", "era1" to 1.0, "cosmere" to 9.0),
+                    book("secret-history", "mistborn" to 3.5),
+                )
+
+            val lineage = resolver.resolve("cosmere", books)
+
+            lineage.ownBookIds shouldContainExactly listOf("warbreaker")
+            val mistborn = lineage.children[0]
+            mistborn.ownBookIds shouldContainExactly listOf("secret-history")
+            mistborn.children.map { it.series.id.value } shouldContainExactly listOf("era1")
+            mistborn.children[0].ownBookIds shouldContainExactly listOf("final-empire", "well")
+            mistborn.children[0].bookIds shouldContainExactly listOf("final-empire", "well")
+            lineage.children[1].children.shouldBeEmpty()
+            lineage.children[1].ownBookIds shouldContainExactly listOf("way-of-kings")
+        }
+
         test("books that tie on sequence, or have none, order by title whatever order the rows arrive in") {
             val books =
                 listOf(

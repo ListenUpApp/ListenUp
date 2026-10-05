@@ -458,6 +458,10 @@ internal val seriesPresentationModule =
                 seriesRepository = get<com.calypsan.listenup.client.domain.repository.SeriesRepository>(),
                 imageRepository = get(),
                 playbackPositionRepository = get(),
+                userRepository = get(),
+                networkMonitor = get(),
+                seriesEditRepository = get<com.calypsan.listenup.client.domain.repository.SeriesEditRepository>(),
+                errorBus = get(),
             )
         }
         factory {
@@ -469,6 +473,7 @@ internal val seriesPresentationModule =
                 seriesEditRepository = get<com.calypsan.listenup.client.domain.repository.SeriesEditRepository>(),
                 seriesDao = get(),
                 errorBus = get(),
+                networkMonitor = get(),
             )
         }
     }

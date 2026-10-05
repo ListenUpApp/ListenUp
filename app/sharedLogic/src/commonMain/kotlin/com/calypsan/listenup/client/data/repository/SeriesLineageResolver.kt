@@ -42,13 +42,26 @@ internal class SeriesLineageResolver(
                     .map { SeriesMembership(book.id.value, it.seriesId, it.sequence, sortKey = book.title) }
             }
         val bookById = subtreeBooks.associateBy { it.id.value }
+        // One walk decides where every book is listed; the nested children read it, so a heading can
+        // never disagree with the order the books are listed in.
+        val groups = tree.defaultBookGroups(seriesId, memberships)
+
+        fun child(childId: String): SeriesChild? =
+            byId[childId]?.let { series ->
+                SeriesChild(
+                    series = series,
+                    // Every book of the child's subtree, in the order its own page lists them.
+                    bookIds = tree.defaultBookOrder(childId, memberships),
+                    ownBookIds = groups[childId].orEmpty(),
+                    children = tree.childrenOf(childId).mapNotNull(::child),
+                )
+            }
+
         return SeriesLineage(
             ancestors = ancestors,
-            children =
-                childIds.mapNotNull { childId ->
-                    byId[childId]?.let { SeriesChild(it, tree.defaultBookOrder(childId, memberships)) }
-                },
-            subtreeBooks = tree.defaultBookOrder(seriesId, memberships).mapNotNull(bookById::get),
+            children = childIds.mapNotNull(::child),
+            subtreeBooks = groups.values.flatten().mapNotNull(bookById::get),
+            ownBookIds = groups[seriesId].orEmpty(),
         )
     }
 }
