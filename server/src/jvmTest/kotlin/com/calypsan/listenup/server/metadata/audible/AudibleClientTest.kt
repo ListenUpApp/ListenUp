@@ -14,6 +14,7 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.respondRedirect
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
@@ -81,6 +82,23 @@ class AudibleClientTest :
 
                 val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                 failure.error.shouldBeInstanceOf<MetadataError.ExternalRateLimited>()
+            }
+        }
+
+        test("a 429 carries Audible's Retry-After") {
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = "",
+                            status = HttpStatusCode.TooManyRequests,
+                            headers = headersOf(HttpHeaders.RetryAfter, "17"),
+                        )
+                    }
+                val result = makeClient(engine).search(AudibleRegion.US, SearchParams(keywords = "dune"))
+
+                val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                failure.error.shouldBeInstanceOf<MetadataError.ExternalRateLimited>().retryAfterSeconds shouldBe 17L
             }
         }
 

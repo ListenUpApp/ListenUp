@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.metadata.audible
 
+import com.calypsan.listenup.server.metadata.retryAfterSeconds
 import com.calypsan.listenup.server.scanner.pipeline.HtmlToMarkdown
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
@@ -11,6 +12,7 @@ import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
@@ -192,7 +194,11 @@ class AudibleClient(
 
                 HttpStatusCode.TooManyRequests -> {
                     logger.warn { "Audible API rate-limited: region=$region path=$path" }
-                    AppResult.Failure(MetadataError.ExternalRateLimited())
+                    AppResult.Failure(
+                        MetadataError.ExternalRateLimited(
+                            retryAfterSeconds = retryAfterSeconds(response.headers[HttpHeaders.RetryAfter]),
+                        ),
+                    )
                 }
 
                 else -> {
@@ -270,7 +276,11 @@ class AudibleClient(
 
                 response.status == HttpStatusCode.TooManyRequests -> {
                     logger.warn { "Audible web request rate-limited: region=$region path=$path" }
-                    AppResult.Failure(MetadataError.ExternalRateLimited())
+                    AppResult.Failure(
+                        MetadataError.ExternalRateLimited(
+                            retryAfterSeconds = retryAfterSeconds(response.headers[HttpHeaders.RetryAfter]),
+                        ),
+                    )
                 }
 
                 else -> {

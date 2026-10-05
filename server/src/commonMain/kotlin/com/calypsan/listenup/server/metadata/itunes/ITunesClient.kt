@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.metadata.itunes
 
+import com.calypsan.listenup.server.metadata.retryAfterSeconds
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
@@ -8,6 +9,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
@@ -118,7 +120,11 @@ class ITunesClient(
 
                 HttpStatusCode.TooManyRequests -> {
                     log.warn { "iTunes cover search rate-limited: title='$title'" }
-                    AppResult.Failure(MetadataError.ExternalRateLimited())
+                    AppResult.Failure(
+                        MetadataError.ExternalRateLimited(
+                            retryAfterSeconds = retryAfterSeconds(response.headers[HttpHeaders.RetryAfter]),
+                        ),
+                    )
                 }
 
                 else -> {

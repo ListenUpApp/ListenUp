@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.metadata.custom
 
+import com.calypsan.listenup.server.metadata.retryAfterSeconds
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.logging.loggerFor
@@ -8,6 +9,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
@@ -127,7 +129,11 @@ internal class CustomMetadataClient(
 
                 HttpStatusCode.TooManyRequests -> {
                     logger.warn { "Custom provider rate-limited: base=$baseUrl path=$path region=$region" }
-                    AppResult.Failure(MetadataError.ExternalRateLimited())
+                    AppResult.Failure(
+                        MetadataError.ExternalRateLimited(
+                            retryAfterSeconds = retryAfterSeconds(response.headers[HttpHeaders.RetryAfter]),
+                        ),
+                    )
                 }
 
                 else -> {
