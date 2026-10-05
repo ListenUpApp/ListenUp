@@ -40,6 +40,8 @@ final class AdminSettingsObserver {
 
     func setPushNotificationsEnabled(_ enabled: Bool) { viewModel.setPushNotificationsEnabled(enabled: enabled) }
 
+    func setMetadataRegion(_ region: String) { viewModel.setMetadataRegion(region: region) }
+
     func setRatingSourceEnabled(_ source: ExternalRatingSource, _ enabled: Bool) {
         viewModel.setRatingSourceEnabled(source: source, enabled: enabled)
     }
@@ -83,6 +85,8 @@ struct AdminSettingsReadyModel: Equatable {
     let remoteUrl: String
     let holdNewBooksForReview: Bool
     let pushNotificationsEnabled: Bool
+    /// The library's Audible store token — where match searches start.
+    let metadataRegion: String
     /// Every outside rating source, with its enabled flag and last-fetch health.
     let ratingSources: [RatingSourceRowModel]
     /// Admin → Hardcover (#1542); nil until it loads, and the section is left out meanwhile.
@@ -100,6 +104,7 @@ struct AdminSettingsReadyModel: Equatable {
             remoteUrl: ready.remoteUrl,
             holdNewBooksForReview: ready.holdNewBooksForReview,
             pushNotificationsEnabled: ready.pushNotificationsEnabled,
+            metadataRegion: ready.metadataRegion,
             ratingSources: ready.ratingSources.map { RatingSourceRowModel.from($0) },
             hardcover: ready.hardcoverSource.map { HardcoverSourceModel.from($0, save: ready.hardcoverTokenSave) },
             isDirty: ready.isDirty,

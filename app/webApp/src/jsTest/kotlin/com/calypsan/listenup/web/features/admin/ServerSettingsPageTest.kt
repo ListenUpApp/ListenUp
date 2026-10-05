@@ -24,6 +24,7 @@ import org.w3c.dom.EventInit
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
+import org.w3c.dom.HTMLSelectElement
 import org.w3c.dom.asList
 import org.w3c.dom.events.Event
 
@@ -38,6 +39,7 @@ internal fun readyServerSettings(
     isDirty: Boolean = false,
     isSaving: Boolean = false,
     error: com.calypsan.listenup.api.error.AppError? = null,
+    metadataRegion: String = "us",
 ): AdminSettingsUiState.Ready =
     AdminSettingsUiState.Ready(
         serverName = serverName,
@@ -48,6 +50,7 @@ internal fun readyServerSettings(
         isDirty = isDirty,
         isSaving = isSaving,
         error = error,
+        metadataRegion = metadataRegion,
     )
 
 @Suppress("LongParameterList")
@@ -62,6 +65,7 @@ private fun page(
     onRemoveHardcoverToken: () -> Unit = {},
     onHardcoverMetadata: (Boolean) -> Unit = {},
     onClearHardcoverTokenError: () -> Unit = {},
+    onMetadataRegion: (String) -> Unit = {},
     onSave: () -> Unit = {},
     onClearError: () -> Unit = {},
     onRetry: () -> Unit = {},
@@ -83,6 +87,7 @@ private fun page(
             onRemoveHardcoverToken = onRemoveHardcoverToken,
             onHardcoverMetadata = onHardcoverMetadata,
             onClearHardcoverTokenError = onClearHardcoverTokenError,
+            onMetadataRegion = onMetadataRegion,
             onSave = onSave,
             onClearError = onClearError,
             onRetry = onRetry,
@@ -529,5 +534,22 @@ class ServerSettingsPageTest :
 
             host.querySelector("#hc-token").shouldBeNull()
             (host.textContent ?: "") shouldNotContain "Hardcover metadata"
+        }
+
+        test("Store region shows the library's store as one labelled menu, and a choice saves at once") {
+            var chosen: String? = null
+            val host = page(readyServerSettings(metadataRegion = "uk"), onMetadataRegion = { chosen = it })
+            awaitFrame()
+
+            val select = host.querySelector("#srv-store-region") as HTMLSelectElement
+            select.value shouldBe "uk"
+            host.querySelector("label[for='srv-store-region']")?.textContent shouldBe "Store region"
+            host.textContent.shouldNotBeNull() shouldContain "Each search can still pick another store."
+
+            select.value = "au"
+            select.dispatchEvent(Event("change"))
+            awaitFrame()
+
+            chosen shouldBe "au"
         }
     })

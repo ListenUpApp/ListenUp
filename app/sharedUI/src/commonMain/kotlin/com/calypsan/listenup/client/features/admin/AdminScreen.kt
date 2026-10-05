@@ -75,6 +75,7 @@ import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceUnavailable
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.design.components.ActionTile
 import com.calypsan.listenup.client.design.components.AvatarSize
@@ -219,6 +220,8 @@ fun AdminScreen(
     onPushNotificationsEnabledChange: (Boolean) -> Unit = {},
     ratingSources: List<RatingSourceStatus> = emptyList(),
     onRatingSourceEnabledChange: (ExternalRatingSource, Boolean) -> Unit = { _, _ -> },
+    metadataRegion: String = MetadataLocale.DEFAULT.region,
+    onMetadataRegionChange: (String) -> Unit = {},
     hardcoverSource: HardcoverSourceStatus? = null,
     hardcoverTokenSave: HardcoverTokenSave = HardcoverTokenSave.Idle,
     hardcoverActions: HardcoverSourceActions = HardcoverSourceActions(),
@@ -313,6 +316,8 @@ fun AdminScreen(
                     onPushNotificationsEnabledChange = onPushNotificationsEnabledChange,
                     ratingSources = ratingSources,
                     onRatingSourceEnabledChange = onRatingSourceEnabledChange,
+                    metadataRegion = metadataRegion,
+                    onMetadataRegionChange = onMetadataRegionChange,
                     hardcoverSource = hardcoverSource,
                     hardcoverTokenSave = hardcoverTokenSave,
                     hardcoverActions = hardcoverActions,
@@ -461,6 +466,8 @@ private fun AdminContent(
     onPushNotificationsEnabledChange: (Boolean) -> Unit,
     ratingSources: List<RatingSourceStatus>,
     onRatingSourceEnabledChange: (ExternalRatingSource, Boolean) -> Unit,
+    metadataRegion: String,
+    onMetadataRegionChange: (String) -> Unit,
     hardcoverSource: HardcoverSourceStatus?,
     hardcoverTokenSave: HardcoverTokenSave,
     hardcoverActions: HardcoverSourceActions,
@@ -502,6 +509,8 @@ private fun AdminContent(
             onPushNotificationsEnabledChange = onPushNotificationsEnabledChange,
             ratingSources = ratingSources,
             onRatingSourceEnabledChange = onRatingSourceEnabledChange,
+            metadataRegion = metadataRegion,
+            onMetadataRegionChange = onMetadataRegionChange,
             hardcoverSource = hardcoverSource,
             hardcoverTokenSave = hardcoverTokenSave,
             hardcoverActions = hardcoverActions,
@@ -536,6 +545,10 @@ private fun AdminContent(
                     sources = ratingSources,
                     onSourceEnabledChange = onRatingSourceEnabledChange,
                 )
+            }
+
+            item {
+                StoreRegionGroup(region = metadataRegion, onRegionChange = onMetadataRegionChange)
             }
 
             hardcoverSource?.let { source ->
@@ -607,6 +620,8 @@ private fun AdminTwoPaneContent(
     onPushNotificationsEnabledChange: (Boolean) -> Unit,
     ratingSources: List<RatingSourceStatus>,
     onRatingSourceEnabledChange: (ExternalRatingSource, Boolean) -> Unit,
+    metadataRegion: String,
+    onMetadataRegionChange: (String) -> Unit,
     hardcoverSource: HardcoverSourceStatus?,
     hardcoverTokenSave: HardcoverTokenSave,
     hardcoverActions: HardcoverSourceActions,
@@ -641,6 +656,10 @@ private fun AdminTwoPaneContent(
                     sources = ratingSources,
                     onSourceEnabledChange = onRatingSourceEnabledChange,
                 )
+            }
+
+            item {
+                StoreRegionGroup(region = metadataRegion, onRegionChange = onMetadataRegionChange)
             }
 
             hardcoverSource?.let { source ->

@@ -19,7 +19,8 @@ struct AdminSettingsObserverTests {
             hardcoverTokenSave: HardcoverTokenSaveIdle.shared,
             isDirty: false,
             isSaving: false,
-            error: nil
+            error: nil,
+            metadataRegion: "us"
         )
         let model = AdminSettingsReadyModel.from(ready)
         #expect(model.holdNewBooksForReview == true)
@@ -40,7 +41,8 @@ struct AdminSettingsObserverTests {
             hardcoverTokenSave: HardcoverTokenSaveIdle.shared,
             isDirty: true,
             isSaving: false,
-            error: nil
+            error: nil,
+            metadataRegion: "us"
         )
         let model = AdminSettingsReadyModel.from(ready)
         #expect(model.holdNewBooksForReview == false)
@@ -60,7 +62,8 @@ struct AdminSettingsObserverTests {
             hardcoverTokenSave: HardcoverTokenSaveIdle.shared,
             isDirty: true,
             isSaving: true,
-            error: nil
+            error: nil,
+            metadataRegion: "us"
         )
         let model = AdminSettingsReadyModel.from(ready)
         #expect(model.isDirty == true)
@@ -84,7 +87,8 @@ struct AdminSettingsObserverTests {
             hardcoverTokenSave: HardcoverTokenSaveIdle.shared,
             isDirty: false,
             isSaving: false,
-            error: nil
+            error: nil,
+            metadataRegion: "us"
         )
         let model = AdminSettingsReadyModel.from(ready)
         #expect(model.ratingSources.count == 2)
@@ -198,7 +202,8 @@ struct AdminSettingsObserverTests {
             hardcoverTokenSave: HardcoverTokenSaveBusy.shared,
             isDirty: false,
             isSaving: false,
-            error: nil
+            error: nil,
+            metadataRegion: "us"
         )
         let model = AdminSettingsReadyModel.from(ready)
         #expect(model.hardcover?.token == .saved(username: "simon"))
@@ -216,9 +221,30 @@ struct AdminSettingsObserverTests {
             hardcoverTokenSave: HardcoverTokenSaveIdle.shared,
             isDirty: false,
             isSaving: false,
-            error: nil
+            error: nil,
+            metadataRegion: "us"
         )
         #expect(AdminSettingsReadyModel.from(ready).hardcover == nil)
+    }
+
+    // MARK: - Store region
+
+    @Test func metadataRegionMapsToReadyModel() {
+        let ready = AdminSettingsUiStateReady(
+            serverName: "S",
+            remoteUrl: "",
+            holdNewBooksForReview: false,
+            pushNotificationsEnabled: true,
+            ratingSources: [],
+            hardcoverSource: nil,
+            hardcoverTokenSave: HardcoverTokenSaveIdle.shared,
+            isDirty: false,
+            isSaving: false,
+            error: nil,
+            metadataRegion: "uk"
+        )
+        let model = AdminSettingsReadyModel.from(ready)
+        #expect(model.metadataRegion == "uk")
     }
 
     // MARK: - Fixtures
