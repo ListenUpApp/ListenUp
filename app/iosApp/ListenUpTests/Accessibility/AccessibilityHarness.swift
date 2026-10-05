@@ -109,26 +109,27 @@ final class HostedView {
         CATransaction.flush()
         let stopsF = stops.count
         let pixF = pixelHash()
-        // Step D: wait for three display frames (5 s at most).
-        let d0 = Date()
-        let ticksBefore = ticker.ticks
-        while ticker.ticks < ticksBefore + 3, Date().timeIntervalSince(d0) < 5 {
-            try? await Task.sleep(for: .milliseconds(10))
+        // Timeline: poll for 6 s, logging every change in the tree.
+        var timeline: [String] = []
+        var last = stops.map(\.description).joined(separator: "|")
+        var lastCount = stops0
+        let p0 = Date()
+        var worst = 0
+        while Date().timeIntervalSince(p0) < 6 {
+            let before = Date()
+            try? await Task.sleep(for: .milliseconds(25))
+            worst = max(worst, Int(Date().timeIntervalSince(before) * 1000) - 25)
+            window.layoutIfNeeded()
+            let now = stops
+            let key = now.map(\.description).joined(separator: "|")
+            if key != last {
+                timeline.append("+\(Int(Date().timeIntervalSince(p0) * 1000))ms:\(lastCount)->\(now.count)")
+                last = key
+                lastCount = now.count
+            }
         }
-        let waitD = Int(Date().timeIntervalSince(d0) * 1000)
-        window.layoutIfNeeded()
-        let stopsD = stops.count
-        let pixD = pixelHash()
-        // Step I: two idle run-loop turns (10 s at most).
-        let i0 = Date()
-        let target = Self.idleTurns + 2
-        while Self.idleTurns < target, Date().timeIntervalSince(i0) < 10 {
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-        let waitI = Int(Date().timeIntervalSince(i0) * 1000)
-        window.layoutIfNeeded()
-        let stopsI = stops.count
-        let pixI = pixelHash()
+        let stopsD = lastCount, waitD = worst, stopsI = lastCount, waitI = timeline.count
+        let pixD = timeline.joined(separator: ","), pixI = "t\(Int(CACurrentMediaTime() * 1000))"
         ticker.stop()
         NSLog("A11YV3 ordinal=%d live=%d settleMs=%d idle0=%d ticks0=%d stops0=%d stopsF=%d stopsD=%d(waitD=%dms) stopsI=%d(waitI=%dms) pix0=%@ pixF=%@ pixD=%@ pixI=%@",
               ordinal, Self.live, settleMs, idle0, ticks0, stops0, stopsF, stopsD, waitD, stopsI, waitI,
@@ -313,6 +314,16 @@ final class HostedView {
             }
         }
         isTreeEnabled = true
+        NSLog("A11YENABLE t=%d", Int(CACurrentMediaTime() * 1000))
+        _dyld_register_func_for_add_image { header, _ in
+            guard let header else { return }
+            var info = Dl_info()
+            guard dladdr(header, &info) != 0, let name = info.dli_fname else { return }
+            let path = String(cString: name)
+            if path.contains("ccessibility") || path.contains("axbundle") {
+                NSLog("A11YDYLD t=%d %@", Int(CACurrentMediaTime() * 1000), path)
+            }
+        }
     }
 }
 
