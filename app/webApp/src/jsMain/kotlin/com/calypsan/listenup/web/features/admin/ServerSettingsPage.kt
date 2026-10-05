@@ -6,6 +6,7 @@ import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.dto.admin.RatingSourceUnavailable
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
@@ -16,6 +17,8 @@ import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
+import com.calypsan.listenup.web.design.SelectField
+import com.calypsan.listenup.web.design.SelectOption
 import com.calypsan.listenup.web.design.SwitchField
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.attributes.onSubmit
@@ -51,6 +54,7 @@ fun ServerSettingsPage(
     onHoldNewBooks: (Boolean) -> Unit,
     onPushNotifications: (Boolean) -> Unit,
     onSetRatingSourceEnabled: (ExternalRatingSource, Boolean) -> Unit = { _, _ -> },
+    onMetadataRegion: (String) -> Unit = {},
     onSaveHardcoverToken: (String) -> Unit = {},
     onRemoveHardcoverToken: () -> Unit = {},
     onHardcoverMetadata: (Boolean) -> Unit = {},
@@ -85,6 +89,7 @@ fun ServerSettingsPage(
                     onHoldNewBooks = onHoldNewBooks,
                     onPushNotifications = onPushNotifications,
                     onSetRatingSourceEnabled = onSetRatingSourceEnabled,
+                    onMetadataRegion = onMetadataRegion,
                     onSaveHardcoverToken = onSaveHardcoverToken,
                     onRemoveHardcoverToken = onRemoveHardcoverToken,
                     onHardcoverMetadata = onHardcoverMetadata,
@@ -106,6 +111,7 @@ private fun ReadyContent(
     onHoldNewBooks: (Boolean) -> Unit,
     onPushNotifications: (Boolean) -> Unit,
     onSetRatingSourceEnabled: (ExternalRatingSource, Boolean) -> Unit,
+    onMetadataRegion: (String) -> Unit,
     onSaveHardcoverToken: (String) -> Unit,
     onRemoveHardcoverToken: () -> Unit,
     onHardcoverMetadata: (Boolean) -> Unit,
@@ -210,7 +216,19 @@ private fun ReadyContent(
         }
     }
 
-    // #1542: directly under Rating sources, outside the identity form — each action saves on its own.
+    // Outside the identity form, like the switches: a choice saves the moment it is made.
+    FormSection(title = "Store region") {
+        Hint("Used for Audible searches in this library. Each search can still pick another store.")
+        SelectField(
+            label = "Store region",
+            value = state.metadataRegion,
+            options = MetadataLocale.SUPPORTED.map { SelectOption(value = it.region, label = it.displayName) },
+            onSelect = { region -> region?.let(onMetadataRegion) },
+            id = "srv-store-region",
+        )
+    }
+
+    // #1542: under Rating sources and Store region, outside the identity form — each action saves on its own.
     state.hardcoverSource?.let { source ->
         HardcoverSourceSection(
             status = source,
