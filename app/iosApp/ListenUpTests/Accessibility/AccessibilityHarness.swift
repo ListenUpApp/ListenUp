@@ -85,10 +85,35 @@ final class HostedView {
 
     /// Lets SwiftUI lay out, render, and publish its accessibility nodes.
     func settle() async {
+        Self.installIdleObserver()
+        let idleBefore = Self.idleTurns
         for _ in 0..<4 {
             window.layoutIfNeeded()
             try? await Task.sleep(for: .milliseconds(60))
         }
+        let idleDuringSettle = Self.idleTurns - idleBefore
+        let stopsAfterSettle = stops.count
+        let waitStart = Date()
+        let target = Self.idleTurns + 2
+        while Self.idleTurns < target, Date().timeIntervalSince(waitStart) < 60 {
+            window.layoutIfNeeded()
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        window.layoutIfNeeded()
+        NSLog("A11YIDLE ordinal=%d idleDuringSettle=%d stopsAfterSettle=%d waitedForIdle=%dms stopsAfterIdle=%d",
+              ordinal, idleDuringSettle, stopsAfterSettle, Int(Date().timeIntervalSince(waitStart) * 1000), stops.count)
+    }
+
+    static var idleTurns = 0
+    private static var idleObserver: CFRunLoopObserver?
+
+    private static func installIdleObserver() {
+        guard idleObserver == nil else { return }
+        let observer = CFRunLoopObserverCreateWithHandler(nil, CFRunLoopActivity.beforeWaiting.rawValue, true, Int.max) { _, _ in
+            MainActor.assumeIsolated { HostedView.idleTurns += 1 }
+        }
+        CFRunLoopAddObserver(CFRunLoopGetMain(), observer, .commonModes)
+        idleObserver = observer
     }
 
     /// Every stop, in tree order.
