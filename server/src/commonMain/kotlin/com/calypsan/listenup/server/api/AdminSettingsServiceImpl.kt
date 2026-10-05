@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.api.sync.SyncControl
@@ -79,6 +80,11 @@ internal class AdminSettingsServiceImpl(
 
     override suspend fun updateServerSettings(patch: AdminServerSettingsPatch): AppResult<AdminServerSettings> {
         requireAdmin()?.let { return it }
+        // Validated before any write, so a refused store leaves every other field of the patch unapplied.
+        val region = patch.metadataRegion?.trim()?.lowercase()
+        if (region != null && MetadataLocale.SUPPORTED.none { it.region == region }) {
+            return AppResult.Failure(AdminError.InvalidInput())
+        }
         var changed = false
         patch.serverName?.let { name ->
             val trimmed = name.trim()
@@ -106,6 +112,12 @@ internal class AdminSettingsServiceImpl(
         patch.sidecarWritesEnabled?.let { enabled ->
             settings.setValue(SIDECAR_WRITES_ENABLED_KEY, enabled.toString())
             changed = true
+        }
+        region?.let {
+            when (val r = libraryRepository.setMetadataRegion(libraryRegistry.currentLibrary(), it)) {
+                is AppResult.Failure -> return AppResult.Failure(r.error)
+                is AppResult.Success -> changed = true
+            }
         }
         // Nudge every connected client to re-fetch getServerInfo so an admin's new name/remote URL
         // reaches them without a cold start. Content-free broadcast — carries no per-user data.
@@ -187,6 +199,8 @@ internal class AdminSettingsServiceImpl(
             pushNotificationsEnabled = settings.pushNotificationsEnabled(),
             // Absent key = enabled (spec: sidecar writes are on by default).
             sidecarWritesEnabled = settings.getValue(SIDECAR_WRITES_ENABLED_KEY)?.toBooleanStrictOrNull() ?: true,
+            metadataRegion =
+                libraryRepository.readMetadataRegion(libraryRegistry.currentLibrary()) ?: MetadataLocale.DEFAULT.region,
         )
 
     /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */

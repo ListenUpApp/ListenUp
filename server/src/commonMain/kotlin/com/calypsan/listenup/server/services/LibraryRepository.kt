@@ -216,6 +216,55 @@ class LibraryRepository(
             }
         }
 
+    /** The library's Audible store token, or null for the server default. */
+    suspend fun readMetadataRegion(libraryId: LibraryId): String? =
+        suspendTransaction(db) {
+            db.librariesQueries
+                .selectMetadataRegion(libraryId.value)
+                .executeAsOneOrNull()
+                ?.metadata_region
+        }
+
+    /**
+     * Sets [libraryId]'s Audible store to [region], bumping the library's revision and publishing a
+     * [SyncEvent.Updated] so every client's Room row — and the matching screens that read it — picks it
+     * up. Written directly, never through [upsert], the same way the hold gate is.
+     */
+    suspend fun setMetadataRegion(
+        libraryId: LibraryId,
+        region: String,
+    ): AppResult<Unit> =
+        suspendTransaction(db) {
+            val idStr = libraryId.value
+            val rev = nextRevision()
+            val now = clock.now().toEpochMilliseconds()
+            val rowsAffected =
+                db.librariesQueries
+                    .setMetadataRegion(
+                        metadata_region = region,
+                        revision = rev,
+                        updated_at = now,
+                        client_op_id = null,
+                        id = idStr,
+                    ).value
+            if (rowsAffected == 0L) {
+                AppResult.Failure(LibraryError.NotFound())
+            } else {
+                val saved = readPayload(idStr) ?: error("library $idStr vanished mid-transaction")
+                emitAfterCommit(
+                    event =
+                        SyncEvent.Updated(
+                            id = idStr,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = null,
+                            payload = saved,
+                        ),
+                )
+                AppResult.Success(Unit)
+            }
+        }
+
     /**
      * Stamps the first-ever scan-completion time for [libraryId], bumping the library's revision and
      * updated_at, and publishing a [SyncEvent.Updated] so connected clients reconcile the flag
@@ -264,6 +313,9 @@ class LibraryRepository(
     /** Test-only accessor for the protected [idAsString]. */
     internal fun idAsStringForTest(id: LibraryId): String = idAsString(id)
 
+    /** Test hook: the library payload exactly as sync would send it. */
+    internal suspend fun readPayloadForTest(idStr: String): LibrarySyncPayload? = suspendTransaction(db) { readPayload(idStr) }
+
     /** Maps a generated [Libraries] row to the wire [LibrarySyncPayload] DTO (drops `hold_new_books_for_review`). */
     private fun Libraries.toSyncPayload(): LibrarySyncPayload =
         LibrarySyncPayload(
@@ -277,6 +329,7 @@ class LibraryRepository(
             createdAt = created_at,
             deletedAt = deleted_at,
             initialScanCompletedAt = initial_scan_completed_at,
+            metadataRegion = metadata_region,
         )
 
     private companion object {
