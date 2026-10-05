@@ -38,4 +38,6 @@ internal data class LibraryEntity(
      * signal driving the client initial-population ("Building your library") gate.
      */
     val initialScanCompletedAt: Long?,
+    /** The library's Audible store token, from `LibrarySyncPayload.metadataRegion`; null = the server default. */
+    val metadataRegion: String? = null,
 )

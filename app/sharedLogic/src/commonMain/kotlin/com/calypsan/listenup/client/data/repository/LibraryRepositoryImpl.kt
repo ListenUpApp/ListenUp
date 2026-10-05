@@ -45,6 +45,7 @@ private fun LibraryEntity.toDomain(): Library =
         createdByUserId = createdByUserId,
         createdAt = createdAt,
         revision = revision,
+        metadataRegion = metadataRegion,
     )
 
 private fun LibraryFolderEntity.toDomain(): LibraryFolder =

@@ -385,3 +385,17 @@ internal val MIGRATION_15_16 =
             connection.executeDdl("DELETE FROM `sync_cursor` WHERE `domainName` = 'series'")
         }
     }
+
+/**
+ * v16 → v17: `libraries.metadataRegion` — the library's Audible store, so matching starts a search there.
+ * A nullable `ADD COLUMN`, per the migration policy in [ListenUpDatabase]. Rows mirrored before it have no
+ * store, so this rewinds the `libraries` cursor, as [MIGRATION_15_16] did for its domain: the next
+ * catch-up re-pulls the library with its store. The domain is online-only, so nothing unsynced is touched.
+ */
+internal val MIGRATION_16_17 =
+    object : Migration(16, 17) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE `libraries` ADD COLUMN `metadataRegion` TEXT")
+            connection.executeDdl("DELETE FROM `sync_cursor` WHERE `domainName` = 'libraries'")
+        }
+    }
