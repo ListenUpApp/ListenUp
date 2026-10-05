@@ -13,7 +13,8 @@ final class BookDetailObserver {
     private(set) var error: String?
     private(set) var book: BookDetail?
     private(set) var subtitle: String?
-    private(set) var series: String?
+    /// The book's series as paths — one line per series, "Cosmere › Mistborn #1", every part a link.
+    private(set) var seriesPaths: [BookSeriesPathItem] = []
     private(set) var bookDescription: String = ""
     private(set) var narrators: String = ""
     private(set) var year: Int?
@@ -42,7 +43,7 @@ final class BookDetailObserver {
     private(set) var asin: String?
     private(set) var publisher: String?
     private(set) var language: String?
-    /// The hero's book-derived fields (cover + series-pill nav), projected so the hero
+    /// The hero's book-derived cover fields, projected so the hero
     /// never re-bridges the raw `BookDetail`.
     private(set) var header: BookDetailHeaderModel?
 
@@ -387,7 +388,7 @@ final class BookDetailObserver {
             error = nil
             applyBook(r.book)
             subtitle = r.subtitle
-            series = r.series
+            seriesPaths = r.seriesPaths.map(BookSeriesPathItem.init)
             bookDescription = r.descriptionText
             narrators = r.narrators
             year = r.year.map { Int($0) }
@@ -429,7 +430,7 @@ final class BookDetailObserver {
     }
 
     /// Projects the bridged `BookDetail` to native values once, off the `body` diff path.
-    /// Cover/series-pill fields, scalars, and the audio-format summary are all snapshotted
+    /// Cover fields, scalars, and the audio-format summary are all snapshotted
     /// here so the detail screen never re-bridges the Kotlin object on a playback/download tick.
     private func applyBook(_ book: BookDetail) {
         self.book = book
@@ -444,8 +445,7 @@ final class BookDetailObserver {
         header = BookDetailHeaderModel(
             coverBookId: book.idString,
             coverPath: book.coverPath,
-            coverHash: book.coverHash,
-            seriesId: book.seriesId
+            coverHash: book.coverHash
         )
         audioFormat = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.bookdetail
             .audioFormatDisplay(files: book.audioFiles)
