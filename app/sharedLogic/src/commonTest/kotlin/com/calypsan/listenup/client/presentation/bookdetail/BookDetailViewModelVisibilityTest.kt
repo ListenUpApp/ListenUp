@@ -43,6 +43,8 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import com.calypsan.listenup.client.domain.model.SeriesHierarchy
+import com.calypsan.listenup.client.domain.repository.SeriesRepository
 
 /**
  * [BookDetailUiState.Ready.visibility] — null on a member's device, populated and live on an
@@ -120,6 +122,10 @@ class BookDetailViewModelVisibilityTest :
                     inboxRepository = inboxRepository,
                     bookVisibilityRepository = visibility,
                     bookEditRepository = bookEditRepository,
+                    seriesRepository =
+                        mock<SeriesRepository> {
+                            every { observeHierarchy() } returns flowOf(SeriesHierarchy.Empty)
+                        },
                 )
         }
 

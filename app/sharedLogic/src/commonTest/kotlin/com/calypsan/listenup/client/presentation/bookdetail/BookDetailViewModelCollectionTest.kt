@@ -40,6 +40,8 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import com.calypsan.listenup.client.domain.model.SeriesHierarchy
+import com.calypsan.listenup.client.domain.repository.SeriesRepository
 
 /**
  * Tests for the add-to-collection flow in [BookDetailViewModel].
@@ -120,6 +122,10 @@ class BookDetailViewModelCollectionTest :
                     inboxRepository = inboxRepository,
                     bookVisibilityRepository = FakeBookVisibilityRepository(),
                     bookEditRepository = mock(),
+                    seriesRepository =
+                        mock<SeriesRepository> {
+                            every { observeHierarchy() } returns flowOf(SeriesHierarchy.Empty)
+                        },
                 )
         }
 

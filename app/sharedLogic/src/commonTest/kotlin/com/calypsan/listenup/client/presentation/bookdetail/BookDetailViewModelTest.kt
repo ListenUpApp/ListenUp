@@ -35,6 +35,10 @@ import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
+import com.calypsan.listenup.client.domain.model.Series
+import com.calypsan.listenup.client.domain.model.SeriesHierarchy
+import com.calypsan.listenup.client.domain.repository.SeriesRepository
+import com.calypsan.listenup.core.SeriesId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -118,6 +122,8 @@ class BookDetailViewModelTest :
             val inboxRepository = FakeInboxRepository()
             val bookAvailability = FakeBookAvailability()
             val serverReachability = FakeServerReachability()
+            val hierarchy = MutableStateFlow(SeriesHierarchy.Empty)
+            val seriesRepository: SeriesRepository = mock { every { observeHierarchy() } returns hierarchy }
 
             fun setup() {
                 everySuspend { playbackPositionRepository.get(any<BookId>()) } returns AppResult.Success(null)
@@ -147,6 +153,7 @@ class BookDetailViewModelTest :
                     inboxRepository = inboxRepository,
                     bookVisibilityRepository = FakeBookVisibilityRepository(),
                     bookEditRepository = mock(),
+                    seriesRepository = seriesRepository,
                 )
         }
 
@@ -285,6 +292,40 @@ class BookDetailViewModelTest :
                     // Then - subtitle should be filtered out (redundant)
                     val ready = states.expectMostRecentItem() as BookDetailUiState.Ready
                     ready.subtitle shouldBe null
+                    states.cancel()
+                }
+            }
+        }
+
+        test("the series path follows the hierarchy, and redraws when a series moves") {
+            runTest {
+                val fixture = createTestFixture()
+                fun series(
+                    id: String,
+                    name: String,
+                    parent: String? = null,
+                ) = Series(id = SeriesId(id), name = name, parentId = parent?.let(::SeriesId), parentPosition = 0)
+                fixture.hierarchy.value = SeriesHierarchy(listOf(series("mistborn", "Mistborn"), series("era1", "Era 1", "mistborn")), emptyList())
+                val book = TestData.bookDetail(seriesId = "era1", seriesName = "Era 1", seriesSequence = 1.0)
+                every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
+                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val states = viewModel.state.testIn(backgroundScope)
+                    viewModel.loadBook("book-1")
+                    advanceUntilIdle()
+                    val first = states.expectMostRecentItem() as BookDetailUiState.Ready
+                    first.seriesPaths.single().ancestors.map { it.name } shouldBe listOf("Mistborn")
+
+                    fixture.hierarchy.value =
+                        SeriesHierarchy(
+                            listOf(series("cosmere", "Cosmere"), series("mistborn", "Mistborn", "cosmere"), series("era1", "Era 1", "mistborn")),
+                            emptyList(),
+                        )
+                    advanceUntilIdle()
+                    val moved = states.expectMostRecentItem() as BookDetailUiState.Ready
+                    moved.seriesPaths.single().ancestors.map { it.name } shouldBe listOf("Cosmere", "Mistborn")
                     states.cancel()
                 }
             }

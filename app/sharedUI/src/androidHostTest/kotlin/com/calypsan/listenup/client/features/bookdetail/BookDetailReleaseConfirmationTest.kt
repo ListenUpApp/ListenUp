@@ -58,6 +58,8 @@ import org.koin.core.context.stopKoin
 import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import com.calypsan.listenup.client.domain.model.SeriesHierarchy
+import com.calypsan.listenup.client.domain.repository.SeriesRepository
 
 private const val TIMEOUT_MS = 5_000L
 
@@ -229,6 +231,10 @@ class BookDetailReleaseConfirmationTest {
             bookVisibilityRepository =
                 mock<BookVisibilityRepository> { every { observeBookVisibility(any()) } returns flowOf(null) },
             bookEditRepository = mock<BookEditRepository>(),
+            seriesRepository =
+                mock<SeriesRepository> {
+                    every { observeHierarchy() } returns flowOf(SeriesHierarchy.Empty)
+                },
         )
     }
 
