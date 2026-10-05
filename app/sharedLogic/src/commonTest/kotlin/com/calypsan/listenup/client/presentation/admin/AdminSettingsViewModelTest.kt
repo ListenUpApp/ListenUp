@@ -538,4 +538,43 @@ class AdminSettingsViewModelTest :
                 ready.error shouldBe HardcoverError.Unavailable()
             }
         }
+
+        test("the store region loads, and a new one saves at once without marking the form dirty") {
+            runTest {
+                val fixture = createFixture(settings = createServerSettings().copy(metadataRegion = "uk"))
+                everySuspend { fixture.updateServerSettingsUseCase.updateMetadataRegion("au") } returns
+                    AppResult.Success(createServerSettings().copy(metadataRegion = "au"))
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>().metadataRegion shouldBe "uk"
+
+                viewModel.setMetadataRegion("au")
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                ready.metadataRegion shouldBe "au"
+                ready.isDirty shouldBe false
+                verifySuspend { fixture.updateServerSettingsUseCase.updateMetadataRegion("au") }
+            }
+        }
+
+        test("a refused store region reverts to the saved one and says why") {
+            runTest {
+                val fixture = createFixture(settings = createServerSettings().copy(metadataRegion = "uk"))
+                everySuspend { fixture.updateServerSettingsUseCase.updateMetadataRegion("au") } returns
+                    AppResult.Failure(
+                        com.calypsan.listenup.api.error
+                            .ValidationError(message = "Forbidden"),
+                    )
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.setMetadataRegion("au")
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                ready.metadataRegion shouldBe "uk"
+                (ready.error?.message?.contains("Forbidden") == true) shouldBe true
+            }
+        }
     })

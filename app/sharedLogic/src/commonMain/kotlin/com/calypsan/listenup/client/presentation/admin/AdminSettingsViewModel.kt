@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.core.error.ErrorBus
@@ -39,6 +40,7 @@ class AdminSettingsViewModel(
     private var savedRemoteUrl: String = ""
     private var savedHoldNewBooksForReview: Boolean = false
     private var savedPushNotificationsEnabled: Boolean = true
+    private var savedMetadataRegion: String = MetadataLocale.DEFAULT.region
 
     init {
         loadSettings()
@@ -52,6 +54,7 @@ class AdminSettingsViewModel(
                     savedRemoteUrl = result.data.remoteUrl ?: ""
                     savedHoldNewBooksForReview = result.data.holdNewBooksForReview
                     savedPushNotificationsEnabled = result.data.pushNotificationsEnabled
+                    savedMetadataRegion = result.data.metadataRegion
                     state.update { current ->
                         if (current is AdminSettingsUiState.Ready) {
                             current.copy(
@@ -59,6 +62,7 @@ class AdminSettingsViewModel(
                                 remoteUrl = result.data.remoteUrl ?: "",
                                 holdNewBooksForReview = result.data.holdNewBooksForReview,
                                 pushNotificationsEnabled = result.data.pushNotificationsEnabled,
+                                metadataRegion = result.data.metadataRegion,
                                 error = null,
                             )
                         } else {
@@ -67,6 +71,7 @@ class AdminSettingsViewModel(
                                 remoteUrl = result.data.remoteUrl ?: "",
                                 holdNewBooksForReview = result.data.holdNewBooksForReview,
                                 pushNotificationsEnabled = result.data.pushNotificationsEnabled,
+                                metadataRegion = result.data.metadataRegion,
                             )
                         }
                     }
@@ -187,6 +192,28 @@ class AdminSettingsViewModel(
                                 error = result.error,
                             ).withDirty()
                     }
+                }
+            }
+        }
+    }
+
+    /**
+     * Sets the library's Audible store. Like the switches, a choice applies at once: optimistic, and
+     * reverted to the last server-confirmed store if the save fails.
+     */
+    fun setMetadataRegion(region: String) {
+        updateReady { it.copy(metadataRegion = region) }
+        viewModelScope.launch {
+            when (val result = updateServerSettingsUseCase.updateMetadataRegion(region)) {
+                is AppResult.Success -> {
+                    savedMetadataRegion = result.data.metadataRegion
+                    updateReady { it.copy(metadataRegion = result.data.metadataRegion) }
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to save the store region: ${result.error.code}" }
+                    updateReady { it.copy(metadataRegion = savedMetadataRegion, error = result.error) }
                 }
             }
         }
@@ -420,6 +447,7 @@ sealed interface AdminSettingsUiState {
      * @property hardcoverSource Admin → Hardcover (#1542): the API token's state and the metadata switch;
      *   null until loaded, and the section is left out while it is.
      * @property hardcoverTokenSave whether a token is being checked, or why the last one was refused.
+     * @property metadataRegion the library's Audible store token, saved on choice.
      */
     data class Ready(
         val serverName: String = "",
@@ -432,6 +460,7 @@ sealed interface AdminSettingsUiState {
         val isDirty: Boolean = false,
         val isSaving: Boolean = false,
         val error: AppError? = null,
+        val metadataRegion: String = MetadataLocale.DEFAULT.region,
     ) : AdminSettingsUiState
 
     /** Terminal state when the initial settings load fails. */
