@@ -68,7 +68,13 @@ class PlaceInLibraryTest {
         composeRule.onAllNodesWithContentDescription("Move later").onFirst().performClick()
 
         events shouldContain SeriesEditUiEvent.ChildSeriesReordered(listOf("era2", "era1"))
-        composeRule.onNode(hasContentDescription("Mistborn Era 1 moved to position 2 of 2"), useUnmergedTree = true).assertExists()
+        // The announcement's text loads from resources off the click, so it lands a moment later.
+        composeRule.waitUntil(ANNOUNCE_TIMEOUT_MS) {
+            composeRule
+                .onAllNodes(hasContentDescription("Mistborn Era 1 moved to position 2 of 2"), useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
     }
 
     @Test
@@ -120,6 +126,8 @@ class PlaceInLibraryTest {
         }
 
     private companion object {
+        const val ANNOUNCE_TIMEOUT_MS = 5_000L
+
         val MISTBORN =
             SeriesEditUiState(
                 isLoading = false,
