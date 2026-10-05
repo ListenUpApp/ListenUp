@@ -140,6 +140,20 @@ class SeriesHierarchyPageTest :
             adderEvents shouldBe listOf(AddSubSeriesEvent.Opened)
         }
 
+        test("an editor can start a hierarchy from a flat series: the tile shows with no sub-series yet") {
+            val root = page(childEra1().copy(canEditHierarchy = true))
+
+            (root.querySelector(".sd-sub-add") as HTMLElement).click()
+
+            adderEvents shouldBe listOf(AddSubSeriesEvent.Opened)
+        }
+
+        test("a flat series shows no Sub-series panel to a reader who can't edit") {
+            val root = page(childEra1())
+
+            root.querySelector(".sd-subs") shouldBe null
+        }
+
         test("offline, the Add sub-series tile is disabled — the change needs the server") {
             val root = page(groupedCosmere(canEditHierarchy = true, isOnline = false))
 
