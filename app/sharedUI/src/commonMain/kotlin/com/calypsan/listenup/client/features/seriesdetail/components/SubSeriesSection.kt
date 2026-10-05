@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.CountBadge
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.seriesdetail.ChildSeriesUi
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_offline
@@ -236,7 +237,7 @@ private fun AddSubSeriesTile(
         modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = Spacing.lg),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
         ) {

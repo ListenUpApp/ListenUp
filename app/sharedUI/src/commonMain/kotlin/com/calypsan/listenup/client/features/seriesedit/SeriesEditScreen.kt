@@ -99,7 +99,6 @@ import listenup.composeapp.generated.resources.series_series_name
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.statusBarsPadding
 import com.calypsan.listenup.client.features.seriesedit.components.AddSubSeriesSheet
 import com.calypsan.listenup.client.features.seriesedit.components.MoveIntoPicker
 import com.calypsan.listenup.client.features.seriesedit.components.MoveIntoPickerSheet
@@ -434,7 +433,7 @@ private fun SeriesEditContent(
                         .weight(PICKER_PANE_WEIGHT)
                         .fillMaxHeight()
                         .padding(Spacing.lg)
-                        .statusBarsPadding(),
+                        .windowInsetsPadding(WindowInsets.statusBars),
             ) {
                 Box(Modifier.padding(top = Spacing.lg)) { pickerPane() }
             }

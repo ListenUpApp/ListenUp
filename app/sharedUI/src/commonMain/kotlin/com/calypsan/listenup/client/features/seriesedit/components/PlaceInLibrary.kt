@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.CountBadge
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
 import listenup.composeapp.generated.resources.Res
@@ -125,7 +126,7 @@ private fun OfflineBanner() {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier.padding(16.dp).semantics(mergeDescendants = true) {},
+            modifier = Modifier.padding(Spacing.lg).semantics(mergeDescendants = true) {},
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Icon(Icons.Outlined.CloudOff, contentDescription = null)
