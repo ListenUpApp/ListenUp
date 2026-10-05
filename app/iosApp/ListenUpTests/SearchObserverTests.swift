@@ -193,6 +193,14 @@ struct SearchObserverTests {
         #expect(SearchRow(bookHit(isHeld: true, type: .contributor)).isHeld == false)
     }
 
+    /// A series hit says where it sits — and a top-level one just what it holds.
+    @Test func aSeriesHitNamesItsPlace() {
+        let nested = SearchRow(bookHit(isHeld: false, type: .series, bookCount: 4, seriesPath: ["Cosmere", "Mistborn"]))
+        #expect(nested.subtitle == "in Cosmere › Mistborn · 4 books")
+        let root = SearchRow(bookHit(isHeld: false, type: .series, bookCount: 8, seriesPath: []))
+        #expect(root.subtitle == "8 books")
+    }
+
     @Test func handBuiltRowsDefaultToNotHeld() {
         #expect(row("b1", .book).isHeld == false)
     }
@@ -205,7 +213,12 @@ struct SearchObserverTests {
 
     /// A book `SearchHit` built across Swift Export, which has no default arguments: every
     /// parameter is passed.
-    private func bookHit(isHeld: Bool, type: SearchHitType = .book) -> SearchHit {
+    private func bookHit(
+        isHeld: Bool,
+        type: SearchHitType = .book,
+        bookCount: Int32? = nil,
+        seriesPath: [String] = []
+    ) -> SearchHit {
         SearchHit(
             id: "b1",
             type: type,
@@ -215,14 +228,15 @@ struct SearchObserverTests {
             narrator: nil,
             seriesName: nil,
             duration: 42_720_000,
-            bookCount: nil,
+            bookCount: bookCount,
             genreSlugs: nil,
             tags: nil,
             coverPath: nil,
             coverHash: nil,
             score: 0,
             highlight: nil,
-            isHeld: isHeld
+            isHeld: isHeld,
+            seriesPath: seriesPath
         )
     }
 }
