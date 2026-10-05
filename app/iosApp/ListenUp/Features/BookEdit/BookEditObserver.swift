@@ -491,11 +491,13 @@ final class BookEditObserver {
             subtitle: BookEditFormatting.bookCountSubtitle(Int(result.bookCount))
         )
     }
-    private static func seriesResult(_ result: SeriesSearchResult) -> RelationSearchResult {
+    /// "in Cosmere › Mistborn · 8 books" — where the series sits, so two series with one name can be
+    /// told apart. Shared with bulk edit's "Add to series".
+    nonisolated static func seriesResult(_ result: SeriesSearchResult) -> RelationSearchResult {
         RelationSearchResult(
             id: result.id,
             name: result.name,
-            subtitle: BookEditFormatting.bookCountSubtitle(Int(result.bookCount))
+            subtitle: SeriesHierarchyText.placement(path: Array(result.parentPath), bookCount: Int(result.bookCount))
         )
     }
     private static func genreResult(_ genre: EditableGenre) -> RelationSearchResult {

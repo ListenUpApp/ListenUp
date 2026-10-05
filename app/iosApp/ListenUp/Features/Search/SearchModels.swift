@@ -77,7 +77,7 @@ struct SearchRow: Identifiable, Equatable, Hashable {
     let kind: SearchRowKind
     let name: String
     /// Precomputed per-kind detail line: book "author · duration", person "role · N books",
-    /// series "author · N books"; nil for tags.
+    /// series "in Cosmere › Mistborn · N books"; nil for tags.
     let subtitle: String?
     /// Author alone — the cover cards' second line shows just this (the list rows use `subtitle`).
     let author: String?
@@ -137,7 +137,11 @@ struct SearchRow: Identifiable, Equatable, Hashable {
             self.subtitle = SearchRow.detailLine(lead: hit.subtitle, count: hit.bookCount.map { Int($0) })
         case .series:
             self.kind = .series
-            self.subtitle = SearchRow.detailLine(lead: hit.author, count: hit.bookCount.map { Int($0) })
+            // Where the series sits — "in Cosmere › Mistborn · 8 books" — or, at the top level, "8 books".
+            self.subtitle = SeriesHierarchyText.placement(
+                path: Array(hit.seriesPath),
+                bookCount: hit.bookCount.map { Int($0) }
+            )
         case .tag:
             self.kind = .tag
             self.subtitle = nil
