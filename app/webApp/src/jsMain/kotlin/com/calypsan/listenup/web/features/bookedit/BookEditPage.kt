@@ -362,7 +362,7 @@ private fun SeriesFields(
         query = state.seriesSearchQuery,
         results =
             state.seriesSearchResults.map {
-                RelationChip(id = it.id, label = it.name, subtitle = booksLabel(it.bookCount))
+                RelationChip(id = it.id, label = it.name, subtitle = seriesResultSubtitle(it))
             },
         loading = state.seriesSearchLoading,
         offline = state.seriesOfflineResult,

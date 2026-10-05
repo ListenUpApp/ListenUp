@@ -146,6 +146,25 @@ class PeopleAndSeriesTest :
             rows.map { it.textContent?.trim() } shouldBe listOf("Chronicles9 books", "Chronicles1 book")
         }
 
+        // A sub-series' row says where it sits, so "Era 1" under Mistborn and under anything else
+        // are told apart — and a book is never filed into the wrong one.
+        test("a sub-series result says where it sits and how many books it holds") {
+            val root =
+                page(
+                    ready().copy(
+                        seriesSearchQuery = "era",
+                        seriesSearchResults =
+                            listOf(
+                                SeriesSearchResult(id = "s1", name = "Mistborn Era 1", bookCount = 4, parentPath = listOf("Cosmere", "Mistborn")),
+                                SeriesSearchResult(id = "s2", name = "Era Zero", bookCount = 0, parentPath = listOf("Cosmere")),
+                            ),
+                    ),
+                )
+
+            root.querySelectorAll(".rel-result-s").asList().map { it.textContent } shouldBe
+                listOf("in Cosmere › Mistborn · 4 books", "in Cosmere")
+        }
+
         test("a series nobody has used yet gets no second line rather than a zero") {
             // "0 books" is noise on a record that is simply new.
             val root =

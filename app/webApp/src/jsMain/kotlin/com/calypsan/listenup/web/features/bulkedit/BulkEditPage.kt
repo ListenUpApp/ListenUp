@@ -39,6 +39,7 @@ import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import com.calypsan.listenup.web.features.bookedit.booksLabel
+import com.calypsan.listenup.web.features.bookedit.seriesResultSubtitle
 import com.calypsan.listenup.web.features.bookedit.parentPath
 
 /** Everything the form needs to offer, gathered so the page's own signature stays readable. */
@@ -258,7 +259,7 @@ private fun CreditFields(
         label = "Add to series",
         attached = state.seriesInput?.let { listOf(RelationChip(it.name, it.name)) }.orEmpty(),
         query = seriesQuery,
-        results = catalog.seriesMatches.map { RelationChip(it.name, it.name, booksLabel(it.bookCount)) },
+        results = catalog.seriesMatches.map { RelationChip(it.name, it.name, seriesResultSubtitle(it)) },
         onQueryChange = {
             seriesQuery = it
             actions.onSeriesQuery(it)

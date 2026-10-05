@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.bulkedit
 
 import com.calypsan.listenup.api.dto.BookSeriesInput
+import com.calypsan.listenup.client.domain.model.SeriesSearchResult
 import com.calypsan.listenup.api.dto.BookContributorInput
 import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
 import com.calypsan.listenup.client.domain.model.ContributorRole
@@ -53,6 +54,7 @@ private fun page(
     actions: BulkEditActions = noActions(),
     notice: String? = null,
     contributorMatches: List<ContributorSearchResult> = emptyList(),
+    seriesMatches: List<SeriesSearchResult> = emptyList(),
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
@@ -65,7 +67,7 @@ private fun page(
                     genres = emptyList(),
                     tags = emptyList(),
                     moods = emptyList(),
-                    seriesMatches = emptyList(),
+                    seriesMatches = seriesMatches,
                     contributorMatches = contributorMatches,
                 ),
             actions = actions,
@@ -380,6 +382,25 @@ class BulkEditPageTest :
             (field(host, "bke-series").querySelector(".rel-create") as HTMLElement).click()
 
             chosen?.name shouldBe "A Brand New Saga"
+        }
+
+        // Two "Era 1"s in two parents read identically without their place.
+        test("a series match says where it sits and how many books it holds") {
+            val host =
+                page(
+                    editing(),
+                    seriesMatches =
+                        listOf(
+                            SeriesSearchResult(id = "s1", name = "Mistborn Era 1", bookCount = 4, parentPath = listOf("Cosmere", "Mistborn")),
+                            SeriesSearchResult(id = "s2", name = "Dune", bookCount = 6),
+                        ),
+                )
+
+            search(host, "bke-series", "e")
+            awaitFrame()
+
+            field(host, "bke-series").querySelectorAll(".rel-result-s").asList().map { it.textContent } shouldContainExactly
+                listOf("in Cosmere › Mistborn · 4 books", "6 books")
         }
 
         test("a person the library does not have is credited in the chosen role") {
