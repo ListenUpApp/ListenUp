@@ -86,22 +86,65 @@ final class HostedView {
     /// Lets SwiftUI lay out, render, and publish its accessibility nodes.
     func settle() async {
         Self.installIdleObserver()
+        let ticker = FrameTicker()
         let idleBefore = Self.idleTurns
+        let t0 = Date()
         for _ in 0..<4 {
             window.layoutIfNeeded()
             try? await Task.sleep(for: .milliseconds(60))
         }
-        let idleDuringSettle = Self.idleTurns - idleBefore
-        let stopsAfterSettle = stops.count
-        let waitStart = Date()
-        let target = Self.idleTurns + 2
-        while Self.idleTurns < target, Date().timeIntervalSince(waitStart) < 60 {
-            window.layoutIfNeeded()
-            try? await Task.sleep(for: .milliseconds(20))
+        let settleMs = Int(Date().timeIntervalSince(t0) * 1000)
+        let idle0 = Self.idleTurns - idleBefore
+        let ticks0 = ticker.ticks
+        let stops0 = stops.count
+        let pix0 = pixelHash()
+        // Step F: force every hosting view in the window to lay out now, and commit.
+        func force(_ view: UIView) {
+            view.setNeedsLayout()
+            view.layoutIfNeeded()
+            for subview in view.subviews { force(subview) }
         }
+        force(window)
+        CATransaction.flush()
+        let stopsF = stops.count
+        let pixF = pixelHash()
+        // Step D: wait for three display frames (5 s at most).
+        let d0 = Date()
+        let ticksBefore = ticker.ticks
+        while ticker.ticks < ticksBefore + 3, Date().timeIntervalSince(d0) < 5 {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        let waitD = Int(Date().timeIntervalSince(d0) * 1000)
         window.layoutIfNeeded()
-        NSLog("A11YIDLE ordinal=%d idleDuringSettle=%d stopsAfterSettle=%d waitedForIdle=%dms stopsAfterIdle=%d",
-              ordinal, idleDuringSettle, stopsAfterSettle, Int(Date().timeIntervalSince(waitStart) * 1000), stops.count)
+        let stopsD = stops.count
+        let pixD = pixelHash()
+        // Step I: two idle run-loop turns (10 s at most).
+        let i0 = Date()
+        let target = Self.idleTurns + 2
+        while Self.idleTurns < target, Date().timeIntervalSince(i0) < 10 {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        let waitI = Int(Date().timeIntervalSince(i0) * 1000)
+        window.layoutIfNeeded()
+        let stopsI = stops.count
+        let pixI = pixelHash()
+        ticker.stop()
+        NSLog("A11YV3 ordinal=%d live=%d settleMs=%d idle0=%d ticks0=%d stops0=%d stopsF=%d stopsD=%d(waitD=%dms) stopsI=%d(waitI=%dms) pix0=%@ pixF=%@ pixD=%@ pixI=%@",
+              ordinal, Self.live, settleMs, idle0, ticks0, stops0, stopsF, stopsD, waitD, stopsI, waitI,
+              pix0, pixF, pixD, pixI)
+    }
+
+    private func pixelHash() -> String {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let image = UIGraphicsImageRenderer(bounds: window.bounds, format: format).image { context in
+            window.layer.render(in: context.cgContext)
+        }
+        guard let data = image.cgImage?.dataProvider?.data as Data? else { return "nil" }
+        var hash: UInt64 = 1469598103934665603
+        for byte in data { hash = (hash ^ UInt64(byte)) &* 1099511628211 }
+        return String(hash % 1_000_000)
     }
 
     static var idleTurns = 0
@@ -226,6 +269,23 @@ final class HostedView {
         }
         isTreeEnabled = true
     }
+}
+
+@MainActor
+final class FrameTicker: NSObject {
+    private(set) var ticks = 0
+    private var link: CADisplayLink?
+
+    override init() {
+        super.init()
+        let link = CADisplayLink(target: self, selector: #selector(tick))
+        link.add(to: .main, forMode: .common)
+        self.link = link
+    }
+
+    @objc private func tick() { ticks += 1 }
+
+    func stop() { link?.invalidate() }
 }
 
 // MARK: - Drawn contrast
