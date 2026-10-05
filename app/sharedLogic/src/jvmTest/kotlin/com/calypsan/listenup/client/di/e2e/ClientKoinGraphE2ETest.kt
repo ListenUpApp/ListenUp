@@ -162,7 +162,8 @@ class ClientKoinGraphE2ETest :
             // outbox sender for the BookRatings channel) — so 28 → 29.
             // The Hardcover connection added rpcChannel<HardcoverService>() (connect, disconnect and
             // the live connection watch) — so 29 → 30.
-            defaultInvalidator.caches shouldHaveSize 30
+            // Match details added rpcChannel<MatchingService>() (Find, then Review and Apply) — so 30 → 31.
+            defaultInvalidator.caches shouldHaveSize 31
             defaultInvalidator.caches.any { it is ApiClientFactory } shouldBe true
         }
 
