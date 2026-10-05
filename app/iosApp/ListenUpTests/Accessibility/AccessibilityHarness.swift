@@ -4,17 +4,6 @@ import Testing
 import UIKit
 @testable import ListenUp
 
-extension Trait where Self == ConditionTrait {
-    /// Skips the harness suites on the CI runner only: the in-process accessibility tree and pixel capture
-    /// pass and fail on the same Xcode there, test after test. They still run on a Mac at the desk. CI hands `CI` to the test process as `TEST_RUNNER_CI` (see ci.yml).
-    static var flakyOnCI: Self {
-        .disabled(
-            if: ProcessInfo.processInfo.environment["CI"] != nil,
-            "Flaky on the CI runner; tracked in https://github.com/ListenUpApp/ListenUp/issues/1578"
-        )
-    }
-}
-
 /// One stop VoiceOver would make, read back from a hosted view's accessibility tree.
 struct AccessibilityStop: CustomStringConvertible {
     let label: String
@@ -53,7 +42,9 @@ final class HostedView {
         size: CGSize = CGSize(width: 393, height: 852),
         dynamicTypeSize: DynamicTypeSize = .large
     ) async {
-        Self.enableAccessibilityTree()
+        if !(await Self.accessibilityRuntimeHasLoaded()) {
+            Issue.record("SwiftUI's accessibility bundle never loaded, so this tree may be empty or a stop short.")
+        }
         let root = content
             .environment(\.dynamicTypeSize, dynamicTypeSize)
             .environment(HapticsSettings())
@@ -145,18 +136,45 @@ final class HostedView {
         return (0..<count).compactMap { object.accessibilityElement(at: $0) as? NSObject }
     }
 
-    private static var isTreeEnabled = false
+    private static var accessibilityRuntime: Task<Bool, Never>?
 
-    /// Turns on accessibility automation for this test process, as XCUITest does for an app under test.
-    private static func enableAccessibilityTree() {
-        guard !isTreeEnabled, let handle = dlopen("/usr/lib/libAccessibility.dylib", RTLD_NOW) else { return }
+    /// Whether SwiftUI's accessibility bundle — the code that publishes a hosting view's tree — is in this process.
+    static var isSwiftUIAccessibilityLoaded: Bool {
+        let bundle = "/System/Library/AccessibilityBundles/SwiftUI.axbundle/SwiftUI"
+        guard let handle = dlopen(bundle, RTLD_NOLOAD | RTLD_LAZY) else { return false }
+        dlclose(handle)
+        return true
+    }
+
+    /// Turns on accessibility automation for this test process, as XCUITest does for an app under test, then waits
+    /// for the system to load SwiftUI's accessibility bundle into it.
+    ///
+    /// The bundles arrive on a background thread, seconds after automation is switched on: about 4 s on a Mac at the
+    /// desk, and 30 s or more on a CI runner where a thousand other tests are starting at once. A tree read before
+    /// they land can come back empty, or a stop short with stale frames, and every hosted tree changes when they do.
+    /// So the first hosted view waits, and each later one finds them already there.
+    private static func accessibilityRuntimeHasLoaded() async -> Bool {
+        if let accessibilityRuntime { return await accessibilityRuntime.value }
+        let loading = Task {
+            enableAutomation()
+            let deadline = ContinuousClock.now + .seconds(90)
+            while !isSwiftUIAccessibilityLoaded, ContinuousClock.now < deadline {
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+            return isSwiftUIAccessibilityLoaded
+        }
+        accessibilityRuntime = loading
+        return await loading.value
+    }
+
+    private static func enableAutomation() {
+        guard let handle = dlopen("/usr/lib/libAccessibility.dylib", RTLD_NOW) else { return }
         typealias SetEnabled = @convention(c) (Bool) -> Void
         for name in ["_AXSSetAutomationEnabled", "_AXSApplicationAccessibilitySetEnabled"] {
             if let symbol = dlsym(handle, name) {
                 unsafeBitCast(symbol, to: SetEnabled.self)(true)
             }
         }
-        isTreeEnabled = true
     }
 }
 
