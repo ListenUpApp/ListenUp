@@ -106,6 +106,8 @@ import com.calypsan.listenup.client.features.seriesedit.components.MoveIntoPicke
 import com.calypsan.listenup.client.features.seriesedit.components.NewParentDialog
 import com.calypsan.listenup.client.features.seriesedit.components.PlaceInLibrary
 import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesEvent
+import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesUiState
+import com.calypsan.listenup.client.presentation.seriesedit.ParentPickerRow
 import listenup.composeapp.generated.resources.series_place_in_library
 import org.koin.core.parameter.parametersOf
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -146,13 +148,7 @@ fun SeriesEditScreen(
     val parentPickerRows by viewModel.parentPickerRows.collectAsStateWithLifecycle()
     val addSubSeries by viewModel.addSubSeries.collectAsStateWithLifecycle()
 
-    // Once the series has loaded, a refused change is a snackbar (the ViewModel already sent it to
-    // the error bus), not a reason to replace the whole editor with an error page.
-    var loaded by remember { mutableStateOf(false) }
-    LaunchedEffect(state.isLoading, state.error) {
-        if (!state.isLoading && state.error == null) loaded = true
-        if (loaded && state.error != null) viewModel.onEvent(SeriesEditUiEvent.ErrorDismissed)
-    }
+    val loaded = rememberLoadedAcknowledgingRefusals(state) { viewModel.onEvent(SeriesEditUiEvent.ErrorDismissed) }
     val pickerAsPane =
         currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
@@ -243,11 +239,14 @@ fun SeriesEditScreen(
         )
     }
 
-    if (state.parentPickerVisible && !pickerAsPane) {
-        MoveIntoPickerSheet(state = state, rows = parentPickerRows, onEvent = viewModel::onEvent)
-    }
-    NewParentDialog(state = state, onEvent = viewModel::onEvent)
-    AddSubSeriesSheet(state = addSubSeries, onEvent = viewModel::onAddSubSeriesEvent)
+    HierarchyOverlays(
+        state = state,
+        rows = parentPickerRows,
+        addSubSeries = addSubSeries,
+        pickerAsSheet = !pickerAsPane,
+        onEvent = viewModel::onEvent,
+        onAddSubSeriesEvent = viewModel::onAddSubSeriesEvent,
+    )
 
     if (state.mergeDialogVisible) {
         SeriesMergeDialog(
@@ -262,6 +261,41 @@ fun SeriesEditScreen(
             onDismiss = { viewModel.onEvent(SeriesEditUiEvent.MergeDialogDismissed) },
         )
     }
+}
+
+/**
+ * Whether the series has loaded. Once it has, a refused change is a snackbar (the ViewModel already
+ * sent it to the error bus), not a reason to replace the whole editor with an error page — so the
+ * error is acknowledged with [onDismissError] instead.
+ */
+@Composable
+private fun rememberLoadedAcknowledgingRefusals(
+    state: SeriesEditUiState,
+    onDismissError: () -> Unit,
+): Boolean {
+    var loaded by remember { mutableStateOf(false) }
+    LaunchedEffect(state.isLoading, state.error) {
+        if (!state.isLoading && state.error == null) loaded = true
+        if (loaded && state.error != null) onDismissError()
+    }
+    return loaded
+}
+
+/** The hierarchy's sheets and dialogs: "Move into…" (when not a side pane), New parent, Add sub-series. */
+@Composable
+private fun HierarchyOverlays(
+    state: SeriesEditUiState,
+    rows: List<ParentPickerRow>,
+    addSubSeries: AddSubSeriesUiState,
+    pickerAsSheet: Boolean,
+    onEvent: (SeriesEditUiEvent) -> Unit,
+    onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit,
+) {
+    if (state.parentPickerVisible && pickerAsSheet) {
+        MoveIntoPickerSheet(state = state, rows = rows, onEvent = onEvent)
+    }
+    NewParentDialog(state = state, onEvent = onEvent)
+    AddSubSeriesSheet(state = addSubSeries, onEvent = onAddSubSeriesEvent)
 }
 
 // =============================================================================
@@ -395,7 +429,12 @@ private fun SeriesEditContent(
             Surface(
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
                 shape = ContentShapes.card,
-                modifier = Modifier.weight(PICKER_PANE_WEIGHT).fillMaxHeight().padding(Spacing.lg).statusBarsPadding(),
+                modifier =
+                    Modifier
+                        .weight(PICKER_PANE_WEIGHT)
+                        .fillMaxHeight()
+                        .padding(Spacing.lg)
+                        .statusBarsPadding(),
             ) {
                 Box(Modifier.padding(top = Spacing.lg)) { pickerPane() }
             }

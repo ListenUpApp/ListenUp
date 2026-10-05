@@ -115,7 +115,13 @@ class AddSubSeriesSheetTest {
 
     @Test
     fun `a refusal is acknowledged once`() {
-        renderSheet(AddSubSeriesUiState.Closed(error = com.calypsan.listenup.api.error.TransportError.NetworkUnavailable()))
+        renderSheet(
+            AddSubSeriesUiState.Closed(
+                error =
+                    com.calypsan.listenup.api.error.TransportError
+                        .NetworkUnavailable(),
+            ),
+        )
 
         composeRule.waitForIdle()
         events shouldContain AddSubSeriesEvent.ErrorDismissed

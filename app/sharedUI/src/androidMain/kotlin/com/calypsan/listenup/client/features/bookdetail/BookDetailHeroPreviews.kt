@@ -50,7 +50,12 @@ private val previewSeries =
             seriesId = "s1",
             seriesName = "Mistborn Era 1",
             sequence = "1",
-            ancestors = listOf(SeriesCrumb("s0", "The Cosmere"), SeriesCrumb("s2", "Scadrial"), SeriesCrumb("s3", "Mistborn")),
+            ancestors =
+                listOf(
+                    SeriesCrumb("s0", "The Cosmere"),
+                    SeriesCrumb("s2", "Scadrial"),
+                    SeriesCrumb("s3", "Mistborn"),
+                ),
         ),
         // Fractional on purpose: a regression that renders "#3.0" would show here.
         BookSeriesPath(seriesId = "s4", seriesName = "Secret Projects", sequence = "3.5", ancestors = emptyList()),

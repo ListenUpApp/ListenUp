@@ -151,7 +151,11 @@ private fun BooksHeader(
     count: Int,
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         Text(
             text = stringResource(if (isGrouped) Res.string.series_books else Res.string.series_books_in_series),
             style = MaterialTheme.typography.titleLarge,
@@ -173,66 +177,89 @@ internal fun SeriesSectionHeading(
     actions: SeriesBookListActions,
     modifier: Modifier = Modifier,
 ) {
-    val haptics = LocalHaptics.current
-    val isSubSeries = section.kind == SeriesSectionKind.SUB_SERIES
-    val title = if (isSubSeries) section.title else stringResource(Res.string.series_also_in, section.title)
     val nested = section.depth > 1
-    Row(modifier = modifier.fillMaxWidth().padding(top = if (nested) 2.dp else 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Row(
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .heightIn(min = 48.dp)
-                    .then(
-                        if (isLink) {
-                            Modifier.clickable {
-                                haptics.press()
-                                actions.onSeriesClick(section.seriesId)
-                            }
-                        } else {
-                            Modifier
-                        },
-                    ),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Column(modifier = Modifier.weight(1f, fill = false)) {
-                Text(
-                    text = title,
-                    style = if (nested) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = if (nested) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.semantics { heading() },
-                )
-                Text(
-                    text = bookCountLabel(section.bookCount),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (isLink) {
-                Icon(
-                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+    Row(
+        modifier = modifier.fillMaxWidth().padding(top = if (nested) 2.dp else 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        HeadingLink(
+            section = section,
+            onClick = { actions.onSeriesClick(section.seriesId) }.takeIf { isLink },
+            modifier = Modifier.weight(1f),
+        )
         if (section.isCollapsible) {
-            IconButton(
-                onClick = {
-                    haptics.press()
-                    actions.onToggleSection(section.seriesId)
-                },
-            ) {
-                Icon(
-                    imageVector = if (section.isCollapsed) Icons.Default.ExpandMore else Icons.Default.ExpandLess,
-                    contentDescription =
-                        stringResource(if (section.isCollapsed) Res.string.common_expand else Res.string.common_collapse) +
-                            " " + section.title,
-                )
-            }
+            FoldToggle(section = section, onToggle = { actions.onToggleSection(section.seriesId) })
         }
+    }
+}
+
+@Composable
+private fun HeadingLink(
+    section: SeriesBookSection,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    val haptics = LocalHaptics.current
+    val nested = section.depth > 1
+    val title =
+        if (section.kind == SeriesSectionKind.SUB_SERIES) {
+            section.title
+        } else {
+            stringResource(Res.string.series_also_in, section.title)
+        }
+    val clickModifier =
+        onClick?.let {
+            Modifier.clickable {
+                haptics.press()
+                it()
+            }
+        } ?: Modifier
+    Row(
+        modifier = modifier.heightIn(min = 48.dp).then(clickModifier),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f, fill = false)) {
+            Text(
+                text = title,
+                style = if (nested) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = if (nested) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics { heading() },
+            )
+            Text(
+                text = bookCountLabel(section.bookCount),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (onClick != null) {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FoldToggle(
+    section: SeriesBookSection,
+    onToggle: () -> Unit,
+) {
+    val haptics = LocalHaptics.current
+    val label = stringResource(if (section.isCollapsed) Res.string.common_expand else Res.string.common_collapse)
+    IconButton(
+        onClick = {
+            haptics.press()
+            onToggle()
+        },
+    ) {
+        Icon(
+            imageVector = if (section.isCollapsed) Icons.Default.ExpandMore else Icons.Default.ExpandLess,
+            contentDescription = "$label ${section.title}",
+        )
     }
 }
 

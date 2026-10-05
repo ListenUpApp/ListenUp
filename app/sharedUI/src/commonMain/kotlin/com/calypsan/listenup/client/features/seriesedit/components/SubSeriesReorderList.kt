@@ -21,8 +21,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -84,13 +82,9 @@ internal fun SubSeriesReorderList(
     LaunchedEffect(refusal) { if (refusal != null) pending = null }
     val order = pending?.takeIf { it.toSet() == ids.toSet() } ?: ids
 
-    var dragging by remember { mutableStateOf<String?>(null) }
-    var dragOrder by remember { mutableStateOf<List<String>>(emptyList()) }
-    var dragOffset by remember { mutableFloatStateOf(0f) }
+    val drag = remember { SubSeriesDrag() }
     var announcement by remember { mutableStateOf("") }
-    val spans = remember { mutableStateMapOf<String, RowSpan>() }
-    val shown = if (dragging != null) dragOrder else order
-    val currentShown by rememberUpdatedState(shown)
+    val shown = if (drag.draggingId != null) drag.order else order
 
     var moved by remember { mutableStateOf<Pair<List<String>, String>?>(null) }
     LaunchedEffect(moved) {
@@ -115,84 +109,92 @@ internal fun SubSeriesReorderList(
             onStart = { id ->
                 if (enabled) {
                     haptics.selectionTick()
-                    dragging = id
-                    dragOrder = order
-                    dragOffset = 0f
+                    drag.start(id, order)
                 }
             },
-            onDrag = { dy ->
-                val id = dragging
-                if (id != null) {
-                    dragOffset += dy
-                    val list = currentShown
-                    val index = list.indexOf(id)
-                    val self = spans[id]
-                    val rows = list.mapNotNull { spans[it] }
-                    val target = self?.let { slotUnder(rows, (it.top + it.bottom) / 2 + dragOffset) }
-                    if (self != null && target != null && target != index && rows.size == list.size) {
-                        val step = if (target > index) 1 else -1
-                        val neighbour = spans[list[index + step]]
-                        if (neighbour != null) {
-                            // Keep the row under the finger as its slot moves by the neighbour's place.
-                            dragOffset -= if (step > 0) neighbour.bottom - self.bottom else neighbour.top - self.top
-                            dragOrder = reorderedBy(list, index, index + step)
-                            haptics.selectionTick()
-                        }
-                    }
-                }
-            },
+            onDrag = { dy -> if (drag.dragBy(dy)) haptics.selectionTick() },
             onEnd = {
-                val id = dragging
-                dragging = null
-                dragOffset = 0f
-                if (id != null) {
+                drag.end()?.let { (id, landed) ->
                     haptics.commit()
-                    commit(dragOrder, id)
+                    commit(landed, id)
                 }
             },
         )
 
-    val earlier = stringResource(Res.string.shelf_move_earlier)
-    val later = stringResource(Res.string.shelf_move_later)
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         shown.forEachIndexed { index, id ->
-            val child = byId[id] ?: return@forEachIndexed
-            val lifted = id == dragging
-            val move = { to: Int -> commit(reorderedBy(order, index, to), id) }
-            SubSeriesRow(
-                child = child,
-                lifted = lifted,
-                enabled = enabled,
-                canMoveEarlier = index > 0,
-                canMoveLater = index < shown.lastIndex,
-                onMoveEarlier = {
-                    haptics.press()
-                    move(index - 1)
-                },
-                onMoveLater = {
-                    haptics.press()
-                    move(index + 1)
-                },
-                dragCallbacks = dragCallbacks,
-                modifier =
-                    Modifier
-                        .zIndex(if (lifted) 1f else 0f)
-                        .graphicsLayer {
-                            translationY = if (lifted) dragOffset else 0f
-                            scaleX = if (lifted) LIFTED_SCALE else 1f
-                            scaleY = if (lifted) LIFTED_SCALE else 1f
-                        }.onGloballyPositioned { coordinates ->
-                            val top = coordinates.positionInParent().y
-                            spans[id] = RowSpan(id, top, top + coordinates.size.height)
-                        }.semantics {
-                            if (enabled) {
-                                customActions = shelfReorderActions(order, index, earlier, later) { commit(it, id) }
-                            }
-                        },
-            )
+            byId[id]?.let { child ->
+                ReorderableRow(
+                    child = child,
+                    position = RowPosition(index, shown.lastIndex, order),
+                    drag = drag,
+                    enabled = enabled,
+                    dragCallbacks = dragCallbacks,
+                    onCommit = { commit(it, id) },
+                )
+            }
         }
-        Box(Modifier.semantics { liveRegion = LiveRegionMode.Polite; contentDescription = announcement })
+        Box(
+            Modifier.semantics {
+                liveRegion = LiveRegionMode.Polite
+                contentDescription = announcement
+            },
+        )
     }
+}
+
+/** Where a row sits: its index, the last index, and the settled order its moves start from. */
+private class RowPosition(
+    val index: Int,
+    val lastIndex: Int,
+    val order: List<String>,
+)
+
+/** One row, wired to the drag (lift, offset, reported span) and to its non-drag moves. */
+@Composable
+private fun ReorderableRow(
+    child: SeriesCandidate,
+    position: RowPosition,
+    drag: SubSeriesDrag,
+    enabled: Boolean,
+    dragCallbacks: DragCallbacks,
+    onCommit: (List<String>) -> Unit,
+) {
+    val haptics = LocalHaptics.current
+    val id = child.id.value
+    val index = position.index
+    val lifted = id == drag.draggingId
+    val earlier = stringResource(Res.string.shelf_move_earlier)
+    val later = stringResource(Res.string.shelf_move_later)
+    val move = { to: Int ->
+        haptics.press()
+        onCommit(reorderedBy(position.order, index, to))
+    }
+    SubSeriesRow(
+        child = child,
+        lifted = lifted,
+        enabled = enabled,
+        canMoveEarlier = index > 0,
+        canMoveLater = index < position.lastIndex,
+        onMoveEarlier = { move(index - 1) },
+        onMoveLater = { move(index + 1) },
+        dragCallbacks = dragCallbacks,
+        modifier =
+            Modifier
+                .zIndex(if (lifted) 1f else 0f)
+                .graphicsLayer {
+                    translationY = if (lifted) drag.offset else 0f
+                    scaleX = if (lifted) LIFTED_SCALE else 1f
+                    scaleY = if (lifted) LIFTED_SCALE else 1f
+                }.onGloballyPositioned { coordinates ->
+                    val top = coordinates.positionInParent().y
+                    drag.spans[id] = RowSpan(id, top, top + coordinates.size.height)
+                }.semantics {
+                    if (enabled) {
+                        customActions = shelfReorderActions(position.order, index, earlier, later, onCommit)
+                    }
+                },
+    )
 }
 
 /** A drag's three moments, for a row's handle and long press alike. */

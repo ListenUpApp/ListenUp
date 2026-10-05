@@ -96,10 +96,24 @@ internal object Cosmere {
             listOf(
                 section("mistborn", "Mistborn", SeriesSectionKind.SUB_SERIES, 1, emptyList(), bookCount = 8),
                 section("era1", "Mistborn Era 1", SeriesSectionKind.SUB_SERIES, 2, listOf(finalEmpire, heroOfAges)),
-                section("elantris", "Elantris", SeriesSectionKind.SUB_SERIES, 1, emptyList(), bookCount = 4, collapsed = true),
+                section(
+                    "elantris",
+                    "Elantris",
+                    SeriesSectionKind.SUB_SERIES,
+                    1,
+                    emptyList(),
+                    bookCount = 4,
+                    collapsed = true,
+                ),
                 section("cosmere", "Cosmere", SeriesSectionKind.OWN_BOOKS, 1, listOf(warbreaker)),
             ),
-        resumeBook = SeriesResumeUi(bookId = "hoa", title = "The Hero of Ages", seriesName = "Mistborn Era 1", sequence = "3"),
+        resumeBook =
+            SeriesResumeUi(
+                bookId = "hoa",
+                title = "The Hero of Ages",
+                seriesName = "Mistborn Era 1",
+                sequence = "3",
+            ),
         canEditHierarchy = canEdit,
         isOnline = online,
     )
@@ -121,6 +135,8 @@ internal object Cosmere {
             resumeTarget = finalEmpire.id,
             ancestors = listOf(SeriesCrumb("cosmere", "Cosmere"), SeriesCrumb("mistborn", "Mistborn")),
             bookSections =
-                listOf(section("era1", "Mistborn Era 1", SeriesSectionKind.OWN_BOOKS, 1, listOf(finalEmpire, heroOfAges))),
+                listOf(
+                    section("era1", "Mistborn Era 1", SeriesSectionKind.OWN_BOOKS, 1, listOf(finalEmpire, heroOfAges)),
+                ),
         )
 }

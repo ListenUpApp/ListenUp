@@ -34,3 +34,39 @@ class SubSeriesReorderTest :
             slotUnder(emptyList(), 10f) shouldBe null
         }
     })
+
+/** A drag over the three rows: it crosses one slot at a time and lands the whole new order. */
+class SubSeriesDragTest :
+    FunSpec({
+
+        fun dragOver(): SubSeriesDrag =
+            SubSeriesDrag().apply {
+                rows.forEach { spans[it.id] = it }
+                start("a", listOf("a", "b", "c"))
+            }
+
+        test("dragging past the next row's middle swaps it once, and holding still does not swap back") {
+            val drag = dragOver()
+
+            drag.dragBy(70f) shouldBe true
+            drag.order shouldBe listOf("b", "a", "c")
+            drag.dragBy(0f) shouldBe false
+            drag.order shouldBe listOf("b", "a", "c")
+        }
+
+        test("a short nudge stays in place") {
+            val drag = dragOver()
+
+            drag.dragBy(10f) shouldBe false
+            drag.order shouldBe listOf("a", "b", "c")
+        }
+
+        test("dropping hands back the lifted row and the order it landed in") {
+            val drag = dragOver()
+            drag.dragBy(70f)
+            drag.dragBy(60f)
+
+            drag.end() shouldBe ("a" to listOf("b", "c", "a"))
+            drag.draggingId shouldBe null
+        }
+    })

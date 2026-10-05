@@ -138,7 +138,12 @@ internal fun AddSubSeriesSheetContent(
         LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
             item(key = "new") {
                 ListItem(
-                    headlineContent = { Text(stringResource(Res.string.series_new_series), fontWeight = FontWeight.SemiBold) },
+                    headlineContent = {
+                        Text(
+                            stringResource(Res.string.series_new_series),
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    },
                     leadingContent = { Icon(Icons.Default.Add, contentDescription = null) },
                     colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     modifier =
@@ -196,7 +201,12 @@ private fun CandidateRow(
         headlineContent = { Text(candidate.name, fontWeight = FontWeight.SemiBold) },
         supportingContent = { Text(meta) },
         leadingContent = {
-            SeriesCoverThumb(seriesId = candidate.id, name = candidate.name, coverPath = candidate.coverPath, size = 48.dp)
+            SeriesCoverThumb(
+                seriesId = candidate.id,
+                name = candidate.name,
+                coverPath = candidate.coverPath,
+                size = 48.dp,
+            )
         },
         modifier =
             if (candidate.isSelectable) {
