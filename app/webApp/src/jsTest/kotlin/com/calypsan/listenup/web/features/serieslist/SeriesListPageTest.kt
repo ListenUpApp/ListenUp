@@ -71,6 +71,17 @@ class SeriesListPageTest :
             (root.querySelector(".srs-count") as HTMLElement).textContent shouldBe "1 book"
         }
 
+        // A parent series stands for its whole subtree, so its card says how many series it holds
+        // as well as how many books — and wears a stacked edge so it reads as more than one series.
+        test("a parent series' card counts its sub-series and its books, and wears a stack") {
+            val parent = seriesWith("s1", "Cosmere", 23).copy(subSeriesCount = 4)
+            val root = seriesPage(contractLibrary(series = listOf(parent, seriesWith("s2", "Dune", 6))))
+
+            val counts = root.querySelectorAll(".srs-count").asList().map { it.textContent }
+            counts shouldContainExactly listOf("4 series · 23 books", "6 books")
+            root.querySelectorAll(".srs-cover.is-stack").length shouldBe 1
+        }
+
         test("opening a card reports that series, not the first on the page") {
             var opened: String? = null
             val root =

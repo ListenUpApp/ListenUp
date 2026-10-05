@@ -71,6 +71,10 @@ private val ALLOWED: Map<String, String> =
         "features/chaptereditor/ChapterRow.kt#chr" to
             "A row holding eight buttons cannot itself be a button. The click on its body is a mouse " +
             "convenience; the title inside it (`.chr-t`) is a real button making the same selection.",
+        "features/seriesedit/ParentPicker.kt#sh-chev" to
+            "An aria-hidden expand chevron inside a role=\"tree\" row. The tree pattern gives the keyboard " +
+            "Right/Left on the focused row for the same expand/collapse; a focusable button nested in a " +
+            "treeitem would break its single tab stop.",
     )
 
 /** `path relative to the web package` → source text, for every `:app:webApp` jsMain file. */

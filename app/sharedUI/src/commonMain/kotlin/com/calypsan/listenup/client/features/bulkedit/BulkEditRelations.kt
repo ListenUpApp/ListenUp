@@ -48,6 +48,7 @@ import com.calypsan.listenup.client.domain.model.ContributorSearchResult
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.SeriesSearchResult
+import com.calypsan.listenup.client.features.seriesdetail.components.seriesPlacementLine
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
 import com.calypsan.listenup.core.ContributorId
@@ -157,7 +158,7 @@ internal fun <T> BulkRelationField(
     onQueryChange: (String) -> Unit,
     matches: List<T>,
     matchLabel: (T) -> String,
-    matchSupporting: (T) -> String?,
+    matchSupporting: @Composable (T) -> String?,
     matchIcon: ImageVector,
     onPick: (T) -> Unit,
     chosen: List<RelationChip>,
@@ -337,7 +338,8 @@ internal fun BulkEditCredits(
             },
             matches = offers.seriesMatches,
             matchLabel = { it.name },
-            matchSupporting = { null },
+            // Where it sits and how big it is: "in Cosmere › Mistborn · 8 books".
+            matchSupporting = { seriesPlacementLine(it.parentPath, it.bookCount) },
             matchIcon = Icons.AutoMirrored.Outlined.MenuBook,
             onPick = { match ->
                 actions.onSeriesChange(BookSeriesInput(id = SeriesId(match.id), name = match.name))

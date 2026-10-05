@@ -180,9 +180,9 @@ class LibraryViewModel(
                     emptyList()
                 },
             seriesRepository
-                .observeAllWithBooks()
+                .observeRootSeriesWithBooks()
                 .fallbackTo { e ->
-                    logger.error(e) { "observeAllWithBooks failed; emitting empty list" }
+                    logger.error(e) { "observeRootSeriesWithBooks failed; emitting empty list" }
                     emptyList()
                 },
             contributorRepository

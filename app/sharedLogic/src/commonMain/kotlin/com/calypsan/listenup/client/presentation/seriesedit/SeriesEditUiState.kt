@@ -55,6 +55,13 @@ data class SeriesEditUiState(
     val parentQuery: String = "",
     /** True while a hierarchy change is on its way to the server. */
     val hierarchyBusy: Boolean = false,
+    /** The "New parent series" dialog, while it is open. */
+    val newParent: NewSeriesDraft? = null,
+    /**
+     * Whether the device has a network route. Hierarchy changes need the server, so the screen
+     * disables them — and says why — while this is false; everything else still saves.
+     */
+    val isOnline: Boolean = true,
     // Track if changes have been made
     val hasChanges: Boolean = false,
 ) {
@@ -138,6 +145,25 @@ sealed interface SeriesEditUiEvent {
     data class ChildSeriesReordered(
         val orderedChildIds: List<String>,
     ) : SeriesEditUiEvent
+
+    /** The user expanded or collapsed [seriesId]'s sub-series in the "Move into…" tree. */
+    data class ParentPickerNodeToggled(
+        val seriesId: String,
+    ) : SeriesEditUiEvent
+
+    /** The user chose "New parent series…". */
+    data object NewParentStarted : SeriesEditUiEvent
+
+    /** The user typed the new parent's name. */
+    data class NewParentNameChanged(
+        val name: String,
+    ) : SeriesEditUiEvent
+
+    /** The user closed the "New parent series" dialog. */
+    data object NewParentDismissed : SeriesEditUiEvent
+
+    /** The user chose "Create and move". */
+    data object NewParentConfirmed : SeriesEditUiEvent
 }
 
 /**

@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
 import com.calypsan.listenup.client.domain.model.Series
+import com.calypsan.listenup.client.domain.model.SeriesHierarchy
 import com.calypsan.listenup.client.domain.model.SeriesLineage
 import com.calypsan.listenup.client.domain.model.SeriesSearchResponse
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
@@ -240,8 +241,11 @@ class FakeSeriesRepository : SeriesRepository {
     override fun observeBookIdsForSeries(seriesId: String): Flow<List<String>> =
         MutableStateFlow(seriesBooks[seriesId] ?: emptyList())
 
-    override fun observeAllWithBooks(): Flow<List<SeriesWithBooks>> =
+    override fun observeRootSeriesWithBooks(): Flow<List<SeriesWithBooks>> =
         MutableStateFlow(seriesWithBooksMap.values.toList())
+
+    override fun observeHierarchy(): Flow<SeriesHierarchy> =
+        MutableStateFlow(SeriesHierarchy(seriesMap.values.toList(), emptyList()))
 
     override fun observeSeriesWithBooks(seriesId: String): Flow<SeriesWithBooks?> =
         MutableStateFlow(seriesWithBooksMap[seriesId])

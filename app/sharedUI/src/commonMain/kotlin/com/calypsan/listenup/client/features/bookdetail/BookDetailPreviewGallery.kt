@@ -27,7 +27,8 @@ import com.calypsan.listenup.client.design.components.FacetChipRow
 import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
-import com.calypsan.listenup.client.domain.model.BookSeries
+import com.calypsan.listenup.client.presentation.bookdetail.BookSeriesPath
+import com.calypsan.listenup.client.presentation.seriesdetail.SeriesCrumb
 import com.calypsan.listenup.client.domain.model.BookVisibility
 import com.calypsan.listenup.client.domain.model.CollectionRef
 import com.calypsan.listenup.client.domain.model.HiddenFrom
@@ -77,9 +78,12 @@ private val mockAuthors =
 
 private val mockSeries =
     listOf(
-        BookSeries(seriesId = "ser-stormlight", seriesName = "The Stormlight Archive", sequence = 1.0),
-        // Fractional on purpose — see BookDetailHeroPreviews.
-        BookSeries(seriesId = "ser-cosmere", seriesName = "The Cosmere", sequence = 1.5),
+        BookSeriesPath(
+            seriesId = "ser-stormlight",
+            seriesName = "The Stormlight Archive",
+            sequence = "1",
+            ancestors = listOf(SeriesCrumb(id = "ser-cosmere", name = "The Cosmere")),
+        ),
     )
 
 // A full narrator cast (4) so the gallery shows the hero fold ("{lead}, N other narrators"),
@@ -230,7 +234,7 @@ private fun HeroSection() {
         genre = MOCK_GENRE,
         abridged = false,
         subtitle = MOCK_SUBTITLE,
-        series = mockSeries,
+        seriesPaths = mockSeries,
         authors = mockAuthors,
         narrators = mockNarrators,
         onContributorClick = {},
@@ -250,7 +254,7 @@ private fun HeroSection() {
             genre = MOCK_GENRE,
             abridged = false,
             subtitle = MOCK_SUBTITLE,
-            series = mockSeries,
+            seriesPaths = mockSeries,
             authors = mockAuthors,
             narrators = mockNarrators,
             onContributorClick = {},

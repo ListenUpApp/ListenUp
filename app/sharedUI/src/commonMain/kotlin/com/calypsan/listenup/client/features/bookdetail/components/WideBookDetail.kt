@@ -175,7 +175,7 @@ fun WideBookDetail(
                     genre = heroGenre,
                     abridged = book.abridged,
                     subtitle = state.subtitle,
-                    series = book.series,
+                    seriesPaths = state.seriesPaths,
                     authors = book.authors,
                     narrators = book.narrators,
                     onContributorClick = onContributorClick,

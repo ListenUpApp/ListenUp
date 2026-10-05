@@ -8,8 +8,12 @@ import Shared
 /// 2. `StatStrip` — Books / Finished / Total
 /// 3. Full-width Continue CTA
 /// 4. Optional expandable description
-/// 5. "Books in Series" header + order toggle
-/// 6. The books, as rows of a system inset-grouped `List`
+/// 5. On a series with sub-series (or for an editor): the "Sub-series" section of cards
+/// 6. "Books in Series" header + order toggle, or — on a parent series — the books grouped under
+///    each sub-series, then "Also in {series}"
+/// 7. The books, as rows of a system inset-grouped `List`
+///
+/// A child series replaces the "SERIES" eyebrow with its breadcrumb ("Cosmere › Mistborn").
 ///
 /// On iPhone the whole screen is that one `List` — the hero and meta on the plain background above
 /// the Books section. When the width allows (`DetailColumns`), hero + meta move into a left rail
@@ -25,6 +29,7 @@ struct SeriesDetailView: View {
     /// Set when an edit-sheet merge soft-deletes the series we are showing; from then on this screen
     /// shows the survivor instead.
     @State private var mergedIntoSeriesId: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The series actually on screen — the survivor after a merge, otherwise the one we were opened
     /// with. Re-targeting in place is deliberate: pushing the survivor would leave the deleted
@@ -76,6 +81,16 @@ struct SeriesDetailView: View {
                 onClose: { showAuthors = false }
             )
         }
+        .sheet(
+            isPresented: Binding(
+                get: { observer?.addSubSeries.isVisible ?? false },
+                set: { if !$0 { observer?.send(.dismissed) } }
+            )
+        ) {
+            if let observer {
+                AddSubSeriesSheet(model: observer.addSubSeries, send: observer.send)
+            }
+        }
         .task(id: activeSeriesId) {
             let vm = deps.createSeriesDetailViewModel()
             let obs = SeriesDetailObserver(viewModel: vm, playerCoordinator: deps.playerCoordinator)
@@ -123,9 +138,10 @@ struct SeriesDetailView: View {
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             }
-            booksSection(observer: observer)
+            listSections(observer: observer)
         }
         .listStyle(.insetGrouped)
+        .animation(reduceMotion ? nil : .default, value: observer.bookGroups)
     }
 
     private func iPadLayout(observer: SeriesDetailObserver, railWidth: CGFloat) -> some View {
@@ -151,9 +167,10 @@ struct SeriesDetailView: View {
             .frame(width: railWidth)
             // Right column — the books list
             List {
-                booksSection(observer: observer)
+                listSections(observer: observer)
             }
             .listStyle(.insetGrouped)
+            .animation(reduceMotion ? nil : .default, value: observer.bookGroups)
             .contentMargins(.horizontal, 0, for: .scrollContent)
         }
         .padding(.horizontal, DetailColumns.margin)
@@ -165,15 +182,25 @@ struct SeriesDetailView: View {
         VStack(spacing: 8) {
             CoverStack(covers: observer.books.map(CoverArt.init(book:)), size: 150, peek: 34)
                 .accessibilityHidden(true)
-            Text(String(localized: "series.eyebrow"))
-                .font(.caption.weight(.semibold))
-                .kerning(0.6)
-                .textCase(.uppercase)
-                .foregroundStyle(Color.luTint)
+            if observer.ancestors.isEmpty {
+                Text(String(localized: "series.eyebrow"))
+                    .font(.caption.weight(.semibold))
+                    .kerning(0.6)
+                    .textCase(.uppercase)
+                    .foregroundStyle(Color.luTint)
+            } else {
+                // The breadcrumb takes the eyebrow's place on a child series; each crumb pushes that
+                // series, so Back still returns here.
+                SeriesPathView(parts: SeriesPathModel.breadcrumb(observer.ancestors))
+            }
             Text(observer.seriesName)
                 .font(.title.bold())
                 .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
             authorsLine(observer: observer)
+            Text(observer.countLine)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         }
         .padding(.horizontal)
     }
@@ -224,11 +251,92 @@ struct SeriesDetailView: View {
     // MARK: - Continue CTA
 
     private func continueButton(observer: SeriesDetailObserver) -> some View {
-        Button(action: { observer.continueSeries() }) {
-            ActionLabel(title: observer.continueButtonTitle, systemImage: "play.fill")
+        VStack(spacing: Spacing.xs) {
+            Button(action: { observer.continueSeries() }) {
+                ActionLabel(title: observer.continueButtonTitle, systemImage: "play.fill")
+            }
+            .prominentAction()
+            .disabled(observer.books.isEmpty)
+            // A grouped page says where the book sits: "Mistborn Era 1 · Book 3".
+            if let subtitle = observer.continueSubtitle {
+                Text(subtitle)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
         }
-        .prominentAction()
-        .disabled(observer.books.isEmpty)
+    }
+
+    // MARK: - List sections
+
+    /// Sub-series (on a parent, or for an editor who may add the first), then the books — grouped
+    /// under each sub-series on a parent page, one flat sortable list otherwise.
+    @ViewBuilder
+    private func listSections(observer: SeriesDetailObserver) -> some View {
+        if observer.isGrouped || observer.canEditHierarchy {
+            subSeriesSection(observer: observer)
+        }
+        if observer.isGrouped {
+            groupedBooksSections(observer: observer)
+        } else {
+            booksSection(observer: observer)
+        }
+    }
+
+    private func subSeriesSection(observer: SeriesDetailObserver) -> some View {
+        Section {
+            ForEach(observer.childSeries) { card in
+                ChildSeriesRow(card: card)
+            }
+            if observer.canEditHierarchy {
+                // Editors only; needs the server, so it is disabled — not hidden — offline.
+                Button { observer.send(.opened) } label: {
+                    Label(String(localized: "series.add_subseries"), systemImage: "plus")
+                }
+                .disabled(!observer.isOnline)
+            }
+        } header: {
+            sectionTitle(String(localized: "series.subseries"), count: observer.childSeries.count)
+        }
+    }
+
+    @ViewBuilder
+    private func groupedBooksSections(observer: SeriesDetailObserver) -> some View {
+        Section {
+            EmptyView()
+        } header: {
+            sectionTitle(String(localized: "series.books"), count: observer.bookCount)
+        }
+        ForEach(observer.bookGroups) { group in
+            Section {
+                if group.isCollapsed {
+                    // A folded group (a finished sub-series starts this way) expands in place.
+                    Button(SeriesHierarchyText.showAll(group.bookCount)) { observer.toggleGroup(group.seriesId) }
+                } else {
+                    ForEach(group.books, id: \.id) { book in
+                        bookRow(book, observer: observer)
+                    }
+                }
+            } header: {
+                SeriesGroupHeader(group: group) { observer.toggleGroup(group.seriesId) }
+            }
+        }
+    }
+
+    /// A section title — "Sub-series 4", "Books 23" — that the rotor lists as a heading.
+    private func sectionTitle(_ title: String, count: Int) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title)
+                .font(.title2.bold())
+                .foregroundStyle(.primary)
+                .accessibilityAddTraits(.isHeader)
+            if count > 0 {
+                Text("(\(count))")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .textCase(nil)
     }
 
     // MARK: - Books section
@@ -237,32 +345,38 @@ struct SeriesDetailView: View {
         let displayedBooks = reversed ? Array(observer.books.reversed()) : observer.books
         return Section {
             ForEach(displayedBooks, id: \.id) { book in
-                NavigationLink(value: BookDestination(id: book.id)) {
-                    SeriesBookRow(
-                        book: book,
-                        sequence: book.sequence,
-                        progress: observer.progress(for: book.id),
-                        isFinished: observer.isFinished(book.id),
-                        isPlaying: observer.isPlaying(book.id),
-                        onPlayTapped: { observer.playBook(book.id) }
-                    )
-                }
-                .bookContextMenu(bookId: book.id, selection: nil) {
-                    SeriesBookRow(
-                        book: book,
-                        sequence: book.sequence,
-                        progress: observer.progress(for: book.id),
-                        isFinished: observer.isFinished(book.id),
-                        isPlaying: observer.isPlaying(book.id),
-                        onPlayTapped: {}
-                    )
-                    .padding(.horizontal, Spacing.m)
-                    .padding(.vertical, Spacing.s)
-                }
+                bookRow(book, observer: observer)
             }
         } header: {
             booksHeader(observer: observer)
                 .textCase(nil)
+        }
+    }
+
+    /// One book: the row opens it, its button plays it. `book.sequence` is its number in the series
+    /// it is listed under.
+    private func bookRow(_ book: BookRow, observer: SeriesDetailObserver) -> some View {
+        NavigationLink(value: BookDestination(id: book.id)) {
+            SeriesBookRow(
+                book: book,
+                sequence: book.sequence,
+                progress: observer.progress(for: book.id),
+                isFinished: observer.isFinished(book.id),
+                isPlaying: observer.isPlaying(book.id),
+                onPlayTapped: { observer.playBook(book.id) }
+            )
+        }
+        .bookContextMenu(bookId: book.id, selection: nil) {
+            SeriesBookRow(
+                book: book,
+                sequence: book.sequence,
+                progress: observer.progress(for: book.id),
+                isFinished: observer.isFinished(book.id),
+                isPlaying: observer.isPlaying(book.id),
+                onPlayTapped: {}
+            )
+            .padding(.horizontal, Spacing.m)
+            .padding(.vertical, Spacing.s)
         }
     }
 

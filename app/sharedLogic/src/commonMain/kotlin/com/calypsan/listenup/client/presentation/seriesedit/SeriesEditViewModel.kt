@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
+import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.usecase.series.SeriesUpdateRequest
@@ -59,6 +60,7 @@ private const val STOP_TIMEOUT_MS = 5_000L
  * @property seriesEditRepository RPC dispatcher for merge
  * @property seriesDao DAO for browsing all series as merge-target candidates
  * @property errorBus Global error bus for snackbar emissions
+ * @property networkMonitor Hierarchy changes need the server; offline, the screen disables them
  */
 class SeriesEditViewModel internal constructor(
     private val seriesRepository: SeriesRepository,
@@ -68,6 +70,7 @@ class SeriesEditViewModel internal constructor(
     private val seriesEditRepository: SeriesEditRepository,
     private val seriesDao: SeriesDao,
     private val errorBus: ErrorBus,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
     val state: StateFlow<SeriesEditUiState>
         field = MutableStateFlow(SeriesEditUiState())
@@ -138,17 +141,40 @@ class SeriesEditViewModel internal constructor(
             errorBus = errorBus,
             state = state,
             observeLineage = seriesRepository::observeSeriesLineage,
-            observeAllSeries = seriesDao::observeAll,
+            hierarchy = seriesRepository.observeHierarchy(),
+            createSeries = seriesEditRepository::createSeries,
             setParent = seriesEditRepository::setParent,
             reorderChildren = seriesEditRepository::reorderChildren,
         )
 
     /**
-     * Candidates for the parent picker — every live series this one may sit under (never itself
-     * or its own sub-series), filtered by [SeriesEditUiState.parentQuery]. Computed only while the
-     * picker is visible, like [mergeCandidates].
+     * The "Move into…" picker's rows: the whole tree, with the series itself, everything inside it
+     * and its current parent disabled — each with its reason — or every match while searching.
+     * Computed only while the picker is visible, like [mergeCandidates].
      */
-    val parentCandidates: StateFlow<List<SeriesCandidate>> = hierarchy.parentCandidates
+    val parentPickerRows: StateFlow<List<ParentPickerRow>> = hierarchy.parentPickerRows
+
+    private val subSeries =
+        SubSeriesAdder(
+            scope = viewModelScope,
+            errorBus = errorBus,
+            hierarchy = seriesRepository.observeHierarchy(),
+            parentId = { state.value.seriesId.ifBlank { null } },
+            createSeries = seriesEditRepository::createSeries,
+            setParent = seriesEditRepository::setParent,
+        )
+
+    /** The "Add sub-series" sheet. */
+    val addSubSeries: StateFlow<AddSubSeriesUiState> = subSeries.state
+
+    /** Handle the "Add sub-series" sheet's events. */
+    fun onAddSubSeriesEvent(event: AddSubSeriesEvent) = subSeries.onEvent(event)
+
+    init {
+        viewModelScope.launch {
+            networkMonitor.isOnlineFlow.collect { online -> state.update { it.copy(isOnline = online) } }
+        }
+    }
 
     /**
      * Update the merge-target picker's search query. The [mergeCandidates] Flow
@@ -285,6 +311,26 @@ class SeriesEditViewModel internal constructor(
 
             is SeriesEditUiEvent.ChildSeriesReordered -> {
                 hierarchy.reorderChildSeries(event.orderedChildIds.map(::SeriesId))
+            }
+
+            is SeriesEditUiEvent.ParentPickerNodeToggled -> {
+                hierarchy.toggleNode(event.seriesId)
+            }
+
+            is SeriesEditUiEvent.NewParentStarted -> {
+                hierarchy.startNewParent()
+            }
+
+            is SeriesEditUiEvent.NewParentNameChanged -> {
+                hierarchy.changeNewParentName(event.name)
+            }
+
+            is SeriesEditUiEvent.NewParentDismissed -> {
+                hierarchy.dismissNewParent()
+            }
+
+            is SeriesEditUiEvent.NewParentConfirmed -> {
+                hierarchy.createParent()
             }
         }
     }

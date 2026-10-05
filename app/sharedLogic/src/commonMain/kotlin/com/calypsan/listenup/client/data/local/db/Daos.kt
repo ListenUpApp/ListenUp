@@ -73,6 +73,31 @@ internal interface SeriesDao {
     @Query("SELECT bookId FROM book_series WHERE seriesId = :seriesId")
     fun observeBookIdsForSeries(seriesId: String): Flow<List<String>>
 
+    /**
+     * Every book the library shows in each series, as `(seriesId, bookId)` pairs — what the series
+     * hierarchy counts. Deleted and held books are left out, as everywhere a member can look.
+     */
+    @Query(
+        """
+        SELECT bs.seriesId AS seriesId, bs.bookId AS bookId FROM book_series bs
+        INNER JOIN books b ON b.id = bs.bookId
+        WHERE b.deletedAt IS NULL AND b.id NOT IN ($HELD_BOOK_IDS_SQL)
+        ORDER BY bs.seriesId, bs.bookId
+    """,
+    )
+    fun observeVisibleMemberships(): Flow<List<SeriesMembershipRow>>
+
+    /** One-shot [observeVisibleMemberships]. */
+    @Query(
+        """
+        SELECT bs.seriesId AS seriesId, bs.bookId AS bookId FROM book_series bs
+        INNER JOIN books b ON b.id = bs.bookId
+        WHERE b.deletedAt IS NULL AND b.id NOT IN ($HELD_BOOK_IDS_SQL)
+        ORDER BY bs.seriesId, bs.bookId
+    """,
+    )
+    suspend fun getVisibleMemberships(): List<SeriesMembershipRow>
+
     @Upsert
     suspend fun upsert(series: SeriesEntity)
 

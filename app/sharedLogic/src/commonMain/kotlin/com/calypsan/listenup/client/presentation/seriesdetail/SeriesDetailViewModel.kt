@@ -14,6 +14,17 @@ import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
+import com.calypsan.listenup.client.domain.model.SeriesChild
+import com.calypsan.listenup.client.domain.repository.NetworkMonitor
+import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
+import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesEvent
+import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesUiState
+import com.calypsan.listenup.client.presentation.seriesedit.SubSeriesAdder
+import com.calypsan.listenup.core.error.ErrorBus
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -39,8 +50,24 @@ class SeriesDetailViewModel(
     private val seriesRepository: SeriesRepository,
     private val imageRepository: ImageRepository,
     private val playbackPositionRepository: PlaybackPositionRepository,
+    private val userRepository: UserRepository,
+    private val networkMonitor: NetworkMonitor,
+    seriesEditRepository: SeriesEditRepository,
+    errorBus: ErrorBus,
 ) : ViewModel() {
     private val seriesIdFlow = MutableStateFlow<String?>(null)
+
+    /** The reader's own expand/collapse choices on this page — series id to expanded. */
+    private val expandOverrides = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+
+    /** Who may change the hierarchy, and whether the server can be reached to do it. */
+    private val hierarchyAccess: Flow<Pair<Boolean, Boolean>> =
+        combine(
+            userRepository.observeCurrentUser().map { user ->
+                user != null && (user.isAdmin || user.permissions.canEdit)
+            },
+            networkMonitor.isOnlineFlow,
+        ) { canEdit, online -> canEdit to online }
 
     val state: StateFlow<SeriesDetailUiState> =
         seriesIdFlow
@@ -52,9 +79,12 @@ class SeriesDetailViewModel(
                         seriesRepository.observeSeriesWithBooks(id),
                         seriesRepository.observeSeriesLineage(id),
                         playbackPositionRepository.observeAll(),
-                    ) { seriesWithBooks, lineage, positions ->
+                        expandOverrides,
+                        hierarchyAccess,
+                    ) { seriesWithBooks, lineage, positions, overrides, (canEdit, online) ->
                         if (seriesWithBooks != null) {
-                            buildReadyState(id, seriesWithBooks, lineage, positions)
+                            buildReadyState(id, seriesWithBooks, lineage, positions, overrides)
+                                .copy(canEditHierarchy = canEdit, isOnline = online)
                         } else {
                             SeriesDetailUiState.Error("Series not found")
                         }
@@ -68,8 +98,39 @@ class SeriesDetailViewModel(
 
     /** Set the series to observe. Safe to call repeatedly with the same id. */
     fun loadSeries(seriesId: String) {
+        if (seriesIdFlow.value != seriesId) expandOverrides.value = emptyMap()
         seriesIdFlow.value = seriesId
     }
+
+    /**
+     * Fold or unfold the sub-series [seriesId]'s group of books. The reader's choice beats the
+     * default (a finished sub-series starts folded) for as long as the page is open.
+     */
+    fun toggleSection(seriesId: String) {
+        val current =
+            (state.value as? SeriesDetailUiState.Ready)?.bookSections?.firstOrNull {
+                it.seriesId == seriesId &&
+                    it.isCollapsible
+            }
+        val expandedNow = current?.isCollapsed == false
+        expandOverrides.update { it + (seriesId to !expandedNow) }
+    }
+
+    private val subSeries =
+        SubSeriesAdder(
+            scope = viewModelScope,
+            errorBus = errorBus,
+            hierarchy = seriesRepository.observeHierarchy(),
+            parentId = { seriesIdFlow.value },
+            createSeries = seriesEditRepository::createSeries,
+            setParent = seriesEditRepository::setParent,
+        )
+
+    /** The "Add sub-series" sheet, opened from the page's tile (editors only). */
+    val addSubSeries: StateFlow<AddSubSeriesUiState> = subSeries.state
+
+    /** Handle the "Add sub-series" sheet's events. */
+    fun onAddSubSeriesEvent(event: AddSubSeriesEvent) = subSeries.onEvent(event)
 
     /**
      * Builds the [SeriesDetailUiState.Ready] projection, folding live playback
@@ -80,6 +141,7 @@ class SeriesDetailViewModel(
         seriesWithBooks: SeriesWithBooks,
         lineage: SeriesLineage,
         positions: Map<BookId, PlaybackPosition>,
+        overrides: Map<String, Boolean>,
     ): SeriesDetailUiState.Ready {
         // A series with sub-series shows its whole subtree, already in series order; a flat
         // series keeps its own books by sequence, exactly as before the hierarchy existed.
@@ -114,6 +176,18 @@ class SeriesDetailViewModel(
             books.firstOrNull { bookProgress.containsKey(it.id) }?.id
                 ?: books.firstOrNull { it.id !in finishedBookIds }?.id
 
+        val allSections =
+            seriesBookSections(
+                pageId = seriesId,
+                pageName = seriesWithBooks.series.name,
+                lineage = lineage,
+                flatBooks = books,
+                booksById = books.associateBy { it.id.value },
+                finishedBookIds = finishedBookIds,
+                // Every group open: the resume book is looked up across all of them, folded or not.
+                expandOverrides = lineage.allSeriesIds().associateWith { true },
+            )
+
         return SeriesDetailUiState.Ready(
             seriesId = seriesId,
             seriesName = seriesWithBooks.series.name,
@@ -138,17 +212,48 @@ class SeriesDetailViewModel(
             bookProgress = bookProgress,
             finishedBookIds = finishedBookIds,
             resumeTarget = resumeTarget,
+            resumeBook = resumeTarget?.let { target -> resumeBookUi(target, allSections) },
             ancestors = lineage.ancestors.map { SeriesCrumb(id = it.id.value, name = it.name) },
             childSeries =
                 lineage.children.map { child ->
                     ChildSeriesUi(
                         id = child.series.id.value,
                         name = child.series.name,
-                        coverPath = child.series.coverPath,
+                        coverPath =
+                            child.series.coverPath
+                                ?: child.bookIds.firstNotNullOfOrNull { id ->
+                                    books.firstOrNull { it.id.value == id }?.coverPath
+                                },
                         bookCount = child.bookIds.size,
                         finishedCount = child.bookIds.count { BookId(it) in finishedBookIds },
+                        subSeriesCount = child.children.size,
                     )
                 },
+            bookSections =
+                seriesBookSections(
+                    pageId = seriesId,
+                    pageName = seriesWithBooks.series.name,
+                    lineage = lineage,
+                    flatBooks = books,
+                    booksById = books.associateBy { it.id.value },
+                    finishedBookIds = finishedBookIds,
+                    expandOverrides = overrides,
+                ),
+        )
+    }
+
+    /** The resume book with the series it is listed under on this page, for the Continue button. */
+    private fun resumeBookUi(
+        target: BookId,
+        sections: List<SeriesBookSection>,
+    ): SeriesResumeUi? {
+        val section = sections.firstOrNull { section -> section.books.any { it.id == target } } ?: return null
+        val book = section.books.first { it.id == target }
+        return SeriesResumeUi(
+            bookId = target.value,
+            title = book.title,
+            seriesName = section.title,
+            sequence = book.series.firstOrNull { it.seriesId == section.seriesId }?.sequenceLabel,
         )
     }
 
@@ -209,7 +314,22 @@ sealed interface SeriesDetailUiState {
         val ancestors: List<SeriesCrumb> = emptyList(),
         /** The direct sub-series, in sibling order. Empty for a series with none. */
         val childSeries: List<ChildSeriesUi> = emptyList(),
+        /**
+         * The book list's headings, in reading order. On a page with sub-series the books are grouped
+         * under each sub-series and the page's own books come last; a flat page has one section,
+         * shown without a heading.
+         */
+        val bookSections: List<SeriesBookSection> = emptyList(),
+        /** The book Continue resumes, with the series it is listed under; null when all are finished. */
+        val resumeBook: SeriesResumeUi? = null,
+        /** Whether the reader may change the hierarchy (admin, or the edit permission). */
+        val canEditHierarchy: Boolean = false,
+        /** Whether the device has a network route; hierarchy changes need the server. */
+        val isOnline: Boolean = true,
     ) : SeriesDetailUiState {
+        /** True when the page lists sub-series — its books are grouped, and Continue names the book. */
+        val isGrouped: Boolean get() = childSeries.isNotEmpty()
+
         /** Number of finished books, for the hero "X finished" stat. */
         val finishedCount: Int get() = finishedBookIds.size
 
@@ -240,4 +360,36 @@ data class ChildSeriesUi(
     val coverPath: String?,
     val bookCount: Int,
     val finishedCount: Int,
+    /** How many series sit directly inside this one — the card's "2 series" hint. */
+    val subSeriesCount: Int = 0,
+) {
+    /** Every book finished. */
+    val isFinished: Boolean get() = bookCount > 0 && finishedCount == bookCount
+
+    /** No book started or finished — "Not started". */
+    val isNotStarted: Boolean get() = finishedCount == 0
+}
+
+/**
+ * The book the Continue button resumes. On a page with sub-series the button names the book and
+ * where it sits — "Continue The Hero of Ages", "Mistborn Era 1 · Book 3" — because "Continue Book 3"
+ * would be ambiguous across four series.
+ *
+ * @property sequence the book's number in [seriesName], formatted; null when unnumbered.
+ */
+data class SeriesResumeUi(
+    val bookId: String,
+    val title: String,
+    val seriesName: String,
+    val sequence: String?,
 )
+
+/** Every series id below the page, for opening every group at once. */
+private fun SeriesLineage.allSeriesIds(): List<String> {
+    fun walk(children: List<SeriesChild>): List<String> =
+        children.flatMap {
+            listOf(it.series.id.value) +
+                walk(it.children)
+        }
+    return walk(children)
+}

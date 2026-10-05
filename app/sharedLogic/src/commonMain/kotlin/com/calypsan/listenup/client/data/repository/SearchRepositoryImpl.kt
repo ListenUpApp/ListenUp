@@ -5,6 +5,8 @@ import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.client.data.local.db.BookSearchResult
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.SearchDao
+import com.calypsan.listenup.client.data.local.db.SeriesDao
+import com.calypsan.listenup.client.domain.model.SeriesHierarchy
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
 import com.calypsan.listenup.client.data.local.db.TagEntity
 import com.calypsan.listenup.client.data.local.db.coverPathFor
@@ -33,10 +35,12 @@ private val logger = KotlinLogging.logger {}
  * rebuilds it after each catch-up/scan and self-heals an empty index on startup.
  *
  * @property searchDao Local FTS5 search DAO
+ * @property seriesDao For where each series hit sits in the hierarchy, and its book count
  * @property imageStorage For resolving local cover paths
  */
 internal class SearchRepositoryImpl(
     private val searchDao: SearchDao,
+    private val seriesDao: SeriesDao,
     private val imageStorage: ImageStorage,
 ) : com.calypsan.listenup.client.domain.repository.SearchRepository {
     /**
@@ -121,7 +125,14 @@ internal class SearchRepositoryImpl(
                         if (SearchHitType.SERIES in searchTypes) {
                             addAll(
                                 safeSearch("Series FTS") {
-                                    searchDao.searchSeries(ftsQuery, limit / 2).map { it.toSearchHit() }
+                                    val matches = searchDao.searchSeries(ftsQuery, limit / 2)
+                                    val hierarchy =
+                                        if (matches.isEmpty()) {
+                                            SeriesHierarchy.Empty
+                                        } else {
+                                            hierarchyOf(seriesDao.getAll(), seriesDao.getVisibleMemberships())
+                                        }
+                                    matches.map { it.toSearchHit(hierarchy) }
                                 },
                             )
                         }
@@ -196,13 +207,14 @@ private fun ContributorEntity.toSearchHit(): SearchHit =
         score = 1.0f,
     )
 
-private fun SeriesEntity.toSearchHit(): SearchHit =
+private fun SeriesEntity.toSearchHit(hierarchy: SeriesHierarchy): SearchHit =
     SearchHit(
         id = id.value,
         type = SearchHitType.SERIES,
         name = name,
-        bookCount = null,
+        bookCount = hierarchy.bookCount(id.value),
         score = 1.0f,
+        seriesPath = hierarchy.pathNames(id.value),
     )
 
 private fun TagEntity.toSearchHit(): SearchHit =

@@ -198,7 +198,7 @@ class LibraryViewModelTest :
 
             // Default stubs for all dependencies
             every { fixture.bookRepository.observeBookListItems() } returns flowOf(emptyList<BookListItem>())
-            every { fixture.seriesRepository.observeAllWithBooks() } returns flowOf(emptyList())
+            every { fixture.seriesRepository.observeRootSeriesWithBooks() } returns flowOf(emptyList())
             every { fixture.contributorRepository.observeContributorsByRole(ContributorRole.AUTHOR.apiValue) } returns
                 flowOf(emptyList())
             every { fixture.contributorRepository.observeContributorsByRole(ContributorRole.NARRATOR.apiValue) } returns
@@ -845,7 +845,7 @@ class LibraryViewModelTest :
                         ),
                     )
                 val fixture = createFixture()
-                every { fixture.seriesRepository.observeAllWithBooks() } returns flowOf(seriesList)
+                every { fixture.seriesRepository.observeRootSeriesWithBooks() } returns flowOf(seriesList)
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.uiState.collect { } }
                 advanceUntilIdle()
@@ -879,7 +879,7 @@ class LibraryViewModelTest :
                     )
                 val fixture = createFixture()
                 everySuspend { fixture.libraryPreferences.getIgnoreTitleArticles() } returns true
-                every { fixture.seriesRepository.observeAllWithBooks() } returns flowOf(seriesList)
+                every { fixture.seriesRepository.observeRootSeriesWithBooks() } returns flowOf(seriesList)
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.uiState.collect { } }
                 advanceUntilIdle()
@@ -913,7 +913,7 @@ class LibraryViewModelTest :
                         ),
                     )
                 val fixture = createFixture()
-                every { fixture.seriesRepository.observeAllWithBooks() } returns flowOf(seriesList)
+                every { fixture.seriesRepository.observeRootSeriesWithBooks() } returns flowOf(seriesList)
                 everySuspend { fixture.libraryPreferences.setSeriesSortState(any()) } returns Unit
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.uiState.collect { } }
@@ -1277,7 +1277,7 @@ class LibraryViewModelTest :
                 val fixture = createFixture()
                 // hideSingleBookSeries is true by default; override to false or use 3-book series
                 // The 3-book series is already > 1, so it passes the filter.
-                every { fixture.seriesRepository.observeAllWithBooks() } returns flowOf(seriesList)
+                every { fixture.seriesRepository.observeRootSeriesWithBooks() } returns flowOf(seriesList)
                 every { fixture.playbackPositionRepository.observeAll() } returns flowOf(positions)
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.uiState.collect { } }

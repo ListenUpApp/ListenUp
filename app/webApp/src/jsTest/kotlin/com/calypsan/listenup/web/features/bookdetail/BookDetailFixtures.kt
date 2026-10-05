@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.client.presentation.bookdetail.BookSeriesPath
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
@@ -29,6 +30,8 @@ internal fun readyBook(
     authors: List<BookContributor> = listOf(BookContributor(id = "c1", name = "Stephen King")),
     narrators: List<BookContributor> = listOf(BookContributor(id = "c2", name = "Santino Fontana")),
     series: List<BookSeries> = emptyList(),
+    seriesPaths: List<BookSeriesPath> =
+        series.map { BookSeriesPath(it.seriesId, it.seriesName, it.sequenceLabel, ancestors = emptyList()) },
     tags: List<Tag> = emptyList(),
     moods: List<Mood> = emptyList(),
     showServerWarning: Boolean = false,
@@ -61,6 +64,7 @@ internal fun readyBook(
         tags = tags,
         moods = moods,
         showServerWarning = showServerWarning,
+        seriesPaths = seriesPaths,
     )
 
 /**

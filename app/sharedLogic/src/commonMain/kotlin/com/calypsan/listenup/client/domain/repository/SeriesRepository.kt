@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.client.domain.model.Series
+import com.calypsan.listenup.client.domain.model.SeriesHierarchy
 import com.calypsan.listenup.client.domain.model.SeriesLineage
 import com.calypsan.listenup.client.domain.model.SeriesSearchResponse
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
@@ -68,14 +69,20 @@ interface SeriesRepository {
     // ========== Library View Methods ==========
 
     /**
-     * Observe all series with their books.
+     * Observe the top-level series with every book of their subtree — the Library's Series grid.
      *
-     * Used for displaying series list in library views where book covers are needed
-     * for cover stacks.
-     *
-     * @return Flow emitting list of series with all book data
+     * A series that sits inside another never appears here; its books are folded into its root's,
+     * distinct and in series order ([com.calypsan.listenup.domain.series.SeriesTree.defaultBookOrder]),
+     * and [SeriesWithBooks.subSeriesCount] says how many direct sub-series the root has. A root whose
+     * whole subtree holds no book the library shows is left out.
      */
-    fun observeAllWithBooks(): Flow<List<SeriesWithBooks>>
+    fun observeRootSeriesWithBooks(): Flow<List<SeriesWithBooks>>
+
+    /**
+     * Observe the whole series hierarchy: every live series and every book the library shows in each.
+     * The one place every surface reads "where does this series sit" and "how many books are under it".
+     */
+    fun observeHierarchy(): Flow<SeriesHierarchy>
 
     // ========== Series Detail Methods ==========
 

@@ -31,6 +31,9 @@ import dev.mokkery.mock
 import dev.mokkery.verify
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
+import com.calypsan.listenup.client.domain.model.SeriesHierarchy
+import com.calypsan.listenup.client.domain.repository.NetworkMonitor
+import kotlinx.coroutines.launch
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CompletableDeferred
@@ -54,10 +57,14 @@ class SeriesEditViewModelTest :
         // ========== Test Fixture ==========
 
         class TestFixture {
+            val hierarchy = MutableStateFlow(SeriesHierarchy.Empty)
+            val online = MutableStateFlow(true)
             val seriesRepository: SeriesRepository =
                 mock {
                     every { observeSeriesLineage(any()) } returns MutableStateFlow(SeriesLineage.Flat)
+                    every { observeHierarchy() } returns hierarchy
                 }
+            val networkMonitor: NetworkMonitor = mock { every { isOnlineFlow } returns online }
             val updateSeriesUseCase: UpdateSeriesUseCase = mock()
             val imageRepository: ImageRepository = mock()
             val imageStagingRepository: ImageStagingRepository = mock()
@@ -80,6 +87,7 @@ class SeriesEditViewModelTest :
                     seriesEditRepository = seriesEditRepository,
                     seriesDao = seriesDao,
                     errorBus = errorBus,
+                    networkMonitor = networkMonitor,
                 )
         }
 
@@ -683,39 +691,220 @@ class SeriesEditViewModelTest :
             }
         }
 
-        test("the parent picker offers every live series but this one and its own sub-series") {
+        fun hierarchyOf(vararg series: Series) = SeriesHierarchy(series.toList(), emptyList())
+
+        fun node(
+            id: String,
+            name: String,
+            parent: String? = null,
+            position: Int = 0,
+        ) = createSeries(id = id, name = name).copy(parentId = parent?.let(::SeriesId), parentPosition = position)
+
+        // Cosmere ─┬─ Mistborn ─┬─ Era 1
+        //          │            └─ Era 2
+        //          └─ Stormlight
+        // Discworld ── City Watch
+        val cosmere =
+            hierarchyOf(
+                node("cosmere", "Cosmere"),
+                node("mistborn", "Mistborn", "cosmere", 0),
+                node("stormlight", "Stormlight", "cosmere", 1),
+                node("era1", "Era 1", "mistborn", 0),
+                node("era2", "Era 2", "mistborn", 1),
+                node("discworld", "Discworld"),
+                node("watch", "City Watch", "discworld", 0),
+            )
+
+        test("Move into… shows the tree, with this series, what's inside it and its parent greyed out") {
             runTest {
                 val fixture = createFixture()
-                every { fixture.seriesDao.observeAll() } returns
-                    MutableStateFlow(
-                        listOf(
-                            createSeriesEntity("cosmere", "Cosmere"),
-                            createSeriesEntity("mistborn", "Mistborn"),
-                            createSeriesEntity("era1", "Era 1", parentId = "mistborn", parentPosition = 0),
-                            createSeriesEntity("narnia", "Narnia"),
-                            createSeriesEntity("gone", "Gone", deletedAt = 123L),
-                        ),
-                    )
+                fixture.hierarchy.value = cosmere
                 val viewModel = loaded(fixture)
                 advanceUntilIdle()
 
-                viewModel.parentCandidates.test {
+                viewModel.parentPickerRows.test {
                     awaitItem() shouldBe emptyList()
 
                     viewModel.onEvent(SeriesEditUiEvent.ParentPickerOpened)
                     advanceUntilIdle()
-                    awaitItem().map { it.displayName } shouldBe listOf("Cosmere", "Narnia")
+                    awaitItem().map { Triple(it.name, it.depth, it.disabledReason) } shouldBe
+                        listOf(
+                            Triple("Cosmere", 0, ParentPickerDisabledReason.CURRENT_PARENT),
+                            Triple("Mistborn", 1, ParentPickerDisabledReason.THIS_SERIES),
+                            Triple("Era 1", 2, ParentPickerDisabledReason.INSIDE_THIS_SERIES),
+                            Triple("Era 2", 2, ParentPickerDisabledReason.INSIDE_THIS_SERIES),
+                            Triple("Stormlight", 1, null),
+                            Triple("Discworld", 0, null),
+                        )
 
-                    viewModel.onEvent(SeriesEditUiEvent.ParentQueryChanged("nar"))
+                    viewModel.onEvent(SeriesEditUiEvent.ParentPickerNodeToggled("discworld"))
                     advanceUntilIdle()
-                    awaitItem().map { it.displayName } shouldBe listOf("Narnia")
+                    awaitItem().map { it.name } shouldBe
+                        listOf("Cosmere", "Mistborn", "Era 1", "Era 2", "Stormlight", "Discworld", "City Watch")
+
+                    viewModel.onEvent(SeriesEditUiEvent.ParentQueryChanged("era"))
+                    advanceUntilIdle()
+                    awaitItem().map { it.name to it.pathNames } shouldBe
+                        listOf("Era 1" to listOf("Cosmere", "Mistborn"), "Era 2" to listOf("Cosmere", "Mistborn"))
 
                     viewModel.onEvent(SeriesEditUiEvent.ParentPickerDismissed)
                     advanceUntilIdle()
                     awaitItem() shouldBe emptyList()
                 }
                 viewModel.state.value.parentQuery shouldBe ""
-                viewModel.state.value.parentPickerVisible shouldBe false
+            }
+        }
+
+        test("a greyed-out parent can't be chosen: nothing is sent") {
+            runTest {
+                val fixture = createFixture()
+                fixture.hierarchy.value = cosmere
+                val viewModel = loaded(fixture)
+                backgroundScope.launch { viewModel.parentPickerRows.collect { } }
+                advanceUntilIdle()
+
+                viewModel.onEvent(SeriesEditUiEvent.ParentSelected("era1"))
+                viewModel.onEvent(SeriesEditUiEvent.ParentSelected("mistborn"))
+                viewModel.onEvent(SeriesEditUiEvent.ParentSelected("cosmere"))
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.not) { fixture.seriesEditRepository.setParent(any(), any()) }
+            }
+        }
+
+        test("a new parent is created where the series sits, and the series moves into it") {
+            runTest {
+                val fixture = createFixture()
+                fixture.hierarchy.value = hierarchyOf(node("cosmere", "Cosmere"), node("mistborn", "Mistborn", "cosmere"))
+                everySuspend { fixture.seriesEditRepository.createSeries("Mistborn Saga", SeriesId("cosmere")) } returns
+                    AppResult.Success(SeriesId("saga"))
+                everySuspend { fixture.seriesEditRepository.setParent(SeriesId("mistborn"), SeriesId("saga")) } returns
+                    AppResult.Success(Unit)
+                val viewModel =
+                    loaded(
+                        fixture,
+                        MutableStateFlow(SeriesLineage(listOf(createSeries(id = "cosmere", name = "Cosmere")), emptyList(), emptyList())),
+                    )
+                advanceUntilIdle()
+
+                viewModel.onEvent(SeriesEditUiEvent.NewParentStarted)
+                viewModel.onEvent(SeriesEditUiEvent.NewParentNameChanged("  Mistborn Saga "))
+                viewModel.state.value.newParent
+                    ?.canCreate shouldBe true
+                viewModel.onEvent(SeriesEditUiEvent.NewParentConfirmed)
+                advanceUntilIdle()
+
+                verifySuspend { fixture.seriesEditRepository.createSeries("Mistborn Saga", SeriesId("cosmere")) }
+                verifySuspend { fixture.seriesEditRepository.setParent(SeriesId("mistborn"), SeriesId("saga")) }
+                viewModel.state.value.newParent shouldBe null
+                viewModel.state.value.hierarchyBusy shouldBe false
+            }
+        }
+
+        test("a new parent name that already exists offers that series instead of creating a duplicate") {
+            runTest {
+                val fixture = createFixture()
+                fixture.hierarchy.value = cosmere
+                val viewModel = loaded(fixture)
+                advanceUntilIdle()
+
+                viewModel.onEvent(SeriesEditUiEvent.NewParentStarted)
+                viewModel.onEvent(SeriesEditUiEvent.NewParentNameChanged("discworld"))
+
+                viewModel.state.value.newParent
+                    ?.existing shouldBe
+                    ExistingSeriesMatch(id = "discworld", name = "Discworld", isSelectable = true)
+                viewModel.state.value.newParent
+                    ?.canCreate shouldBe false
+                viewModel.onEvent(SeriesEditUiEvent.NewParentConfirmed)
+                advanceUntilIdle()
+                verifySuspend(VerifyMode.not) { fixture.seriesEditRepository.createSeries(any(), any()) }
+
+                // A name inside this series can't be offered: it would form a loop.
+                viewModel.onEvent(SeriesEditUiEvent.NewParentNameChanged("Era 1"))
+                viewModel.state.value.newParent
+                    ?.existing
+                    ?.isSelectable shouldBe false
+            }
+        }
+
+        test("going offline is on the state, so the screen can disable hierarchy changes") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = loaded(fixture)
+                advanceUntilIdle()
+                viewModel.state.value.isOnline shouldBe true
+
+                fixture.online.value = false
+                advanceUntilIdle()
+                viewModel.state.value.isOnline shouldBe false
+            }
+        }
+
+        test("the editor's Add sub-series sheet adds a top-level series straight away") {
+            runTest {
+                val fixture = createFixture()
+                fixture.hierarchy.value = cosmere
+                everySuspend { fixture.seriesEditRepository.setParent(SeriesId("discworld"), SeriesId("mistborn")) } returns
+                    AppResult.Success(Unit)
+                val viewModel = loaded(fixture)
+                backgroundScope.launch { viewModel.addSubSeries.collect { } }
+                advanceUntilIdle()
+
+                viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.Opened)
+                advanceUntilIdle()
+                val state = viewModel.addSubSeries.value as AddSubSeriesUiState.Open
+                state.parentName shouldBe "Mistborn"
+                // Never itself or a series above it; its own sub-series are listed last, not choosable.
+                state.candidates.map { it.name to it.placement } shouldBe
+                    listOf(
+                        "City Watch" to SubSeriesPlacement.IN_OTHER_PARENT,
+                        "Discworld" to SubSeriesPlacement.TOP_LEVEL,
+                        "Stormlight" to SubSeriesPlacement.IN_OTHER_PARENT,
+                        "Era 1" to SubSeriesPlacement.ALREADY_HERE,
+                        "Era 2" to SubSeriesPlacement.ALREADY_HERE,
+                    )
+
+                viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.Chosen("era1"))
+                viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.Chosen("discworld"))
+                advanceUntilIdle()
+
+                // Era 1 is already here and choosing it sends nothing: the one call is Discworld's.
+                verifySuspend(VerifyMode.exactly(1)) {
+                    fixture.seriesEditRepository.setParent(SeriesId("discworld"), SeriesId("mistborn"))
+                }
+            }
+        }
+
+        test("a new sub-series is created inside this one") {
+            runTest {
+                val fixture = createFixture()
+                fixture.hierarchy.value = cosmere
+                everySuspend { fixture.seriesEditRepository.createSeries("Era 3", SeriesId("mistborn")) } returns
+                    AppResult.Success(SeriesId("era3"))
+                val viewModel = loaded(fixture)
+                backgroundScope.launch { viewModel.addSubSeries.collect { } }
+                advanceUntilIdle()
+
+                viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.Opened)
+                viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.NewSeriesStarted)
+                viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.NewSeriesNameChanged("Era 1"))
+                advanceUntilIdle()
+                (viewModel.addSubSeries.value as AddSubSeriesUiState.Open)
+                    .newSeries
+                    ?.existing
+                    ?.isSelectable shouldBe false
+
+                viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.NewSeriesNameChanged("Era 3"))
+                advanceUntilIdle()
+                (viewModel.addSubSeries.value as AddSubSeriesUiState.Open)
+                    .newSeries
+                    ?.canCreate shouldBe true
+                viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.NewSeriesConfirmed)
+                advanceUntilIdle()
+
+                verifySuspend { fixture.seriesEditRepository.createSeries("Era 3", SeriesId("mistborn")) }
+                viewModel.addSubSeries.value.shouldBeInstanceOf<AddSubSeriesUiState.Closed>()
             }
         }
 
@@ -742,7 +931,7 @@ class SeriesEditViewModelTest :
             }
         }
 
-        test("a refused parent shows the typed error's message and reaches the error bus") {
+        test("a refused parent reaches the error bus once, and leaves the editor's own error alone") {
             runTest {
                 val fixture = createFixture()
                 everySuspend {
@@ -757,7 +946,9 @@ class SeriesEditViewModelTest :
                     awaitItem() shouldBe SeriesError.HierarchyCycle()
                 }
 
-                viewModel.state.value.error shouldBe SeriesError.HierarchyCycle().message
+                // Shown once, by the global error surface — never also as the editor's own error,
+                // which on some platforms replaces the whole form.
+                viewModel.state.value.error shouldBe null
                 viewModel.state.value.hierarchyBusy shouldBe false
             }
         }
@@ -797,7 +988,11 @@ class SeriesEditViewModelTest :
                 everySuspend {
                     fixture.seriesEditRepository.reorderChildren(SeriesId("mistborn"), listOf(SeriesId("era2"), SeriesId("era1")))
                 } returns AppResult.Success(Unit)
-                val viewModel = loaded(fixture)
+                val viewModel =
+                    loaded(
+                        fixture,
+                        MutableStateFlow(SeriesLineage(listOf(createSeries(id = "cosmere", name = "Cosmere")), emptyList(), emptyList())),
+                    )
                 advanceUntilIdle()
 
                 viewModel.onEvent(SeriesEditUiEvent.ParentCleared)

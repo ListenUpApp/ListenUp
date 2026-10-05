@@ -17681,6 +17681,46 @@
         }
       }
     },
+    "series.add_existing_instead": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add it instead"
+          }
+        }
+      }
+    },
+    "series.add_subseries": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add sub-series"
+          }
+        }
+      }
+    },
+    "series.add_subseries_to": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add sub-series to %1$@"
+          }
+        }
+      }
+    },
+    "series.also_in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Also in %1$@"
+          }
+        }
+      }
+    },
     "series.book_finished": {
       "localizations": {
         "en": {
@@ -17717,6 +17757,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Book %1$@"
+          }
+        }
+      }
+    },
+    "series.books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books"
           }
         }
       }
@@ -17767,6 +17817,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Continue Book %1$@"
+          }
+        }
+      }
+    },
+    "series.continue_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue %1$@"
+          }
+        }
+      }
+    },
+    "series.continue_where": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · Book %2$@"
+          }
+        }
+      }
+    },
+    "series.count_books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d series · %2$d books"
+          }
+        }
+      }
+    },
+    "series.create_and_move": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create and move"
           }
         }
       }
@@ -17847,6 +17937,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "SERIES"
+          }
+        }
+      }
+    },
+    "series.finished_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d finished"
+          }
+        }
+      }
+    },
+    "series.hierarchy_caption": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved as soon as you choose. Needs a connection to the server."
+          }
+        }
+      }
+    },
+    "series.in_path": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "in %1$@"
           }
         }
       }
@@ -17961,6 +18081,136 @@
         }
       }
     },
+    "series.move_confirm_action": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move"
+          }
+        }
+      }
+    },
+    "series.move_confirm_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move %1$@ out of %2$@ into %3$@?"
+          }
+        }
+      }
+    },
+    "series.move_into": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move into…"
+          }
+        }
+      }
+    },
+    "series.move_into_existing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move into it instead"
+          }
+        }
+      }
+    },
+    "series.move_into_named": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move “%1$@” into…"
+          }
+        }
+      }
+    },
+    "series.moved_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ moved to position %2$d of %3$d"
+          }
+        }
+      }
+    },
+    "series.name_exists_inline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%1$@” already exists."
+          }
+        }
+      }
+    },
+    "series.new_parent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New parent series…"
+          }
+        }
+      }
+    },
+    "series.new_parent_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creates “%1$@” and moves %2$@ into it."
+          }
+        }
+      }
+    },
+    "series.new_parent_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New parent series"
+          }
+        }
+      }
+    },
+    "series.new_series": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New series…"
+          }
+        }
+      }
+    },
+    "series.new_series_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New series"
+          }
+        }
+      }
+    },
+    "series.new_subseries_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creates “%1$@” inside %2$@."
+          }
+        }
+      }
+    },
     "series.no_cover": {
       "localizations": {
         "en": {
@@ -17977,6 +18227,116 @@
           "stringUnit": {
             "state": "translated",
             "value": "Not started"
+          }
+        }
+      }
+    },
+    "series.offline_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moving series and reordering sub-series need the server. Everything else here still saves."
+          }
+        }
+      }
+    },
+    "series.offline_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're offline"
+          }
+        }
+      }
+    },
+    "series.part_of": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Part of"
+          }
+        }
+      }
+    },
+    "series.path_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Series path"
+          }
+        }
+      }
+    },
+    "series.path_expand_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show the full series path"
+          }
+        }
+      }
+    },
+    "series.picker_already_in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already in %1$@"
+          }
+        }
+      }
+    },
+    "series.picker_current": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current"
+          }
+        }
+      }
+    },
+    "series.picker_inside": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inside %1$@"
+          }
+        }
+      }
+    },
+    "series.picker_moves_here": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In %1$@ · moves it here"
+          }
+        }
+      }
+    },
+    "series.picker_self": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This series"
+          }
+        }
+      }
+    },
+    "series.place_in_library": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Place in library"
           }
         }
       }
@@ -18007,6 +18367,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Series name"
+          }
+        }
+      }
+    },
+    "series.show_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show all %1$d"
           }
         }
       }
@@ -18077,6 +18447,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Total"
+          }
+        }
+      }
+    },
+    "series.subseries": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sub-series"
+          }
+        }
+      }
+    },
+    "series.subseries_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d series"
+          }
+        }
+      }
+    },
+    "series.top_level": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Top level"
+          }
+        }
+      }
+    },
+    "series.top_level_no_parent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Top level (no parent)"
           }
         }
       }

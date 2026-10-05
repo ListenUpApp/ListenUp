@@ -182,6 +182,38 @@ class SearchPageTest :
             row.querySelector(".search-meta") shouldBe null
         }
 
+        // Search still finds every series, so a sub-series' hit says where it sits.
+        test("a sub-series hit says where it sits and how many books it holds") {
+            val hit = seriesHit("s1", "Mistborn Era 1").copy(seriesPath = listOf("Cosmere", "Mistborn"), bookCount = 4)
+            val root =
+                searchPage(
+                    state =
+                        SearchUiState.Results(
+                            query = "era",
+                            selectedTypes = emptySet(),
+                            result = searchResult(query = "era", hits = listOf(hit)),
+                        ),
+                )
+
+            (root.querySelector(".search-row .search-meta") as HTMLElement).textContent shouldBe
+                "in Cosmere › Mistborn · 4 books"
+        }
+
+        test("a top-level series hit shows just its book count") {
+            val hit = seriesHit("s1", "Cosmere").copy(bookCount = 23)
+            val root =
+                searchPage(
+                    state =
+                        SearchUiState.Results(
+                            query = "cos",
+                            selectedTypes = emptySet(),
+                            result = searchResult(query = "cos", hits = listOf(hit)),
+                        ),
+                )
+
+            (root.querySelector(".search-row .search-meta") as HTMLElement).textContent shouldBe "23 books"
+        }
+
         test("a hit row click reports the hit's own id and type") {
             val opened = mutableListOf<SearchHit>()
             val hit = bookHit("b1", "Dune")

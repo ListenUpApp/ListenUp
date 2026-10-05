@@ -203,6 +203,50 @@ class SeriesTreeTest :
             tree.defaultBookOrder("narnia", memberships) shouldContainExactly listOf("a1", "a2")
         }
 
+        test("book groups attribute each book to the series the walk reaches it in, in post-order") {
+            val memberships =
+                listOf(
+                    SeriesMembership("warbreaker", "cosmere", sequence = null),
+                    SeriesMembership("way-of-kings", "stormlight", 1.0),
+                    SeriesMembership("alloy", "era2", 1.0),
+                    SeriesMembership("final-empire", "era1", 1.0),
+                    SeriesMembership("final-empire", "mistborn", 1.0),
+                    SeriesMembership("secret-history", "mistborn", 4.0),
+                )
+            val groups = tree.defaultBookGroups("cosmere", memberships)
+            groups.keys.toList() shouldContainExactly listOf("era1", "era2", "mistborn", "stormlight", "cosmere")
+            groups["era1"] shouldBe listOf("final-empire")
+            groups["era2"] shouldBe listOf("alloy")
+            groups["mistborn"] shouldBe listOf("secret-history")
+            groups["stormlight"] shouldBe listOf("way-of-kings")
+            groups["cosmere"] shouldBe listOf("warbreaker")
+        }
+
+        test("a series with no books of its own still has a group, so the caller sees the whole shape") {
+            val groups = tree.defaultBookGroups("mistborn", listOf(SeriesMembership("hero", "era1", 3.0)))
+            groups.keys.toList() shouldContainExactly listOf("era1", "era2", "mistborn")
+            groups["era2"].shouldBeEmpty()
+            groups["mistborn"].shouldBeEmpty()
+        }
+
+        test("flattening the book groups is exactly the default book order, whatever the input order") {
+            val memberships =
+                listOf(
+                    SeriesMembership("crossover", "stormlight", 2.0),
+                    SeriesMembership("crossover", "era2", 5.0),
+                    SeriesMembership("way-of-kings", "stormlight", 1.0),
+                    SeriesMembership("hero", "era1", 3.0),
+                    SeriesMembership("final-empire", "era1", 1.0),
+                    SeriesMembership("final-empire", "cosmere", 9.0),
+                    SeriesMembership("elantris", "cosmere", null, sortKey = "Elantris"),
+                )
+            repeat(20) { seed ->
+                val shuffled = memberships.shuffled(Random(seed))
+                tree.defaultBookGroups("cosmere", shuffled).values.flatten() shouldContainExactly
+                    tree.defaultBookOrder("cosmere", shuffled)
+            }
+        }
+
         test("the book order does not depend on the order the memberships arrive in") {
             val memberships =
                 listOf(

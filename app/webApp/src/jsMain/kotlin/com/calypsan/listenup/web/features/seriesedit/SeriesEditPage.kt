@@ -10,7 +10,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesEvent
+import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesUiState
 import com.calypsan.listenup.client.presentation.seriesedit.MAX_MERGE_CANDIDATES
+import com.calypsan.listenup.client.presentation.seriesedit.ParentPickerRow
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesCandidate
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
@@ -36,7 +39,10 @@ import org.jetbrains.compose.web.dom.Text
 import com.calypsan.listenup.web.design.PageHeader
 
 /**
- * Series Edit — what a series is called, what it is about, and what it is really.
+ * Series Edit — what a series is called, what it is about, where it sits, and what it is really.
+ *
+ * "Place in library" ([PlaceInLibrarySection]) is the one section that is not part of Save: the
+ * server owns the hierarchy, so a move or a reorder applies the moment it is chosen.
  *
  * Pure in [state]; the store wiring lives one level up. Every change leaves as a
  * [SeriesEditUiEvent], the same shape Book Edit and Contributor Edit use.
@@ -54,6 +60,9 @@ fun SeriesEditPage(
     mergeHistory: MergeHistoryState,
     onEvent: (SeriesEditUiEvent) -> Unit,
     onMergeQuery: (String) -> Unit,
+    parentPickerRows: List<ParentPickerRow> = emptyList(),
+    addSubSeries: AddSubSeriesUiState = AddSubSeriesUiState.Closed(),
+    onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit = {},
 ) {
     Div(attrs = { classes("sed") }) {
         PageHeader(
@@ -92,6 +101,8 @@ fun SeriesEditPage(
         }) {
             FormSection(title = "Cover") { CoverSection(state, onEvent) }
             FormSection(title = "Identity") { IdentityFields(state, onEvent) }
+            // en.json's series.place_in_library
+            FormSection(title = "Place in library") { PlaceInLibrarySection(state, onEvent, onAddSubSeriesEvent) }
             FormSection(title = "This series") { MergeSection(state, onEvent) }
             FormSection(title = "Merged into this") {
                 MergeHistoryList(
@@ -102,6 +113,10 @@ fun SeriesEditPage(
             }
             EditActions(state, onEvent)
         }
+
+        if (state.parentPickerVisible) ParentPickerDialog(state, parentPickerRows, onEvent)
+        NewParentDialog(state, onEvent)
+        AddSubSeriesDialogs(addSubSeries, onAddSubSeriesEvent)
 
         if (state.mergeDialogVisible) {
             MergeDialog(

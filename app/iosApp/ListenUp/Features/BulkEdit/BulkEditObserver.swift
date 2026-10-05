@@ -114,7 +114,7 @@ final class BulkEditObserver {
         // Series and contributors are *searched*: the ViewModel debounces at 300ms with a
         // two-character floor, so the query goes to it rather than being filtered here.
         bridge.bind(viewModel.seriesMatches) { [weak self] matches in
-            self?.seriesResults = matches.map { RelationSearchResult(id: $0.id, name: $0.name, subtitle: nil) }
+            self?.seriesResults = matches.map(BookEditObserver.seriesResult)
         }
         bridge.bind(viewModel.contributorMatches) { [weak self] matches in
             self?.contributorResults = matches.map { RelationSearchResult(id: $0.id, name: $0.name, subtitle: nil) }

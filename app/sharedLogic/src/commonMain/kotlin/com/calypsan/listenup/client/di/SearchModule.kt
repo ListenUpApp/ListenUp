@@ -41,6 +41,7 @@ internal val searchModule: Module =
         single<SearchRepository> {
             SearchRepositoryImpl(
                 searchDao = get(),
+                seriesDao = get(),
                 imageStorage = get(),
             )
         }

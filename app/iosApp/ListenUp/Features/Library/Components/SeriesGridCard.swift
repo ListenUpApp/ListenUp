@@ -7,12 +7,6 @@ struct SeriesGridCard: View {
     let series: SeriesRow
     let progress: SeriesProgressState
 
-    private var meta: String {
-        let count = series.bookCount
-        let booksText = "\(count) \(count == 1 ? String(localized: "common.book") : String(localized: "common.books"))"
-        return series.authorName.map { "\(booksText) · \($0)" } ?? booksText
-    }
-
     var body: some View {
         NavigationLink(value: SeriesDestination(id: series.id)) {
             VStack(alignment: .leading, spacing: 16) {
@@ -21,18 +15,20 @@ struct SeriesGridCard: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(series.name).font(.headline).foregroundStyle(.primary).lineLimit(1)
-                    Text(meta).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
+                    Text(series.meta).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
                 }
                 SeriesProgressBadge(state: progress)
             }
             .padding(Spacing.xl)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous).fill(Color.luSurface2))
+            .stackedEdges(series.isParent, cornerRadius: Radius.xl)
             .overlay(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous).stroke(Color.luSeparator, lineWidth: 0.5))
             .coverHoverEffect(cornerRadius: Radius.xl)
         }
         .buttonStyle(.pressScaleCard)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(series.name)
+        .accessibilityValue(series.meta)
     }
 }

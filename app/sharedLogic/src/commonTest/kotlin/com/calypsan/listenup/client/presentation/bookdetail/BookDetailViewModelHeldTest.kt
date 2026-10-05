@@ -39,6 +39,8 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import com.calypsan.listenup.client.domain.model.SeriesHierarchy
+import com.calypsan.listenup.client.domain.repository.SeriesRepository
 
 /**
  * Book Detail for a book held in the admin inbox: [BookDetailUiState.Ready.isHeld] follows the Room
@@ -112,6 +114,10 @@ class BookDetailViewModelHeldTest :
                     inboxRepository = inboxRepository,
                     bookVisibilityRepository = FakeBookVisibilityRepository(),
                     bookEditRepository = mock(),
+                    seriesRepository =
+                        mock<SeriesRepository> {
+                            every { observeHierarchy() } returns flowOf(SeriesHierarchy.Empty)
+                        },
                 )
         }
 

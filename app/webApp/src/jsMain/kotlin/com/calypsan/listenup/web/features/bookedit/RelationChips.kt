@@ -4,6 +4,8 @@ import com.calypsan.listenup.client.domain.model.EditableCollection
 import com.calypsan.listenup.client.domain.model.EditableGenre
 import com.calypsan.listenup.client.domain.model.EditableMood
 import com.calypsan.listenup.client.domain.model.EditableTag
+import com.calypsan.listenup.client.domain.model.SeriesSearchResult
+import com.calypsan.listenup.web.features.seriesdetail.SERIES_PATH_SEPARATOR
 import com.calypsan.listenup.web.design.RelationChip
 
 /**
@@ -49,6 +51,18 @@ internal fun booksLabel(count: Int): String? =
     } else {
         "$count books"
     }
+
+/**
+ * A series search result's second line: where it sits and how many books it holds — "in Cosmere ›
+ * Mistborn · 4 books" (en.json's `series.in_path`), or just "4 books" at the top level. A series
+ * with no books yet keeps only its place, for the reason [booksLabel] drops a zero.
+ */
+internal fun seriesResultSubtitle(result: SeriesSearchResult): String? {
+    val books = booksLabel(result.bookCount)
+    if (result.parentPath.isEmpty()) return books
+    val place = "in " + result.parentPath.joinToString(SERIES_PATH_SEPARATOR)
+    return if (books == null) place else "$place · $books"
+}
 
 internal fun EditableCollection.toChip(): RelationChip = RelationChip(id = id, label = name)
 

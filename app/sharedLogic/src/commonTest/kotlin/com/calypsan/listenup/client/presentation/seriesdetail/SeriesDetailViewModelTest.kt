@@ -15,6 +15,20 @@ import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
+import com.calypsan.listenup.client.domain.model.SeriesHierarchy
+import com.calypsan.listenup.client.domain.model.User
+import com.calypsan.listenup.client.domain.repository.NetworkMonitor
+import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
+import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesEvent
+import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesUiState
+import com.calypsan.listenup.client.presentation.seriesedit.PendingSubSeriesMove
+import com.calypsan.listenup.core.SeriesId
+import dev.mokkery.everySuspend
+import dev.mokkery.verify.VerifyMode
+import dev.mokkery.verifySuspend
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.matcher.any
@@ -46,12 +60,22 @@ class SeriesDetailViewModelTest :
             val seriesFlow = MutableStateFlow<SeriesWithBooks?>(null)
             val positionsFlow = MutableStateFlow<Map<BookId, PlaybackPosition>>(emptyMap())
             val lineageFlow = MutableStateFlow(SeriesLineage.Flat)
+            val userRepository: UserRepository = mock()
+            val networkMonitor: NetworkMonitor = mock()
+            val seriesEditRepository: SeriesEditRepository = mock()
+            val currentUser = MutableStateFlow<User?>(null)
+            val online = MutableStateFlow(true)
+            val hierarchyFlow = MutableStateFlow(SeriesHierarchy.Empty)
 
             fun build(): SeriesDetailViewModel =
                 SeriesDetailViewModel(
                     seriesRepository = seriesRepository,
                     imageRepository = imageRepository,
                     playbackPositionRepository = playbackPositionRepository,
+                    userRepository = userRepository,
+                    networkMonitor = networkMonitor,
+                    seriesEditRepository = seriesEditRepository,
+                    errorBus = ErrorBus(),
                 )
         }
 
@@ -61,6 +85,9 @@ class SeriesDetailViewModelTest :
             every { fixture.seriesRepository.observeSeriesLineage(any()) } returns fixture.lineageFlow
             every { fixture.imageRepository.seriesCoverExists(any()) } returns false
             every { fixture.playbackPositionRepository.observeAll() } returns fixture.positionsFlow
+            every { fixture.userRepository.observeCurrentUser() } returns fixture.currentUser
+            every { fixture.networkMonitor.isOnlineFlow } returns fixture.online
+            every { fixture.seriesRepository.observeHierarchy() } returns fixture.hierarchyFlow
             return fixture
         }
 
@@ -623,6 +650,188 @@ class SeriesDetailViewModelTest :
                 ready.childSeries shouldBe
                     listOf(ChildSeriesUi(id = "mistborn", name = "Mistborn", coverPath = null, bookCount = 2, finishedCount = 1))
                 ready.resumeTarget shouldBe BookId("well")
+            }
+        }
+
+        // ========== Series hierarchy screens ==========
+
+        fun cosmereLineage(
+            era1Books: List<String>,
+            era2Books: List<String>,
+            own: List<String>,
+        ) = SeriesLineage(
+            ancestors = emptyList(),
+            children =
+                listOf(
+                    SeriesChild(
+                        series = createSeries(id = "mistborn", name = "Mistborn"),
+                        bookIds = era1Books + era2Books,
+                        children =
+                            listOf(
+                                SeriesChild(createSeries(id = "era1", name = "Mistborn Era 1"), era1Books, era1Books),
+                                SeriesChild(createSeries(id = "era2", name = "Mistborn Era 2"), era2Books, era2Books),
+                            ),
+                    ),
+                ),
+            subtreeBooks = emptyList(),
+            ownBookIds = own,
+        )
+
+        fun user(
+            isAdmin: Boolean = false,
+            canEdit: Boolean = false,
+        ) = User(
+            id =
+                com.calypsan.listenup.api.dto.auth
+                    .UserId("u1"),
+            email = "u@example.com",
+            displayName = "U",
+            isAdmin = isAdmin,
+            permissions =
+                com.calypsan.listenup.client.domain.model
+                    .UserPermissions(canEdit = canEdit),
+            createdAtMs = 0L,
+            updatedAtMs = 0L,
+        )
+
+        test("a parent page groups its books under its sub-series, and Continue names the book and where it sits") {
+            runTest {
+                val fixture = createFixture()
+                val fe = createBook("fe", title = "The Final Empire", seriesId = "era1", seriesSequence = 1.0)
+                val hero = createBook("hero", title = "The Hero of Ages", seriesId = "era1", seriesSequence = 3.0)
+                val alloy = createBook("alloy", title = "The Alloy of Law", seriesId = "era2", seriesSequence = 1.0)
+                val warbreaker = createBook("warbreaker", title = "Warbreaker", seriesId = "cosmere", seriesSequence = null)
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("cosmere")
+                fixture.seriesFlow.value = createSeriesWithBooks(createSeries(id = "cosmere", name = "Cosmere"), books = listOf(warbreaker))
+                fixture.lineageFlow.value =
+                    cosmereLineage(listOf("fe", "hero"), listOf("alloy"), listOf("warbreaker"))
+                        .copy(subtreeBooks = listOf(fe, hero, alloy, warbreaker))
+                fixture.positionsFlow.value =
+                    mapOf(
+                        BookId("fe") to createPosition("fe", isFinished = true),
+                        BookId("hero") to createPosition("hero", positionMs = 600_000L),
+                    )
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                ready.isGrouped shouldBe true
+                ready.bookSections.map { it.kind to it.title } shouldBe
+                    listOf(
+                        SeriesSectionKind.SUB_SERIES to "Mistborn",
+                        SeriesSectionKind.SUB_SERIES to "Mistborn Era 1",
+                        SeriesSectionKind.SUB_SERIES to "Mistborn Era 2",
+                        SeriesSectionKind.OWN_BOOKS to "Cosmere",
+                    )
+                ready.resumeBook shouldBe
+                    SeriesResumeUi(bookId = "hero", title = "The Hero of Ages", seriesName = "Mistborn Era 1", sequence = "3")
+                ready.childSeries.single().subSeriesCount shouldBe 2
+            }
+        }
+
+        test("a finished sub-series starts folded, and the reader can unfold it") {
+            runTest {
+                val fixture = createFixture()
+                val fe = createBook("fe", seriesId = "era1")
+                val alloy = createBook("alloy", seriesId = "era2")
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("cosmere")
+                fixture.seriesFlow.value = createSeriesWithBooks(createSeries(id = "cosmere", name = "Cosmere"), books = emptyList())
+                fixture.lineageFlow.value =
+                    cosmereLineage(listOf("fe"), listOf("alloy"), emptyList()).copy(subtreeBooks = listOf(fe, alloy))
+                fixture.positionsFlow.value = mapOf(BookId("fe") to createPosition("fe", isFinished = true))
+                advanceUntilIdle()
+
+                fun ready() = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                ready().bookSections.first { it.seriesId == "era1" }.isCollapsed shouldBe true
+                ready().bookSections.first { it.seriesId == "era2" }.isCollapsed shouldBe false
+
+                viewModel.toggleSection("era1")
+                advanceUntilIdle()
+                ready().bookSections.first { it.seriesId == "era1" }.isCollapsed shouldBe false
+                ready()
+                    .bookSections
+                    .first { it.seriesId == "era1" }
+                    .books
+                    .map { it.id.value } shouldBe listOf("fe")
+            }
+        }
+
+        test("only an editor can change the hierarchy from the page, and only online") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+                viewModel.loadSeries("series-1")
+                fixture.seriesFlow.value = createSeriesWithBooks(createSeries(), books = listOf(createBook()))
+
+                fun ready() = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+
+                fixture.currentUser.value = user()
+                advanceUntilIdle()
+                ready().canEditHierarchy shouldBe false
+
+                fixture.currentUser.value = user(canEdit = true)
+                advanceUntilIdle()
+                ready().canEditHierarchy shouldBe true
+
+                fixture.currentUser.value = user(isAdmin = true)
+                fixture.online.value = false
+                advanceUntilIdle()
+                ready().canEditHierarchy shouldBe true
+                ready().isOnline shouldBe false
+            }
+        }
+
+        test("adding a series from another parent asks first, then moves it here") {
+            runTest {
+                val fixture = createFixture()
+
+                fun series(
+                    id: String,
+                    name: String,
+                    parent: String? = null,
+                ) = createSeries(id = id, name = name).copy(parentId = parent?.let(::SeriesId))
+                fixture.hierarchyFlow.value =
+                    SeriesHierarchy(
+                        listOf(
+                            series("cosmere", "Cosmere"),
+                            series("discworld", "Discworld"),
+                            series("watch", "City Watch", "discworld"),
+                            series("dune", "Dune"),
+                        ),
+                        emptyList(),
+                    )
+                everySuspend { fixture.seriesEditRepository.setParent(any(), any()) } returns AppResult.Success(Unit)
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.addSubSeries.collect { } }
+                viewModel.loadSeries("cosmere")
+
+                viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.Opened)
+                advanceUntilIdle()
+                (viewModel.addSubSeries.value as AddSubSeriesUiState.Open)
+                    .candidates
+                    .map { it.name } shouldBe listOf("City Watch", "Discworld", "Dune")
+
+                viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.Chosen("watch"))
+                advanceUntilIdle()
+                (viewModel.addSubSeries.value as AddSubSeriesUiState.Open).pendingMove shouldBe
+                    PendingSubSeriesMove(
+                        seriesId = "watch",
+                        seriesName = "City Watch",
+                        fromParentName = "Discworld",
+                        toParentName = "Cosmere",
+                    )
+                verifySuspend(VerifyMode.not) { fixture.seriesEditRepository.setParent(any(), any()) }
+
+                viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.MoveConfirmed)
+                advanceUntilIdle()
+                verifySuspend { fixture.seriesEditRepository.setParent(SeriesId("watch"), SeriesId("cosmere")) }
+                viewModel.addSubSeries.value.shouldBeInstanceOf<AddSubSeriesUiState.Closed>()
             }
         }
     })

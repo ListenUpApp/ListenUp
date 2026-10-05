@@ -16,6 +16,8 @@ import com.calypsan.listenup.web.design.VirtualList
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.LibraryFacet
+import com.calypsan.listenup.web.features.seriesdetail.seriesAndBookCount
+import com.calypsan.listenup.web.features.seriesdetail.seriesBookCount
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
@@ -31,7 +33,8 @@ import org.jetbrains.compose.web.dom.Text
 private val SERIES_SORT_CATEGORIES = listOf(SortCategory.NAME, SortCategory.BOOK_COUNT, SortCategory.ADDED)
 
 /**
- * The Library's Series tab — every series in the library, in the reader's chosen order.
+ * The Library's Series tab — every top-level series in the library, in the reader's chosen order. A
+ * parent series' card stands for its whole subtree.
  *
  * ⛔ Driven by the shared [com.calypsan.listenup.client.presentation.library.LibraryViewModel]
  * through the existing library session, NOT by a repository observe of its own. That distinction is
@@ -132,13 +135,17 @@ private fun SeriesCard(
         // The first book stands for the series, the way a shelf shows its first spine. Absent when
         // the series somehow holds no books — a blank frame beats a broken image request.
         entry.books.firstOrNull()?.let { first ->
-            Div(attrs = { classes("srs-cover") }) {
+            // A parent series wears a stacked edge: the card stands for more than one series.
+            Div(attrs = {
+                classes("srs-cover")
+                if (entry.subSeriesCount > 0) classes("is-stack")
+            }) {
                 Cover(title = first.title, imageUrl = coverUrl(first.id.value, first.coverHash, CARD_COVER_RUNG))
             }
         }
         Div(attrs = { classes("srs-meta") }) {
             Span(attrs = { classes("srs-name") }) { Text(entry.series.name) }
-            Span(attrs = { classes("srs-count") }) { Text(bookCountLabel(entry.books.size)) }
+            Span(attrs = { classes("srs-count") }) { Text(countLine(entry)) }
             ProgressLine(progress)
         }
     }
@@ -179,7 +186,16 @@ private fun SeriesSortControl(
     )
 }
 
-private fun bookCountLabel(count: Int): String = if (count == 1) "1 book" else "$count books"
+/**
+ * "6 books", or for a parent series "4 series · 23 books" — the Library shows top-level series only,
+ * so a parent's card is the one place its sub-series are counted from here.
+ */
+private fun countLine(entry: SeriesWithBooks): String =
+    if (entry.subSeriesCount > 0) {
+        seriesAndBookCount(entry.subSeriesCount, entry.books.size)
+    } else {
+        seriesBookCount(entry.books.size)
+    }
 
 /** Series cards are small; the smallest server rung covers this cell comfortably. */
 private const val CARD_COVER_RUNG = 200

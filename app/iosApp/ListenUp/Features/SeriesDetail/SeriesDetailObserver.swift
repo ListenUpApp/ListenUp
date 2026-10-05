@@ -21,6 +21,39 @@ final class SeriesDetailObserver {
     private(set) var finishedCount: Int = 0
     private(set) var resumeTarget: String?
 
+    // MARK: - Hierarchy
+
+    /// The series above this one, root first — the breadcrumb. Empty on a top-level series.
+    private(set) var ancestors: [SeriesCrumbItem] = []
+    /// The direct sub-series, in sibling order.
+    private(set) var childSeries: [ChildSeriesCard] = []
+    /// The book list's groups, in reading order. A flat page has one, shown without a heading.
+    private(set) var bookGroups: [SeriesBookGroup] = []
+    /// The book Continue resumes on a grouped page, with the series it is listed under.
+    private(set) var resume: SeriesResumeInfo?
+    /// Whether the reader may change the hierarchy (admin, or the edit permission).
+    private(set) var canEditHierarchy: Bool = false
+    /// Whether the server can be reached; adding a sub-series needs it.
+    private(set) var isOnline: Bool = true
+    /// The "Add sub-series" sheet.
+    private(set) var addSubSeries = AddSubSeriesSheetModel()
+
+    /// True when the page has sub-series — its books are grouped, and Continue names the book.
+    var isGrouped: Bool { !childSeries.isEmpty }
+
+    /// "4 series · 23 books" on a grouped page; "4 books" otherwise.
+    var countLine: String {
+        isGrouped
+            ? SeriesHierarchyText.seriesAndBooks(seriesCount: childSeries.count, bookCount: bookCount)
+            : SeriesHierarchyText.books(bookCount)
+    }
+
+    /// The line under a grouped page's Continue — "Mistborn Era 1 · Book 3". Nil on a flat page.
+    var continueSubtitle: String? {
+        guard isGrouped, let resume else { return nil }
+        return SeriesHierarchyText.continueWhere(seriesName: resume.seriesName, sequence: resume.sequence)
+    }
+
     var bookCount: Int { books.count }
 
     /// The book the Continue CTA will start, with its sequence (for the title).
@@ -33,12 +66,23 @@ final class SeriesDetailObserver {
 
     /// Continue-CTA label, derived from resume + progress state.
     var continueButtonTitle: String {
-        Self.continueLabel(
+        if isGrouped { return Self.groupedContinueLabel(resumeTitle: resume?.title, hasStarted: hasStarted) }
+        return Self.continueLabel(
             hasBooks: !books.isEmpty,
             resumeTargetIsNil: resumeTarget == nil,
             hasStarted: hasStarted,
             sequence: resumeBook?.sequence
         )
+    }
+
+    /// The CTA on a page with sub-series. It names the book — "Continue The Hero of Ages" — because a
+    /// bare "Continue Book 3" is ambiguous across four series; for the same reason a never-started
+    /// page reads "Start listening" (the line underneath says where), and a finished one "Listen again".
+    nonisolated static func groupedContinueLabel(resumeTitle: String?, hasStarted: Bool) -> String {
+        guard let resumeTitle else { return String(localized: "series.listen_again") }
+        return hasStarted
+            ? SeriesHierarchyText.continueTitle(bookTitle: resumeTitle)
+            : String(localized: "series.start_listening")
     }
 
     /// Pure CTA-label decision, extracted so it is unit-testable without constructing the
@@ -76,6 +120,7 @@ final class SeriesDetailObserver {
         self.viewModel = viewModel
         self.playerCoordinator = playerCoordinator
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
+        bridge.bind(viewModel.addSubSeries) { [weak self] in self?.applyAddSubSeries($0) }
     }
 
     deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
@@ -99,7 +144,20 @@ final class SeriesDetailObserver {
         }
     }
 
+    /// Fold or unfold a sub-series' group of books.
+    func toggleGroup(_ seriesId: String) { viewModel.toggleSection(seriesId: seriesId) }
+
+    /// Drive the "Add sub-series" sheet.
+    func send(_ action: AddSubSeriesAction) { viewModel.onAddSubSeriesEvent(event: action.kotlinEvent) }
+
     // MARK: - State mapping
+
+    private func applyAddSubSeries(_ state: AddSubSeriesUiState) {
+        addSubSeries = AddSubSeriesSheetModel(state)
+        // A refusal already reached the reader through the shared error bus (GlobalErrorObserver's
+        // alert); presenting it again here would say it twice (iosApp rule 10).
+        if AddSubSeriesSheetModel.hasError(state) { send(.errorDismissed) }
+    }
 
     private func apply(_ state: SeriesDetailUiState) {
         switch state.sealedType() {
@@ -121,6 +179,12 @@ final class SeriesDetailObserver {
             bookProgress = mapBookProgress(r.bookProgress)
             finishedBookIds = Set(r.finishedBookIds.map { String(describing: $0) })
             finishedCount = Int(r.finishedCount)
+            ancestors = r.ancestors.map(SeriesCrumbItem.init)
+            childSeries = r.childSeries.map(ChildSeriesCard.init)
+            bookGroups = r.bookSections.map(SeriesBookGroup.init)
+            resume = r.resumeBook.map(SeriesResumeInfo.init)
+            canEditHierarchy = r.canEditHierarchy
+            isOnline = r.isOnline
             if let raw = r.resumeTarget {
                 resumeTarget = String(describing: raw)
             } else {

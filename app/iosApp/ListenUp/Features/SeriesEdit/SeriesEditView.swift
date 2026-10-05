@@ -13,6 +13,8 @@ struct SeriesEditView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var observer: SeriesEditObserver?
     @State private var showMergeSheet = false
+    /// The sub-series list's reorder mode (the system handles appear only while editing).
+    @State private var editMode: EditMode = .inactive
 
     var body: some View {
         Group {
@@ -59,6 +61,8 @@ struct SeriesEditView: View {
                         )
                     }
 
+                    SeriesPlacementSection(observer: observer, editMode: $editMode)
+
                     Section {
                         mergeSection(observer)
                     }
@@ -70,6 +74,35 @@ struct SeriesEditView: View {
                             onRetry: { observer.onRetryMergeHistory() }
                         )
                     }
+                }
+                .environment(\.editMode, $editMode)
+                .sheet(
+                    isPresented: Binding(
+                        get: { observer.newParent != nil && !observer.parentPickerVisible },
+                        set: { if !$0 { observer.dismissNewParent() } }
+                    )
+                ) {
+                    if let draft = observer.newParent {
+                        NewSeriesForm(
+                            title: String(localized: "series.new_parent_title"),
+                            draft: draft,
+                            explanation: SeriesHierarchyText.newParentBody(name: draft.name, series: observer.name),
+                            confirmTitle: String(localized: "series.create_and_move"),
+                            useExistingTitle: String(localized: "series.move_into_existing"),
+                            onNameChange: { observer.onNewParentNameChange($0) },
+                            onConfirm: { observer.confirmNewParent() },
+                            onUseExisting: { observer.moveIntoExisting($0) },
+                            onCancel: { observer.dismissNewParent() }
+                        )
+                    }
+                }
+                .sheet(
+                    isPresented: Binding(
+                        get: { observer.addSubSeries.isVisible },
+                        set: { if !$0 { observer.sendAddSubSeries(.dismissed) } }
+                    )
+                ) {
+                    AddSubSeriesSheet(model: observer.addSubSeries, send: observer.sendAddSubSeries)
                 }
                 .sheet(isPresented: $showMergeSheet, onDismiss: { observer.onMergeDialogDismissed() }) {
                     SeriesMergeSheet(

@@ -2,6 +2,9 @@ package com.calypsan.listenup.web.features.seriesedit
 
 import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
 import androidx.lifecycle.ViewModelStore
+import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesEvent
+import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesUiState
+import com.calypsan.listenup.client.presentation.seriesedit.ParentPickerRow
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesCandidate
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditNavAction
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
@@ -30,6 +33,11 @@ class SeriesEditSession(
     val navActions: Flow<SeriesEditNavAction>,
     val onEvent: (SeriesEditUiEvent) -> Unit,
     val onMergeQuery: (String) -> Unit,
+    /** The "Move into…" tree — computed only while the picker is open. */
+    val parentPickerRows: StateFlow<List<ParentPickerRow>>,
+    /** The "Add sub-series" dialog, shared with the series page. */
+    val addSubSeries: StateFlow<AddSubSeriesUiState>,
+    val onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit,
     val close: () -> Unit,
 )
 
@@ -54,6 +62,9 @@ fun graphSeriesEdit(koin: Koin): OpenSeriesEdit =
             navActions = viewModel.navActions,
             onEvent = viewModel::onEvent,
             onMergeQuery = viewModel::onMergeQueryChange,
+            parentPickerRows = viewModel.parentPickerRows,
+            addSubSeries = viewModel.addSubSeries,
+            onAddSubSeriesEvent = viewModel::onAddSubSeriesEvent,
             close = store::clear,
         )
     }
@@ -66,6 +77,9 @@ fun fixedSeriesEdit(
     navActions: Flow<SeriesEditNavAction> = emptyFlow(),
     onEvent: (SeriesEditUiEvent) -> Unit = {},
     onMergeQuery: (String) -> Unit = {},
+    parentPickerRows: List<ParentPickerRow> = emptyList(),
+    addSubSeries: AddSubSeriesUiState = AddSubSeriesUiState.Closed(),
+    onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit = {},
 ): OpenSeriesEdit =
     {
         SeriesEditSession(
@@ -75,6 +89,9 @@ fun fixedSeriesEdit(
             navActions = navActions,
             onEvent = onEvent,
             onMergeQuery = onMergeQuery,
+            parentPickerRows = MutableStateFlow(parentPickerRows),
+            addSubSeries = MutableStateFlow(addSubSeries),
+            onAddSubSeriesEvent = onAddSubSeriesEvent,
             close = {},
         )
     }

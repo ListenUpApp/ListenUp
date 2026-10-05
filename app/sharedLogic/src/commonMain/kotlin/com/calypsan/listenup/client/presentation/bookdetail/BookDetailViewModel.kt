@@ -29,6 +29,8 @@ import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.domain.repository.SeriesRepository
+import com.calypsan.listenup.client.domain.model.SeriesHierarchy
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
 import com.calypsan.listenup.api.result.AppResult
@@ -82,6 +84,7 @@ class BookDetailViewModel(
     private val inboxRepository: InboxRepository,
     private val bookVisibilityRepository: BookVisibilityRepository,
     private val bookEditRepository: BookEditRepository,
+    private val seriesRepository: SeriesRepository,
 ) : ViewModel() {
     val state: StateFlow<BookDetailUiState>
         field = MutableStateFlow<BookDetailUiState>(BookDetailUiState.Loading)
@@ -107,6 +110,7 @@ class BookDetailViewModel(
     // [BookRepository.observeBookDetail], so no mirror is needed for them.
     private var latestIsAdmin: Boolean = false
     private var latestAllTags: List<Tag> = emptyList()
+    private var latestHierarchy: SeriesHierarchy = SeriesHierarchy.Empty
 
     init {
         // Observe admin status
@@ -114,6 +118,14 @@ class BookDetailViewModel(
             userRepository.observeIsAdmin().collect { isAdmin ->
                 latestIsAdmin = isAdmin
                 updateReady { it.copy(isAdmin = isAdmin) }
+            }
+        }
+
+        // The series hierarchy (book-independent): a re-parented series redraws every open path.
+        viewModelScope.launch {
+            seriesRepository.observeHierarchy().collect { hierarchy ->
+                latestHierarchy = hierarchy
+                updateReady { it.copy(seriesPaths = bookSeriesPaths(it.book.series, hierarchy)) }
             }
         }
 
@@ -384,7 +396,7 @@ class BookDetailViewModel(
             isComplete = isComplete,
             startedAtMs = position?.startedAtMs,
             subtitle = displaySubtitle,
-            series = detail.fullSeriesTitle,
+            seriesPaths = bookSeriesPaths(detail.series, latestHierarchy),
             descriptionText = detail.description ?: "",
             narrators = detail.narratorNames,
             year = detail.publishYear,
@@ -783,10 +795,11 @@ sealed interface BookDetailUiState {
         val isDiscardingProgress: Boolean = false,
         val isRestarting: Boolean = false,
         val subtitle: String? = null,
-        // Single formatted "Series #N" string (first membership). The Compose UI renders series as
-        // chips from book.series, but the iOS SwiftUI Book Detail (BookDetailObserver/BookDetailView)
-        // still consumes this string — keep it so iOS compiles and reads series as before.
-        val series: String? = null,
+        /**
+         * The book's series as paths — one line per series, "Cosmere › Mistborn #1" — with every
+         * part a link. A membership already implied by a deeper one is left out.
+         */
+        val seriesPaths: List<BookSeriesPath> = emptyList(),
         /**
          * Book synopsis for the Description section. Named `descriptionText` (not `description`)
          * deliberately: a Kotlin property called `description` is shadowed on the Swift/SKIE side by

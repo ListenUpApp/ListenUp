@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Centered hero for the redesigned Book Detail screen.
 ///
-/// Renders the cover, an optional tappable series pill, the title, author line, a
+/// Renders the cover, the book's series paths (one line per series, every name a link), the title, author line, a
 /// tappable "Narrated by …" line, and a secondary foot line ("{N} chapters ·
 /// {duration} · {year}", omitting any absent segment). Interactive accents use the
 /// app's coral action tint.
@@ -11,15 +11,14 @@ import SwiftUI
 /// (`SeriesDestination`, `ContributorDestination`). The assembly screen wires it to
 /// `BookDetailObserver`.
 struct BookDetailHero: View {
-    /// The book's cover-lookup fields and series-pill navigation target, projected to a
+    /// The book's cover-lookup fields, projected to a
     /// native value at the observer boundary so the hero never re-bridges the Kotlin object.
     let header: BookDetailHeaderModel?
     let title: String
     /// Optional book subtitle, shown under the title when present.
     let subtitle: String?
-    /// Pre-formatted series label (e.g. "A Song of Ice and Fire · Book 1").
-    /// The series pill is omitted when this is `nil`.
-    let series: String?
+    /// One line per series — "Cosmere › Mistborn › Mistborn Era 1 #1". None for a standalone book.
+    let seriesPaths: [BookSeriesPathItem]
     /// Tappable author chips; falls back to `author` text when empty.
     let authors: [CastMember]
     /// Plain authors string for the no-contributors fallback.
@@ -34,6 +33,9 @@ struct BookDetailHero: View {
     /// Opens the Cast & Credits sheet when a category collapses past the inline limit.
     let onOpenCast: () -> Void
 
+    /// Paths the reader has unfolded with "…".
+    @State private var expandedPaths: Set<String> = []
+
     private let inlineContributorLimit = 2
     private let coverSize: CGFloat = 196
 
@@ -41,11 +43,19 @@ struct BookDetailHero: View {
         VStack(spacing: 0) {
             cover
 
-            if let series {
-                seriesPill(series)
-                    .padding(.top, Spacing.l)
+            // Outside the combined summary below, so each crumb stays its own VoiceOver link.
+            if !seriesPaths.isEmpty {
+                seriesPathLines
+                    .padding(.top, Spacing.m)
             }
 
+            summary
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var summary: some View {
+        VStack(spacing: 0) {
             Text(title)
                 .font(.title2.bold())
                 .multilineTextAlignment(.center)
@@ -101,23 +111,18 @@ struct BookDetailHero: View {
         .accessibilityHidden(true)
     }
 
-    // MARK: - Series pill
+    // MARK: - Series paths
 
-    private func seriesPill(_ series: String) -> some View {
-        NavigationLink(value: SeriesDestination(id: header?.seriesId ?? "")) {
-            HStack(spacing: 6) {
-                Image(systemName: "book")
-                    .font(.caption2.weight(.semibold))
-                Text(series)
-                    .font(.caption.weight(.semibold))
+    /// Stacked, one per series; each wraps only at its separators and never truncates a name.
+    private var seriesPathLines: some View {
+        VStack(spacing: 0) {
+            ForEach(seriesPaths) { path in
+                SeriesPathView(
+                    parts: path.parts(expanded: expandedPaths.contains(path.id)),
+                    onExpand: { expandedPaths.insert(path.id) }
+                )
             }
-            .padding(.horizontal, Spacing.s)
-            .padding(.vertical, Spacing.xs)
-            .foregroundStyle(Color.listenUpOrange)
-            .background(Color.listenUpOrange.opacity(0.12), in: Capsule())
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text(String(format: String(localized: "book.detail_series_pill_a11y"), series)))
     }
 
     // MARK: - Authors
@@ -244,7 +249,11 @@ struct BookDetailHero: View {
                 header: nil,
                 title: "A Game of Thrones",
                 subtitle: "A Song of Ice and Fire, Book One",
-                series: "A Song of Ice and Fire · Book 1",
+                seriesPaths: [
+                    BookSeriesPathItem(
+                        seriesId: "s", seriesName: "A Song of Ice and Fire", sequence: "1", ancestors: []
+                    )
+                ],
                 authors: [],
                 author: "George R.R. Martin",
                 narrators: [],
@@ -259,7 +268,7 @@ struct BookDetailHero: View {
                 header: nil,
                 title: "The Way of Kings",
                 subtitle: nil,
-                series: nil,
+                seriesPaths: [],
                 authors: [],
                 author: "Brandon Sanderson",
                 narrators: [],

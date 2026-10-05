@@ -7,12 +7,6 @@ struct SeriesRowCard: View {
     let series: SeriesRow
     let progress: SeriesProgressState
 
-    private var meta: String {
-        let count = series.bookCount
-        let booksText = "\(count) \(count == 1 ? String(localized: "common.book") : String(localized: "common.books"))"
-        return series.authorName.map { "\(booksText) · \($0)" } ?? booksText
-    }
-
     var body: some View {
         NavigationLink(value: SeriesDestination(id: series.id)) {
             HStack(spacing: 16) {
@@ -23,7 +17,7 @@ struct SeriesRowCard: View {
                         .font(.body.weight(.semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
-                    Text(meta)
+                    Text(series.meta)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -36,10 +30,12 @@ struct SeriesRowCard: View {
             }
             .padding(Spacing.m)
             .background(RoundedRectangle(cornerRadius: Radius.l, style: .continuous).fill(Color.luSurface2))
+            .stackedEdges(series.isParent, cornerRadius: Radius.l)
             .overlay(RoundedRectangle(cornerRadius: Radius.l, style: .continuous).stroke(Color.luSeparator, lineWidth: 0.5))
         }
         .buttonStyle(.pressScaleCard)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(series.name)
+        .accessibilityValue(series.meta)
     }
 }

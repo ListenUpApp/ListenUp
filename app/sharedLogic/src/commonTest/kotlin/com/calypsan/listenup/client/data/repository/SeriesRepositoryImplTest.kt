@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.data.local.db.BookWithContributors
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
+import com.calypsan.listenup.client.data.local.db.SeriesMembershipRow
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.client.data.remote.RpcChannel
@@ -774,9 +775,9 @@ class SeriesRepositoryImplTest :
             }
         }
 
-        // ========== observeAllWithBooks Tests ==========
+        // ========== observeRootSeriesWithBooks Tests ==========
 
-        test("observeAllWithBooks returns empty list when no series exist") {
+        test("observeRootSeriesWithBooks returns empty list when no series exist") {
             runTest {
                 val seriesDao = createMockDao()
                 val bookDao = mock<BookDao>(MockMode.autoUnit)
@@ -784,13 +785,13 @@ class SeriesRepositoryImplTest :
                 every { bookDao.observeAllWithContributors() } returns flowOf(emptyList())
                 val repository = createRepositoryWithBookDao(seriesDao, bookDao)
 
-                val result = repository.observeAllWithBooks().first()
+                val result = repository.observeRootSeriesWithBooks().first()
 
                 result.isEmpty() shouldBe true
             }
         }
 
-        test("observeAllWithBooks joins series with books from book dao by id") {
+        test("observeRootSeriesWithBooks joins series with books from book dao by id") {
             runTest {
                 val seriesEntity = createTestSeriesEntity(id = "series-1", name = "Stormlight")
                 val book1 = makeBookEntity("book-1", "Way of Kings")
@@ -813,7 +814,7 @@ class SeriesRepositoryImplTest :
                     flowOf(listOf(makeBookWithContributors(book1), makeBookWithContributors(book2)))
                 val repository = createRepositoryWithBookDao(seriesDao, bookDao)
 
-                val result = repository.observeAllWithBooks().first()
+                val result = repository.observeRootSeriesWithBooks().first()
 
                 result.size shouldBe 1
                 result[0].series.id.value shouldBe "series-1"
@@ -825,7 +826,7 @@ class SeriesRepositoryImplTest :
             }
         }
 
-        test("observeAllWithBooks silently skips orphan book ids missing from book dao") {
+        test("observeRootSeriesWithBooks silently skips orphan book ids missing from book dao") {
             runTest {
                 // Series references two books, but bookDao only knows about one.
                 val seriesEntity = createTestSeriesEntity(id = "series-1", name = "Series")
@@ -846,7 +847,7 @@ class SeriesRepositoryImplTest :
                     flowOf(listOf(makeBookWithContributors(book1)))
                 val repository = createRepositoryWithBookDao(seriesDao, bookDao)
 
-                val result = repository.observeAllWithBooks().first()
+                val result = repository.observeRootSeriesWithBooks().first()
 
                 result.size shouldBe 1
                 result[0].books.size shouldBe 1
@@ -854,7 +855,7 @@ class SeriesRepositoryImplTest :
             }
         }
 
-        test("observeAllWithBooks drops a series none of whose books the library shows") {
+        test("observeRootSeriesWithBooks drops a series none of whose books the library shows") {
             runTest {
                 // Both books are held for review, so observeAllWithContributors (which excludes held
                 // books in SQL) returns neither. An empty series card is a card with nothing in it.
@@ -875,9 +876,59 @@ class SeriesRepositoryImplTest :
                     flowOf(listOf(makeBookWithContributors(visibleBook)))
                 val repository = createRepositoryWithBookDao(seriesDao, bookDao)
 
-                val result = repository.observeAllWithBooks().first()
+                val result = repository.observeRootSeriesWithBooks().first()
 
                 result.map { it.series.id.value } shouldBe listOf("series-visible")
+            }
+        }
+
+        test("observeRootSeriesWithBooks folds sub-series into their root, in series order, and counts them") {
+            runTest {
+                val cosmere = createTestSeriesEntity(id = "cosmere", name = "Cosmere")
+                val mistborn = createTestSeriesEntity(id = "mistborn", name = "Mistborn").copy(parentId = "cosmere", parentPosition = 0)
+                val era1 = createTestSeriesEntity(id = "era1", name = "Era 1").copy(parentId = "mistborn", parentPosition = 0)
+                val stormlight =
+                    createTestSeriesEntity(
+                        id = "stormlight",
+                        name = "Stormlight",
+                    ).copy(parentId = "cosmere", parentPosition = 1)
+                val dune = createTestSeriesEntity(id = "dune", name = "Dune")
+                val finalEmpire = makeBookEntity("final-empire", "The Final Empire")
+                val wayOfKings = makeBookEntity("way-of-kings", "The Way of Kings")
+                val warbreaker = makeBookEntity("warbreaker", "Warbreaker")
+                val duneBook = makeBookEntity("dune-1", "Dune")
+
+                fun rel(
+                    series: SeriesEntity,
+                    vararg books: BookEntity,
+                ) = SeriesWithBooksRelation(
+                    series = series,
+                    books = books.toList(),
+                    bookSequences = books.map { BookSeriesCrossRef(it.id, series.id, 1.0) },
+                )
+
+                val seriesDao = createMockDao()
+                val bookDao = mock<BookDao>(MockMode.autoUnit)
+                every { seriesDao.observeAllWithBooks() } returns
+                    flowOf(
+                        listOf(
+                            rel(cosmere, warbreaker),
+                            rel(dune, duneBook),
+                            rel(era1, finalEmpire),
+                            rel(mistborn, finalEmpire),
+                            rel(stormlight, wayOfKings),
+                        ),
+                    )
+                every { bookDao.observeAllWithContributors() } returns
+                    flowOf(listOf(finalEmpire, wayOfKings, warbreaker, duneBook).map { makeBookWithContributors(it) })
+                val repository = createRepositoryWithBookDao(seriesDao, bookDao)
+
+                val result = repository.observeRootSeriesWithBooks().first()
+
+                result.map { it.series.id.value } shouldBe listOf("cosmere", "dune")
+                result[0].books.map { it.id.value } shouldBe listOf("final-empire", "way-of-kings", "warbreaker")
+                result[0].subSeriesCount shouldBe 2
+                result[1].subSeriesCount shouldBe 0
             }
         }
 
@@ -1125,9 +1176,12 @@ class SeriesRepositoryImplTest :
                     listOf(createTestSeriesEntity(id = "series-1", name = "Abcdef"))
                 val networkMonitor = mock<NetworkMonitor>()
                 every { networkMonitor.isOnline() } returns false
+                val seriesDao = createMockDao()
+                everySuspend { seriesDao.getAll() } returns emptyList()
+                everySuspend { seriesDao.getVisibleMemberships() } returns emptyList()
                 val repository =
                     SeriesRepositoryImpl(
-                        seriesDao = createMockDao(),
+                        seriesDao = seriesDao,
                         bookDao = mock<BookDao>(MockMode.autoUnit),
                         searchDao = searchDao,
                         networkMonitor = networkMonitor,
@@ -1141,6 +1195,38 @@ class SeriesRepositoryImplTest :
 
                 result.series.map { it.id } shouldBe listOf("series-1")
                 verifySuspend { searchDao.searchSeries(any(), any()) }
+            }
+        }
+
+        test("searchSeries says where each match sits and how many books its subtree holds") {
+            runTest {
+                val era1 = createTestSeriesEntity(id = "era1", name = "Mistborn Era 1").copy(parentId = "mistborn")
+                val searchDao = mock<SearchDao>(MockMode.autoUnit)
+                everySuspend { searchDao.searchSeries(any(), any()) } returns listOf(era1)
+                val seriesDao = createMockDao()
+                everySuspend { seriesDao.getAll() } returns
+                    listOf(
+                        createTestSeriesEntity(id = "cosmere", name = "Cosmere"),
+                        createTestSeriesEntity(id = "mistborn", name = "Mistborn").copy(parentId = "cosmere"),
+                        era1,
+                    )
+                everySuspend { seriesDao.getVisibleMemberships() } returns
+                    listOf(SeriesMembershipRow("era1", "b1"), SeriesMembershipRow("era1", "b2"))
+                val repository =
+                    SeriesRepositoryImpl(
+                        seriesDao = seriesDao,
+                        bookDao = mock<BookDao>(MockMode.autoUnit),
+                        searchDao = searchDao,
+                        networkMonitor = mock<NetworkMonitor> { every { isOnline() } returns false },
+                        imageStorage = mock<ImageStorage>(),
+                        channel = RpcChannel.forTest(mock<SeriesService>(MockMode.autoUnit)),
+                        seriesSyncHandler = mock<SyncDomainHandler<SeriesSyncPayload>>(MockMode.autoUnit),
+                    )
+
+                val match = repository.searchSeries("mistborn", limit = 10).series.single()
+
+                match.parentPath shouldBe listOf("Cosmere", "Mistborn")
+                match.bookCount shouldBe 2
             }
         }
     })

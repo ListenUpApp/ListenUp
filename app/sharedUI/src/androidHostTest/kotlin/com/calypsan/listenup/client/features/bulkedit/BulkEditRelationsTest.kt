@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.Mood
+import com.calypsan.listenup.client.domain.model.SeriesSearchResult
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditPreviewRow
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
@@ -57,10 +58,11 @@ class BulkEditRelationsTest {
     private fun renderCredits(
         state: BulkEditUiState.Editing,
         actions: BulkEditFormActions = BulkEditFormActions(),
+        offers: BulkEditOffers = BulkEditOffers(),
     ) {
         composeRule.setContent {
             MaterialTheme {
-                BulkEditCredits(state = state, offers = BulkEditOffers(), actions = actions)
+                BulkEditCredits(state = state, offers = offers, actions = actions)
             }
         }
         composeRule.waitForIdle()
@@ -85,6 +87,17 @@ class BulkEditRelationsTest {
             }
         }
         composeRule.waitForIdle()
+    }
+
+    @Test
+    fun `a series match says where it sits and how big it is`() {
+        val era1 =
+            SeriesSearchResult(id = "era1", name = "Mistborn Era 1", bookCount = 4, parentPath = listOf("Cosmere", "Mistborn"))
+        renderCredits(editing(), offers = BulkEditOffers(seriesMatches = listOf(era1)))
+
+        composeRule.onNodeWithText("Search series").performTextInput("Era")
+
+        composeRule.onNodeWithText("in Cosmere › Mistborn · 4 books", useUnmergedTree = true).assertExists()
     }
 
     @Test
