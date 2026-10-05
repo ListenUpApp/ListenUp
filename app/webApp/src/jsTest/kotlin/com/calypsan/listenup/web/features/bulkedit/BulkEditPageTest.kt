@@ -391,7 +391,12 @@ class BulkEditPageTest :
                     editing(),
                     seriesMatches =
                         listOf(
-                            SeriesSearchResult(id = "s1", name = "Mistborn Era 1", bookCount = 4, parentPath = listOf("Cosmere", "Mistborn")),
+                            SeriesSearchResult(
+                                id = "s1",
+                                name = "Mistborn Era 1",
+                                bookCount = 4,
+                                parentPath = listOf("Cosmere", "Mistborn"),
+                            ),
                             SeriesSearchResult(id = "s2", name = "Dune", bookCount = 6),
                         ),
                 )

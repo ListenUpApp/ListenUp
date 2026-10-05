@@ -93,7 +93,11 @@ class BookDetailSeriesTest :
         test("every name in the path is a real button") {
             val root = bookDetailPage(seriesPaths = listOf(era1Path))
 
-            root.querySelectorAll(".bd-series-link").asList().map { (it as HTMLElement).tagName }.distinct() shouldBe
+            root
+                .querySelectorAll(".bd-series-link")
+                .asList()
+                .map { (it as HTMLElement).tagName }
+                .distinct() shouldBe
                 listOf("BUTTON")
         }
 
