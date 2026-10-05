@@ -5,6 +5,7 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.features.admin.AdminScreen
 import com.calypsan.listenup.client.features.admin.HardcoverSourceActions
 import com.calypsan.listenup.client.features.admin.CreateInviteScreen
@@ -97,6 +98,8 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             onRatingSourceEnabledChange = { source, enabled ->
                 settingsViewModel.setRatingSourceEnabled(source, enabled)
             },
+            metadataRegion = readySettings?.metadataRegion ?: MetadataLocale.DEFAULT.region,
+            onMetadataRegionChange = { settingsViewModel.setMetadataRegion(it) },
             hardcoverSource = readySettings?.hardcoverSource,
             hardcoverTokenSave = readySettings?.hardcoverTokenSave ?: HardcoverTokenSave.Idle,
             hardcoverActions =

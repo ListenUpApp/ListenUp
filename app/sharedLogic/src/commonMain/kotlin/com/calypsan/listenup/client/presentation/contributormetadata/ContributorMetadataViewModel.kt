@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
+import com.calypsan.listenup.client.domain.repository.LibraryRepository
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.error.ErrorBus
@@ -180,6 +181,7 @@ class ContributorMetadataViewModel(
     private val contributorRepository: ContributorRepository,
     private val metadataRepository: MetadataRepository,
     private val errorBus: ErrorBus,
+    private val libraryRepository: LibraryRepository,
 ) : ViewModel() {
     val state: StateFlow<ContributorMetadataUiState>
         field = MutableStateFlow<ContributorMetadataUiState>(ContributorMetadataUiState.Idle())
@@ -201,6 +203,9 @@ class ContributorMetadataViewModel(
      */
     private var applyAttempt = 0
 
+    /** True once the person picks a store; the library's store never overrides their choice. */
+    private var regionChosen = false
+
     /**
      * Initialize the wizard for a contributor: synchronously enter [ContributorMetadataUiState.Search]
      * (blank query, idle results), then load the contributor from Room, seed the query with their
@@ -208,6 +213,7 @@ class ContributorMetadataViewModel(
      * phase (e.g. the preview route called [selectAsin] right after init).
      */
     fun init(contributorId: String) {
+        regionChosen = false
         state.value =
             ContributorMetadataUiState.Search(
                 region = state.value.region,
@@ -236,6 +242,18 @@ class ContributorMetadataViewModel(
                     }
                 }
             }
+            val libraryRegion = libraryRepository.observeAll().first().firstNotNullOfOrNull { it.metadataRegion }
+            if (libraryRegion != null && !regionChosen) {
+                state.update { latest ->
+                    if (latest is ContributorMetadataUiState.Search) {
+                        latest.copy(
+                            region = MetadataLocale(libraryRegion),
+                        )
+                    } else {
+                        latest
+                    }
+                }
+            }
             if (!contributor?.name.isNullOrBlank() && state.value is ContributorMetadataUiState.Search) {
                 search()
             }
@@ -256,6 +274,7 @@ class ContributorMetadataViewModel(
      * Abandons any in-flight [apply] — see [applyAttempt].
      */
     fun changeRegion(region: MetadataLocale) {
+        regionChosen = true
         applyAttempt++
         when (val current = state.value) {
             is ContributorMetadataUiState.Idle -> {

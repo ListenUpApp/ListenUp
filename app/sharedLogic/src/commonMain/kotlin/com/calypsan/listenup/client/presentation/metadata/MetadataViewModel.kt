@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository
+import com.calypsan.listenup.client.domain.repository.LibraryRepository
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
 import com.calypsan.listenup.client.domain.repository.MoodRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
@@ -18,6 +19,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -304,12 +306,19 @@ class MetadataViewModel(
     private val moodRepository: MoodRepository,
     private val tagRepository: TagRepository,
     private val errorBus: ErrorBus,
+    private val libraryRepository: LibraryRepository,
 ) : ViewModel() {
     val state: StateFlow<MetadataUiState>
         field = MutableStateFlow<MetadataUiState>(MetadataUiState.Idle())
 
     private val eventChannel = Channel<MetadataEvent>(Channel.BUFFERED)
     val events: Flow<MetadataEvent> = eventChannel.receiveAsFlow()
+
+    /** Reads the library's Audible store into the flow; [search] waits for it so the first search runs there. */
+    private var libraryRegionJob: Job? = null
+
+    /** True once the person picks a store; the library's store never overrides their choice. */
+    private var regionChosen = false
 
     /**
      * Initialize the wizard for a specific book.
@@ -349,6 +358,8 @@ class MetadataViewModel(
                 query = query,
                 loadState = SearchLoadState.Idle,
             )
+        regionChosen = false
+        libraryRegionJob = viewModelScope.launch { adoptLibraryRegion() }
     }
 
     /** Update the search query while in the [MetadataUiState.Search] phase. */
@@ -363,6 +374,7 @@ class MetadataViewModel(
      * the new region; in search, re-run the query so results update without a manual re-submit.
      */
     fun changeRegion(region: MetadataLocale) {
+        regionChosen = true
         state.update { current ->
             when (current) {
                 is MetadataUiState.Idle -> current.copy(region = region)
@@ -389,10 +401,12 @@ class MetadataViewModel(
         state.value = current.copy(loadState = SearchLoadState.InFlight)
 
         viewModelScope.launch {
+            libraryRegionJob?.join()
+            val region = (state.value as? MetadataUiState.Search)?.region ?: current.region
             try {
                 val result =
                     withTimeout(METADATA_RPC_TIMEOUT) {
-                        metadataRepository.searchBooks(query, current.region, BookId(current.context.bookId))
+                        metadataRepository.searchBooks(query, region, BookId(current.context.bookId))
                     }
                 when (result) {
                     is AppResult.Success -> {
@@ -423,6 +437,20 @@ class MetadataViewModel(
             }
         }
     }
+
+    /** Moves the flow to the library's Audible store, unless the person has already picked one. */
+    private suspend fun adoptLibraryRegion() {
+        val region = libraryRepository.observeAll().first().firstNotNullOfOrNull { it.metadataRegion } ?: return
+        if (regionChosen) return
+        state.update { it.withRegion(MetadataLocale(region)) }
+    }
+
+    private fun MetadataUiState.withRegion(region: MetadataLocale): MetadataUiState =
+        when (this) {
+            is MetadataUiState.Idle -> copy(region = region)
+            is MetadataUiState.Search -> copy(region = region)
+            is MetadataUiState.Preview -> copy(region = region)
+        }
 
     /** Project a [SearchLoadState.Failed] onto the still-current search, ignoring a superseded query. */
     private fun setSearchFailed(

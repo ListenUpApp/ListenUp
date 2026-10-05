@@ -569,6 +569,48 @@ class AdminSettingsServiceImplTest :
                 }
             }
         }
+
+        test("the store region defaults to the United States, persists, and reaches clients on the library payload") {
+            withSqlDatabase {
+                runTest {
+                    val (svc, libraryRepository, libraryRegistry) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                        )
+                    seedLibrary(this@withSqlDatabase, principalFor("root1", UserRole.ROOT))
+
+                    svc.getServerSettings().shouldSucceed().metadataRegion shouldBe "us"
+
+                    svc.updateServerSettings(AdminServerSettingsPatch(metadataRegion = "UK")).shouldSucceed()
+
+                    svc.getServerSettings().shouldSucceed().metadataRegion shouldBe "uk"
+                    val libraryId = libraryRegistry.currentLibrary()
+                    libraryRepository.readMetadataRegion(libraryId) shouldBe "uk"
+                    libraryRepository.readPayloadForTest(libraryId.value)!!.metadataRegion shouldBe "uk"
+                }
+            }
+        }
+
+        test("a store that is not on the list is refused, and nothing changes") {
+            withSqlDatabase {
+                runTest {
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                        )
+                    seedLibrary(this@withSqlDatabase, principalFor("root1", UserRole.ROOT))
+
+                    svc
+                        .updateServerSettings(AdminServerSettingsPatch(metadataRegion = "xx"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AdminError.InvalidInput>()
+                    svc.getServerSettings().shouldSucceed().metadataRegion shouldBe "us"
+                }
+            }
+        }
     })
 
 // ── Test fixtures ─────────────────────────────────────────────────────────────

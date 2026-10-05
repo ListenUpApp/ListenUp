@@ -36,4 +36,9 @@ data class LibrarySyncPayload(
      * signal driving the client initial-population gate.
      */
     val initialScanCompletedAt: Long? = null,
+    /**
+     * The library's Audible store, a `MetadataLocale.region` token; null means the server default (the
+     * United States). Matching starts its searches here unless the person picks another store.
+     */
+    @SerialName("metadataRegion") val metadataRegion: String? = null,
 ) : SyncPayload

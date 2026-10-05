@@ -200,12 +200,13 @@ interface AdminRepository {
     /** Current server-identity settings (name + remote URL). */
     suspend fun getServerSettings(): AppResult<ServerSettings>
 
-    /** Patch server-identity settings (null = unchanged; remoteUrl "" clears). */
+    /** Patch server-identity settings (null = unchanged; remoteUrl "" clears; metadataRegion is a store token). */
     suspend fun updateServerSettings(
         serverName: String? = null,
         remoteUrl: String? = null,
         holdNewBooksForReview: Boolean? = null,
         pushNotificationsEnabled: Boolean? = null,
+        metadataRegion: String? = null,
     ): AppResult<ServerSettings>
 
     /** Every outside rating source, with its enabled flag and last-fetch health. */

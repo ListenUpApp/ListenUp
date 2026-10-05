@@ -409,6 +409,7 @@ internal val bookPresentationModule =
                 moodRepository = get(),
                 tagRepository = get(),
                 errorBus = get(),
+                libraryRepository = get(),
             )
         }
         // Scoped to one book by parameter: the editor is always entered for a specific book and
@@ -508,6 +509,7 @@ internal val contributorPresentationModule =
                 contributorRepository = get<com.calypsan.listenup.client.domain.repository.ContributorRepository>(),
                 metadataRepository = get(),
                 errorBus = get(),
+                libraryRepository = get(),
             )
         }
     }

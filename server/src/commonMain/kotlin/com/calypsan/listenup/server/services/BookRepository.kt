@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.SidecarCuration
 import com.calypsan.listenup.api.dto.scanner.SidecarCurationChapter
 import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
@@ -283,7 +284,27 @@ class BookRepository(
             documents = emptyList(),
             chapters = emptyList(),
             chapterSource = ChapterSource.EMBEDDED,
+            externalRefs = emptyList(),
+            releaseDate = null,
         )
+
+    /**
+     * Applies the identity invariants ([withReconciledIdentity]: the `audible` ref is the `asin` column, a
+     * release date's year is `publish_year`) and writes the result. The single entry every book write —
+     * scan, edit, match, batch — passes through, so neither invariant can be skipped.
+     */
+    override fun writePayload(
+        value: BookSyncPayload,
+        rev: Long,
+        now: Long,
+        clientOpId: String?,
+        userId: String?,
+        existed: Boolean,
+    ) {
+        val reconciled = value.withReconciledIdentity()
+        writeReconciledPayload(reconciled, rev, now, clientOpId, existed)
+        writeIdentityColumns(reconciled)
+    }
 
     /**
      * Writes the full book aggregate inside the substrate's open SQLDelight transaction.
@@ -301,12 +322,11 @@ class BookRepository(
      * GENRES, or a non-scan write. The system-collection membership is likewise a SQLDelight write on
      * the same engine, so it joins this transaction safely and atomically.
      */
-    override fun writePayload(
+    private fun writeReconciledPayload(
         value: BookSyncPayload,
         rev: Long,
         now: Long,
         clientOpId: String?,
-        userId: String?,
         existed: Boolean,
     ) {
         // Read per-call extras the scan/edit paths installed via the coroutine context (carried by
@@ -465,6 +485,15 @@ class BookRepository(
         // Scan paths only: genre junctions ride INSIDE this transaction from the pre-resolved ids, so
         // a genre change is atomic with the row and carried by its revision bump. Null leaves them be.
         extras?.genreIds?.let { genreIds -> bookGenreWriter.writeJunctions(value.id, genreIds) }
+    }
+
+    /**
+     * The release date and the catalogue refs, riding the caller's transaction and revision. Both are
+     * written by targeted statements so insert/updateContent (and their many callers) stay as they were.
+     */
+    private fun writeIdentityColumns(value: BookSyncPayload) {
+        db.booksQueries.updateReleaseDate(release_date = value.releaseDate, id = value.id)
+        db.replaceExternalRefs(ExternalRefKind.BOOK, value.id, value.externalRefs)
     }
 
     /**
@@ -1466,6 +1495,10 @@ class BookRepository(
                 asin = kept(BookField.ASIN, existing.asin, incoming.asin),
                 abridged = kept(BookField.ABRIDGED, existing.abridged, incoming.abridged),
                 explicit = kept(BookField.EXPLICIT, existing.explicit, incoming.explicit),
+                // The scanner never derives a release date or a catalogue link: both carry forward, and
+                // writePayload then reconciles them against the year and the ASIN this scan settled on.
+                releaseDate = existing.releaseDate,
+                externalRefs = existing.externalRefs,
                 fieldProvenance = mergedProvenance,
             )
         return ProvenanceMerge(
@@ -1596,6 +1629,10 @@ class BookRepository(
      * Sets the managed-cover columns (provenance + relative path + sha256 hash) and bumps the
      * row's revision so the change propagates to clients via the sync bus.
      *
+     * [provenance], when given, is recorded as the book's `COVER` field provenance in the same
+     * transaction: USER for a cover a person chose by hand, ENRICHMENT for one a match applied. Match
+     * details reads it to keep a hand-set cover by default (decision 6). Null leaves it as it is.
+     *
      * Opens its own transaction. The `SyncEvent.Updated` is published after the transaction
      * commits, carrying the full aggregate.
      */
@@ -1604,6 +1641,7 @@ class BookRepository(
         relPath: String,
         hash: String,
         source: CoverSource,
+        provenance: FieldProvenance? = null,
     ): AppResult<Unit> {
         val idStr = idAsString(id)
         val capture = currentCoroutineContext()[FrameCapture.Key]
@@ -1621,10 +1659,26 @@ class BookRepository(
             if (db.booksQueries.changes().executeAsOne() == 0L) {
                 AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idStr))
             } else {
+                provenance?.let { stamp -> rewriteFieldProvenance(idStr) { it + (BookField.COVER to stamp) } }
                 publishUpdatedAfterCommit(idStr, rev, now, capture)
                 AppResult.Success(Unit)
             }
         }
+    }
+
+    /**
+     * Rewrites [idStr]'s provenance column through [transform]. Synchronous, for use inside an open
+     * transaction by the targeted cover writes, which bypass writePayload.
+     */
+    private fun rewriteFieldProvenance(
+        idStr: String,
+        transform: (Map<BookField, FieldProvenance>) -> Map<BookField, FieldProvenance>,
+    ) {
+        val current = db.booksQueries.selectFieldProvenanceById(idStr).executeAsOneOrNull() ?: return
+        db.booksQueries.updateFieldProvenance(
+            field_provenance = transform(current.toFieldProvenance()).toFieldProvenanceColumn(),
+            id = idStr,
+        )
     }
 
     /**
@@ -1677,6 +1731,8 @@ class BookRepository(
             if (db.booksQueries.changes().executeAsOne() == 0L) {
                 AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idStr))
             } else {
+                // The cover is gone, so is who set it: a later match should propose one again.
+                rewriteFieldProvenance(idStr) { it - BookField.COVER }
                 publishUpdatedAfterCommit(idStr, rev, now)
                 AppResult.Success(Unit)
             }

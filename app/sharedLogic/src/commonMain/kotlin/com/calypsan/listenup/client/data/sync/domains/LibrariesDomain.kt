@@ -37,6 +37,7 @@ internal class LibraryMirrorApply(
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,
                 initialScanCompletedAt = payload.initialScanCompletedAt,
+                metadataRegion = payload.metadataRegion,
             ),
         )
     }

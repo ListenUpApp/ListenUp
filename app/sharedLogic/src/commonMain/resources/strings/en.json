@@ -1305,6 +1305,8 @@
     "organize_saved": "Organization settings saved.",
     "rating_sources_title": "Rating sources",
     "rating_sources_hint": "Where the score on every book comes from. Switching one off hides its scores; switching it back on brings them back.",
+    "store_region_title": "Store region",
+    "store_region_hint": "Used for Audible searches in this library. Each search can still pick another store.",
     "rating_source_last_fetched": "Last fetched %1$s",
     "rating_source_last_fetched_just_now": "Last fetched just now",
     "rating_source_never_fetched": "Not fetched yet",

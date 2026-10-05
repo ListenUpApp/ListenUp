@@ -28,6 +28,12 @@ data class AdminServerSettings(
     @SerialName("pushNotificationsEnabled") val pushNotificationsEnabled: Boolean = true,
     /** Whether the server writes `listenup.json` curation sidecars beside books. Default on. */
     @SerialName("sidecarWritesEnabled") val sidecarWritesEnabled: Boolean = true,
+    /**
+     * The library's Audible store (a [com.calypsan.listenup.api.metadata.MetadataLocale.region] token) —
+     * where a match search runs unless the search picks another. Defaults to the United States, which is
+     * also what a server that predates the setting means.
+     */
+    @SerialName("metadataRegion") val metadataRegion: String = "us",
 )
 
 /**
@@ -45,4 +51,6 @@ data class AdminServerSettingsPatch(
     @SerialName("pushNotificationsEnabled") val pushNotificationsEnabled: Boolean? = null,
     /** Toggles `listenup.json` curation-sidecar writes. Null leaves the setting unchanged. */
     @SerialName("sidecarWritesEnabled") val sidecarWritesEnabled: Boolean? = null,
+    /** Sets the library's Audible store; must be one of `MetadataLocale.SUPPORTED`. Null leaves it unchanged. */
+    @SerialName("metadataRegion") val metadataRegion: String? = null,
 )

@@ -1,5 +1,8 @@
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.core.currentEpochMilliseconds
+import com.calypsan.listenup.api.metadata.FieldSourceKind
+import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.dto.CoverSearchResults
 import com.calypsan.listenup.api.dto.MetadataApplySelection
@@ -396,7 +399,19 @@ internal class MetadataLookupServiceImpl(
             try {
                 val stored = imageDeps.coverImageStore.store.store(bookId.value, bytes, "image/jpeg")
                 val relPath = "covers/${stored.path.name}"
-                bookRepository.setManagedCover(bookId, relPath, stored.sha256, CoverSource.UPLOADED)
+                bookRepository.setManagedCover(
+                    bookId,
+                    relPath,
+                    stored.sha256,
+                    CoverSource.UPLOADED,
+                    // A cover picked from the search results by a person is a hand choice.
+                    provenance =
+                        FieldProvenance(
+                            FieldSourceKind.USER,
+                            at = currentEpochMilliseconds(),
+                            by = principal.current()?.userId?.value,
+                        ),
+                )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: ImageStore.InvalidImageException) {

@@ -1173,6 +1173,7 @@ private class FakeAdminRepository(
         remoteUrl: String?,
         holdNewBooksForReview: Boolean?,
         pushNotificationsEnabled: Boolean?,
+        metadataRegion: String?,
     ): AppResult<ServerSettings> = AppResult.Success(ServerSettings(serverName = serverName ?: "Test", remoteUrl = remoteUrl))
 
     override suspend fun getRatingSources(): AppResult<List<RatingSourceStatus>> = AppResult.Success(emptyList())

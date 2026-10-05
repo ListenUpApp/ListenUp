@@ -34,6 +34,7 @@ private class FakeAdminSettingsService : AdminSettingsService {
                 patch.remoteUrl ?: stored.remoteUrl,
                 holdNewBooksForReview = patch.holdNewBooksForReview ?: stored.holdNewBooksForReview,
                 pushNotificationsEnabled = patch.pushNotificationsEnabled ?: stored.pushNotificationsEnabled,
+                metadataRegion = patch.metadataRegion ?: stored.metadataRegion,
             )
         return AppResult.Success(stored)
     }
@@ -187,5 +188,13 @@ class AdminRepositoryImplSettingsTest :
 
             (repo.clearHardcoverApiToken() as AppResult.Success).data.apiToken shouldBe HardcoverApiTokenStatus.NotSet
             (repo.setHardcoverMetadataEnabled(false) as AppResult.Success).data.metadataEnabled shouldBe false
+        }
+
+        test("the store region maps through, and updating it sends only the region") {
+            val svc = FakeAdminSettingsService().apply { stored = stored.copy(metadataRegion = "de") }
+            (repo(svc).getServerSettings() as AppResult.Success).data.metadataRegion shouldBe "de"
+
+            (repo(svc).updateServerSettings(metadataRegion = "au") as AppResult.Success).data.metadataRegion shouldBe "au"
+            svc.lastPatch shouldBe AdminServerSettingsPatch(metadataRegion = "au")
         }
     })

@@ -2,6 +2,8 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
@@ -83,6 +85,16 @@ class ApplyCoverTest :
                 val saved = books.findById(BookId("book1"))
                 saved.shouldNotBeNull()
                 saved.cover?.source shouldBe CoverSource.UPLOADED
+            }
+        }
+
+        test("a cover picked from the search results is recorded as set by hand, by whom") {
+            withCoverFixture(downloadBytes = ONE_PX_PNG) { service, books ->
+                service.applyCover(BookId("book1"), "https://itunes/any.png").shouldBeInstanceOf<AppResult.Success<*>>()
+
+                val stamp = books.findById(BookId("book1"))!!.fieldProvenance.getValue(BookField.COVER)
+                stamp.kind shouldBe FieldSourceKind.USER
+                stamp.by shouldBe "root"
             }
         }
 

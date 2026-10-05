@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.presentation.metadata
 
+import kotlinx.coroutines.flow.flowOf
+import com.calypsan.listenup.client.domain.repository.LibraryRepository
+import com.calypsan.listenup.client.domain.model.Library
+import com.calypsan.listenup.client.domain.model.AccessMode
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.dto.MetadataBook
@@ -86,6 +90,7 @@ class MetadataViewModelTest :
             currentGenres: List<String> = emptyList(),
             currentMoods: List<String> = emptyList(),
             currentTags: List<String> = emptyList(),
+            libraryRegion: String? = null,
         ): MetadataViewModel =
             MetadataViewModel(
                 metadataRepository = repo,
@@ -106,6 +111,24 @@ class MetadataViewModelTest :
                             MutableStateFlow(currentTags.mapIndexed { i, name -> Tag(id = "t$i", name = name, slug = name) })
                     },
                 errorBus = ErrorBus(),
+                libraryRepository =
+                    mock<LibraryRepository> {
+                        every { observeAll() } returns
+                            flowOf(
+                                listOf(
+                                    Library(
+                                        id = "lib",
+                                        name = "Library",
+                                        metadataPrecedence = "embedded,abs,sidecar",
+                                        accessMode = AccessMode.OPEN,
+                                        createdByUserId = null,
+                                        createdAt = 0L,
+                                        revision = 0L,
+                                        metadataRegion = libraryRegion,
+                                    ),
+                                ),
+                            )
+                    },
             )
 
         suspend fun TestScope.readyVmWithTwoChapters(): MetadataViewModel {
@@ -1152,6 +1175,36 @@ class MetadataViewModelTest :
                 ready.fallbackSourceFor(BookField.DESCRIPTION) shouldBe "Audnexus"
                 ready.fallbackSourceFor(BookField.AUTHORS) shouldBe "iTunes"
                 ready.fallbackSourceFor(BookField.TITLE) shouldBe null
+            }
+        }
+
+        test("a book search starts in the library's Audible store") {
+            runTest {
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.searchBooks(any(), any(), any()) } returns AppResult.Success(MetadataSearchResults(emptyList()))
+                val vm = buildVm(repo, libraryRegion = "uk")
+
+                vm.initForBook("b1", "Project Hail Mary", "Andy Weir")
+                vm.search()
+                advanceUntilIdle()
+
+                vm.state.value.region shouldBe MetadataLocale("uk")
+                verifySuspend { repo.searchBooks("Project Hail Mary Andy Weir", MetadataLocale("uk"), BookId("b1")) }
+            }
+        }
+
+        test("a store the person picks wins over the library's") {
+            runTest {
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.searchBooks(any(), any(), any()) } returns AppResult.Success(MetadataSearchResults(emptyList()))
+                val vm = buildVm(repo, libraryRegion = "uk")
+
+                vm.initForBook("b1", "Project Hail Mary", "Andy Weir")
+                vm.changeRegion(MetadataLocale("au"))
+                advanceUntilIdle()
+
+                vm.state.value.region shouldBe MetadataLocale("au")
+                verifySuspend { repo.searchBooks(any(), MetadataLocale("au"), any()) }
             }
         }
     })

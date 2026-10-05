@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
+import com.calypsan.listenup.client.domain.repository.LibraryRepository
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
@@ -32,6 +33,7 @@ import org.koin.test.verify.verify
  *  - [ContributorAliasDao] — owned by `persistenceModule`.
  *  - [ContributorDao] — owned by `persistenceModule`.
  *  - [MetadataRepository] — owned by `metadataModule`.
+ *  - [LibraryRepository] — owned by `libraryModule` (matching starts in the library's Audible store).
  *  - [ErrorBus] — owned by `appCoreModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
@@ -53,6 +55,7 @@ class ContributorPresentationModuleVerifyTest :
                         ContributorAliasDao::class,
                         ContributorDao::class,
                         MetadataRepository::class,
+                        LibraryRepository::class,
                         ErrorBus::class,
                     ),
             )

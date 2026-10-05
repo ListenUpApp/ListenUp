@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.LibraryAdminService
+import com.calypsan.listenup.api.dto.admin.AdminServerSettings
 import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
 import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
@@ -204,20 +205,14 @@ internal class AdminRepositoryImpl(
         adminUserChannel.call { it.setRegistrationPolicy(policy) }
 
     override suspend fun getServerSettings(): AppResult<ServerSettings> =
-        adminSettingsChannel.call(idempotent = true) { it.getServerSettings() }.map {
-            ServerSettings(
-                it.serverName,
-                it.remoteUrl,
-                it.holdNewBooksForReview,
-                it.pushNotificationsEnabled,
-            )
-        }
+        adminSettingsChannel.call(idempotent = true) { it.getServerSettings() }.map { it.toDomain() }
 
     override suspend fun updateServerSettings(
         serverName: String?,
         remoteUrl: String?,
         holdNewBooksForReview: Boolean?,
         pushNotificationsEnabled: Boolean?,
+        metadataRegion: String?,
     ): AppResult<ServerSettings> =
         adminSettingsChannel
             .call {
@@ -227,9 +222,10 @@ internal class AdminRepositoryImpl(
                         remoteUrl = remoteUrl,
                         holdNewBooksForReview = holdNewBooksForReview,
                         pushNotificationsEnabled = pushNotificationsEnabled,
+                        metadataRegion = metadataRegion,
                     ),
                 )
-            }.map { ServerSettings(it.serverName, it.remoteUrl, it.holdNewBooksForReview, it.pushNotificationsEnabled) }
+            }.map { it.toDomain() }
 
     override suspend fun getRatingSources(): AppResult<List<RatingSourceStatus>> =
         adminSettingsChannel.call(idempotent = true) { it.getRatingSources() }
@@ -337,4 +333,13 @@ private fun ContractLibrary.toDomain(): Library =
         createdByUserId = createdByUserId?.value,
         createdAt = createdAt,
         revision = 0L,
+    )
+
+private fun AdminServerSettings.toDomain(): ServerSettings =
+    ServerSettings(
+        serverName = serverName,
+        remoteUrl = remoteUrl,
+        holdNewBooksForReview = holdNewBooksForReview,
+        pushNotificationsEnabled = pushNotificationsEnabled,
+        metadataRegion = metadataRegion,
     )

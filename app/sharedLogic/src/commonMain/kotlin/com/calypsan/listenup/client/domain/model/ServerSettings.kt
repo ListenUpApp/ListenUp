@@ -9,4 +9,6 @@ data class ServerSettings(
     val remoteUrl: String?,
     val holdNewBooksForReview: Boolean = false,
     val pushNotificationsEnabled: Boolean = true,
+    /** The library's Audible store token — where match searches start. */
+    val metadataRegion: String = "us",
 )

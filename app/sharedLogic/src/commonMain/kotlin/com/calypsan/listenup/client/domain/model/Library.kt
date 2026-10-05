@@ -23,6 +23,7 @@ package com.calypsan.listenup.client.domain.model
  * @property folders Lightweight refs to every root folder registered under this library.
  *   Empty for projections that do not carry folder data; admins see each folder's
  *   [LibraryFolderRef.rootPath].
+ * @property metadataRegion The library's Audible store token; null = the server default.
  */
 data class Library(
     val id: String,
@@ -33,6 +34,7 @@ data class Library(
     val createdByUserId: String?,
     val createdAt: Long,
     val revision: Long,
+    val metadataRegion: String? = null,
 )
 
 /**

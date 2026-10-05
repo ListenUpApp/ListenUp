@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.sync
 
+import com.calypsan.listenup.api.dto.match.ExternalRef
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.metadata.FieldProvenanceMapSerializer
@@ -85,6 +86,16 @@ data class BookSyncPayload(
     val updatedAt: Long,
     val createdAt: Long,
     override val deletedAt: Long?,
+    /**
+     * Every catalogue that knows this book, one ref per provider. The `audible` ref always mirrors [asin]:
+     * the server reconciles it on every write, so an older client editing [asin] moves it too.
+     */
+    @SerialName("externalRefs") val externalRefs: List<ExternalRef> = emptyList(),
+    /**
+     * The full release date (ISO `yyyy-mm-dd`) when a catalogue supplied one. Its year always equals
+     * [publishYear]; a write that changes the year without a date clears it. Clients display the year only.
+     */
+    @SerialName("releaseDate") val releaseDate: String? = null,
 ) : SyncPayload
 
 /**

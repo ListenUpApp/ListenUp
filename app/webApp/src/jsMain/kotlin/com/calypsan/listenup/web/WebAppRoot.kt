@@ -3005,6 +3005,7 @@ private fun ServerSettingsRoute(
         onHoldNewBooks = session.onHoldNewBooks,
         onPushNotifications = session.onPushNotifications,
         onSetRatingSourceEnabled = session.onSetRatingSourceEnabled,
+        onMetadataRegion = session.onMetadataRegion,
         onSaveHardcoverToken = session.onSaveHardcoverToken,
         onRemoveHardcoverToken = session.onRemoveHardcoverToken,
         onHardcoverMetadata = session.onHardcoverMetadata,

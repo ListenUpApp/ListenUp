@@ -32,6 +32,10 @@ open class UpdateServerSettingsUseCase(
     open suspend fun updatePushNotificationsEnabled(enabled: Boolean): AppResult<ServerSettings> =
         adminRepository.updateServerSettings(pushNotificationsEnabled = enabled)
 
+    /** Sets the library's Audible store — where match searches start unless a search picks another. */
+    open suspend fun updateMetadataRegion(region: String): AppResult<ServerSettings> =
+        adminRepository.updateServerSettings(metadataRegion = region)
+
     /** Switches [source] on or off; disabling flips `enabled` on each of its existing rows. */
     open suspend fun setRatingSourceEnabled(
         source: ExternalRatingSource,
