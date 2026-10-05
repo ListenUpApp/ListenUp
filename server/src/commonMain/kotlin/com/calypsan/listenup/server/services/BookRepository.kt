@@ -283,7 +283,23 @@ class BookRepository(
             documents = emptyList(),
             chapters = emptyList(),
             chapterSource = ChapterSource.EMBEDDED,
+            externalRefs = emptyList(),
+            releaseDate = null,
         )
+
+    /**
+     * Applies the identity invariants ([withReconciledIdentity]: the `audible` ref is the `asin` column, a
+     * release date's year is `publish_year`) and writes the result. The single entry every book write —
+     * scan, edit, match, batch — passes through, so neither invariant can be skipped.
+     */
+    override fun writePayload(
+        value: BookSyncPayload,
+        rev: Long,
+        now: Long,
+        clientOpId: String?,
+        userId: String?,
+        existed: Boolean,
+    ) = writeReconciledPayload(value.withReconciledIdentity(), rev, now, clientOpId, userId, existed)
 
     /**
      * Writes the full book aggregate inside the substrate's open SQLDelight transaction.
@@ -301,7 +317,7 @@ class BookRepository(
      * GENRES, or a non-scan write. The system-collection membership is likewise a SQLDelight write on
      * the same engine, so it joins this transaction safely and atomically.
      */
-    override fun writePayload(
+    private fun writeReconciledPayload(
         value: BookSyncPayload,
         rev: Long,
         now: Long,
@@ -465,6 +481,11 @@ class BookRepository(
         // Scan paths only: genre junctions ride INSIDE this transaction from the pre-resolved ids, so
         // a genre change is atomic with the row and carried by its revision bump. Null leaves them be.
         extras?.genreIds?.let { genreIds -> bookGenreWriter.writeJunctions(value.id, genreIds) }
+
+        // The release date and the catalogue refs ride this same transaction and revision. Both are written
+        // by targeted statements so insert/updateContent (and their many callers) stay as they were.
+        db.booksQueries.updateReleaseDate(release_date = value.releaseDate, id = value.id)
+        db.replaceExternalRefs(ExternalRefKind.BOOK, value.id, value.externalRefs)
     }
 
     /**
@@ -1466,6 +1487,10 @@ class BookRepository(
                 asin = kept(BookField.ASIN, existing.asin, incoming.asin),
                 abridged = kept(BookField.ABRIDGED, existing.abridged, incoming.abridged),
                 explicit = kept(BookField.EXPLICIT, existing.explicit, incoming.explicit),
+                // The scanner never derives a release date or a catalogue link: both carry forward, and
+                // writePayload then reconciles them against the year and the ASIN this scan settled on.
+                releaseDate = existing.releaseDate,
+                externalRefs = existing.externalRefs,
                 fieldProvenance = mergedProvenance,
             )
         return ProvenanceMerge(

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.match.ExternalRef
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
@@ -72,6 +73,7 @@ internal fun assembleBookPayload(
     audioFiles: List<BookAudioFilePayload>,
     chapters: List<BookChapterPayload>,
     documents: List<BookDocumentPayload>,
+    externalRefs: List<ExternalRef> = emptyList(),
 ): BookSyncPayload {
     val cover =
         bookRow.cover_hash?.let { hash ->
@@ -120,6 +122,8 @@ internal fun assembleBookPayload(
         updatedAt = bookRow.updated_at,
         createdAt = bookRow.created_at,
         deletedAt = bookRow.deleted_at,
+        externalRefs = externalRefs,
+        releaseDate = bookRow.release_date,
     )
 }
 
@@ -142,6 +146,7 @@ internal fun ListenUpDatabase.readBookPayloads(idStrs: List<String>): List<BookS
     val genresByBook = HashMap<String, MutableList<BookGenrePayload>>()
     val audioByBook = HashMap<String, MutableList<BookAudioFilePayload>>()
     val documentsByBook = HashMap<String, MutableList<BookDocumentPayload>>()
+    val refsByBook = HashMap<String, List<ExternalRef>>()
 
     idStrs.chunked(SQLITE_IN_CHUNK).forEach { chunk ->
         booksQueries.selectByIds(chunk).executeAsList().forEach { row -> bookRows[row.id] = row }
@@ -235,6 +240,8 @@ internal fun ListenUpDatabase.readBookPayloads(idStrs: List<String>): List<BookS
                     ),
                 )
         }
+
+        refsByBook.putAll(readExternalRefs(ExternalRefKind.BOOK, chunk))
     }
 
     return idStrs.mapNotNull { id ->
@@ -247,6 +254,7 @@ internal fun ListenUpDatabase.readBookPayloads(idStrs: List<String>): List<BookS
             audioFiles = audioByBook[id].orEmpty(),
             chapters = chaptersByBook[id].orEmpty(),
             documents = documentsByBook[id].orEmpty(),
+            externalRefs = refsByBook[id].orEmpty(),
         )
     }
 }

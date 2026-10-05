@@ -485,6 +485,70 @@ class FieldProvenanceOnRescanTest :
                 }
             }
         }
+
+        test("a rescan keeps the book's catalogue links — the scanner never owns refs") {
+            withSqlDatabase {
+                val (repo, registry) = provenanceRepository(sql, driver)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val path = "Weir/ProjectHailMary"
+                    val id = repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path)).resolved()
+                    repo.upsert(
+                        repo.findById(id)!!.copy(
+                            externalRefs =
+                                listOf(
+                                    com.calypsan.listenup.api.dto.match
+                                        .ExternalRef("hardcover", "428"),
+                                ),
+                        ),
+                    )
+
+                    repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, title = "Project Hail Mary (Unabridged)"))
+
+                    repo.findById(id)!!.externalRefs.map { it.provider } shouldBe listOf("hardcover")
+                }
+            }
+        }
+
+        test("a rescan that re-derives an unprotected year clears the stored release date") {
+            withSqlDatabase {
+                val (repo, registry) = provenanceRepository(sql, driver)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val path = "Weir/Artemis"
+                    val id = repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, publishYear = 2017)).resolved()
+                    repo.upsert(repo.findById(id)!!.copy(releaseDate = "2017-11-14"))
+
+                    repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, publishYear = 2018))
+
+                    val saved = repo.findById(id)!!
+                    saved.publishYear shouldBe 2018
+                    saved.releaseDate shouldBe null
+                }
+            }
+        }
+
+        test("a rescan leaves a protected year's release date alone") {
+            withSqlDatabase {
+                val (repo, registry) = provenanceRepository(sql, driver)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val path = "Weir/TheMartian"
+                    val id = repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, publishYear = 2011)).resolved()
+                    repo.upsert(
+                        repo.findById(id)!!.copy(
+                            publishYear = 2014,
+                            releaseDate = "2014-02-11",
+                            fieldProvenance = userMap(BookField.PUBLISH_YEAR),
+                        ),
+                    )
+
+                    repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, publishYear = 2011))
+
+                    repo.findById(id)!!.releaseDate shouldBe "2014-02-11"
+                }
+            }
+        }
     })
 
 private val TEST_FOLDER = FolderId("test-folder")
