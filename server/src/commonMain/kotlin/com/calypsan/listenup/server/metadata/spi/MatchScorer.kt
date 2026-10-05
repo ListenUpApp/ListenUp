@@ -7,16 +7,17 @@ import kotlin.math.max
  * The phase-1 match scorer — a pure function that rates how confidently a catalog
  * [BookMatch] is the same book as the local [BookIdentity] being enriched.
  *
- * Implements the approved weighting `0.7·duration + 0.2·title + 0.1·author`:
- * runtime dominates because two editions of the same title diverge most reliably by
- * length, title is the next-strongest signal, and author breaks near-ties. Every
+ * Implements the weighting `0.55·duration + 0.2·title + 0.1·author + 0.15·narrator`
+ * (the matching redesign): runtime dominates because two editions of the same title
+ * diverge most reliably by length, title is the next-strongest signal, the narrators
+ * tell a dramatisation or another reading apart, and author breaks near-ties. Every
  * component is normalized to `0.0..1.0`, so the blended score is too.
  *
  * **Graceful degradation.** A signal contributes only when both sides carry it — a
  * freshly scanned book may know its runtime but not its author, and a keyless catalog
  * hit may omit runtime. The active weights are renormalized over what's present, so a
  * duration-only comparison still spans the full `0.0..1.0` range rather than being
- * capped at `0.7`. When nothing is comparable the score is `0.0` — the candidate can't
+ * capped at `0.55`. When nothing is comparable the score is `0.0` — the candidate can't
  * be ranked, so it sinks.
  *
  * Pure and I/O-free, so it is exhaustively unit- and property-testable without a
@@ -24,13 +25,16 @@ import kotlin.math.max
  */
 internal object MatchScorer {
     /** Weight of the runtime-proximity signal — the strongest, per the approved model. */
-    private const val DURATION_WEIGHT: Double = 0.7
+    private const val DURATION_WEIGHT: Double = 0.55
 
     /** Weight of the title-similarity signal. */
     private const val TITLE_WEIGHT: Double = 0.2
 
     /** Weight of the author-similarity signal. */
     private const val AUTHOR_WEIGHT: Double = 0.1
+
+    /** Weight of the narrator-set signal: the same title read by someone else is another edition. */
+    private const val NARRATOR_WEIGHT: Double = 0.15
 
     /**
      * Relative runtime difference at which duration proximity reaches `0.0`. A 50%
@@ -115,8 +119,31 @@ internal object MatchScorer {
             weightSum += AUTHOR_WEIGHT
         }
 
+        val localNarrators = local.narrators.toNameSet()
+        val candidateNarrators = candidate.narrators.toNameSet()
+        if (localNarrators.isNotEmpty() && candidateNarrators.isNotEmpty()) {
+            weighted += NARRATOR_WEIGHT * diceCoefficient(localNarrators, candidateNarrators)
+            weightSum += NARRATOR_WEIGHT
+        }
+
         return if (weightSum == 0.0) 0.0 else (weighted / weightSum).coerceIn(0.0, 1.0)
     }
+
+    /** Whether [a] and [b] are the same text once case, punctuation and word order are set aside. */
+    fun sameText(
+        a: String,
+        b: String,
+    ): Boolean = a.tokenize().let { it.isNotEmpty() && it == b.tokenize() }
+
+    /** Whether [a] and [b] name the same people, in any order, case or "Last, First" form. */
+    fun sameNames(
+        a: List<String>,
+        b: List<String>,
+    ): Boolean = a.toNameSet().let { it.isNotEmpty() && it == b.toNameSet() }
+
+    /** Each name as its sorted tokens, so "Porter, Ray" and "Ray Porter" are one person. */
+    private fun List<String>.toNameSet(): Set<String> =
+        mapNotNull { name -> name.tokenize().sorted().joinToString(" ").takeIf { it.isNotEmpty() } }.toSet()
 
     /**
      * Re-scores every [candidate][candidates] against [local] and returns them

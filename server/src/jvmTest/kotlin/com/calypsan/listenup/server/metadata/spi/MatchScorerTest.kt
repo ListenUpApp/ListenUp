@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.metadata.spi
 
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.doubles.plusOrMinus
 import io.kotest.matchers.doubles.shouldBeGreaterThan
 import io.kotest.matchers.doubles.shouldBeLessThan
 import io.kotest.matchers.shouldBe
@@ -12,7 +13,7 @@ import io.kotest.property.checkAll
 
 /**
  * Unit + property tests for [MatchScorer] — the pure phase-1 duration/title/author
- * scorer. Verifies the approved `0.7·duration + 0.2·title + 0.1·author` weighting, the
+ * scorer. Verifies the `0.55·duration + 0.2·title + 0.1·author + 0.15·narrator` weighting, the
  * renormalize-over-present-signals degradation rule, tokenized similarity, and stable
  * best-first ranking.
  */
@@ -139,6 +140,76 @@ class MatchScorerTest :
                 val identity = BookIdentity(title = "Shared Title", primaryAuthor = author, durationMs = duration)
                 val match = BookMatch(title = "Shared Title", author = author, durationMs = duration, score = 0.0)
                 MatchScorer.score(identity, match) shouldBe 1.0
+            }
+        }
+
+        context("narrators (matching redesign)") {
+            fun withNarrators(
+                local: List<String>,
+                theirs: List<String>,
+                durationMs: Long? = 36_000_000,
+            ) = MatchScorer.score(
+                BookIdentity(
+                    title = "The Way of Kings",
+                    primaryAuthor = "Brandon Sanderson",
+                    durationMs = 36_000_000,
+                    narrators = local,
+                ),
+                BookMatch(
+                    title = "The Way of Kings",
+                    author = "Brandon Sanderson",
+                    durationMs = durationMs,
+                    narrators = theirs,
+                    score = 0.0,
+                ),
+            )
+
+            test("the same narrators, in any order and name form, score as a full match") {
+                withNarrators(listOf("Kate Reading", "Michael Kramer"), listOf("Kramer, Michael", "Kate Reading")) shouldBe 1.0
+            }
+
+            test("different narrators cost exactly the narrator weight") {
+                withNarrators(listOf("Kate Reading"), listOf("Full Cast")) shouldBe (0.85 plusOrMinus 1e-9)
+            }
+
+            test("no narrators on one side drops the signal rather than penalising it") {
+                withNarrators(emptyList(), listOf("Full Cast")) shouldBe 1.0
+            }
+
+            test("duration still dominates: same length with other narrators beats the narrator at half the length") {
+                withNarrators(listOf("Kate Reading"), listOf("Someone Else")) shouldBeGreaterThan
+                    withNarrators(listOf("Kate Reading"), listOf("Kate Reading"), durationMs = 18_000_000)
+            }
+
+            test("property: the score never rises as the length moves further from yours") {
+                checkAll(Arb.long(0L..36_000_000L), Arb.long(0L..36_000_000L)) { a, b ->
+                    val near = minOf(a, b)
+                    val far = maxOf(a, b)
+
+                    fun at(gap: Long) =
+                        MatchScorer.score(
+                            BookIdentity(title = "T", primaryAuthor = "A", durationMs = 36_000_000, narrators = listOf("N")),
+                            BookMatch(
+                                title = "T",
+                                author = "A",
+                                durationMs = 36_000_000 + gap,
+                                narrators = listOf("N"),
+                                score = 0.0,
+                            ),
+                        )
+                    (at(near) >= at(far)) shouldBe true
+                }
+            }
+
+            test("sameNames compares name sets, ignoring order, case and 'Last, First'") {
+                MatchScorer.sameNames(listOf("Ray Porter"), listOf("porter, ray")) shouldBe true
+                MatchScorer.sameNames(listOf("Ray Porter"), listOf("Ray Porter", "Full Cast")) shouldBe false
+                MatchScorer.sameNames(emptyList(), emptyList()) shouldBe false
+            }
+
+            test("sameText ignores case, punctuation and word order, but not extra words") {
+                MatchScorer.sameText("Project Hail Mary", "project hail-mary") shouldBe true
+                MatchScorer.sameText("Project Hail Mary", "Project Hail Mary [Dramatized Adaptation]") shouldBe false
             }
         }
 

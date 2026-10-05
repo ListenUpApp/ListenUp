@@ -28,4 +28,6 @@ data class BookIdentity(
      * already knows about the book — Hardcover reads an existing link, then the book's own identifiers.
      */
     val bookId: String? = null,
+    /** The book's narrators, as credited, when known — they feed the match scorer (the matching redesign). */
+    val narrators: List<String> = emptyList(),
 )
