@@ -2,6 +2,7 @@
 -- collection of zero-or-more library_folders roots. Soft-deletable, revision-tracked.
 -- Column set matches V20__library_substrate.sql (base + multi-user forward-staging)
 -- plus V25__library_inbox_enabled.sql, renamed by V65__rename_inbox_enabled_to_hold_new_books.sql.
+-- plus V88__library_metadata_region.sql (metadata_region — server-side, carried on the payload).
 --
 -- `hold_new_books_for_review` is a SERVER-side scanner gate — it is deliberately NOT part of
 -- LibrarySyncPayload (not member-synced), so its read/write lives in dedicated
@@ -19,7 +20,8 @@ CREATE TABLE libraries (
     deleted_at          INTEGER,
     client_op_id        TEXT,
     hold_new_books_for_review       INTEGER NOT NULL DEFAULT 0,
-    initial_scan_completed_at INTEGER
+    initial_scan_completed_at INTEGER,
+    metadata_region TEXT
 );
 
 CREATE INDEX idx_libraries_revision ON libraries(revision);
@@ -79,6 +81,19 @@ SELECT hold_new_books_for_review FROM libraries WHERE id = :id AND deleted_at IS
 setHoldNewBooksForReview:
 UPDATE libraries
 SET hold_new_books_for_review = :hold_new_books_for_review, revision = :revision, updated_at = :updated_at,
+    client_op_id = :client_op_id
+WHERE id = :id AND deleted_at IS NULL;
+
+-- ── metadata_region (the library's Audible store; off the syncable write, on the payload) ─────
+
+selectMetadataRegion:
+SELECT metadata_region FROM libraries WHERE id = :id AND deleted_at IS NULL;
+
+-- Sets the store and bumps revision/updated_at so clients receive it on LibrarySyncPayload. Written
+-- directly, never through the syncable `update`, so a library upsert can never clobber it.
+setMetadataRegion:
+UPDATE libraries
+SET metadata_region = :metadata_region, revision = :revision, updated_at = :updated_at,
     client_op_id = :client_op_id
 WHERE id = :id AND deleted_at IS NULL;
 

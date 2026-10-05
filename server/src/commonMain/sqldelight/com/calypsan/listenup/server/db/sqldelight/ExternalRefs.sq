@@ -1,0 +1,23 @@
+-- external_refs: a book (later, a person) as each metadata catalogue knows it. See V87__external_refs.sql.
+CREATE TABLE external_refs (
+    entity_kind TEXT NOT NULL,
+    entity_id   TEXT NOT NULL,
+    provider    TEXT NOT NULL,
+    external_id TEXT NOT NULL,
+    region      TEXT,
+    PRIMARY KEY (entity_kind, entity_id, provider)
+);
+
+CREATE INDEX external_refs_by_key ON external_refs(provider, external_id);
+
+selectByEntityIds:
+SELECT entity_id, provider, external_id, region FROM external_refs
+WHERE entity_kind = :entity_kind AND entity_id IN :entity_ids
+ORDER BY entity_id, provider;
+
+insert:
+INSERT INTO external_refs (entity_kind, entity_id, provider, external_id, region)
+VALUES (:entity_kind, :entity_id, :provider, :external_id, :region);
+
+deleteForEntity:
+DELETE FROM external_refs WHERE entity_kind = :entity_kind AND entity_id = :entity_id;

@@ -6,6 +6,7 @@
 --   V43__books_chapter_source.sql        (chapter_source)
 --   V48__books_field_provenance.sql      (field_provenance — per-field authority map, JSON)
 --   V56__volume_boost_and_normalization.sql (normalization_gain_db)
+--   V89__book_release_date.sql             (release_date — full ISO date, year == publish_year)
 --
 -- revision / created_at / updated_at / scanned_at / total_duration are declared
 -- NOT NULL here so the generated column types are non-null `Long` — every row
@@ -37,6 +38,7 @@ CREATE TABLE books (
     subtitle         TEXT,
     description      TEXT,
     publish_year     INTEGER,
+    release_date     TEXT,
     normalization_gain_db REAL,
     publisher        TEXT,
     language         TEXT,
@@ -246,6 +248,19 @@ WHERE id = :id;
 -- metadata edit (applyBookFields never writes created_at on a rescan).
 updateCreatedAt:
 UPDATE books SET created_at = :created_at WHERE id = :id;
+
+-- The full release date, written after every content write (BookRepository.writeReconciledPayload) so
+-- insert/updateContent and their many callers stay untouched. The value is already reconciled
+-- against publish_year by then.
+updateReleaseDate:
+UPDATE books SET release_date = :release_date WHERE id = :id;
+
+-- The provenance column alone, for the targeted cover writes that must record who set the cover.
+selectFieldProvenanceById:
+SELECT field_provenance FROM books WHERE id = :id;
+
+updateFieldProvenance:
+UPDATE books SET field_provenance = :field_provenance WHERE id = :id;
 
 -- Managed-cover write (setManagedCover): provenance + relative path + hash, plus
 -- revision/updated_at bump. Returns the affected-row count semantics via change().
