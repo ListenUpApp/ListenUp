@@ -300,7 +300,11 @@ class BookRepository(
         clientOpId: String?,
         userId: String?,
         existed: Boolean,
-    ) = writeReconciledPayload(value.withReconciledIdentity(), rev, now, clientOpId, userId, existed)
+    ) {
+        val reconciled = value.withReconciledIdentity()
+        writeReconciledPayload(reconciled, rev, now, clientOpId, existed)
+        writeIdentityColumns(reconciled)
+    }
 
     /**
      * Writes the full book aggregate inside the substrate's open SQLDelight transaction.
@@ -323,7 +327,6 @@ class BookRepository(
         rev: Long,
         now: Long,
         clientOpId: String?,
-        userId: String?,
         existed: Boolean,
     ) {
         // Read per-call extras the scan/edit paths installed via the coroutine context (carried by
@@ -482,9 +485,13 @@ class BookRepository(
         // Scan paths only: genre junctions ride INSIDE this transaction from the pre-resolved ids, so
         // a genre change is atomic with the row and carried by its revision bump. Null leaves them be.
         extras?.genreIds?.let { genreIds -> bookGenreWriter.writeJunctions(value.id, genreIds) }
+    }
 
-        // The release date and the catalogue refs ride this same transaction and revision. Both are written
-        // by targeted statements so insert/updateContent (and their many callers) stay as they were.
+    /**
+     * The release date and the catalogue refs, riding the caller's transaction and revision. Both are
+     * written by targeted statements so insert/updateContent (and their many callers) stay as they were.
+     */
+    private fun writeIdentityColumns(value: BookSyncPayload) {
         db.booksQueries.updateReleaseDate(release_date = value.releaseDate, id = value.id)
         db.replaceExternalRefs(ExternalRefKind.BOOK, value.id, value.externalRefs)
     }

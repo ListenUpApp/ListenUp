@@ -35,7 +35,8 @@ class V88V89MigrationTest :
             MigrationRunner(path).migrate(upTo = 87)
             ds.execute("INSERT INTO libraries (id, name, created_at, updated_at) VALUES ('lib', 'Library', 0, 0)")
             ds.execute(
-                "INSERT INTO books (id, library_id, title, total_duration, root_rel_path, scanned_at, revision, created_at, updated_at, publish_year) " +
+                "INSERT INTO books (id, library_id, title, total_duration, root_rel_path, scanned_at, revision, created_at, " +
+                    "updated_at, publish_year) " +
                     "VALUES ('b1', 'lib', 'Book', 0, 'b1', 0, 1, 0, 0, 2021)",
             )
 
