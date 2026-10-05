@@ -195,9 +195,21 @@ class ITunesClient(
         val original =
             result.artworkUrl100?.ifEmpty { null }
                 ?: result.artworkUrl60?.ifEmpty { null }
-                ?: return ITunesCoverHit(coverUrl = "", maxSizeUrl = "", sourceId = sourceId)
+                ?: return ITunesCoverHit(
+                    coverUrl = "",
+                    maxSizeUrl = "",
+                    sourceId = sourceId,
+                    title = result.collectionName.orEmpty(),
+                    author = result.artistName.orEmpty(),
+                )
         val maxSize = SIZE_PATTERN.replace(original, "/7000x7000bb.jpg")
-        return ITunesCoverHit(coverUrl = original, maxSizeUrl = maxSize, sourceId = sourceId)
+        return ITunesCoverHit(
+            coverUrl = original,
+            maxSizeUrl = maxSize,
+            sourceId = sourceId,
+            title = result.collectionName.orEmpty(),
+            author = result.artistName.orEmpty(),
+        )
     }
 
     private companion object {
