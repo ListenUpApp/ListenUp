@@ -10,7 +10,9 @@ import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.BookSearchResult
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.SearchDao
+import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
+import com.calypsan.listenup.client.data.local.db.SeriesMembershipRow
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import dev.mokkery.MockMode
@@ -77,18 +79,27 @@ class SearchRepositoryTest :
         fun series(
             id: String = "s1",
             name: String = "Series",
+            parentId: String? = null,
         ) = SeriesEntity(
             id = SeriesId(id),
             name = name,
+            parentId = parentId,
             description = null,
             createdAt = Timestamp(0),
             updatedAt = Timestamp(0),
         )
 
-        fun repository(configure: SearchDao.() -> Unit): SearchRepositoryImpl {
+        fun repository(
+            seriesDao: SeriesDao =
+                mock<SeriesDao> {
+                    everySuspend { getAll() } returns emptyList()
+                    everySuspend { getVisibleMemberships() } returns emptyList()
+                },
+            configure: SearchDao.() -> Unit,
+        ): SearchRepositoryImpl {
             val imageStorage = mock<ImageStorage> { every { exists(any()) } returns false }
             val searchDao = mock<SearchDao>(MockMode.autoUnit) { configure() }
-            return SearchRepositoryImpl(searchDao, imageStorage)
+            return SearchRepositoryImpl(searchDao, seriesDao, imageStorage)
         }
 
         test("blank query short-circuits to an empty result without touching the index") {
@@ -133,6 +144,28 @@ class SearchRepositoryTest :
                 result.hits.map { it.type } shouldContainExactlyInAnyOrder
                     listOf(SearchHitType.BOOK, SearchHitType.CONTRIBUTOR, SearchHitType.SERIES)
                 result.hits.first { it.type == SearchHitType.BOOK }.name shouldBe "Mistborn"
+            }
+        }
+
+        test("a series hit knows where it sits and how many books its subtree holds") {
+            runTest {
+                val era1 = series(id = "era1", name = "Mistborn Era 1", parentId = "mistborn")
+                val seriesDao =
+                    mock<SeriesDao> {
+                        everySuspend { getAll() } returns
+                            listOf(series(id = "cosmere", name = "Cosmere"), series(id = "mistborn", name = "Mistborn", parentId = "cosmere"), era1)
+                        everySuspend { getVisibleMemberships() } returns
+                            listOf(SeriesMembershipRow("era1", "b1"), SeriesMembershipRow("era1", "b2"), SeriesMembershipRow("mistborn", "b1"))
+                    }
+                val repo =
+                    repository(seriesDao) {
+                        everySuspend { searchSeries(any(), any()) } returns listOf(era1)
+                    }
+
+                val hit = repo.search("era", types = listOf(SearchHitType.SERIES)).hits.single()
+
+                hit.seriesPath shouldBe listOf("Cosmere", "Mistborn")
+                hit.bookCount shouldBe 2
             }
         }
 

@@ -56,6 +56,11 @@ data class SearchHit(
      * always false on a member's device.
      */
     val isHeld: Boolean = false,
+    /**
+     * For a series hit, the series above it, root first — shown as "in Cosmere › Mistborn". Empty for
+     * a top-level series and for every other kind of hit.
+     */
+    val seriesPath: List<String> = emptyList(),
 ) {
     /**
      * Format duration as human-readable string.

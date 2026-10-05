@@ -81,11 +81,11 @@ class LibraryViewModelRealRoomTest :
             }
         }
 
-        test("observeAllWithBooks emits an initial value on an empty DB") {
+        test("observeRootSeriesWithBooks emits an initial value on an empty DB") {
             val db = createInMemoryTestDatabase()
             try {
                 runBlocking {
-                    val series = withTimeout(5.seconds) { realSeriesRepository(db).observeAllWithBooks().first() }
+                    val series = withTimeout(5.seconds) { realSeriesRepository(db).observeRootSeriesWithBooks().first() }
                     series shouldBe emptyList()
                 }
             } finally {

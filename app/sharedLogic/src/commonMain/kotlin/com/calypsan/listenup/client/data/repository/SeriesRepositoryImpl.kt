@@ -10,6 +10,13 @@ import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
 import com.calypsan.listenup.client.data.local.db.toListItem
+import com.calypsan.listenup.client.data.local.db.SeriesMembershipRow
+import com.calypsan.listenup.client.domain.model.BookListItem
+import com.calypsan.listenup.client.domain.model.SeriesBookRef
+import com.calypsan.listenup.client.domain.model.SeriesHierarchy
+import com.calypsan.listenup.domain.series.SeriesMembership
+import com.calypsan.listenup.domain.series.SeriesNode
+import com.calypsan.listenup.domain.series.SeriesTree
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.client.data.repository.common.QueryUtils
@@ -159,17 +166,18 @@ internal class SeriesRepositoryImpl(
     // ========== Library View Methods ==========
 
     /**
-     * Compose [SeriesWithBooks] from two DAO Flows so the projected books carry
-     * real authors/narrators via the canonical [toListItem] mapper.
+     * The Library's top-level series, each carrying its whole subtree's books.
      *
-     * The series-side flow supplies series + book ids + sequences; the book-side
-     * flow supplies a single batched read of `BookWithContributors` for the entire
-     * library, joined in-memory by book id. This avoids N+1 queries (one
-     * contributor query per series) at the cost of a single redundant read of
-     * all books — acceptable because the library view already loads all books
-     * elsewhere on the same screen. Series with no visible book are omitted.
+     * Composed from two DAO Flows so the projected books carry real authors/narrators via the
+     * canonical [toListItem] mapper: the series-side flow supplies every series with its book ids and
+     * sequences, the book-side flow a single batched read of `BookWithContributors` for the whole
+     * library, joined in memory by book id. This avoids N+1 queries at the cost of one redundant read
+     * of all books — acceptable because the library view already loads them all on the same screen.
+     *
+     * Each root's books are its subtree's, distinct and in [SeriesTree.defaultBookOrder] — the order
+     * its own page lists them in. A root whose subtree holds no visible book is omitted.
      */
-    override fun observeAllWithBooks(): Flow<List<SeriesWithBooks>> =
+    override fun observeRootSeriesWithBooks(): Flow<List<SeriesWithBooks>> =
         combine(
             seriesDao.observeAllWithBooks(),
             // conflate the book stream: during initial population it invalidates once per inserted
@@ -177,38 +185,54 @@ internal class SeriesRepositoryImpl(
             // each — O(n²) allocation that OOMs. Collapse the burst to the latest snapshot.
             bookDao.observeAllWithContributors().conflate(),
         ) { seriesEntities, allBooksWithContributors ->
-            val booksById = allBooksWithContributors.associateBy { it.book.id }
-            seriesEntities
-                .map { entity ->
-                    val books =
-                        entity.books.mapNotNull { bookEntity ->
-                            val resolved = booksById[bookEntity.id]?.toListItem(imageStorage)
-                            if (resolved == null) {
-                                logger.debug {
-                                    "Skipping orphan book ${bookEntity.id} for series ${entity.series.id}"
-                                }
-                            }
-                            resolved
+            val booksById = allBooksWithContributors.associateBy { it.book.id.value }
+            val live = seriesEntities.filter { it.series.deletedAt == null }
+            val tree = SeriesTree(live.map { SeriesNode(it.series.id.value, it.series.parentId, it.series.parentPosition) })
+            // Held books never reach booksById: observeAllWithContributors excludes them in SQL, so a
+            // membership of one is dropped here and never counted.
+            val memberships =
+                live.flatMap { entity ->
+                    val sequences = entity.bookSequences.associate { it.bookId.value to it.sequence }
+                    entity.books.mapNotNull { bookEntity ->
+                        val id = bookEntity.id.value
+                        booksById[id]?.let { book ->
+                            SeriesMembership(id, entity.series.id.value, sequences[id], sortKey = book.book.title)
                         }
-                    val sequences =
-                        entity.bookSequences.associate {
-                            it.bookId.value to it.sequence
-                        }
+                    }
+                }
+            val listItems = HashMap<String, BookListItem>()
+            live
+                .filter { tree.ancestorsOf(it.series.id.value).isEmpty() }
+                .map { root ->
+                    val rootId = root.series.id.value
                     SeriesWithBooks(
-                        series = entity.series.toDomain(),
-                        books = books,
-                        bookSequences = sequences,
+                        series = root.series.toDomain(),
+                        books =
+                            tree.defaultBookOrder(rootId, memberships).mapNotNull { bookId ->
+                                booksById[bookId]?.let { listItems.getOrPut(bookId) { it.toListItem(imageStorage) } }
+                            },
+                        bookSequences = root.bookSequences.associate { it.bookId.value to it.sequence },
+                        subSeriesCount = tree.childrenOf(rootId).size,
                     )
                 }
-                // A series with no book the library shows — its books all held for review, or not
-                // synced yet — would be an empty card. Held books never reach booksById: they are
-                // excluded in SQL by observeAllWithContributors.
+                // A root with no book the library shows — its books all held for review, or not
+                // synced yet — would be an empty card.
                 .filter { it.books.isNotEmpty() }
         }.flowOn(IODispatcher) // per-book toListItem does a blocking cover stat — keep it off the collector (Main).
             // Room invalidates the entire series+books result on any book or series write.
             // distinctUntilChanged drops re-emissions where the mapped List<SeriesWithBooks> is
             // structurally equal to the last — SeriesWithBooks and BookListItem are both data classes.
             .distinctUntilChanged()
+
+    override fun observeHierarchy(): Flow<SeriesHierarchy> =
+        combine(seriesDao.observeAll(), seriesDao.observeVisibleMemberships()) { entities, rows ->
+            hierarchyOf(entities, rows)
+        }.flowOn(IODispatcher)
+            // Any book or series write re-runs the query; only a changed hierarchy is worth emitting.
+            .distinctUntilChanged()
+
+    private suspend fun currentHierarchy(): SeriesHierarchy =
+        withContext(IODispatcher) { hierarchyOf(seriesDao.getAll(), seriesDao.getVisibleMemberships()) }
 
     // ========== Series Detail Methods ==========
 
@@ -291,7 +315,16 @@ internal class SeriesRepositoryImpl(
                     }
                 }
 
-            val series = entities.map { it.toSearchResult() }
+            val hierarchy = currentHierarchy()
+            val series =
+                entities.map { entity ->
+                    SeriesSearchResult(
+                        id = entity.id.value,
+                        name = entity.name,
+                        bookCount = hierarchy.bookCount(entity.id.value),
+                        parentPath = hierarchy.pathNames(entity.id.value),
+                    )
+                }
 
             logger.debug {
                 "Local series search: query='$query', results=${series.size}, took=${duration.inWholeMilliseconds}ms"
@@ -307,7 +340,7 @@ internal class SeriesRepositoryImpl(
 
 // ========== Entity to Domain Mappers ==========
 
-private fun SeriesEntity.toDomain(): Series =
+internal fun SeriesEntity.toDomain(): Series =
     Series(
         id = id,
         name = name,
@@ -319,9 +352,12 @@ private fun SeriesEntity.toDomain(): Series =
         parentPosition = parentPosition,
     )
 
-private fun SeriesEntity.toSearchResult(): SeriesSearchResult =
-    SeriesSearchResult(
-        id = id.value,
-        name = name,
-        bookCount = 0, // Not available in offline mode
+/** The hierarchy over the live rows of [entities] and the visible [rows]. */
+internal fun hierarchyOf(
+    entities: List<SeriesEntity>,
+    rows: List<SeriesMembershipRow>,
+): SeriesHierarchy =
+    SeriesHierarchy(
+        series = entities.filter { it.deletedAt == null }.map { it.toDomain() },
+        memberships = rows.map { SeriesBookRef(it.seriesId, it.bookId) },
     )

@@ -13,6 +13,12 @@ data class SeriesWithBooks(
     val books: List<BookListItem>,
     /** Maps bookId to its position in this series (e.g. 1.0, 1.5); null when unnumbered. */
     val bookSequences: Map<String, Double?>,
+    /**
+     * How many series sit directly inside this one. Non-zero only on the Library's top-level cards
+     * ([com.calypsan.listenup.client.domain.repository.SeriesRepository.observeRootSeriesWithBooks]),
+     * whose [books] then hold the whole subtree's.
+     */
+    val subSeriesCount: Int = 0,
 ) {
     /**
      * Get the sequence for a specific book.

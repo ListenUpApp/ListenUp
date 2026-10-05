@@ -9,7 +9,10 @@ package com.calypsan.listenup.client.domain.model
 data class SeriesSearchResult(
     val id: String,
     val name: String,
+    /** Every book the library shows in this series and its sub-series. */
     val bookCount: Int,
+    /** The series above this one, root first — shown as "in Cosmere › Mistborn". Empty at the top level. */
+    val parentPath: List<String> = emptyList(),
 )
 
 /**
