@@ -11,9 +11,11 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
@@ -58,6 +60,10 @@ class FakeHardcoverCatalog {
         val series: List<Series> = emptyList(),
         val narrators: List<Author> = emptyList(),
         val ratingsCount: Int = 0,
+        val subtitle: String? = null,
+        /** The audiobook edition's length; null means the book has no default audiobook edition. */
+        val audioSeconds: Long? = null,
+        val editionFormat: String? = null,
     )
 
     /** One request: which operation, and whose token asked. */
@@ -78,6 +84,10 @@ class FakeHardcoverCatalog {
     @Volatile
     var unavailable: Boolean = false
 
+    /** When set, every request is a 429 whose `Retry-After` is this many milliseconds, in whole seconds. */
+    @Volatile
+    var throttleAfterMs: Long? = null
+
     /** Every operation asked, in order. */
     val operations: List<String> get() = asked.map { it.operation }
 
@@ -94,7 +104,17 @@ class FakeHardcoverCatalog {
                         val body = (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
                         val token = request.headers[HttpHeaders.Authorization].orEmpty().removePrefix("Bearer ")
                         val (status, reply) = handle(body, token)
-                        respond(reply, status, headersOf(HttpHeaders.ContentType, "application/json"))
+                        val retryAfter = throttleAfterMs?.takeIf { status == HttpStatusCode.TooManyRequests }
+                        val headers =
+                            if (retryAfter == null) {
+                                headersOf(HttpHeaders.ContentType, "application/json")
+                            } else {
+                                headersOf(
+                                    HttpHeaders.ContentType to listOf("application/json"),
+                                    HttpHeaders.RetryAfter to listOf((retryAfter / 1_000).toString()),
+                                )
+                            }
+                        respond(reply, status, headers)
                     },
                 ),
             apiBaseUrl = "https://hc.test",
@@ -113,12 +133,15 @@ class FakeHardcoverCatalog {
         return when {
             token in rejected -> HttpStatusCode.Unauthorized to """{"error":"invalid_token"}"""
             unavailable -> HttpStatusCode.BadGateway to "{}"
+            throttleAfterMs != null -> HttpStatusCode.TooManyRequests to "{}"
             else -> HttpStatusCode.OK to answer(operation, variables, token).toString()
         }
     }
 
     private fun operationOf(query: String): String =
         when {
+            "default_audio_edition{" in query -> "find_books"
+            "search(query:" in query -> "search"
             "me {" in query -> "me"
             "cached_tags" in query -> "book_details"
             "asin:{_eq" in query -> "edition_by_asin"
@@ -169,6 +192,41 @@ class FakeHardcoverCatalog {
                         }
                     }
 
+                    "search" -> {
+                        putJsonObject("search") {
+                            putJsonObject("results") {
+                                putJsonArray("hits") {
+                                    val firstWord = variables.text("query").substringBefore(' ')
+                                    books.filter { it.title.contains(firstWord, ignoreCase = true) }.forEach { book ->
+                                        addJsonObject {
+                                            putJsonObject("document") {
+                                                put("id", book.id.toString())
+                                                put("title", book.title)
+                                                putJsonArray("author_names") { book.authors.forEach { add(JsonPrimitive(it.name)) } }
+                                                put("release_year", JsonNull)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    "find_books" -> {
+                        val ids = variables.getValue("ids").jsonArray.map { it.jsonPrimitive.long }.toSet()
+                        putJsonArray("books") { books.filter { it.id in ids }.forEach { add(findBookJson(it)) } }
+                        variables["asin"]?.let { asin ->
+                            putJsonArray("byAsin") {
+                                books.firstOrNull { it.asin == asin.jsonPrimitive.content }?.let { add(findEditionJson(it, 2, nestBook = true)) }
+                            }
+                        }
+                        variables["isbn"]?.let { isbn ->
+                            putJsonArray("byIsbn") {
+                                books.firstOrNull { it.isbn13 == isbn.jsonPrimitive.content }?.let { add(findEditionJson(it, 1, nestBook = true)) }
+                            }
+                        }
+                    }
+
                     "book_details" -> {
                         putJsonArray(
                             "books",
@@ -191,6 +249,58 @@ class FakeHardcoverCatalog {
         }
 
     private fun allAuthors(): List<Author> = books.flatMap { it.authors }.distinctBy { it.id }
+
+    /** A book as Find's batched read asks for it, with its default audiobook edition when it has one. */
+    private fun findBookJson(book: Book): JsonObject =
+        buildJsonObject {
+            put("id", book.id)
+            put("title", book.title)
+            put("subtitle", book.subtitle)
+            put("release_year", JsonNull)
+            put("image", JsonNull)
+            putJsonArray("contributions") {
+                book.authors.forEach { a ->
+                    addJsonObject {
+                        put("contribution", "Author")
+                        putJsonObject("author") { put("name", a.name) }
+                    }
+                }
+            }
+            if (book.audioSeconds == null) put("default_audio_edition", JsonNull) else put("default_audio_edition", findEditionJson(book, 2))
+        }
+
+    /** The book's edition as Find reads it: id `book.id * 10`, its identifiers, length and credits by role. */
+    private fun findEditionJson(
+        book: Book,
+        readingFormat: Int,
+        nestBook: Boolean = false,
+    ): JsonObject =
+        buildJsonObject {
+            put("id", book.id * 10)
+            put("asin", book.asin)
+            put("isbn_13", book.isbn13)
+            put("isbn_10", JsonNull)
+            put("audio_seconds", book.audioSeconds)
+            put("edition_format", book.editionFormat)
+            put("release_date", JsonNull)
+            put("reading_format_id", readingFormat)
+            put("image", JsonNull)
+            putJsonArray("contributions") {
+                book.authors.forEach { a ->
+                    addJsonObject {
+                        put("contribution", "Author")
+                        putJsonObject("author") { put("name", a.name) }
+                    }
+                }
+                book.narrators.forEach { n ->
+                    addJsonObject {
+                        put("contribution", "Narrator")
+                        putJsonObject("author") { put("name", n.name) }
+                    }
+                }
+            }
+            if (nestBook) put("book", findBookJson(book))
+        }
 
     private fun editionJson(book: Book) =
         buildJsonObject {

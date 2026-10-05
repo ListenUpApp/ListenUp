@@ -5,11 +5,15 @@ import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.server.metadata.spi.BookCoreMeta
+import com.calypsan.listenup.server.metadata.spi.BookFindSource
 import com.calypsan.listenup.server.metadata.spi.BookCoreSource
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.server.metadata.spi.ContributorHitMeta
 import com.calypsan.listenup.server.metadata.spi.ContributorMeta
 import com.calypsan.listenup.server.metadata.spi.ContributorSource
+import com.calypsan.listenup.server.metadata.spi.FindAnswer
+import com.calypsan.listenup.server.metadata.spi.FindAvailability
+import com.calypsan.listenup.server.metadata.spi.FindLookup
 import com.calypsan.listenup.server.metadata.spi.GenreKind
 import com.calypsan.listenup.server.metadata.spi.GenreMeta
 import com.calypsan.listenup.server.metadata.spi.GenreSource
@@ -34,7 +38,8 @@ const val HARDCOVER_SERIES_KEY_PREFIX = "hardcover:series:"
 /**
  * Hardcover's community catalogue as a metadata source (#1542): it fills what Audible and Audnexus leave
  * empty — moods above all, then genres, and the series, description and author bio or photo where nothing
- * else has them. Routed last, so it only ever fills gaps (see [MetadataProviderId.gapFillers]).
+ * else has them. Routed last, so in composition it only ever fills gaps (see [MetadataProviderId.gapFillers]).
+ * In Find (matching redesign PR 2) it also identifies books, in at most two calls — see [HardcoverFind].
  *
  * **Which book.** An existing link for [BookIdentity.bookId], anyone's, a hand-picked one first; else the
  * [matcher] — the ASIN, the book's ISBN, then one confident title match. No confident book means no
@@ -59,8 +64,18 @@ class HardcoverMetadataSource(
     SeriesSource,
     GenreSource,
     MoodSource,
-    ContributorSource {
+    ContributorSource,
+    BookFindSource {
     override val id: MetadataProviderId = MetadataProviderId.HARDCOVER
+
+    private val finder = HardcoverFind(graphQl, catalogToken, rateLimiter, links, sourceSettings)
+
+    override suspend fun findAvailability(): FindAvailability = finder.availability()
+
+    override suspend fun findBooks(
+        lookup: FindLookup,
+        locale: MetadataLocale,
+    ): AppResult<FindAnswer> = finder.find(lookup)
 
     /** One book's lookup at a time, so parallel field fetches for one match share a single lookup. */
     private val lookups = Mutex()
