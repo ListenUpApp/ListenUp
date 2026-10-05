@@ -23,6 +23,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
+import com.calypsan.listenup.server.services.BookIdentityColumns
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreHierarchyFromLadder
@@ -135,6 +136,7 @@ internal class BookMetadataApplier(
                     publisher = if (selection.publisher) match.publisher else existing.publisher,
                     language = if (selection.language) match.language else existing.language,
                     publishYear = selectedPublishYear(selection, match, existing.publishYear),
+                    releaseDate = selectedReleaseDate(selection, match, existing.releaseDate),
                     asin = asin,
                     contributors = contributorMerge.contributors,
                     series = mergeSeries(existing.series, match, selection),
@@ -157,7 +159,12 @@ internal class BookMetadataApplier(
             // The cover is written only when the request names one. A missing URL is never read as
             // "the match's own cover": that guess is how a preview showing "keep current" replaced it.
             if (selection.cover) {
-                applyChosenCover(bookId = bookId, coverUrl = selection.coverUrl, asin = asin)
+                applyChosenCover(
+                    bookId = bookId,
+                    coverUrl = selection.coverUrl,
+                    asin = asin,
+                    provider = matched.fieldProviders[BookField.COVER]?.value ?: enrichmentProvider,
+                )
             }
 
             AppResult.Success(Unit)
@@ -193,6 +200,22 @@ internal class BookMetadataApplier(
             if (contributorMerge.narratorsApplied) add(BookField.NARRATORS)
             if (selection.seriesAsins.isNotEmpty()) add(BookField.SERIES)
             if (selection.genres.isNotEmpty()) add(BookField.GENRES)
+        }
+
+    /**
+     * The provider's full date when the release date is selected and the provider gave a parseable year;
+     * else [current]. A year-only provider value stores no date. Either way the repository reconciles the
+     * date against the written year (decision 11), so the two can never disagree.
+     */
+    private fun selectedReleaseDate(
+        selection: MetadataApplySelection,
+        match: MetadataBook,
+        current: String?,
+    ): String? =
+        if (selection.releaseDate && parseYear(match.releaseDate) != null) {
+            BookIdentityColumns.fullDateOrNull(match.releaseDate)
+        } else {
+            current
         }
 
     /** Release year overwrites only when selected and parseable, else keeps [current]. */
@@ -404,6 +427,7 @@ internal class BookMetadataApplier(
         bookId: BookId,
         coverUrl: String?,
         asin: String,
+        provider: String,
     ) {
         val url =
             coverUrl?.takeIf { it.isNotBlank() } ?: run {
@@ -424,7 +448,14 @@ internal class BookMetadataApplier(
         try {
             val stored = coverImageStore.store.store(bookId.value, bytes, "image/jpeg")
             val relPath = "covers/${stored.path.name}"
-            val result = bookRepository.setManagedCover(bookId, relPath, stored.sha256, CoverSource.UPLOADED)
+            val result =
+                bookRepository.setManagedCover(
+                    bookId,
+                    relPath,
+                    stored.sha256,
+                    CoverSource.UPLOADED,
+                    provenance = FieldProvenance(FieldSourceKind.ENRICHMENT, provider = provider, at = currentEpochMilliseconds()),
+                )
             if (result is AppResult.Success) {
                 log.info { "Stored wizard-chosen cover for ${bookId.value} → $relPath" }
             } else {

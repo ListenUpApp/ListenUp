@@ -7,6 +7,9 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.CoverError
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
@@ -255,9 +258,63 @@ class BookServiceImplDeleteCoverTest :
                 }
             }
         }
+
+        test("a hand-uploaded cover is recorded as set by hand, by whom") {
+            withSqlDatabase {
+                val db = this
+                val home = Files.createTempDirectory("listenup-test-home-prov-").toAbsolutePath()
+                home.toFile().deleteOnExit()
+                val coversDir = home.resolve("covers").apply { createDirectories() }
+                sql.seedTestLibraryAndFolder()
+                val coverImageStore = CoverImageStore(ImageStore(IoPath(coversDir.toString()), MAX_COVER_BYTES))
+                val (service, repo) = newService(db, coverImageStore, homeDir = home)
+                runTest {
+                    repo.upsert(bookFixture(id = "b1", title = "Project Hail Mary"))
+
+                    service.setBookCover(BookId("b1"), ONE_PX_PNG, "image/png").shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val stamp = repo.findById(BookId("b1"))!!.fieldProvenance.getValue(BookField.COVER)
+                    stamp.kind shouldBe FieldSourceKind.USER
+                    stamp.by shouldBe "test-admin"
+                }
+            }
+        }
+
+        test("deleting a managed cover forgets who set it, so a later match proposes one again") {
+            withSqlDatabase {
+                val db = this
+                val home = Files.createTempDirectory("listenup-test-home-prov2-").toAbsolutePath()
+                home.toFile().deleteOnExit()
+                val coversDir = home.resolve("covers").apply { createDirectories() }
+                coversDir.resolve("b1.png").writeBytes(byteArrayOf(1, 2, 3))
+                sql.seedTestLibraryAndFolder()
+                val coverImageStore = CoverImageStore(ImageStore(IoPath(coversDir.toString()), MAX_COVER_BYTES))
+                val (service, repo) = newService(db, coverImageStore, homeDir = home)
+                runTest {
+                    repo.upsert(bookFixture(id = "b1", title = "Project Hail Mary"))
+                    repo.setManagedCover(
+                        BookId("b1"),
+                        "covers/b1.png",
+                        "sha",
+                        CoverSource.UPLOADED,
+                        provenance = FieldProvenance(FieldSourceKind.USER, at = 1L, by = "test-admin"),
+                    )
+
+                    service.deleteBookCover(BookId("b1")).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    repo.findById(BookId("b1"))!!.fieldProvenance[BookField.COVER].shouldBeNull()
+                }
+            }
+        }
     })
 
 private const val MAX_COVER_BYTES = 10L * 1024 * 1024
+
+// Minimal valid 1×1 PNG (passes ImageStore's magic-number sniff).
+private val ONE_PX_PNG: ByteArray =
+    java.util.Base64.getDecoder().decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    )
 
 private fun newService(
     db: SqlTestDatabases,

@@ -646,6 +646,75 @@ class MatchApplySelectionTest :
                 }
             }
         }
+
+        test("a selected release date stores the full date with its year") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
+                val genreRepo = GenreRepository(sql, bus, registry)
+                val books = BookRepository(sql, bus, registry, driver, contributors, series, genreRepo)
+                runTest {
+                    val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
+                    books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, matchBook())
+
+                    a.apply(BookId("b1"), "B0NEW", MetadataLocale("us"), allButCover()).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val saved = books.findById(BookId("b1"))!!
+                    saved.publishYear shouldBe 2015
+                    saved.releaseDate shouldBe "2015-06-02"
+                    saved.externalRefs.single { it.provider == "audible" }.id shouldBe "B0NEW"
+                }
+            }
+        }
+
+        test("a deselected release date leaves the stored date alone") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
+                val genreRepo = GenreRepository(sql, bus, registry)
+                val books = BookRepository(sql, bus, registry, driver, contributors, series, genreRepo)
+                runTest {
+                    val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
+                    books.upsert(seedBook("b1", oldAuthorId).copy(releaseDate = "1999-03-01"), clientOpId = null)
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, matchBook())
+
+                    a
+                        .apply(BookId("b1"), "B0NEW", MetadataLocale("us"), allButCover().copy(releaseDate = false))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    books.findById(BookId("b1"))!!.releaseDate shouldBe "1999-03-01"
+                }
+            }
+        }
+
+        test("a cover the match applies is recorded as enrichment, not a hand choice") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
+                val genreRepo = GenreRepository(sql, bus, registry)
+                val books = BookRepository(sql, bus, registry, driver, contributors, series, genreRepo)
+                runTest {
+                    val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
+                    books.upsert(seedBook("b1", oldAuthorId), clientOpId = null)
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, matchBook(), coverBytes = ONE_PX_PNG)
+                    val withCover = allButCover().copy(cover = true, coverUrl = "https://audible/new.jpg")
+
+                    a.apply(BookId("b1"), "B0NEW", MetadataLocale("us"), withCover).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    books.findById(BookId("b1"))!!.fieldProvenance.getValue(BookField.COVER).kind shouldBe FieldSourceKind.ENRICHMENT
+                }
+            }
+        }
     })
 
 /**
