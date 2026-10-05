@@ -16,13 +16,27 @@ struct SeriesRow: Identifiable, Equatable, Hashable {
     let authorName: String?
     /// Up to 5 precomputed covers (the iPad grid shows 5, the iPhone row 4).
     let covers: [CoverArt]
+    /// Series directly inside this one. The grid lists top-level series only, so a parent's card
+    /// carries its whole subtree's books and says so: "4 series · 23 books".
+    let subSeriesCount: Int
 
-    init(id: String, name: String, bookCount: Int, authorName: String?, covers: [CoverArt]) {
+    init(id: String, name: String, bookCount: Int, authorName: String?, covers: [CoverArt], subSeriesCount: Int = 0) {
         self.id = id
         self.name = name
         self.bookCount = bookCount
         self.authorName = authorName
         self.covers = covers
+        self.subSeriesCount = subSeriesCount
+    }
+
+    /// Whether the card draws the stacked edge of a series that holds other series.
+    var isParent: Bool { subSeriesCount > 0 }
+
+    /// The card's meta line: "4 series · 23 books" for a parent, "12 books · Sanderson" otherwise.
+    var meta: String {
+        if isParent { return SeriesHierarchyText.seriesAndBooks(seriesCount: subSeriesCount, bookCount: bookCount) }
+        let booksText = "\(bookCount) \(bookCount == 1 ? String(localized: "common.book") : String(localized: "common.books"))"
+        return authorName.map { "\(booksText) · \($0)" } ?? booksText
     }
 
     /// Snapshot a Kotlin `SeriesWithBooks` into native values. Reads each bridged property once.
@@ -33,6 +47,7 @@ struct SeriesRow: Identifiable, Equatable, Hashable {
         self.bookCount = books.count
         self.authorName = books.first?.authors.first?.name
         self.covers = books.prefix(5).map(CoverArt.init(book:))
+        self.subSeriesCount = Int(series.subSeriesCount)
     }
 }
 
