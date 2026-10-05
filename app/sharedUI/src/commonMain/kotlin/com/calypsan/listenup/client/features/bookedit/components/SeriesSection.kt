@@ -17,6 +17,7 @@ import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.client.features.seriesdetail.components.seriesPlacementLine
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -90,12 +91,8 @@ fun SeriesSection(
             resultContent = { result ->
                 AutocompleteResultItem(
                     name = result.name,
-                    subtitle =
-                        if (result.bookCount > 0) {
-                            "${result.bookCount} ${if (result.bookCount == 1) "book" else "books"}"
-                        } else {
-                            null
-                        },
+                    // Where it sits and how big it is: "in Cosmere › Mistborn · 8 books".
+                    subtitle = seriesPlacementLine(result.parentPath, result.bookCount),
                     onClick = { onSeriesSelected(result) },
                 )
             },

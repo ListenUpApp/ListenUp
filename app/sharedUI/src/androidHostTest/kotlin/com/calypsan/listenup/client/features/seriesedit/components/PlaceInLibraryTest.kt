@@ -68,7 +68,7 @@ class PlaceInLibraryTest {
         composeRule.onAllNodesWithContentDescription("Move later").onFirst().performClick()
 
         events shouldContain SeriesEditUiEvent.ChildSeriesReordered(listOf("era2", "era1"))
-        composeRule.onNode(hasContentDescription("Mistborn Era 1 moved to position 2 of 2")).assertExists()
+        composeRule.onNode(hasContentDescription("Mistborn Era 1 moved to position 2 of 2"), useUnmergedTree = true).assertExists()
     }
 
     @Test
