@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.presentation.contributormetadata
 
+import kotlinx.coroutines.flow.flowOf
+import com.calypsan.listenup.client.domain.repository.LibraryRepository
+import com.calypsan.listenup.client.domain.model.Library
+import com.calypsan.listenup.client.domain.model.AccessMode
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.api.dto.MetadataContributorProfile
@@ -88,11 +92,30 @@ class ContributorMetadataViewModelTest :
         fun buildVm(
             metadataRepo: MetadataRepository = mock(),
             contributorRepo: ContributorRepository = contributorRepoWith(createContributor()),
+            libraryRegion: String? = null,
         ): ContributorMetadataViewModel =
             ContributorMetadataViewModel(
                 contributorRepository = contributorRepo,
                 metadataRepository = metadataRepo,
                 errorBus = ErrorBus(),
+                libraryRepository =
+                    mock<LibraryRepository> {
+                        every { observeAll() } returns
+                            flowOf(
+                                listOf(
+                                    Library(
+                                        id = "lib",
+                                        name = "Library",
+                                        metadataPrecedence = "embedded,abs,sidecar",
+                                        accessMode = AccessMode.OPEN,
+                                        createdByUserId = null,
+                                        createdAt = 0L,
+                                        revision = 0L,
+                                        metadataRegion = libraryRegion,
+                                    ),
+                                ),
+                            )
+                    },
             )
 
         // ── init ───────────────────────────────────────────────────────────────
@@ -632,6 +655,20 @@ class ContributorMetadataViewModelTest :
                 val preview = vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Preview>()
                 preview.match.name shouldBe "Backfilled Name"
                 preview.loadState.shouldBeInstanceOf<ContributorPreviewLoadState.Ready>()
+            }
+        }
+
+        test("a person search starts in the library's Audible store") {
+            runTest {
+                val metadataRepo = mock<MetadataRepository>()
+                everySuspend { metadataRepo.searchContributorMetadata(any(), any()) } returns AppResult.Success(emptyList())
+                val vm = buildVm(metadataRepo = metadataRepo, libraryRegion = "de")
+
+                vm.init("c1")
+                advanceUntilIdle()
+
+                vm.state.value.region shouldBe MetadataLocale("de")
+                verifySuspend { metadataRepo.searchContributorMetadata(any(), MetadataLocale("de")) }
             }
         }
     })

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.presentation.metadata
 
+import kotlinx.coroutines.flow.flowOf
+import com.calypsan.listenup.client.domain.repository.LibraryRepository
 import com.calypsan.listenup.api.dto.MatchProvenance
 import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.dto.MetadataBook
@@ -97,6 +99,7 @@ class MetadataCoverChoiceTest :
                     moodRepository = mock<MoodRepository> { every { observeMoodsForBook(any()) } returns MutableStateFlow(emptyList()) },
                     tagRepository = mock<TagRepository> { every { observeTagsForBook(any()) } returns MutableStateFlow(emptyList()) },
                     errorBus = ErrorBus(),
+                    libraryRepository = mock<LibraryRepository> { every { observeAll() } returns flowOf(emptyList()) },
                 )
             vm.initForBook("b1", "Dune", "Frank Herbert")
             vm.selectMatch(book)
