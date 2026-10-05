@@ -102,23 +102,28 @@ struct SeriesHierarchyTextTests {
 
 @Suite("SeriesDetail grouped Continue")
 struct SeriesGroupedContinueTests {
+    private func resume(_ title: String, hasStarted: Bool) -> SeriesResumeInfo {
+        SeriesResumeInfo(bookId: "b", title: title, seriesName: "Mistborn Era 1", sequence: "1", hasStarted: hasStarted)
+    }
+
     @Test func startedNamesTheBook() {
         #expect(
-            SeriesDetailObserver.groupedContinueLabel(resumeTitle: "The Hero of Ages", hasStarted: true)
+            SeriesDetailObserver.groupedContinueLabel(resume("The Hero of Ages", hasStarted: true))
                 == "Continue The Hero of Ages"
         )
     }
 
-    /// "Start Book 1" would be ambiguous across four series; the line underneath says where.
-    @Test func neverStartedStartsListening() {
+    /// "Start Book 1" would be ambiguous across four series, so it names the book, as Android and
+    /// web do; the line underneath says where.
+    @Test func neverStartedStartsTheBook() {
         #expect(
-            SeriesDetailObserver.groupedContinueLabel(resumeTitle: "The Final Empire", hasStarted: false)
-                == "Start listening"
+            SeriesDetailObserver.groupedContinueLabel(resume("The Final Empire", hasStarted: false))
+                == "Start The Final Empire"
         )
     }
 
     @Test func allFinishedListensAgain() {
-        #expect(SeriesDetailObserver.groupedContinueLabel(resumeTitle: nil, hasStarted: true) == "Listen again")
+        #expect(SeriesDetailObserver.groupedContinueLabel(nil) == "Listen again")
     }
 }
 

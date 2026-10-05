@@ -130,11 +130,19 @@ struct SeriesResumeInfo: Hashable {
     let title: String
     let seriesName: String
     let sequence: String?
+    /// The ViewModel's word on Start vs Continue, shared with Android and web so the three can't drift.
+    let hasStarted: Bool
 }
 
 extension SeriesResumeInfo {
     init(_ resume: SeriesResumeUi) {
-        self.init(bookId: resume.bookId, title: resume.title, seriesName: resume.seriesName, sequence: resume.sequence)
+        self.init(
+            bookId: resume.bookId,
+            title: resume.title,
+            seriesName: resume.seriesName,
+            sequence: resume.sequence,
+            hasStarted: resume.hasStarted
+        )
     }
 }
 

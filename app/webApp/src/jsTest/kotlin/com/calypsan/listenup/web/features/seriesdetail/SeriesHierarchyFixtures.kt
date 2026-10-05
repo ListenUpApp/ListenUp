@@ -90,6 +90,7 @@ internal fun groupedCosmere(
                 title = "The Hero of Ages",
                 seriesName = "Mistborn Era 1",
                 sequence = "3",
+                hasStarted = true,
             ),
         canEditHierarchy = canEditHierarchy,
         isOnline = isOnline,
@@ -123,6 +124,23 @@ internal fun childEra1(): SeriesDetailUiState.Ready =
                 title = "The Hero of Ages",
                 seriesName = "Mistborn Era 1",
                 sequence = "3",
+                hasStarted = true,
+            ),
+    )
+
+/** Cosmere before the reader has begun any of it: the button starts its first book. */
+internal fun unstartedCosmere(): SeriesDetailUiState.Ready =
+    groupedCosmere().copy(
+        bookProgress = emptyMap(),
+        finishedBookIds = emptySet(),
+        resumeTarget = BookId("fe"),
+        resumeBook =
+            SeriesResumeUi(
+                bookId = "fe",
+                title = "The Final Empire",
+                seriesName = "Mistborn Era 1",
+                sequence = "1",
+                hasStarted = false,
             ),
     )
 

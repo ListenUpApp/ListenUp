@@ -5,6 +5,11 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
@@ -154,6 +159,42 @@ class SeriesDetailHierarchyTest {
     }
 
     @Test
+    fun `an unstarted parent page's button starts the book it names, with the series underneath`() {
+        render(Cosmere.unstartedParentPage())
+
+        composeRule.onNodeWithText("Start The Final Empire").assertExists()
+        composeRule.onNodeWithText("Mistborn Era 1 · Book 1").assertExists()
+        composeRule.onNodeWithText("Continue The Final Empire").assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = SHORT_PHONE)
+    fun `a group heading sticks below the status bar while its books scroll under it`() {
+        composeRule.setContent {
+            MaterialTheme {
+                NarrowSeriesDetailContent(
+                    Cosmere.longParentPage(),
+                    {},
+                    {},
+                    {},
+                    {},
+                    {},
+                    stickyTopInset = STATUS_BAR,
+                )
+            }
+        }
+
+        // Deep into Mistborn Era 1: the heading's own row is long gone above the viewport.
+        composeRule.onNode(hasScrollToIndexAction()).performScrollToIndex(ERA_ONE_BOOK_20)
+
+        val heading = composeRule.onNodeWithText("Mistborn Era 1")
+        heading.assertIsDisplayed().assert(isHeading)
+        val top = heading.getUnclippedBoundsInRoot().top
+        (top >= STATUS_BAR) shouldBe true
+        (top < STATUS_BAR + 48.dp) shouldBe true
+    }
+
+    @Test
     fun `a flat page keeps Books in series`() {
         render(Cosmere.childPage)
 
@@ -174,4 +215,9 @@ class SeriesDetailHierarchyTest {
 }
 
 private const val TALL_PHONE = "w400dp-h4000dp"
+private const val SHORT_PHONE = "w400dp-h800dp"
+private val STATUS_BAR = 40.dp
+
+// hero, Continue, Sub-series, Books, the Mistborn heading, the Era 1 heading, then Era 1's books.
+private const val ERA_ONE_BOOK_20 = 6 + 19
 private const val TALL_TABLET = "w1280dp-h4000dp"

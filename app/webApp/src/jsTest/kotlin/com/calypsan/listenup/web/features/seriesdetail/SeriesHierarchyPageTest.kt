@@ -96,10 +96,19 @@ class SeriesHierarchyPageTest :
             (actions.querySelector(".sd-resume-where") as HTMLElement).textContent shouldBe "Mistborn Era 1 · Book 3"
         }
 
-        test("a flat child page keeps the plain Continue") {
+        // The same words Android and iOS show: Start, the book, and where it sits underneath.
+        test("an unstarted parent page's button starts the book it names") {
+            val root = page(unstartedCosmere())
+
+            val actions = root.querySelector(".sd-actions") as HTMLElement
+            (actions.querySelector("button") as HTMLElement).textContent.orEmpty().trim() shouldBe "Start The Final Empire"
+            (actions.querySelector(".sd-resume-where") as HTMLElement).textContent shouldBe "Mistborn Era 1 · Book 1"
+        }
+
+        test("a flat child page says which book Continue resumes") {
             val root = page(childEra1())
 
-            (root.querySelector(".sd-actions button") as HTMLElement).textContent.orEmpty().trim() shouldBe "Continue"
+            (root.querySelector(".sd-actions button") as HTMLElement).textContent.orEmpty().trim() shouldBe "Continue Book 3"
             root.querySelector(".sd-resume-where") shouldBe null
         }
 

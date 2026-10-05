@@ -29,14 +29,15 @@ import listenup.composeapp.generated.resources.series_continue_book
 import listenup.composeapp.generated.resources.series_continue_title
 import listenup.composeapp.generated.resources.series_continue_where
 import listenup.composeapp.generated.resources.series_start_book
+import listenup.composeapp.generated.resources.series_start_title
 import org.jetbrains.compose.resources.stringResource
 
 /**
  * Brand "Continue" pill. Hidden when the whole series is finished.
  *
  * A flat series says "Continue Book 3" / "Start Book 1". A parent page names the book instead —
- * "Continue The Hero of Ages" over "Mistborn Era 1 · Book 3" — because "Book 3" is ambiguous when
- * the books come from four series.
+ * "Continue The Hero of Ages" over "Mistborn Era 1 · Book 3", or "Start The Final Empire" on a series
+ * not yet begun — because "Book 3" is ambiguous when the books come from four series.
  */
 @Composable
 internal fun ContinueButton(
@@ -52,7 +53,11 @@ internal fun ContinueButton(
     val title: String
     val where: String?
     if (resume != null) {
-        title = stringResource(Res.string.series_continue_title, resume.title)
+        title =
+            stringResource(
+                if (resume.hasStarted) Res.string.series_continue_title else Res.string.series_start_title,
+                resume.title,
+            )
         where = resume.sequence?.let { stringResource(Res.string.series_continue_where, resume.seriesName, it) }
             ?: resume.seriesName
     } else {

@@ -66,7 +66,7 @@ final class SeriesDetailObserver {
 
     /// Continue-CTA label, derived from resume + progress state.
     var continueButtonTitle: String {
-        if isGrouped { return Self.groupedContinueLabel(resumeTitle: resume?.title, hasStarted: hasStarted) }
+        if isGrouped { return Self.groupedContinueLabel(resume) }
         return Self.continueLabel(
             hasBooks: !books.isEmpty,
             resumeTargetIsNil: resumeTarget == nil,
@@ -75,14 +75,14 @@ final class SeriesDetailObserver {
         )
     }
 
-    /// The CTA on a page with sub-series. It names the book — "Continue The Hero of Ages" — because a
-    /// bare "Continue Book 3" is ambiguous across four series; for the same reason a never-started
-    /// page reads "Start listening" (the line underneath says where), and a finished one "Listen again".
-    nonisolated static func groupedContinueLabel(resumeTitle: String?, hasStarted: Bool) -> String {
-        guard let resumeTitle else { return String(localized: "series.listen_again") }
-        return hasStarted
-            ? SeriesHierarchyText.continueTitle(bookTitle: resumeTitle)
-            : String(localized: "series.start_listening")
+    /// The CTA on a page with sub-series. It names the book — "Continue The Hero of Ages", or "Start
+    /// The Final Empire" on a series not yet begun — because a bare "Continue Book 3" is ambiguous
+    /// across four series; the line underneath says where. A finished page reads "Listen again".
+    nonisolated static func groupedContinueLabel(_ resume: SeriesResumeInfo?) -> String {
+        guard let resume else { return String(localized: "series.listen_again") }
+        return resume.hasStarted
+            ? SeriesHierarchyText.continueTitle(bookTitle: resume.title)
+            : SeriesHierarchyText.startTitle(bookTitle: resume.title)
     }
 
     /// Pure CTA-label decision, extracted so it is unit-testable without constructing the

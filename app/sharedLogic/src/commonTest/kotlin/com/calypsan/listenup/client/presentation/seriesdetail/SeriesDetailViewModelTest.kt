@@ -726,8 +726,64 @@ class SeriesDetailViewModelTest :
                         SeriesSectionKind.OWN_BOOKS to "Cosmere",
                     )
                 ready.resumeBook shouldBe
-                    SeriesResumeUi(bookId = "hero", title = "The Hero of Ages", seriesName = "Mistborn Era 1", sequence = "3")
+                    SeriesResumeUi(
+                        bookId = "hero",
+                        title = "The Hero of Ages",
+                        seriesName = "Mistborn Era 1",
+                        sequence = "3",
+                        hasStarted = true,
+                    )
                 ready.childSeries.single().subSeriesCount shouldBe 2
+            }
+        }
+
+        test("an unstarted parent page's button starts the first book, and says where it sits") {
+            runTest {
+                val fixture = createFixture()
+                val fe = createBook("fe", title = "The Final Empire", seriesId = "era1", seriesSequence = 1.0)
+                val alloy = createBook("alloy", title = "The Alloy of Law", seriesId = "era2", seriesSequence = 1.0)
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("cosmere")
+                fixture.seriesFlow.value = createSeriesWithBooks(createSeries(id = "cosmere", name = "Cosmere"), books = emptyList())
+                fixture.lineageFlow.value =
+                    cosmereLineage(listOf("fe"), listOf("alloy"), emptyList()).copy(subtreeBooks = listOf(fe, alloy))
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                ready.resumeBook shouldBe
+                    SeriesResumeUi(
+                        bookId = "fe",
+                        title = "The Final Empire",
+                        seriesName = "Mistborn Era 1",
+                        sequence = "1",
+                        hasStarted = false,
+                    )
+            }
+        }
+
+        test("a finished book anywhere in the series makes the next one a Continue, not a Start") {
+            runTest {
+                val fixture = createFixture()
+                val fe = createBook("fe", title = "The Final Empire", seriesId = "era1", seriesSequence = 1.0)
+                val alloy = createBook("alloy", title = "The Alloy of Law", seriesId = "era2", seriesSequence = 1.0)
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("cosmere")
+                fixture.seriesFlow.value = createSeriesWithBooks(createSeries(id = "cosmere", name = "Cosmere"), books = emptyList())
+                fixture.lineageFlow.value =
+                    cosmereLineage(listOf("fe"), listOf("alloy"), emptyList()).copy(subtreeBooks = listOf(fe, alloy))
+                fixture.positionsFlow.value = mapOf(BookId("fe") to createPosition("fe", isFinished = true))
+                advanceUntilIdle()
+
+                val resume =
+                    viewModel.state.value
+                        .shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                        .resumeBook
+                resume?.bookId shouldBe "alloy"
+                resume?.hasStarted shouldBe true
             }
         }
 
