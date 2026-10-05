@@ -16,6 +16,10 @@ ActivityFeedViewModel
 ActivityParts
 ActivityRepository
 ActivityUiModel
+AddSubSeriesEvent
+AddSubSeriesEvent_SealedType
+AddSubSeriesUiState
+AddSubSeriesUiState_SealedType
 AdminBackupUiState
 AdminBackupUiState_SealedType
 AdminBackupViewModel
@@ -133,6 +137,7 @@ BookSearchHit
 BookSearchState
 BookSeries
 BookSeriesInput
+BookSeriesPath
 BookSummaryFields
 BookUpdate
 BookUpdateRequest
@@ -309,6 +314,7 @@ EditableSeries
 EditableTag
 ErrorBus
 EventStreamRepository
+ExistingSeriesMatch
 ExternalRating
 ExternalRatingSource
 FacetCount
@@ -524,6 +530,7 @@ MoodId
 MoodRepository
 NanoId
 NetworkMonitor
+NewSeriesDraft
 NotificationBellViewModel
 NotificationDescriptor
 NotificationEvent
@@ -565,6 +572,8 @@ OrganizeSettingsUiState
 OrganizeSettingsUiState_SealedType
 OrganizeSettingsViewModel
 OutsideShare
+ParentPickerDisabledReason
+ParentPickerRow
 PartGroup
 PasswordChange
 PasswordResetRepository
@@ -581,6 +590,7 @@ PendingOperationStatus
 PendingOperationType
 PendingOperationUi
 PendingRegistration
+PendingSubSeriesMove
 PlaybackBandwidthCoordinator
 PlaybackController
 PlaybackDynamics
@@ -684,6 +694,8 @@ SeeAllSearchViewModel
 SelectionMode
 SelectionMode_SealedType
 Series
+SeriesBookRef
+SeriesBookSection
 SeriesCandidate
 SeriesChild
 SeriesCrumb
@@ -701,14 +713,17 @@ SeriesEditViewModel
 SeriesError
 SeriesError_SealedType
 SeriesGroup
+SeriesHierarchy
 SeriesId
 SeriesLineage
 SeriesNavigationDetector
 SeriesNavigation_SealedType
 SeriesProgress
 SeriesRepository
+SeriesResumeUi
 SeriesSearchResponse
 SeriesSearchResult
+SeriesSectionKind
 SeriesUpdate
 SeriesUpdateRequest
 SeriesWithBooks
@@ -785,6 +800,8 @@ StorageViewModel
 StreamedRegistrationStatus
 StreamedRegistrationStatus_SealedType
 SubGenre
+SubSeriesCandidateUi
+SubSeriesPlacement
 SurfaceMetadata
 SyncError
 SyncError_SealedType
