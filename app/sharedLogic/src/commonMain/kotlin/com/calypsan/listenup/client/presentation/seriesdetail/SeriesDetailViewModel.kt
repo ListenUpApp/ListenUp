@@ -212,7 +212,14 @@ class SeriesDetailViewModel(
             bookProgress = bookProgress,
             finishedBookIds = finishedBookIds,
             resumeTarget = resumeTarget,
-            resumeBook = resumeTarget?.let { target -> resumeBookUi(target, allSections) },
+            resumeBook =
+                resumeTarget?.let { target ->
+                    resumeBookUi(
+                        target = target,
+                        sections = allSections,
+                        hasStarted = bookProgress.isNotEmpty() || finishedBookIds.isNotEmpty(),
+                    )
+                },
             ancestors = lineage.ancestors.map { SeriesCrumb(id = it.id.value, name = it.name) },
             childSeries =
                 lineage.children.map { child ->
@@ -242,10 +249,14 @@ class SeriesDetailViewModel(
         )
     }
 
-    /** The resume book with the series it is listed under on this page, for the Continue button. */
+    /**
+     * The resume book with the series it is listed under on this page, for the Continue button.
+     * [hasStarted] is the whole page's: any book begun or finished anywhere in it.
+     */
     private fun resumeBookUi(
         target: BookId,
         sections: List<SeriesBookSection>,
+        hasStarted: Boolean,
     ): SeriesResumeUi? {
         val section = sections.firstOrNull { section -> section.books.any { it.id == target } } ?: return null
         val book = section.books.first { it.id == target }
@@ -254,6 +265,7 @@ class SeriesDetailViewModel(
             title = book.title,
             seriesName = section.title,
             sequence = book.series.firstOrNull { it.seriesId == section.seriesId }?.sequenceLabel,
+            hasStarted = hasStarted,
         )
     }
 
@@ -375,13 +387,19 @@ data class ChildSeriesUi(
  * where it sits — "Continue The Hero of Ages", "Mistborn Era 1 · Book 3" — because "Continue Book 3"
  * would be ambiguous across four series.
  *
+ * [hasStarted] is the one word every platform's button takes its verb from, so they cannot drift:
+ * false reads en.json's `series.start_title` ("Start The Final Empire"), true `series.continue_title`
+ * ("Continue The Hero of Ages"). The series line underneath is the same either way.
+ *
  * @property sequence the book's number in [seriesName], formatted; null when unnumbered.
+ * @property hasStarted true once any book on the page is begun or finished; false on an unstarted series.
  */
 data class SeriesResumeUi(
     val bookId: String,
     val title: String,
     val seriesName: String,
     val sequence: String?,
+    val hasStarted: Boolean,
 )
 
 /** Every series id below the page, for opening every group at once. */

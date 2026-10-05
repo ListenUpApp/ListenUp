@@ -18,10 +18,24 @@ struct SeriesDetailObserverTests {
 /// pinned at its pure seam (`SeriesDetailObserver.continueLabel`).
 @Suite("SeriesDetail Continue CTA")
 struct SeriesDetailContinueLabelTests {
+    private func resume(hasStarted: Bool, sequence: String? = "1") -> SeriesResumeInfo {
+        SeriesResumeInfo(bookId: "b", title: "Book", seriesName: "Mistborn", sequence: sequence, hasStarted: hasStarted)
+    }
+
+    /// The verb is the ViewModel's, shared with Android and web: Book 1 finished makes Book 2 a
+    /// Continue, though Book 2 has no progress of its own.
+    @Test func aSeriesUnderWayContinuesTheNextBook() {
+        #expect(
+            SeriesDetailObserver.continueLabel(
+                hasBooks: true, resumeTargetIsNil: false, resume: resume(hasStarted: true, sequence: "2"), sequence: "2"
+            ) == "Continue Book 2"
+        )
+    }
+
     @Test func emptySeriesStartsListening() {
         #expect(
             SeriesDetailObserver.continueLabel(
-                hasBooks: false, resumeTargetIsNil: true, hasStarted: false, sequence: nil
+                hasBooks: false, resumeTargetIsNil: true, resume: resume(hasStarted: false), sequence: nil
             ) == "Start listening"
         )
     }
@@ -29,12 +43,12 @@ struct SeriesDetailContinueLabelTests {
     @Test func neverStartedShowsStartNotContinue() {
         #expect(
             SeriesDetailObserver.continueLabel(
-                hasBooks: true, resumeTargetIsNil: false, hasStarted: false, sequence: "1"
+                hasBooks: true, resumeTargetIsNil: false, resume: resume(hasStarted: false), sequence: "1"
             ) == "Start Book 1"
         )
         #expect(
             SeriesDetailObserver.continueLabel(
-                hasBooks: true, resumeTargetIsNil: false, hasStarted: false, sequence: nil
+                hasBooks: true, resumeTargetIsNil: false, resume: resume(hasStarted: false), sequence: nil
             ) == "Start listening"
         )
     }
@@ -42,12 +56,12 @@ struct SeriesDetailContinueLabelTests {
     @Test func inProgressContinues() {
         #expect(
             SeriesDetailObserver.continueLabel(
-                hasBooks: true, resumeTargetIsNil: false, hasStarted: true, sequence: "2"
+                hasBooks: true, resumeTargetIsNil: false, resume: resume(hasStarted: true), sequence: "2"
             ) == "Continue Book 2"
         )
         #expect(
             SeriesDetailObserver.continueLabel(
-                hasBooks: true, resumeTargetIsNil: false, hasStarted: true, sequence: nil
+                hasBooks: true, resumeTargetIsNil: false, resume: resume(hasStarted: true), sequence: nil
             ) == "Continue"
         )
     }
@@ -55,7 +69,7 @@ struct SeriesDetailContinueLabelTests {
     @Test func allFinishedListensAgain() {
         #expect(
             SeriesDetailObserver.continueLabel(
-                hasBooks: true, resumeTargetIsNil: true, hasStarted: true, sequence: "1"
+                hasBooks: true, resumeTargetIsNil: true, resume: resume(hasStarted: true), sequence: "1"
             ) == "Listen again"
         )
     }

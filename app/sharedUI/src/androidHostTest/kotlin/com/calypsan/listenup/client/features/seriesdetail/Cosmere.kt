@@ -113,10 +113,59 @@ internal object Cosmere {
                 title = "The Hero of Ages",
                 seriesName = "Mistborn Era 1",
                 sequence = "3",
+                hasStarted = true,
             ),
         canEditHierarchy = canEdit,
         isOnline = online,
     )
+
+    /** Cosmere before the reader has begun any of it: the button starts the first book. */
+    fun unstartedParentPage() =
+        parentPage().copy(
+            bookProgress = emptyMap(),
+            finishedBookIds = emptySet(),
+            resumeTarget = finalEmpire.id,
+            resumeBook =
+                SeriesResumeUi(
+                    bookId = "fe",
+                    title = "The Final Empire",
+                    seriesName = "Mistborn Era 1",
+                    sequence = "1",
+                    hasStarted = false,
+                ),
+        )
+
+    /** Cosmere with a Mistborn Era 1 long enough to scroll through under its heading. */
+    fun longParentPage(): SeriesDetailUiState.Ready {
+        val era1 = (1..30).map { book("era1-$it", "Era One Book $it", "era1", it.toDouble()) }
+        val page = parentPage()
+        return page.copy(
+            books = page.books + era1,
+            bookSections =
+                page.bookSections.map { section ->
+                    if (section.seriesId == "era1") section.copy(books = era1, bookCount = era1.size) else section
+                },
+        )
+    }
+
+    /**
+     * Mistborn Era 1 with The Final Empire finished and The Hero of Ages not yet begun: the series is
+     * under way, so the button continues it — at Book 3, which has no progress of its own.
+     */
+    val childPageUnderWay
+        get() =
+            childPage.copy(
+                finishedBookIds = setOf(finalEmpire.id),
+                resumeTarget = heroOfAges.id,
+                resumeBook =
+                    SeriesResumeUi(
+                        bookId = "hoa",
+                        title = "The Hero of Ages",
+                        seriesName = "Mistborn Era 1",
+                        sequence = "3",
+                        hasStarted = true,
+                    ),
+            )
 
     /** Mistborn Era 1's page: a flat child, under Cosmere › Mistborn. */
     val childPage =

@@ -4,6 +4,7 @@ import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
+import com.calypsan.listenup.client.presentation.seriesdetail.SeriesResumeUi
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -48,6 +49,17 @@ internal fun readySeries(
         bookProgress = bookProgress,
         finishedBookIds = finishedBookIds,
         resumeTarget = resumeTarget,
+        // As the ViewModel builds it: the series is under way once any book is begun or finished.
+        resumeBook =
+            books.firstOrNull { it.id == resumeTarget }?.let { book ->
+                SeriesResumeUi(
+                    bookId = book.id.value,
+                    title = book.title,
+                    seriesName = seriesName,
+                    sequence = book.seriesSequenceLabel,
+                    hasStarted = bookProgress.isNotEmpty() || finishedBookIds.isNotEmpty(),
+                )
+            },
     )
 
 /**

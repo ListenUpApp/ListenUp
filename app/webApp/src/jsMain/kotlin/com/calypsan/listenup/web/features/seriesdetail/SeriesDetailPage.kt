@@ -239,8 +239,13 @@ private fun Hero(
  * A finished series gets no button rather than one that restarts book one, which is a decision the
  * reader did not make.
  *
- * On a parent page "Continue" alone is ambiguous across four series, so the button names the book
- * (en.json's `series.continue_title`) and says where it sits underneath (`series.continue_where`).
+ * A flat series says which book: "Continue Book 3" / "Start Book 1" (en.json's `series.continue_book`
+ * and `series.start_book`). On a parent page "Book 3" alone is ambiguous across four series, so the
+ * button names the book — "Continue The Hero of Ages", or "Start The Final Empire" on a series not
+ * yet begun (`series.continue_title` / `series.start_title`) — and says where it sits underneath
+ * (`series.continue_where`). Start or Continue is the ViewModel's word on every page —
+ * [com.calypsan.listenup.client.presentation.seriesdetail.SeriesResumeUi.hasStarted] — so a series
+ * with Book 1 finished continues Book 2, the same as Android and iOS.
  */
 @Composable
 private fun ResumeAction(
@@ -248,12 +253,20 @@ private fun ResumeAction(
     onPlayBook: (String) -> Unit,
 ) {
     val target = state.resumeTarget ?: return
-    val verb = if (state.bookProgress.containsKey(target)) "Continue" else "Start"
+    val verb = if (state.resumeBook?.hasStarted == true) "Continue" else "Start"
     val named = state.resumeBook?.takeIf { state.isGrouped }
+    val label =
+        if (named != null) {
+            "$verb ${named.title}"
+        } else {
+            val index = state.books.indexOfFirst { it.id == target }
+            val position = state.books.getOrNull(index)?.seriesSequenceLabel ?: (index + 1).toString()
+            "$verb Book $position"
+        }
     Div(attrs = { classes("sd-actions") }) {
         Button(kind = ButtonKind.Primary, onClick = { onPlayBook(target.value) }) {
             Icon(WebIcon.Play, size = PLAY_ICON_SIZE)
-            Text(if (named != null) "$verb ${named.title}" else verb)
+            Text(label)
         }
         if (named != null) {
             Span(attrs = { classes("sd-resume-where") }) {

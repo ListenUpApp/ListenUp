@@ -206,6 +206,17 @@ class SeriesDetailPageTest :
             (root.querySelector(".sd-actions") as HTMLElement).textContent.orEmpty() shouldContain "Continue"
         }
 
+        // The verb is the ViewModel's resumeBook.hasStarted, the same on every platform.
+        test("a series with Book 1 finished continues Book 2, though Book 2 has no progress yet") {
+            val root =
+                seriesDetailPage(
+                    readySeries(finishedBookIds = setOf(BookId("b1")), resumeTarget = BookId("b2")),
+                )
+
+            (root.querySelector(".sd-actions button") as HTMLElement).textContent.orEmpty().trim() shouldBe
+                "Continue Book 2"
+        }
+
         test("an untouched series offers Start") {
             val root = seriesDetailPage(readySeries(resumeTarget = BookId("b1")))
 

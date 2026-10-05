@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,11 +19,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -55,6 +58,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
@@ -90,6 +94,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.foundation.lazy.grid.LazyGridScope
 import com.calypsan.listenup.client.features.seriesdetail.components.SeriesBookLayout
 import com.calypsan.listenup.client.features.seriesdetail.components.SeriesBookListActions
+import com.calypsan.listenup.client.features.seriesdetail.components.StickyHeadings
 import com.calypsan.listenup.client.features.seriesdetail.components.SeriesBreadcrumb
 import com.calypsan.listenup.client.features.seriesdetail.components.SubSeriesSection
 import com.calypsan.listenup.client.features.seriesdetail.components.seriesBookList
@@ -222,8 +227,11 @@ internal fun NarrowSeriesDetailContent(
     onShowAuthors: () -> Unit,
     onEditClick: () -> Unit,
     hierarchy: SeriesPageHierarchyActions = SeriesPageHierarchyActions(),
+    stickyTopInset: Dp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
 ) {
+    val gridState = rememberLazyGridState()
     LazyVerticalGrid(
+        state = gridState,
         columns = GridCells.Fixed(1),
         contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -252,6 +260,7 @@ internal fun NarrowSeriesDetailContent(
             layout = SeriesBookLayout.Rows,
             actions = SeriesBookListActions(onBookClick, hierarchy.onSeriesClick, hierarchy.onToggleSection),
             gutter = 14.dp,
+            sticky = StickyHeadings(gridState, stickyTopInset),
         )
     }
 }
@@ -285,8 +294,13 @@ internal fun WideSeriesDetailContent(
     onEditClick: () -> Unit,
     hierarchy: SeriesPageHierarchyActions = SeriesPageHierarchyActions(),
 ) {
+    val gridState = rememberLazyGridState()
+    // The grid starts below the page's 20 dp margin; a heading pins below whatever of the status bar
+    // still reaches past it.
+    val stickyTopInset =
+        (WindowInsets.statusBars.asPaddingValues().calculateTopPadding() - WIDE_PAGE_MARGIN).coerceAtLeast(0.dp)
     Row(
-        modifier = Modifier.fillMaxSize().padding(20.dp),
+        modifier = Modifier.fillMaxSize().padding(WIDE_PAGE_MARGIN),
         horizontalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         // Left: color-blocked hero panel with the Continue action pinned at the bottom. A proportional
@@ -329,6 +343,7 @@ internal fun WideSeriesDetailContent(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.weight(0.6f).fillMaxHeight(),
+            state = gridState,
         ) {
             subSeriesItem(state, hierarchy, Modifier.padding(bottom = 8.dp))
             seriesBookList(
@@ -336,9 +351,12 @@ internal fun WideSeriesDetailContent(
                 layout = SeriesBookLayout.Cards,
                 actions = SeriesBookListActions(onBookClick, hierarchy.onSeriesClick, hierarchy.onToggleSection),
                 gutter = 0.dp,
+                sticky = StickyHeadings(gridState, stickyTopInset),
             )
         }
     }
 }
+
+private val WIDE_PAGE_MARGIN = 20.dp
 
 // endregion

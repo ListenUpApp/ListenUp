@@ -18421,6 +18421,16 @@
         }
       }
     },
+    "series.start_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start %1$@"
+          }
+        }
+      }
+    },
     "series.stat_books": {
       "localizations": {
         "en": {
