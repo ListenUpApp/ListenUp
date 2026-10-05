@@ -208,4 +208,14 @@ class SidecarAssemblerTest :
 
             sidecar.readingOrders.shouldBeEmpty()
         }
+
+        test("the sidecar never writes who made an edit — a user id means nothing in a file") {
+            val book =
+                bookPayloadFixture(id = "book1", title = "Book")
+                    .copy(fieldProvenance = mapOf(BookField.TITLE to FieldProvenance(FieldSourceKind.USER, at = 3L, by = "user-1")))
+
+            val sidecar = assembler.assemble(book)
+
+            sidecar.fieldProvenance shouldBe mapOf("TITLE" to FieldProvenance(FieldSourceKind.USER, at = 3L))
+        }
     })

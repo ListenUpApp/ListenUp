@@ -106,6 +106,9 @@ internal class BookServiceImpl(
     private val organizeRelocator: OrganizeOnEditRelocator? = null,
     private val bookDeleter: BookDeleter? = null,
 ) : BookService {
+    /** The signed-in editor's user id, recorded on every hand-edit stamp; null only for an unbound principal. */
+    private fun editorId(): String? = principal.current()?.userId?.value
+
     override suspend fun getBook(id: BookId): AppResult<BookSyncPayload> {
         val p =
             principal.current()
@@ -215,7 +218,7 @@ internal class BookServiceImpl(
         val current =
             repo.findById(id)
                 ?: return bookNotFound(id)
-        val patched = current.applyPatch(patch)
+        val patched = current.applyPatch(patch, editorId())
         // An added-date edit must re-stamp createdAt, which writePayload only writes when this
         // override is present — keeping rescans (which carry a placeholder createdAt) from clobbering it.
         val upsertResult =
@@ -282,7 +285,7 @@ internal class BookServiceImpl(
             current.copy(
                 contributors = resolved,
                 fieldProvenance =
-                    current.fieldProvenance.stampUser(setOf(BookField.AUTHORS, BookField.NARRATORS)),
+                    current.fieldProvenance.stampUser(setOf(BookField.AUTHORS, BookField.NARRATORS), editorId()),
             )
         return when (val upsertResult = repo.upsert(patched)) {
             is AppResult.Success -> {
@@ -436,7 +439,7 @@ internal class BookServiceImpl(
         val patched =
             current.copy(
                 series = resolved,
-                fieldProvenance = current.fieldProvenance.stampUser(setOf(BookField.SERIES)),
+                fieldProvenance = current.fieldProvenance.stampUser(setOf(BookField.SERIES), editorId()),
             )
         return when (val upsertResult = repo.upsert(patched)) {
             is AppResult.Success -> {
@@ -636,14 +639,21 @@ private fun bookNotFound(id: BookId): AppResult.Failure =
  * Overlays [FieldSourceKind.USER] provenance for [fields] onto this map, stamped at the current wall
  * clock. A hand edit is the top tier, so this pins the field against any later rescan or provider
  * apply (per the tier rule in `BookRepository.mergeByProvenance`); the max-tier union makes it sticky.
+ * [by] is the editor's user id — Match details shows "Edited by you".
  */
-private fun Map<BookField, FieldProvenance>.stampUser(fields: Set<BookField>): Map<BookField, FieldProvenance> {
+private fun Map<BookField, FieldProvenance>.stampUser(
+    fields: Set<BookField>,
+    by: String?,
+): Map<BookField, FieldProvenance> {
     if (fields.isEmpty()) return this
     val now = currentEpochMilliseconds()
-    return this + fields.associateWith { FieldProvenance(FieldSourceKind.USER, at = now) }
+    return this + fields.associateWith { FieldProvenance(FieldSourceKind.USER, at = now, by = by) }
 }
 
-private fun BookSyncPayload.applyPatch(patch: BookUpdate): BookSyncPayload =
+private fun BookSyncPayload.applyPatch(
+    patch: BookUpdate,
+    editorId: String?,
+): BookSyncPayload =
     copy(
         title = patch.title ?: title,
         sortTitle = patch.sortTitle ?: sortTitle,
@@ -663,17 +673,19 @@ private fun BookSyncPayload.applyPatch(patch: BookUpdate): BookSyncPayload =
         // BookRepository keeps it protected from then on.
         fieldProvenance =
             fieldProvenance.stampUser(
-                buildSet {
-                    if (patch.title != null) add(BookField.TITLE)
-                    if (patch.sortTitle != null) add(BookField.SORT_TITLE)
-                    if (patch.subtitle != null) add(BookField.SUBTITLE)
-                    if (patch.description != null) add(BookField.DESCRIPTION)
-                    if (patch.publisher != null) add(BookField.PUBLISHER)
-                    if (patch.publishYear != null) add(BookField.PUBLISH_YEAR)
-                    if (patch.language != null) add(BookField.LANGUAGE)
-                    if (patch.isbn != null) add(BookField.ISBN)
-                    if (patch.asin != null) add(BookField.ASIN)
-                    if (patch.abridged != null) add(BookField.ABRIDGED)
-                },
+                fields =
+                    buildSet {
+                        if (patch.title != null) add(BookField.TITLE)
+                        if (patch.sortTitle != null) add(BookField.SORT_TITLE)
+                        if (patch.subtitle != null) add(BookField.SUBTITLE)
+                        if (patch.description != null) add(BookField.DESCRIPTION)
+                        if (patch.publisher != null) add(BookField.PUBLISHER)
+                        if (patch.publishYear != null) add(BookField.PUBLISH_YEAR)
+                        if (patch.language != null) add(BookField.LANGUAGE)
+                        if (patch.isbn != null) add(BookField.ISBN)
+                        if (patch.asin != null) add(BookField.ASIN)
+                        if (patch.abridged != null) add(BookField.ABRIDGED)
+                    },
+                by = editorId,
             ),
     )

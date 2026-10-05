@@ -372,6 +372,30 @@ class BookServiceImplUpdateTest :
                 }
             }
         }
+
+        test("updateBook stamps each edited field USER, with the editor's id") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("a1", UserRoleColumn.ADMIN)
+                val (service, repo) = bookServiceFor(db, "a1", UserRole.ADMIN)
+                runTest {
+                    repo.upsert(bookFixture(id = "b1", title = "Project Hail Mary"))
+
+                    service
+                        .updateBook(BookId("b1"), BookUpdate(title = "Project Hail Mary: A Novel"))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val stamp =
+                        repo
+                            .findById(BookId("b1"))!!
+                            .fieldProvenance
+                            .getValue(com.calypsan.listenup.api.metadata.BookField.TITLE)
+                    stamp.kind shouldBe com.calypsan.listenup.api.metadata.FieldSourceKind.USER
+                    stamp.by shouldBe "a1"
+                }
+            }
+        }
     })
 
 private fun bookFixture(

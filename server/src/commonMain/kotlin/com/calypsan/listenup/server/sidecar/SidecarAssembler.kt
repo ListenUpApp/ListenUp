@@ -65,10 +65,11 @@ class SidecarAssembler {
      * entries are exactly the ones a rescan must not silently overwrite — those are what the sidecar
      * exists to carry. Emitted in [com.calypsan.listenup.api.metadata.BookField] declaration order so
      * identical curation always produces byte-identical JSON (the round-trip hash depends on it).
+     * `by` is dropped: a user id means nothing in a file that outlives the database.
      */
     private fun curatedProvenance(book: BookSyncPayload): Map<String, FieldProvenance> =
         BookField.entries
-            .mapNotNull { field -> book.fieldProvenance[field]?.takeIf { it.tier > 0 }?.let { field.name to it } }
+            .mapNotNull { field -> book.fieldProvenance[field]?.takeIf { it.tier > 0 }?.let { field.name to it.copy(by = null) } }
             .toMap()
 
     private fun userChaptersOrNull(book: BookSyncPayload): SidecarChapters? {
