@@ -1,5 +1,4 @@
 import Darwin
-import MachO
 import SwiftUI
 import Testing
 import UIKit
@@ -99,6 +98,7 @@ final class HostedView {
         let idle0 = Self.idleTurns - idleBefore
         let ticks0 = ticker.ticks
         let stops0 = stops.count
+        let ax0 = Self.swiftUIAXLoaded
         let pix0 = pixelHash()
         // Step F: force every hosting view in the window to lay out now, and commit.
         func force(_ view: UIView) {
@@ -121,6 +121,9 @@ final class HostedView {
             try? await Task.sleep(for: .milliseconds(25))
             worst = max(worst, Int(Date().timeIntervalSince(before) * 1000) - 25)
             window.layoutIfNeeded()
+            if !ax0, Self.swiftUIAXLoaded, !timeline.contains(where: { $0.hasPrefix("ax@") }) {
+                timeline.append("ax@\(Int(Date().timeIntervalSince(p0) * 1000))ms")
+            }
             let now = stops
             let key = now.map(\.description).joined(separator: "|")
             if key != last {
@@ -132,8 +135,8 @@ final class HostedView {
         let stopsD = lastCount, waitD = worst, stopsI = lastCount, waitI = timeline.count
         let pixD = timeline.joined(separator: ","), pixI = "t\(Int(CACurrentMediaTime() * 1000))"
         ticker.stop()
-        NSLog("A11YV3 ordinal=%d live=%d settleMs=%d idle0=%d ticks0=%d stops0=%d stopsF=%d stopsD=%d(waitD=%dms) stopsI=%d(waitI=%dms) pix0=%@ pixF=%@ pixD=%@ pixI=%@",
-              ordinal, Self.live, settleMs, idle0, ticks0, stops0, stopsF, stopsD, waitD, stopsI, waitI,
+        NSLog("A11YV3 ax0=%d ordinal=%d live=%d settleMs=%d idle0=%d ticks0=%d stops0=%d stopsF=%d stopsD=%d(waitD=%dms) stopsI=%d(waitI=%dms) pix0=%@ pixF=%@ pixD=%@ pixI=%@",
+              ax0 ? 1 : 0, ordinal, Self.live, settleMs, idle0, ticks0, stops0, stopsF, stopsD, waitD, stopsI, waitI,
               pix0, pixF, pixD, pixI)
     }
 
@@ -262,6 +265,10 @@ final class HostedView {
     private static var isTreeEnabled = false
     private static var readiness: Task<Void, Never>?
 
+    static var swiftUIAXLoaded: Bool {
+        dlopen("/System/Library/AccessibilityBundles/SwiftUI.axbundle/SwiftUI", RTLD_NOLOAD | RTLD_LAZY) != nil
+    }
+
     /// Diagnostic: hosts a probe and waits until SwiftUI publishes it as an accessibility element.
     static func awaitAccessibilityReady() async {
         if readiness == nil {
@@ -283,7 +290,7 @@ final class HostedView {
                     try? await Task.sleep(for: .milliseconds(20))
                     worstOvershoot = max(worstOvershoot, Int(Date().timeIntervalSince(before) * 1000) - 20)
                 }
-                NSLog("A11YPROBE found=%d ms=%d polls=%d worstOvershootMs=%d", found ? 1 : 0,
+                NSLog("A11YPROBE swiftUIAX=%d found=%d ms=%d polls=%d worstOvershootMs=%d", swiftUIAXLoaded ? 1 : 0, found ? 1 : 0,
                       Int(Date().timeIntervalSince(start) * 1000), polls, worstOvershoot)
                 probe.isHidden = true
                 probe.rootViewController = nil
@@ -315,15 +322,7 @@ final class HostedView {
             }
         }
         isTreeEnabled = true
-        NSLog("A11YENABLE t=%d", Int(CACurrentMediaTime() * 1000))
-        _dyld_register_func_for_add_image { header, _ in
-            guard let header else { return }
-            var info = Dl_info()
-            guard dladdr(header, &info) != 0, let name = info.dli_fname else { return }
-            let path = String(cString: name)
-            if path.contains("ccessibility") || path.contains("axbundle") {
-                NSLog("A11YDYLD t=%d %@", Int(CACurrentMediaTime() * 1000), path)
-            }
+        NSLog("A11YENABLE t=%d swiftUIAX=%d", Int(CACurrentMediaTime() * 1000), swiftUIAXLoaded ? 1 : 0)
         }
     }
 }
