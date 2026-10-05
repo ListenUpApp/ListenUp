@@ -1,0 +1,137 @@
+/* ── Series hierarchy ─────────────────────────────────────────────────────────
+   A series inside another: the series page's path, sub-series cards and grouped books; the
+   editor's "Place in library"; and the two dialogs both reach (Add sub-series, Move into…).
+   Every target is at least 44px; colours are tokens, so dark mode needs nothing of its own. */
+
+/* The series path above a page. "›" is pseudo-content with empty alt text, never read aloud. */
+.sd-path ol { gap: 0 2px; }
+.sd-path li + li::before { content: "›" / ""; padding: 0 6px; opacity: .6; }
+.sd-path a { display: inline-flex; align-items: center; min-height: 44px; }
+.sd-path a:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; border-radius: var(--r-sm); }
+
+/* Continue on a parent page names the book, then says where it sits. */
+.sd-actions { flex-wrap: wrap; align-items: center; }
+.sd-resume-where { font-size: var(--fs-small); font-weight: 600; color: var(--ink-3); }
+
+/* Sub-series cards. A parent of further series wears two paper edges behind its card. */
+.sd-subs { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--sp-16); }
+.sd-sub {
+  position: relative; display: flex; flex-direction: column; gap: var(--sp-8); min-height: 44px;
+  padding: 10px; border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer;
+}
+@media (hover: hover) { .sd-sub:hover { border-color: var(--coral); } }
+.sd-sub:focus { outline: none; }
+.sd-sub:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+.sd-sub.is-stack { isolation: isolate; margin-top: 8px; }
+.sd-sub.is-stack::before,
+.sd-sub.is-stack::after {
+  content: ""; position: absolute; z-index: -1; inset: -5px 8px auto; height: 20px;
+  border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2);
+}
+.sd-sub.is-stack::after { inset: -9px 16px auto; background: var(--surface-3); }
+.sd-sub-cover { aspect-ratio: 1; border-radius: var(--r-sm); overflow: hidden; background: var(--surface-2); }
+.sd-sub-cover > * { width: 100%; height: 100%; }
+.sd-sub-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sd-sub-n { font-size: var(--fs-body); font-weight: 700; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.sd-sub-m { font-size: var(--fs-small); color: var(--ink-2); }
+.sd-sub-stack { font-size: var(--fs-caption); font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+.sd-sub-add {
+  align-items: center; justify-content: center; min-height: 140px; border-style: dashed;
+  color: var(--ink-2); font-weight: 700;
+}
+.sd-sub-add:disabled { cursor: not-allowed; opacity: .55; }
+
+/* Grouped books on a parent page. Headings stick while their books scroll past (Panel clips
+   with `overflow: clip`, which keeps sticky working). */
+.sd-groups { display: flex; flex-direction: column; gap: var(--sp-16); }
+.sd-group { display: flex; flex-direction: column; gap: var(--sp-8); }
+.sd-group.is-nested { padding-left: var(--sp-16); border-left: 2px solid var(--line-2); }
+.sd-group-h {
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px;
+  min-height: 44px; background: var(--surface);
+}
+.sd-group-t { margin: 0; font-size: var(--fs-body); font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+.sd-group.is-nested .sd-group-t { font-size: var(--fs-ui); }
+.sd-group-link {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0; border: none; background: none;
+  font: inherit; color: inherit; cursor: pointer; text-align: left;
+}
+@media (hover: hover) { .sd-group-link:hover { color: var(--coral-text); text-decoration: underline; } }
+.sd-group-link:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; border-radius: var(--r-sm); }
+.sd-group-m { flex: 1; font-size: var(--fs-small); color: var(--ink-3); font-weight: 600; }
+.sd-show-all { align-self: flex-start; min-height: 44px; }
+
+/* ── Editor: Place in library ─────────────────────────────────────────────── */
+.sh-offline {
+  display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border-radius: var(--r-md);
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2);
+}
+.sh-offline p { margin: 0; }
+.sh-offline-t { font-weight: 700; color: var(--ink); }
+.sh-offline-b { font-size: var(--fs-small); line-height: 1.5; }
+.sh-partof { display: flex; align-items: center; gap: 12px; min-height: 44px; }
+.sh-partof-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sh-partof-l { font-size: var(--fs-small); color: var(--ink-3); font-weight: 600; }
+.sh-partof-v { font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.sh-busy {
+  flex: none; width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid var(--line); border-top-color: var(--coral);
+}
+@media (prefers-reduced-motion: no-preference) { .sh-busy { animation: sh-spin .8s linear infinite; } }
+@keyframes sh-spin { to { transform: rotate(360deg); } }
+.sh-subs-head { display: flex; align-items: center; gap: 10px; margin-top: var(--sp-8); }
+.sh-subs-t { margin: 0; font-size: var(--fs-ui); font-weight: 700; color: var(--ink); }
+.sh-subs { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.sh-sub {
+  display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 4px 8px;
+  border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface);
+}
+@media (prefers-reduced-motion: no-preference) { .sh-sub { transition: transform 180ms ease, box-shadow 180ms ease; } }
+.sh-sub.is-lifted { transform: scale(1.02); box-shadow: var(--shadow-float); }
+.sh-grip { display: inline-flex; align-items: center; justify-content: center; width: 28px; min-height: 44px; color: var(--ink-3); cursor: grab; }
+.sh-sub-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sh-sub-n { font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.sh-sub-m { font-size: var(--fs-small); color: var(--ink-3); }
+.sh-add-row { display: flex; }
+.sh-caption { margin: 0; font-size: var(--fs-ui); color: var(--ink-3); line-height: 1.5; }
+
+/* ── The two picker dialogs ───────────────────────────────────────────────── */
+dialog.dlg.sh-dlg { width: 520px; }
+.sh-list { display: flex; flex-direction: column; gap: 2px; max-height: min(50vh, 26rem); overflow-y: auto; }
+.sh-row {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 6px 10px;
+  border: none; border-radius: var(--r-sm); background: none; color: var(--ink);
+  font: inherit; text-align: left; cursor: pointer;
+}
+@media (hover: hover) { .sh-row:not(.is-off):hover { background: var(--surface-2); } }
+.sh-row:focus { outline: none; }
+.sh-row:focus-visible { outline: 2px solid var(--coral); outline-offset: -2px; }
+.sh-row.is-off { cursor: default; color: var(--ink-3); }
+.sh-pinned { font-weight: 700; color: var(--coral-text); }
+.sh-row-n { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.sh-row-m { flex: none; font-size: var(--fs-small); color: var(--ink-3); }
+.sh-node-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sh-node .sh-row-n { flex: none; }
+.sh-node { padding-left: calc(10px + var(--depth, 0) * 22px); }
+.sh-chev { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; min-height: 32px; color: var(--ink-3); cursor: pointer; }
+.sh-chev.is-open svg { transform: rotate(90deg); }
+.sh-chip {
+  flex: none; padding: 2px 8px; border-radius: var(--r-pill); border: 1px solid var(--line);
+  background: var(--surface-2); font-size: var(--fs-caption); font-weight: 700; color: var(--ink-3);
+}
+.sh-tree { display: flex; flex-direction: column; gap: 2px; }
+.sh-existing { display: flex; }
+
+/* A phone: the editor's rows stack their text over their controls rather than truncating names. */
+@media (max-width: 639px) {
+  .sd-subs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-12); }
+  .sh-partof { flex-wrap: wrap; }
+  dialog.dlg.sh-dlg { width: 100%; }
+}
+
+/* Press: everything here that answers a mouse also answers a finger (see 03-press.css). */
+.sd-group-link:active { transform: translateY(1px); }
+.sd-sub:active { transform: scale(.985); }
+.sh-row:active { background: var(--surface-3); }
+.sh-row.is-off:active { background: none; }

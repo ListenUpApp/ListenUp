@@ -35,7 +35,10 @@ fun Panel(
             property("border", "1px solid var(--line)")
             property("border-radius", "var(--rad)")
             property("box-shadow", "var(--shadow-card)")
-            property("overflow", "hidden")
+            // `clip`, not `hidden`: it clips the same, but does not make the panel a scroll
+            // container — so a sticky heading inside one (a series page's group headings) sticks
+            // to the page as it scrolls, rather than to a box that never scrolls.
+            property("overflow", "clip")
         }
     }) {
         if (title != null) {

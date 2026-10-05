@@ -37,7 +37,6 @@ import com.calypsan.listenup.client.presentation.bookedit.BookEditNavAction
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailNavAction
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailSession
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
-import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
 import com.calypsan.listenup.client.presentation.search.SearchNavAction
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.bookedit.BookEditPage
@@ -166,6 +165,7 @@ import com.calypsan.listenup.web.design.LocalCompositionProbe
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
+import com.calypsan.listenup.web.features.seriesdetail.SeriesDetailSession
 import com.calypsan.listenup.web.features.seriesdetail.SeriesDetailPage
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditNavAction
 import com.calypsan.listenup.web.features.seriesedit.OpenSeriesEdit
@@ -571,12 +571,18 @@ private fun SeriesRouteContent(
         return
     }
 
+    val session = seriesDetailSession(seriesId, openSeriesDetail)
     SeriesDetailPage(
-        state = seriesDetailState(seriesId, openSeriesDetail),
+        state = session.state.collectAsState().value,
         onEdit = { router.navigate(Route(listOf(SERIES_KEY, seriesId, EDIT_KEY))) },
         onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
         onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
         onPlayBook = { id -> playback.onPlayBook(BookId(id)) },
+        // Pushed, not popped to: Back from the ancestor still returns to this series.
+        onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
+        onToggleSection = session.onToggleSection,
+        addSubSeries = session.addSubSeries.collectAsState().value,
+        onAddSubSeriesEvent = session.onAddSubSeriesEvent,
     )
 }
 
@@ -3165,6 +3171,9 @@ private fun SeriesEditRoute(
         mergeHistory = session.mergeHistory.collectAsState().value,
         onEvent = session.onEvent,
         onMergeQuery = session.onMergeQuery,
+        parentPickerRows = session.parentPickerRows.collectAsState().value,
+        addSubSeries = session.addSubSeries.collectAsState().value,
+        onAddSubSeriesEvent = session.onAddSubSeriesEvent,
     )
 }
 
@@ -3175,13 +3184,13 @@ private fun SeriesEditRoute(
  * first series forever after navigating to a second one.
  */
 @Composable
-private fun seriesDetailState(
+private fun seriesDetailSession(
     seriesId: String,
     openSeriesDetail: OpenSeriesDetail,
-): SeriesDetailUiState {
+): SeriesDetailSession {
     val session = remember(seriesId) { openSeriesDetail(seriesId) }
     DisposableEffect(session) { onDispose { session.close() } }
-    return session.state.collectAsState().value
+    return session
 }
 
 /**

@@ -1767,6 +1767,55 @@ class WebAppRootTest :
             }
         }
 
+        // A breadcrumb step pushes the ancestor's page, so Back still returns to the child.
+        test("a series path step opens that ancestor's page") {
+            val (host, router) =
+                mountAt(
+                    "/series/era1",
+                    openSeriesDetail =
+                        fixedSeriesDetail(
+                            readySeries(seriesId = "era1", seriesName = "Mistborn Era 1").copy(
+                                ancestors =
+                                    listOf(
+                                        com.calypsan.listenup.client.presentation.seriesdetail
+                                            .SeriesCrumb("cosmere", "Cosmere"),
+                                    ),
+                            ),
+                        ),
+                )
+
+            try {
+                (host.querySelectorAll("nav.sd-path a").item(1) as HTMLElement).click()
+
+                window.location.pathname shouldBe "/series/cosmere"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // The page's actions reach the ViewModel through the session, not just its state.
+        test("folding a group on the series page reaches the session") {
+            val toggled = mutableListOf<String>()
+            val (host, router) =
+                mountAt(
+                    "/series/cosmere",
+                    openSeriesDetail =
+                        fixedSeriesDetail(
+                            com.calypsan.listenup.web.features.seriesdetail
+                                .groupedCosmere(),
+                            onToggleSection = { toggled += it },
+                        ),
+                )
+
+            try {
+                (host.querySelector(".sd-show-all") as HTMLElement).click()
+
+                toggled shouldBe listOf("elantris")
+            } finally {
+                router.dispose()
+            }
+        }
+
         test("switching series id opens a new session rather than reusing the old one's") {
             val recorder = RecordingSeriesDetail()
             val (host, router) = mountAt("/series/s1", openSeriesDetail = recorder.open)

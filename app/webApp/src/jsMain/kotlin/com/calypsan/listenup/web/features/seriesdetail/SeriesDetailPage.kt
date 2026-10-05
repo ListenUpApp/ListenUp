@@ -12,9 +12,11 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
+import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesEvent
+import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesUiState
+import com.calypsan.listenup.web.features.seriesedit.AddSubSeriesDialogs
 import com.calypsan.listenup.web.design.LoadingState
 import com.calypsan.listenup.web.design.EmptyState
-import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
@@ -56,15 +58,35 @@ fun SeriesDetailPage(
     onOpenBook: (String) -> Unit,
     onPlayBook: (String) -> Unit = {},
     onEdit: () -> Unit = {},
+    onOpenSeries: (String) -> Unit = {},
+    onToggleSection: (String) -> Unit = {},
+    addSubSeries: AddSubSeriesUiState = AddSubSeriesUiState.Closed(),
+    onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit = {},
 ) {
     Div(attrs = { classes("sd") }) {
         // Renders in every state, including the ones with no series: a page that cannot show what
-        // you asked for must still show the way out of it.
-        Breadcrumb(trail = listOf("Library", crumb(state)), onNavigate = { onOpenLibrary() })
+        // you asked for must still show the way out of it. On a sub-series it is the series' path.
+        SeriesPathCrumb(
+            ancestors = (state as? SeriesDetailUiState.Ready)?.ancestors.orEmpty(),
+            current = crumb(state),
+            onOpenLibrary = onOpenLibrary,
+            onOpenSeries = onOpenSeries,
+        )
 
         when (state) {
             is SeriesDetailUiState.Ready -> {
-                ReadyContent(state, onOpenBook, onPlayBook, onEdit)
+                ReadyContent(
+                    state,
+                    SeriesPageActions(
+                        onOpenBook,
+                        onPlayBook,
+                        onEdit,
+                        onOpenSeries,
+                        onToggleSection,
+                        onAddSubSeriesEvent,
+                    ),
+                )
+                AddSubSeriesDialogs(addSubSeries, onAddSubSeriesEvent)
             }
 
             is SeriesDetailUiState.Error -> {
@@ -104,14 +126,22 @@ private fun WayBack(
     }
 }
 
+/** What the reader can do on a loaded series page, gathered so the sections take one parameter. */
+internal class SeriesPageActions(
+    val onOpenBook: (String) -> Unit,
+    val onPlayBook: (String) -> Unit,
+    val onEdit: () -> Unit,
+    val onOpenSeries: (String) -> Unit,
+    val onToggleSection: (String) -> Unit,
+    val onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit,
+)
+
 @Composable
 private fun ReadyContent(
     state: SeriesDetailUiState.Ready,
-    onOpenBook: (String) -> Unit,
-    onPlayBook: (String) -> Unit,
-    onEdit: () -> Unit,
+    actions: SeriesPageActions,
 ) {
-    Hero(state, onPlayBook, onEdit)
+    Hero(state, actions.onPlayBook, actions.onEdit)
 
     val description = state.seriesDescription
     if (!description.isNullOrBlank()) {
@@ -120,17 +150,25 @@ private fun ReadyContent(
         }
     }
 
+    if (state.childSeries.isNotEmpty()) SubSeriesPanel(state, actions)
+
+    // en.json's series.books
     Panel(title = "Books", trailing = { CountBadge(state.books.size) }) {
-        Div(attrs = { classes("sd-books") }) {
-            state.books.forEach { book ->
-                key(book.id.value) {
-                    BookRow(
-                        book = book,
-                        seriesId = state.seriesId,
-                        progress = state.bookProgress[book.id],
-                        isFinished = book.id in state.finishedBookIds,
-                        onOpen = { onOpenBook(book.id.value) },
-                    )
+        if (state.isGrouped) {
+            GroupedBooks(state, actions)
+        } else {
+            // A flat page is one section, shown exactly as before the hierarchy: no heading.
+            Div(attrs = { classes("sd-books") }) {
+                state.books.forEach { book ->
+                    key(book.id.value) {
+                        SeriesBookRow(
+                            book = book,
+                            seriesId = state.seriesId,
+                            progress = state.bookProgress[book.id],
+                            isFinished = book.id in state.finishedBookIds,
+                            onOpen = { actions.onOpenBook(book.id.value) },
+                        )
+                    }
                 }
             }
         }
@@ -158,7 +196,14 @@ private fun Hero(
             authorLine(state)?.let { line -> Div(attrs = { classes("sd-by") }) { Text(line) } }
 
             Div(attrs = { classes("sd-stats") }) {
-                StatPill(WebIcon.Book, bookCountLabel(state.books.size))
+                // A parent counts its sub-series too: "4 series · 23 books" (en.json's series.count_books).
+                val books =
+                    if (state.isGrouped) {
+                        seriesAndBookCount(state.childSeries.size, state.books.size)
+                    } else {
+                        seriesBookCount(state.books.size)
+                    }
+                StatPill(WebIcon.Book, books)
                 // "of audio" — never "listened", the same distinction the contributor hero draws:
                 // this is the series' total duration, not a record of what anyone has heard.
                 StatPill(WebIcon.Clock, "${state.formatTotalDuration()} of audio")
@@ -169,18 +214,7 @@ private fun Hero(
                 }
             }
 
-            // `resumeTarget` is the ViewModel's word on where a reader picks the series back up —
-            // the first in-progress book, else the first unstarted one, and null once the whole
-            // series is finished. A finished series gets no button rather than one that restarts
-            // book one, which is a decision the reader did not make.
-            state.resumeTarget?.let { target ->
-                Div(attrs = { classes("sd-actions") }) {
-                    Button(kind = ButtonKind.Primary, onClick = { onPlayBook(target.value) }) {
-                        Icon(WebIcon.Play, size = PLAY_ICON_SIZE)
-                        Text(if (state.bookProgress.containsKey(target)) "Continue" else "Start")
-                    }
-                }
-            }
+            ResumeAction(state, onPlayBook)
         }
 
         // Icon-only, so the accessible name is the attribute rather than the content — the same
@@ -198,6 +232,36 @@ private fun Hero(
     }
 }
 
+/**
+ * Where the reader picks the series back up. `resumeTarget` is the ViewModel's word on it — the
+ * first in-progress book, else the first unstarted one, and null once the whole series is finished.
+ * A finished series gets no button rather than one that restarts book one, which is a decision the
+ * reader did not make.
+ *
+ * On a parent page "Continue" alone is ambiguous across four series, so the button names the book
+ * (en.json's `series.continue_title`) and says where it sits underneath (`series.continue_where`).
+ */
+@Composable
+private fun ResumeAction(
+    state: SeriesDetailUiState.Ready,
+    onPlayBook: (String) -> Unit,
+) {
+    val target = state.resumeTarget ?: return
+    val verb = if (state.bookProgress.containsKey(target)) "Continue" else "Start"
+    val named = state.resumeBook?.takeIf { state.isGrouped }
+    Div(attrs = { classes("sd-actions") }) {
+        Button(kind = ButtonKind.Primary, onClick = { onPlayBook(target.value) }) {
+            Icon(WebIcon.Play, size = PLAY_ICON_SIZE)
+            Text(if (named != null) "$verb ${named.title}" else verb)
+        }
+        if (named != null) {
+            Span(attrs = { classes("sd-resume-where") }) {
+                Text(named.sequence?.let { "${named.seriesName} · Book $it" } ?: named.seriesName)
+            }
+        }
+    }
+}
+
 @Composable
 private fun StatPill(
     icon: WebIcon,
@@ -210,7 +274,7 @@ private fun StatPill(
 }
 
 @Composable
-private fun CountBadge(count: Int) {
+internal fun CountBadge(count: Int) {
     Span(attrs = { classes("sd-count-badge") }) { Text(count.toString()) }
 }
 
@@ -224,7 +288,7 @@ private fun CountBadge(count: Int) {
  * and their row number is not their sequence.
  */
 @Composable
-private fun BookRow(
+internal fun SeriesBookRow(
     book: BookListItem,
     seriesId: String,
     progress: Float?,
@@ -299,9 +363,6 @@ private fun authorLine(state: SeriesDetailUiState.Ready): String? {
     val names = state.seriesAuthors.map { it.name }
     return if (names.isEmpty()) null else names.joinToString(", ")
 }
-
-/** "1 book" vs "5 books" — a one-book series is real, so the plural is never assumed. */
-private fun bookCountLabel(count: Int): String = if (count == 1) "1 book" else "$count books"
 
 /** The hero is the largest cover this page shows, so it asks for its own rung. See `coverUrl`. */
 private const val BUTTON_VALUE = "button"
