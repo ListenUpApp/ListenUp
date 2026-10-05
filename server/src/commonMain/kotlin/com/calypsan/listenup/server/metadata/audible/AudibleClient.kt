@@ -345,6 +345,7 @@ private fun RawProduct.toSearchResult(): AudibleSearchResult {
         coverUrl = selectCoverUrl(productImages),
         runtimeMinutes = runtimeLengthMin,
         releaseDate = releaseDate,
+        formatType = formatType.orEmpty(),
     )
 }
 
@@ -378,6 +379,7 @@ private fun RawProduct.toBook(): AudibleBook {
         language = language,
         rating = rating,
         ratingCount = ratingCount,
+        formatType = formatType.orEmpty(),
     )
 }
 
