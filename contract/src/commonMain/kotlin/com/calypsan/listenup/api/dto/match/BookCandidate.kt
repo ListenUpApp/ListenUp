@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 /** How confident Find is that a candidate is your book. Nothing is hidden: Maybe is a group, not a filter. */
 @Serializable
 enum class MatchTier {
-    /** A score of 0.8 or more. */
+    /** A score of 0.8 or more, with a length to compare against your copy. */
     STRONG,
 
     /** Anything less. */
@@ -77,6 +77,11 @@ sealed interface MatchReason {
     data class LengthDiffers(
         @SerialName("deltaMinutes") val deltaMinutes: Int,
     ) : MatchReason
+
+    /** Its length can't be compared with yours, so it can't be a Strong match. */
+    @Serializable
+    @SerialName("MatchReason.LengthUnknown")
+    data object LengthUnknown : MatchReason
 
     /** It has the same [count] of chapters as your copy. */
     @Serializable

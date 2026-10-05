@@ -17,7 +17,8 @@ import kotlin.math.roundToInt
 
 /**
  * Turns merged hits into ranked candidates (spec, *Find*, step 5). Each is scored against your copy by
- * [MatchScorer]; [STRONG_SCORE] and above is Strong, anything less Maybe, and nothing is hidden. Order is tier,
+ * [MatchScorer]; [STRONG_SCORE] and above is Strong — but only with a length on both sides to compare —
+ * anything else Maybe, and nothing is hidden. Order is tier,
  * then score — stable, so ties keep source order. The best match is the first Strong; a current link is
  * labelled, never pinned.
  */
@@ -53,6 +54,9 @@ internal object CandidateRanker {
         val authors = books.firstNotNullOfOrNull { book -> book.authors.takeIf { it.isNotEmpty() } }.orEmpty()
         val narrators = books.firstNotNullOfOrNull { book -> book.narrators.takeIf { it.isNotEmpty() } }.orEmpty()
         val durationMs = books.firstNotNullOfOrNull { it.durationMs }
+        // Without a length on both sides, title and author alone renormalise to a full score; such a
+        // candidate can never be Strong (Simon, 2026-10-05).
+        val hasLengthEvidence = subject.durationMs != null && durationMs != null
         val score =
             MatchScorer.score(
                 subject.identity(),
@@ -77,7 +81,7 @@ internal object CandidateRanker {
                 chapterCount = books.firstNotNullOfOrNull { it.chapterCount },
                 coverUrl = everyone.firstNotNullOfOrNull { it.book.coverUrl?.takeIf(String::isNotBlank) },
                 foundIn = everyone.map { it.toFoundIn() }.distinctBy { it.source.id },
-                tier = if (score >= STRONG_SCORE) MatchTier.STRONG else MatchTier.MAYBE,
+                tier = if (score >= STRONG_SCORE && hasLengthEvidence) MatchTier.STRONG else MatchTier.MAYBE,
                 score = score,
                 isBest = false,
                 isCurrentLink = books.any { it.viaLink },
@@ -119,8 +123,10 @@ internal object CandidateRanker {
                 differ += MatchReason.DifferentNarrators
             }
         }
-        lengthReason(subject.durationMs, candidate.durationMs)?.let {
-            if (it is MatchReason.LengthDiffers) differ += it else agree += it
+        when (val length = lengthReason(subject.durationMs, candidate.durationMs)) {
+            null -> differ += MatchReason.LengthUnknown
+            is MatchReason.LengthDiffers -> differ += length
+            else -> agree += length
         }
         chapterReason(subject.chapterCount, candidate.chapterCount)?.let {
             if (it is MatchReason.DifferentChapterCount) differ += it else agree += it

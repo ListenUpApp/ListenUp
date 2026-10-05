@@ -108,7 +108,7 @@ class CandidateRankerTest :
                 CandidateRanker.STRONG_SCORE
         }
 
-        test("pinned and flagged: a lengthless exact title and author outranks a one-minute-off Audible edition") {
+        test("a candidate with no length evidence is never Strong, and says its length is unknown") {
             val lengthless =
                 MergedHits(
                     listOf(
@@ -118,11 +118,24 @@ class CandidateRankerTest :
                         ),
                     ),
                 )
-            rank(audible("B1", minutes = 971), lengthless)
-                .first()
-                .key.refs
-                .single()
-                .provider shouldBe "hardcover"
+            val ranked = rank(audible("B1", minutes = 971), lengthless)
+
+            ranked.map {
+                it.key.refs
+                    .single()
+                    .provider
+            } shouldBe listOf("audible", "hardcover")
+            ranked[0].tier shouldBe MatchTier.STRONG
+            ranked[0].isBest shouldBe true
+            ranked[1].tier shouldBe MatchTier.MAYBE
+            ranked[1].reasons.first() shouldBe MatchReason.LengthUnknown
+        }
+
+        test("an edition from another store with the same narrator and length stays Strong, saying so") {
+            val other = rank(audible("B1", region = "uk")).single()
+            other.tier shouldBe MatchTier.STRONG
+            other.reasons shouldBe
+                listOf(MatchReason.SameNarrator, MatchReason.SameLength, MatchReason.DifferentStore(MetadataLocale("uk")))
         }
 
         test("a merged candidate lists every source it was found in, and every ref in its key") {

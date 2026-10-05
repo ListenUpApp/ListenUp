@@ -35,6 +35,7 @@ private val CANDIDATE =
                 MatchReason.SameChapterCount(36),
                 MatchReason.DifferentNarrators,
                 MatchReason.LengthWithin(1),
+                MatchReason.LengthUnknown,
                 MatchReason.LengthDiffers(-386),
                 MatchReason.DifferentChapterCount(40),
                 MatchReason.DifferentStore(MetadataLocale("uk")),
