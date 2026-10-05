@@ -2711,6 +2711,26 @@
         }
       }
     },
+    "admin.store_region_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Used for Audible searches in this library. Each search can still pick another store."
+          }
+        }
+      }
+    },
+    "admin.store_region_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Store region"
+          }
+        }
+      }
+    },
     "admin.system_collection_locked": {
       "localizations": {
         "en": {

@@ -96,6 +96,9 @@ struct AdminView: View {
             if let model = settingsModel(settings), !model.ratingSources.isEmpty {
                 ratingSourcesSection(model: model, settings: settings)
             }
+            if let model = settingsModel(settings) {
+                storeRegionSection(model: model, settings: settings)
+            }
             if let hardcover = settingsModel(settings)?.hardcover {
                 HardcoverSourceSection(
                     model: hardcover,
@@ -200,6 +203,30 @@ struct AdminView: View {
             Text(String(localized: "admin.rating_sources_title"))
         } footer: {
             Text(String(localized: "admin.rating_sources_hint"))
+        }
+    }
+
+    // MARK: - Store region section
+
+    /// "Store region": the Audible store this library's match searches start in. A menu-style picker, so
+    /// the choice is one row showing its current value, saved the moment a store is picked. Each search
+    /// can still pick another store for itself. HIG, Pickers.
+    @ViewBuilder
+    private func storeRegionSection(model: AdminSettingsReadyModel, settings: AdminSettingsObserver) -> some View {
+        Section {
+            Picker(
+                String(localized: "admin.store_region_title"),
+                selection: Binding(get: { model.metadataRegion }, set: { settings.setMetadataRegion($0) })
+            ) {
+                ForEach(MetadataRegionOption.all) { option in
+                    Text(option.displayName).tag(option.region)
+                }
+            }
+            .pickerStyle(.menu)
+        } header: {
+            Text(String(localized: "admin.store_region_title"))
+        } footer: {
+            Text(String(localized: "admin.store_region_hint"))
         }
     }
 
