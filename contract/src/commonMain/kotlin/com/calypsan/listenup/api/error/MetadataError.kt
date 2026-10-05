@@ -22,13 +22,15 @@ import kotlinx.serialization.Serializable
 sealed interface MetadataError : AppError {
     /**
      * The external API responded with HTTP 429 (Too Many Requests).
-     * Backing off and retrying is safe and expected.
+     * Backing off and retrying is safe and expected. [retryAfterSeconds] is the
+     * API's own `Retry-After`, when it sent one.
      */
     @Serializable
     @SerialName("MetadataError.ExternalRateLimited")
     data class ExternalRateLimited(
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
+        @SerialName("retryAfterSeconds") val retryAfterSeconds: Long? = null,
     ) : MetadataError {
         override val message: String =
             "External metadata service rate-limited the request. Try again shortly."
