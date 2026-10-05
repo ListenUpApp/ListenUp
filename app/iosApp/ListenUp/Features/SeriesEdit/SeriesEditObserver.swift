@@ -32,6 +32,30 @@ final class SeriesEditObserver {
     /// The merges folded into this series, each undoable — the "Merged into this" section.
     private(set) var mergeHistory: MergeHistoryModel = .loading
 
+    // MARK: - Place in library
+
+    /// The parent's name; nil at the top level.
+    private(set) var parentName: String?
+    private(set) var isTopLevel: Bool = true
+    /// The series' own sub-series, in sibling order — as the VM last said, or as the reader just
+    /// dropped them while that order is on its way to the server.
+    private(set) var childSeries: [EditableSubSeries] = []
+    /// True while a hierarchy change is on its way to the server.
+    private(set) var hierarchyBusy: Bool = false
+    /// Hierarchy changes need the server; offline they are disabled, and the screen says why.
+    private(set) var isOnline: Bool = true
+    private(set) var parentPickerVisible: Bool = false
+    private(set) var parentQuery: String = ""
+    private(set) var parentRows: [ParentPickerItem] = []
+    /// The "New parent series" dialog, while it is open.
+    private(set) var newParent: NewSeriesDraftItem?
+    /// The "Add sub-series" sheet.
+    private(set) var addSubSeries = AddSubSeriesSheetModel()
+
+    /// The order the VM last emitted, so a re-emission that only flips `hierarchyBusy` doesn't snap a
+    /// just-dropped list back before sync delivers the new order.
+    private var lastServerChildIds: [String] = []
+
     private let viewModel: SeriesEditViewModel
     private let bridge = FlowBridge()
 
@@ -43,6 +67,16 @@ final class SeriesEditObserver {
             self?.mergeCandidates = candidates.map(MergeCandidate.init(series:))
         }
         bridge.bind(viewModel.mergeHistory) { [weak self] in self?.mergeHistory = MergeHistoryModel.from($0) }
+        bridge.bind(viewModel.parentPickerRows) { [weak self] rows in
+            self?.parentRows = rows.map(ParentPickerItem.init)
+        }
+        bridge.bind(viewModel.addSubSeries) { [weak self] state in
+            guard let self else { return }
+            addSubSeries = AddSubSeriesSheetModel(state)
+            // A refusal already reached the reader through the shared error bus (GlobalErrorObserver's
+            // alert); presenting it again would say it twice (iosApp rule 10).
+            if AddSubSeriesSheetModel.hasError(state) { sendAddSubSeries(.errorDismissed) }
+        }
     }
 
     deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
@@ -81,7 +115,67 @@ final class SeriesEditObserver {
     }
     func onRetryMergeHistory() { viewModel.onEvent(event: SeriesEditUiEventRetryMergeHistory.shared) }
 
+    // MARK: - Hierarchy actions (each goes to the server at once; nothing waits for Save)
+
+    func openParentPicker() { viewModel.onEvent(event: SeriesEditUiEventParentPickerOpened.shared) }
+    func dismissParentPicker() { viewModel.onEvent(event: SeriesEditUiEventParentPickerDismissed.shared) }
+    func onParentQueryChange(_ value: String) {
+        viewModel.onEvent(event: SeriesEditUiEventParentQueryChanged(query: value))
+    }
+    func toggleParentNode(_ id: String) {
+        viewModel.onEvent(event: SeriesEditUiEventParentPickerNodeToggled(seriesId: id))
+    }
+    func chooseParent(_ id: String) { viewModel.onEvent(event: SeriesEditUiEventParentSelected(parentId: id)) }
+    func moveToTopLevel() { viewModel.onEvent(event: SeriesEditUiEventParentCleared.shared) }
+    func startNewParent() { viewModel.onEvent(event: SeriesEditUiEventNewParentStarted.shared) }
+    func onNewParentNameChange(_ value: String) {
+        viewModel.onEvent(event: SeriesEditUiEventNewParentNameChanged(name: value))
+    }
+    func dismissNewParent() { viewModel.onEvent(event: SeriesEditUiEventNewParentDismissed.shared) }
+    func confirmNewParent() { viewModel.onEvent(event: SeriesEditUiEventNewParentConfirmed.shared) }
+
+    /// "Move into it instead": the name typed for a new parent already exists, so move into that one.
+    func moveIntoExisting(_ id: String) {
+        chooseParent(id)
+        dismissNewParent()
+    }
+
+    /// A reorder dropped: shows the new order at once and sends it whole — one
+    /// `ChildSeriesReordered` per drop, never one per step. Returns the sentence VoiceOver announces
+    /// ("Mistborn Era 1 moved to position 2 of 2"), or nil when nothing moved.
+    @discardableResult
+    func reorderChildren(to orderedIds: [String], moved movedId: String) -> String? {
+        let byId = Dictionary(uniqueKeysWithValues: childSeries.map { ($0.id, $0) })
+        guard orderedIds != childSeries.map(\.id), Set(orderedIds) == Set(byId.keys) else { return nil }
+        childSeries = orderedIds.compactMap { byId[$0] }
+        viewModel.onEvent(event: SeriesEditUiEventChildSeriesReordered(orderedChildIds: orderedIds))
+        guard let series = byId[movedId], let index = orderedIds.firstIndex(of: movedId) else { return nil }
+        return SeriesHierarchyText.moved(name: series.name, position: index + 1, total: orderedIds.count)
+    }
+
+    func sendAddSubSeries(_ action: AddSubSeriesAction) {
+        viewModel.onAddSubSeriesEvent(event: action.kotlinEvent)
+    }
+
+    private func applyPlacement(_ state: SeriesEditUiState) {
+        parentName = state.parentName
+        isTopLevel = state.parentId == nil
+        hierarchyBusy = state.hierarchyBusy
+        isOnline = state.isOnline
+        parentPickerVisible = state.parentPickerVisible
+        parentQuery = state.parentQuery
+        newParent = state.newParent.map(NewSeriesDraftItem.init)
+        let children = state.childSeries.map(EditableSubSeries.init)
+        let serverIds = children.map(\.id)
+        // Take the VM's list when it changed, or when a refused change left the drop unapplied.
+        if serverIds != lastServerChildIds || (state.error != nil && !state.hierarchyBusy) {
+            childSeries = children
+        }
+        lastServerChildIds = serverIds
+    }
+
     private func apply(_ state: SeriesEditUiState) {
+        applyPlacement(state)
         isLoading = state.isLoading
         name = state.name
         seriesDescription = state.descriptionText
