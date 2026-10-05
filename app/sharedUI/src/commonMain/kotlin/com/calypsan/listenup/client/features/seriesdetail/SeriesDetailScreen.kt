@@ -87,6 +87,15 @@ import listenup.composeapp.generated.resources.series_progress_duration
 import listenup.composeapp.generated.resources.series_start_book
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import androidx.compose.foundation.lazy.grid.LazyGridScope
+import com.calypsan.listenup.client.features.seriesdetail.components.SeriesBookLayout
+import com.calypsan.listenup.client.features.seriesdetail.components.SeriesBookListActions
+import com.calypsan.listenup.client.features.seriesdetail.components.SeriesBreadcrumb
+import com.calypsan.listenup.client.features.seriesdetail.components.SubSeriesSection
+import com.calypsan.listenup.client.features.seriesdetail.components.seriesBookList
+import com.calypsan.listenup.client.features.seriesedit.components.AddSubSeriesSheet
+import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesEvent
+import listenup.composeapp.generated.resources.series_count_books
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -108,11 +117,14 @@ fun SeriesDetailScreen(
     onBookClick: (String) -> Unit,
     onEditClick: (String) -> Unit,
     onContributorClick: (String) -> Unit,
+    /** Opens another series — a breadcrumb crumb, a sub-series card, a group heading. Pushed, so Back returns here. */
+    onSeriesClick: (String) -> Unit,
     viewModel: SeriesDetailViewModel = koinViewModel(),
 ) {
     LaunchedEffect(seriesId) { viewModel.loadSeries(seriesId) }
 
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val addSubSeries by viewModel.addSubSeries.collectAsStateWithLifecycle()
 
     // The series-authors roster sheet, opened from the folded "{lead}, N other authors" hero line.
     var showAuthorsSheet by remember { mutableStateOf(false) }
@@ -139,6 +151,12 @@ fun SeriesDetailScreen(
                 }
 
                 is SeriesDetailUiState.Ready -> {
+                    val hierarchy =
+                        SeriesPageHierarchyActions(
+                            onSeriesClick = onSeriesClick,
+                            onToggleSection = viewModel::toggleSection,
+                            onAddSubSeries = { viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.Opened) },
+                        )
                     val wide =
                         currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
                             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
@@ -151,6 +169,7 @@ fun SeriesDetailScreen(
                             onContributorClick = onContributorClick,
                             onShowAuthors = { showAuthorsSheet = true },
                             onEditClick = { onEditClick(seriesId) },
+                            hierarchy = hierarchy,
                         )
                     } else {
                         NarrowSeriesDetailContent(
@@ -160,8 +179,11 @@ fun SeriesDetailScreen(
                             onContributorClick = onContributorClick,
                             onShowAuthors = { showAuthorsSheet = true },
                             onEditClick = { onEditClick(seriesId) },
+                            hierarchy = hierarchy,
                         )
                     }
+
+                    AddSubSeriesSheet(state = addSubSeries, onEvent = viewModel::onAddSubSeriesEvent)
 
                     if (showAuthorsSheet && current.seriesAuthors.isNotEmpty()) {
                         FullCastSheet(
@@ -180,6 +202,13 @@ fun SeriesDetailScreen(
 
 // region layouts
 
+/** What a series page's hierarchy parts do: open another series, fold a group, add a sub-series. */
+internal class SeriesPageHierarchyActions(
+    val onSeriesClick: (String) -> Unit = {},
+    val onToggleSection: (String) -> Unit = {},
+    val onAddSubSeries: () -> Unit = {},
+)
+
 @Composable
 internal fun NarrowSeriesDetailContent(
     state: SeriesDetailUiState.Ready,
@@ -188,6 +217,7 @@ internal fun NarrowSeriesDetailContent(
     onContributorClick: (String) -> Unit,
     onShowAuthors: () -> Unit,
     onEditClick: () -> Unit,
+    hierarchy: SeriesPageHierarchyActions = SeriesPageHierarchyActions(),
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(1),
@@ -202,6 +232,7 @@ internal fun NarrowSeriesDetailContent(
                 onContributorClick = onContributorClick,
                 onShowAuthors = onShowAuthors,
                 onEditClick = onEditClick,
+                onSeriesClick = hierarchy.onSeriesClick,
             )
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
@@ -211,20 +242,32 @@ internal fun NarrowSeriesDetailContent(
                 modifier = Modifier.padding(horizontal = Spacing.lg, vertical = 6.dp),
             )
         }
-        item(span = { GridItemSpan(maxLineSpan) }) {
-            BooksSectionHeader(count = state.books.size, modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 10.dp))
-        }
-        itemsIndexed(state.books, key = { _, b -> b.id.value }) { index, book ->
-            SeriesBookRow(
-                book = book,
-                positionLabel = book.seriesSequenceLabel ?: (index + 1).toString(),
-                finished = book.id in state.finishedBookIds,
-                progress = state.bookProgress[book.id],
-                highlighted = book.id == state.resumeTarget && state.bookProgress[book.id] != null,
-                onClick = { onBookClick(book.id.value) },
-                modifier = Modifier.padding(horizontal = 14.dp),
-            )
-        }
+        subSeriesItem(state, hierarchy, Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
+        seriesBookList(
+            state = state,
+            layout = SeriesBookLayout.Rows,
+            actions = SeriesBookListActions(onBookClick, hierarchy.onSeriesClick, hierarchy.onToggleSection),
+            gutter = 14.dp,
+        )
+    }
+}
+
+/** The "Sub-series" cards, on a page that has any (or an editor, who can add the first). */
+private fun LazyGridScope.subSeriesItem(
+    state: SeriesDetailUiState.Ready,
+    hierarchy: SeriesPageHierarchyActions,
+    modifier: Modifier,
+) {
+    if (state.childSeries.isEmpty() && !state.canEditHierarchy) return
+    item(key = "sub-series", span = { GridItemSpan(maxLineSpan) }) {
+        SubSeriesSection(
+            childSeries = state.childSeries,
+            canAddSubSeries = state.canEditHierarchy,
+            isOnline = state.isOnline,
+            onSeriesClick = hierarchy.onSeriesClick,
+            onAddSubSeries = hierarchy.onAddSubSeries,
+            modifier = modifier,
+        )
     }
 }
 
@@ -236,6 +279,7 @@ internal fun WideSeriesDetailContent(
     onContributorClick: (String) -> Unit,
     onShowAuthors: () -> Unit,
     onEditClick: () -> Unit,
+    hierarchy: SeriesPageHierarchyActions = SeriesPageHierarchyActions(),
 ) {
     Row(
         modifier = Modifier.fillMaxSize().padding(20.dp),
@@ -262,7 +306,12 @@ internal fun WideSeriesDetailContent(
             ) {
                 HeroActionRow(onBackClick = onBackClick, onEditClick = onEditClick)
                 Spacer(Modifier.height(8.dp))
-                HeroBody(state = state, onContributorClick = onContributorClick, onShowAuthors = onShowAuthors)
+                HeroBody(
+                    state = state,
+                    onContributorClick = onContributorClick,
+                    onShowAuthors = onShowAuthors,
+                    onSeriesClick = hierarchy.onSeriesClick,
+                )
                 Spacer(Modifier.height(Spacing.xl))
                 ContinueButton(state = state, onBookClick = onBookClick, modifier = Modifier.fillMaxWidth())
             }
@@ -277,19 +326,13 @@ internal fun WideSeriesDetailContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.weight(0.6f).fillMaxHeight(),
         ) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                BooksSectionHeader(count = state.books.size, modifier = Modifier.padding(bottom = 4.dp))
-            }
-            itemsIndexed(state.books, key = { _, b -> b.id.value }) { index, book ->
-                SeriesBookCard(
-                    book = book,
-                    positionLabel = book.seriesSequenceLabel ?: (index + 1).toString(),
-                    finished = book.id in state.finishedBookIds,
-                    progress = state.bookProgress[book.id],
-                    highlighted = book.id == state.resumeTarget && state.bookProgress[book.id] != null,
-                    onClick = { onBookClick(book.id.value) },
-                )
-            }
+            subSeriesItem(state, hierarchy, Modifier.padding(bottom = 8.dp))
+            seriesBookList(
+                state = state,
+                layout = SeriesBookLayout.Cards,
+                actions = SeriesBookListActions(onBookClick, hierarchy.onSeriesClick, hierarchy.onToggleSection),
+                gutter = 0.dp,
+            )
         }
     }
 }
@@ -306,6 +349,7 @@ private fun SeriesColorHero(
     onContributorClick: (String) -> Unit,
     onShowAuthors: () -> Unit,
     onEditClick: () -> Unit,
+    onSeriesClick: (String) -> Unit,
 ) {
     val haptics = LocalHaptics.current
     Box(
@@ -348,7 +392,12 @@ private fun SeriesColorHero(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                HeroBody(state = state, onContributorClick = onContributorClick, onShowAuthors = onShowAuthors)
+                HeroBody(
+                    state = state,
+                    onContributorClick = onContributorClick,
+                    onShowAuthors = onShowAuthors,
+                    onSeriesClick = onSeriesClick,
+                )
             }
         }
     }
@@ -380,6 +429,7 @@ private fun HeroBody(
     state: SeriesDetailUiState.Ready,
     onContributorClick: (String) -> Unit,
     onShowAuthors: () -> Unit,
+    onSeriesClick: (String) -> Unit,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         FannedDeck(
@@ -389,13 +439,18 @@ private fun HeroBody(
             max = 4,
         )
         Spacer(Modifier.height(22.dp))
-        Text(
-            text = stringResource(Res.string.series_label),
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Spacer(Modifier.height(8.dp))
+        // A sub-series names where it sits instead of the bare overline.
+        if (state.ancestors.isEmpty()) {
+            Text(
+                text = stringResource(Res.string.series_label),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.height(8.dp))
+        } else {
+            SeriesBreadcrumb(ancestors = state.ancestors, onCrumbClick = onSeriesClick)
+        }
         Text(
             text = state.seriesName,
             style = MaterialTheme.typography.displaySmall,
@@ -418,6 +473,15 @@ private fun HeroBody(
                 foldLimit = HERO_CONTRIBUTOR_FOLD_LIMIT,
                 overflowTextRes = Res.string.book_detail_other_authors,
                 onOverflowClick = onShowAuthors,
+            )
+        }
+        if (state.isGrouped) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = stringResource(Res.string.series_count_books, state.childSeries.size, state.books.size),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
             )
         }
         Spacer(Modifier.height(20.dp))
@@ -490,369 +554,8 @@ private fun HeroStat(
     }
 }
 
-/** Brand "Continue / Start Book N" pill. Hidden when the whole series is finished. */
-@Composable
-internal fun ContinueButton(
-    state: SeriesDetailUiState.Ready,
-    onBookClick: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val haptics = LocalHaptics.current
-    val targetId = state.resumeTarget ?: return
-    val target = state.books.firstOrNull { it.id == targetId } ?: return
-    val index = state.books.indexOfFirst { it.id == targetId }
-    val positionLabel = target.seriesSequenceLabel ?: (index + 1).toString()
-    val continueLabel =
-        if (state.bookProgress[targetId] != null) {
-            stringResource(Res.string.series_continue_book, positionLabel)
-        } else {
-            stringResource(Res.string.series_start_book, positionLabel)
-        }
-
-    Row(
-        modifier =
-            modifier
-                .height(58.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary)
-                .clickable {
-                    haptics.press()
-                    onBookClick(targetId.value)
-                }
-                .padding(horizontal = Spacing.screenMargin),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(Icons.Default.PlayArrow, null, tint = MaterialTheme.colorScheme.onPrimary)
-        Spacer(Modifier.width(10.dp))
-        Text(
-            text = continueLabel,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onPrimary,
-        )
-    }
-}
-
 // endregion
 
-// region book rows
-
-@Composable
-private fun BooksSectionHeader(
-    count: Int,
-    modifier: Modifier = Modifier,
-) {
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            text = stringResource(Res.string.series_books_in_series),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.ExtraBold,
-        )
-        CountBadge(count)
-    }
-}
-
-@Composable
-private fun CountBadge(count: Int) {
-    Box(
-        modifier =
-            Modifier
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.tertiaryContainer)
-                .padding(horizontal = 10.dp, vertical = 3.dp),
-    ) {
-        Text(
-            text = count.toString(),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onTertiaryContainer,
-        )
-    }
-}
-
-@Composable
-private fun SeriesBookRow(
-    book: BookListItem,
-    positionLabel: String,
-    finished: Boolean,
-    progress: Float?,
-    highlighted: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val haptics = LocalHaptics.current
-    val rowColor = if (highlighted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow
-    val titleColor = if (highlighted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-    val subColor =
-        if (highlighted) {
-            HeroInk.muted()
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        }
-
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.medium)
-                .background(rowColor)
-                .clickable {
-                    haptics.press()
-                    onClick()
-                }.padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Box {
-            BookCoverImage(
-                bookId = book.id.value,
-                coverPath = book.coverPath,
-                coverHash = book.coverHash,
-                contentDescription = book.title,
-                title = book.title,
-                author = book.authors.firstOrNull()?.name,
-                modifier = Modifier.size(68.dp).clip(MaterialTheme.shapes.small),
-            )
-            RestrictedBookMarker(
-                bookId = book.id.value,
-                compact = true,
-                modifier = Modifier.align(Alignment.TopStart).padding(4.dp),
-            )
-            if (finished) {
-                Box(
-                    modifier =
-                        Modifier
-                            .align(Alignment.BottomEnd)
-                            .offset(x = 5.dp, y = 5.dp)
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.tertiaryContainer),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Default.Check,
-                        null,
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                        modifier = Modifier.size(15.dp),
-                    )
-                }
-            }
-        }
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = stringResource(Res.string.series_book_position, positionLabel),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                color = if (highlighted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                text = book.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = titleColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(4.dp))
-            if (progress != null) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    LinearProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier.weight(1f).height(6.dp).clip(CircleShape),
-                    )
-                    Text(
-                        text = stringResource(Res.string.series_progress_duration, (progress * 100).toInt(), book.formatDuration()),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = subColor,
-                        maxLines = 1,
-                    )
-                }
-            } else {
-                Text(
-                    text =
-                        if (finished) {
-                            stringResource(Res.string.series_duration_finished, book.formatDuration())
-                        } else {
-                            book.formatDuration()
-                        },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = subColor,
-                )
-            }
-        }
-
-        BookRowAction(finished = finished, highlighted = highlighted)
-    }
-}
-
-@Composable
-private fun BookRowAction(
-    finished: Boolean,
-    highlighted: Boolean,
-) {
-    val bg = if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh
-    val tint = if (highlighted) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-    val icon =
-        when {
-            highlighted -> Icons.Default.GraphicEq
-            finished -> Icons.Default.Replay
-            else -> Icons.Default.PlayArrow
-        }
-    Box(
-        modifier = Modifier.size(44.dp).clip(CircleShape).background(bg),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp))
-    }
-}
-
-/**
- * Vertical cover card for a book in the wide series grid — the grid analogue of [SeriesBookRow].
- *
- * Cover (with a finished check or now-playing badge overlay), the "Book N" position label, the
- * title, and a progress bar or duration. Designed to flow in a [GridCells.Adaptive] grid so the
- * series reads as a shelf at expanded widths rather than crushing the horizontal rows.
- */
-@Composable
-private fun SeriesBookCard(
-    book: BookListItem,
-    positionLabel: String,
-    finished: Boolean,
-    progress: Float?,
-    highlighted: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val haptics = LocalHaptics.current
-    val cardColor =
-        if (highlighted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow
-    val titleColor =
-        if (highlighted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-
-    Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.medium)
-                .background(cardColor)
-                .clickable {
-                    haptics.press()
-                    onClick()
-                }.padding(10.dp),
-    ) {
-        SeriesBookCardCover(book = book, finished = finished, highlighted = highlighted)
-
-        Spacer(Modifier.height(10.dp))
-
-        Text(
-            text = stringResource(Res.string.series_book_position, positionLabel),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = if (highlighted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = book.title,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = titleColor,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Spacer(Modifier.height(6.dp))
-        SeriesBookCardFooter(book = book, progress = progress, finished = finished, highlighted = highlighted)
-    }
-}
-
-/** Square cover for [SeriesBookCard] with a finished-check or now-playing badge overlay. */
-@Composable
-private fun SeriesBookCardCover(
-    book: BookListItem,
-    finished: Boolean,
-    highlighted: Boolean,
-) {
-    Box(modifier = Modifier.fillMaxWidth()) {
-        BookCoverImage(
-            bookId = book.id.value,
-            coverPath = book.coverPath,
-            coverHash = book.coverHash,
-            contentDescription = book.title,
-            title = book.title,
-            author = book.authors.firstOrNull()?.name,
-            modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(MaterialTheme.shapes.small),
-        )
-        RestrictedBookMarker(
-            bookId = book.id.value,
-            modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
-        )
-        if (finished || highlighted) {
-            val badgeBg =
-                if (finished) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.primary
-            val badgeTint =
-                if (finished) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onPrimary
-            Box(
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(6.dp)
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(badgeBg),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = if (finished) Icons.Default.Check else Icons.Default.GraphicEq,
-                    contentDescription = null,
-                    tint = badgeTint,
-                    modifier = Modifier.size(17.dp),
-                )
-            }
-        }
-    }
-}
-
-/** Progress bar + percentage, or a plain duration line, for [SeriesBookCard]. */
-@Composable
-private fun SeriesBookCardFooter(
-    book: BookListItem,
-    progress: Float?,
-    finished: Boolean,
-    highlighted: Boolean,
-) {
-    val subColor =
-        if (highlighted) {
-            HeroInk.muted()
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        }
-    if (progress != null) {
-        LinearProgressIndicator(
-            progress = { progress },
-            modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = stringResource(Res.string.series_progress_duration, (progress * 100).toInt(), book.formatDuration()),
-            style = MaterialTheme.typography.labelMedium,
-            color = subColor,
-            maxLines = 1,
-        )
-    } else {
-        Text(
-            text =
-                if (finished) {
-                    stringResource(Res.string.series_duration_finished, book.formatDuration())
-                } else {
-                    book.formatDuration()
-                },
-            style = MaterialTheme.typography.bodyMedium,
-            color = subColor,
-            maxLines = 1,
-        )
-    }
-}
-
-// endregion
 
 private fun BookListItem.toDeckCover(): FannedDeckCover =
     FannedDeckCover(
