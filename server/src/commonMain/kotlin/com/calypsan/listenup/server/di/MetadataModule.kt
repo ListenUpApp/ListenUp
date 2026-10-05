@@ -1,8 +1,10 @@
 package com.calypsan.listenup.server.di
 
+import com.calypsan.listenup.api.MatchingService
 import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.server.api.BookAccessPolicy
+import com.calypsan.listenup.server.api.MatchingServiceImpl
 import com.calypsan.listenup.server.api.MetadataEnrichmentDeps
 import com.calypsan.listenup.server.api.MetadataImageDeps
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
@@ -13,6 +15,7 @@ import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.io.readEnv
 import com.calypsan.listenup.server.logging.loggerFor
+import com.calypsan.listenup.server.matching.BookFinder
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
@@ -49,6 +52,7 @@ import com.calypsan.listenup.server.services.BookSummary
 import com.calypsan.listenup.server.services.BookTagWriter
 import com.calypsan.listenup.server.services.CoverSearchService
 import com.calypsan.listenup.server.services.GenreRepository
+import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.services.MetadataCacheRepository
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.sync.BookExternalRatingRepository
@@ -91,6 +95,7 @@ private const val METADATA_CONNECT_TIMEOUT_MS = 5_000L
  *    and the composer that walks it per domain to build a book's metadata for the lookup service.
  *  - [ImageStorage] — downloads cover/photo images to disk.
  *  - [MetadataLookupServiceImpl] — RPC implementation bound as [MetadataLookupService].
+ *  - [BookFinder] / [MatchingServiceImpl] — Match details' Find, bound as [MatchingService].
  *
  * Installed only when the books slice is active (`booksModule` is installed),
  * because [MetadataLookupServiceImpl] depends on [BookRepository] and friends
@@ -239,6 +244,7 @@ fun metadataModule(imageHome: Path): Module =
             )
         }
 
+        matchingBindings()
         metadataCleanupBindings(imageHome)
         ratingsBindings()
     }
@@ -328,6 +334,30 @@ internal fun HttpClientConfig<*>.installMetadataClientDefaults() {
     install(HttpTimeout) {
         requestTimeoutMillis = METADATA_REQUEST_TIMEOUT_MS
         connectTimeoutMillis = METADATA_CONNECT_TIMEOUT_MS
+    }
+}
+
+/**
+ * Match details (the matching redesign): the Find orchestrator over the provider registry and routes, and the
+ * [MatchingService] it backs. Split out to keep [metadataModule] under the length budget.
+ */
+private fun Module.matchingBindings() {
+    single { BookFinder(registry = get<MetadataProviderRegistry>(), routes = get<EnrichmentRoutes>()) }
+    single<MatchingService> {
+        val books = get<BookRepository>()
+        val libraries = get<LibraryRepository>()
+        MatchingServiceImpl(
+            finder = get<BookFinder>(),
+            loadBook = books::findById,
+            libraryRegion = libraries::readMetadataRegion,
+            permissionPolicy = get<UserPermissionPolicy>(),
+            bookAccessPolicy = get<BookAccessPolicy>(),
+            principal =
+                PrincipalProvider {
+                    error("Unscoped MatchingService — call copyWith(PrincipalProvider) at the route")
+                },
+            rateLimiter = get<MetadataRateLimiter>(),
+        )
     }
 }
 
