@@ -14,6 +14,9 @@ import kotlinx.serialization.Serializable
  * remain forward-compatible; a receiver that omits them simply keeps whatever
  * enrichment it already had.
  *
+ * The hierarchy fields (`parentId`, `parentPosition`) are different from the enrichment fields:
+ * `null` means "this series is a root", not "unknown" — receivers apply them as sent.
+ *
  * Implements [Tombstoned] so the substrate's soft-delete routing applies
  * uniformly.
  */
@@ -31,4 +34,7 @@ data class SeriesSyncPayload(
     val asin: String? = null,
     val description: String? = null,
     val coverPath: String? = null,
+    // Hierarchy — null parentId means a root series; receivers apply these verbatim.
+    val parentId: String? = null,
+    val parentPosition: Int? = null,
 ) : SyncPayload

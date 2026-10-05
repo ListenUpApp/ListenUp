@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.client.domain.model.Series
+import com.calypsan.listenup.client.domain.model.SeriesLineage
 import com.calypsan.listenup.client.domain.model.SeriesSearchResponse
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import kotlinx.coroutines.flow.Flow
@@ -87,6 +88,14 @@ interface SeriesRepository {
      * @return Flow emitting series with books, or null if not found
      */
     fun observeSeriesWithBooks(seriesId: String): Flow<SeriesWithBooks?>
+
+    /**
+     * Observe where [seriesId] sits in the series hierarchy: its ancestors, its sub-series, and —
+     * when it has sub-series — the books of its whole subtree in series order.
+     *
+     * Emits [SeriesLineage.Flat] for a series with no parent and no sub-series.
+     */
+    fun observeSeriesLineage(seriesId: String): Flow<SeriesLineage>
 
     // ========== Search Methods ==========
 

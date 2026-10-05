@@ -124,6 +124,51 @@ class BookRemovalOrphanPurgeTest :
             }
         }
 
+        test("removing a parent series' only book keeps the series while it still has a sub-series") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                runTest {
+                    val (bookRepo, _, _) = buildRepo(sql, driver)
+                    val seriesRepo = SeriesRepository(sql, ChangeBus(), SyncRegistry())
+                    val cosmere = seriesRepo.resolveOrCreate("Cosmere")
+                    val mistborn = seriesRepo.resolveOrCreate("Mistborn")
+                    val era1 = seriesRepo.resolveOrCreate("Mistborn Era 1")
+                    seriesRepo.upsert(seriesRepo.findById(mistborn.value)!!.copy(parentId = cosmere.value, parentPosition = 0))
+                    seriesRepo.upsert(seriesRepo.findById(era1.value)!!.copy(parentId = mistborn.value, parentPosition = 0))
+                    sql.bookSeriesMembershipsQueries.insert("book1", mistborn.value, null, 0)
+
+                    bookRepo.softDelete(BookId("book1"), clientOpId = null)
+
+                    // Mistborn has no book of its own left, but Era 1 still hangs under it.
+                    seriesRepo.findById(mistborn.value)!!.deletedAt.shouldBeNull()
+                    seriesRepo.findById(mistborn.value)!!.parentId shouldBe cosmere.value
+                    seriesRepo.findById(era1.value)!!.deletedAt.shouldBeNull()
+                    seriesRepo.liveTree().childrenOf(mistborn.value) shouldBe listOf(era1.value)
+                }
+            }
+        }
+
+        test("a bookless series whose only sub-series is tombstoned is still purged") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                runTest {
+                    val (bookRepo, _, _) = buildRepo(sql, driver)
+                    val seriesRepo = SeriesRepository(sql, ChangeBus(), SyncRegistry())
+                    val mistborn = seriesRepo.resolveOrCreate("Mistborn")
+                    val era1 = seriesRepo.resolveOrCreate("Mistborn Era 1")
+                    seriesRepo.upsert(seriesRepo.findById(era1.value)!!.copy(parentId = mistborn.value, parentPosition = 0))
+                    seriesRepo.softDelete(era1)
+                    sql.bookSeriesMembershipsQueries.insert("book1", mistborn.value, null, 0)
+
+                    bookRepo.softDelete(BookId("book1"), clientOpId = null)
+
+                    seriesRepo.findById(mistborn.value)!!.deletedAt.shouldNotBeNull()
+                }
+            }
+        }
+
         test("re-adding a book after its sole parents were purged revives contributor and series under their original ids") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()

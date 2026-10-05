@@ -39,7 +39,8 @@ class LinkedParents(
  * AFTER the book + junction cascade and tombstones every captured parent whose live-book count has
  * dropped to zero — the live-book-count query (joining live books through live junctions) is the SOLE
  * decision-maker, so widening the capture can never wrongly purge a parent that still has any live
- * junction-book pair.
+ * junction-book pair. A series is the one parent with a second condition: it is kept while any live
+ * sub-series still hangs under it, books or no books.
  *
  * **Revival note.** A remove-then-rescan resurrects purged parents: contributors and series are
  * revived IN PLACE by `resolveOrCreate` (a dedup hit on a tombstoned row clears `deleted_at`,
@@ -79,7 +80,11 @@ class OrphanParentPurger(
             }
         }
         for (id in parents.seriesIds) {
-            if (liveBookCount { bookSeriesMembershipsQueries.liveBookCountForSeries(id).executeAsOne() } == 0L) {
+            // A series with no book of its own is still the parent of its sub-series (a universe
+            // holding only sub-series is the normal shape), so it is an orphan only without those too.
+            val bookless =
+                liveBookCount { bookSeriesMembershipsQueries.liveBookCountForSeries(id).executeAsOne() } == 0L
+            if (bookless && !seriesRepository.hasLiveChildren(SeriesId(id))) {
                 seriesRepository.softDelete(SeriesId(id))
             }
         }

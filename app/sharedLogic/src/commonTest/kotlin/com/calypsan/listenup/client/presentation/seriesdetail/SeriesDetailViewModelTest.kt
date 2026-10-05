@@ -9,6 +9,8 @@ import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.Series
+import com.calypsan.listenup.client.domain.model.SeriesChild
+import com.calypsan.listenup.client.domain.model.SeriesLineage
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
@@ -43,6 +45,7 @@ class SeriesDetailViewModelTest :
             val playbackPositionRepository: PlaybackPositionRepository = mock()
             val seriesFlow = MutableStateFlow<SeriesWithBooks?>(null)
             val positionsFlow = MutableStateFlow<Map<BookId, PlaybackPosition>>(emptyMap())
+            val lineageFlow = MutableStateFlow(SeriesLineage.Flat)
 
             fun build(): SeriesDetailViewModel =
                 SeriesDetailViewModel(
@@ -55,6 +58,7 @@ class SeriesDetailViewModelTest :
         fun createFixture(): TestFixture {
             val fixture = TestFixture()
             every { fixture.seriesRepository.observeSeriesWithBooks(any()) } returns fixture.seriesFlow
+            every { fixture.seriesRepository.observeSeriesLineage(any()) } returns fixture.lineageFlow
             every { fixture.imageRepository.seriesCoverExists(any()) } returns false
             every { fixture.playbackPositionRepository.observeAll() } returns fixture.positionsFlow
             return fixture
@@ -561,6 +565,64 @@ class SeriesDetailViewModelTest :
 
                 val state = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
                 state.seriesNarrator shouldBe "Robert Glenister"
+            }
+        }
+
+        // ========== #962 — series hierarchy ==========
+
+        test("a flat series is unchanged: no breadcrumb, no sub-series, books by sequence") {
+            runTest {
+                val fixture = createFixture()
+                val series = createSeries()
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("series-1")
+                fixture.seriesFlow.value =
+                    createSeriesWithBooks(
+                        series,
+                        books = listOf(createBook("b2", seriesSequence = 2.0), createBook("b1", seriesSequence = 1.0)),
+                        bookSequences = mapOf("b1" to 1.0, "b2" to 2.0),
+                    )
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                ready.ancestors shouldBe emptyList()
+                ready.childSeries shouldBe emptyList()
+                ready.books.map { it.id.value } shouldBe listOf("b1", "b2")
+            }
+        }
+
+        test("a parent series shows its whole subtree in series order, with a breadcrumb") {
+            runTest {
+                val fixture = createFixture()
+                val cosmere = createSeries(id = "cosmere", name = "Cosmere")
+                val universe = createSeries(id = "sanderson", name = "Sanderson")
+                val mistborn = createSeries(id = "mistborn", name = "Mistborn")
+                val finalEmpire = createBook("final-empire", seriesId = "mistborn", seriesSequence = 1.0)
+                val well = createBook("well", seriesId = "mistborn", seriesSequence = 2.0)
+                val warbreaker = createBook("warbreaker", seriesId = "cosmere", seriesSequence = null)
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("cosmere")
+                fixture.seriesFlow.value = createSeriesWithBooks(cosmere, books = listOf(warbreaker))
+                fixture.lineageFlow.value =
+                    SeriesLineage(
+                        ancestors = listOf(universe),
+                        children = listOf(SeriesChild(mistborn, bookIds = listOf("final-empire", "well"))),
+                        subtreeBooks = listOf(finalEmpire, well, warbreaker),
+                    )
+                fixture.positionsFlow.value =
+                    mapOf(BookId("final-empire") to createPosition("final-empire", isFinished = true))
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                ready.ancestors shouldBe listOf(SeriesCrumb(id = "sanderson", name = "Sanderson"))
+                ready.books.map { it.id.value } shouldBe listOf("final-empire", "well", "warbreaker")
+                ready.childSeries shouldBe
+                    listOf(ChildSeriesUi(id = "mistborn", name = "Mistborn", coverPath = null, bookCount = 2, finishedCount = 1))
+                ready.resumeTarget shouldBe BookId("well")
             }
         }
     })

@@ -61,4 +61,29 @@ interface SeriesEditRepository {
      * [MergeUndoResult.booksSkipped]. The effects reach Room through the firehose.
      */
     suspend fun undoMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult>
+
+    /**
+     * Creates an empty series named [name], optionally as the last sub-series of [parentId], and
+     * returns its id. Server-canonical: the series reaches Room through the firehose.
+     */
+    suspend fun createSeries(
+        name: String,
+        parentId: SeriesId?,
+    ): AppResult<SeriesId>
+
+    /**
+     * Places [id] under [parentId] (after its existing sub-series), or makes it a root when
+     * [parentId] is null. Server-canonical — the server refuses a cycle with
+     * [com.calypsan.listenup.api.error.SeriesError.HierarchyCycle].
+     */
+    suspend fun setParent(
+        id: SeriesId,
+        parentId: SeriesId?,
+    ): AppResult<Unit>
+
+    /** Rewrites the sibling order of [parentId]'s sub-series. Server-canonical. */
+    suspend fun reorderChildren(
+        parentId: SeriesId,
+        orderedChildIds: List<SeriesId>,
+    ): AppResult<Unit>
 }

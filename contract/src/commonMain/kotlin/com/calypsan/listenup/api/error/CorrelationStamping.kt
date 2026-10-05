@@ -342,6 +342,9 @@ private fun SeriesError.withCorrelationId(id: String?): SeriesError =
         is SeriesError.MergeReceiptNotFound -> copy(correlationId = id)
         is SeriesError.MergeAlreadyUndone -> copy(correlationId = id)
         is SeriesError.MergeTargetGone -> copy(correlationId = id)
+        is SeriesError.ParentNotFound -> copy(correlationId = id)
+        is SeriesError.HierarchyCycle -> copy(correlationId = id)
+        is SeriesError.NameAlreadyExists -> copy(correlationId = id)
     }
 
 private fun GenreError.withCorrelationId(id: String?): GenreError =

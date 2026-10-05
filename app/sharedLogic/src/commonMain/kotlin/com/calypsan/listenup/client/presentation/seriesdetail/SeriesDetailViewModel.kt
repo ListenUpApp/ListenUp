@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.Series
+import com.calypsan.listenup.client.domain.model.SeriesLineage
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
@@ -28,8 +29,8 @@ import kotlin.time.Duration.Companion.milliseconds
 /**
  * ViewModel for the Series Detail screen.
  *
- * Observes series data reactively via `observeSeriesWithBooks` so the UI
- * tracks sync-driven updates without re-loading. The screen supplies the
+ * Observes series data reactively via `observeSeriesWithBooks` and
+ * `observeSeriesLineage` so the UI tracks sync-driven updates without re-loading. The screen supplies the
  * series id via [loadSeries]; the flow pipeline uses `flatMapLatest` to
  * swap the upstream when the id changes.
  */
@@ -49,10 +50,11 @@ class SeriesDetailViewModel(
                 } else {
                     combine(
                         seriesRepository.observeSeriesWithBooks(id),
+                        seriesRepository.observeSeriesLineage(id),
                         playbackPositionRepository.observeAll(),
-                    ) { seriesWithBooks, positions ->
+                    ) { seriesWithBooks, lineage, positions ->
                         if (seriesWithBooks != null) {
-                            buildReadyState(id, seriesWithBooks, positions)
+                            buildReadyState(id, seriesWithBooks, lineage, positions)
                         } else {
                             SeriesDetailUiState.Error("Series not found")
                         }
@@ -76,9 +78,13 @@ class SeriesDetailViewModel(
     private fun buildReadyState(
         seriesId: String,
         seriesWithBooks: SeriesWithBooks,
+        lineage: SeriesLineage,
         positions: Map<BookId, PlaybackPosition>,
     ): SeriesDetailUiState.Ready {
-        val books = seriesWithBooks.booksSortedBySequence()
+        // A series with sub-series shows its whole subtree, already in series order; a flat
+        // series keeps its own books by sequence, exactly as before the hierarchy existed.
+        val books =
+            if (lineage.children.isEmpty()) seriesWithBooks.booksSortedBySequence() else lineage.subtreeBooks
         val totalDuration = books.sumOf { it.duration }.milliseconds
 
         val finishedBookIds = mutableSetOf<BookId>()
@@ -132,6 +138,17 @@ class SeriesDetailViewModel(
             bookProgress = bookProgress,
             finishedBookIds = finishedBookIds,
             resumeTarget = resumeTarget,
+            ancestors = lineage.ancestors.map { SeriesCrumb(id = it.id.value, name = it.name) },
+            childSeries =
+                lineage.children.map { child ->
+                    ChildSeriesUi(
+                        id = child.series.id.value,
+                        name = child.series.name,
+                        coverPath = child.series.coverPath,
+                        bookCount = child.bookIds.size,
+                        finishedCount = child.bookIds.count { BookId(it) in finishedBookIds },
+                    )
+                },
         )
     }
 
@@ -188,6 +205,10 @@ sealed interface SeriesDetailUiState {
         val finishedBookIds: Set<BookId>,
         /** Book to resume/start via the "Continue" action; null when all are finished. */
         val resumeTarget: BookId?,
+        /** The series above this one, root first — the breadcrumb. Empty for a root. */
+        val ancestors: List<SeriesCrumb> = emptyList(),
+        /** The direct sub-series, in sibling order. Empty for a series with none. */
+        val childSeries: List<ChildSeriesUi> = emptyList(),
     ) : SeriesDetailUiState {
         /** Number of finished books, for the hero "X finished" stat. */
         val finishedCount: Int get() = finishedBookIds.size
@@ -200,3 +221,23 @@ sealed interface SeriesDetailUiState {
         val message: String,
     ) : SeriesDetailUiState
 }
+
+/** One step of a series' breadcrumb. */
+data class SeriesCrumb(
+    val id: String,
+    val name: String,
+)
+
+/**
+ * One sub-series as the series page lists it.
+ *
+ * @property bookCount every book in the sub-series and its own sub-series.
+ * @property finishedCount how many of those the user has finished.
+ */
+data class ChildSeriesUi(
+    val id: String,
+    val name: String,
+    val coverPath: String?,
+    val bookCount: Int,
+    val finishedCount: Int,
+)

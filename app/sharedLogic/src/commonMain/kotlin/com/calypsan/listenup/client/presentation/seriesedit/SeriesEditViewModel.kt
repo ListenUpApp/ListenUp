@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.presentation.seriesedit
 
-import com.calypsan.listenup.core.MergeReceiptId
 import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
 import com.calypsan.listenup.client.presentation.merge.MergeHistory
 import com.calypsan.listenup.api.result.AppResult
@@ -43,125 +42,6 @@ const val MAX_MERGE_CANDIDATES = 30
 private const val STOP_TIMEOUT_MS = 5_000L
 
 /**
- * Lightweight projection of a series as a merge-target candidate.
- *
- * Used by [SeriesEditViewModel.mergeCandidates] to populate the series merge
- * picker dialog. [bookCount] is a placeholder (always `0`) — there is no per-series
- * book-count query yet, so the dialog hides it.
- */
-data class SeriesCandidate(
-    val id: SeriesId,
-    val displayName: String,
-    val bookCount: Int,
-)
-
-/**
- * UI state for series editing screen.
- */
-data class SeriesEditUiState(
-    // Loading states
-    val isLoading: Boolean = true,
-    val isSaving: Boolean = false,
-    val isUploadingCover: Boolean = false,
-    val error: String? = null,
-    // Series identity
-    val seriesId: String = "",
-    val name: String = "",
-    val description: String = "",
-    // Cover management
-    val coverPath: String? = null,
-    val stagingCoverPath: String? = null,
-    val pendingCoverData: ByteArray? = null,
-    val pendingCoverFilename: String? = null,
-    // Display metadata
-    val bookCount: Int = 0,
-    // Merge (server-canonical; firehose delivers result)
-    val mergeInProgress: Boolean = false,
-    // Merge-target picker visibility — candidates are computed only while true
-    val mergeDialogVisible: Boolean = false,
-    // Merge-target picker query (drives candidate filtering)
-    val mergeQuery: String = "",
-    // Track if changes have been made
-    val hasChanges: Boolean = false,
-) {
-    /** [description] for the Swift Export boundary: a member named `description` collides with `NSObject.description` and is never exported. */
-    val descriptionText: String get() = description
-
-    /**
-     * Returns the cover path to display - staging if available, otherwise original.
-     */
-    val displayCoverPath: String?
-        get() = stagingCoverPath ?: coverPath
-}
-
-/**
- * Events from the series edit UI.
- */
-sealed interface SeriesEditUiEvent {
-    /** User edited the series name field. */
-    data class NameChanged(
-        val name: String,
-    ) : SeriesEditUiEvent
-
-    /** User edited the series description field. */
-    data class DescriptionChanged(
-        val description: String,
-    ) : SeriesEditUiEvent
-
-    /** User chose an image to use as the series cover; bytes are staged until Save. */
-    data class CoverSelected(
-        val imageData: ByteArray,
-        val filename: String,
-    ) : SeriesEditUiEvent
-
-    data object CoverRemoved : SeriesEditUiEvent
-
-    data object SaveClicked : SeriesEditUiEvent
-
-    data object CancelClicked : SeriesEditUiEvent
-
-    data object ErrorDismissed : SeriesEditUiEvent
-
-    /** User opened the merge-target picker; candidate computation starts. */
-    data object MergeDialogOpened : SeriesEditUiEvent
-
-    /** Undo the merge [receiptId] from the "Merged into this" section (#1061). */
-    data class UndoMerge(
-        val receiptId: MergeReceiptId,
-    ) : SeriesEditUiEvent
-
-    /** Read the "Merged into this" list again, after it could not be loaded. */
-    data object RetryMergeHistory : SeriesEditUiEvent
-
-    /** User dismissed the merge-target picker; candidates stop computing and the query clears. */
-    data object MergeDialogDismissed : SeriesEditUiEvent
-
-    /** User chose to merge the current series into [targetId]. */
-    data class MergeInto(
-        val targetId: SeriesId,
-    ) : SeriesEditUiEvent
-}
-
-/**
- * Navigation actions from series edit screen.
- */
-sealed interface SeriesEditNavAction {
-    data object NavigateBack : SeriesEditNavAction
-
-    /**
-     * A merge committed; land on [seriesId], the series that survived it.
-     *
-     * Distinct from [NavigateBack] because a series merge deletes the series being *viewed* — so
-     * popping the editor would drop the reader onto the detail page of a series that no longer
-     * exists, showing an empty shell and requiring a second Back to escape. The surviving series
-     * is the only sensible destination, and it is never the one behind us on the stack.
-     */
-    data class NavigateToMerged(
-        val seriesId: SeriesId,
-    ) : SeriesEditNavAction
-}
-
-/**
  * ViewModel for the series edit screen.
  *
  * Handles:
@@ -169,6 +49,7 @@ sealed interface SeriesEditNavAction {
  * - Saving metadata changes
  * - Cover image staging and upload
  * - Server-canonical merge via [SeriesEditRepository]
+ * - Placing the series in the hierarchy: its parent, and the order of its sub-series
  * - Tracking unsaved changes
  *
  * @property seriesRepository Repository for loading series data
@@ -250,6 +131,25 @@ class SeriesEditViewModel internal constructor(
                 }
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
 
+    /** Where the series sits in the hierarchy, the parent picker, and the writes that move it. */
+    private val hierarchy =
+        SeriesHierarchyEditor(
+            scope = viewModelScope,
+            errorBus = errorBus,
+            state = state,
+            observeLineage = seriesRepository::observeSeriesLineage,
+            observeAllSeries = seriesDao::observeAll,
+            setParent = seriesEditRepository::setParent,
+            reorderChildren = seriesEditRepository::reorderChildren,
+        )
+
+    /**
+     * Candidates for the parent picker — every live series this one may sit under (never itself
+     * or its own sub-series), filtered by [SeriesEditUiState.parentQuery]. Computed only while the
+     * picker is visible, like [mergeCandidates].
+     */
+    val parentCandidates: StateFlow<List<SeriesCandidate>> = hierarchy.parentCandidates
+
     /**
      * Update the merge-target picker's search query. The [mergeCandidates] Flow
      * re-emits a filtered list whenever this changes.
@@ -276,6 +176,7 @@ class SeriesEditViewModel internal constructor(
                 return@launch
             }
             history.refresh()
+            hierarchy.observePlacement(seriesId)
 
             val bookCount = seriesRepository.getBookIdsForSeries(seriesId).size
 
@@ -360,6 +261,30 @@ class SeriesEditViewModel internal constructor(
 
             is SeriesEditUiEvent.RetryMergeHistory -> {
                 history.refresh()
+            }
+
+            is SeriesEditUiEvent.ParentPickerOpened -> {
+                hierarchy.openParentPicker()
+            }
+
+            is SeriesEditUiEvent.ParentPickerDismissed -> {
+                hierarchy.dismissParentPicker()
+            }
+
+            is SeriesEditUiEvent.ParentQueryChanged -> {
+                hierarchy.changeParentQuery(event.query)
+            }
+
+            is SeriesEditUiEvent.ParentSelected -> {
+                hierarchy.changeParent(SeriesId(event.parentId))
+            }
+
+            is SeriesEditUiEvent.ParentCleared -> {
+                hierarchy.changeParent(null)
+            }
+
+            is SeriesEditUiEvent.ChildSeriesReordered -> {
+                hierarchy.reorderChildSeries(event.orderedChildIds.map(::SeriesId))
             }
         }
     }

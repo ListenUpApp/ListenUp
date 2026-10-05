@@ -23,6 +23,10 @@ data class Series(
     val coverPath: String? = null,
     /** Audible ASIN for this series, set when metadata has been applied. */
     val asin: String? = null,
+    /** The parent series, or null when this series is a root. */
+    val parentId: SeriesId? = null,
+    /** Order among the parent's sub-series, lowest first; null for a root. */
+    val parentPosition: Int? = null,
 ) {
     /** The series id as a plain String, for the Swift/SKIE boundary (the value class is unboxed there). */
     val idString: String get() = id.value

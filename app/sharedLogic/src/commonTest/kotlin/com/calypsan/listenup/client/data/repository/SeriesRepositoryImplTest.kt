@@ -932,6 +932,84 @@ class SeriesRepositoryImplTest :
             }
         }
 
+        // ========== observeSeriesLineage Tests ==========
+
+        test("observeSeriesLineage gives a flat series its ancestors without querying any books") {
+            runTest {
+                val seriesDao = createMockDao()
+                val bookDao = mock<BookDao>(MockMode.autoUnit)
+                every { seriesDao.observeAll() } returns
+                    flowOf(
+                        listOf(
+                            createTestSeriesEntity(id = "cosmere", name = "Cosmere"),
+                            createTestSeriesEntity(id = "mistborn", name = "Mistborn")
+                                .copy(parentId = "cosmere", parentPosition = 0),
+                        ),
+                    )
+                val repository = createRepositoryWithBookDao(seriesDao, bookDao)
+
+                val lineage = repository.observeSeriesLineage("mistborn").first()
+
+                lineage.ancestors.map { it.id.value } shouldBe listOf("cosmere")
+                lineage.children.shouldBeEmpty()
+                lineage.subtreeBooks.shouldBeEmpty()
+                verify(VerifyMode.not) { bookDao.observeBySeriesIdsWithContributors(any()) }
+            }
+        }
+
+        test("observeSeriesLineage orders a parent's sub-series and subtree books through the series tree") {
+            runTest {
+                // Sibling positions are not dense: a gap (7), and a null that sorts last.
+                val cosmere = createTestSeriesEntity(id = "cosmere", name = "Cosmere")
+                val mistborn =
+                    createTestSeriesEntity(id = "mistborn", name = "Mistborn").copy(parentId = "cosmere", parentPosition = 7)
+                val stormlight =
+                    createTestSeriesEntity(id = "stormlight", name = "Stormlight").copy(parentId = "cosmere")
+                // A parent Room has never seen leaves the series a root rather than hiding it.
+                val orphan = createTestSeriesEntity(id = "orphan", name = "Orphan").copy(parentId = "never-synced")
+
+                fun member(
+                    bookId: String,
+                    series: SeriesEntity,
+                    sequence: Double?,
+                ): BookWithContributors =
+                    makeBookWithContributors(makeBookEntity(bookId, bookId)).copy(
+                        series = listOf(series),
+                        seriesSequences = listOf(BookSeriesCrossRef(BookId(bookId), series.id, sequence)),
+                    )
+
+                val seriesDao = createMockDao()
+                val bookDao = mock<BookDao>(MockMode.autoUnit)
+                every { seriesDao.observeAll() } returns flowOf(listOf(cosmere, mistborn, orphan, stormlight))
+                every { bookDao.observeBySeriesIdsWithContributors(any()) } returns
+                    flowOf(
+                        listOf(
+                            member("warbreaker", cosmere, null),
+                            member("way-of-kings", stormlight, 1.0),
+                            member("well", mistborn, 2.0),
+                            member("final-empire", mistborn, 1.0),
+                        ),
+                    )
+                val repository = createRepositoryWithBookDao(seriesDao, bookDao)
+
+                val lineage = repository.observeSeriesLineage("cosmere").first()
+
+                lineage.ancestors.shouldBeEmpty()
+                lineage.children.map { it.series.id.value } shouldBe listOf("mistborn", "stormlight")
+                lineage.children[0].bookIds shouldBe listOf("final-empire", "well")
+                lineage.subtreeBooks.map { it.id.value } shouldBe
+                    listOf("final-empire", "well", "way-of-kings", "warbreaker")
+                verify {
+                    bookDao.observeBySeriesIdsWithContributors(listOf("cosmere", "mistborn", "stormlight"))
+                }
+                repository
+                    .observeSeriesLineage("orphan")
+                    .first()
+                    .ancestors
+                    .shouldBeEmpty()
+            }
+        }
+
         // ========== B2a Enrichment Field Round-Trip Tests (M1) ==========
 
         test("toDomain carries coverPath through entity→domain boundary") {

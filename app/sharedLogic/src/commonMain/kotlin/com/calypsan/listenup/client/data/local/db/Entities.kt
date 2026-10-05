@@ -159,7 +159,10 @@ internal data class ChapterEntity(
  * the substrate bookkeeping. B2a adds [sortName] (previously on the wire payload
  * only, now persisted locally so sort-by-series works offline).
  */
-@Entity(tableName = "series")
+@Entity(
+    tableName = "series",
+    indices = [Index(value = ["parentId"])],
+)
 internal data class SeriesEntity(
     @PrimaryKey val id: SeriesId,
     val name: String,
@@ -167,6 +170,10 @@ internal data class SeriesEntity(
     val description: String?,
     val asin: String? = null,
     val coverPath: String? = null,
+    /** The parent series' id; null for a root. A raw id — the parent may not have synced yet. */
+    val parentId: String? = null,
+    /** Order among the parent's sub-series, lowest first; null for a root. */
+    val parentPosition: Int? = null,
     val revision: Long = 0,
     val deletedAt: Long? = null,
     val createdAt: Timestamp,

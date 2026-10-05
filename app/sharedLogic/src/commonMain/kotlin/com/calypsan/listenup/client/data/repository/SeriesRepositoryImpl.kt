@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.data.repository.common.QueryUtils
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.model.Series
+import com.calypsan.listenup.client.domain.model.SeriesLineage
 import com.calypsan.listenup.client.domain.model.SeriesSearchResponse
 import com.calypsan.listenup.client.domain.model.SeriesSearchResult
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
@@ -23,10 +24,13 @@ import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -233,7 +237,22 @@ internal class SeriesRepositoryImpl(
             }
         }
 
-    // ========== Search Methods ==========
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun observeSeriesLineage(seriesId: String): Flow<SeriesLineage> =
+        seriesDao
+            .observeAll()
+            .flatMapLatest { entities ->
+                val resolver = SeriesLineageResolver(entities.map { it.toDomain() })
+                if (!resolver.hasSubSeries(seriesId)) {
+                    flowOf(resolver.resolve(seriesId, emptyList()))
+                } else {
+                    bookDao
+                        .observeBySeriesIdsWithContributors(resolver.subtreeOf(seriesId).toList())
+                        .map { rows -> resolver.resolve(seriesId, rows.map { it.toListItem(imageStorage) }) }
+                }
+            }.flowOn(IODispatcher) // per-book toListItem does a blocking cover stat — keep it off the collector (Main).
+            // Any series write anywhere re-runs this; only a changed lineage is worth re-rendering.
+            .distinctUntilChanged()
 
     override suspend fun searchSeries(
         query: String,
@@ -296,6 +315,8 @@ private fun SeriesEntity.toDomain(): Series =
         createdAt = createdAt,
         coverPath = coverPath,
         asin = asin,
+        parentId = parentId?.let(::SeriesId),
+        parentPosition = parentPosition,
     )
 
 private fun SeriesEntity.toSearchResult(): SeriesSearchResult =

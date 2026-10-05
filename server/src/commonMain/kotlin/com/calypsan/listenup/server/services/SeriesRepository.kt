@@ -8,6 +8,8 @@ import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.domain.series.SeriesNode
+import com.calypsan.listenup.domain.series.SeriesTree
 import com.calypsan.listenup.server.db.sqldelight.Book_series
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -36,7 +38,7 @@ private val log = loggerFor<SeriesRepository>()
  *
  * `idAsString(SeriesId) = id.value` is load-bearing — the base's default `toString()`
  * on a value class would corrupt every column the id is written to. Series are created
- * by the scanner through [resolveOrCreate]; there is no series write API in B1.
+ * by the scanner through [resolveOrCreate], or by hand through `SeriesService.createSeries`.
  */
 class SeriesRepository(
     db: ListenUpDatabase,
@@ -150,6 +152,14 @@ class SeriesRepository(
                 cover_path = value.coverPath,
             )
         }
+        // The hierarchy rides every upsert: a payload is the row's full truth, so a null parent
+        // clears the link. Callers that only patch metadata copy the read-back payload, which
+        // carries the current parent, so they preserve it.
+        db.seriesQueries.setHierarchy(
+            parent_id = value.parentId,
+            parent_position = value.parentPosition?.toLong(),
+            id = value.id,
+        )
     }
 
     /**
@@ -260,11 +270,32 @@ class SeriesRepository(
      * clears `deleted_at`. The id stays stable, so junction rows written against it resolve again —
      * the same revive semantics as [BookRepository.reviveById] (clear deleted_at + bump revision +
      * publish Updated), composed from the existing substrate instead of a dedicated query.
-     * Enrichment columns survive because the payload is the row's own current content.
+     * Enrichment columns survive because the payload is the row's own current content; its place in
+     * the hierarchy is re-decided by [revived].
      */
     private suspend fun reviveTombstonedHit(idStr: String) {
         val payload = findById(idStr) ?: return
-        upsert(payload.copy(deletedAt = null), clientOpId = null)
+        upsert(revived(payload), clientOpId = null)
+    }
+
+    /**
+     * [series] as it comes back to life. A tombstone keeps the parent it had when it died, and the
+     * tree moves on without it: that parent may be gone, or may by now sit below the series. The
+     * link survives only when the parent is live and adopting it closes no loop; the series is then
+     * appended after the parent's current sub-series, because its old slot may be taken. Otherwise
+     * it comes back as a root. A series that is already live is returned unchanged.
+     */
+    private suspend fun revived(series: SeriesSyncPayload): SeriesSyncPayload {
+        if (series.deletedAt == null) return series
+        val root = series.copy(deletedAt = null, parentId = null, parentPosition = null)
+        val parentId = series.parentId ?: return root
+        val live = liveNodes()
+        if (live.none { it.id == parentId }) return root
+        // The live tree has no node for a tombstone: add this one, so the sub-series still naming
+        // it count as its subtree.
+        val tree = SeriesTree(live + SeriesNode(series.id, parentId = null, parentPosition = null))
+        if (tree.wouldCycle(series.id, parentId)) return root
+        return root.copy(parentId = parentId, parentPosition = tree.nextChildPosition(parentId))
     }
 
     /**
@@ -312,13 +343,14 @@ class SeriesRepository(
     /**
      * Brings [id] back under its own id — merge undo. The base `upsert` bumps the revision and
      * publishes `Updated`; [writePayload]'s update branch clears both `deleted_at` and the merge
-     * redirect. Re-upserting a series that is already live is harmless.
+     * redirect. Its place in the hierarchy is re-decided by [revived]. Re-upserting a series that
+     * is already live is harmless.
      */
     suspend fun revive(id: SeriesId): AppResult<Unit> {
         val payload =
             findById(id.value)
                 ?: return AppResult.Failure(SeriesError.NotFound(debugInfo = "series=${id.value}"))
-        return upsert(payload.copy(deletedAt = null), clientOpId = null).map { }
+        return upsert(revived(payload), clientOpId = null).map { }
     }
 
     /**
@@ -387,6 +419,31 @@ class SeriesRepository(
                 .toHashSet()
         }
 
+    /** The hierarchy of every live series. A series whose parent is gone reads as a root. */
+    suspend fun liveTree(): SeriesTree = SeriesTree(liveNodes())
+
+    private suspend fun liveNodes(): List<SeriesNode> =
+        suspendTransaction(db) {
+            db.seriesQueries
+                .selectLiveHierarchy()
+                .executeAsList()
+                .map { SeriesNode(it.id, it.parent_id, it.parent_position?.toInt()) }
+        }
+
+    /** Whether at least one live series names [id] as its parent. */
+    suspend fun hasLiveChildren(id: SeriesId): Boolean =
+        suspendTransaction(db) { db.seriesQueries.hasLiveChildren(id.value).executeAsOne() }
+
+    /** The id of the live series whose name shares [name]'s normalized form, or null. */
+    suspend fun liveIdForName(name: String): SeriesId? =
+        suspendTransaction(db) {
+            db.seriesQueries
+                .selectByNormalizedName(normalizeForDedup(name))
+                .executeAsOneOrNull()
+                ?.takeIf { it.deleted_at == null }
+                ?.let { SeriesId(it.id) }
+        }
+
     /**
      * Returns the stored `coverPath` of every non-tombstoned series that has one — the set of
      * cover files still in use.
@@ -438,6 +495,8 @@ class SeriesRepository(
             asin = asin,
             description = description,
             coverPath = cover_path,
+            parentId = parent_id,
+            parentPosition = parent_position?.toInt(),
         )
 
     private companion object {

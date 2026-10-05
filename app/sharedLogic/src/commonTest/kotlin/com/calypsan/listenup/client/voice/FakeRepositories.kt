@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
 import com.calypsan.listenup.client.domain.model.Series
+import com.calypsan.listenup.client.domain.model.SeriesLineage
 import com.calypsan.listenup.client.domain.model.SeriesSearchResponse
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.model.TierLabels
@@ -244,6 +245,8 @@ class FakeSeriesRepository : SeriesRepository {
 
     override fun observeSeriesWithBooks(seriesId: String): Flow<SeriesWithBooks?> =
         MutableStateFlow(seriesWithBooksMap[seriesId])
+
+    override fun observeSeriesLineage(seriesId: String): Flow<SeriesLineage> = MutableStateFlow(SeriesLineage.Flat)
 
     override suspend fun searchSeries(
         query: String,

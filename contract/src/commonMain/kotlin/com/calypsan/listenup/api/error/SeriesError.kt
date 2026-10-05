@@ -22,6 +22,8 @@ import kotlinx.serialization.Serializable
  * - [MergeSelfTarget] → 400
  * - [MergeReceiptNotFound] → 404
  * - [MergeAlreadyUndone], [MergeTargetGone] → 409
+ * - [ParentNotFound] → 404
+ * - [HierarchyCycle], [NameAlreadyExists] → 409
  */
 @Serializable
 sealed interface SeriesError : AppError {
@@ -107,6 +109,52 @@ sealed interface SeriesError : AppError {
     ) : SeriesError {
         override val message: String = "This series has since been merged into another. Undo that merge first."
         override val code: String = "SERIES_MERGE_TARGET_GONE"
+        override val isRetryable: Boolean = false
+    }
+
+    /**
+     * The series chosen as a parent does not exist, was deleted, or was merged away.
+     * Raised by [com.calypsan.listenup.api.SeriesService.createSeries] and
+     * [com.calypsan.listenup.api.SeriesService.setSeriesParent].
+     */
+    @Serializable
+    @SerialName("SeriesError.ParentNotFound")
+    data class ParentNotFound(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : SeriesError {
+        override val message: String = "That parent series no longer exists."
+        override val code: String = "SERIES_PARENT_NOT_FOUND"
+        override val isRetryable: Boolean = false
+    }
+
+    /**
+     * The chosen parent is the series itself or one of its own sub-series.
+     * Raised by [com.calypsan.listenup.api.SeriesService.setSeriesParent].
+     */
+    @Serializable
+    @SerialName("SeriesError.HierarchyCycle")
+    data class HierarchyCycle(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : SeriesError {
+        override val message: String = "A series can't be placed inside itself or one of its sub-series."
+        override val code: String = "SERIES_HIERARCHY_CYCLE"
+        override val isRetryable: Boolean = false
+    }
+
+    /**
+     * A live series already has this name. Raised by
+     * [com.calypsan.listenup.api.SeriesService.createSeries].
+     */
+    @Serializable
+    @SerialName("SeriesError.NameAlreadyExists")
+    data class NameAlreadyExists(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : SeriesError {
+        override val message: String = "A series with that name already exists."
+        override val code: String = "SERIES_NAME_EXISTS"
         override val isRetryable: Boolean = false
     }
 }

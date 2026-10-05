@@ -361,3 +361,27 @@ internal val MIGRATION_14_15 =
             )
         }
     }
+
+/**
+ * v15 → v16: `series.parentId` / `series.parentPosition` — the series tree (#962), mirroring the
+ * server's `V85__series_hierarchy.sql`. Two `ADD COLUMN`s and an index, per the migration policy in
+ * [ListenUpDatabase], so every cached series starts out as a root.
+ *
+ * It also deletes the `series` sync cursor. A build that predates the hierarchy decoded a
+ * re-parented series without its `parentId`, yet stored the bumped revision and advanced its
+ * cursor — and the cursored pull never re-sends an unchanged row, so those series would stay
+ * roots forever. Without a cursor the next catch-up starts from `since = 0`
+ * (`SyncCatchUpClient.catchUp`) and re-pulls every series. The rows keep their revisions: the
+ * re-pulled payloads arrive at the revision already stored, which
+ * [com.calypsan.listenup.client.data.sync.domains.RevisionGuard] lets through (only a strictly
+ * older revision is stale). Server-written data only; the outbox is untouched.
+ */
+internal val MIGRATION_15_16 =
+    object : Migration(15, 16) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE `series` ADD COLUMN `parentId` TEXT")
+            connection.executeDdl("ALTER TABLE `series` ADD COLUMN `parentPosition` INTEGER")
+            connection.executeDdl("CREATE INDEX IF NOT EXISTS `index_series_parentId` ON `series` (`parentId`)")
+            connection.executeDdl("DELETE FROM `sync_cursor` WHERE `domainName` = 'series'")
+        }
+    }
