@@ -123,6 +123,15 @@ dialog.dlg.sh-dlg { width: 520px; }
 .sh-tree { display: flex; flex-direction: column; gap: 2px; }
 .sh-existing { display: flex; }
 
+/* A wide window: the picker docks beside the editor rather than over it, so "Place in library"
+   stays in view while the tree is open (W-12). Still the same modal <dialog> — focus trapped,
+   Escape closes — just seated at the trailing edge, full height. */
+@media (min-width: 1280px) {
+  dialog.dlg.sh-dlg { margin: 24px 32px 24px auto; height: calc(100vh - 48px); max-height: none; }
+  dialog.dlg.sh-dlg .dlg-body { height: 100%; box-sizing: border-box; }
+  dialog.dlg.sh-dlg .sh-list { flex: 1; max-height: none; }
+}
+
 /* A phone: the editor's rows stack their text over their controls rather than truncating names. */
 @media (max-width: 639px) {
   .sd-subs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-12); }
