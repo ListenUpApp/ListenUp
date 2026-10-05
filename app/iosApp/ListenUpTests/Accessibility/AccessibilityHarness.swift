@@ -323,7 +323,6 @@ final class HostedView {
         }
         isTreeEnabled = true
         NSLog("A11YENABLE t=%d swiftUIAX=%d", Int(CACurrentMediaTime() * 1000), swiftUIAXLoaded ? 1 : 0)
-        }
     }
 }
 
