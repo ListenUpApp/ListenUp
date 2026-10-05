@@ -105,21 +105,36 @@ class SeriesTree(
     fun defaultBookOrder(
         rootId: String,
         memberships: Collection<SeriesMembership>,
-    ): List<String> {
+    ): List<String> = defaultBookGroups(rootId, memberships).values.flatten()
+
+    /**
+     * [defaultBookOrder], kept in its groups: for every series of [rootId]'s subtree, in the walk's
+     * order (each series after its own sub-series), the books that the walk first reaches there.
+     * A series with no books of its own — or whose books were all reached earlier — still has a
+     * group, so a caller drawing headings sees the subtree's whole shape. Flattening the values
+     * gives exactly [defaultBookOrder].
+     */
+    fun defaultBookGroups(
+        rootId: String,
+        memberships: Collection<SeriesMembership>,
+    ): Map<String, List<String>> {
         val bySeries = memberships.groupBy { it.seriesId }
-        val emitted = LinkedHashSet<String>()
+        val emitted = HashSet<String>()
         val visiting = HashSet<String>()
+        val groups = LinkedHashMap<String, List<String>>()
 
         fun walk(seriesId: String) {
             if (!visiting.add(seriesId)) return
             childrenOf(seriesId).forEach(::walk)
-            bySeries[seriesId]
-                .orEmpty()
-                .sortedWith(BOOK_ORDER)
-                .forEach { emitted += it.bookId }
+            groups[seriesId] =
+                bySeries[seriesId]
+                    .orEmpty()
+                    .sortedWith(BOOK_ORDER)
+                    .map { it.bookId }
+                    .filter(emitted::add)
         }
         walk(rootId)
-        return emitted.toList()
+        return groups
     }
 
     private companion object {
