@@ -76,6 +76,11 @@ data class FieldProvenance(
     val provider: String? = null,
     /** Epoch milliseconds when this value was written; `0` when unknown. */
     val at: Long = 0,
+    /**
+     * The user id of whoever hand-edited the value, for [FieldSourceKind.USER]; `null` when unknown (a
+     * sidecar restore, or an edit made before this was recorded) and for every other kind.
+     */
+    @SerialName("by") val by: String? = null,
 ) {
     /** The authority tier of this provenance — shorthand for `kind.tier`. */
     val tier: Int get() = kind.tier
