@@ -9,6 +9,7 @@ import com.calypsan.listenup.server.matching.apply.US
 import com.calypsan.listenup.server.matching.undo.BookCoverReferences
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.shouldSucceed
+import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -63,6 +64,10 @@ class OrphanCoverSweepTest :
                     val rig = MatchRig(this@withSqlDatabase)
                     rig.seedBook()
                     val file = rig.scannedCover()
+                    // Another, live book with a cover, so the sweep runs at all (an all-empty read fails closed).
+                    rig.db.sql.seedTestBook("other")
+                    rig.coverFile("other.jpg")
+                    rig.books.setManagedCover(BookId("other"), "covers/other.jpg", "h-other", CoverSource.EMBEDDED).shouldSucceed()
                     rig.books.softDelete(BookId(BOOK)).shouldSucceed()
                     rig.sweeper().runOnce()
                     file.exists() shouldBe true
