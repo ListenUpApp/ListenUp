@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
+import com.calypsan.listenup.client.presentation.seriesdetail.SeriesResumeUi
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -65,6 +66,14 @@ class ContinueButtonSequenceTest {
                             bookProgress = if (inProgress) mapOf(bookId to 0.4f) else emptyMap(),
                             finishedBookIds = emptySet(),
                             resumeTarget = bookId,
+                            resumeBook =
+                                SeriesResumeUi(
+                                    bookId = bookId.value,
+                                    title = book.title,
+                                    seriesName = "Mistborn",
+                                    sequence = book.seriesSequenceLabel,
+                                    hasStarted = inProgress,
+                                ),
                         ),
                     onBookClick = {},
                 )

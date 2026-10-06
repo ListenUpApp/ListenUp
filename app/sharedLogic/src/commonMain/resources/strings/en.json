@@ -618,6 +618,7 @@
     "offline_title": "You're offline",
     "offline_body": "Moving series and reordering sub-series need the server. Everything else here still saves.",
     "continue_title": "Continue %1$s",
+    "start_title": "Start %1$s",
     "continue_where": "%1$s · Book %2$s",
     "books": "Books",
     "also_in": "Also in %1$s",

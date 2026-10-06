@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.metadata.itunes
 
+import com.calypsan.listenup.server.metadata.retryAfterSeconds
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
@@ -8,6 +9,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
@@ -118,7 +120,11 @@ class ITunesClient(
 
                 HttpStatusCode.TooManyRequests -> {
                     log.warn { "iTunes cover search rate-limited: title='$title'" }
-                    AppResult.Failure(MetadataError.ExternalRateLimited())
+                    AppResult.Failure(
+                        MetadataError.ExternalRateLimited(
+                            retryAfterSeconds = retryAfterSeconds(response.headers[HttpHeaders.RetryAfter]),
+                        ),
+                    )
                 }
 
                 else -> {
@@ -189,9 +195,21 @@ class ITunesClient(
         val original =
             result.artworkUrl100?.ifEmpty { null }
                 ?: result.artworkUrl60?.ifEmpty { null }
-                ?: return ITunesCoverHit(coverUrl = "", maxSizeUrl = "", sourceId = sourceId)
+                ?: return ITunesCoverHit(
+                    coverUrl = "",
+                    maxSizeUrl = "",
+                    sourceId = sourceId,
+                    title = result.collectionName.orEmpty(),
+                    author = result.artistName.orEmpty(),
+                )
         val maxSize = SIZE_PATTERN.replace(original, "/7000x7000bb.jpg")
-        return ITunesCoverHit(coverUrl = original, maxSizeUrl = maxSize, sourceId = sourceId)
+        return ITunesCoverHit(
+            coverUrl = original,
+            maxSizeUrl = maxSize,
+            sourceId = sourceId,
+            title = result.collectionName.orEmpty(),
+            author = result.artistName.orEmpty(),
+        )
     }
 
     private companion object {

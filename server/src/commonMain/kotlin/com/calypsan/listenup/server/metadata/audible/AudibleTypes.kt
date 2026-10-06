@@ -168,6 +168,9 @@ data class RawProduct(
     val categoryLadders: List<RawCategoryLadder> = emptyList(),
     val language: String = "",
     val rating: RawRating? = null,
+    /** `unabridged` or `abridged` (the `product_attrs` response group). */
+    @SerialName("format_type")
+    val formatType: String? = null,
 ) {
     /** A placeholder for an ASIN this marketplace doesn't sell — no book to read from it. */
     val isStub: Boolean get() = title.isBlank()
@@ -276,6 +279,11 @@ data class AudibleBook(
     val language: String,
     val rating: Float,
     val ratingCount: Int,
+    /**
+     * Audible's `format_type` (`unabridged` / `abridged`); blank when unknown, including books cached
+     * before it was read.
+     */
+    val formatType: String = "",
 )
 
 /** A lighter search-result entry (not all fields populated). */
@@ -290,6 +298,11 @@ data class AudibleSearchResult(
     val coverUrl: String,
     val runtimeMinutes: Int,
     val releaseDate: String,
+    /**
+     * Audible's `format_type` (`unabridged` / `abridged`); blank when unknown, including results cached
+     * before it was read.
+     */
+    val formatType: String = "",
 )
 
 /** A chapter marker. */

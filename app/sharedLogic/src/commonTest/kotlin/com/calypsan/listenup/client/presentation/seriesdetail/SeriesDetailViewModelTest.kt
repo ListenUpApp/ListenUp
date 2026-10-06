@@ -540,6 +540,64 @@ class SeriesDetailViewModelTest :
             }
         }
 
+        // Every platform takes its Start/Continue verb from resumeBook.hasStarted, on a flat page too.
+        test("a flat series with Book 1 finished resumes Book 2 as a Continue, not a Start") {
+            runTest {
+                val fixture = createFixture()
+                val series = createSeries()
+                val book1 = createBook(id = "book-1", seriesSequence = 1.0)
+                val book2 = createBook(id = "book-2", seriesSequence = 2.0)
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("series-1")
+                fixture.positionsFlow.value =
+                    mapOf(BookId("book-1") to createPosition("book-1", isFinished = true))
+                fixture.seriesFlow.value =
+                    createSeriesWithBooks(
+                        series = series,
+                        books = listOf(book1, book2),
+                        bookSequences = mapOf("book-1" to 1.0, "book-2" to 2.0),
+                    )
+                advanceUntilIdle()
+
+                val resume =
+                    viewModel.state.value
+                        .shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                        .resumeBook
+                resume?.bookId shouldBe "book-2"
+                resume?.sequence shouldBe "2"
+                resume?.hasStarted shouldBe true
+            }
+        }
+
+        test("an untouched flat series starts Book 1") {
+            runTest {
+                val fixture = createFixture()
+                val series = createSeries()
+                val book1 = createBook(id = "book-1", seriesSequence = 1.0)
+                val book2 = createBook(id = "book-2", seriesSequence = 2.0)
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("series-1")
+                fixture.seriesFlow.value =
+                    createSeriesWithBooks(
+                        series = series,
+                        books = listOf(book1, book2),
+                        bookSequences = mapOf("book-1" to 1.0, "book-2" to 2.0),
+                    )
+                advanceUntilIdle()
+
+                val resume =
+                    viewModel.state.value
+                        .shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                        .resumeBook
+                resume?.bookId shouldBe "book-1"
+                resume?.hasStarted shouldBe false
+            }
+        }
+
         test("resumeTarget is null when every book is finished") {
             runTest {
                 val fixture = createFixture()
@@ -726,8 +784,64 @@ class SeriesDetailViewModelTest :
                         SeriesSectionKind.OWN_BOOKS to "Cosmere",
                     )
                 ready.resumeBook shouldBe
-                    SeriesResumeUi(bookId = "hero", title = "The Hero of Ages", seriesName = "Mistborn Era 1", sequence = "3")
+                    SeriesResumeUi(
+                        bookId = "hero",
+                        title = "The Hero of Ages",
+                        seriesName = "Mistborn Era 1",
+                        sequence = "3",
+                        hasStarted = true,
+                    )
                 ready.childSeries.single().subSeriesCount shouldBe 2
+            }
+        }
+
+        test("an unstarted parent page's button starts the first book, and says where it sits") {
+            runTest {
+                val fixture = createFixture()
+                val fe = createBook("fe", title = "The Final Empire", seriesId = "era1", seriesSequence = 1.0)
+                val alloy = createBook("alloy", title = "The Alloy of Law", seriesId = "era2", seriesSequence = 1.0)
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("cosmere")
+                fixture.seriesFlow.value = createSeriesWithBooks(createSeries(id = "cosmere", name = "Cosmere"), books = emptyList())
+                fixture.lineageFlow.value =
+                    cosmereLineage(listOf("fe"), listOf("alloy"), emptyList()).copy(subtreeBooks = listOf(fe, alloy))
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                ready.resumeBook shouldBe
+                    SeriesResumeUi(
+                        bookId = "fe",
+                        title = "The Final Empire",
+                        seriesName = "Mistborn Era 1",
+                        sequence = "1",
+                        hasStarted = false,
+                    )
+            }
+        }
+
+        test("a finished book anywhere in the series makes the next one a Continue, not a Start") {
+            runTest {
+                val fixture = createFixture()
+                val fe = createBook("fe", title = "The Final Empire", seriesId = "era1", seriesSequence = 1.0)
+                val alloy = createBook("alloy", title = "The Alloy of Law", seriesId = "era2", seriesSequence = 1.0)
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("cosmere")
+                fixture.seriesFlow.value = createSeriesWithBooks(createSeries(id = "cosmere", name = "Cosmere"), books = emptyList())
+                fixture.lineageFlow.value =
+                    cosmereLineage(listOf("fe"), listOf("alloy"), emptyList()).copy(subtreeBooks = listOf(fe, alloy))
+                fixture.positionsFlow.value = mapOf(BookId("fe") to createPosition("fe", isFinished = true))
+                advanceUntilIdle()
+
+                val resume =
+                    viewModel.state.value
+                        .shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                        .resumeBook
+                resume?.bookId shouldBe "alloy"
+                resume?.hasStarted shouldBe true
             }
         }
 

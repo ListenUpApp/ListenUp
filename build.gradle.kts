@@ -40,7 +40,9 @@ plugins {
 // our own test titles — so the practical risk is low. But "it's only build tooling" is exactly
 // the reasoning that normalises supply-chain risk, and a pin costs nothing.
 //
-// Remove when mocha ships a release depending on >= 7.0.3 (mochajs/mocha#5781).
+// Remove when mocha ships a release depending on >= 7.0.5 (mochajs/mocha#5781). 7.0.5, not
+// 7.0.3: GHSA-qj8w-gfj5-8c6v (CPU-exhaustion DoS via crafted array-like objects) is open
+// through 7.0.4.
 //
 // ktor-client-core 3.5.2's js artifact declares an *exact* "ws": "8.20.1", which the Kotlin
 // Multiplatform Gradle plugin copies into every generated package.json. Everything below 8.21.0
@@ -50,10 +52,17 @@ plugins {
 // only Ktor's exact pin holds the tree back, and 8.21.x is a patch-level move for it.
 //
 // Remove when Ktor bumps its declared ws floor to >= 8.21.0.
+//
+// express and body-parser declare qs ~6.15.1, which cannot reach 6.16.0 — the only release that
+// fixes both qs denial-of-service advisories (GHSA-4mjr-xmp4-gh2g, GHSA-x5fp-wj9c-mxmx). Same
+// build-only lane, same reasoning, a minor-level move.
+//
+// Remove when express and body-parser declare qs >= 6.16.0.
 plugins.withType<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin> {
     the<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootExtension>().apply {
-        resolution("serialize-javascript", "7.0.3")
+        resolution("serialize-javascript", "7.0.5")
         resolution("ws", "8.21.3")
+        resolution("qs", "6.16.0")
         // The default drops kotlin-js-store/ at the repo root, which the five-directory root
         // layout has no slot for. It is build machinery (KGP's yarn lockfile for the karma
         // lane), so it lives under tools/ — and goes away entirely when karma does.

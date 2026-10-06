@@ -1843,6 +1843,7 @@ One beautiful library.</string>
     <string name="series_sort_descending_a11y">Sort descending</string>
     <string name="series_start_book">Start Book %1$s</string>
     <string name="series_start_listening">Start listening</string>
+    <string name="series_start_title">Start %1$s</string>
     <string name="series_stat_books">Books</string>
     <string name="series_stat_finished">Finished</string>
     <string name="series_stat_total">Total</string>

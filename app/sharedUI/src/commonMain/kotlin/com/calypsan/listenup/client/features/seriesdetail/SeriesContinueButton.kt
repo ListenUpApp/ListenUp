@@ -29,14 +29,15 @@ import listenup.composeapp.generated.resources.series_continue_book
 import listenup.composeapp.generated.resources.series_continue_title
 import listenup.composeapp.generated.resources.series_continue_where
 import listenup.composeapp.generated.resources.series_start_book
+import listenup.composeapp.generated.resources.series_start_title
 import org.jetbrains.compose.resources.stringResource
 
 /**
  * Brand "Continue" pill. Hidden when the whole series is finished.
  *
  * A flat series says "Continue Book 3" / "Start Book 1". A parent page names the book instead —
- * "Continue The Hero of Ages" over "Mistborn Era 1 · Book 3" — because "Book 3" is ambiguous when
- * the books come from four series.
+ * "Continue The Hero of Ages" over "Mistborn Era 1 · Book 3", or "Start The Final Empire" on a series
+ * not yet begun — because "Book 3" is ambiguous when the books come from four series.
  */
 @Composable
 internal fun ContinueButton(
@@ -47,19 +48,26 @@ internal fun ContinueButton(
     val haptics = LocalHaptics.current
     val targetId = state.resumeTarget ?: return
     val target = state.books.firstOrNull { it.id == targetId } ?: return
+    // The verb is the ViewModel's, shared with iOS and web: the series is under way once any book is
+    // begun or finished, even when the next one has no progress of its own.
+    val hasStarted = state.resumeBook?.hasStarted == true
     val resume = state.resumeBook?.takeIf { state.isGrouped }
 
     val title: String
     val where: String?
     if (resume != null) {
-        title = stringResource(Res.string.series_continue_title, resume.title)
+        title =
+            stringResource(
+                if (hasStarted) Res.string.series_continue_title else Res.string.series_start_title,
+                resume.title,
+            )
         where = resume.sequence?.let { stringResource(Res.string.series_continue_where, resume.seriesName, it) }
             ?: resume.seriesName
     } else {
         val index = state.books.indexOfFirst { it.id == targetId }
         val positionLabel = target.seriesSequenceLabel ?: (index + 1).toString()
         title =
-            if (state.bookProgress[targetId] != null) {
+            if (hasStarted) {
                 stringResource(Res.string.series_continue_book, positionLabel)
             } else {
                 stringResource(Res.string.series_start_book, positionLabel)

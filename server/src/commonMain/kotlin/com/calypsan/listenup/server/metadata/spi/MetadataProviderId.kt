@@ -1,14 +1,16 @@
 package com.calypsan.listenup.server.metadata.spi
 
+import com.calypsan.listenup.api.dto.match.MetadataSource
 import kotlin.jvm.JvmInline
 
 /**
  * Stable identity of a metadata provider — the value the enrichment router names
  * a provider by in its priority chains.
  *
- * Server-internal: a provider id never crosses the RPC wire (the client picks
- * fields and domains, not provider implementations). The [value] is the operator-
- * facing config token used in `LISTENUP_ENRICHMENT_ORDER` / `_ROUTES`.
+ * A provider id crosses the RPC wire only as an opaque key (`MetadataSource.id`,
+ * `ExternalRef.provider`), always beside its label; clients never branch on it. The
+ * [value] is also the operator-facing config token used in `LISTENUP_ENRICHMENT_ORDER`
+ * / `_ROUTES`.
  */
 @JvmInline
 value class MetadataProviderId(
@@ -109,3 +111,11 @@ fun MetadataProviderId.displayLabel(): String =
                 .joinToString(" ") { it.replaceFirstChar(Char::uppercaseChar) }
         }
     }
+
+/** The source a provider is shown as. Audnexus serves Audible's data, so it is presented as Audible. */
+fun MetadataProviderId.presentedAs(): MetadataProviderId =
+    if (this == MetadataProviderId.AUDNEXUS) MetadataProviderId.AUDIBLE else this
+
+/** This provider as clients show it: the presented id as an opaque key, with its display label. */
+fun MetadataProviderId.toMetadataSource(): MetadataSource =
+    presentedAs().let { MetadataSource(id = it.value, label = it.displayLabel()) }

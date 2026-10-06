@@ -9,6 +9,16 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -53,15 +63,27 @@ internal class SeriesBookListActions(
 )
 
 /**
+ * Where the group headings pin: [gridState] is the grid they scroll in, and [topInset] how far below
+ * the grid's top edge the window's own top bar reaches — the status bar, on the edge-to-edge page.
+ */
+internal class StickyHeadings(
+    val gridState: LazyGridState,
+    val topInset: Dp,
+)
+
+/**
  * The series page's books. A flat series lists them under "Books in series", exactly as before the
  * hierarchy; a parent groups them under each sub-series heading (each a link to that series, each
  * foldable) and ends with "Also in Cosmere". A folded group shows its heading and "Show all N".
+ *
+ * Group headings stick under the status bar while their books scroll beneath, as they do on web.
  */
 internal fun LazyGridScope.seriesBookList(
     state: SeriesDetailUiState.Ready,
     layout: SeriesBookLayout,
     actions: SeriesBookListActions,
     gutter: Dp,
+    sticky: StickyHeadings,
 ) {
     item(key = "books-header", span = { GridItemSpan(maxLineSpan) }) {
         BooksHeader(
@@ -75,13 +97,15 @@ internal fun LazyGridScope.seriesBookList(
         return
     }
     state.bookSections.forEach { section ->
-        item(key = "heading:${section.key}", span = { GridItemSpan(maxLineSpan) }) {
-            SeriesSectionHeading(
-                section = section,
-                isLink = section.seriesId != state.seriesId,
-                actions = actions,
-                modifier = Modifier.padding(start = gutter + 4.dp * section.depth, end = gutter),
-            )
+        stickyHeader(key = HEADING_KEY_PREFIX + section.key) { index ->
+            StickyHeadingSurface(sticky = sticky, index = index) {
+                SeriesSectionHeading(
+                    section = section,
+                    isLink = section.seriesId != state.seriesId,
+                    actions = actions,
+                    modifier = Modifier.padding(start = gutter + 4.dp * section.depth, end = gutter),
+                )
+            }
         }
         if (section.isCollapsed) {
             item(key = "show-all:${section.key}", span = { GridItemSpan(maxLineSpan) }) {
@@ -95,6 +119,71 @@ internal fun LazyGridScope.seriesBookList(
             bookItems(state, section.books, keyPrefix = section.key, section.seriesId, layout, actions, gutter)
         }
     }
+}
+
+private const val HEADING_KEY_PREFIX = "heading:"
+
+/**
+ * A group heading's opaque backing, and the shift that keeps its text below the status bar once it
+ * pins. The shift is placement only — the grid still sees the heading's own height — so rows never
+ * jump as a heading arrives at the top; the backing fills the status bar's strip above it.
+ */
+@Composable
+private fun StickyHeadingSurface(
+    sticky: StickyHeadings,
+    index: Int,
+    content: @Composable () -> Unit,
+) {
+    val color = MaterialTheme.colorScheme.surface
+    val insetPx = with(LocalDensity.current) { sticky.topInset.roundToPx() }
+    var shift by remember { mutableIntStateOf(0) }
+    Layout(
+        content = content,
+        modifier =
+            Modifier
+                // Above the rows it slides over: a heading shifted below its own slot overlaps the next one.
+                .zIndex(1f)
+                .drawBehind { drawRect(color, size = Size(size.width, size.height + shift)) },
+    ) { measurables, constraints ->
+        val placeable = measurables.single().measure(constraints)
+        layout(placeable.width, placeable.height) {
+            val items = sticky.gridState.layoutInfo.visibleItemsInfo
+            shift =
+                stickyHeadingShift(
+                    headingOffset = items.firstOrNull { it.index == index }?.offset?.y ?: 0,
+                    nextHeadingOffset =
+                        items
+                            .firstOrNull {
+                                it.index > index &&
+                                    (it.key as? String)?.startsWith(HEADING_KEY_PREFIX) == true
+                            }?.offset
+                            ?.y,
+                    headingHeight = placeable.height,
+                    topInset = insetPx,
+                )
+            placeable.place(0, shift)
+        }
+    }
+}
+
+/**
+ * How far below its slot a group heading draws its text, in px, so the text never sits under the
+ * window's top bar ([topInset] tall).
+ *
+ * The heading's text wants to sit at [topInset] — but no lower than its own slot, and no lower than
+ * just above the next heading, which pushes it out as it arrives (and itself settles at [topInset]).
+ * [headingOffset] is the slot's top in the grid, as placed (0, or less while being pushed, once it
+ * pins); [nextHeadingOffset] is the next heading's slot, when one is on screen.
+ */
+internal fun stickyHeadingShift(
+    headingOffset: Int,
+    nextHeadingOffset: Int?,
+    headingHeight: Int,
+    topInset: Int,
+): Int {
+    val textTop =
+        nextHeadingOffset?.let { next -> minOf(topInset, maxOf(topInset, next) - headingHeight) } ?: topInset
+    return (textTop - headingOffset).coerceIn(0, topInset)
 }
 
 private fun LazyGridScope.bookItems(

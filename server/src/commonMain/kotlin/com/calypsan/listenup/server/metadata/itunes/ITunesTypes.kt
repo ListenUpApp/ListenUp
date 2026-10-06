@@ -49,4 +49,8 @@ data class ITunesCoverHit(
     val coverUrl: String,
     val maxSizeUrl: String,
     val sourceId: String = "",
+    /** The audiobook's title as iTunes lists it — Find attaches a cover-only hit to candidates by it. */
+    val title: String = "",
+    /** The audiobook's author (iTunes' artist), for the same match. */
+    val author: String = "",
 )

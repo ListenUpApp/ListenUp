@@ -70,6 +70,11 @@ enum SeriesHierarchyText {
         String(format: String(localized: "series.continue_title"), bookTitle)
     }
 
+    /// "Start The Final Empire" — the grouped page's button on a series not yet begun.
+    static func startTitle(bookTitle: String) -> String {
+        String(format: String(localized: "series.start_title"), bookTitle)
+    }
+
     /// "Mistborn Era 1 · Book 3" under the grouped page's Continue; just the series when unnumbered.
     static func continueWhere(seriesName: String, sequence: String?) -> String {
         guard let sequence, !sequence.isEmpty else { return seriesName }
