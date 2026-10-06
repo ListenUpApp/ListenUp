@@ -37,6 +37,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration
 
 private val logger = loggerFor<EnrichmentCoordinator>()
 
@@ -79,6 +81,35 @@ internal data class ComposedBook(
     val genreProviders: Map<String, MetadataProviderId> = emptyMap(),
 )
 
+/** Why one provider's core fetch produced nothing usable. */
+internal sealed interface CoreFailure {
+    /** It errored or threw. */
+    data object Failed : CoreFailure
+
+    /** It didn't answer within the compose deadline. */
+    data object TimedOut : CoreFailure
+
+    /** It asked us to slow down, for [retryAfterSeconds] when it said. */
+    data class RateLimited(
+        val retryAfterSeconds: Long?,
+    ) : CoreFailure
+}
+
+/**
+ * Every provider's answer for one book, kept per provider ([EnrichmentCoordinator.composeOptions]). [coreAsked]
+ * is every core provider the routes let it ask; [coreFailures] are the ones that failed, and why. The maps hold
+ * only providers that answered with something.
+ */
+internal data class ComposedOptions(
+    val cores: Map<MetadataProviderId, BookCoreMeta>,
+    val coreAsked: Set<MetadataProviderId>,
+    val coreFailures: Map<MetadataProviderId, CoreFailure>,
+    val covers: Map<MetadataProviderId, List<CoverMeta>> = emptyMap(),
+    val genres: Map<MetadataProviderId, List<GenreMeta>> = emptyMap(),
+    val series: Map<MetadataProviderId, List<SeriesMeta>> = emptyMap(),
+    val moods: Map<MetadataProviderId, List<String>> = emptyMap(),
+)
+
 /**
  * Composes a book's metadata across the registered providers, per the operator's
  * [EnrichmentRoutes].
@@ -114,35 +145,63 @@ internal class EnrichmentCoordinator(
         identity: BookIdentity,
         locale: MetadataLocale,
         refresh: Boolean = false,
-    ): AppResult<ComposedBook?> =
+    ): AppResult<ComposedBook?> {
+        val options =
+            composeOptions(identity, locale, refresh) { asked, cores ->
+                asked.any { it !in MetadataProviderId.gapFillers && it in cores }
+            }
+        // A gap filler (Hardcover) adds to a match; it can't make one. Whether the book was found, or the
+        // catalogs are down, is decided by the providers that can identify a book. Distinguish an outage (every
+        // one of those errored) from an honest miss (at least one said "not mine").
+        val identifying = options.coreAsked.filter { it !in MetadataProviderId.gapFillers }
+        if (identifying.none { it in options.cores }) {
+            val allFailed = identifying.isNotEmpty() && identifying.all { it in options.coreFailures }
+            return if (allFailed) {
+                AppResult.Failure(
+                    MetadataError.ExternalUnavailable(
+                        debugInfo = "all core metadata providers failed for asin=${identity.asin}",
+                    ),
+                )
+            } else {
+                AppResult.Success(null)
+            }
+        }
+        return AppResult.Success(firstOptions(identity, options))
+    }
+
+    /**
+     * Composes [identity] in [locale] per provider (the matching redesign's Review): every routed provider's
+     * core, covers, genres, series and moods are kept, never collapsed, so Review can offer each source's value.
+     * Each provider is fetched by its own ref when [identity] carries one. Cover search is title-keyed, so it runs
+     * after core, with the first core title and author. A provider that errors, throws or misses [deadline] is
+     * recorded in [ComposedOptions.coreFailures] (for core) or simply absent; [CancellationException] is always
+     * re-raised. [composeBook] is "take each field's first option" over this, so the two can't disagree.
+     */
+    suspend fun composeOptions(
+        identity: BookIdentity,
+        locale: MetadataLocale,
+        refresh: Boolean = false,
+        deadline: Duration? = null,
+        proceed: (asked: Set<MetadataProviderId>, cores: Map<MetadataProviderId, BookCoreMeta>) -> Boolean =
+            { _, _ -> true },
+    ): ComposedOptions =
         coroutineScope {
             val coreOutcomes =
                 fanOutOutcomes(
                     registry.capable<BookCoreSource>(),
                     MetadataDomain.BOOK_CORE,
                     "book-core",
+                    deadline,
                 ) { it.getBookCore(identity, locale, refresh) }
-            // A gap filler (Hardcover) adds to a match; it can't make one. Whether the book was found, or
-            // the catalogs are down, is decided by the providers that can identify a book. Distinguish an
-            // outage (every one of those errored) from an honest miss (at least one said "not mine").
-            val identifying = coreOutcomes.filterKeys { it !in MetadataProviderId.gapFillers }
-            if (identifying.succeededValues().isEmpty()) {
-                val allFailed =
-                    identifying.values.isNotEmpty() && identifying.values.all { it is ProviderOutcome.Failed }
-                return@coroutineScope if (allFailed) {
-                    AppResult.Failure(
-                        MetadataError.ExternalUnavailable(
-                            debugInfo = "all core metadata providers failed for asin=${identity.asin}",
-                        ),
-                    )
-                } else {
-                    AppResult.Success(null)
-                }
+            val cores = coreOutcomes.succeededValues()
+            val coreFailures =
+                coreOutcomes
+                    .mapNotNull { (id, outcome) -> (outcome as? ProviderOutcome.Failed)?.let { id to it.failure } }
+                    .toMap()
+            if (!proceed(coreOutcomes.keys, cores)) {
+                return@coroutineScope ComposedOptions(cores = cores, coreAsked = coreOutcomes.keys, coreFailures = coreFailures)
             }
-
-            val (core, coreWinners) = mergeCore(coreOutcomes.succeededValues())
-            // Cover search is title-keyed, so it needs the resolved core's title/author; genres, series and
-            // moods are ASIN-keyed and fan out alongside it.
+            val (core, _) = mergeCore(cores)
             val coverIdentity =
                 identity.copy(
                     title = core.title ?: identity.title,
@@ -150,55 +209,66 @@ internal class EnrichmentCoordinator(
                 )
             val covers =
                 async {
-                    fanOut(registry.capable<CoverSource>(), MetadataDomain.COVER, "cover") {
+                    fanOut(registry.capable<CoverSource>(), MetadataDomain.COVER, "cover", deadline) {
                         it.searchCovers(coverIdentity, locale)
                     }
                 }
             val genres =
                 async {
-                    fanOut(registry.capable<GenreSource>(), MetadataDomain.GENRES, "genres") {
+                    fanOut(registry.capable<GenreSource>(), MetadataDomain.GENRES, "genres", deadline) {
                         it.getGenres(identity, locale)
                     }
                 }
             val series =
                 async {
-                    fanOut(registry.capable<SeriesSource>(), MetadataDomain.SERIES, "series") {
+                    fanOut(registry.capable<SeriesSource>(), MetadataDomain.SERIES, "series", deadline) {
                         it.getSeries(identity, locale)
                     }
                 }
             val moods =
                 async {
-                    fanOut(registry.capable<MoodSource>(), MetadataDomain.GENRES, "moods") {
+                    fanOut(registry.capable<MoodSource>(), MetadataDomain.GENRES, "moods", deadline) {
                         it.getMoods(identity, locale)
                     }
                 }
-
-            val coversByProvider = covers.await()
-            val genreUnion = unionGenres(genres.await())
-            val seriesByProvider = series.await()
-            val moodsByProvider = moods.await()
-            AppResult.Success(
-                ComposedBook(
-                    asin = identity.asin,
-                    core = core,
-                    coverUrl = resolveCover(coversByProvider) { it.url },
-                    coverUrlMaxSize = resolveCover(coversByProvider) { it.maxSizeUrl },
-                    genres = genreUnion.genres,
-                    series = resolveList(BookField.SERIES, seriesByProvider),
-                    fieldProviders =
-                        coreWinners +
-                            listOfNotNull(
-                                coverWinnerBy(coversByProvider) { it.url }?.let { BookField.COVER to it },
-                                genreUnion.winner?.let { BookField.GENRES to it },
-                                listWinner(BookField.SERIES, seriesByProvider)?.let { BookField.SERIES to it },
-                                listWinner(BookField.MOODS, moodsByProvider)?.let { BookField.MOODS to it },
-                            ),
-                    coverMaxSizeWinner = coverWinnerBy(coversByProvider) { it.maxSizeUrl },
-                    moods = resolveList(BookField.MOODS, moodsByProvider),
-                    genreProviders = genreUnion.addedBy,
-                ),
+            ComposedOptions(
+                cores = cores,
+                coreAsked = coreOutcomes.keys,
+                coreFailures = coreFailures,
+                covers = covers.await(),
+                genres = genres.await(),
+                series = series.await(),
+                moods = moods.await(),
             )
         }
+
+    /** The legacy composition: each field's first option walking its chain, as [composeBook] always resolved it. */
+    private fun firstOptions(
+        identity: BookIdentity,
+        options: ComposedOptions,
+    ): ComposedBook {
+        val (core, coreWinners) = mergeCore(options.cores)
+        val genreUnion = unionGenres(options.genres)
+        return ComposedBook(
+            asin = identity.asin,
+            core = core,
+            coverUrl = resolveCover(options.covers) { it.url },
+            coverUrlMaxSize = resolveCover(options.covers) { it.maxSizeUrl },
+            genres = genreUnion.genres,
+            series = resolveList(BookField.SERIES, options.series),
+            fieldProviders =
+                coreWinners +
+                    listOfNotNull(
+                        coverWinnerBy(options.covers) { it.url }?.let { BookField.COVER to it },
+                        genreUnion.winner?.let { BookField.GENRES to it },
+                        listWinner(BookField.SERIES, options.series)?.let { BookField.SERIES to it },
+                        listWinner(BookField.MOODS, options.moods)?.let { BookField.MOODS to it },
+                    ),
+            coverMaxSizeWinner = coverWinnerBy(options.covers) { it.maxSizeUrl },
+            moods = resolveList(BookField.MOODS, options.moods),
+            genreProviders = genreUnion.addedBy,
+        )
+    }
 
     /**
      * Composes the chapter list for [identity] in [locale], preferring a catalog-verified
@@ -210,14 +280,24 @@ internal class EnrichmentCoordinator(
         identity: BookIdentity,
         locale: MetadataLocale,
         refresh: Boolean = false,
-    ): ChapterListMeta? {
+    ): ChapterListMeta? = composeChaptersWithSource(identity, locale, refresh)?.second
+
+    /** [composeChapters], with the provider whose list won — Review names it as the chapter names' source. */
+    suspend fun composeChaptersWithSource(
+        identity: BookIdentity,
+        locale: MetadataLocale,
+        refresh: Boolean = false,
+    ): Pair<MetadataProviderId, ChapterListMeta>? {
         val byProvider =
             fanOut(registry.capable<ChapterSource>(), MetadataDomain.CHAPTERS, "chapters") {
                 it.getChapters(identity, locale, refresh)
             }
         val order = routes.orderFor(BookField.CHAPTERS)
-        return order.firstNotNullOfOrNull { byProvider[it]?.takeIf { list -> list.accurate } }
-            ?: order.firstNotNullOfOrNull { byProvider[it]?.takeIf { list -> list.chapters.isNotEmpty() } }
+        val winner =
+            order.firstOrNull { byProvider[it]?.accurate == true }
+                ?: order.firstOrNull { byProvider[it]?.chapters?.isNotEmpty() == true }
+                ?: return null
+        return winner to byProvider.getValue(winner)
     }
 
     /**
@@ -482,8 +562,9 @@ internal class EnrichmentCoordinator(
         providers: List<C>,
         domain: MetadataDomain,
         label: String,
+        deadline: Duration? = null,
         block: suspend (C) -> AppResult<T?>,
-    ): Map<MetadataProviderId, T> = fanOutOutcomes(providers, domain, label, block).succeededValues()
+    ): Map<MetadataProviderId, T> = fanOutOutcomes(providers, domain, label, deadline, block).succeededValues()
 
     /**
      * Like [fanOut] but preserves each routed provider's [ProviderOutcome] so a caller can tell a
@@ -494,14 +575,27 @@ internal class EnrichmentCoordinator(
         providers: List<C>,
         domain: MetadataDomain,
         label: String,
+        deadline: Duration? = null,
         block: suspend (C) -> AppResult<T?>,
     ): Map<MetadataProviderId, ProviderOutcome<T>> {
         val allowed = routes.providersFor(domain)
         return coroutineScope {
             providers
                 .filter { it.id in allowed }
-                .map { provider -> async { provider.id to contained(provider.id, label) { block(provider) } } }
-                .awaitAll()
+                .map { provider ->
+                    async {
+                        val outcome =
+                            if (deadline == null) {
+                                contained(provider.id, label) { block(provider) }
+                            } else {
+                                withTimeoutOrNull(deadline) { contained(provider.id, label) { block(provider) } }
+                                    ?: ProviderOutcome.Failed(CoreFailure.TimedOut).also {
+                                        logger.warn { "enrichment: $label from ${provider.id.value} timed out" }
+                                    }
+                            }
+                        provider.id to outcome
+                    }
+                }.awaitAll()
                 .toMap()
         }
     }
@@ -531,14 +625,21 @@ internal class EnrichmentCoordinator(
 
                 is AppResult.Failure -> {
                     logger.warn { "enrichment: $label from ${id.value} failed (${result.error.code}) — skipping" }
-                    ProviderOutcome.Failed
+                    val error = result.error
+                    ProviderOutcome.Failed(
+                        if (error is MetadataError.ExternalRateLimited) {
+                            CoreFailure.RateLimited(error.retryAfterSeconds)
+                        } else {
+                            CoreFailure.Failed
+                        },
+                    )
                 }
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             logger.warn(e) { "enrichment: $label from ${id.value} threw — skipping" }
-            ProviderOutcome.Failed
+            ProviderOutcome.Failed(CoreFailure.Failed)
         }
 
     /** The classified result of one contained provider call — value, honest empty, or failure. */
@@ -551,7 +652,9 @@ internal class EnrichmentCoordinator(
         /** The provider succeeded but has nothing for this book — a normal miss. */
         data object Empty : ProviderOutcome<Nothing>
 
-        /** The provider errored or threw — a real failure, not a miss. */
-        data object Failed : ProviderOutcome<Nothing>
+        /** The provider errored, threw or timed out — a real failure, not a miss. */
+        data class Failed(
+            val failure: CoreFailure,
+        ) : ProviderOutcome<Nothing>
     }
 }

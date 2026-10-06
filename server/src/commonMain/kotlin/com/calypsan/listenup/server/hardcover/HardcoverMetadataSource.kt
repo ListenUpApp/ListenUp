@@ -14,6 +14,8 @@ import com.calypsan.listenup.server.metadata.spi.ContributorMeta
 import com.calypsan.listenup.server.metadata.spi.PersonAnswer
 import com.calypsan.listenup.server.metadata.spi.PersonFindSource
 import com.calypsan.listenup.server.metadata.spi.PersonLookup
+import com.calypsan.listenup.server.metadata.spi.CoverMeta
+import com.calypsan.listenup.server.metadata.spi.CoverSource
 import com.calypsan.listenup.server.metadata.spi.FindAnswer
 import com.calypsan.listenup.server.metadata.spi.FindAvailability
 import com.calypsan.listenup.server.metadata.spi.FindLookup
@@ -44,7 +46,7 @@ const val HARDCOVER_SERIES_KEY_PREFIX = "hardcover:series:"
  * else has them. Routed last, so in composition it only ever fills gaps (see [MetadataProviderId.gapFillers]).
  * In Find (matching redesign PR 2) it also identifies books, in at most two calls — see [HardcoverFind].
  *
- * **Which book.** An existing link for [BookIdentity.bookId], anyone's, a hand-picked one first; else the
+ * **Which book.** The edition a Review names (a `hardcover` ref on the identity); else an existing link for [BookIdentity.bookId], anyone's, a hand-picked one first; else the
  * [matcher] — the ASIN, the book's ISBN, then one confident title match. No confident book means no
  * Hardcover fields: it never guesses between Hardcover's duplicates.
  *
@@ -68,6 +70,7 @@ class HardcoverMetadataSource(
     GenreSource,
     MoodSource,
     PersonFindSource,
+    CoverSource,
     BookFindSource {
     override val id: MetadataProviderId = MetadataProviderId.HARDCOVER
 
@@ -126,6 +129,15 @@ class HardcoverMetadataSource(
                 ?.take(MAX_GENRES)
                 ?.map { GenreMeta(it.name, GenreKind.GENRE) }
                 ?.ifEmpty { null }
+        }
+
+    /** Hardcover's cover for the book (matching redesign PR 3), so Review can offer it as a tile. */
+    override suspend fun searchCovers(
+        book: BookIdentity,
+        locale: MetadataLocale,
+    ): AppResult<List<CoverMeta>> =
+        details(book).map { found ->
+            found?.imageUrl?.let { listOf(CoverMeta(url = it, sourceKey = found.hcBookId.toString())) }.orEmpty()
         }
 
     override suspend fun getMoods(
@@ -228,6 +240,8 @@ class HardcoverMetadataSource(
         book: BookIdentity,
         refresh: Boolean,
     ): Resolved {
+        // A Review names the edition: its Hardcover ref is the book, with no link or matcher lookup.
+        book.refFor(id)?.id?.toLongOrNull()?.let { return Resolved.Found(it) }
         val key = "${book.bookId.orEmpty()}|${book.asin.orEmpty()}|${book.isbn.orEmpty()}"
         if (!refresh) {
             when (val known = cache.resolution(key)) {

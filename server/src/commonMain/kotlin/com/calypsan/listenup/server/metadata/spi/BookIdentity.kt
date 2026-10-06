@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.metadata.spi
 
+import com.calypsan.listenup.api.dto.match.ExternalRef
+
 /**
  * What the enrich phase knows about a book *before* asking a provider to fill it in.
  *
@@ -30,4 +32,12 @@ data class BookIdentity(
     val bookId: String? = null,
     /** The book's narrators, as credited, when known — they feed the match scorer (the matching redesign). */
     val narrators: List<String> = emptyList(),
-)
+    /**
+     * The book as each catalogue knows it, when a Review names the edition (a Find candidate's key). A provider
+     * with a ref here fetches that ref and nothing else; [asin] carries the `audible` ref for the ASIN-keyed ones.
+     */
+    val refs: List<ExternalRef> = emptyList(),
+) {
+    /** This identity's ref at [provider], or null. */
+    fun refFor(provider: MetadataProviderId): ExternalRef? = refs.firstOrNull { it.provider == provider.value }
+}

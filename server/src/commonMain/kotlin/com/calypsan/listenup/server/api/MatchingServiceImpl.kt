@@ -109,6 +109,23 @@ internal class MatchingServiceImpl(
             }
         }
 
+    override suspend fun reviewBookMatch(
+        bookId: BookId,
+        candidate: com.calypsan.listenup.api.dto.match.BookCandidateKey,
+        region: MetadataLocale?,
+    ): AppResult<com.calypsan.listenup.api.dto.match.BookMatchReview> = AppResult.Failure(notFound(bookId))
+
+    override suspend fun applyBookMatch(
+        bookId: BookId,
+        request: com.calypsan.listenup.api.dto.match.BookMatchApply,
+    ): AppResult<com.calypsan.listenup.api.sync.Mutated<com.calypsan.listenup.api.dto.match.MatchReceipt>> =
+        AppResult.Failure(notFound(bookId))
+
+    override suspend fun undoMatch(
+        receiptId: String,
+    ): AppResult<com.calypsan.listenup.api.sync.Mutated<com.calypsan.listenup.api.dto.match.UndoResult>> =
+        AppResult.Failure(MetadataError.UndoExpired())
+
     private suspend fun requireEditableBook(bookId: BookId): AppError? {
         val caller = principal.current() ?: return AuthError.PermissionDenied()
         permissionPolicy.requireCanEdit(caller.userId, caller.role)?.let { return it }
