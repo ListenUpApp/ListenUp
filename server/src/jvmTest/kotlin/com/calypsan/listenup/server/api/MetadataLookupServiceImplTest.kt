@@ -374,7 +374,7 @@ class MetadataLookupServiceImplTest :
                                     composed?.let { MetadataMatch(it.toMetadataBook(), it.fieldProviders) }
                                 }
                             },
-                            enrichmentProvider = "audible",
+                            appliedBy = "test-user",
                             genreHierarchy =
                                 GenreHierarchyFromLadder(sql, genreRepo, GenreAutoCreator(genreRepo)),
                             sqlDb = sql,
@@ -400,10 +400,13 @@ class MetadataLookupServiceImplTest :
                         applier.apply(BookId("book-1"), asin = "B0TESTASIN", locale = MetadataLocale("us"), selection = coverSelection)
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                    // Cover lands under the managed covers dir …
-                    SystemFileSystem.exists(Path(coversDir.toString(), "book-1.jpg")) shouldBe true
+                    // Cover lands under the managed covers dir, named by its content (decision D1) so it never
+                    // overwrites the file a match receipt keeps for Undo …
+                    val coverPath = sql.booksQueries.selectCoverColumnsById("book-1").executeAsOne().cover_path!!
+                    coverPath.startsWith("covers/book-1-") shouldBe true
+                    SystemFileSystem.exists(Path(coversDir.toString(), coverPath.removePrefix("covers/"))) shouldBe true
                     // … and NOT under the library path.
-                    SystemFileSystem.exists(Path(libraryRoot, "covers", "book-1.jpg")) shouldBe false
+                    SystemFileSystem.exists(Path(libraryRoot, coverPath)) shouldBe false
                 }
             }
         }

@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.server.db.sqldelight.Match_receipts
+import com.calypsan.listenup.server.matching.undo.MatchReceiptCodec
+import com.calypsan.listenup.server.matching.undo.ReceiptEntity
+
 import com.calypsan.listenup.api.dto.match.ExternalRef
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
@@ -147,6 +151,7 @@ internal fun ListenUpDatabase.readBookPayloads(idStrs: List<String>): List<BookS
     val audioByBook = HashMap<String, MutableList<BookAudioFilePayload>>()
     val documentsByBook = HashMap<String, MutableList<BookDocumentPayload>>()
     val refsByBook = HashMap<String, List<ExternalRef>>()
+    val receiptsByBook = HashMap<String, Match_receipts>()
 
     idStrs.chunked(SQLITE_IN_CHUNK).forEach { chunk ->
         booksQueries.selectByIds(chunk).executeAsList().forEach { row -> bookRows[row.id] = row }
@@ -242,6 +247,10 @@ internal fun ListenUpDatabase.readBookPayloads(idStrs: List<String>): List<BookS
         }
 
         refsByBook.putAll(readExternalRefs(ExternalRefKind.BOOK, chunk))
+        matchReceiptsQueries
+            .selectLiveForEntities(ReceiptEntity.BOOK.value, chunk)
+            .executeAsList()
+            .forEach { receiptsByBook[it.entity_id] = it }
     }
 
     return idStrs.mapNotNull { id ->
@@ -255,6 +264,6 @@ internal fun ListenUpDatabase.readBookPayloads(idStrs: List<String>): List<BookS
             chapters = chaptersByBook[id].orEmpty(),
             documents = documentsByBook[id].orEmpty(),
             externalRefs = refsByBook[id].orEmpty(),
-        )
+        ).copy(lastMatch = receiptsByBook[id]?.let { MatchReceiptCodec.lastMatchOf(it, row.revision) })
     }
 }

@@ -139,7 +139,7 @@ class BookMetadataApplierExternalRatingsTest :
                 imageStorage = ImageStorage(httpClient = HttpClient(engine)),
                 coverImageStore = CoverImageStore(ImageStore(IoPath(tempDir.resolve("covers").toString()), MAX_COVER_BYTES)),
                 matchSource = { _, _ -> AppResult.Success(MetadataMatch(match, emptyMap())) },
-                enrichmentProvider = "audible",
+                appliedBy = "test-user",
                 genreHierarchy = GenreHierarchyFromLadder(dbs.sql, genreRepo, GenreAutoCreator(genreRepo)),
                 sqlDb = dbs.sql,
                 ladderSource = { _, _ -> emptyList() },

@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.result.getOrElse
 import com.calypsan.listenup.api.sync.BookMoodSyncPayload
 import com.calypsan.listenup.api.sync.Mood
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.server.matching.review.BookMood
 import com.calypsan.listenup.server.sync.BookMoodRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.MoodSlug
@@ -32,7 +33,7 @@ import kotlin.time.Clock
 internal class BookMoodWriter(
     private val clock: Clock,
     private val moodRepository: MoodRepository,
-    private val bookMoodRepository: BookMoodRepository,
+    internal val bookMoodRepository: BookMoodRepository,
 ) {
     /**
      * Links every mood name in [rawMoods] to [bookId], find-or-creating each mood
@@ -97,11 +98,18 @@ internal class BookMoodWriter(
         }
     }
 
+    /** [bookId]'s live moods, with their names — what a match review shows as yours. */
+    internal suspend fun currentMoods(bookId: BookId): List<BookMood> {
+        val ids = bookMoodRepository.findAllForBook(bookId.value).filter { it.deletedAt == null }.map { it.moodId }
+        val names = moodRepository.findByIds(ids).associate { it.id to it.name }
+        return ids.mapNotNull { id -> names[id]?.let { BookMood(id, it) } }
+    }
+
     /**
      * Resolves a single raw mood [name] to a live mood id, creating the catalog row if absent.
      * Returns null when [name] normalizes to a blank slug or no row can be materialized.
      */
-    private suspend fun resolveMoodId(name: String): String? {
+    internal suspend fun resolveMoodId(name: String): String? {
         val slug = MoodSlug.normalize(name).getOrElse { return null }
         return (moodRepository.findBySlug(slug) ?: createMood(name, slug))?.id
     }

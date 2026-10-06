@@ -264,6 +264,19 @@ UPDATE books SET field_provenance = :field_provenance WHERE id = :id;
 
 -- Managed-cover write (setManagedCover): provenance + relative path + hash, plus
 -- revision/updated_at bump. Returns the affected-row count semantics via change().
+-- The cover columns alone, inside a match's (or its undo's) one transaction, which bumps the revision itself.
+setCoverColumns:
+UPDATE books SET cover_source = :cover_source, cover_path = :cover_path, cover_hash = :cover_hash WHERE id = :id;
+
+-- Every cover path any book row names, soft-deleted rows included (a book can be revived). The covers/
+-- orphan sweep keeps exactly these, plus live match receipts' snapshot covers.
+-- A live book's revision, read inside a match's transaction to refuse a write over a newer book.
+selectRevisionById:
+SELECT revision FROM books WHERE id = :id AND deleted_at IS NULL;
+
+selectAllCoverPaths:
+SELECT cover_path FROM books WHERE cover_path IS NOT NULL;
+
 updateManagedCover:
 UPDATE books
 SET cover_source = :cover_source, cover_path = :cover_path, cover_hash = :cover_hash,

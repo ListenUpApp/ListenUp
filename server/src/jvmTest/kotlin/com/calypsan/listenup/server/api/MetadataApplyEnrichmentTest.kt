@@ -118,7 +118,7 @@ private val ENRICH_SELECTION =
 class MetadataApplyEnrichmentTest :
     FunSpec({
 
-        test("apply persists the user-selected moods + tags") {
+        test("apply persists the user-selected moods and leaves tags alone — matching never changes tags") {
             withSqlDatabase {
                 val ctx = enrichmentCtx(this)
                 // The apply path must NOT scrape — a throwing source proves moods/tags come from the selection.
@@ -131,12 +131,13 @@ class MetadataApplyEnrichmentTest :
 
                 runTest {
                     ctx.bookRepo.upsert(minimalEnrichBook(BOOK_ID), clientOpId = null)
+                    BookTagWriter(FixedClock(ENRICH_NOW), ctx.tagRepo, ctx.bookTagRepo).setBookTags(BookId(BOOK_ID), listOf("Heist"))
 
                     val result = applier.apply(BookId(BOOK_ID), ENRICH_ASIN, MetadataLocale("us"), selection)
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     ctx.moodNamesForBook(BOOK_ID) shouldContainExactlyInAnyOrder listOf("Feel-Good", "Tense")
-                    ctx.tagNamesForBook(BOOK_ID) shouldContainExactlyInAnyOrder listOf("Found Family")
+                    ctx.tagNamesForBook(BOOK_ID) shouldContainExactlyInAnyOrder listOf("Heist")
                 }
             }
         }
@@ -160,9 +161,9 @@ class MetadataApplyEnrichmentTest :
             }
         }
 
-        // Re-matching RECONCILES moods/tropes to the new selection (replace, not add).
-        // A deselected mood/tag from the first apply is dropped; only the second selection survives.
-        test("re-matching reconciles moods/tropes to the new selection instead of accumulating (#573)") {
+        // Re-matching RECONCILES moods to the new selection (replace, not add): a deselected mood from the
+        // first apply is dropped; only the second selection survives. Tags are never written.
+        test("re-matching reconciles moods to the new selection instead of accumulating (#573)") {
             withSqlDatabase {
                 val ctx = enrichmentCtx(this)
                 val applier = ctx.applier()
@@ -188,8 +189,8 @@ class MetadataApplyEnrichmentTest :
 
                     // Live (non-deleted) moods == {Hopeful, Wistful}; Tense dropped, Wistful added.
                     ctx.moodNamesForBook(BOOK_ID) shouldContainExactlyInAnyOrder listOf("Hopeful", "Wistful")
-                    // Live (non-deleted) tags == {Revenge}; Heist dropped.
-                    ctx.tagNamesForBook(BOOK_ID) shouldContainExactlyInAnyOrder listOf("Revenge")
+                    // Tags are yours: the legacy apply no longer writes them, whatever the selection says.
+                    ctx.tagNamesForBook(BOOK_ID) shouldHaveSize 0
                 }
             }
         }
@@ -221,7 +222,7 @@ private class EnrichmentCtx(
                     composed?.let { MetadataMatch(it.toMetadataBook(), it.fieldProviders) }
                 }
             },
-            enrichmentProvider = "audible",
+            appliedBy = "test-user",
             genreHierarchy = GenreHierarchyFromLadder(sql, genreRepo, GenreAutoCreator(genreRepo)),
             sqlDb = sql,
             ladderSource = { _, _ -> emptyList() },
