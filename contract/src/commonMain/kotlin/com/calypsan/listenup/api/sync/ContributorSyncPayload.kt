@@ -1,5 +1,9 @@
 package com.calypsan.listenup.api.sync
 
+import com.calypsan.listenup.api.dto.match.ExternalRef
+import com.calypsan.listenup.api.metadata.ContributorField
+import com.calypsan.listenup.api.metadata.ContributorFieldProvenanceMapSerializer
+import com.calypsan.listenup.api.metadata.FieldProvenance
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -49,4 +53,14 @@ data class ContributorSyncPayload(
      */
     @SerialName("aliases")
     val aliases: List<String> = emptyList(),
+    /**
+     * The person at each metadata catalogue (matching redesign PR 4). The `audible` ref mirrors [asin], which
+     * stays for older clients. Clients don't store refs: Find, Review and Apply resolve them on the server.
+     */
+    @SerialName("externalRefs")
+    val externalRefs: List<ExternalRef> = emptyList(),
+    /** Who or what wrote each tracked field: a hand edit is `USER` and is protected from a match by default. */
+    @SerialName("fieldProvenance")
+    @Serializable(with = ContributorFieldProvenanceMapSerializer::class)
+    val fieldProvenance: Map<ContributorField, FieldProvenance> = emptyMap(),
 ) : SyncPayload

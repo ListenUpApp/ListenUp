@@ -22,23 +22,35 @@ import kotlinx.serialization.encoding.Encoder
  * construction), so the stored and wire formats are byte-identical to the plain enum-keyed codec
  * this replaced.
  */
-public object FieldProvenanceMapSerializer : KSerializer<Map<BookField, FieldProvenance>> {
+public object FieldProvenanceMapSerializer :
+    KSerializer<Map<BookField, FieldProvenance>> by EnumKeyedProvenanceSerializer(BookField.entries)
+
+/** The same forward-compatible codec for a [ContributorField]-keyed provenance map. */
+public object ContributorFieldProvenanceMapSerializer :
+    KSerializer<Map<ContributorField, FieldProvenance>> by EnumKeyedProvenanceSerializer(ContributorField.entries)
+
+/**
+ * A provenance map keyed by an enum, encoded with the enum names as JSON keys; on decode a name this build
+ * doesn't recognise is dropped rather than thrown on. See [FieldProvenanceMapSerializer].
+ */
+public class EnumKeyedProvenanceSerializer<E : Enum<E>>(
+    entries: List<E>,
+) : KSerializer<Map<E, FieldProvenance>> {
     private val delegate = MapSerializer(String.serializer(), FieldProvenance.serializer())
+    private val byName = entries.associateBy { it.name }
 
     override val descriptor: SerialDescriptor = delegate.descriptor
 
     override fun serialize(
         encoder: Encoder,
-        value: Map<BookField, FieldProvenance>,
+        value: Map<E, FieldProvenance>,
     ) {
         delegate.serialize(encoder, value.mapKeys { (field, _) -> field.name })
     }
 
-    override fun deserialize(decoder: Decoder): Map<BookField, FieldProvenance> {
-        val byName = BookField.entries.associateBy { it.name }
-        return delegate
+    override fun deserialize(decoder: Decoder): Map<E, FieldProvenance> =
+        delegate
             .deserialize(decoder)
             .mapNotNull { (name, provenance) -> byName[name]?.let { it to provenance } }
             .toMap()
-    }
 }
