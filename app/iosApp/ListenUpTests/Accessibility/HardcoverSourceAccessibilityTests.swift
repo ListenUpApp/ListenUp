@@ -4,7 +4,7 @@ import Testing
 
 /// Administration → Hardcover's API token, for VoiceOver, Voice Control and large text (#1562).
 @MainActor
-@Suite("Hardcover token accessibility", .serialized, .flakyOnCI)
+@Suite("Hardcover token accessibility", .serialized)
 struct HardcoverSourceAccessibilityTests {
     private func model(
         _ token: HardcoverSourceModel.Token, isBusy: Bool = false, refusal: String? = nil

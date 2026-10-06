@@ -4,7 +4,7 @@ import Testing
 
 /// Find on Hardcover with a long query at the largest text sizes (#1562).
 @MainActor
-@Suite("Find on Hardcover accessibility", .serialized, .flakyOnCI)
+@Suite("Find on Hardcover accessibility", .serialized)
 struct HardcoverMatchAccessibilityTests {
     private let query = "Living from a Place of Surrender The Untethered Soul in Action"
 

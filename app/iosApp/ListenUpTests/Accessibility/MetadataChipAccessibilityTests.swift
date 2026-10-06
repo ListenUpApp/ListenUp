@@ -4,7 +4,7 @@ import Testing
 
 /// Select metadata's genre and mood chips, and its apply tray, for VoiceOver and large text (#1562).
 @MainActor
-@Suite("Metadata chips accessibility", .serialized, .flakyOnCI)
+@Suite("Metadata chips accessibility", .serialized)
 struct MetadataChipAccessibilityTests {
     private let genres = [
         MetadataGenreSelection(id: "g1", label: "Science Fiction & Fantasy", isSelected: true, sourceLabel: nil),

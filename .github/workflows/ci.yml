@@ -507,11 +507,6 @@ jobs:
 
       - name: Run iOS tests
         working-directory: app/iosApp
-        # xcodebuild does not hand the runner's environment to the test process; a TEST_RUNNER_
-        # prefix is the documented way through (stripped, so tests see `CI`). Tests quarantined
-        # on CI only (`.disabled(if: CI)`) read it — they still run on a Mac at the desk.
-        env:
-          TEST_RUNNER_CI: 'true'
         run: |
           set -o pipefail
           # Per-test timeouts: a hung test (never-completing await / black-hole Flow) fails fast with

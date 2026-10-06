@@ -4,7 +4,7 @@ import Testing
 
 /// Settings → Hardcover, read the way VoiceOver and the largest text sizes meet it (#1562).
 @MainActor
-@Suite("Hardcover settings accessibility", .serialized, .flakyOnCI)
+@Suite("Hardcover settings accessibility", .serialized)
 struct HardcoverSettingsAccessibilityTests {
     private static func books(_ count: Int) -> [HardcoverBookToMatchRow] {
         (1...count).map {
