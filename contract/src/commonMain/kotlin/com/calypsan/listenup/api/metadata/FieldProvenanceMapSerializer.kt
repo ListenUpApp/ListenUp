@@ -33,7 +33,7 @@ public object ContributorFieldProvenanceMapSerializer :
  * A provenance map keyed by an enum, encoded with the enum names as JSON keys; on decode a name this build
  * doesn't recognise is dropped rather than thrown on. See [FieldProvenanceMapSerializer].
  */
-public class EnumKeyedProvenanceSerializer<E : Enum<E>>(
+class EnumKeyedProvenanceSerializer<E : Enum<E>>(
     entries: List<E>,
 ) : KSerializer<Map<E, FieldProvenance>> {
     private val delegate = MapSerializer(String.serializer(), FieldProvenance.serializer())

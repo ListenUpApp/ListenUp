@@ -11,6 +11,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonArray
@@ -256,62 +257,8 @@ class FakeHardcoverCatalog {
                         ) { allAuthors().filter { it.name == variables.text("name") }.forEach { add(authorJson(it)) } }
                     }
 
-                    "people_search" -> {
-                        putJsonObject("search") {
-                            putJsonObject("results") {
-                                putJsonArray("hits") {
-                                    val query = variables.text("query")
-                                    allPeople().filter { it.name.contains(query, ignoreCase = true) }.forEach { person ->
-                                        addJsonObject {
-                                            putJsonObject("document") {
-                                                put("id", person.id.toString())
-                                                put("name", person.name)
-                                                putJsonArray("books") { creditedBooks(person).forEach { add(JsonPrimitive(it.title)) } }
-                                                put("books_count", creditedBooks(person).size)
-                                                if (person.imageUrl == null) {
-                                                    put("image", JsonNull)
-                                                } else {
-                                                    putJsonObject("image") { put("url", person.imageUrl) }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    "people_details" -> {
-                        val ids = variables["ids"]?.jsonArray?.map { it.jsonPrimitive.long }?.toSet().orEmpty()
-                        val asins = variables["asins"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet().orEmpty()
-                        val isbns = variables["isbns"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet().orEmpty()
-                        val bookIds = variables["books"]?.jsonArray?.map { it.jsonPrimitive.long }?.toSet().orEmpty()
-                        putJsonArray("people") { allPeople().filter { it.id in ids }.forEach { add(personJson(it)) } }
-                        putJsonArray("byIdentifier") {
-                            books.filter { it.asin in asins || it.isbn13 in isbns }.forEach { book ->
-                                addJsonObject {
-                                    put("asin", book.asin)
-                                    put("isbn_13", book.isbn13)
-                                    put("isbn_10", JsonNull)
-                                    put("contributions", creditsJson(book.narrators, "Narrator"))
-                                    putJsonObject("book") {
-                                        put("id", book.id)
-                                        put("contributions", creditsJson(book.authors, null))
-                                    }
-                                }
-                            }
-                        }
-                        putJsonArray("byBook") {
-                            books.filter { it.id in bookIds }.forEach { book ->
-                                addJsonObject {
-                                    put("id", book.id)
-                                    put("contributions", creditsJson(book.authors, null))
-                                    putJsonArray("editions") {
-                                        addJsonObject { put("contributions", creditsJson(book.narrators, "Narrator")) }
-                                    }
-                                }
-                            }
-                        }
+                    "people_search", "people_details" -> {
+                        people(operation, variables)
                     }
 
                     "author_by_id" -> {
@@ -325,6 +272,93 @@ class FakeHardcoverCatalog {
 
     private fun allAuthors(): List<Author> = books.flatMap { it.authors }.distinctBy { it.id }
 
+    /** The two people operations: the author index search, and the batched people read. */
+    private fun JsonObjectBuilder.people(
+        operation: String,
+        variables: JsonObject,
+    ) {
+        if (operation == "people_search") peopleSearch(variables.text("query")) else peopleDetails(variables)
+    }
+
+    /** The author index: everyone whose name contains [query], with their titles and photo. */
+    private fun JsonObjectBuilder.peopleSearch(query: String) {
+        putJsonObject("search") {
+            putJsonObject("results") {
+                putJsonArray("hits") {
+                    allPeople().filter { it.name.contains(query, ignoreCase = true) }.forEach { person ->
+                        addJsonObject {
+                            putJsonObject("document") {
+                                put("id", person.id.toString())
+                                put("name", person.name)
+                                putJsonArray("books") { creditedBooks(person).forEach { add(JsonPrimitive(it.title)) } }
+                                put("books_count", creditedBooks(person).size)
+                                if (person.imageUrl == null) {
+                                    put("image", JsonNull)
+                                } else {
+                                    putJsonObject("image") { put("url", person.imageUrl) }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /** The batched people read: the people by id, and the credits on editions by ASIN/ISBN and on linked books. */
+    private fun JsonObjectBuilder.peopleDetails(variables: JsonObject) {
+        val ids =
+            variables["ids"]
+                ?.jsonArray
+                ?.map { it.jsonPrimitive.long }
+                ?.toSet()
+                .orEmpty()
+        val asins =
+            variables["asins"]
+                ?.jsonArray
+                ?.map { it.jsonPrimitive.content }
+                ?.toSet()
+                .orEmpty()
+        val isbns =
+            variables["isbns"]
+                ?.jsonArray
+                ?.map { it.jsonPrimitive.content }
+                ?.toSet()
+                .orEmpty()
+        val bookIds =
+            variables["books"]
+                ?.jsonArray
+                ?.map { it.jsonPrimitive.long }
+                ?.toSet()
+                .orEmpty()
+        putJsonArray("people") { allPeople().filter { it.id in ids }.forEach { add(personJson(it)) } }
+        putJsonArray("byIdentifier") {
+            books.filter { it.asin in asins || it.isbn13 in isbns }.forEach { book ->
+                addJsonObject {
+                    put("asin", book.asin)
+                    put("isbn_13", book.isbn13)
+                    put("isbn_10", JsonNull)
+                    put("contributions", creditsJson(book.narrators, "Narrator"))
+                    putJsonObject("book") {
+                        put("id", book.id)
+                        put("contributions", creditsJson(book.authors, null))
+                    }
+                }
+            }
+        }
+        putJsonArray("byBook") {
+            books.filter { it.id in bookIds }.forEach { book ->
+                addJsonObject {
+                    put("id", book.id)
+                    put("contributions", creditsJson(book.authors, null))
+                    putJsonArray("editions") {
+                        addJsonObject { put("contributions", creditsJson(book.narrators, "Narrator")) }
+                    }
+                }
+            }
+        }
+    }
+
     /** Everyone credited on any book, narrators included — Hardcover keeps both in `authors`. */
     private fun allPeople(): List<Author> = books.flatMap { it.authors + it.narrators }.distinctBy { it.id }
 
@@ -337,7 +371,13 @@ class FakeHardcoverCatalog {
             put("id", person.id)
             put("name", person.name)
             put("bio", person.bio)
-            if (person.imageUrl == null) put("image", JsonNull) else putJsonObject("image") { put("url", person.imageUrl) }
+            if (person.imageUrl ==
+                null
+            ) {
+                put("image", JsonNull)
+            } else {
+                putJsonObject("image") { put("url", person.imageUrl) }
+            }
             put("books_count", creditedBooks(person).size)
             putJsonObject("narrations") {
                 putJsonObject("aggregate") { put("count", books.count { b -> b.narrators.any { it.id == person.id } }) }

@@ -67,13 +67,15 @@ private const val AUDIO_FORMAT = 2
 private const val MAX_PEOPLE_HITS = 5
 private const val MAX_AUDIO_EDITIONS_PER_BOOK = 20
 
-private const val PERSON_FIELDS =
-    "id name bio image{ url } books_count " +
-        "narrations: contributions_aggregate(where:{contributable_type:{_eq:\"Edition\"}, " +
-        "contribution:{_in:\$narrator}}){ aggregate{ count } } " +
-        "authorships: contributions_aggregate(where:{contributable_type:{_eq:\"Book\"}, " +
-        "_or:[{contribution:{_is_null:true}},{contribution:{_eq:\"Author\"}}]}){ aggregate{ count } }"
-private const val CREDITS = "contributions{ contribution author{ $PERSON_FIELDS } }"
+private val PERSON_FIELDS =
+    """
+    id name bio image{ url } books_count
+    narrations: contributions_aggregate(where:{contributable_type:{_eq:"Edition"},
+      contribution:{_in:${'$'}narrator}}){ aggregate{ count } }
+    authorships: contributions_aggregate(where:{contributable_type:{_eq:"Book"},
+      _or:[{contribution:{_is_null:true}},{contribution:{_eq:"Author"}}]}){ aggregate{ count } }
+    """.trimIndent().replace('\n', ' ')
+private val CREDITS = "contributions{ contribution author{ $PERSON_FIELDS } }"
 private const val PEOPLE_SEARCH_QUERY =
     "query(\$query:String!){ search(query:\$query, query_type:\"Author\", per_page:10, page:1){ results } }"
 
