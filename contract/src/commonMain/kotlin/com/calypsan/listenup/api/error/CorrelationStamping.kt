@@ -264,6 +264,10 @@ private fun MetadataError.withCorrelationId(id: String?): MetadataError =
         is MetadataError.Malformed -> copy(correlationId = id)
         is MetadataError.ChapterCountMismatch -> copy(correlationId = id)
         is MetadataError.UnsafeUrl -> copy(correlationId = id)
+        is MetadataError.ExternalTimeout -> copy(correlationId = id)
+        is MetadataError.ReviewOutdated -> copy(correlationId = id)
+        is MetadataError.CoverDownloadFailed -> copy(correlationId = id)
+        is MetadataError.UndoExpired -> copy(correlationId = id)
     }
 
 /**

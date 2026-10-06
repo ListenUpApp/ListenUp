@@ -119,4 +119,57 @@ sealed interface MetadataError : AppError {
         override val code: String = "METADATA_UNSAFE_URL"
         override val isRetryable: Boolean = false
     }
+    /**
+     * A metadata source didn't answer in time while composing a Review. Asking again is reasonable; answers
+     * already received come back from the provider caches.
+     */
+    @Serializable
+    @SerialName("MetadataError.ExternalTimeout")
+    data class ExternalTimeout(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : MetadataError {
+        override val message: String = "A metadata source didn't answer in time. Try again."
+        override val code: String = "METADATA_TIMEOUT"
+        override val isRetryable: Boolean = true
+    }
+
+    /**
+     * The book, or one of the reviewed options, changed after the Review was made, so Apply wrote nothing. The
+     * client reloads the Review, keeping the choices whose options survive.
+     */
+    @Serializable
+    @SerialName("MetadataError.ReviewOutdated")
+    data class ReviewOutdated(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : MetadataError {
+        override val message: String = "This book changed while you were reviewing. Nothing was changed."
+        override val code: String = "METADATA_REVIEW_OUTDATED"
+        override val isRetryable: Boolean = false
+    }
+
+    /** The chosen cover couldn't be downloaded or wasn't a usable image, so Apply wrote nothing. */
+    @Serializable
+    @SerialName("MetadataError.CoverDownloadFailed")
+    data class CoverDownloadFailed(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : MetadataError {
+        override val message: String = "The chosen cover couldn't be downloaded. Nothing was changed."
+        override val code: String = "METADATA_COVER_DOWNLOAD_FAILED"
+        override val isRetryable: Boolean = false
+    }
+
+    /** The match can no longer be undone: it was already undone, or the book has changed since. */
+    @Serializable
+    @SerialName("MetadataError.UndoExpired")
+    data class UndoExpired(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : MetadataError {
+        override val message: String = "This book has changed since, so the match can't be undone."
+        override val code: String = "METADATA_UNDO_EXPIRED"
+        override val isRetryable: Boolean = false
+    }
 }
