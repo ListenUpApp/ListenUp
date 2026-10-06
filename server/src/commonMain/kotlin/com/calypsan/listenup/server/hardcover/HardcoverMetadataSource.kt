@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.hardcover
 
+import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
@@ -10,7 +11,9 @@ import com.calypsan.listenup.server.metadata.spi.BookCoreSource
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.server.metadata.spi.ContributorHitMeta
 import com.calypsan.listenup.server.metadata.spi.ContributorMeta
-import com.calypsan.listenup.server.metadata.spi.ContributorSource
+import com.calypsan.listenup.server.metadata.spi.PersonAnswer
+import com.calypsan.listenup.server.metadata.spi.PersonFindSource
+import com.calypsan.listenup.server.metadata.spi.PersonLookup
 import com.calypsan.listenup.server.metadata.spi.FindAnswer
 import com.calypsan.listenup.server.metadata.spi.FindAvailability
 import com.calypsan.listenup.server.metadata.spi.FindLookup
@@ -64,11 +67,22 @@ class HardcoverMetadataSource(
     SeriesSource,
     GenreSource,
     MoodSource,
-    ContributorSource,
+    PersonFindSource,
     BookFindSource {
     override val id: MetadataProviderId = MetadataProviderId.HARDCOVER
 
     private val finder = HardcoverFind(graphQl, catalogToken, rateLimiter, links, sourceSettings)
+    private val people = HardcoverPeople(graphQl, catalogToken, rateLimiter)
+
+    /** Hardcover has profiles for narrators as well as authors — the one source that does. */
+    override val profileRoles: Set<ContributorRole> = setOf(ContributorRole.AUTHOR, ContributorRole.NARRATOR)
+
+    override suspend fun personAvailability(): FindAvailability = finder.availability()
+
+    override suspend fun findPeople(
+        lookup: PersonLookup,
+        locale: MetadataLocale,
+    ): AppResult<PersonAnswer> = people.find(lookup)
 
     override suspend fun findAvailability(): FindAvailability = finder.availability()
 
@@ -156,12 +170,8 @@ class HardcoverMetadataSource(
         locale: MetadataLocale,
         refresh: Boolean,
     ): AppResult<ContributorMeta?> {
-        val authorId =
-            key
-                .takeIf {
-                    it.startsWith(HARDCOVER_AUTHOR_KEY_PREFIX)
-                }?.removePrefix(HARDCOVER_AUTHOR_KEY_PREFIX)
-                ?.toLongOrNull()
+        // The legacy key carries a prefix; a ref (matching) is the bare id.
+        val authorId = key.removePrefix(HARDCOVER_AUTHOR_KEY_PREFIX).toLongOrNull()
         if (authorId == null || !canRun()) return AppResult.Success(null)
         val answer =
             catalogToken.read { token ->

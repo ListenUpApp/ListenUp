@@ -13,6 +13,7 @@ import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.matching.BookFinder
 import com.calypsan.listenup.server.matching.FakeRegionalFindSource
+import com.calypsan.listenup.server.matching.PeopleFinder
 import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
@@ -42,6 +43,9 @@ private class ServiceRig(
             libraryRegion = { libraryRegion },
             permissionPolicy = UserPermissionPolicy(db.sql),
             bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
+            peopleFinder = PeopleFinder(MetadataProviderRegistry(emptyList()), EnrichmentRoutes.DEFAULT),
+            loadPeople = { _, _, _ -> null },
+            peopleRegion = { MetadataLocale.DEFAULT },
         )
 }
 

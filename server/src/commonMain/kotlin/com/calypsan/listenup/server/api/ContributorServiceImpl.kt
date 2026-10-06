@@ -3,12 +3,16 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.metadata.ContributorField
+import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -146,7 +150,16 @@ internal class ContributorServiceImpl(
         val current =
             contributorRepo.findById(id.value)
                 ?: return contributorNotFound(id)
-        val patched = current.applyPatch(patch)
+        val patched =
+            current.applyPatch(patch).let {
+                it.copy(
+                    fieldProvenance =
+                        it.fieldProvenance.stampUser(
+                            patch.touchedFields(),
+                            principal.current()?.userId?.value,
+                        ),
+                )
+            }
         val nameChanged = patched.name != current.name || patched.sortName != current.sortName
         val outcome: UpdateOutcome =
             when (val upsertResult = contributorRepo.upsert(patched)) {
@@ -426,6 +439,28 @@ private fun mergeAliasesFor(
         if (seen.add(key)) out.add(trimmed)
     }
     return out
+}
+
+/** The tracked fields [this] patch writes — each becomes a hand edit. */
+private fun ContributorUpdate.touchedFields(): Set<ContributorField> =
+    buildSet {
+        if (name != null) add(ContributorField.NAME)
+        if (sortName != null) add(ContributorField.SORT_NAME)
+        if (description != null) add(ContributorField.BIOGRAPHY)
+        if (imagePath != null) add(ContributorField.PHOTO)
+    }
+
+/**
+ * Stamps [fields] as hand-edited by [by], now: `USER` out-ranks a match, so Review leaves them unticked and says
+ * whose edit they were. The rest of the map is kept (the max-tier union books use).
+ */
+private fun Map<ContributorField, FieldProvenance>.stampUser(
+    fields: Set<ContributorField>,
+    by: String?,
+): Map<ContributorField, FieldProvenance> {
+    if (fields.isEmpty()) return this
+    val now = currentEpochMilliseconds()
+    return this + fields.associateWith { FieldProvenance(FieldSourceKind.USER, at = now, by = by) }
 }
 
 private fun ContributorSyncPayload.applyPatch(patch: ContributorUpdate): ContributorSyncPayload =

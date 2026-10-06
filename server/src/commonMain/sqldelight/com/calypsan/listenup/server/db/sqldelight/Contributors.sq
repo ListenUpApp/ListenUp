@@ -6,6 +6,7 @@
 --                                 birth_date, death_date, website)
 --   V53__drop_blurhash_columns.sql (drops the dormant image_blur_hash column)
 --   V61__contributor_merged_into.sql (merged_into)
+--   V91__contributor_refs_and_provenance.sql (field_provenance)
 --
 -- revision / created_at / updated_at are declared NOT NULL here so the generated
 -- column types are non-null `Long` — every live row carries them (V13 backfills the
@@ -34,7 +35,8 @@ CREATE TABLE contributors (
     birth_date      TEXT,
     death_date      TEXT,
     website         TEXT,
-    merged_into     TEXT
+    merged_into     TEXT,
+    field_provenance TEXT   NOT NULL DEFAULT '{}'
 );
 
 CREATE UNIQUE INDEX idx_contributor_normalized ON contributors(normalized_name);
@@ -104,6 +106,11 @@ SET name = :name, sort_name = :sort_name, asin = :asin, description = :descripti
     updated_at = :updated_at, deleted_at = :deleted_at, client_op_id = :client_op_id,
     merged_into = NULL
 WHERE id = :id;
+
+-- Per-field provenance (ContributorField-keyed JSON), written beside every payload write in the same
+-- transaction, so insert/update and their callers stay as they were.
+updateFieldProvenance:
+UPDATE contributors SET field_provenance = :field_provenance WHERE id = :id;
 
 -- ── substrate queries ──────────────────────────────────────────────────────────
 

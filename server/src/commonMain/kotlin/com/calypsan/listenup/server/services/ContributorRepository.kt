@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.match.ExternalRef
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
@@ -104,7 +105,10 @@ class ContributorRepository(
         db.contributorsQueries
             .selectById(idStr)
             .executeAsOneOrNull()
-            ?.toPayload(db.contributorsQueries.aliasesFor(idStr).executeAsList())
+            ?.toPayload(
+                aliases = db.contributorsQueries.aliasesFor(idStr).executeAsList(),
+                refs = db.readExternalRefs(ExternalRefKind.CONTRIBUTOR, listOf(idStr))[idStr].orEmpty(),
+            )
 
     override fun readPayloads(idStrs: List<String>): List<ContributorSyncPayload> {
         if (idStrs.isEmpty()) return emptyList()
@@ -121,8 +125,18 @@ class ContributorRepository(
                 .chunked(SQLITE_IN_CHUNK)
                 .flatMap { chunk -> db.contributorsQueries.aliasesForIds(chunk).executeAsList() }
                 .groupBy({ it.contributor_id }, { it.alias })
-        return idStrs.mapNotNull { id -> rowsById[id]?.toPayload(aliasesById[id].orEmpty()) }
+        val refsById =
+            idStrs
+                .chunked(SQLITE_IN_CHUNK)
+                .fold(emptyMap<String, List<ExternalRef>>()) { all, chunk ->
+                    all + db.readExternalRefs(ExternalRefKind.CONTRIBUTOR, chunk)
+                }
+        return idStrs.mapNotNull { id -> rowsById[id]?.toPayload(aliasesById[id].orEmpty(), refsById[id].orEmpty()) }
     }
+
+    /** Test-only accessor for the batched [readPayloads]. */
+    internal suspend fun readPayloadsForTest(idStrs: List<String>): List<ContributorSyncPayload> =
+        suspendTransaction(db) { readPayloads(idStrs) }
 
     override fun writePayload(
         value: ContributorSyncPayload,
@@ -175,6 +189,14 @@ class ContributorRepository(
             )
         }
         replaceAliases(value.id, value.aliases)
+        // Refs and provenance ride this write's transaction and revision, reconciled to the asin column so an
+        // older client's ASIN edit and the legacy apply's key keep the refs in step.
+        db.contributorsQueries.updateFieldProvenance(value.fieldProvenance.toContributorProvenanceColumn(), value.id)
+        db.replaceExternalRefs(
+            ExternalRefKind.CONTRIBUTOR,
+            value.id,
+            ContributorIdentity.reconcileRefs(value.asin, value.externalRefs),
+        )
     }
 
     /**
@@ -527,8 +549,11 @@ class ContributorRepository(
     /** Test-only accessor for the protected [idAsString]. */
     internal fun idAsStringForTest(id: ContributorId): String = idAsString(id)
 
-    /** Maps a generated [Contributors] root row plus its [aliases] to the wire payload. */
-    private fun Contributors.toPayload(aliases: List<String>): ContributorSyncPayload =
+    /** Maps a generated [Contributors] root row plus its [aliases] and [refs] to the wire payload. */
+    private fun Contributors.toPayload(
+        aliases: List<String>,
+        refs: List<ExternalRef>,
+    ): ContributorSyncPayload =
         ContributorSyncPayload(
             id = id,
             name = name,
@@ -544,6 +569,8 @@ class ContributorRepository(
             deathDate = death_date,
             website = website,
             aliases = aliases,
+            externalRefs = refs,
+            fieldProvenance = field_provenance.toContributorProvenance(),
         )
 
     private companion object {

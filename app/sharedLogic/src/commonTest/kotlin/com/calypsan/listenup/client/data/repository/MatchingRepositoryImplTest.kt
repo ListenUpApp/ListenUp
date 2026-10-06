@@ -2,7 +2,12 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.MatchingService
 import com.calypsan.listenup.api.dto.match.BookFindRequest
+import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.BookFindResult
+import com.calypsan.listenup.api.dto.match.InLibrary
+import com.calypsan.listenup.api.dto.match.PersonFindRequest
+import com.calypsan.listenup.api.dto.match.PersonFindResult
+import com.calypsan.listenup.api.dto.match.PersonSearchStep
 import com.calypsan.listenup.api.dto.match.SearchStep
 import com.calypsan.listenup.api.dto.match.YourCopy
 import com.calypsan.listenup.api.error.InternalError
@@ -11,6 +16,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ContributorId
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -26,11 +32,31 @@ private val RESULT =
         region = null,
     )
 
+private val PEOPLE =
+    PersonFindResult(
+        role = ContributorRole.NARRATOR,
+        steps = listOf(PersonSearchStep.ByName("Ray Porter")),
+        inLibrary = InLibrary(0, emptyList()),
+        coverage = emptyList(),
+        candidates = emptyList(),
+        sources = emptyList(),
+    )
+
 /** A [MatchingService] with in-memory state: it remembers every request and answers from [reply]. */
 private class FakeMatchingService(
     var reply: suspend () -> AppResult<BookFindResult> = { AppResult.Success(RESULT) },
+    var peopleReply: suspend () -> AppResult<PersonFindResult> = { AppResult.Success(PEOPLE) },
 ) : MatchingService {
     val requests = mutableListOf<Pair<BookId, BookFindRequest>>()
+    val peopleRequests = mutableListOf<Pair<ContributorId, PersonFindRequest>>()
+
+    override suspend fun findPeople(
+        contributorId: ContributorId,
+        request: PersonFindRequest,
+    ): AppResult<PersonFindResult> {
+        peopleRequests += contributorId to request
+        return peopleReply()
+    }
 
     override suspend fun findBookMatches(
         bookId: BookId,
@@ -55,6 +81,18 @@ class MatchingRepositoryImplTest :
             val service = FakeMatchingService()
             MatchingRepositoryImpl(RpcChannel.forTest(service)).findBookMatches(BookId("b1"))
             service.requests.single().second shouldBe BookFindRequest()
+        }
+
+        test("a people Find passes the contributor and request through and returns the server's result") {
+            val service = FakeMatchingService()
+            val repository = MatchingRepositoryImpl(RpcChannel.forTest(service))
+            val request = PersonFindRequest(ContributorRole.NARRATOR, query = "Ray Porter")
+
+            repository.findPeople(ContributorId("c1"), request) shouldBe AppResult.Success(PEOPLE)
+            service.peopleRequests shouldBe listOf(ContributorId("c1") to request)
+
+            service.peopleReply = { AppResult.Failure(MetadataError.NotFound()) }
+            repository.findPeople(ContributorId("c1"), request) shouldBe AppResult.Failure(MetadataError.NotFound())
         }
 
         test("a typed failure from the server passes through untouched") {

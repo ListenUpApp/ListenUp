@@ -58,6 +58,15 @@ JOIN contributors c ON c.id = bc.contributor_id
 WHERE bc.book_id IN :ids AND bc.role = 'author'
 ORDER BY bc.ordinal;
 
+-- The live books crediting a contributor in one role, with what identifies each at a catalogue — a people
+-- Find's subject (matching redesign PR 4). Title order, so "Narrates 3 books in your library: …" reads stably.
+creditedBooksForContributor:
+SELECT b.id, b.title, b.asin, b.isbn
+FROM book_contributors bc
+JOIN books b ON b.id = bc.book_id AND b.deleted_at IS NULL
+WHERE bc.contributor_id = :contributor_id AND bc.role = :role
+ORDER BY COALESCE(b.sort_title, b.title), b.id;
+
 -- ── writes ───────────────────────────────────────────────────────────────────
 
 insert:

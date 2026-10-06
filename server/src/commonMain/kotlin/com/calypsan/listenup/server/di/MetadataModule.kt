@@ -16,6 +16,9 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.io.readEnv
 import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.matching.BookFinder
+import com.calypsan.listenup.server.matching.PeopleFinder
+import com.calypsan.listenup.server.matching.PeopleSubjectLoader
+import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
@@ -95,7 +98,8 @@ private const val METADATA_CONNECT_TIMEOUT_MS = 5_000L
  *    and the composer that walks it per domain to build a book's metadata for the lookup service.
  *  - [ImageStorage] — downloads cover/photo images to disk.
  *  - [MetadataLookupServiceImpl] — RPC implementation bound as [MetadataLookupService].
- *  - [BookFinder] / [MatchingServiceImpl] — Match details' Find, bound as [MatchingService].
+ *  - [BookFinder] / [PeopleFinder] / [MatchingServiceImpl] — Match details' Find for books and people, bound
+ *    as [MatchingService].
  *
  * Installed only when the books slice is active (`booksModule` is installed),
  * because [MetadataLookupServiceImpl] depends on [BookRepository] and friends
@@ -343,6 +347,14 @@ internal fun HttpClientConfig<*>.installMetadataClientDefaults() {
  */
 private fun Module.matchingBindings() {
     single { BookFinder(registry = get<MetadataProviderRegistry>(), routes = get<EnrichmentRoutes>()) }
+    single { PeopleFinder(registry = get<MetadataProviderRegistry>(), routes = get<EnrichmentRoutes>()) }
+    single {
+        PeopleSubjectLoader(
+            db = get<ListenUpDatabase>(),
+            contributors = get<ContributorRepository>(),
+            accessPolicy = get<BookAccessPolicy>(),
+        )
+    }
     single<MatchingService> {
         val books = get<BookRepository>()
         val libraries = get<LibraryRepository>()
@@ -352,6 +364,9 @@ private fun Module.matchingBindings() {
             libraryRegion = libraries::readMetadataRegion,
             permissionPolicy = get<UserPermissionPolicy>(),
             bookAccessPolicy = get<BookAccessPolicy>(),
+            peopleFinder = get<PeopleFinder>(),
+            loadPeople = get<PeopleSubjectLoader>()::load,
+            peopleRegion = get<PeopleSubjectLoader>()::region,
             principal =
                 PrincipalProvider {
                     error("Unscoped MatchingService — call copyWith(PrincipalProvider) at the route")
