@@ -8,6 +8,7 @@ internal enum class ExternalRefKind(
     val column: String,
 ) {
     BOOK("book"),
+    CONTRIBUTOR("contributor"),
 }
 
 /**
