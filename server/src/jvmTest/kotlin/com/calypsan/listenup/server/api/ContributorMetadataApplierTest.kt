@@ -1,6 +1,9 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.error.MetadataError
+import com.calypsan.listenup.api.metadata.ContributorField
+import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
@@ -75,6 +78,28 @@ class ContributorMetadataApplierTest :
                 coordinator = coordinatorWith(profile),
                 imageHome = imageHome,
             )
+
+        test("the legacy apply records what it wrote as matched, and leaves what it kept alone") {
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val handPhoto = FieldProvenance(FieldSourceKind.USER, at = 3, by = "u1")
+                    repo.upsert(existingPayload.copy(fieldProvenance = mapOf(ContributorField.PHOTO to handPhoto)))
+                    val profile =
+                        ContributorMeta(key = "B0ASIN", name = "Brandon Sanderson", description = "New bio.", imageUrl = " ")
+
+                    applier(repo, profile)
+                        .apply(ContributorId("c-1"), "B0ASIN", MetadataLocale("us"))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val provenance = repo.findById("c-1").shouldNotBeNull().fieldProvenance
+                    provenance[ContributorField.PHOTO] shouldBe handPhoto
+                    val bio = provenance.getValue(ContributorField.BIOGRAPHY)
+                    bio.kind shouldBe FieldSourceKind.ENRICHMENT
+                    bio.provider shouldBe "audnexus"
+                }
+            }
+        }
 
         test("a blank-bio profile keeps the existing biography") {
             withSqlDatabase {

@@ -4,10 +4,8 @@ import com.calypsan.listenup.api.dto.match.ExternalRef
 import com.calypsan.listenup.api.metadata.ContributorField
 import com.calypsan.listenup.api.metadata.ContributorFieldProvenanceMapSerializer
 import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.server.hardcover.HARDCOVER_AUTHOR_KEY_PREFIX
 import kotlinx.serialization.json.Json
-
-/** The key the legacy Hardcover contributor apply stored in `contributors.asin`. */
-internal const val LEGACY_HARDCOVER_AUTHOR_PREFIX = "hardcover:author:"
 
 private const val HARDCOVER = "hardcover"
 
@@ -30,7 +28,7 @@ internal object ContributorIdentity {
         refs: List<ExternalRef>,
     ): List<ExternalRef> {
         val column = asin?.trim()?.takeIf { it.isNotEmpty() }
-        val hardcoverId = column?.takeIf { it.startsWith(LEGACY_HARDCOVER_AUTHOR_PREFIX) }?.removePrefix(LEGACY_HARDCOVER_AUTHOR_PREFIX)
+        val hardcoverId = column?.takeIf { it.startsWith(HARDCOVER_AUTHOR_KEY_PREFIX) }?.removePrefix(HARDCOVER_AUTHOR_KEY_PREFIX)
         val fromColumn =
             when {
                 column == null -> null

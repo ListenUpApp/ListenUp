@@ -1,17 +1,23 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.error.MetadataError
+import com.calypsan.listenup.api.metadata.ContributorField
+import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.spi.ContributorMeta
+import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.hardcover.HARDCOVER_AUTHOR_KEY_PREFIX
 import kotlinx.coroutines.CancellationException
 import kotlinx.io.files.Path
 
@@ -88,14 +94,23 @@ internal class ContributorMetadataApplier(
         }
 
         val imagePath = profile.downloadImage(contributorId)
+        val biography = profile.description?.takeIf { it.isNotBlank() }
 
         // Never overwrite an existing field with a blank incoming value (ABS truthy-guard
         // semantics): a missing bio or a failed photo download keeps what the user already has.
+        // What it did write is recorded as matched, from the provider the key names.
+        val matched = FieldProvenance(FieldSourceKind.ENRICHMENT, provider = providerOf(asin), at = currentEpochMilliseconds())
         val updated =
             existing.copy(
                 asin = asin,
-                description = profile.description?.takeIf { it.isNotBlank() } ?: existing.description,
+                description = biography ?: existing.description,
                 imagePath = imagePath ?: existing.imagePath,
+                fieldProvenance =
+                    existing.fieldProvenance +
+                        listOfNotNull(
+                            ContributorField.BIOGRAPHY.takeIf { biography != null },
+                            ContributorField.PHOTO.takeIf { imagePath != null },
+                        ).associateWith { matched },
             )
 
         return contributorRepository.upsert(updated, clientOpId = null).flatMap { AppResult.Success(Unit) }
@@ -141,6 +156,14 @@ internal class ContributorMetadataApplier(
             null
         }
     }
+
+    /** The provider a legacy key belongs to: Hardcover's own prefix, otherwise Audnexus (an Audible ASIN). */
+    private fun providerOf(key: String): String =
+        if (key.startsWith(HARDCOVER_AUTHOR_KEY_PREFIX)) {
+            MetadataProviderId.HARDCOVER.value
+        } else {
+            MetadataProviderId.AUDNEXUS.value
+        }
 
     companion object {
         /**
