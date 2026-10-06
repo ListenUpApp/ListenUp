@@ -20,6 +20,9 @@ import com.calypsan.listenup.server.matching.BookFinder
 import com.calypsan.listenup.server.matching.PeopleFinder
 import com.calypsan.listenup.server.matching.PeopleSubjectLoader
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.matching.undo.BookCoverReferences
+import com.calypsan.listenup.server.matching.undo.MatchReceiptStore
+import com.calypsan.listenup.server.scheduler.MatchReceiptSweepTask
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
@@ -391,9 +394,11 @@ private fun Module.metadataCleanupBindings(imageHome: Path) {
             contributorRepository = get(),
             seriesRepository = get(),
             imageHome = imageHome,
+            coverReferences = BookCoverReferences(get(), get<MatchReceiptStore>()),
             settings = get(),
         )
     }
+    single { MatchReceiptSweepTask(receipts = get<MatchReceiptStore>(), settings = get()) }
 }
 
 /**

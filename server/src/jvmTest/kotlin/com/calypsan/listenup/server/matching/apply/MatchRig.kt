@@ -85,7 +85,8 @@ internal class MatchRig(
     val tags = TagRepository(db.sql, bus, sync)
     val bookTags = BookTagRepository(db.sql, bus, sync, driver = db.driver)
     val moodWriter = BookMoodWriter(Clock.System, moods, bookMoods)
-    val coversDir: String = Files.createTempDirectory("match-covers-").also { it.toFile().deleteOnExit() }.toString()
+    val home: String = Files.createTempDirectory("match-home-").also { it.toFile().deleteOnExit() }.toString()
+    val coversDir: String = "$home/covers"
     val coverStore = CoverImageStore(ImageStore(Path(coversDir), 10L * 1024 * 1024))
 
     val audible =

@@ -259,6 +259,30 @@ class BookServiceImplDeleteCoverTest :
             }
         }
 
+        test("deleteBookCover removes a matched cover by the content-named path its row names, and nothing else") {
+            withSqlDatabase {
+                val db = this
+                val home = Files.createTempDirectory("listenup-test-home-matched-").toAbsolutePath()
+                home.toFile().deleteOnExit()
+                val coversDir = home.resolve("covers").apply { createDirectories() }
+                val matched = coversDir.resolve("b3-0123456789ab.jpg").apply { writeBytes(byteArrayOf(7, 8, 9)) }
+                val scanCopy = coversDir.resolve("b3.jpg").apply { writeBytes(byteArrayOf(1, 1, 1)) }
+                sql.seedTestLibraryAndFolder()
+                val coverImageStore = CoverImageStore(ImageStore(IoPath(coversDir.toString()), MAX_COVER_BYTES))
+                val (service, repo) = newService(db, coverImageStore, homeDir = home)
+                runTest {
+                    repo.upsert(bookFixture(id = "b3", title = "Matched Cover Book"))
+                    repo.setManagedCover(BookId("b3"), "covers/b3-0123456789ab.jpg", "sha", CoverSource.UPLOADED)
+
+                    service.deleteBookCover(BookId("b3")).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    matched.exists() shouldBe false
+                    // Another file for the book that the row didn't name is the orphan sweep's call, not this one's.
+                    scanCopy.exists() shouldBe true
+                }
+            }
+        }
+
         test("a hand-uploaded cover is recorded as set by hand, by whom") {
             withSqlDatabase {
                 val db = this

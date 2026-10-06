@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.scheduler
 
+import kotlinx.coroutines.CancellationException
+
 import com.calypsan.listenup.server.io.statFile
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -24,8 +26,8 @@ import kotlinx.io.files.SystemFileSystem
 private val log = loggerFor<OrphanImageCleanupTask>()
 
 /**
- * Periodic sweep that removes image files under `{imageHome}/contributors/` and
- * `{imageHome}/series/` that no live row points at.
+ * Periodic sweep that removes image files under `{imageHome}/contributors/`,
+ * `{imageHome}/series/` and `{imageHome}/covers/` that nothing points at.
  *
  * **Liveness is by reference, not by name.** Every writer — the metadata applier and the
  * upload route — names a photo or cover by the SHA-256 of its bytes (`contributors/<sha>.jpg`),
@@ -52,10 +54,25 @@ private val log = loggerFor<OrphanImageCleanupTask>()
  *
  * Mirrors [com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask].
  */
+/**
+ * What keeps a file in `covers/` alive: every cover path a book row names (soft-deleted rows too — a book can be
+ * revived) and every cover path a live match receipt's snapshot names (Undo restores it). Either read may throw;
+ * the sweep then deletes nothing.
+ */
+internal interface CoverReferences {
+    /** Every `cover_path` any book row holds. */
+    suspend fun bookCoverPaths(): Set<String>
+
+    /** Every cover path a live match receipt keeps for Undo. */
+    suspend fun pinnedCoverPaths(): Set<String>
+}
+
 internal class OrphanImageCleanupTask(
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,
     private val imageHome: Path,
+    /** Null leaves `covers/` alone (the sweep predates cover matching). */
+    private val coverReferences: CoverReferences? = null,
     private val interval: Duration = 7.days,
     private val clock: Clock = Clock.System,
     /** Nullable — without it the last run is not persisted and every boot sweeps at once. */
@@ -94,6 +111,32 @@ internal class OrphanImageCleanupTask(
         val liveSeriesCovers = seriesRepository.listLiveCoverPaths().toFilenames()
         sweepDir(Path(imageHome, "contributors"), liveContributorImages, "contributor")
         sweepDir(Path(imageHome, "series"), liveSeriesCovers, "series")
+        sweepCovers()
+    }
+
+    /**
+     * Sweeps `covers/` (decision D1: a matched cover is named by its content, so the file it replaced stays for
+     * Undo and nothing overwrites it). A file is kept when a book row names it, when a live receipt keeps it, or
+     * when it is younger than [ORPHAN_GRACE]. **Fail closed:** if either read throws, or no book row names any
+     * cover at all (an empty or half-restored database looks exactly like that), nothing is deleted.
+     */
+    private suspend fun sweepCovers() {
+        val references = coverReferences ?: return
+        val live =
+            try {
+                val books = references.bookCoverPaths()
+                if (books.isEmpty()) {
+                    log.warn { "OrphanImageCleanupTask: no book names a cover — leaving covers/ untouched" }
+                    return
+                }
+                books + references.pinnedCoverPaths()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                log.warn(e) { "OrphanImageCleanupTask couldn't read which covers are live — leaving covers/ untouched" }
+                return
+            }
+        sweepDir(Path(imageHome, "covers"), live.toFilenames(), "cover")
     }
 
     private fun sweepDir(

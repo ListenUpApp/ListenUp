@@ -31,6 +31,7 @@ import com.calypsan.listenup.server.scheduler.ExpiredPasswordResetCleanupTask
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.scheduler.ExternalRatingsSweepTask
 import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
+import com.calypsan.listenup.server.scheduler.MatchReceiptSweepTask
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
 import com.calypsan.listenup.server.scheduler.SidecarRetryTask
 import com.calypsan.listenup.server.scheduler.StatsFreshnessSweepTask
@@ -116,6 +117,8 @@ internal fun Application.startBackgroundTasks(
     scope.launch { koinGet<HardcoverLinker>().connections.collect { hardcoverMatchBackfill.trigger(it) } }
     val orphanImageCleanupTask by inject<OrphanImageCleanupTask>()
     orphanImageCleanupTask.start(scope)
+    val matchReceiptSweepTask by inject<MatchReceiptSweepTask>()
+    matchReceiptSweepTask.start(scope)
     val statsFreshnessSweepTask by inject<StatsFreshnessSweepTask>()
     statsFreshnessSweepTask.start(scope)
     // Warms the `?w=` derivative cache and sweeps its orphans. Purely a head start — the cover

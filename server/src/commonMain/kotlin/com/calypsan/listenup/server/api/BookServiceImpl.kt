@@ -560,6 +560,14 @@ internal class BookServiceImpl(
             } else {
                 null
             }
+        // The managed file the row names — `covers/<bookId>.<ext>`, or a matched cover's content-named
+        // `covers/<bookId>-<sha>.<ext>` (decision D1) — resolved before the row forgets it.
+        val managedKey =
+            if (isManagedCover) {
+                (repo.coverInfo(id) as? CoverInfo.Managed)?.path?.name?.substringBeforeLast('.')
+            } else {
+                null
+            }
 
         val result: AppResult<Unit> =
             if (isManagedCover) {
@@ -587,10 +595,10 @@ internal class BookServiceImpl(
             if (filesystemPath != null) {
                 coverStorage.delete(filesystemPath)
             }
-            // Remove the managed file from $LISTENUP_HOME/covers/ using the bookId as
-            // the key — ImageStore.delete probes all extensions (jpg, png, webp).
-            if (isManagedCover) {
-                coverImageStore?.store?.delete(id.value)
+            // Remove the managed file the row named from $LISTENUP_HOME/covers/ — ImageStore.delete probes
+            // all extensions (jpg, png, webp). A file it couldn't resolve is left to the orphan sweep.
+            if (managedKey != null) {
+                coverImageStore?.store?.delete(managedKey)
             }
         }
         return result
