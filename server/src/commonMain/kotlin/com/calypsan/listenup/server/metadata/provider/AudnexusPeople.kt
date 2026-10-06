@@ -43,7 +43,7 @@ internal class AudnexusPeople(
             found?.authors.orEmpty().forEach { author ->
                 val key = author.asin?.takeIf { it.isNotBlank() } ?: return@forEach
                 credited.getOrPut(key) { mutableSetOf() } += libraryBook.bookId
-                creditNames.putIfAbsent(key, author.name)
+                creditNames.getOrPut(key) { author.name }
             }
         }
 

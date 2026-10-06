@@ -73,7 +73,7 @@ internal class HardcoverPeople(
                 .filter { it.role.isRole(lookup.role) }
                 .forEach { credit ->
                     credited.getOrPut(credit.person.id) { mutableSetOf() } += book.bookId
-                    viaBooks.putIfAbsent(credit.person.id, credit.person)
+                    viaBooks.getOrPut(credit.person.id) { credit.person }
                 }
         }
         val profiles =
