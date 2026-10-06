@@ -62,7 +62,11 @@ class ContributorProvenanceStampingTest :
                         .updateContributor(id, ContributorUpdate(description = "Narrator of the Bobiverse."))
                         .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                    val provenance = rig.contributors.findById(id.value).shouldNotBeNull().fieldProvenance
+                    val provenance =
+                        rig.contributors
+                            .findById(id.value)
+                            .shouldNotBeNull()
+                            .fieldProvenance
                     provenance.keys shouldBe setOf(ContributorField.BIOGRAPHY)
                     val stamp = provenance.getValue(ContributorField.BIOGRAPHY)
                     stamp.kind shouldBe FieldSourceKind.USER

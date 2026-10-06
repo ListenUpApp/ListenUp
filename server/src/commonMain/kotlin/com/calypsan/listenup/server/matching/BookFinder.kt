@@ -24,12 +24,14 @@ import kotlinx.coroutines.coroutineScope
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
-
 /** Each source gets this long to answer a Find; a slower one becomes "didn't answer in time" (spec). */
 internal val FIND_DEADLINE: Duration = 8.seconds
 
 /** The wait reported for a rate limit the source didn't time — the canvas's countdown. */
 internal const val DEFAULT_RETRY_AFTER_SECONDS: Long = 30
+
+/** One book source's outcome. */
+private typealias Outcome = SourceOutcome<FindAnswer>
 
 /**
  * Find (spec, *Server → Find (books)*). Asks every routed Find source in parallel — identifying sources routed
@@ -38,9 +40,6 @@ internal const val DEFAULT_RETRY_AFTER_SECONDS: Long = 30
  * source's outcome becomes one [SourceStatus]. Each source's full answer is kept in [cache], so a retry re-asks
  * only the sources that didn't answer.
  */
-/** One book source's outcome. */
-private typealias Outcome = SourceOutcome<FindAnswer>
-
 internal class BookFinder(
     private val registry: MetadataProviderRegistry,
     private val routes: EnrichmentRoutes,

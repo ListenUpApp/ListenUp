@@ -31,7 +31,9 @@ internal class AudnexusPeople(
         val credited = linkedMapOf<String, MutableSet<String>>()
         val creditNames = mutableMapOf<String, String>()
         lookup.books.forEach { libraryBook ->
-            val asin = libraryBook.asin ?: libraryBook.refs.firstOrNull { it.provider == ExternalRef.AUDIBLE }?.id ?: return@forEach
+            val asin =
+                libraryBook.asin ?: libraryBook.refs.firstOrNull { it.provider == ExternalRef.AUDIBLE }?.id
+                    ?: return@forEach
             steps += PersonStep.VIA_BOOKS
             val found =
                 when (val read = book(asin)) {
@@ -46,20 +48,25 @@ internal class AudnexusPeople(
         }
 
         val hits =
-            lookup.name.trim().takeIf { it.isNotEmpty() }?.let { name ->
-                steps += PersonStep.NAME
-                when (val searched = search(name)) {
-                    is AppResult.Success -> searched.data.take(MAX_PEOPLE)
-                    is AppResult.Failure -> return searched
-                }
-            }.orEmpty()
+            lookup.name
+                .trim()
+                .takeIf { it.isNotEmpty() }
+                ?.let { name ->
+                    steps += PersonStep.NAME
+                    when (val searched = search(name)) {
+                        is AppResult.Success -> searched.data.take(MAX_PEOPLE)
+                        is AppResult.Failure -> return searched
+                    }
+                }.orEmpty()
         val hitNames = hits.associate { it.key to it.name }
 
         val keys = (linked + hits.map { it.key } + credited.keys).distinct().take(MAX_PEOPLE + linked.size)
         val people =
             keys.mapNotNull { key ->
                 val profile = (profile(key) as? AppResult.Success)?.data
-                val name = profile?.name?.takeIf { it.isNotBlank() } ?: hitNames[key] ?: creditNames[key] ?: return@mapNotNull null
+                val name =
+                    profile?.name?.takeIf { it.isNotBlank() } ?: hitNames[key] ?: creditNames[key]
+                        ?: return@mapNotNull null
                 FoundPerson(
                     key = key,
                     name = name,

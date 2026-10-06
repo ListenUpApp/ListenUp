@@ -76,7 +76,8 @@ internal class HardcoverPeople(
                     viaBooks.putIfAbsent(credit.person.id, credit.person)
                 }
         }
-        val profiles = details.people.associateBy { it.id } + viaBooks.filterKeys { it !in details.people.map { p -> p.id } }
+        val profiles =
+            details.people.associateBy { it.id } + viaBooks.filterKeys { it !in details.people.map { p -> p.id } }
         val hitsById = hits.associateBy { it.id }
         val order = (linked + hits.map { it.id } + viaBooks.keys).distinct()
         return order.mapNotNull { id ->
@@ -123,7 +124,9 @@ internal class HardcoverPeople(
             }
 
             null -> {
-                AppResult.Failure(HardcoverError.Unavailable(debugInfo = "hardcover people: no token can read the catalogue"))
+                AppResult.Failure(
+                    HardcoverError.Unavailable(debugInfo = "hardcover people: no token can read the catalogue"),
+                )
             }
 
             else -> {
@@ -148,7 +151,10 @@ private fun PersonLibraryBook.hardcoverBookIds(): List<Long> =
 private fun PersonLibraryBook.matches(edition: HardcoverCreditedEdition): Boolean =
     (asin != null && edition.asin.equals(asin, ignoreCase = true)) ||
         (isbn != null && isbn in edition.isbns) ||
-        (edition.asin == null && edition.isbns.isEmpty() && edition.bookId != null && edition.bookId in hardcoverBookIds())
+        (
+            edition.asin == null && edition.isbns.isEmpty() && edition.bookId != null &&
+                edition.bookId in hardcoverBookIds()
+        )
 
 /** Whether a Hardcover role string is [role]: a narrator variant, or an author's (blank or "Author"). */
 private fun String?.isRole(role: ContributorRole): Boolean =

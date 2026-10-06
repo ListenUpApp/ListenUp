@@ -152,7 +152,13 @@ internal class ContributorServiceImpl(
                 ?: return contributorNotFound(id)
         val patched =
             current.applyPatch(patch).let {
-                it.copy(fieldProvenance = it.fieldProvenance.stampUser(patch.touchedFields(), principal.current()?.userId?.value))
+                it.copy(
+                    fieldProvenance =
+                        it.fieldProvenance.stampUser(
+                            patch.touchedFields(),
+                            principal.current()?.userId?.value,
+                        ),
+                )
             }
         val nameChanged = patched.name != current.name || patched.sortName != current.sortName
         val outcome: UpdateOutcome =

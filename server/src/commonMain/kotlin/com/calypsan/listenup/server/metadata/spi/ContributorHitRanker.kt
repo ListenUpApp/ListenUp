@@ -25,6 +25,12 @@ internal object ContributorHitRanker {
         return hits.sortedByDescending { hit -> similarity(queryTokens, hit.name.tokenize()) }
     }
 
+    /** How alike two names are, 0..1, order- and decoration-tolerant ("Porter, Ray" is "Ray Porter"). */
+    fun nameSimilarity(
+        a: String,
+        b: String,
+    ): Double = similarity(a.tokenize(), b.tokenize())
+
     /** Sørensen–Dice coefficient over token sets: `2·|A∩B| / (|A|+|B|)`; `0.0` when either side is empty. */
     private fun similarity(
         a: Set<String>,

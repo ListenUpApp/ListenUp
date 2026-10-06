@@ -28,12 +28,25 @@ internal object ContributorIdentity {
         refs: List<ExternalRef>,
     ): List<ExternalRef> {
         val column = asin?.trim()?.takeIf { it.isNotEmpty() }
-        val hardcoverId = column?.takeIf { it.startsWith(HARDCOVER_AUTHOR_KEY_PREFIX) }?.removePrefix(HARDCOVER_AUTHOR_KEY_PREFIX)
+        val hardcoverId =
+            column
+                ?.takeIf {
+                    it.startsWith(HARDCOVER_AUTHOR_KEY_PREFIX)
+                }?.removePrefix(HARDCOVER_AUTHOR_KEY_PREFIX)
         val fromColumn =
             when {
-                column == null -> null
-                hardcoverId != null -> hardcoverId.takeIf { it.isNotEmpty() }?.let { ExternalRef(HARDCOVER, it) }
-                else -> refs.firstOrNull { it.provider == ExternalRef.AUDIBLE && it.id == column } ?: ExternalRef(ExternalRef.AUDIBLE, column)
+                column == null -> {
+                    null
+                }
+
+                hardcoverId != null -> {
+                    hardcoverId.takeIf { it.isNotEmpty() }?.let { ExternalRef(HARDCOVER, it) }
+                }
+
+                else -> {
+                    refs.firstOrNull { it.provider == ExternalRef.AUDIBLE && it.id == column }
+                        ?: ExternalRef(ExternalRef.AUDIBLE, column)
+                }
             }
         val governed = setOfNotNull(ExternalRef.AUDIBLE, fromColumn?.provider)
         val others = refs.filter { it.provider !in governed }.distinctBy { it.provider }
@@ -47,4 +60,11 @@ internal fun Map<ContributorField, FieldProvenance>.toContributorProvenanceColum
 
 /** The `contributors.field_provenance` column read back; a field this build doesn't know is dropped. */
 internal fun String.toContributorProvenance(): Map<ContributorField, FieldProvenance> =
-    if (isBlank()) emptyMap() else contributorProvenanceJson.decodeFromString(ContributorFieldProvenanceMapSerializer, this)
+    if (isBlank()) {
+        emptyMap()
+    } else {
+        contributorProvenanceJson.decodeFromString(
+            ContributorFieldProvenanceMapSerializer,
+            this,
+        )
+    }

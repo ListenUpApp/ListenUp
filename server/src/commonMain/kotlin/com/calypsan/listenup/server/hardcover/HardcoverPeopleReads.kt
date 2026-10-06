@@ -124,7 +124,9 @@ suspend fun HardcoverGraphQlClient.peopleDetails(
             }
             if (bookIds.isNotEmpty()) {
                 append("byBook: books(where:{id:{_in:\$books}}){ id $CREDITS ")
-                append("editions(where:{reading_format_id:{_eq:$AUDIO_FORMAT}}, limit:$MAX_AUDIO_EDITIONS_PER_BOOK){ $CREDITS } } ")
+                append(
+                    "editions(where:{reading_format_id:{_eq:$AUDIO_FORMAT}}, limit:$MAX_AUDIO_EDITIONS_PER_BOOK){ $CREDITS } } ",
+                )
             }
             append("}")
         }

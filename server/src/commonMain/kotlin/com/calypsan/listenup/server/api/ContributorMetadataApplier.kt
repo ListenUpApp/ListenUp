@@ -99,7 +99,8 @@ internal class ContributorMetadataApplier(
         // Never overwrite an existing field with a blank incoming value (ABS truthy-guard
         // semantics): a missing bio or a failed photo download keeps what the user already has.
         // What it did write is recorded as matched, from the provider the key names.
-        val matched = FieldProvenance(FieldSourceKind.ENRICHMENT, provider = providerOf(asin), at = currentEpochMilliseconds())
+        val matched =
+            FieldProvenance(FieldSourceKind.ENRICHMENT, provider = providerOf(asin), at = currentEpochMilliseconds())
         val updated =
             existing.copy(
                 asin = asin,
