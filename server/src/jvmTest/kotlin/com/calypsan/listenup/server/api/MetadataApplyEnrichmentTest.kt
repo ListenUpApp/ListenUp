@@ -161,6 +161,28 @@ class MetadataApplyEnrichmentTest :
             }
         }
 
+        test("the legacy apply runs through the match writer: one book frame, and a receipt that can be undone") {
+            withSqlDatabase {
+                val ctx = enrichmentCtx(this)
+                val applier = ctx.applier()
+
+                runTest {
+                    ctx.bookRepo.upsert(minimalEnrichBook(BOOK_ID), clientOpId = null)
+
+                    val applied =
+                        com.calypsan.listenup.server.sync.withCapturedFrames {
+                            applier.apply(BookId(BOOK_ID), ENRICH_ASIN, MetadataLocale("us"), ENRICH_SELECTION.copy(moods = setOf("Tense")))
+                        }
+                    applied.shouldBeInstanceOf<AppResult.Success<*>>()
+                    val frames = (applied as AppResult.Success).data.frames
+                    frames.count { it.domain == com.calypsan.listenup.api.sync.SyncDomains.BOOKS.name } shouldBe 1
+                    val book = ctx.bookRepo.findById(BookId(BOOK_ID))!!
+                    book.lastMatch?.appliedBy shouldBe "test-user"
+                    book.lastMatch?.revision shouldBe book.revision
+                }
+            }
+        }
+
         // Re-matching RECONCILES moods to the new selection (replace, not add): a deselected mood from the
         // first apply is dropped; only the second selection survives. Tags are never written.
         test("re-matching reconciles moods to the new selection instead of accumulating (#573)") {
