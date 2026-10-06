@@ -7,31 +7,23 @@ import com.calypsan.listenup.api.dto.match.IdentifierKind
 import com.calypsan.listenup.api.dto.match.RegionContext
 import com.calypsan.listenup.api.dto.match.SearchStep
 import com.calypsan.listenup.api.dto.match.SourceStatus
-import com.calypsan.listenup.api.dto.match.UnavailableReason
-import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.MetadataDomain
 import com.calypsan.listenup.api.metadata.MetadataLocale
-import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.metadata.spi.BookFindSource
 import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
 import com.calypsan.listenup.server.metadata.spi.FindAnswer
-import com.calypsan.listenup.server.metadata.spi.FindAvailability
 import com.calypsan.listenup.server.metadata.spi.FindLookup
 import com.calypsan.listenup.server.metadata.spi.FindRole
 import com.calypsan.listenup.server.metadata.spi.FindStep
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.metadata.spi.RegionalSource
 import com.calypsan.listenup.server.metadata.spi.toMetadataSource
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
-private val logger = loggerFor<BookFinder>()
 
 /** Each source gets this long to answer a Find; a slower one becomes "didn't answer in time" (spec). */
 internal val FIND_DEADLINE: Duration = 8.seconds
@@ -42,10 +34,13 @@ internal const val DEFAULT_RETRY_AFTER_SECONDS: Long = 30
 /**
  * Find (spec, *Server → Find (books)*). Asks every routed Find source in parallel — identifying sources routed
  * to `BOOK_CORE`, then attaching ones routed to `COVER` — each under its own [deadline] and failure containment
- * ([CancellationException] is always re-raised). The hits are merged and ranked against the book, and each
+ * (`CancellationException` is always re-raised). The hits are merged and ranked against the book, and each
  * source's outcome becomes one [SourceStatus]. Each source's full answer is kept in [cache], so a retry re-asks
  * only the sources that didn't answer.
  */
+/** One book source's outcome. */
+private typealias Outcome = SourceOutcome<FindAnswer>
+
 internal class BookFinder(
     private val registry: MetadataProviderRegistry,
     private val routes: EnrichmentRoutes,
@@ -102,54 +97,17 @@ internal class BookFinder(
         source: BookFindSource,
         lookup: FindLookup,
         locale: MetadataLocale,
-    ): Outcome =
-        withTimeoutOrNull(deadline) {
-            contained(source) {
-                when (val availability = source.findAvailability()) {
-                    is FindAvailability.Unavailable -> {
-                        Outcome.Unavailable(availability.reason)
-                    }
-
-                    FindAvailability.Available -> {
-                        val key = FindCache.Key(source.id, lookup, locale.region.takeIf { source is RegionalSource })
-                        cache.get(key)?.let { Outcome.Answered(it) }
-                            ?: source.findBooks(lookup, locale).toOutcome(source).also { outcome ->
-                                if (outcome is Outcome.Answered) cache.put(key, outcome.answer)
-                            }
-                    }
-                }
-            }
-        } ?: Outcome.TimedOut.also { logger.warn { "find: ${source.id} didn't answer within $deadline" } }
-
-    private suspend fun contained(
-        source: BookFindSource,
-        block: suspend () -> Outcome,
-    ): Outcome =
-        try {
-            block()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "find: ${source.id} threw — reported as failed" }
-            Outcome.Failed
-        }
-
-    private fun AppResult<FindAnswer>.toOutcome(source: BookFindSource): Outcome =
-        when (this) {
-            is AppResult.Success -> {
-                Outcome.Answered(data)
-            }
-
-            is AppResult.Failure -> {
-                val failure = error
-                if (failure is MetadataError.ExternalRateLimited) {
-                    Outcome.RateLimited(failure.retryAfterSeconds ?: DEFAULT_RETRY_AFTER_SECONDS)
-                } else {
-                    logger.warn { "find: ${source.id} failed (${failure.code}) — reported as failed" }
-                    Outcome.Failed
-                }
-            }
-        }
+    ): Outcome {
+        val key = FindCache.Key(source.id, lookup, locale.region.takeIf { source is RegionalSource })
+        return askSource(
+            source = source.id,
+            deadline = deadline,
+            availability = { source.findAvailability() },
+            cached = { cache.get(key) },
+            fetch = { source.findBooks(lookup, locale) },
+            remember = { cache.put(key, it) },
+        )
+    }
 
     /** The steps Find took: each source's link, then identifiers, then the text search, which always runs. */
     private fun steps(
@@ -158,7 +116,7 @@ internal class BookFinder(
     ): List<SearchStep> {
         val ran =
             found.mapNotNull { asked ->
-                val answered = asked.outcome as? Outcome.Answered ?: return@mapNotNull null
+                val answered = asked.outcome as? SourceOutcome.Answered ?: return@mapNotNull null
                 asked.source to answered.answer.steps
             }
         return buildList {
@@ -191,30 +149,11 @@ internal class BookFinder(
         locale: MetadataLocale,
     ): SourceStatus {
         val shown = source.id.toMetadataSource()
-        return when (val outcome = outcome) {
-            is Outcome.Answered -> {
-                if (outcome.answer.books.isEmpty() && source is RegionalSource) {
-                    SourceStatus.NotFoundInStore(shown, locale, suggestStores(locale, subject, source.id.value))
-                } else {
-                    SourceStatus.Answered(shown, outcome.answer.books.size)
-                }
-            }
-
-            Outcome.TimedOut -> {
-                SourceStatus.TimedOut(shown)
-            }
-
-            is Outcome.RateLimited -> {
-                SourceStatus.RateLimited(shown, outcome.retryAfterSeconds)
-            }
-
-            Outcome.Failed -> {
-                SourceStatus.Failed(shown)
-            }
-
-            is Outcome.Unavailable -> {
-                SourceStatus.Unavailable(shown, outcome.reason)
-            }
+        val answer = (outcome as? SourceOutcome.Answered)?.answer
+        return if (answer != null && answer.books.isEmpty() && source is RegionalSource) {
+            SourceStatus.NotFoundInStore(shown, locale, suggestStores(locale, subject, source.id.value))
+        } else {
+            outcome.toStatus(shown, answer?.books?.size ?: 0)
         }
     }
 
@@ -224,34 +163,10 @@ internal class BookFinder(
         val outcome: Outcome,
     ) {
         fun hits(): List<SourcedHit> =
-            (outcome as? Outcome.Answered)
+            (outcome as? SourceOutcome.Answered)
                 ?.answer
                 ?.books
                 ?.map { SourcedHit(source.id, it) }
                 .orEmpty()
-    }
-
-    /** How one source fared in one Find. */
-    private sealed interface Outcome {
-        /** It answered with [answer]. */
-        data class Answered(
-            val answer: FindAnswer,
-        ) : Outcome
-
-        /** It missed the deadline. */
-        data object TimedOut : Outcome
-
-        /** It asked us to wait [retryAfterSeconds]. */
-        data class RateLimited(
-            val retryAfterSeconds: Long,
-        ) : Outcome
-
-        /** It errored or threw. */
-        data object Failed : Outcome
-
-        /** It couldn't take part, for [reason]. */
-        data class Unavailable(
-            val reason: UnavailableReason,
-        ) : Outcome
     }
 }
