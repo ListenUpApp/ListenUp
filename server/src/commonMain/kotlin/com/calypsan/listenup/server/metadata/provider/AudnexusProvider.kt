@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.metadata.provider
 
+import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
@@ -17,7 +18,9 @@ import com.calypsan.listenup.server.metadata.spi.ChapterListMeta
 import com.calypsan.listenup.server.metadata.spi.ChapterSource
 import com.calypsan.listenup.server.metadata.spi.ContributorHitMeta
 import com.calypsan.listenup.server.metadata.spi.ContributorMeta
-import com.calypsan.listenup.server.metadata.spi.ContributorSource
+import com.calypsan.listenup.server.metadata.spi.PersonAnswer
+import com.calypsan.listenup.server.metadata.spi.PersonFindSource
+import com.calypsan.listenup.server.metadata.spi.PersonLookup
 import com.calypsan.listenup.server.metadata.spi.CoverMeta
 import com.calypsan.listenup.server.metadata.spi.CoverSource
 import com.calypsan.listenup.server.metadata.spi.GenreMeta
@@ -66,12 +69,30 @@ internal class AudnexusProvider(
     private val json: Json = Json { ignoreUnknownKeys = true },
     private val clock: Clock = Clock.System,
 ) : BookCoreSource,
-    ContributorSource,
+    PersonFindSource,
     ChapterSource,
     CoverSource,
     SeriesSource,
     GenreSource {
     override val id: MetadataProviderId = MetadataProviderId.AUDNEXUS
+
+    /** Audnexus profiles are Audible's author pages: no narrators. */
+    override val profileRoles: Set<ContributorRole> = setOf(ContributorRole.AUTHOR)
+
+    /**
+     * Audible authors in a people Find (matching redesign PR 4): the person's own ASIN, the author ASINs your
+     * books' Audible credits name, and a name search — each answer cached as the profile and book reads already
+     * are. Photos come from the profiles of at most five people.
+     */
+    override suspend fun findPeople(
+        lookup: PersonLookup,
+        locale: MetadataLocale,
+    ): AppResult<PersonAnswer> =
+        AudnexusPeople(
+            search = { name -> searchContributors(name, locale) },
+            book = { asin -> fetchBook(asin, locale.region, refresh = false) },
+            profile = { key -> getContributor(key, locale) },
+        ).find(lookup)
 
     override suspend fun getBookCore(
         book: BookIdentity,
