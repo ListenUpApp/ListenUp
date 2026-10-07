@@ -10,6 +10,9 @@ import com.calypsan.listenup.api.dto.ContributorMutation
 import com.calypsan.listenup.api.dto.GenreMutation
 import com.calypsan.listenup.api.dto.NotificationMutation
 import com.calypsan.listenup.api.dto.ShelfBookMutation
+import com.calypsan.listenup.api.dto.ReadingOrderBookMutation
+import com.calypsan.listenup.api.dto.ReadingOrderFollowMutation
+import com.calypsan.listenup.api.dto.ReadingOrderMutation
 import com.calypsan.listenup.api.dto.ShelfMutation
 import com.calypsan.listenup.api.dto.TagMutation
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
@@ -154,6 +157,38 @@ internal object OutboxChannels {
             idempotent = true,
         )
 
+    // Reading orders (#962) are offline-first from the start, create included: the client mints the id, so
+    // a create replays idempotently (same id, same maker → Success). Rename is last-write-wins; delete is
+    // idempotent (NotFound drains as success).
+    val ReadingOrders =
+        OutboxChannel(
+            SyncDomains.READING_ORDERS.name,
+            ReadingOrderMutation.serializer(),
+            setOf(OpKind.Create, OpKind.Update, OpKind.Delete),
+            idempotent = true,
+        )
+
+    // Reading-order membership: add (Create) and remove (Delete) are idempotent server-side and keyed by
+    // junction; reorder rides Update keyed by the ORDER id, so it coalesces, and the server merges it
+    // tolerantly, so it may land either side of an add or a remove.
+    val ReadingOrderBooks =
+        OutboxChannel(
+            SyncDomains.READING_ORDER_BOOKS.name,
+            ReadingOrderBookMutation.serializer(),
+            setOf(OpKind.Create, OpKind.Delete, OpKind.Update),
+            idempotent = true,
+        )
+
+    // A user's choice of order on one series: Choose and Clear each carry the whole terminal state for
+    // (user, series), under one kind, so the queue coalesces them — the BookRatings precedent.
+    val ReadingOrderFollows =
+        OutboxChannel(
+            SyncDomains.READING_ORDER_FOLLOWS.name,
+            ReadingOrderFollowMutation.serializer(),
+            setOf(OpKind.Upsert),
+            idempotent = true,
+        )
+
     // Collection lifecycle: rename (Update) is last-write-wins; delete (Delete) cascades server-side. Both are
     // idempotent. Creating a collection stays online (server-minted id).
     val Collections =
@@ -212,6 +247,9 @@ internal object OutboxChannels {
             BookRatings,
             Shelves,
             ShelfBooks,
+            ReadingOrders,
+            ReadingOrderBooks,
+            ReadingOrderFollows,
             Collections,
             CollectionBooks,
             Notifications,

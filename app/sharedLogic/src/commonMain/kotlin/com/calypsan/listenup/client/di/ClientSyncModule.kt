@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.data.sync.readingOrderOutboxBindings
+import com.calypsan.listenup.api.ReadingOrderService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.result.onSuccess
@@ -174,6 +176,10 @@ internal val clientSyncModule =
         // declared here beside PlaybackService's, next to the outbox binding that dispatches it.
         rpcChannel<BookRatingService>()
 
+        // Reading orders (#962) — no feature module of their own until their repositories land, so the
+        // channel is declared here beside the outbox bindings that dispatch it.
+        rpcChannel<ReadingOrderService>()
+
         // The outbox sender map derives from OutboxChannels.all and is completeness-
         // checked at construction: a declared channel with no binding (or vice versa)
         // is an immediate require() failure, not a silent op drop.
@@ -192,6 +198,7 @@ internal val clientSyncModule =
             val genreChannel = rpcChannel<GenreService>()
             val notificationChannel = rpcChannel<NotificationService>()
             val entityChannel = rpcChannel<EntityService>()
+            val readingOrderChannel = rpcChannel<ReadingOrderService>()
             outboxSender(
                 mapOf(
                     outboxBinding(OutboxChannels.Positions) { _, request ->
@@ -386,6 +393,7 @@ internal val clientSyncModule =
                             }
                         }
                     },
+                    *readingOrderOutboxBindings(readingOrderChannel).toTypedArray(),
                     // The op's entityId is the collectionId; the sender reconstructs the CollectionId from it.
                     outboxBinding(OutboxChannels.Collections) { id, mutation ->
                         when (mutation) {
