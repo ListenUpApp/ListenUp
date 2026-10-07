@@ -15,6 +15,8 @@ import com.calypsan.listenup.client.features.admin.upload.UploadBooksScreen
 import com.calypsan.listenup.client.features.admin.backup.CreateBackupScreen
 import com.calypsan.listenup.client.features.admin.backup.RestoreBackupScreen
 import com.calypsan.listenup.client.features.admin.backup.RestoreFromFileScreen
+import com.calypsan.listenup.client.navigation.MatchDetails
+import com.calypsan.listenup.client.navigation.MatchSubject
 import com.calypsan.listenup.client.navigation.ImportFlow
 import com.calypsan.listenup.client.navigation.UploadBooks
 import com.calypsan.listenup.client.navigation.Admin
@@ -27,7 +29,6 @@ import com.calypsan.listenup.client.navigation.AdminOrganizeSettings
 import com.calypsan.listenup.client.navigation.AdminUserDetail
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BookEdit
-import com.calypsan.listenup.client.navigation.BookMatchDetails
 import com.calypsan.listenup.client.navigation.CreateBackup
 import com.calypsan.listenup.client.navigation.CreateInvite
 import com.calypsan.listenup.client.navigation.RestoreBackup
@@ -137,7 +138,7 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             },
             // Per-row "Match details" — opens Match details for that book (iOS parity).
             onMatchClick = { bookId ->
-                backStack.add(BookMatchDetails(bookId))
+                backStack.add(MatchDetails(MatchSubject.Book(bookId)))
             },
         )
     }

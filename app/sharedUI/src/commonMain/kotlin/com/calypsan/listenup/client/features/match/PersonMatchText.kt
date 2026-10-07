@@ -106,7 +106,15 @@ internal fun inLibraryLine(
 @Composable
 internal fun InLibraryUi.sentence(): String {
     val line = inLibraryLine(role, bookCount)
-    return if (titles.isEmpty()) line else stringResource(Res.string.match_in_library_titles, line, titles.joinToString(", "))
+    return if (titles.isEmpty()) {
+        line
+    } else {
+        stringResource(
+            Res.string.match_in_library_titles,
+            line,
+            titles.joinToString(", "),
+        )
+    }
 }
 
 /** "Atlas has no narrator profiles, so this search uses Beacon." */
@@ -164,7 +172,13 @@ private fun PersonSearchStep.phrase(
 /** "3 people", read out when a people search lands. */
 @Composable
 internal fun peopleCount(count: Int): String =
-    if (count == 1) stringResource(Res.string.match_people_count_one) else stringResource(Res.string.match_people_count, count)
+    if (count ==
+        1
+    ) {
+        stringResource(Res.string.match_people_count_one)
+    } else {
+        stringResource(Res.string.match_people_count, count)
+    }
 
 /**
  * A person row's second line: "Narrator · Project Hail Mary, Bobiverse", "Author · 1 book", and on a row in the
@@ -175,12 +189,24 @@ internal fun PersonCandidateUi.roleLine(searched: ContributorRole): String {
     val works =
         knownWorks.takeIf { it.isNotEmpty() }?.take(KNOWN_WORKS_SHOWN)?.joinToString(", ")
             ?: worksCount?.let {
-                if (it == 1) stringResource(Res.string.match_works_count_one) else stringResource(Res.string.match_works_count, it)
+                if (it ==
+                    1
+                ) {
+                    stringResource(Res.string.match_works_count_one)
+                } else {
+                    stringResource(Res.string.match_works_count, it)
+                }
             }
     val notInRole =
         if (isDifferentRole) {
             stringResource(
-                if (searched == ContributorRole.NARRATOR) Res.string.match_not_a_narrator else Res.string.match_not_an_author,
+                if (searched ==
+                    ContributorRole.NARRATOR
+                ) {
+                    Res.string.match_not_a_narrator
+                } else {
+                    Res.string.match_not_an_author
+                },
             )
         } else {
             null

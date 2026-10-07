@@ -148,7 +148,7 @@ fun BookDetailScreen(
     /** The receipt after Match details applied; a slot so a test can render the screen without its ViewModel. */
     matchReceipt: @Composable (
         Modifier,
-    ) -> Unit = { modifier -> MatchReceiptHost(bookId = bookId, modifier = modifier) },
+    ) -> Unit = { modifier -> MatchReceiptHost(subjectId = bookId, modifier = modifier) },
     viewModel: BookDetailViewModel = koinViewModel(),
 ) {
     LaunchedEffect(bookId) {

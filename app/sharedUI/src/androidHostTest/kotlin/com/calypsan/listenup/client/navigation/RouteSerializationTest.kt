@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.navigation
 
-import com.calypsan.listenup.api.metadata.MetadataLocale
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.json.Json
@@ -53,7 +52,8 @@ internal fun sampleRoutes(): List<Route> =
         add(BookDetail(bookId = "test-book-id"))
         add(BookReaders(bookId = "test-book-id"))
         add(BookEdit(bookId = "test-book-id"))
-        add(BookMatchDetails(bookId = "test-book-id"))
+        add(MatchDetails(subject = MatchSubject.Book(bookId = "test-book-id")))
+        add(MatchDetails(subject = MatchSubject.Person(contributorId = "test-contributor-id")))
         add(ChapterEditor(bookId = "test-book-id"))
         add(BulkEdit(bookIds = listOf("test-book-a", "test-book-b")))
         add(SeriesDetail(seriesId = "test-series-id"))
@@ -69,14 +69,6 @@ internal fun sampleRoutes(): List<Route> =
         add(ContributorDetail(contributorId = "test-contributor-id"))
         add(ContributorBooks(contributorId = "test-contributor-id", role = "author"))
         add(ContributorEdit(contributorId = "test-contributor-id"))
-        add(ContributorMetadataSearch(contributorId = "test-contributor-id"))
-        add(
-            ContributorMetadataPreview(
-                contributorId = "test-contributor-id",
-                asin = "test-asin",
-                region = MetadataLocale.DEFAULT,
-            ),
-        )
 
         // Admin
         add(Admin)

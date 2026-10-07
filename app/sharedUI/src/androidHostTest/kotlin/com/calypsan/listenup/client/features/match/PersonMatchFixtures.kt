@@ -104,7 +104,8 @@ internal object PersonMatchFixtures {
             noBooksInLibrary = true,
         )
 
-    val andrewWeir = person(id = "andrew", name = "Andrew Weir", tier = MatchTier.MAYBE, worksCount = 1, foundIn = listOf(ATLAS))
+    val andrewWeir =
+        person(id = "andrew", name = "Andrew Weir", tier = MatchTier.MAYBE, worksCount = 1, foundIn = listOf(ATLAS))
 
     val authorResults =
         PersonFindUiState.Results(
@@ -212,7 +213,8 @@ internal object PersonMatchFixtures {
 
     const val PROPOSED_BIO = "Ray Porter is an actor and audiobook narrator known for science fiction."
 
-    val bioOption = FieldOptionUi(optionId = "bio-beacon", value = FieldValue.Text(PROPOSED_BIO), sources = listOf(BEACON))
+    val bioOption =
+        FieldOptionUi(optionId = "bio-beacon", value = FieldValue.Text(PROPOSED_BIO), sources = listOf(BEACON))
     val bioOptionAtlas =
         FieldOptionUi(optionId = "bio-atlas", value = FieldValue.Text("A narrator."), sources = listOf(ATLAS))
 

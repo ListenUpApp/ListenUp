@@ -70,8 +70,7 @@ class PersonMatchReviewTest {
             .performScrollToNode(hasText(text, substring = true))
     }
 
-    private fun biographyCheckbox() =
-        composeRule.onNode(isToggleable() and hasContentDescription("Apply biography", substring = true))
+    private fun biographyCheckbox() = composeRule.onNode(isToggleable() and hasContentDescription("Apply biography", substring = true))
 
     @Test
     fun `Review opens on the person, says what will change, and has a heading for every section`() {

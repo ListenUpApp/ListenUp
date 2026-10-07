@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.navigation
 
 import androidx.navigation3.runtime.NavKey
-import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.domain.model.FacetKind
 import kotlinx.serialization.Serializable
 
@@ -90,15 +89,34 @@ data class BulkEdit(
 ) : Route
 
 /**
- * Match details for one book: Find, Compare and Review in one screen, one ViewModel, one Apply. After
- * Apply it returns to Book Detail, which shows the receipt.
+ * Match details for a book or a person: Find and Review in one screen, one ViewModel, one Apply. After Apply it
+ * returns to the subject's page — Book Detail or the contributor page — which shows the receipt.
  *
- * @property bookId The unique ID of the book being matched.
+ * @property subject What is being matched.
  */
 @Serializable
-data class BookMatchDetails(
-    val bookId: String,
+data class MatchDetails(
+    val subject: MatchSubject,
 ) : Route
+
+/** What a [MatchDetails] screen matches. */
+@Serializable
+sealed interface MatchSubject {
+    /** A book, by its unique ID. */
+    @Serializable
+    data class Book(
+        val bookId: String,
+    ) : MatchSubject
+
+    /**
+     * A person (an author or a narrator), by their contributor ID. The starting role is the one they are
+     * credited with most here; the screen switches between roles itself.
+     */
+    @Serializable
+    data class Person(
+        val contributorId: String,
+    ) : MatchSubject
+}
 
 /**
  * Series detail screen - displays series info and its books.
@@ -161,39 +179,6 @@ data class ContributorBooks(
 @Serializable
 data class ContributorEdit(
     val contributorId: String,
-) : Route
-
-/**
- * Contributor metadata search screen - search Audible for contributor.
- *
- * Shows search field, region selector, and results list.
- * Selecting a result navigates to the preview screen.
- *
- * @property contributorId The unique ID of the contributor to match.
- */
-@Serializable
-data class ContributorMetadataSearch(
-    val contributorId: String,
-) : Route
-
-/**
- * Contributor metadata preview screen - preview Audible metadata before applying.
- *
- * Shows side-by-side comparison of current contributor data vs the fetched
- * profile. The server applies asin + biography + photo; there is no per-field
- * selection (matching the server's behavior).
- *
- * @property contributorId The unique ID of the contributor to update.
- * @property asin The Audible ASIN of the matched contributor.
- * @property region The region the match was found in, carried over from the search screen so the
- *   preview fetches from the same catalog instead of re-defaulting to US — profiles are
- *   region-localized.
- */
-@Serializable
-data class ContributorMetadataPreview(
-    val contributorId: String,
-    val asin: String,
-    val region: MetadataLocale,
 ) : Route
 
 // Admin Routes

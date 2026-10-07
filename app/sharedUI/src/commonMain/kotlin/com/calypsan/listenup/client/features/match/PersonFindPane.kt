@@ -92,7 +92,12 @@ internal fun PersonFindPane(
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = Spacing.screenMargin, end = Spacing.screenMargin, bottom = Spacing.xl),
+            contentPadding =
+                PaddingValues(
+                    start = Spacing.screenMargin,
+                    end = Spacing.screenMargin,
+                    bottom = Spacing.xl,
+                ),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             item(key = "role") { RoleSwitch(role = state.role, onSwitch = actions::switchRole) }
@@ -248,6 +253,10 @@ private fun NoProfiles(
             ),
         body = stringResource(Res.string.match_no_profiles_body),
     ) {
-        ListenUpButton(text = stringResource(Res.string.match_edit_by_hand), onClick = onEditByHand, fillMaxWidth = false)
+        ListenUpButton(
+            text = stringResource(Res.string.match_edit_by_hand),
+            onClick = onEditByHand,
+            fillMaxWidth = false,
+        )
     }
 }
