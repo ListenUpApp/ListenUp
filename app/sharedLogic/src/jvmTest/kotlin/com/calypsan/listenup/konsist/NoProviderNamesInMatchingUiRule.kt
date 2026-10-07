@@ -39,7 +39,7 @@ class NoProviderNamesInMatchingUiRule :
                 files.flatMap { file ->
                     val code = file.text.withoutCommentsForProviderRule()
                     providerNames
-                        .filter { name -> Regex("\"[^\"\\n]*\\b$name\\b[^\"\\n]*\"").containsMatchIn(code) }
+                        .filter { name -> Regex(""""[^"\n]*\b$name\b[^"\n]*"""").containsMatchIn(code) }
                         .map { "${file.path}: \"$it\"" }
                 }
             withClue(
