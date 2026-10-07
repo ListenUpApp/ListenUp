@@ -88,6 +88,23 @@ class PersonMatchUndoTest :
             }
         }
 
+        test("a receipt of the other kind is refused even when it names the same id at the live revision") {
+            withSqlDatabase {
+                runTest {
+                    val people = PersonRig(this@withSqlDatabase)
+                    val ray = people.seedRay()
+                    sql.matchReceiptsQueries.insert("r-book", "book", ray.id, "u1", 1L, ray.revision, "{}", "[]")
+                    people.undoer.undo("r-book").error().shouldBeInstanceOf<MetadataError.UndoExpired>()
+                    people.person() shouldBe ray
+
+                    val books = MatchRig(this@withSqlDatabase)
+                    val book = books.seedBook()
+                    sql.matchReceiptsQueries.insert("r-person", "contributor", book.id, "u1", 1L, book.revision, "{}", "[]")
+                    books.undoer.undo("r-person").error().shouldBeInstanceOf<MetadataError.UndoExpired>()
+                }
+            }
+        }
+
         test("the receipt sweep deletes person receipts that can no longer be undone, and keeps the live one") {
             withSqlDatabase {
                 runTest {
