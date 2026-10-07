@@ -203,6 +203,26 @@ internal interface PendingOperationV2Dao {
     suspend fun resetFailureCount(clientOpId: String)
 
     /**
+     * Still-queued (within retry budget) ops for one (domain, entity, opType) slot, attempted or not.
+     * Backs [com.calypsan.listenup.client.data.sync.PendingOperationQueue.cancelUnsent].
+     */
+    @Query(
+        """
+        SELECT * FROM pending_operation
+         WHERE domainName = :domainName
+           AND entityId = :entityId
+           AND opType = :opType
+           AND failureCount <= :maxAttempts
+        """,
+    )
+    suspend fun queuedOps(
+        domainName: String,
+        entityId: String,
+        opType: String,
+        maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS,
+    ): List<PendingOperationV2Entity>
+
+    /**
      * Delete still-queued (within retry budget) ops for one (domain, entity, opType) slot.
      * Backs replace-on-enqueue coalescing; terminally-failed rows (failureCount > [maxAttempts])
      * are preserved — diagnostic state for the failed-operation surface, not superseded work.

@@ -352,6 +352,43 @@ internal class PendingOperationQueue(
     ): String? = dao.latestQueuedPayload(channel.name, entityId, op.wire)
 
     /**
+     * Takes back the queued [op] for ([channel], [entityId]) if it has never been sent, running [alongside]
+     * in the same transaction as the removal. Runs under the drain lock, so no send of that op can be in
+     * flight while this decides: the answer is a fact about the queue, never a guess.
+     *
+     * - [UnsentCancel.Cancelled]: every queued [op] was unattempted; they are gone and [alongside] ran.
+     * - [UnsentCancel.Attempted]: one was already handed to the server without a verdict (parked, or a
+     *   retryable failure) — it may have landed, so nothing is touched and [alongside] does not run.
+     * - [UnsentCancel.NotQueued]: none is queued — it was sent (or dead-lettered).
+     */
+    suspend fun cancelUnsent(
+        channel: OutboxChannel<*>,
+        entityId: String,
+        op: OpKind,
+        alongside: suspend () -> Unit,
+    ): UnsentCancel =
+        drainMutex.withLock {
+            transactionRunner.atomically {
+                val queued = dao.queuedOps(channel.name, entityId, op.wire)
+                when {
+                    queued.isEmpty() -> {
+                        UnsentCancel.NotQueued
+                    }
+
+                    queued.any { it.lastAttemptAt != null } -> {
+                        UnsentCancel.Attempted
+                    }
+
+                    else -> {
+                        queued.forEach { dao.delete(it.clientOpId) }
+                        alongside()
+                        UnsentCancel.Cancelled
+                    }
+                }
+            }
+        }
+
+    /**
      * True when a still-dispatchable local op is queued for (domainName, entityId).
      *
      * This is the anti-flicker shield's one primitive: entity-level and clientOpId-independent.
@@ -595,4 +632,16 @@ internal class PendingOperationQueue(
             ownerUserId = ownerUserId,
             lastError = lastError,
         )
+}
+
+/** What [PendingOperationQueue.cancelUnsent] found. */
+internal enum class UnsentCancel {
+    /** The op was queued and never sent; it is withdrawn. */
+    Cancelled,
+
+    /** The op was handed to the server without a verdict, so it may have landed; left queued. */
+    Attempted,
+
+    /** No such op is queued: it was sent, or dead-lettered. */
+    NotQueued,
 }

@@ -72,4 +72,22 @@ internal class OfflineEditor(
             }
         }.map { pendingQueue.signalEnqueued() }
     }
+
+    /**
+     * Withdraws [channel]'s queued [op] for [entityId] if it was never sent, applying [restoreLocally] in
+     * the same transaction — an offline-first undo of a just-queued write. See
+     * [PendingOperationQueue.cancelUnsent] for the three outcomes. A failing local write rolls the
+     * withdrawal back and surfaces as a typed [AppResult.Failure]; this never throws (cancellation excepted).
+     */
+    suspend fun cancelUnsent(
+        channel: OutboxChannel<*>,
+        entityId: String,
+        op: OpKind,
+        restoreLocally: suspend () -> Unit,
+    ): AppResult<UnsentCancel> =
+        suspendRunCatching {
+            pendingQueue.cancelUnsent(channel, entityId, op) {
+                transactionRunner.atomically { restoreLocally() }
+            }
+        }
 }

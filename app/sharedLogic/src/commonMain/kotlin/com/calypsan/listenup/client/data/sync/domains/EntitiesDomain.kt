@@ -55,24 +55,7 @@ internal class EntityMirrorApply(
     private val database: ListenUpDatabase,
 ) : MirrorApply<EntitySyncPayload> {
     override suspend fun upsert(payload: EntitySyncPayload) {
-        database.entityDao().upsert(
-            EntityEntity(
-                id = payload.id,
-                kind = payload.kind,
-                name = payload.name,
-                descriptor = payload.descriptor,
-                parentId = payload.parentId,
-                homeSeriesId = payload.homeSeriesId,
-                homeBookId = payload.homeBookId,
-                imageRef = payload.imageRef,
-                createdBy = payload.createdBy,
-                updatedBy = payload.updatedBy,
-                revision = payload.revision,
-                deletedAt = payload.deletedAt,
-                createdAt = payload.createdAt,
-                updatedAt = payload.updatedAt,
-            ),
-        )
+        database.entityDao().upsert(payload.toEntityRow())
     }
 
     /** Tombstone from a `Deleted` frame; a no-op when no local row matches. */
@@ -88,3 +71,22 @@ internal class EntityMirrorApply(
         tombstoneById(id = item.id, deletedAt = item.deletedAt ?: item.updatedAt, revision = item.revision)
     }
 }
+
+/** The Room row for a server [EntitySyncPayload], verbatim — the mirror's and an online undo's one mapping. */
+internal fun EntitySyncPayload.toEntityRow(): EntityEntity =
+    EntityEntity(
+        id = id,
+        kind = kind,
+        name = name,
+        descriptor = descriptor,
+        parentId = parentId,
+        homeSeriesId = homeSeriesId,
+        homeBookId = homeBookId,
+        imageRef = imageRef,
+        createdBy = createdBy,
+        updatedBy = updatedBy,
+        revision = revision,
+        deletedAt = deletedAt,
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+    )
