@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.sync.EntityKind
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.EntityId
 import com.calypsan.listenup.server.api.BookAccessPolicy
@@ -92,7 +93,7 @@ class EntityAccessTest :
             }
         }
 
-        test("a visible tombstone reaches the member stripped of its name, home and authors") {
+        test("a visible tombstone reaches the member stripped of its name, kind, home and authors") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestUser("viewer")
@@ -107,6 +108,7 @@ class EntityAccessTest :
                     val tombstone = repo.pullSince(userId = "viewer", cursor = 0L, limit = 50, extraWhere = filter).items.single()
                     tombstone.deletedAt.shouldNotBeNull()
                     tombstone.name shouldBe ""
+                    tombstone.kind shouldBe EntityKind.UNKNOWN
                     tombstone.homeBookId.shouldBeNull()
                     tombstone.homeSeriesId.shouldBeNull()
                     tombstone.createdBy.shouldBeNull()

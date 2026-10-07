@@ -58,8 +58,10 @@ class EntityRepository(
 
     override fun idAsString(id: EntityId): String = id.value
 
+    /** A tombstone skips the access gate, so it carries identity only — not even the kind. */
     override fun minimizeTombstone(payload: EntitySyncPayload): EntitySyncPayload =
         payload.copy(
+            kind = EntityKind.UNKNOWN,
             name = "",
             descriptor = null,
             parentId = null,
