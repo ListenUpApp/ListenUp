@@ -37,7 +37,11 @@ internal class EntityServiceImpl(
 
     override suspend fun upsertEntity(upsert: EntityUpsert): AppResult<EntitySyncPayload> {
         val caller = principal.current() ?: return denied()
-        permissionPolicy.requireCanContributeStoryWorld(caller.userId, caller.role)?.let { return AppResult.Failure(it) }
+        permissionPolicy
+            .requireCanContributeStoryWorld(
+                caller.userId,
+                caller.role,
+            )?.let { return AppResult.Failure(it) }
         validate(upsert)?.let { return AppResult.Failure(it) }
         if (!canSee(caller, upsert.homeSeriesId?.value, upsert.homeBookId?.value)) return notFound(upsert.id)
         // A stored row in a home the caller can't see answers NotFound before the repository's integrity
@@ -106,7 +110,11 @@ internal class EntityServiceImpl(
 
     override suspend fun revert(changeId: StoryWorldHistoryId): AppResult<EntityChange> {
         val caller = principal.current() ?: return denied()
-        permissionPolicy.requireCanContributeStoryWorld(caller.userId, caller.role)?.let { return AppResult.Failure(it) }
+        permissionPolicy
+            .requireCanContributeStoryWorld(
+                caller.userId,
+                caller.role,
+            )?.let { return AppResult.Failure(it) }
         val missing = AppResult.Failure(EntityError.HistoryNotFound(debugInfo = "change=${changeId.value}"))
         val change = entityRepo.findChange(changeId) ?: return missing
         val entity = entityRepo.findById(change.entityId) ?: return missing
@@ -116,12 +124,21 @@ internal class EntityServiceImpl(
 
     private fun validate(upsert: EntityUpsert): ValidationError? =
         when {
-            upsert.name.isBlank() -> ValidationError(message = "Give this entry a name.", field = "name")
-            (upsert.descriptor?.trim()?.length ?: 0) > MAX_DESCRIPTOR ->
+            upsert.name.isBlank() -> {
+                ValidationError(message = "Give this entry a name.", field = "name")
+            }
+
+            (upsert.descriptor?.trim()?.length ?: 0) > MAX_DESCRIPTOR -> {
                 ValidationError(message = "Keep the description to $MAX_DESCRIPTOR characters.", field = "descriptor")
-            (upsert.homeSeriesId == null) == (upsert.homeBookId == null) ->
+            }
+
+            (upsert.homeSeriesId == null) == (upsert.homeBookId == null) -> {
                 ValidationError(message = "An entry belongs to exactly one series or book.")
-            else -> null
+            }
+
+            else -> {
+                null
+            }
         }
 
     private suspend fun visibleLive(
@@ -140,7 +157,8 @@ internal class EntityServiceImpl(
 
     private fun <T> denied(): AppResult<T> = AppResult.Failure(AuthError.PermissionDenied())
 
-    private fun <T> notFound(id: EntityId): AppResult<T> = AppResult.Failure(EntityError.NotFound(debugInfo = "entity=${id.value}"))
+    private fun <T> notFound(id: EntityId): AppResult<T> =
+        AppResult.Failure(EntityError.NotFound(debugInfo = "entity=${id.value}"))
 
     private companion object {
         const val MAX_DESCRIPTOR = 60

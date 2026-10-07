@@ -37,7 +37,11 @@ class EntityRepositoryWritesTest :
 
                     val reverted = repo.revert(deletion.id, ACTOR).shouldBeInstanceOf<AppResult.Success<EntityChange>>().data
                     reverted.op shouldBe StoryWorldOp.REVERT
-                    repo.findById(EntityId("e1")).shouldNotBeNull().deletedAt.shouldBeNull()
+                    repo
+                        .findById(EntityId("e1"))
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldBeNull()
                     repo.findById(EntityId("e1")).shouldNotBeNull().name shouldBe "Sevro"
                 }
             }
@@ -52,10 +56,18 @@ class EntityRepositoryWritesTest :
                     repo.upsertEntity(entityPayload("e1", homeBookId = "b1"), ACTOR)
                     val creation = repo.listHistory(EntityId("e1")).single()
                     val undoCreate = repo.revert(creation.id, ACTOR).shouldBeInstanceOf<AppResult.Success<EntityChange>>().data
-                    repo.findById(EntityId("e1")).shouldNotBeNull().deletedAt.shouldNotBeNull()
+                    repo
+                        .findById(EntityId("e1"))
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldNotBeNull()
 
                     repo.revert(undoCreate.id, ACTOR).shouldBeInstanceOf<AppResult.Success<EntityChange>>()
-                    repo.findById(EntityId("e1")).shouldNotBeNull().deletedAt.shouldBeNull()
+                    repo
+                        .findById(EntityId("e1"))
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldBeNull()
                 }
             }
         }
@@ -89,7 +101,11 @@ class EntityRepositoryWritesTest :
 
                     repo.mergeEntities(EntityId("a"), EntityId("b"), ACTOR).shouldBeInstanceOf<AppResult.Success<*>>()
 
-                    repo.findById(EntityId("a")).shouldNotBeNull().deletedAt.shouldNotBeNull()
+                    repo
+                        .findById(EntityId("a"))
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldNotBeNull()
                     repo.findById(EntityId("kid")).shouldNotBeNull().parentId shouldBe "b"
                     repo.listHistory(EntityId("a")).first().op shouldBe StoryWorldOp.MERGE
                 }
@@ -124,8 +140,11 @@ class EntityRepositoryWritesTest :
             withSqlDatabase {
                 runTest {
                     entityRepository()
-                        .revert(com.calypsan.listenup.core.StoryWorldHistoryId("nope"), ACTOR)
-                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .revert(
+                            com.calypsan.listenup.core
+                                .StoryWorldHistoryId("nope"),
+                            ACTOR,
+                        ).shouldBeInstanceOf<AppResult.Failure>()
                         .error
                         .shouldBeInstanceOf<EntityError.HistoryNotFound>()
                 }

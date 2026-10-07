@@ -137,7 +137,11 @@ class EntityRepositoryIntegrityTest :
                         .shouldBeInstanceOf<AppResult.Failure>()
                         .error
                         .shouldBeInstanceOf<EntityError.NotFound>()
-                    repo.findById(EntityId("e1")).shouldNotBeNull().deletedAt.shouldNotBeNull()
+                    repo
+                        .findById(EntityId("e1"))
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldNotBeNull()
                     repo.listHistory(EntityId("e1")) shouldHaveSize 2
                 }
             }

@@ -326,7 +326,9 @@ class EntityRepository(
                     )
             val restore =
                 change.before
-                    ?: return@suspendTransaction AppResult.Success(tombstone(current, StoryWorldOp.REVERT, actor, ctx, revision = rev))
+                    ?: return@suspendTransaction AppResult.Success(
+                        tombstone(current, StoryWorldOp.REVERT, actor, ctx, revision = rev),
+                    )
             val restored =
                 restore.copy(
                     homeSeriesId = current.homeSeriesId,

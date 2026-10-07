@@ -67,6 +67,7 @@ class EntityAccessTest :
                     seedSeriesWithBooks("Mixed", "open", "hidden")
                     makeBookAccessible(sql, driver, bookId = "open", viewerId = "viewer")
                     val policy = BookAccessPolicy(sql, driver)
+
                     fun created(homeBookId: String) =
                         BusEvent(
                             repo = repo,

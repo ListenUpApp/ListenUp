@@ -30,8 +30,10 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
-private fun as_(userId: String, role: UserRole) =
-    PrincipalProvider { UserPrincipal(UserId(userId), SessionId("s-$userId"), role) }
+private fun as_(
+    userId: String,
+    role: UserRole,
+) = PrincipalProvider { UserPrincipal(UserId(userId), SessionId("s-$userId"), role) }
 
 private fun upsert(
     id: String,
@@ -78,10 +80,16 @@ class EntityServiceImplTest :
             withSqlDatabase {
                 runTest {
                     val world = storyWorld()
-                    world.asMember("member").upsertEntity(upsert("e1", homeBookId = "open"))
+                    world
+                        .asMember("member")
+                        .upsertEntity(upsert("e1", homeBookId = "open"))
                         .shouldBeInstanceOf<AppResult.Success<EntitySyncPayload>>()
-                    world.asMember("nocontrib").upsertEntity(upsert("e2", homeBookId = "open"))
-                        .shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<AuthError.PermissionDenied>()
+                    world
+                        .asMember("nocontrib")
+                        .upsertEntity(upsert("e2", homeBookId = "open"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
                 }
             }
         }
@@ -94,11 +102,19 @@ class EntityServiceImplTest :
                     member.upsertEntity(upsert("a", homeBookId = "open"))
                     member.upsertEntity(upsert("b", homeBookId = "open"))
 
-                    member.deleteEntity(EntityId("a")).shouldBeInstanceOf<AppResult.Failure>()
-                        .error.shouldBeInstanceOf<AuthError.PermissionDenied>()
-                    member.mergeEntities(EntityId("a"), EntityId("b")).shouldBeInstanceOf<AppResult.Failure>()
-                        .error.shouldBeInstanceOf<AuthError.PermissionDenied>()
-                    world.asMember("curator").mergeEntities(EntityId("a"), EntityId("b"))
+                    member
+                        .deleteEntity(EntityId("a"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                    member
+                        .mergeEntities(EntityId("a"), EntityId("b"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                    world
+                        .asMember("curator")
+                        .mergeEntities(EntityId("a"), EntityId("b"))
                         .shouldBeInstanceOf<AppResult.Success<EntitySyncPayload>>()
                     world.asRoot().deleteEntity(EntityId("b")) shouldBe AppResult.Success(Unit)
                 }
@@ -112,24 +128,45 @@ class EntityServiceImplTest :
                     world.asRoot().upsertEntity(upsert("secret", homeBookId = "hidden"))
                     val member = world.asMember("member")
 
-                    member.upsertEntity(upsert("x", homeBookId = "hidden")).shouldBeInstanceOf<AppResult.Failure>()
-                        .error.shouldBeInstanceOf<EntityError.NotFound>()
-                    member.upsertEntity(upsert("secret", homeBookId = "hidden")).shouldBeInstanceOf<AppResult.Failure>()
-                        .error.shouldBeInstanceOf<EntityError.NotFound>()
-                    member.listHistory(EntityId("secret")).shouldBeInstanceOf<AppResult.Failure>()
-                        .error.shouldBeInstanceOf<EntityError.NotFound>()
-                    member.listEntitiesForBook(BookId("hidden")).shouldBeInstanceOf<AppResult.Success<List<EntitySyncPayload>>>()
-                        .data.shouldBeEmpty()
+                    member
+                        .upsertEntity(upsert("x", homeBookId = "hidden"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<EntityError.NotFound>()
+                    member
+                        .upsertEntity(upsert("secret", homeBookId = "hidden"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<EntityError.NotFound>()
+                    member
+                        .listHistory(EntityId("secret"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<EntityError.NotFound>()
+                    member
+                        .listEntitiesForBook(BookId("hidden"))
+                        .shouldBeInstanceOf<AppResult.Success<List<EntitySyncPayload>>>()
+                        .data
+                        .shouldBeEmpty()
 
                     val curator = world.asMember("curator")
                     world.asRoot().upsertEntity(upsert("secret2", homeBookId = "hidden"))
-                    curator.deleteEntity(EntityId("secret")).shouldBeInstanceOf<AppResult.Failure>()
-                        .error.shouldBeInstanceOf<EntityError.NotFound>()
-                    curator.mergeEntities(EntityId("secret"), EntityId("secret2")).shouldBeInstanceOf<AppResult.Failure>()
-                        .error.shouldBeInstanceOf<EntityError.NotFound>()
+                    curator
+                        .deleteEntity(EntityId("secret"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<EntityError.NotFound>()
+                    curator
+                        .mergeEntities(EntityId("secret"), EntityId("secret2"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<EntityError.NotFound>()
                     val secretChange = (world.asRoot().listHistory(EntityId("secret")) as AppResult.Success).data.single()
-                    curator.revert(secretChange.id).shouldBeInstanceOf<AppResult.Failure>()
-                        .error.shouldBeInstanceOf<EntityError.HistoryNotFound>()
+                    curator
+                        .revert(secretChange.id)
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<EntityError.HistoryNotFound>()
                 }
             }
         }
@@ -142,10 +179,16 @@ class EntityServiceImplTest :
                     world.asRoot().upsertEntity(upsert("closed", homeSeriesId = world.sealed.value, kind = EntityKind.GROUP))
                     val member = world.asMember("member")
 
-                    member.listEntitiesForSeries(world.redRising).shouldBeInstanceOf<AppResult.Success<List<EntitySyncPayload>>>()
-                        .data.map { it.id } shouldBe listOf("house")
-                    member.listEntitiesForSeries(world.sealed).shouldBeInstanceOf<AppResult.Success<List<EntitySyncPayload>>>()
-                        .data.shouldBeEmpty()
+                    member
+                        .listEntitiesForSeries(world.redRising)
+                        .shouldBeInstanceOf<AppResult.Success<List<EntitySyncPayload>>>()
+                        .data
+                        .map { it.id } shouldBe listOf("house")
+                    member
+                        .listEntitiesForSeries(world.sealed)
+                        .shouldBeInstanceOf<AppResult.Success<List<EntitySyncPayload>>>()
+                        .data
+                        .shouldBeEmpty()
                 }
             }
         }
@@ -155,14 +198,27 @@ class EntityServiceImplTest :
                 runTest {
                     val world = storyWorld()
                     val member = world.asMember("member")
-                    member.upsertEntity(upsert("x")).shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<ValidationError>()
-                    member.upsertEntity(upsert("x", homeBookId = "open", kind = EntityKind.UNKNOWN))
-                        .shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<ValidationError>()
-                    member.upsertEntity(upsert("x", homeBookId = "open").copy(descriptor = "d".repeat(61)))
-                        .shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<ValidationError>()
+                    member
+                        .upsertEntity(upsert("x"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ValidationError>()
+                    member
+                        .upsertEntity(upsert("x", homeBookId = "open", kind = EntityKind.UNKNOWN))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ValidationError>()
+                    member
+                        .upsertEntity(upsert("x", homeBookId = "open").copy(descriptor = "d".repeat(61)))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ValidationError>()
                     member.upsertEntity(upsert("y", homeBookId = "open"))
-                    member.upsertEntity(upsert("y", homeSeriesId = world.redRising.value))
-                        .shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<ValidationError>()
+                    member
+                        .upsertEntity(upsert("y", homeSeriesId = world.redRising.value))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ValidationError>()
                 }
             }
         }
@@ -172,8 +228,10 @@ class EntityServiceImplTest :
                 runTest {
                     val member = storyWorld().asMember("member")
                     member.upsertEntity(upsert("g", homeBookId = "open", kind = EntityKind.GROUP))
-                    member.upsertEntity(upsert("g", homeBookId = "open", kind = EntityKind.UNKNOWN, name = "Gold"))
-                        .shouldBeInstanceOf<AppResult.Success<EntitySyncPayload>>().data.kind shouldBe EntityKind.GROUP
+                    member
+                        .upsertEntity(upsert("g", homeBookId = "open", kind = EntityKind.UNKNOWN, name = "Gold"))
+                        .shouldBeInstanceOf<AppResult.Success<EntitySyncPayload>>()
+                        .data.kind shouldBe EntityKind.GROUP
                 }
             }
         }
@@ -186,8 +244,12 @@ class EntityServiceImplTest :
                     member.upsertEntity(upsert("e", homeBookId = "open"))
                     val change = (member.listHistory(EntityId("e")) as AppResult.Success).data.single()
 
-                    world.asMember("nocontrib").revert(change.id).shouldBeInstanceOf<AppResult.Failure>()
-                        .error.shouldBeInstanceOf<AuthError.PermissionDenied>()
+                    world
+                        .asMember("nocontrib")
+                        .revert(change.id)
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
                     member.revert(change.id).shouldBeInstanceOf<AppResult.Success<*>>()
                 }
             }
