@@ -587,8 +587,11 @@ private fun AppError.shelfOrSocialHttpStatus(): HttpStatusCode =
 private fun ReadingOrderError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is ReadingOrderError.NotFound -> HttpStatusCode.NotFound
+
         is ReadingOrderError.Forbidden -> HttpStatusCode.Forbidden
+
         is ReadingOrderError.NameAlreadyExists -> HttpStatusCode.Conflict
+
         is ReadingOrderError.InvalidName,
         is ReadingOrderError.BookOutsideSeries,
         is ReadingOrderError.ChoiceUnavailable,

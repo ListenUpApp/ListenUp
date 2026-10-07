@@ -81,7 +81,9 @@ class ReadingOrderServiceTest :
                     val ids = deps.seedCosmere()
                     val simon = deps.serviceAs("simon", UserRole.ADMIN)
                     simon.createReadingOrder(ReadingOrderId("x"), SeriesId("nope"), "A").shouldFailWith<ReadingOrderError.NotFound>()
-                    deps.hierarchy.service.deleteSeries(ids.discworld).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    deps.hierarchy.service
+                        .deleteSeries(ids.discworld)
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
                     simon.createReadingOrder(ReadingOrderId("x"), ids.discworld, "A").shouldFailWith<ReadingOrderError.NotFound>()
 
                     simon.createReadingOrder(ReadingOrderId("a"), ids.cosmere, "URO").shouldBeInstanceOf<AppResult.Success<Unit>>()
@@ -140,7 +142,9 @@ class ReadingOrderServiceTest :
                     val ids = deps.seedCosmere()
                     val simon = deps.serviceAs("simon", UserRole.ADMIN)
                     simon.createReadingOrder(ReadingOrderId("ro"), ids.discworld, "Watch")
-                    deps.hierarchy.service.deleteSeries(ids.discworld).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    deps.hierarchy.service
+                        .deleteSeries(ids.discworld)
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
                     simon.renameReadingOrder(ReadingOrderId("ro"), "City Watch").shouldFailWith<ReadingOrderError.NotFound>()
                     deps.orders.findLive("ro")!!.name shouldBe "Watch"
 
@@ -159,7 +163,9 @@ class ReadingOrderServiceTest :
                     val ids = deps.seedCosmere()
                     val simon = deps.serviceAs("simon", UserRole.ADMIN)
                     simon.createReadingOrder(ReadingOrderId("ro"), ids.cosmere, "URO")
-                    deps.hierarchy.service.deleteSeries(ids.mistborn).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    deps.hierarchy.service
+                        .deleteSeries(ids.mistborn)
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
                     simon.renameReadingOrder(ReadingOrderId("ro"), "URO 2").shouldBeInstanceOf<AppResult.Success<Unit>>()
                 }
             }

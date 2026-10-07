@@ -97,7 +97,11 @@ class ReadingOrderRepositoriesTest :
                         userId = "jess",
                     )
                     repo.pullSince(userId = "priya", cursor = 0, limit = 50).items.shouldBeEmpty()
-                    repo.pullSince(userId = "jess", cursor = 0, limit = 50).items.single().choice shouldBe
+                    repo
+                        .pullSince(userId = "jess", cursor = 0, limit = 50)
+                        .items
+                        .single()
+                        .choice shouldBe
                         ReadingOrderChoiceKind.PUBLICATION
                 }
             }

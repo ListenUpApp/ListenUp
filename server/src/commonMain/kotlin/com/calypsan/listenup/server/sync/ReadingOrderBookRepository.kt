@@ -178,7 +178,11 @@ class ReadingOrderBookRepository(
         val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
         val capture = currentCoroutineContext()[FrameCapture.Key]
         return suspendTransaction(db) {
-            val live = db.readingOrderBooksQueries.selectLiveForOrder(orderId).executeAsList().map { it.toPayload() }
+            val live =
+                db.readingOrderBooksQueries
+                    .selectLiveForOrder(orderId)
+                    .executeAsList()
+                    .map { it.toPayload() }
             val byBook = live.associateBy { it.bookId }
             var rewritten = 0
             arrangement(live.map { it.bookId }).forEachIndexed { position, bookId ->

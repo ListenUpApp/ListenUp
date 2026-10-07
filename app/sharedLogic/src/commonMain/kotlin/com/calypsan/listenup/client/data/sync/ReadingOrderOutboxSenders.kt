@@ -25,7 +25,13 @@ internal fun readingOrderOutboxBindings(
         outboxBinding(OutboxChannels.ReadingOrders) { id, mutation ->
             when (mutation) {
                 is ReadingOrderMutation.Create -> {
-                    channel.call { it.createReadingOrder(ReadingOrderId(id), SeriesId(mutation.seriesId), mutation.name) }
+                    channel.call {
+                        it.createReadingOrder(
+                            ReadingOrderId(id),
+                            SeriesId(mutation.seriesId),
+                            mutation.name,
+                        )
+                    }
                 }
 
                 is ReadingOrderMutation.Rename -> {
@@ -58,7 +64,10 @@ internal fun readingOrderOutboxBindings(
 
                 is ReadingOrderBookMutation.Reorder -> {
                     channel.call {
-                        it.reorderReadingOrder(ReadingOrderId(mutation.readingOrderId), mutation.orderedBookIds.map(::BookId))
+                        it.reorderReadingOrder(
+                            ReadingOrderId(mutation.readingOrderId),
+                            mutation.orderedBookIds.map(::BookId),
+                        )
                     }
                 }
             }

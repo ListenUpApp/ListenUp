@@ -73,7 +73,10 @@ class ReadingOrderAccessTest :
                 val policy = { BookAccessPolicy(sql, driver) }
                 runTest {
                     fun created(bookId: String) =
-                        BusEvent(members, SyncEvent.Created(id = "m-$bookId", revision = 1, occurredAt = 1, payload = member("m-$bookId", bookId, 0)))
+                        BusEvent(
+                            members,
+                            SyncEvent.Created(id = "m-$bookId", revision = 1, occurredAt = 1, payload = member("m-$bookId", bookId, 0)),
+                        )
                     firehoseGateReason(created("secret"), "jess", UserRole.MEMBER, policy) shouldBe "bookJunction"
                     firehoseGateReason(created("open"), "jess", UserRole.MEMBER, policy) shouldBe null
                     firehoseGateReason(created("secret"), "simon", UserRole.ADMIN, policy) shouldBe null

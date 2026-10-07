@@ -39,7 +39,10 @@ class ReadingOrderFollowTest :
                         it.choice shouldBe ReadingOrderChoiceKind.PUBLICATION
                         it.readingOrderId shouldBe null
                     }
-                    deps.follows.pullSince(userId = "priya", cursor = 0, limit = 50).items.shouldBeEmpty()
+                    deps.follows
+                        .pullSince(userId = "priya", cursor = 0, limit = 50)
+                        .items
+                        .shouldBeEmpty()
                 }
             }
         }
@@ -103,9 +106,18 @@ class ReadingOrderFollowTest :
                     jess.chooseReadingOrder(ids.cosmere, ReadingOrderChoice.PublicationOrder)
                     jess.clearReadingOrderChoice(ids.cosmere).shouldBeInstanceOf<AppResult.Success<Unit>>()
                     deps.follows.findLive(followId) shouldBe null
-                    val revision = deps.follows.pullSince(userId = "jess", cursor = 0, limit = 5).items.single().revision
+                    val revision =
+                        deps.follows
+                            .pullSince(userId = "jess", cursor = 0, limit = 5)
+                            .items
+                            .single()
+                            .revision
                     jess.clearReadingOrderChoice(ids.cosmere).shouldBeInstanceOf<AppResult.Success<Unit>>()
-                    deps.follows.pullSince(userId = "jess", cursor = 0, limit = 5).items.single().revision shouldBe revision
+                    deps.follows
+                        .pullSince(userId = "jess", cursor = 0, limit = 5)
+                        .items
+                        .single()
+                        .revision shouldBe revision
                     jess.chooseReadingOrder(ids.cosmere, ReadingOrderChoice.SeriesOrder)
                     deps.follows.findLive(followId)!!.choice shouldBe ReadingOrderChoiceKind.SERIES
                 }

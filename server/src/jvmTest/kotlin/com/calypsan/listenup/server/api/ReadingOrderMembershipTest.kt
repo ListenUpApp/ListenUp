@@ -101,7 +101,10 @@ class ReadingOrderMembershipTest :
                     deps.bookIdsOf("ro") shouldContainExactly listOf("woa")
                     svc.addBookToReadingOrder(RO, BookId("tfe"), "m9").shouldBeInstanceOf<AppResult.Success<Unit>>()
                     deps.bookIdsOf("ro") shouldContainExactly listOf("woa", "tfe")
-                    deps.members.liveMembers("ro").last().id shouldBe "m1"
+                    deps.members
+                        .liveMembers("ro")
+                        .last()
+                        .id shouldBe "m1"
                 }
             }
         }

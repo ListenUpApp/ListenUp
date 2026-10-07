@@ -31,7 +31,9 @@ class ReadingOrderSeriesMergeTest :
                     simon.createReadingOrder(ReadingOrderId("saga-era"), saga, "era one")
                     deps.serviceAs("jess").chooseReadingOrder(ids.mistborn, ReadingOrderChoice.UserMade(ReadingOrderId("uro")))
 
-                    deps.hierarchy.service.mergeSeries(ids.mistborn, saga).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    deps.hierarchy.service
+                        .mergeSeries(ids.mistborn, saga)
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     deps.orders.findLive("uro")!!.let {
                         it.seriesId shouldBe saga.value
@@ -53,7 +55,9 @@ class ReadingOrderSeriesMergeTest :
                             .shouldBeInstanceOf<AppResult.Success<List<com.calypsan.listenup.api.dto.MergeReceipt>>>()
                             .data
                             .single()
-                    deps.hierarchy.service.undoSeriesMerge(receipt.id).shouldBeInstanceOf<AppResult.Success<*>>()
+                    deps.hierarchy.service
+                        .undoSeriesMerge(receipt.id)
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
 
                     deps.orders.findLive("uro")!!.let {
                         it.seriesId shouldBe ids.mistborn.value
@@ -78,7 +82,9 @@ class ReadingOrderSeriesMergeTest :
                     val simon = deps.serviceAs("simon", UserRole.ADMIN)
                     simon.createReadingOrder(ReadingOrderId("gone"), ids.mistborn, "Gone")
                     simon.createReadingOrder(ReadingOrderId("kept"), ids.mistborn, "Kept")
-                    deps.hierarchy.service.mergeSeries(ids.mistborn, saga).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    deps.hierarchy.service
+                        .mergeSeries(ids.mistborn, saga)
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
                     simon.deleteReadingOrder(ReadingOrderId("gone")).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     val receipt =
@@ -87,7 +93,9 @@ class ReadingOrderSeriesMergeTest :
                             .shouldBeInstanceOf<AppResult.Success<List<com.calypsan.listenup.api.dto.MergeReceipt>>>()
                             .data
                             .single()
-                    deps.hierarchy.service.undoSeriesMerge(receipt.id).shouldBeInstanceOf<AppResult.Success<*>>()
+                    deps.hierarchy.service
+                        .undoSeriesMerge(receipt.id)
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
 
                     deps.orders.findLive("gone") shouldBe null
                     deps.orders.findLive("kept")!!.seriesId shouldBe ids.mistborn.value

@@ -79,7 +79,9 @@ internal class ReadingOrderMembership(
         orderedBookIds: List<BookId>,
     ): AppResult<Unit> {
         if (orderedBookIds.size > MAX_BOOKS_PER_READING_ORDER_REORDER) {
-            return AppResult.Failure(ReadingOrderError.InvalidInput(debugInfo = "reorder of ${orderedBookIds.size} ids"))
+            return AppResult.Failure(
+                ReadingOrderError.InvalidInput(debugInfo = "reorder of ${orderedBookIds.size} ids"),
+            )
         }
         val requested = orderedBookIds.map { it.value }
         members.rewritePositions(order.id) { current -> tolerantOrder(current, requested) }
