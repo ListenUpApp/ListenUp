@@ -83,7 +83,7 @@ internal fun FindPane(
 
     find.yourCopy?.let { YourCopyStrip(it, bookId) }
 
-    SearchForm(query = find.query, onSearch = session.search, region = region, onChooseStore = session.chooseStoreForThisSearch)
+    SearchForm(query = queryOf(find), onSearch = session.search, region = region, onChooseStore = session.chooseStoreForThisSearch)
 
     if (find is FindUiState.Searching) {
         P(attrs = {
@@ -333,6 +333,14 @@ internal fun Art(
         })
     }
 }
+
+/** What the search field holds: the query each state carries. */
+internal fun queryOf(find: FindUiState): String =
+    when (find) {
+        is FindUiState.Searching -> find.query
+        is FindUiState.Results -> find.query
+        is FindUiState.Failed -> find.query
+    }
 
 private fun resultCountText(count: Int): String = if (count == 1) "1 result" else "$count results"
 
