@@ -77,7 +77,9 @@ fun BookMatchPage(
     LaunchedEffect(session) {
         session.events.collect { event ->
             when (event) {
-                is BookMatchEvent.Applied -> latestOnApplied()
+                is BookMatchEvent.Applied -> {
+                    latestOnApplied()
+                }
 
                 BookMatchEvent.ReviewReloaded -> {
                     reloadedFor = (session.reviewState.value as? ReviewUiState.Ready)?.candidate?.id
@@ -141,7 +143,13 @@ fun BookMatchPage(
             MatchView.Find -> {
                 PageHeader(
                     title = TITLE,
-                    subtitle = find.yourCopy?.let { copy -> listOf(copy.title, copy.authors.joinToString(", ")).filter { it.isNotBlank() }.joinToString(" · ") },
+                    subtitle =
+                        find.yourCopy?.let { copy ->
+                            listOf(
+                                copy.title,
+                                copy.authors.joinToString(", "),
+                            ).filter { it.isNotBlank() }.joinToString(" · ")
+                        },
                 )
                 Div(attrs = { classes("bmx-panes") }) {
                     Section(attrs = {
@@ -171,7 +179,9 @@ fun BookMatchPage(
                                 bookId = bookId,
                                 viewerId = viewerId,
                                 session = session,
-                                reloaded = reloadedFor != null && reloadedFor == (review as? ReviewUiState.Ready)?.candidate?.id,
+                                reloaded =
+                                    reloadedFor != null &&
+                                        reloadedFor == (review as? ReviewUiState.Ready)?.candidate?.id,
                                 onBack = { candidate ->
                                     session.backToResults()
                                     pendingFocus = rowId(candidate)
@@ -238,8 +248,14 @@ private fun Announcements(
 
 private fun findAnnouncementKey(find: FindUiState): String =
     when (find) {
-        is FindUiState.Searching -> "searching"
-        is FindUiState.Results -> "results:${find.all.size}:${find.all.joinToString { it.id }}"
+        is FindUiState.Searching -> {
+            "searching"
+        }
+
+        is FindUiState.Results -> {
+            "results:${find.all.size}:${find.all.joinToString { it.id }}"
+        }
+
         is FindUiState.Failed -> {
             val failure = find.failure
             if (failure is FindFailure.RateLimited) "limited:${failure.secondsRemaining > 0}" else "failed:$failure"
@@ -249,8 +265,14 @@ private fun findAnnouncementKey(find: FindUiState): String =
 /** What the live region says about Find. */
 internal fun findAnnouncement(find: FindUiState): String? =
     when (find) {
-        is FindUiState.Searching -> SEARCHING
-        is FindUiState.Results -> if (find.all.size == 1) "1 match" else "${find.all.size} matches"
+        is FindUiState.Searching -> {
+            SEARCHING
+        }
+
+        is FindUiState.Results -> {
+            if (find.all.size == 1) "1 match" else "${find.all.size} matches"
+        }
+
         is FindUiState.Failed -> {
             val failure = find.failure
             if (failure is FindFailure.RateLimited && failure.secondsRemaining <= 0) {
@@ -272,15 +294,25 @@ private fun reviewAnnouncementKey(review: ReviewUiState): String =
 /** What the live region says about Review; null when a ready Review has nothing new to say. */
 internal fun reviewAnnouncement(review: ReviewUiState): String? =
     when (review) {
-        ReviewUiState.NoneChosen -> null
-        is ReviewUiState.Loading -> "Loading this match…"
-        is ReviewUiState.Failed -> "Couldn't load this match. ${review.error.message}"
-        is ReviewUiState.Ready ->
+        ReviewUiState.NoneChosen -> {
+            null
+        }
+
+        is ReviewUiState.Loading -> {
+            "Loading this match…"
+        }
+
+        is ReviewUiState.Failed -> {
+            "Couldn't load this match. ${review.error.message}"
+        }
+
+        is ReviewUiState.Ready -> {
             when {
                 review.applying -> APPLYING
                 review.applyError != null -> nothingChanged(review.applyError!!.message)
                 else -> null
             }
+        }
     }
 
 private fun findKey(find: FindUiState): String =

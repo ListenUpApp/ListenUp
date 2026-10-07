@@ -2506,7 +2506,7 @@ private fun KeptOffRoute(
 private const val SYNC_NOW_FAILED_NOTICE = "Couldn't reach Hardcover. Nothing was lost."
 
 /**
- * `/book/{id}/hardcover` — Find on Hardcover over one book. Not `/match`: that is the Audible wizard's.
+ * `/book/{id}/hardcover` — Find on Hardcover over one book. Not `/match`: that is Match details'.
  *
  * A pick or a removed match goes to the book, replacing this page in history so Back leaves the way
  * the reader came in; a pick says what it matched in a toast with Undo, which the session keeps
@@ -3234,8 +3234,6 @@ private const val NEW_KEY = "new"
 
 private const val BOOK_KEY = "book"
 
-/** The match page's "Current cover" tile is 88 px square; twice that keeps it sharp on a 2× screen. */
-
 /** The trailing segment that turns a book route into its edit form. */
 private const val EDIT_KEY = "edit"
 
@@ -3254,7 +3252,7 @@ private const val BOOKS_KEY = "books"
 /** The selection the bulk editor edits, comma-separated. */
 private const val IDS_QUERY_KEY = "ids"
 
-/** `/book/{id}/match` — the Audible metadata wizard over one book. */
+/** `/book/{id}/match` — Match details over one book; `/contributor/{id}/match`, the person wizard. */
 private const val MATCH_KEY = "match"
 
 /** `/book/{id}/match?view=compare` — Match details' Compare editions page. */

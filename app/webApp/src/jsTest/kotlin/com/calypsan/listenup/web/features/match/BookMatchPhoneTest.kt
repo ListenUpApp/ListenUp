@@ -82,7 +82,9 @@ class BookMatchPhoneTest :
             awaitFrame()
             awaitFrame()
 
-            frame.host.ownerDocument!!.activeElement?.id shouldBe rowId(chosen)
+            frame.host.ownerDocument!!
+                .activeElement
+                ?.id shouldBe rowId(chosen)
         }
 
         test("at 320px with text at 200%, Review reflows: nothing scrolls sideways and Apply stays on screen") {

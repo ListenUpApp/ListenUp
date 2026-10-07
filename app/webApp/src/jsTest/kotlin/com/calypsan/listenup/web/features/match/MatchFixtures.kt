@@ -73,7 +73,8 @@ internal fun candidate(
     isBest: Boolean = false,
     isCurrentLink: Boolean = false,
     foundIn: List<FoundIn> = listOf(FoundIn(AUDIBLE, "us"), FoundIn(HARDCOVER)),
-    reasons: List<MatchReason> = listOf(MatchReason.SameNarrator, MatchReason.SameLength, MatchReason.SameChapterCount(36)),
+    reasons: List<MatchReason> =
+        listOf(MatchReason.SameNarrator, MatchReason.SameLength, MatchReason.SameChapterCount(36)),
     durationMs: Long? = 58_200_000,
     narrators: List<String> = listOf("Ray Porter"),
     chapterCount: Int? = 36,
@@ -105,7 +106,15 @@ internal fun region(): RegionUi = RegionUi(AUDIBLE, US, RegionOrigin.LIBRARY, li
 
 internal fun results(
     strong: List<CandidateUi> = listOf(candidate(isBest = true)),
-    maybe: List<CandidateUi> = listOf(candidate(id = "B2", title = "Project Hail Mary (Abridged)", tier = MatchTier.MAYBE, reasons = listOf(MatchReason.LengthDiffers(-386)))),
+    maybe: List<CandidateUi> =
+        listOf(
+            candidate(
+                id = "B2",
+                title = "Project Hail Mary (Abridged)",
+                tier = MatchTier.MAYBE,
+                reasons = listOf(MatchReason.LengthDiffers(-386)),
+            ),
+        ),
     partialFailure: PartialFailure? = null,
     steps: List<SearchStep> = listOf(SearchStep.ExistingLink(AUDIBLE), SearchStep.TitleAuthorLength),
     pickedKey: BookCandidateKey? = null,
@@ -154,7 +163,8 @@ internal fun field(
 internal fun ready(
     candidate: CandidateUi = candidate(isBest = true),
     changes: List<FieldUi> = listOf(field(BookField.DESCRIPTION), field(BookField.PUBLISHER)),
-    fillsGap: List<FieldUi> = listOf(field(BookField.PUBLISH_YEAR, FieldState.FILLS_GAP, current = null, proposed = FieldValue.Year(2021))),
+    fillsGap: List<FieldUi> =
+        listOf(field(BookField.PUBLISH_YEAR, FieldState.FILLS_GAP, current = null, proposed = FieldValue.Year(2021))),
     youEdited: List<FieldUi> =
         listOf(
             field(

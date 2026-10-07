@@ -83,7 +83,12 @@ internal fun FindPane(
 
     find.yourCopy?.let { YourCopyStrip(it, bookId) }
 
-    SearchForm(query = queryOf(find), onSearch = session.search, region = region, onChooseStore = session.chooseStoreForThisSearch)
+    SearchForm(
+        query = queryOf(find),
+        onSearch = session.search,
+        region = region,
+        onChooseStore = session.chooseStoreForThisSearch,
+    )
 
     if (find is FindUiState.Searching) {
         P(attrs = {
@@ -117,7 +122,9 @@ private fun YourCopyStrip(
         Art(url = coverUrl(bookId, copy.coverHash, width = ART_WIDTH))
         Div(attrs = { classes("bmx-copy-text") }) {
             Span(attrs = { classes("bmx-copy-l") }) { Text("Your copy") }
-            yourCopyMetaText(copy).takeIf { it.isNotBlank() }?.let { Span(attrs = { classes("bmx-copy-m") }) { Text(it) } }
+            yourCopyMetaText(
+                copy,
+            ).takeIf { it.isNotBlank() }?.let { Span(attrs = { classes("bmx-copy-m") }) { Text(it) } }
         }
     }
 }
@@ -146,7 +153,13 @@ private fun SearchForm(
             classes("bmx-q")
             focusLanding(priority = 2)
         }) {
-            Field(label = "Search for a match", value = text, onInput = { text = it }, leading = WebIcon.Search, id = SEARCH_ID)
+            Field(
+                label = "Search for a match",
+                value = text,
+                onInput = { text = it },
+                leading = WebIcon.Search,
+                id = SEARCH_ID,
+            )
         }
         Button(kind = ButtonKind.Secondary, submit = true) { Text("Search") }
     }
@@ -167,7 +180,13 @@ internal fun StoreMenu(
         PopupMenu(
             items =
                 region.choices.map { choice ->
-                    MenuAction(choice.displayName, WebIcon.Compass, { onChooseStore(choice) }, checked = choice == region.region)
+                    MenuAction(
+                        choice.displayName,
+                        WebIcon.Compass,
+                        { onChooseStore(choice) },
+                        checked =
+                            choice == region.region,
+                    )
                 },
             label = "$label. Just this search",
             icon = WebIcon.Compass,

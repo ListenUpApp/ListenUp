@@ -69,7 +69,9 @@ fun MatchReceiptRegion(
         }
     }) {
         when (state) {
-            MatchReceiptUiState.None -> Unit
+            MatchReceiptUiState.None -> {
+                Unit
+            }
 
             is MatchReceiptUiState.Shown -> {
                 Shown(state, onUndo, onSeeChanges = { showingChanges = true }, onDismiss = dismiss)
@@ -107,7 +109,13 @@ private fun Shown(
                 Text(if (state.undoing) "Undoing…" else "Undo")
             }
         }
-        Button(kind = ButtonKind.Icon, size = ButtonSize.Sm, onClick = onDismiss, label = "Dismiss", pressable = !state.undoing) {
+        Button(
+            kind = ButtonKind.Icon,
+            size = ButtonSize.Sm,
+            onClick = onDismiss,
+            label = "Dismiss",
+            pressable = !state.undoing,
+        ) {
             Icon(WebIcon.X, size = SMALL_ICON)
         }
     }

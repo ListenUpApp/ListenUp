@@ -100,10 +100,14 @@ private fun ReviewHeader(
         Art(url = candidate.coverUrl, big = true)
         Div(attrs = { classes("bmx-head-m") }) {
             if (candidate.isBest) {
-                Span(attrs = { classes("bmx-badges") }) { Span(attrs = { classes("bmx-badge", "is-best") }) { Text("Best match") } }
+                Span(
+                    attrs = { classes("bmx-badges") },
+                ) { Span(attrs = { classes("bmx-badge", "is-best") }) { Text("Best match") } }
             }
             Span(attrs = { classes("bmx-head-t") }) { Text(candidate.title) }
-            candidateMetaText(candidate).takeIf { it.isNotBlank() }?.let { Span(attrs = { classes("bmx-row-meta") }) { Text(it) } }
+            candidateMetaText(
+                candidate,
+            ).takeIf { it.isNotBlank() }?.let { Span(attrs = { classes("bmx-row-meta") }) { Text(it) } }
             if (candidate.foundIn.isNotEmpty()) {
                 Span(attrs = { classes("bmx-row-found") }) { Text(foundInText(candidate.foundIn)) }
             }
@@ -149,8 +153,32 @@ private fun summaryItems(
     val sameCount = review.alreadySame.size + if (review.lengthAlreadySame) 1 else 0
     val labels = summary.labelsAdded + summary.labelsRemoved
     return listOfNotNull(
-        summary.changeCount.takeIf { it > 0 }?.let { SummaryItem("$it", if (it == 1) "change" else "changes", SECTION_CHANGES) },
-        summary.gapCount.takeIf { it > 0 }?.let { SummaryItem("$it", if (it == 1) "gap filled" else "gaps filled", SECTION_GAPS) },
+        summary.changeCount.takeIf { it > 0 }?.let {
+            SummaryItem(
+                "$it",
+                if (it ==
+                    1
+                ) {
+                    "change"
+                } else {
+                    "changes"
+                },
+                SECTION_CHANGES,
+            )
+        },
+        summary.gapCount.takeIf { it > 0 }?.let {
+            SummaryItem(
+                "$it",
+                if (it ==
+                    1
+                ) {
+                    "gap filled"
+                } else {
+                    "gaps filled"
+                },
+                SECTION_GAPS,
+            )
+        },
         summary.coverSource?.let { SummaryItem("Cover", "from ${it.label}", SECTION_COVER) },
         labels.takeIf { it > 0 }?.let { SummaryItem("$it", "genres and moods", SECTION_LABELS) },
         summary.chapterNameCount.takeIf { it > 0 }?.let { SummaryItem("$it", "chapter names", SECTION_CHAPTERS) },
@@ -174,7 +202,9 @@ private fun ApplyBar(
         Div(attrs = { classes("bmx-bar") }) {
             Div(attrs = { classes("bmx-bar-text") }) {
                 Span(attrs = { classes("bmx-bar-sum") }) { Text(applyBarText(review.applyBar)) }
-                Span(attrs = { classes("bmx-note") }) { Text("Nothing changes until you apply. You can undo it afterwards.") }
+                Span(
+                    attrs = { classes("bmx-note") },
+                ) { Text("Nothing changes until you apply. You can undo it afterwards.") }
             }
             Button(
                 kind = ButtonKind.Primary,

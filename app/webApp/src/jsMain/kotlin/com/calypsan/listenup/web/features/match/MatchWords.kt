@@ -147,14 +147,27 @@ internal fun fieldLabel(field: BookField): String =
 /** A field's value as text; release dates are years (P2). Description HTML is read as plain text. */
 internal fun valueText(value: FieldValue?): String =
     when (value) {
-        null -> "—"
-        is FieldValue.Text -> plainText(value.text).ifBlank { "—" }
-        is FieldValue.People -> value.names.joinToString(", ").ifBlank { "—" }
-        is FieldValue.SeriesEntries ->
+        null -> {
+            "—"
+        }
+
+        is FieldValue.Text -> {
+            plainText(value.text).ifBlank { "—" }
+        }
+
+        is FieldValue.People -> {
+            value.names.joinToString(", ").ifBlank { "—" }
+        }
+
+        is FieldValue.SeriesEntries -> {
             value.entries
                 .joinToString(", ") { entry -> entry.sequence?.let { "${entry.name} #$it" } ?: entry.name }
                 .ifBlank { "—" }
-        is FieldValue.Year -> value.year.toString()
+        }
+
+        is FieldValue.Year -> {
+            value.year.toString()
+        }
     }
 
 /**
@@ -190,7 +203,13 @@ internal fun editedByText(
             else -> "hand"
         }
     val day = edit?.at?.takeIf { it > 0 }?.let(::dayMonthText)
-    return if (day != null) "Edited by $who, $day. Kept unless you tick it." else "Edited by $who. Kept unless you tick it."
+    return if (day !=
+        null
+    ) {
+        "Edited by $who, $day. Kept unless you tick it."
+    } else {
+        "Edited by $who. Kept unless you tick it."
+    }
 }
 
 /** "12 Sep", in the reader's own time zone. */
@@ -267,7 +286,8 @@ internal fun failureBody(failure: FindFailure): String =
     }
 
 /** "0:30" — the rate limit's countdown on its Retry button. */
-internal fun countdownText(seconds: Int): String = "${seconds / SECONDS_PER_MINUTE}:${(seconds % SECONDS_PER_MINUTE).toString().padStart(2, '0')}"
+internal fun countdownText(seconds: Int): String =
+    "${seconds / SECONDS_PER_MINUTE}:${(seconds % SECONDS_PER_MINUTE).toString().padStart(2, '0')}"
 
 /** "<message> Nothing was changed." — once, however the message ends. */
 internal fun nothingChanged(message: String): String =

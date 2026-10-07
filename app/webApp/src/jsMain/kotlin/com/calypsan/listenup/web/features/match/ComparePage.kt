@@ -99,7 +99,9 @@ internal fun ComparePage(
                             Button(
                                 kind = ButtonKind.Secondary,
                                 onClick = { onReview(candidate) },
-                                label = "Review this match, ${candidate.title}, ${sourcesText(candidate.foundIn.map { it.source })}",
+                                label = "Review this match, ${candidate.title}, ${sourcesText(
+                                    candidate.foundIn.map { it.source },
+                                )}",
                             ) { Text("Review this match") }
                         }
                     }
@@ -114,7 +116,17 @@ private fun Badges(candidate: CandidateUi) {
     Span(attrs = { classes("bmx-badges") }) {
         if (candidate.isBest) Span(attrs = { classes("bmx-badge", "is-best") }) { Text("Best match") }
         if (candidate.isCurrentLink) Span(attrs = { classes("bmx-badge") }) { Text("Your current link") }
-        Span(attrs = { classes("bmx-badge") }) { Text(if (candidate.tier == MatchTier.STRONG) "Strong match" else "Maybe") }
+        Span(attrs = { classes("bmx-badge") }) {
+            Text(
+                if (candidate.tier ==
+                    MatchTier.STRONG
+                ) {
+                    "Strong match"
+                } else {
+                    "Maybe"
+                },
+            )
+        }
     }
 }
 
@@ -171,14 +183,26 @@ internal fun compareRows(
             "Store",
             "—",
             candidates.map { candidate ->
-                val stores = candidate.foundIn.filter { it.region != null }.map { "${it.source.label} ${it.region.orEmpty().uppercase()}" }
+                val stores =
+                    candidate.foundIn
+                        .filter {
+                            it.region != null
+                        }.map { "${it.source.label} ${it.region.orEmpty().uppercase()}" }
                 CompareCell(stores.joinToString(", ").ifBlank { NOT_LISTED })
             },
         ),
         CompareRow(
             "Found in",
             "In your library",
-            candidates.map { CompareCell(sourcesText(it.foundIn.map { found -> found.source }).ifBlank { NOT_LISTED }) },
+            candidates.map {
+                CompareCell(
+                    sourcesText(
+                        it.foundIn.map { found ->
+                            found.source
+                        },
+                    ).ifBlank { NOT_LISTED },
+                )
+            },
         ),
     )
 

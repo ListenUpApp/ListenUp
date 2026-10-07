@@ -56,7 +56,14 @@ internal fun ReviewSections(
     if (review.cover.options.isNotEmpty()) CoverSection(review.cover, bookId, session)
     FieldSection(SECTION_CHANGES, "Changes", null, review.changes, viewerId, session)
     FieldSection(SECTION_GAPS, "Fills a gap", null, review.fillsGap, viewerId, session)
-    FieldSection(SECTION_EDITED, "You edited this", "Left as you have it unless you tick it.", review.youEdited, viewerId, session)
+    FieldSection(
+        SECTION_EDITED,
+        "You edited this",
+        "Left as you have it unless you tick it.",
+        review.youEdited,
+        viewerId,
+        session,
+    )
     LabelsSection(review.genres, review.moods, session)
     ChapterNamesSection(review.chapterNames, session)
     AlreadySameSection(review.alreadySame, review.lengthAlreadySame)
@@ -367,7 +374,9 @@ private fun ChapterNamesSection(
     session: BookMatchSession,
 ) {
     when (names) {
-        ChapterNamesUi.Hidden -> Unit
+        ChapterNamesUi.Hidden -> {
+            Unit
+        }
 
         is ChapterNamesUi.CountMismatch -> {
             ReviewSection(SECTION_CHAPTERS, "Chapter names") {
@@ -380,7 +389,9 @@ private fun ChapterNamesSection(
             }
         }
 
-        is ChapterNamesUi.Available -> AvailableChapterNames(names, session)
+        is ChapterNamesUi.Available -> {
+            AvailableChapterNames(names, session)
+        }
     }
 }
 
