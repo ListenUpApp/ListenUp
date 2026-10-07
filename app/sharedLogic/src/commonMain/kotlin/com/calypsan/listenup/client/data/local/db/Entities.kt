@@ -5,6 +5,7 @@ import androidx.room3.Entity
 import androidx.room3.Index
 import androidx.room3.PrimaryKey
 import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.dto.match.LastMatch
 import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ChapterId
@@ -122,6 +123,9 @@ internal data class BookEntity(
     // own title with no type chip rather than inventing a word the author never used.
     val bookTierLabel: String? = null,
     val partTierLabel: String? = null,
+    // The book's live metadata match, mirrored from BookSyncPayload.lastMatch, so "Undo last match" shows
+    // offline while lastMatch.revision equals revision. Stored as JSON via LastMatchConverter; null when none.
+    val lastMatch: LastMatch? = null,
     // Timestamps from the server
     val createdAt: Timestamp,
     val updatedAt: Timestamp,

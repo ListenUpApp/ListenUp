@@ -79,6 +79,8 @@ internal class BookEntityMapper {
             // payload always carries the current pair — including nulls, which mean "unnamed".
             bookTierLabel = payload.bookTierLabel,
             partTierLabel = payload.partTierLabel,
+            // Wire-authoritative: the server fills it from the live receipt and clears it when there is none.
+            lastMatch = payload.lastMatch,
             // Timestamps: payload carries epoch-ms Longs; BookEntity uses the Timestamp value class.
             createdAt = Timestamp(payload.createdAt),
             updatedAt = Timestamp(payload.updatedAt),

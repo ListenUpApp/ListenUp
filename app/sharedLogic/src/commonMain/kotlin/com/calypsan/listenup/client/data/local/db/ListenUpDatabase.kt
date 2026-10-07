@@ -32,6 +32,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  * `book_readership.finishesAlsoOnHardcoverJson`.
  * [MIGRATION_15_16] adds the series tree, `series.parentId` and `series.parentPosition`.
  * [MIGRATION_16_17] adds `libraries.metadataRegion`, the library's Audible store.
+ * [MIGRATION_17_18] adds `books.lastMatch`, the book's live metadata match for "Undo last match".
  * **v1** was the squashed starting point: the pre-1.0 chain (old v1 → v2 → v3) was squashed to a
  * single starting point alongside the Room 2.8.4 → Room 3 migration, while the app was still
  * pre-production and no install base held a database worth preserving. Everything those migrations
@@ -96,7 +97,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         BookRatingEntity::class,
         BookExternalRatingEntity::class,
     ],
-    version = 17,
+    version = 18,
     exportSchema = true,
 )
 @ColumnTypeConverters(
@@ -104,6 +105,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
     Converters::class,
     StringListJsonConverter::class,
     FieldProvenanceConverter::class,
+    LastMatchConverter::class,
 )
 @ConstructedBy(ListenUpDatabaseConstructor::class)
 @Suppress("TooManyFunctions")

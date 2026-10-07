@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.local.db
 
 import androidx.room3.ColumnTypeConverter
 import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.dto.match.LastMatch
 import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.metadata.FieldProvenanceMapSerializer
 import com.calypsan.listenup.core.BookId
@@ -182,6 +183,26 @@ internal class FieldProvenanceConverter {
     private companion object {
         val serializer: KSerializer<Map<BookField, FieldProvenance>> = FieldProvenanceMapSerializer
     }
+}
+
+/**
+ * Room type converter for [BookEntity.lastMatch]: the book's live match receipt as JSON via [appJson], the
+ * same codec the wire uses. Null is a null column. A value an older build can't read decodes as null — the
+ * Undo row just doesn't show — rather than making the whole book row unreadable.
+ */
+internal class LastMatchConverter {
+    @ColumnTypeConverter
+    fun fromLastMatch(value: LastMatch?): String? = value?.let { appJson.encodeToString(LastMatch.serializer(), it) }
+
+    @ColumnTypeConverter
+    fun toLastMatch(value: String?): LastMatch? =
+        value?.takeIf { it.isNotBlank() }?.let {
+            try {
+                appJson.decodeFromString(LastMatch.serializer(), it)
+            } catch (_: kotlinx.serialization.SerializationException) {
+                null
+            }
+        }
 }
 
 /**
