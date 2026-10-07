@@ -415,3 +415,28 @@ internal val MIGRATION_17_18 =
             connection.executeDdl("ALTER TABLE `books` ADD COLUMN `lastMatch` TEXT")
         }
     }
+
+/**
+ * v18 → v19: Story World. The `entities` mirror (the access-gated, outbox-backed `entities` sync domain) and
+ * the signed-in user's `canContributeStoryWorld` / `canCurateStoryWorld`, defaulting to the server's own
+ * column defaults (contribute on, curate off) until the next sign-in brings the real values. Pure
+ * CREATE / ADD COLUMN, per the migration policy in [ListenUpDatabase] — the outbox is untouched. The new
+ * domain has no cursor yet, so its first catch-up starts from zero by itself.
+ */
+internal val MIGRATION_18_19 =
+    object : Migration(18, 19) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl(
+                "CREATE TABLE IF NOT EXISTS `entities` (`id` TEXT NOT NULL, `kind` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                    "`descriptor` TEXT, `parentId` TEXT, `homeSeriesId` TEXT, `homeBookId` TEXT, `imageRef` TEXT, " +
+                    "`createdBy` TEXT, `updatedBy` TEXT, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, " +
+                    "`createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+            )
+            connection.executeDdl("CREATE INDEX IF NOT EXISTS `index_entities_homeSeriesId` ON `entities` (`homeSeriesId`)")
+            connection.executeDdl("CREATE INDEX IF NOT EXISTS `index_entities_homeBookId` ON `entities` (`homeBookId`)")
+            connection.executeDdl("CREATE INDEX IF NOT EXISTS `index_entities_parentId` ON `entities` (`parentId`)")
+            connection.executeDdl("CREATE INDEX IF NOT EXISTS `index_entities_deletedAt` ON `entities` (`deletedAt`)")
+            connection.executeDdl("ALTER TABLE `users` ADD COLUMN `canContributeStoryWorld` INTEGER NOT NULL DEFAULT 1")
+            connection.executeDdl("ALTER TABLE `users` ADD COLUMN `canCurateStoryWorld` INTEGER NOT NULL DEFAULT 0")
+        }
+    }
