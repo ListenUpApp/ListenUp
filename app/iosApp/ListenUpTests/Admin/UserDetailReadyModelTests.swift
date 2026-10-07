@@ -20,7 +20,8 @@ struct UserDetailReadyModelTests {
                     canEditMetadata: true,
                     canCurateLibrary: false,
                     canContributeStoryWorld: true,
-                    canCurateStoryWorld: false
+                    canCurateStoryWorld: false,
+                    canMakeReadingOrders: true
                 ),
                 createdAt: "2026-01-01",
                 access: isRoot ? .owner : .contributor
