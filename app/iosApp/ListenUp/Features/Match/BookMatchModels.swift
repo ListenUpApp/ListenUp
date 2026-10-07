@@ -222,7 +222,6 @@ struct MatchCoverSection: Equatable {
     let chosenSource: String?
     let tiles: [MatchCoverTile]
     let bookCoverPath: String?
-    let bookCoverHash: String?
 }
 
 /// One of your labels: kept, or removed with its ×.

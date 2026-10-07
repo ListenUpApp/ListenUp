@@ -42,12 +42,7 @@ final class BookMatchObserver {
         }
     }
 
-    // Isolated deinit (SE-0371): there is no ViewModelStore on iOS to call `onCleared`, so this
-    // observer closes the VM itself — otherwise its searches keep their coroutine scope alive (#1192).
-    isolated deinit {
-        bridge.cancelAll()
-        viewModel.close()
-    }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Find
 
@@ -171,12 +166,7 @@ final class MatchReceiptObserver {
         bridge.bind(viewModel.state) { [weak self] in self?.phase = BookMatchMapping.receipt(from: $0) }
     }
 
-    // Isolated deinit (SE-0371): there is no ViewModelStore on iOS to call `onCleared`, so this
-    // observer closes the VM itself — otherwise its searches keep their coroutine scope alive (#1192).
-    isolated deinit {
-        bridge.cancelAll()
-        viewModel.close()
-    }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     func undo() { viewModel.undo() }
     func dismiss() { viewModel.dismiss() }

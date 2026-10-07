@@ -311,8 +311,9 @@ enum BookMatchMapping {
         return MatchCoverSection(
             chosenSource: cover.chosen?.source.label,
             tiles: [keep] + candidates,
-            bookCoverPath: cover.currentCoverPath,
-            bookCoverHash: cover.current?.hash
+            // `CoverUi.current` is a contract type Swift Export references but doesn't declare, so it
+            // has no members here; the path is enough for the cover to resolve.
+            bookCoverPath: cover.currentCoverPath
         )
     }
 

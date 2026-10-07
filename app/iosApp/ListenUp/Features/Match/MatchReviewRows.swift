@@ -162,7 +162,7 @@ struct MatchCoverPicker: View {
         VStack(spacing: Spacing.xxs) {
             Group {
                 if tile.isKeepCurrent {
-                    BookCoverImage(bookId: bookId, coverPath: cover.bookCoverPath, coverHash: cover.bookCoverHash)
+                    BookCoverImage(bookId: bookId, coverPath: cover.bookCoverPath)
                 } else {
                     MetadataRemoteCover(url: tile.url)
                 }
