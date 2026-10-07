@@ -27,7 +27,11 @@ import com.calypsan.listenup.api.dto.match.MatchReason
 import com.calypsan.listenup.api.dto.match.MatchReceipt
 import com.calypsan.listenup.api.dto.match.MatchTier
 import com.calypsan.listenup.api.dto.match.MetadataSource
+import com.calypsan.listenup.api.dto.ContributorRole
+import com.calypsan.listenup.api.dto.match.PersonCandidateKey
 import com.calypsan.listenup.api.dto.match.PersonFindRequest
+import com.calypsan.listenup.api.dto.match.PersonMatchApply
+import com.calypsan.listenup.api.dto.match.PersonMatchReview
 import com.calypsan.listenup.api.dto.match.PersonFindResult
 import com.calypsan.listenup.api.dto.match.RegionContext
 import com.calypsan.listenup.api.dto.match.RegionOrigin
@@ -263,6 +267,17 @@ internal class FakeMatchingRepository : MatchingRepository {
         contributorId: ContributorId,
         request: PersonFindRequest,
     ): AppResult<PersonFindResult> = error("not used by book matching")
+
+    override suspend fun reviewPersonMatch(
+        contributorId: ContributorId,
+        candidate: PersonCandidateKey,
+        role: ContributorRole,
+    ): AppResult<PersonMatchReview> = error("not used by book matching")
+
+    override suspend fun applyPersonMatch(
+        contributorId: ContributorId,
+        request: PersonMatchApply,
+    ): AppResult<MatchReceipt> = error("not used by book matching")
 
     override suspend fun reviewBookMatch(
         bookId: BookId,
