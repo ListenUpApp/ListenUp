@@ -30,10 +30,9 @@ import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.web.features.home.fixedHome
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
-import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
 import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
 import com.calypsan.listenup.web.features.chaptereditor.fixedChapterEditor
-import com.calypsan.listenup.web.features.metadata.fixedMetadata
+import com.calypsan.listenup.web.features.match.fixedMatchDetails
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
@@ -141,7 +140,7 @@ class BookDetailPanesTest :
                         openBookDetail = source,
                         openBookEdit = fixedBookEdit(BookEditUiState()),
                         openChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
-                        openMetadata = fixedMetadata(MetadataUiState.Idle()),
+                        matchDetails = fixedMatchDetails(),
                         openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
                         openContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
                         openContributorEdit = fixedContributorEdit(ContributorEditUiState()),

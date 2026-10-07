@@ -530,7 +530,7 @@ class AdminInboxPageTest :
         test("the menu offers editing and matching that book") {
             val host = page(readyInbox(books = listOf(inboxBook(id = "b7"))))
 
-            openRowMenu(host).map { it.textContent?.trim() } shouldBe listOf("Edit details", "Find metadata")
+            openRowMenu(host).map { it.textContent?.trim() } shouldBe listOf("Edit details", "Match details")
         }
 
         test("editing reports that row's book, not the first on the page") {

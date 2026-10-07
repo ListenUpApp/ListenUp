@@ -247,7 +247,7 @@ private fun InboxBookRow(
             items =
                 listOf(
                     MenuAction("Edit details", WebIcon.Pencil, onEdit),
-                    MenuAction("Find metadata", WebIcon.Sparkles, onMatch),
+                    MenuAction("Match details", WebIcon.Sparkles, onMatch),
                 ),
             label = "Actions for ${book.title}",
         )

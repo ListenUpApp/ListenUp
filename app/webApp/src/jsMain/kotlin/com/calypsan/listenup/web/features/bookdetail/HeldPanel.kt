@@ -63,7 +63,7 @@ internal fun HeldPanel(
             // Secondary (spec §10): the two metadata fixes, on the routes the page already has.
             Button(kind = ButtonKind.Ghost, onClick = { onMatch() }, enabled = !isReleasing) {
                 Icon(WebIcon.Sparkles)
-                Text("Match metadata")
+                Text("Match details")
             }
             Button(kind = ButtonKind.Ghost, onClick = { onEditChapters() }, enabled = !isReleasing) {
                 Icon(WebIcon.ListOrdered)

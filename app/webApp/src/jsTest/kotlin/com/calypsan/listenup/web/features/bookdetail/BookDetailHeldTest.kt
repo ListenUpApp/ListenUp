@@ -97,7 +97,7 @@ class BookDetailHeldTest :
             val host = rendered(held)
 
             host.querySelectorAll(".bd-held-actions button").asList().map { it.textContent?.trim() } shouldBe
-                listOf("Edit", "Release", "Match metadata", "Edit chapters")
+                listOf("Edit", "Release", "Match details", "Edit chapters")
         }
 
         test("Match and Edit chapters take the routes the hero row and the Chapters tab use") {
@@ -105,7 +105,7 @@ class BookDetailHeldTest :
             var chapterEdits = 0
             val host = rendered(held, onMatch = { matches++ }, onEditChapters = { chapterEdits++ })
 
-            button(host, "Match metadata").shouldNotBeNull().click()
+            button(host, "Match details").shouldNotBeNull().click()
             button(host, "Edit chapters").shouldNotBeNull().click()
 
             matches shouldBe 1
@@ -172,7 +172,7 @@ class BookDetailHeldTest :
 
             button(host, "Releasing…").shouldNotBeNull().disabled shouldBe true
             button(host, "Edit").shouldNotBeNull().disabled shouldBe true
-            button(host, "Match metadata").shouldNotBeNull().disabled shouldBe true
+            button(host, "Match details").shouldNotBeNull().disabled shouldBe true
             button(host, "Edit chapters").shouldNotBeNull().disabled shouldBe true
         }
 

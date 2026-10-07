@@ -30,7 +30,14 @@ import com.calypsan.listenup.client.presentation.contributoredit.ContributorEdit
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataEvent
 import com.calypsan.listenup.client.presentation.genredestination.SubGenre
 import com.calypsan.listenup.client.presentation.home.HomeUiState
-import com.calypsan.listenup.client.presentation.metadata.MetadataEvent
+import com.calypsan.listenup.api.dto.match.MatchReceipt
+import com.calypsan.listenup.client.presentation.match.BookMatchEvent
+import com.calypsan.listenup.client.presentation.match.MatchReceiptUiState
+import com.calypsan.listenup.web.features.match.fixedBookMatch
+import com.calypsan.listenup.web.features.match.fixedMatchDetails
+import com.calypsan.listenup.web.features.match.fixedMatchReceipt
+import com.calypsan.listenup.web.features.match.receipt
+import com.calypsan.listenup.web.features.match.results
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
@@ -894,57 +901,74 @@ class WebAppRootTest :
             }
         }
 
-        // ⛔ The seed comes from the BOOK, and the book has to have loaded first. A session opened
-        // before Book Detail's state arrives seeds an empty query, and the reader lands on a search
-        // that finds nothing on a book the wizard could have found immediately.
-        test("/book/{id}/match seeds the search from the book it was opened on") {
-            val recorder = RecordingMetadata()
+        test("/book/{id}/match opens Match details for that book, and not the book's own page") {
+            val opened = mutableListOf<String>()
             val (host, router) =
                 mountAt(
                     "/book/b-kings/match",
                     openBookDetail = fixedBookDetail(readyBook()),
-                    openMetadata = recorder.open,
+                    matchDetails = fixedMatchDetails(opened = { opened += it }),
                 )
 
             try {
                 awaitFrame()
 
-                recorder.seeds.size shouldBe 1
-                recorder.seeds.single() shouldContain "b-kings|"
-                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Match metadata"
-                // ⛔ The book's own page must not also be up.
+                opened shouldBe listOf("b-kings")
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Match details"
                 host.querySelector(".bd-head") shouldBe null
             } finally {
                 router.dispose()
             }
         }
 
-        test("the wizard waits for the book rather than seeding an empty search") {
-            val recorder = RecordingMetadata()
-            val (_, router) =
+        test("/book/{id}/match?view=compare is Compare editions over the same session") {
+            val opened = mutableListOf<String>()
+            val (host, router) =
                 mountAt(
-                    "/book/b-kings/match",
-                    openBookDetail = fixedBookDetail(BookDetailUiState.Loading),
-                    openMetadata = recorder.open,
+                    "/book/b-kings/match?view=compare",
+                    matchDetails = fixedMatchDetails(opened = { opened += it }),
                 )
 
             try {
                 awaitFrame()
 
-                recorder.seeds shouldBe emptyList()
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Compare editions"
+                opened shouldBe listOf("b-kings")
             } finally {
                 router.dispose()
             }
         }
 
-        test("Match metadata on a book's page opens the wizard") {
+        test("Match details on a book's page opens Match details") {
             val (host, router) = mountAt("/book/b-kings", openBookDetail = fixedBookDetail(readyBook()))
 
             try {
-                (host.querySelector("button[aria-label=\"Match metadata\"]") as HTMLElement).click()
+                (host.querySelector("button[aria-label=\"Match details\"]") as HTMLElement).click()
                 awaitFrame()
 
                 window.location.pathname shouldBe "/book/b-kings/match"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("Book Detail shows the receipt Match details left") {
+            val receipt =
+                MutableStateFlow<MatchReceiptUiState>(
+                    MatchReceiptUiState.Shown(receipt(), undoing = false, undoError = null),
+                )
+            val (host, router) =
+                mountAt(
+                    "/book/b-kings",
+                    openBookDetail = fixedBookDetail(readyBook()),
+                    matchDetails = fixedMatchDetails(receipt = fixedMatchReceipt(state = receipt)),
+                )
+
+            try {
+                awaitFrame()
+
+                host.querySelector(".bmx-receipt .bmx-receipt-t")?.textContent shouldBe
+                    "Changed 5 fields, cover from Hardcover, 16 chapter names"
             } finally {
                 router.dispose()
             }
@@ -978,16 +1002,22 @@ class WebAppRootTest :
         }
 
         test("an applied match lands back on the book it changed") {
-            val recorder = RecordingMetadata(events = flowOf(MetadataEvent.MatchApplied))
+            val applied = Channel<BookMatchEvent>(Channel.BUFFERED)
+            applied.trySend(BookMatchEvent.Applied(MatchReceipt("r-1", 0, emptyList(), undoable = true)))
             val (_, router) =
                 mountAt(
                     "/book/b-kings/match",
                     openBookDetail = fixedBookDetail(readyBook()),
-                    openMetadata = recorder.open,
+                    matchDetails =
+                        fixedMatchDetails(match = {
+                            fixedBookMatch(MutableStateFlow(results()), events = applied.receiveAsFlow())
+                        }),
                 )
 
             try {
-                awaitFrame()
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    while (window.location.pathname != "/book/b-kings") delay(NAV_POLL)
+                }
 
                 window.location.pathname shouldBe "/book/b-kings"
             } finally {
