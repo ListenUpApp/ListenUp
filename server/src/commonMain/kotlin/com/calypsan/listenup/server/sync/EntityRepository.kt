@@ -340,14 +340,18 @@ class EntityRepository(
     }
 
     // ── Book removal cascade (BookRepository.softDelete / reviveByIds) ──
+    // Like every write here, each takes its revision before it reads, so the transaction is the writer
+    // first. A book with no entities therefore burns one revision — harmless (revisions are a cursor, not
+    // a count), and cheaper than a read that a concurrent write could overtake.
 
     /** Tombstones every live entity homed on [bookId] (DELETE, no actor). Returns how many. */
     suspend fun softDeleteAllForBook(bookId: String): Int {
         val ctx = writeContext()
         return suspendTransaction(db) {
+            val lease = RevisionLease(nextRevision())
             val live = db.entitiesQueries.selectLiveIdsForBook(bookId).executeAsList()
             live.forEach { id ->
-                tombstone(checkNotNull(readPayload(id)), StoryWorldOp.DELETE, actor = null, ctx = ctx)
+                tombstone(checkNotNull(readPayload(id)), StoryWorldOp.DELETE, null, ctx, revision = lease.take())
             }
             live.size
         }
@@ -361,13 +365,14 @@ class EntityRepository(
         if (bookIds.isEmpty()) return 0
         val ctx = writeContext()
         return suspendTransaction(db) {
+            val lease = RevisionLease(nextRevision())
             val dead =
                 bookIds.chunked(SQLITE_IN_CHUNK).flatMap { chunk ->
                     db.entitiesQueries.selectDeletedForBooksSince(chunk, cascadeFloor).executeAsList()
                 }
             dead.forEach { id ->
                 val before = checkNotNull(readPayload(id))
-                rewrite(before, before.copy(deletedAt = null), StoryWorldOp.REVERT, actor = null, ctx = ctx)
+                rewrite(before, before.copy(deletedAt = null), StoryWorldOp.REVERT, null, ctx, revision = lease.take())
             }
             dead.size
         }
