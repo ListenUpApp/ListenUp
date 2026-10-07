@@ -4,6 +4,10 @@ import com.calypsan.listenup.api.dto.match.BookFindRequest
 import com.calypsan.listenup.api.dto.match.BookFindResult
 import com.calypsan.listenup.api.dto.match.PersonFindRequest
 import com.calypsan.listenup.api.dto.match.PersonFindResult
+import com.calypsan.listenup.api.dto.match.PersonCandidateKey
+import com.calypsan.listenup.api.dto.match.PersonMatchApply
+import com.calypsan.listenup.api.dto.match.PersonMatchReview
+import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.BookMatchApply
 import com.calypsan.listenup.api.dto.match.BookMatchReview
 import com.calypsan.listenup.api.dto.match.MatchReceipt
@@ -71,6 +75,29 @@ interface MatchingService {
     suspend fun applyBookMatch(
         bookId: BookId,
         request: BookMatchApply,
+    ): AppResult<Mutated<MatchReceipt>>
+
+    /**
+     * Reviews [candidate] (a people Find candidate's key) against [contributorId] for [role]: the photo and the
+     * biography, Yours → Proposed per source. Never the name. Gated like [findPeople]. A source that didn't answer
+     * in time is `MetadataError.ExternalTimeout`; every source failing is `MetadataError.ExternalUnavailable`; no
+     * source having a photo or a biography is `MetadataError.NotFound`.
+     */
+    suspend fun reviewPersonMatch(
+        contributorId: ContributorId,
+        candidate: PersonCandidateKey,
+        role: ContributorRole,
+    ): AppResult<PersonMatchReview>
+
+    /**
+     * Applies [request] to [contributorId] in one transaction — the photo and the biography as chosen, the
+     * candidate's refs — and returns the receipt. Never renames. Nothing is written on any failure:
+     * `MetadataError.ReviewOutdated` when the person or a chosen option changed since the Review,
+     * `MetadataError.CoverDownloadFailed` when the chosen photo couldn't be fetched.
+     */
+    suspend fun applyPersonMatch(
+        contributorId: ContributorId,
+        request: PersonMatchApply,
     ): AppResult<Mutated<MatchReceipt>>
 
     /**
