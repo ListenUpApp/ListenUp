@@ -116,13 +116,20 @@ internal fun FindPane(
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = Spacing.screenMargin, end = Spacing.screenMargin, bottom = Spacing.xl),
+            contentPadding =
+                PaddingValues(
+                    start = Spacing.screenMargin,
+                    end = Spacing.screenMargin,
+                    bottom = Spacing.xl,
+                ),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             item(key = "search") { MatchSearchField(query = query, onSearch = actions::search) }
             region?.let { item(key = "store") { StoreButton(region = it, onChoose = actions::chooseStore) } }
             state.yourCopy?.let { copy ->
-                item(key = "your-copy") { YourCopyStrip(bookId = bookId, copy = copy, steps = results?.let { stepsLine(it.steps) }) }
+                item(
+                    key = "your-copy",
+                ) { YourCopyStrip(bookId = bookId, copy = copy, steps = results?.let { stepsLine(it.steps) }) }
             }
             if (state is FindUiState.Searching) item(key = "searching") { SearchingIndicator() }
             if (state is FindUiState.Failed) {
@@ -183,7 +190,10 @@ private fun MatchSearchField(
                 trailingIcon = {
                     if (textState.text.isNotEmpty()) {
                         IconButton(onClick = { textState.setTextAndPlaceCursorAtEnd("") }) {
-                            Icon(Icons.Default.Close, contentDescription = stringResource(Res.string.match_clear_search))
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = stringResource(Res.string.match_clear_search),
+                            )
                         }
                     }
                 },
@@ -207,7 +217,11 @@ private fun StoreButton(
             modifier = Modifier.heightIn(min = 48.dp),
         ) {
             Text(stringResource(Res.string.match_store_button, region.source.label, region.region.displayName))
-            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.padding(start = Spacing.xs))
+            Icon(
+                Icons.Default.KeyboardArrowDown,
+                contentDescription = null,
+                modifier = Modifier.padding(start = Spacing.xs),
+            )
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             Text(
@@ -220,11 +234,12 @@ private fun StoreButton(
                 val current = choice.region == region.region.region
                 DropdownMenuItem(
                     text = { Text(choice.displayName) },
-                    trailingIcon = if (current) {
-                        { Icon(Icons.Default.Check, contentDescription = null) }
-                    } else {
-                        null
-                    },
+                    trailingIcon =
+                        if (current) {
+                            { Icon(Icons.Default.Check, contentDescription = null) }
+                        } else {
+                            null
+                        },
                     onClick = {
                         expanded = false
                         if (!current) {
@@ -292,6 +307,10 @@ private fun SearchingIndicator() {
         verticalArrangement = Arrangement.spacedBy(Spacing.xs),
     ) {
         LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
-        Text(searching, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            searching,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

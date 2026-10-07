@@ -47,7 +47,10 @@ class BookMatchFindTest {
     }
 
     private fun scrollTo(text: String) {
-        composeRule.onNode(hasScrollAction() and SemanticsMatcher.keyIsDefined(SemanticsProperties.CollectionInfo)).performScrollToNode(hasText(text, substring = true))
+        composeRule
+            .onNode(
+                hasScrollAction() and SemanticsMatcher.keyIsDefined(SemanticsProperties.CollectionInfo),
+            ).performScrollToNode(hasText(text, substring = true))
     }
 
     @Test

@@ -127,8 +127,23 @@ internal fun CoverSection(
                     CoverTile(
                         selected = (cover.choice as? ImageChoice.Candidate)?.optionId == option.optionId,
                         label = option.source.label,
-                        detail = if (sized) stringResource(Res.string.match_cover_dimensions, option.width, option.height) else null,
-                        accessibleName = stringResource(Res.string.match_cover_from_a11y, option.source.label, option.width, option.height),
+                        detail =
+                            if (sized) {
+                                stringResource(
+                                    Res.string.match_cover_dimensions,
+                                    option.width,
+                                    option.height,
+                                )
+                            } else {
+                                null
+                            },
+                        accessibleName =
+                            stringResource(
+                                Res.string.match_cover_from_a11y,
+                                option.source.label,
+                                option.width,
+                                option.height,
+                            ),
                         onSelect = { onChoose(ImageChoice.Candidate(option.optionId)) },
                     ) { modifier -> RemoteCover(url = option.url, contentDescription = null, modifier = modifier) }
                 }
@@ -180,7 +195,9 @@ private fun CoverTile(
             }
         }
         Text(label, style = MaterialTheme.typography.labelLarge)
-        detail?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        detail?.let {
+            Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
@@ -196,7 +213,11 @@ internal fun LabelsSection(
         label = stringResource(Res.string.match_section_genres_moods),
         trailing = {
             if (summary.labelsAdded > 0) {
-                Text("+${summary.labelsAdded}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    "+${summary.labelsAdded}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
             }
         },
     ) {
@@ -240,13 +261,23 @@ private fun LabelSet(
                         selected = false,
                         onClick = {
                             haptics.toggle(on = label.removed)
-                            if (label.removed) actions.restoreYourLabel(kind, label.label) else actions.removeYourLabel(kind, label.label)
+                            if (label.removed) {
+                                actions.restoreYourLabel(
+                                    kind,
+                                    label.label,
+                                )
+                            } else {
+                                actions.removeYourLabel(kind, label.label)
+                            }
                         },
                         label = {
                             Text(label.label, textDecoration = if (label.removed) TextDecoration.LineThrough else null)
                         },
                         trailingIcon = {
-                            Icon(if (label.removed) Icons.Filled.Undo else Icons.Filled.Close, contentDescription = null)
+                            Icon(
+                                if (label.removed) Icons.Filled.Undo else Icons.Filled.Close,
+                                contentDescription = null,
+                            )
                         },
                         modifier = Modifier.semantics { contentDescription = name },
                     )
@@ -254,7 +285,11 @@ private fun LabelSet(
             }
         }
         if (set.suggested.isNotEmpty()) {
-            val sharedSource = set.suggested.map { it.sources }.distinct().singleOrNull()
+            val sharedSource =
+                set.suggested
+                    .map { it.sources }
+                    .distinct()
+                    .singleOrNull()
             SubLabel(
                 sharedSource?.let { stringResource(Res.string.match_suggested_from, sourcesPhrase(it)) }
                     ?: stringResource(Res.string.match_suggested),
@@ -273,7 +308,10 @@ private fun LabelSet(
                             Text(if (sharedSource == null) suggestion.label + DOT + sources else suggestion.label)
                         },
                         leadingIcon = {
-                            Icon(if (suggestion.selected) Icons.Filled.Check else Icons.Filled.Add, contentDescription = null)
+                            Icon(
+                                if (suggestion.selected) Icons.Filled.Check else Icons.Filled.Add,
+                                contentDescription = null,
+                            )
                         },
                         modifier = Modifier.semantics { contentDescription = accessibleName },
                     )
@@ -333,23 +371,34 @@ private fun AvailableChapterNames(
     SectionGroup(
         label = stringResource(Res.string.match_section_chapter_names),
         trailing = {
-            Text("${names.applyCount}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text(
+                "${names.applyCount}",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
         },
     ) {
         SectionSegment {
             Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 Row(
                     modifier =
-                        Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(value = names.included, role = Role.Checkbox) {
-                            haptics.toggle(on = it)
-                            actions.setChapterNamesIncluded(it)
-                        },
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(
+                                min = 48.dp,
+                            ).toggleable(value = names.included, role = Role.Checkbox) {
+                                haptics.toggle(on = it)
+                                actions.setChapterNamesIncluded(it)
+                            },
                     horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     ExpressiveCheckbox(checked = names.included)
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(Res.string.match_apply_chapter_names), style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            stringResource(Res.string.match_apply_chapter_names),
+                            style = MaterialTheme.typography.titleSmall,
+                        )
                         Text(
                             text = stringResource(Res.string.match_from_source, names.source.label),
                             style = MaterialTheme.typography.bodySmall,
@@ -369,7 +418,9 @@ private fun AvailableChapterNames(
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 val rows = if (showAll) names.rows else names.rows.take(CHAPTER_ROWS_SHOWN)
-                rows.forEach { row -> ChapterRow(row, enabled = names.included, onToggle = { actions.toggleChapter(row.ordinal) }) }
+                rows.forEach { row ->
+                    ChapterRow(row, enabled = names.included, onToggle = { actions.toggleChapter(row.ordinal) })
+                }
                 if (!showAll && names.rows.size > CHAPTER_ROWS_SHOWN) {
                     TextButton(onClick = { showAll = true }) {
                         Text(stringResource(Res.string.match_show_all_chapters, names.rows.size))
@@ -419,7 +470,9 @@ internal fun AlreadySameSection(
     alreadySame: List<BookField>,
     lengthAlreadySame: Boolean,
 ) {
-    val names = alreadySame.map { it.displayName() } + listOfNotNull(stringResource(Res.string.match_field_length).takeIf { lengthAlreadySame })
+    val names =
+        alreadySame.map { it.displayName() } +
+            listOfNotNull(stringResource(Res.string.match_field_length).takeIf { lengthAlreadySame })
     SectionGroup(label = stringResource(Res.string.match_section_already_same)) {
         SectionSegment {
             Text(

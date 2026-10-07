@@ -63,7 +63,12 @@ class BookMatchLayoutTest {
         setScreen(ReviewUiState.NoneChosen)
 
         composeRule.onNodeWithTag(FIND_PANE_TAG).assertIsDisplayed()
-        composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(REVIEW_PANE_TAG)).fetchSemanticsNodes().size shouldBe 0
+        composeRule
+            .onAllNodes(
+                androidx.compose.ui.test
+                    .hasTestTag(REVIEW_PANE_TAG),
+            ).fetchSemanticsNodes()
+            .size shouldBe 0
         actions.twoPaneReports shouldContainExactly listOf(false)
     }
 

@@ -59,11 +59,17 @@ class BookMatchReviewTest {
     }
 
     private fun scrollTo(text: String) {
-        composeRule.onNode(hasScrollAction() and SemanticsMatcher.keyIsDefined(SemanticsProperties.CollectionInfo)).performScrollToNode(hasText(text, substring = true))
+        composeRule
+            .onNode(
+                hasScrollAction() and SemanticsMatcher.keyIsDefined(SemanticsProperties.CollectionInfo),
+            ).performScrollToNode(hasText(text, substring = true))
     }
 
     private fun scrollToTag(tag: String) {
-        composeRule.onNode(hasScrollAction() and SemanticsMatcher.keyIsDefined(SemanticsProperties.CollectionInfo)).performScrollToNode(hasTestTag(tag))
+        composeRule
+            .onNode(
+                hasScrollAction() and SemanticsMatcher.keyIsDefined(SemanticsProperties.CollectionInfo),
+            ).performScrollToNode(hasTestTag(tag))
     }
 
     @Test
@@ -193,7 +199,10 @@ class BookMatchReviewTest {
         setReview(MatchFixtures.ready)
         scrollTo("Science Fiction")
 
-        composeRule.onNode(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Remove Science Fiction"))).performClick()
+        composeRule
+            .onNode(
+                SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Remove Science Fiction")),
+            ).performClick()
 
         actions.calls shouldContain "remove:GENRES:Science Fiction"
     }

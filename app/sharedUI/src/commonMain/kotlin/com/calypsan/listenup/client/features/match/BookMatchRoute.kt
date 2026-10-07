@@ -109,7 +109,11 @@ fun BookMatchScreen(
     // A system back (predictive on Android) that took one pane back to the results tells the ViewModel.
     val destination = navigator.currentDestination?.pane
     LaunchedEffect(destination) {
-        if (destination == ListDetailPaneScaffoldRole.List && currentReviewOpen && !currentTwoPane) actions.backToResults()
+        if (destination == ListDetailPaneScaffoldRole.List && currentReviewOpen &&
+            !currentTwoPane
+        ) {
+            actions.backToResults()
+        }
     }
 
     MatchPaneScaffold(

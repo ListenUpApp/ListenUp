@@ -63,7 +63,13 @@ internal fun applySummaryText(summary: ApplySummary): String {
     val parts =
         listOfNotNull(
             summary.fieldCount.takeIf { it > 0 }?.let {
-                if (it == 1) stringResource(Res.string.match_bar_field_one) else stringResource(Res.string.match_bar_fields, it)
+                if (it ==
+                    1
+                ) {
+                    stringResource(Res.string.match_bar_field_one)
+                } else {
+                    stringResource(Res.string.match_bar_fields, it)
+                }
             },
             stringResource(Res.string.match_bar_cover).takeIf { summary.coverChanges },
             summary.chapterNameCount.takeIf { it > 0 }?.let {

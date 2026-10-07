@@ -101,20 +101,34 @@ internal fun EditionFormat.displayName(): String =
 internal fun BookField.displayName(): String =
     when (this) {
         BookField.TITLE -> stringResource(Res.string.match_field_title)
+
         BookField.SUBTITLE -> stringResource(Res.string.match_field_subtitle)
+
         BookField.DESCRIPTION -> stringResource(Res.string.match_field_description)
+
         BookField.PUBLISHER -> stringResource(Res.string.match_field_publisher)
+
         BookField.PUBLISH_YEAR -> stringResource(Res.string.match_field_release_date)
+
         BookField.LANGUAGE -> stringResource(Res.string.match_field_language)
+
         BookField.AUTHORS -> stringResource(Res.string.match_field_authors)
+
         BookField.NARRATORS -> stringResource(Res.string.match_field_narrators)
+
         BookField.SERIES -> stringResource(Res.string.match_field_series)
+
         BookField.GENRES -> stringResource(Res.string.match_genres)
+
         BookField.MOODS -> stringResource(Res.string.match_moods)
+
         BookField.COVER -> stringResource(Res.string.match_section_cover)
+
         BookField.CHAPTERS -> stringResource(Res.string.match_section_chapter_names)
+
         // Identifiers keep their own spelling; anything else reads as its words.
         BookField.ASIN, BookField.ISBN -> name
+
         else -> name.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
     }
 
@@ -146,7 +160,15 @@ private val LINE_BREAK_TAGS = Regex("""<\s*(br|/p|/div|/li)\s*/?\s*>""", RegexOp
 private val ANY_TAG = Regex("""<[^>]+>""")
 private val BLANK_LINES = Regex("""\n{3,}""")
 private val ENTITIES =
-    mapOf("&amp;" to "&", "&lt;" to "<", "&gt;" to ">", "&quot;" to "\"", "&#39;" to "'", "&apos;" to "'", "&nbsp;" to " ")
+    mapOf(
+        "&amp;" to "&",
+        "&lt;" to "<",
+        "&gt;" to ">",
+        "&quot;" to "\"",
+        "&#39;" to "'",
+        "&apos;" to "'",
+        "&nbsp;" to " ",
+    )
 
 /** Catalogue descriptions arrive as HTML; Review reads them as the words alone. */
 internal fun String.asPlainText(): String {

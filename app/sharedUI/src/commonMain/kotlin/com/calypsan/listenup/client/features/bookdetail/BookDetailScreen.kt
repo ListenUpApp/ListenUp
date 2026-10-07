@@ -146,7 +146,9 @@ fun BookDetailScreen(
     onCollectionClick: ((collectionId: String) -> Unit)? = null,
     onOpenDocumentViewer: (localPath: String) -> Unit = {},
     /** The receipt after Match details applied; a slot so a test can render the screen without its ViewModel. */
-    matchReceipt: @Composable (Modifier) -> Unit = { modifier -> MatchReceiptHost(bookId = bookId, modifier = modifier) },
+    matchReceipt: @Composable (
+        Modifier,
+    ) -> Unit = { modifier -> MatchReceiptHost(bookId = bookId, modifier = modifier) },
     viewModel: BookDetailViewModel = koinViewModel(),
 ) {
     LaunchedEffect(bookId) {
@@ -219,23 +221,23 @@ fun BookDetailScreen(
             is BookDetailUiState.Ready -> {
                 Box(modifier = Modifier.fillMaxSize()) {
                     BookDetailReadyContent(
-                    bookId = bookId,
-                    state = s,
-                    viewModel = viewModel,
-                    onBackClick = onBackClick,
-                    onEditClick = onEditClick,
-                    onMatchDetailsClick = onMatchDetailsClick,
-                    onEditChaptersClick = onEditChaptersClick,
-                    onSeriesClick = onSeriesClick,
-                    onContributorClick = onContributorClick,
-                    onGenreClick = onGenreClick,
-                    onTagClick = onTagClick,
-                    onMoodClick = onMoodClick,
-                    onUserProfileClick = onUserProfileClick,
-                    onSeeAllReaders = onSeeAllReaders,
-                    onFindHardcoverMatch = onFindHardcoverMatch,
-                    onCollectionClick = onCollectionClick,
-                )
+                        bookId = bookId,
+                        state = s,
+                        viewModel = viewModel,
+                        onBackClick = onBackClick,
+                        onEditClick = onEditClick,
+                        onMatchDetailsClick = onMatchDetailsClick,
+                        onEditChaptersClick = onEditChaptersClick,
+                        onSeriesClick = onSeriesClick,
+                        onContributorClick = onContributorClick,
+                        onGenreClick = onGenreClick,
+                        onTagClick = onTagClick,
+                        onMoodClick = onMoodClick,
+                        onUserProfileClick = onUserProfileClick,
+                        onSeeAllReaders = onSeeAllReaders,
+                        onFindHardcoverMatch = onFindHardcoverMatch,
+                        onCollectionClick = onCollectionClick,
+                    )
                     // The receipt after Match details applied, above the mini player.
                     matchReceipt(
                         Modifier

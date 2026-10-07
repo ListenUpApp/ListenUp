@@ -90,7 +90,13 @@ internal fun CompareSheet(
                 Text(candidate.title, style = MaterialTheme.typography.titleMedium)
                 val tier =
                     stringResource(
-                        if (candidate.tier == MatchTier.STRONG) Res.string.match_strong_match else Res.string.match_maybe,
+                        if (candidate.tier ==
+                            MatchTier.STRONG
+                        ) {
+                            Res.string.match_strong_match
+                        } else {
+                            Res.string.match_maybe
+                        },
                     )
                 Text(
                     text = (listOf(tier) + candidate.foundIn.map { it.source.label }.distinct()).joinToString(DOT),
@@ -146,7 +152,11 @@ private fun CompareTable(
         )
         CompareRow(
             label = stringResource(Res.string.match_row_format),
-            yours = yourCopy?.let { (if (it.isAbridged) EditionFormat.ABRIDGED else EditionFormat.UNABRIDGED).displayName() } ?: notListed,
+            yours =
+                yourCopy?.let {
+                    (if (it.isAbridged) EditionFormat.ABRIDGED else EditionFormat.UNABRIDGED).displayName()
+                }
+                    ?: notListed,
             theirs = candidate.format?.displayName() ?: notListed,
         )
         val worldwide = stringResource(Res.string.match_worldwide)
@@ -161,7 +171,11 @@ private fun CompareTable(
         CompareRow(
             label = stringResource(Res.string.match_row_found_in),
             yours = stringResource(Res.string.match_empty_value),
-            theirs = candidate.foundIn.map { it.source.label }.distinct().joinToString(", "),
+            theirs =
+                candidate.foundIn
+                    .map { it.source.label }
+                    .distinct()
+                    .joinToString(", "),
         )
     }
 }
@@ -200,14 +214,27 @@ private fun CompareRow(
 ) {
     val style = if (header) MaterialTheme.typography.labelLarge else MaterialTheme.typography.bodyMedium
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = Spacing.sm).semantics(mergeDescendants = true) {},
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(
+                    min = 48.dp,
+                ).padding(vertical = Spacing.sm)
+                .semantics(mergeDescendants = true) {
+                },
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
         Text(yours, style = style, modifier = Modifier.weight(1.2f))
         Column(modifier = Modifier.weight(1.2f)) {
             Text(theirs, style = style, fontWeight = if (header) null else FontWeight.Medium)
-            note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
+            note?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
     }
     if (!header) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

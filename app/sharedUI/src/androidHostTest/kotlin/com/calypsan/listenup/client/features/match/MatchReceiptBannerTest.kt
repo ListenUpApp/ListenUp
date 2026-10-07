@@ -119,8 +119,14 @@ class MatchReceiptBannerTest {
     }
 
     private fun androidx.compose.ui.test.junit4.ComposeContentTestRule.onAllNodesWithTextCount(text: String): Int =
-        onAllNodes(androidx.compose.ui.test.hasText(text)).fetchSemanticsNodes().size
+        onAllNodes(
+            androidx.compose.ui.test
+                .hasText(text),
+        ).fetchSemanticsNodes().size
 
     private fun androidx.compose.ui.test.junit4.ComposeContentTestRule.onAllNodesWithTagCount(tag: String): Int =
-        onAllNodes(androidx.compose.ui.test.hasTestTag(tag)).fetchSemanticsNodes().size
+        onAllNodes(
+            androidx.compose.ui.test
+                .hasTestTag(tag),
+        ).fetchSemanticsNodes().size
 }

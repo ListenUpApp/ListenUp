@@ -228,10 +228,23 @@ private fun WhatWillChangeSummary(
     val items =
         buildList {
             summary.coverSource?.let {
-                add(SummaryItem(stringResource(Res.string.match_sum_cover), stringResource(Res.string.match_sum_from, it.label), ReviewSection.COVER))
+                add(
+                    SummaryItem(
+                        stringResource(Res.string.match_sum_cover),
+                        stringResource(Res.string.match_sum_from, it.label),
+                        ReviewSection.COVER,
+                    ),
+                )
             }
             if (summary.changeCount > 0) {
-                val label = if (summary.changeCount == 1) Res.string.match_sum_change_one else Res.string.match_sum_changes
+                val label =
+                    if (summary.changeCount ==
+                        1
+                    ) {
+                        Res.string.match_sum_change_one
+                    } else {
+                        Res.string.match_sum_changes
+                    }
                 add(SummaryItem("${summary.changeCount}", stringResource(label), ReviewSection.CHANGES))
             }
             if (summary.gapCount > 0) {
@@ -247,10 +260,22 @@ private fun WhatWillChangeSummary(
                 add(SummaryItem(count, stringResource(Res.string.match_sum_labels), ReviewSection.LABELS))
             }
             if (summary.chapterNameCount > 0) {
-                add(SummaryItem("${summary.chapterNameCount}", stringResource(Res.string.match_sum_chapter_names), ReviewSection.CHAPTER_NAMES))
+                add(
+                    SummaryItem(
+                        "${summary.chapterNameCount}",
+                        stringResource(Res.string.match_sum_chapter_names),
+                        ReviewSection.CHAPTER_NAMES,
+                    ),
+                )
             }
             if (summary.keptEditedCount > 0) {
-                add(SummaryItem("${summary.keptEditedCount}", stringResource(Res.string.match_sum_kept), ReviewSection.YOU_EDITED))
+                add(
+                    SummaryItem(
+                        "${summary.keptEditedCount}",
+                        stringResource(Res.string.match_sum_kept),
+                        ReviewSection.YOU_EDITED,
+                    ),
+                )
             }
         }.filter { it.section in sections }
     if (items.isEmpty()) return
@@ -261,7 +286,10 @@ private fun WhatWillChangeSummary(
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.semantics { heading() },
         )
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
             items.forEach { item ->
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,

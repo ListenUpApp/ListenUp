@@ -76,7 +76,13 @@ internal fun LazyListScope.candidateGroups(
             SectionGroup(
                 label =
                     stringResource(
-                        if (candidates.first().tier == MatchTier.STRONG) Res.string.match_strong_match else Res.string.match_maybe,
+                        if (candidates.first().tier ==
+                            MatchTier.STRONG
+                        ) {
+                            Res.string.match_strong_match
+                        } else {
+                            Res.string.match_maybe
+                        },
                     ),
             ) {
                 candidates.forEach { candidate ->
@@ -172,14 +178,21 @@ private fun CandidateRow(
                             )
                         }
                         if (candidate.isCurrentLink) {
-                            TonalLabel(label = stringResource(Res.string.match_your_current_link), icon = Icons.Outlined.Link)
+                            TonalLabel(
+                                label = stringResource(Res.string.match_your_current_link),
+                                icon = Icons.Outlined.Link,
+                            )
                         }
                     }
                 }
                 Text(candidate.title, style = MaterialTheme.typography.titleMedium)
                 val facts = candidate.factsLine()
                 if (facts.isNotEmpty()) {
-                    Text(facts, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        facts,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 ReasonsLine(candidate)
                 Text(

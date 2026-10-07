@@ -91,7 +91,8 @@ private const val RECEIPT_VISIBLE_MS = 10_000L
 fun MatchReceiptHost(
     bookId: String,
     modifier: Modifier = Modifier,
-    viewModel: MatchReceiptViewModel = koinViewModel(key = "match-receipt-$bookId", parameters = { parametersOf(bookId) }),
+    viewModel: MatchReceiptViewModel =
+        koinViewModel(key = "match-receipt-$bookId", parameters = { parametersOf(bookId) }),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     MatchReceiptBanner(
@@ -170,7 +171,11 @@ fun MatchReceiptBanner(
                                 enabled = !shown.undoing,
                                 colors = ButtonDefaults.textButtonColors(contentColor = SnackbarDefaults.actionColor),
                             ) {
-                                Text(stringResource(if (shown.undoing) Res.string.match_undoing else Res.string.match_undo))
+                                Text(
+                                    stringResource(
+                                        if (shown.undoing) Res.string.match_undoing else Res.string.match_undo,
+                                    ),
+                                )
                             }
                         }
                     }
@@ -197,7 +202,13 @@ internal fun receiptText(receipt: MatchReceiptUi): String {
     val parts =
         listOfNotNull(
             receipt.fieldCount.takeIf { it > 0 }?.let {
-                if (it == 1) stringResource(Res.string.match_receipt_field_one) else stringResource(Res.string.match_receipt_fields, it)
+                if (it ==
+                    1
+                ) {
+                    stringResource(Res.string.match_receipt_field_one)
+                } else {
+                    stringResource(Res.string.match_receipt_fields, it)
+                }
             },
             receipt.coverSource?.let { stringResource(Res.string.match_receipt_cover_from, it.label) },
             receipt.chapterNameCount.takeIf { it > 0 }?.let {
@@ -266,15 +277,31 @@ private fun AppliedChange.lines(): List<String> =
 
         is AppliedChange.Genres -> {
             listOfNotNull(
-                added.takeIf { it.isNotEmpty() }?.let { stringResource(Res.string.match_change_genres_added, it.joinToString(", ")) },
-                removed.takeIf { it.isNotEmpty() }?.let { stringResource(Res.string.match_change_genres_removed, it.joinToString(", ")) },
+                added.takeIf { it.isNotEmpty() }?.let {
+                    stringResource(
+                        Res.string.match_change_genres_added,
+                        it.joinToString(", "),
+                    )
+                },
+                removed
+                    .takeIf {
+                        it.isNotEmpty()
+                    }?.let { stringResource(Res.string.match_change_genres_removed, it.joinToString(", ")) },
             )
         }
 
         is AppliedChange.Moods -> {
             listOfNotNull(
-                added.takeIf { it.isNotEmpty() }?.let { stringResource(Res.string.match_change_moods_added, it.joinToString(", ")) },
-                removed.takeIf { it.isNotEmpty() }?.let { stringResource(Res.string.match_change_moods_removed, it.joinToString(", ")) },
+                added.takeIf { it.isNotEmpty() }?.let {
+                    stringResource(
+                        Res.string.match_change_moods_added,
+                        it.joinToString(", "),
+                    )
+                },
+                removed
+                    .takeIf {
+                        it.isNotEmpty()
+                    }?.let { stringResource(Res.string.match_change_moods_removed, it.joinToString(", ")) },
             )
         }
 
