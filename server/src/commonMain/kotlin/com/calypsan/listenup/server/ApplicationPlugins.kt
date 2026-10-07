@@ -21,6 +21,7 @@ import com.calypsan.listenup.server.di.pushModule
 import com.calypsan.listenup.server.di.scannerModule
 import com.calypsan.listenup.server.di.seedModule
 import com.calypsan.listenup.server.di.shelfModule
+import com.calypsan.listenup.server.di.storyWorldModule
 import com.calypsan.listenup.server.di.sidecarModule
 import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.di.userPreferencesModule
@@ -145,6 +146,7 @@ internal fun Application.installDependencies(
         modules += publicProfileModule()
         modules += adminUserRosterModule()
         modules += shelfModule()
+        modules += storyWorldModule()
         modules += pushModule()
         modules += hardcoverModule(hardcoverClientId, hardcoverApiBaseUrl, applicationScope)
         modules += notificationModule()
