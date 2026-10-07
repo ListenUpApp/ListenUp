@@ -434,47 +434,59 @@ class EntityRepository(
     }
 
     /**
-     * Moves [receiptId]'s entities that are still live under [target] back to [source] (UPDATE, no actor),
-     * each in its current state — an edit made since the merge survives. An entity created under [target]
-     * since the merge is not on the receipt, so it stays.
-     *
-     * A parent link may not span two homes (it would leak visibility), and the tree may have been
-     * rearranged since the merge: a returning entity whose parent stays in [target] loses that parent, and
-     * an entity staying in [target] whose parent returns to [source] loses its parent too (UPDATE each).
-     * Returns how many moved back.
+     * The Story World half of a series-merge undo, bound to this call's firehose context.
+     * [SeriesMergeUndo.restore] runs **inside** the undo's claim transaction, so the receipt is never marked
+     * undone without its entities going home: a crash or failure after the claim can't strand them in the
+     * target, where no retry could reach them.
      */
-    suspend fun restoreForSeriesMergeUndo(
-        receiptId: String,
-        source: SeriesId,
-        target: SeriesId,
-    ): Int {
-        val ctx = writeContext()
-        return suspendTransaction(db) {
-            val lease = RevisionLease(nextRevision())
-            val returning =
-                db.seriesMergeReceiptsQueries
-                    .selectReceiptEntityIds(receiptId)
-                    .executeAsList()
-                    .mapNotNull { id -> liveOrNull(id)?.takeIf { it.homeSeriesId == target.value } }
-            val returningIds = returning.mapTo(HashSet()) { it.id }
-            val strandedChildren =
-                returningIds
-                    .flatMap { id -> db.entitiesQueries.selectLiveChildIds(id).executeAsList() }
-                    .filterNot { it in returningIds }
-            strandedChildren.forEach { id ->
-                val before = checkNotNull(readPayload(id))
-                rewrite(before, before.copy(parentId = null), StoryWorldOp.UPDATE, null, ctx, lease.take())
+    suspend fun prepareSeriesMergeUndo(): SeriesMergeUndo = SeriesMergeUndo(writeContext())
+
+    /** See [prepareSeriesMergeUndo]. */
+    inner class SeriesMergeUndo internal constructor(
+        private val ctx: WriteContext,
+    ) {
+        /**
+         * Moves [receiptId]'s entities that are still live under [target] back to [source] (UPDATE, no
+         * actor), each in its current state — an edit made since the merge survives. An entity created
+         * under [target] since the merge is not on the receipt, so it stays. Call inside [transaction].
+         *
+         * A parent link may not span two homes (it would leak visibility), and the tree may have been
+         * rearranged since the merge: a returning entity whose parent stays in [target] loses that parent,
+         * and an entity staying in [target] whose parent returns to [source] loses its parent too (UPDATE
+         * each). Returns how many moved back.
+         */
+        fun restore(
+            transaction: TransactionWithReturn<*>,
+            receiptId: String,
+            source: SeriesId,
+            target: SeriesId,
+        ): Int =
+            with(transaction) {
+                val lease = RevisionLease(nextRevision())
+                val returning =
+                    db.seriesMergeReceiptsQueries
+                        .selectReceiptEntityIds(receiptId)
+                        .executeAsList()
+                        .mapNotNull { id -> liveOrNull(id)?.takeIf { it.homeSeriesId == target.value } }
+                val returningIds = returning.mapTo(HashSet()) { it.id }
+                val strandedChildren =
+                    returningIds
+                        .flatMap { id -> db.entitiesQueries.selectLiveChildIds(id).executeAsList() }
+                        .filterNot { it in returningIds }
+                strandedChildren.forEach { id ->
+                    val before = checkNotNull(readPayload(id))
+                    rewrite(before, before.copy(parentId = null), StoryWorldOp.UPDATE, null, ctx, lease.take())
+                }
+                returning.forEach { before ->
+                    val after =
+                        before.copy(
+                            homeSeriesId = source.value,
+                            parentId = before.parentId?.takeIf { it in returningIds },
+                        )
+                    rewrite(before, after, StoryWorldOp.UPDATE, actor = null, ctx = ctx, revision = lease.take())
+                }
+                returning.size
             }
-            returning.forEach { before ->
-                val after =
-                    before.copy(
-                        homeSeriesId = source.value,
-                        parentId = before.parentId?.takeIf { it in returningIds },
-                    )
-                rewrite(before, after, StoryWorldOp.UPDATE, actor = null, ctx = ctx, revision = lease.take())
-            }
-            returning.size
-        }
     }
 
     // ── Targeted pull ──
@@ -622,7 +634,7 @@ class EntityRepository(
     }
 
     /** The firehose suppression marker and the frame capture, read once in the suspend scope. */
-    private class WriteContext(
+    internal class WriteContext(
         val suppressed: Boolean,
         val capture: FrameCapture?,
     )

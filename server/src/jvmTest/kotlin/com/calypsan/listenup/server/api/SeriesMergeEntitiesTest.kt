@@ -23,6 +23,7 @@ import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
+import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -98,6 +99,38 @@ class SeriesMergeEntitiesTest :
                         .findById(EntityId("late"))
                         .shouldNotBeNull()
                         .homeSeriesId shouldBe target.value
+                }
+            }
+        }
+
+        test("an undo that fails after its claim has already carried the entities back") {
+            withSqlDatabase {
+                runTest {
+                    val rig = mergeRig()
+                    val (source, target) = rig.seedSeries("A", "B")
+                    rig.entities.upsertEntity(entityPayload("lysander", homeSeriesId = source.value), UserId("u1"))
+                    rig.service.mergeSeries(source, target)
+                    val receipt =
+                        rig.service
+                            .listMergeReceipts(target)
+                            .shouldBeInstanceOf<AppResult.Success<List<MergeReceipt>>>()
+                            .data
+                            .single()
+
+                    // The book re-upserts — the first step after the claim — now fail outright.
+                    driver.execute(
+                        null,
+                        "CREATE TRIGGER fail_book_writes BEFORE UPDATE ON books BEGIN SELECT RAISE(ABORT, 'boom'); END",
+                        0,
+                    )
+                    shouldThrowAny { rig.service.undoSeriesMerge(receipt.id) }
+
+                    // The claim marked the receipt undone, so no retry can reach the entities: they must
+                    // already be home.
+                    rig.entities
+                        .findById(EntityId("lysander"))
+                        .shouldNotBeNull()
+                        .homeSeriesId shouldBe source.value
                 }
             }
         }
