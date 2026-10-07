@@ -38,7 +38,7 @@
 
 .luw .bmx-art { flex: none; width: 56px; height: 56px; border-radius: var(--r-sm); object-fit: cover; background: var(--surface-3); display: block; }
 .luw .bmx-art.is-big { width: 84px; height: 84px; }
-.luw .bmx-art-none { display: flex; align-items: center; justify-content: center; color: var(--ink-3); }
+.luw .bmx-art-blank { display: flex; align-items: center; justify-content: center; color: var(--ink-3); }
 
 /* Search */
 .luw .bmx-search { display: flex; align-items: flex-end; gap: var(--sp-8); flex-wrap: wrap; }

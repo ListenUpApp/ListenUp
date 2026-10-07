@@ -683,7 +683,7 @@ class BookMatchPageTest :
                 MatchRig(
                     find =
                         results(
-                            maybe = listOf(candidate(id = "B2", narrators = emptyList(), chapterCount = null, durationMs = null)),
+                            maybe = listOf(candidate(id = "B2", narrators = emptyList(), chapterCount = null, durationMs = null, reasons = emptyList())),
                         ),
                 )
             val host = rig.mount(view = MatchView.Compare)
@@ -723,7 +723,7 @@ class BookMatchPageTest :
             val host = MatchRig().mount()
             awaitFrame()
 
-            host.texts("nav.crumb li").map { it.removePrefix("›").trim() } shouldContainExactly
+            host.texts("nav.crumb li").map { it.removePrefix("/").trim() } shouldContainExactly
                 listOf("Library", "Project Hail Mary", "Match details")
         }
     })

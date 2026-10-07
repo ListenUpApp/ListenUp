@@ -277,7 +277,7 @@ internal const val NOTHING_WAS_CHANGED = "Nothing was changed."
 
 private const val FULL_CAST_AFTER = 3
 private const val SECONDS_PER_MINUTE = 60
-private val BREAKS = Regex("(?i)<br\\s*/?>|</p\\s*>|</div\\s*>|</li\\s*>")
+private val BREAKS = Regex("<br\\s*/?>|</p\\s*>|</div\\s*>|</li\\s*>", RegexOption.IGNORE_CASE)
 private val TAGS = Regex("<[^>]*>")
 private val BLANK_LINES = Regex("\\n{3,}")
 private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")

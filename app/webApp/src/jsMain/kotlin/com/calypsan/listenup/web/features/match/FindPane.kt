@@ -321,7 +321,7 @@ internal fun Art(
 ) {
     if (url == null) {
         Span(attrs = {
-            classes("bmx-art", "bmx-art-none")
+            classes("bmx-art", "bmx-art-blank")
             if (big) classes("is-big")
             attr("aria-hidden", "true")
         }) { Icon(WebIcon.Book, size = SMALL_ICON) }
