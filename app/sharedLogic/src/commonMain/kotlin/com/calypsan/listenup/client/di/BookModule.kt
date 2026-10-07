@@ -60,7 +60,7 @@ internal val bookModule: Module =
             MetadataRepositoryImpl(channel = rpcChannel())
         }
 
-        // MatchingService RPC channel — Match details (Find; Review and Apply join in later PRs).
+        // MatchingService RPC channel — Match details: Find, Review, Apply and Undo.
         rpcChannel<MatchingService>()
 
         single<MatchingRepository> { MatchingRepositoryImpl(channel = rpcChannel()) }

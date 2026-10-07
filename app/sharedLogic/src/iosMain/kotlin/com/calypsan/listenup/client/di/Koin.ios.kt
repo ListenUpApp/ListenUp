@@ -86,6 +86,8 @@ import com.calypsan.listenup.client.presentation.home.HomeViewModel
 import com.calypsan.listenup.client.presentation.invite.ClaimInviteViewModel
 import com.calypsan.listenup.client.presentation.library.LibraryViewModel
 import com.calypsan.listenup.client.presentation.metadata.MetadataViewModel
+import com.calypsan.listenup.client.presentation.match.BookMatchViewModel
+import com.calypsan.listenup.client.presentation.match.MatchReceiptViewModel
 import com.calypsan.listenup.client.presentation.notifications.NotificationBellViewModel
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsViewModel
 import com.calypsan.listenup.client.presentation.notifications.NotificationsViewModel
@@ -428,6 +430,12 @@ object KoinHelper {
     fun getBookEditViewModel(): BookEditViewModel = resolve(BookEditViewModel::class)
 
     fun getMetadataViewModel(): MetadataViewModel = resolve(MetadataViewModel::class)
+
+    fun getBookMatchViewModel(bookId: String): BookMatchViewModel =
+        resolveWithParams(BookMatchViewModel::class, listOf(bookId))
+
+    fun getMatchReceiptViewModel(bookId: String): MatchReceiptViewModel =
+        resolveWithParams(MatchReceiptViewModel::class, listOf(bookId))
 
     fun getContributorMetadataViewModel(): ContributorMetadataViewModel = resolve(ContributorMetadataViewModel::class)
 

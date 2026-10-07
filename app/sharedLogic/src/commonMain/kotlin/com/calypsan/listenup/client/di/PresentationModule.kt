@@ -401,16 +401,26 @@ internal val bookPresentationModule =
                 errorBus = get(),
             )
         }
-        // MetadataViewModel for Audible metadata search and matching
-        factory {
-            com.calypsan.listenup.client.presentation.metadata.MetadataViewModel(
-                metadataRepository = get(),
+        // Hands a fresh match receipt from Match details to Book Detail; one per process.
+        single { com.calypsan.listenup.client.presentation.match.MatchReceiptStore() }
+        factory { com.calypsan.listenup.client.presentation.match.UndoMatch(matchingRepository = get()) }
+        // Match details for one book: Find, Review and Apply share one ViewModel per session.
+        factory { params ->
+            com.calypsan.listenup.client.presentation.match.BookMatchViewModel(
+                bookId = params.get(),
+                matchingRepository = get(),
                 bookRepository = get(),
-                genreRepository = get(),
-                moodRepository = get(),
-                tagRepository = get(),
+                receiptStore = get(),
                 errorBus = get(),
-                libraryRepository = get(),
+            )
+        }
+        // The receipt on Book Detail after Apply, with Undo.
+        factory { params ->
+            com.calypsan.listenup.client.presentation.match.MatchReceiptViewModel(
+                bookId = params.get(),
+                receiptStore = get(),
+                undoMatch = get(),
+                errorBus = get(),
             )
         }
         // Scoped to one book by parameter: the editor is always entered for a specific book and

@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.HardcoverRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.LibraryRepository
+import com.calypsan.listenup.client.domain.repository.MatchingRepository
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
 import com.calypsan.listenup.client.domain.repository.MoodRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
@@ -68,6 +69,7 @@ import org.koin.test.verify.verify
  *  - [BookEditRepository] — owned by `bookModule`.
  *  - [ImageStagingRepository] — owned by `mediaModule`.
  *  - [MetadataRepository] — owned by `bookModule`.
+ *  - [MatchingRepository] — owned by `bookModule` (Match details and its receipt's Undo).
  *  - [LibraryRepository] — owned by `libraryModule` (matching starts in the library's Audible store).
  *  - [GenreRepository] — owned by `genreTagModule`.
  *  - [MoodRepository] — owned by `genreTagModule`.
@@ -109,6 +111,7 @@ class BookPresentationModuleVerifyTest :
                         BookEditRepository::class,
                         ImageStagingRepository::class,
                         MetadataRepository::class,
+                        MatchingRepository::class,
                         LibraryRepository::class,
                         GenreRepository::class,
                         MoodRepository::class,
