@@ -48,19 +48,28 @@ class PersonMatchApplyTest :
             }
         }
 
-        test("keeping the photo writes only the biography, and keeping the biography writes only the photo") {
+        test("keeping the photo writes only the biography") {
             withSqlDatabase {
                 runTest {
                     val rig = PersonRig(this@withSqlDatabase)
                     rig.seedRay()
-                    rig.apply(rig.mixedRequest().copy(photo = ImageChoice.KeepCurrent)).shouldSucceed()
+                    val receipt = rig.apply(rig.mixedRequest().copy(photo = ImageChoice.KeepCurrent)).shouldSucceed()
                     rig.person().imagePath shouldBe "contributors/old.jpg"
                     rig.person().description shouldBe "Audible bio."
+                    receipt.changes shouldContainExactly listOf(AppliedChange.Biography(AUDIBLE_SOURCE))
+                }
+            }
+        }
 
-                    val other = PersonRig(this@withSqlDatabase).also { it.rayId = rig.rayId }
-                    other.apply(other.mixedRequest().copy(biography = FieldChoice.KeepCurrent)).shouldSucceed()
-                    other.person().description shouldBe "Audible bio."
-                    other.person().imagePath shouldNotBe "contributors/old.jpg"
+        test("keeping the biography writes only the photo") {
+            withSqlDatabase {
+                runTest {
+                    val rig = PersonRig(this@withSqlDatabase)
+                    rig.seedRay()
+                    val receipt = rig.apply(rig.mixedRequest().copy(biography = FieldChoice.KeepCurrent)).shouldSucceed()
+                    rig.person().description shouldBe "Old bio."
+                    rig.person().imagePath shouldNotBe "contributors/old.jpg"
+                    receipt.changes shouldContainExactly listOf(AppliedChange.Photo(HARDCOVER_SOURCE))
                 }
             }
         }
@@ -187,6 +196,20 @@ class PersonMatchApplyTest :
                     val before = rig.seedRay()
                     val request = rig.mixedRequest()
                     rig.audnexus.profiles = mapOf("B0RAY" to ray("B0RAY", bio = "A rewritten bio.", photo = AUDIBLE_PHOTO))
+                    rig.apply(request).error().shouldBeInstanceOf<MetadataError.ReviewOutdated>()
+                    rig.person() shouldBe before
+                }
+            }
+        }
+
+        test("a photo option no longer offered is ReviewOutdated") {
+            withSqlDatabase {
+                runTest {
+                    val rig = PersonRig(this@withSqlDatabase)
+                    val before = rig.seedRay()
+                    val request = rig.mixedRequest()
+                    rig.hardcover.profiles =
+                        mapOf("250716" to ray("250716", bio = "Hardcover bio.", photo = "https://example.test/new.jpg"))
                     rig.apply(request).error().shouldBeInstanceOf<MetadataError.ReviewOutdated>()
                     rig.person() shouldBe before
                 }
