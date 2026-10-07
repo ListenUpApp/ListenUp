@@ -27,6 +27,7 @@ import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.ratings.ExternalRatingsFetcher
 import com.calypsan.listenup.server.ratings.HardcoverRatingOnOpen
 import com.calypsan.listenup.server.sync.BookMoodRepository
+import com.calypsan.listenup.server.sync.EntityRepository
 import com.calypsan.listenup.server.sync.BookRatingRepository
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.MoodRepository
@@ -149,6 +150,7 @@ fun booksModule(
                 tagRepository = getOrNull<TagRepository>(),
                 bookTagRepository = getOrNull<BookTagRepository>(),
                 bookMoodRepository = getOrNull<BookMoodRepository>(),
+                entityRepository = getOrNull<EntityRepository>(),
                 orphanParentPurger = get<OrphanParentPurger>(),
                 homeDir = homeDir,
                 coverImageStore = get<CoverImageStore>(),
