@@ -23,8 +23,24 @@ import org.jetbrains.compose.web.dom.Ul
 import org.w3c.dom.HTMLElement
 
 /**
- * The receipt Book Detail shows after Apply (W-04): "Changed 5 fields, cover from Hardcover, 16
- * chapter names", with See what changed and Undo.
+ * What a receipt is about, which decides what it says: a book's counts with See what changed, or a
+ * person's "Changed photo and biography for Ray Porter" with Undo alone (D6) — the sentence already
+ * names both changes.
+ */
+sealed interface ReceiptSubject {
+    /** A book's receipt, on Book Detail (W-04). */
+    data object Book : ReceiptSubject
+
+    /** A person's receipt, on the contributor page (W-07), named for them. */
+    data class Person(
+        val name: String,
+    ) : ReceiptSubject
+}
+
+/**
+ * The receipt Book Detail or the contributor page shows after Apply (W-04, W-07): "Changed 5 fields,
+ * cover from Hardcover, 16 chapter names", with See what changed and Undo — or, for a [subject] that is
+ * a person, "Changed photo and biography for Ray Porter" with Undo.
  *
  * A `role=status` region that is always in the page, so what lands in it is announced; and focus
  * moves to it when it arrives and again when Undo settles, so a keyboard is where the news is. The
@@ -38,6 +54,7 @@ fun MatchReceiptRegion(
     state: MatchReceiptUiState,
     onUndo: () -> Unit,
     onDismiss: () -> Unit,
+    subject: ReceiptSubject = ReceiptSubject.Book,
 ) {
     var region by remember { mutableStateOf<HTMLElement?>(null) }
     var showingChanges by remember { mutableStateOf(false) }
@@ -74,7 +91,13 @@ fun MatchReceiptRegion(
             }
 
             is MatchReceiptUiState.Shown -> {
-                Shown(state, onUndo, onSeeChanges = { showingChanges = true }, onDismiss = dismiss)
+                Shown(
+                    state = state,
+                    sentence = receiptSentence(state.receipt, subject),
+                    onUndo = onUndo,
+                    onSeeChanges = { showingChanges = true }.takeIf { subject == ReceiptSubject.Book },
+                    onDismiss = dismiss,
+                )
                 ChangesDialog(open = showingChanges, receipt = state.receipt, onClose = { showingChanges = false })
             }
 
@@ -83,7 +106,7 @@ fun MatchReceiptRegion(
             }
 
             MatchReceiptUiState.Expired -> {
-                Settled("This book has changed since, so the match can't be undone.", dismiss)
+                Settled(expiredSentence(subject), dismiss)
             }
         }
     }
@@ -92,15 +115,16 @@ fun MatchReceiptRegion(
 @Composable
 private fun Shown(
     state: MatchReceiptUiState.Shown,
+    sentence: String,
     onUndo: () -> Unit,
-    onSeeChanges: () -> Unit,
+    onSeeChanges: (() -> Unit)?,
     onDismiss: () -> Unit,
 ) {
     P(attrs = { classes("bmx-receipt-t") }) {
-        Text(state.undoError?.let { nothingChanged(it.message) } ?: receiptText(state.receipt))
+        Text(state.undoError?.let { nothingChanged(it.message) } ?: sentence)
     }
     Div(attrs = { classes("bmx-receipt-acts") }) {
-        if (state.receipt.changes.isNotEmpty()) {
+        if (onSeeChanges != null && state.receipt.changes.isNotEmpty()) {
             Button(kind = ButtonKind.Ghost, onClick = onSeeChanges) { Text("See what changed") }
         }
         if (state.receipt.undoable) {
@@ -150,6 +174,21 @@ private fun ChangesDialog(
         }
     }
 }
+
+private fun receiptSentence(
+    receipt: MatchReceiptUi,
+    subject: ReceiptSubject,
+): String =
+    when (subject) {
+        ReceiptSubject.Book -> receiptText(receipt)
+        is ReceiptSubject.Person -> personReceiptText(receipt, subject.name)
+    }
+
+private fun expiredSentence(subject: ReceiptSubject): String =
+    when (subject) {
+        ReceiptSubject.Book -> "This book has changed since, so the match can't be undone."
+        is ReceiptSubject.Person -> "${subject.name} has changed since, so the match can't be undone."
+    }
 
 /** Focus moves to the receipt when one arrives and when Undo settles — not on every tick of Undoing. */
 private fun arrivalKey(state: MatchReceiptUiState): String =

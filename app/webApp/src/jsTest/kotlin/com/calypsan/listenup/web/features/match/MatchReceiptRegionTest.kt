@@ -19,6 +19,7 @@ private val hosts = mutableListOf<HTMLElement>()
 
 private class ReceiptRig(
     initial: MatchReceiptUiState,
+    private val subject: ReceiptSubject = ReceiptSubject.Book,
 ) {
     val state = MutableStateFlow(initial)
     val calls = mutableListOf<String>()
@@ -32,6 +33,7 @@ private class ReceiptRig(
                 state = state.collectAsState().value,
                 onUndo = { calls += "undo" },
                 onDismiss = { calls += "dismiss" },
+                subject = subject,
             )
         }
         return host
@@ -147,5 +149,50 @@ class MatchReceiptRegionTest :
             awaitFrame()
 
             host.receipt().textContent shouldBe ""
+        }
+
+        // MARK: a person's receipt (W-07)
+
+        test("a person's receipt names them and what changed, offers Undo, and has no See what changed") {
+            val rig =
+                ReceiptRig(
+                    MatchReceiptUiState.Shown(personReceipt(), undoing = false, undoError = null),
+                    ReceiptSubject.Person("Ray Porter"),
+                )
+            val host = rig.mount()
+            awaitFrame()
+            awaitFrame()
+
+            host.receipt().querySelector(".bmx-receipt-t")?.textContent shouldBe
+                "Changed photo and biography for Ray Porter"
+            document.activeElement shouldBe host.receipt()
+            host.buttonNamed("See what changed").shouldBeNull()
+            host.buttonNamed("Undo").shouldNotBeNull().click()
+            rig.calls shouldContainExactly listOf("undo")
+        }
+
+        test("a person's receipt says only the photo, or only the biography, when that is all that changed") {
+            val photoOnly =
+                ReceiptRig(
+                    MatchReceiptUiState.Shown(personReceipt(biography = null), undoing = false, undoError = null),
+                    ReceiptSubject.Person("Ray Porter"),
+                ).mount()
+            val bioOnly =
+                ReceiptRig(
+                    MatchReceiptUiState.Shown(personReceipt(photo = null), undoing = false, undoError = null),
+                    ReceiptSubject.Person("Ray Porter"),
+                ).mount()
+            awaitFrame()
+
+            photoOnly.receipt().querySelector(".bmx-receipt-t")?.textContent shouldBe "Changed photo for Ray Porter"
+            bioOnly.receipt().querySelector(".bmx-receipt-t")?.textContent shouldBe "Changed biography for Ray Porter"
+        }
+
+        test("a person who changed since says their Undo has expired") {
+            val host = ReceiptRig(MatchReceiptUiState.Expired, ReceiptSubject.Person("Ray Porter")).mount()
+            awaitFrame()
+
+            host.receipt().querySelector(".bmx-receipt-t")?.textContent shouldBe
+                "Ray Porter has changed since, so the match can't be undone."
         }
     })

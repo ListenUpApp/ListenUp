@@ -127,7 +127,6 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
-import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksUiState
 import com.calypsan.listenup.web.features.contributordetail.ContributorBooksSession
@@ -137,8 +136,6 @@ import com.calypsan.listenup.web.features.contributordetail.fixedContributorDeta
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
 import com.calypsan.listenup.web.features.contributoredit.ContributorEditSession
 import com.calypsan.listenup.web.features.contributoredit.OpenContributorEdit
-import com.calypsan.listenup.web.features.contributormetadata.OpenContributorMetadata
-import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
 import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailSession
@@ -196,8 +193,6 @@ internal fun mountAt(
     openContributorDetail: OpenContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
     openContributorBooks: OpenContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
     openContributorEdit: OpenContributorEdit = fixedContributorEdit(ContributorEditUiState()),
-    openContributorMetadata: OpenContributorMetadata =
-        fixedContributorMetadata(ContributorMetadataUiState.Idle()),
     openSeriesDetail: OpenSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
     openSeriesEdit: OpenSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
     openChapterEditor: OpenChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
@@ -274,7 +269,6 @@ internal fun mountAt(
                     openContributorDetail = openContributorDetail,
                     openContributorBooks = openContributorBooks,
                     openContributorEdit = openContributorEdit,
-                    openContributorMetadata = openContributorMetadata,
                     openSeriesDetail = openSeriesDetail,
                     openSeriesEdit = openSeriesEdit,
                     openNotifications = openNotifications,

@@ -46,11 +46,10 @@ import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEven
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
 import com.calypsan.listenup.web.features.chaptereditor.ChapterEditorPage
 import com.calypsan.listenup.web.features.match.BookMatchReceipt
+import com.calypsan.listenup.web.features.match.PersonMatchReceipt
+import com.calypsan.listenup.web.features.match.PersonMatchRoute
 import com.calypsan.listenup.web.features.match.BookMatchRoute
 import com.calypsan.listenup.web.features.match.MatchView
-import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataEvent
-import com.calypsan.listenup.web.features.contributormetadata.ContributorMetadataPage
-import com.calypsan.listenup.web.features.contributormetadata.OpenContributorMetadata
 import com.calypsan.listenup.web.features.match.MatchDetailsGraph
 import com.calypsan.listenup.web.features.chaptereditor.OpenChapterEditor
 import com.calypsan.listenup.web.features.chaptereditor.chapterProblemText
@@ -268,7 +267,6 @@ fun WebAppRoot(
     openContributorDetail: OpenContributorDetail,
     openContributorBooks: OpenContributorBooks,
     openContributorEdit: OpenContributorEdit,
-    openContributorMetadata: OpenContributorMetadata,
     openSeriesDetail: OpenSeriesDetail,
     openSeriesEdit: OpenSeriesEdit,
     openNotifications: OpenNotifications,
@@ -378,7 +376,6 @@ fun WebAppRoot(
                 openContributorDetail = openContributorDetail,
                 openContributorBooks = openContributorBooks,
                 openContributorEdit = openContributorEdit,
-                openContributorMetadata = openContributorMetadata,
                 openSeriesDetail = openSeriesDetail,
                 openSeriesEdit = openSeriesEdit,
                 openNotifications = openNotifications,
@@ -758,7 +755,6 @@ private fun RouteContent(
     openContributorDetail: OpenContributorDetail,
     openContributorBooks: OpenContributorBooks,
     openContributorEdit: OpenContributorEdit,
-    openContributorMetadata: OpenContributorMetadata,
     openSeriesDetail: OpenSeriesDetail,
     openSeriesEdit: OpenSeriesEdit,
     openNotifications: OpenNotifications,
@@ -855,7 +851,8 @@ private fun RouteContent(
             openContributorDetail = openContributorDetail,
             openContributorBooks = openContributorBooks,
             openContributorEdit = openContributorEdit,
-            openContributorMetadata = openContributorMetadata,
+            matchDetails = matchDetails,
+            currentUserId = currentUserId,
         )
     } else if (profileId != null) {
         ProfileRouteContent(
@@ -1436,41 +1433,27 @@ private fun ContributorEditRoute(
 }
 
 /**
- * Opens a Contributor Metadata session for [contributorId] and collects it.
+ * `/contributor/{id}/match` — Match details for one person: Find as author or narrator, Review, one Apply.
  *
- * The ViewModel loads the person itself, seeds the query with their name and searches — so unlike
- * the book wizard this route needs nothing but the id.
- *
- * `MetadataApplied` navigates back to the person, which is where the change will be visible.
+ * After Apply, back to the person: their page's receipt says what changed and offers Undo. Edit by hand —
+ * the way on when no source has a profile — opens the person's own form.
  */
 @Composable
-private fun ContributorMetadataRoute(
+private fun PersonMatchDetailsRoute(
     router: Router,
-    openContributorMetadata: OpenContributorMetadata,
+    matchDetails: MatchDetailsGraph,
+    currentUserId: String?,
     contributorId: String,
 ) {
-    val session = remember(contributorId) { openContributorMetadata(contributorId) }
-    DisposableEffect(session) { onDispose { session.close() } }
-
-    val target = Route(listOf(CONTRIBUTOR_KEY, contributorId))
-
-    LaunchedEffect(session) {
-        session.events.collect { event ->
-            when (event) {
-                ContributorMetadataEvent.MetadataApplied -> router.navigate(target)
-            }
-        }
-    }
-
-    ContributorMetadataPage(
-        state = session.state.collectAsState().value,
-        onQuery = session.onQuery,
-        onRegion = session.onRegion,
-        onSearch = session.onSearch,
-        onSelectCandidate = session.onSelectCandidate,
-        onClearSelection = session.onClearSelection,
-        onApply = session.onApply,
-        onLeave = { router.navigate(target) },
+    val person = Route(listOf(CONTRIBUTOR_KEY, contributorId))
+    PersonMatchRoute(
+        contributorId = contributorId,
+        graph = matchDetails,
+        viewerId = currentUserId,
+        onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+        onOpenContributor = { router.navigate(person) },
+        onEditByHand = { router.navigate(Route(listOf(CONTRIBUTOR_KEY, contributorId, EDIT_KEY))) },
+        onApplied = { router.navigate(person) },
     )
 }
 
@@ -1491,14 +1474,15 @@ private fun ContributorRouteContent(
     openContributorDetail: OpenContributorDetail,
     openContributorBooks: OpenContributorBooks,
     openContributorEdit: OpenContributorEdit,
-    openContributorMetadata: OpenContributorMetadata,
+    matchDetails: MatchDetailsGraph,
+    currentUserId: String?,
 ) {
     // Derived here rather than in [RouteContent], the same way [BookRouteContent] owns its own
     // sub-routes: a value only this branch reads is this branch's business, and RouteContent's
     // length is a budget every route family spends from.
     val roleBooksContributorId = contributorId?.takeIf { route.segments.getOrNull(2) == BOOKS_KEY }
     val editingContributorId = route.editTargetOf(contributorId)
-    // `/contributor/{id}/match` — the Audible wizard over one person.
+    // `/contributor/{id}/match` — Match details over one person.
     val matchingContributorId =
         if (contributorId != null && route.segments.getOrNull(2) == MATCH_KEY) contributorId else null
     val roleBooksRole = parseAnyContributorRole(route.query[ROLE_QUERY_KEY])
@@ -1532,9 +1516,10 @@ private fun ContributorRouteContent(
         // ⛔ Both sub-routes before the detail branch, for the same reason: `/contributor/{id}` is
         // a prefix of each, and a branch order that tests it first makes them unreachable by link.
         matchingContributorId != null -> {
-            ContributorMetadataRoute(
+            PersonMatchDetailsRoute(
                 router = router,
-                openContributorMetadata = openContributorMetadata,
+                matchDetails = matchDetails,
+                currentUserId = currentUserId,
                 contributorId = matchingContributorId,
             )
         }
@@ -1576,8 +1561,9 @@ private fun ContributorRouteContent(
                 }
             }
 
+            val detail = session.state.collectAsState().value
             ContributorDetailPage(
-                state = session.state.collectAsState().value,
+                state = detail,
                 onConfirmDelete = session.onConfirmDelete,
                 onDismissDeleteError = session.onDismissDeleteError,
                 onEdit = { router.navigate(Route(listOf(CONTRIBUTOR_KEY, contributorId, EDIT_KEY))) },
@@ -1594,6 +1580,12 @@ private fun ContributorRouteContent(
                         ),
                     )
                 },
+            )
+            // After Match details' Apply: what changed and Undo, until dismissed.
+            PersonMatchReceipt(
+                contributorId = contributorId,
+                name = (detail as? ContributorDetailUiState.Ready)?.contributor?.name,
+                graph = matchDetails,
             )
         }
     }
@@ -3252,7 +3244,7 @@ private const val BOOKS_KEY = "books"
 /** The selection the bulk editor edits, comma-separated. */
 private const val IDS_QUERY_KEY = "ids"
 
-/** `/book/{id}/match` — Match details over one book; `/contributor/{id}/match`, the person wizard. */
+/** `/book/{id}/match` — Match details over one book; `/contributor/{id}/match`, over one person. */
 private const val MATCH_KEY = "match"
 
 /** `/book/{id}/match?view=compare` — Match details' Compare editions page. */

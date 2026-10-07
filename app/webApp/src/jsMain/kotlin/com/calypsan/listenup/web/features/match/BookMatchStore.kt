@@ -53,17 +53,22 @@ class BookMatchSession(
 typealias OpenBookMatch = (bookId: String) -> BookMatchSession
 
 /**
- * Both halves of Match details on web: the page's session, and the receipt Book Detail shows after Apply. One
- * value so the route chain carries one parameter for the feature rather than two.
+ * Every part of Match details on web: a book's session, a person's session, and the receipt Book Detail or the
+ * contributor page shows after Apply. One value so the route chain carries one parameter for the feature.
  */
 class MatchDetailsGraph(
     val openBookMatch: OpenBookMatch,
+    val openPersonMatch: OpenPersonMatch,
     val openMatchReceipt: OpenMatchReceipt,
 )
 
-/** The production graph: the shared ViewModels, each parametrized on the book. */
+/** The production graph: the shared ViewModels, each parametrized on its book or contributor. */
 fun graphMatchDetails(koin: Koin): MatchDetailsGraph =
-    MatchDetailsGraph(openBookMatch = graphBookMatch(koin), openMatchReceipt = graphMatchReceipt(koin))
+    MatchDetailsGraph(
+        openBookMatch = graphBookMatch(koin),
+        openPersonMatch = graphPersonMatch(koin),
+        openMatchReceipt = graphMatchReceipt(koin),
+    )
 
 /** The production source: [BookMatchViewModel] for one book. Find starts as the ViewModel is built. */
 fun graphBookMatch(koin: Koin): OpenBookMatch =
