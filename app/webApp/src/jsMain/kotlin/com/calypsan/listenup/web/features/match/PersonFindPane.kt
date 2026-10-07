@@ -98,7 +98,6 @@ internal fun PersonFindPane(
                 title = noProfilesTitle(find.role),
                 body = NO_PROFILES_BODY,
                 look = EmptyLook.Inset,
-                marker = "pmx-none",
                 action = {
                     Div(attrs = { classes("bmx-fail-acts") }) {
                         Button(kind = ButtonKind.Secondary, onClick = onEditByHand) { Text(EDIT_BY_HAND) }

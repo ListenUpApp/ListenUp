@@ -226,8 +226,8 @@
    Your-library strip, round portraits, the Different role chip, and the photo and
    biography sections. */
 
-.luw .pmx-role { flex: none; }
-.luw .pmx-role .bmx-seg { min-width: 7.5rem; justify-content: center; }
+.luw .pmx-role { min-width: 0; max-width: 100%; }
+.luw .pmx-role .bmx-seg { justify-content: center; }
 .luw .pmx-coverage {
   margin: 0; display: flex; align-items: flex-start; gap: var(--sp-8);
   padding: var(--sp-12); border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--line);
@@ -256,4 +256,3 @@
 .luw .pmx-photo, .luw .pmx-bio { gap: var(--sp-12); }
 .luw .pmx-photos .bmx-cover { min-width: 7rem; }
 .luw .pmx-bio-src { align-self: stretch; }
-.luw .pmx-none { align-self: stretch; }

@@ -229,8 +229,8 @@ class PersonMatchPageTest :
             awaitFrame()
             awaitFrame()
 
-            host.text(".pmx-none :is(h2, h3, h4)") shouldBe "No source has a profile for this narrator"
-            host.text(".pmx-none") shouldContain "You can add their photo and biography yourself."
+            host.text(".bmx-find .empty :is(h2, h3, h4)") shouldBe "No source has a profile for this narrator"
+            host.text(".bmx-find .empty") shouldContain "You can add their photo and biography yourself."
             host.querySelector("#$SEARCH_ID").shouldNotBeNull()
             host.inputNamed("As author").shouldNotBeNull()
             host.live() shouldBe "No source has a profile for this narrator"
