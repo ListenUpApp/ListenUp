@@ -66,7 +66,10 @@ public fun AppError.withCorrelationId(id: String?): AppError =
 
         is ContributorError -> withCorrelationId(id)
 
-        is SeriesError -> withCorrelationId(id)
+        // SeriesError + EntityError share one branch (delegating to an exhaustive helper) to keep this
+        // function under the cyclomatic-complexity ceiling. They pair naturally — a Story World entity
+        // lives under a series.
+        is SeriesError, is EntityError -> seriesOrStoryWorldWithCorrelationId(id)
 
         is GenreError -> withCorrelationId(id)
 
@@ -126,6 +129,27 @@ private fun AppError.derivedMediaWithCorrelationId(id: String?): AppError =
         is CoverError -> withCorrelationId(id)
         is TranscodeError -> withCorrelationId(id)
         else -> this // unreachable: only called from the grouped branch above
+    }
+
+/**
+ * Re-dispatches the grouped `SeriesError`/`EntityError` branch of [withCorrelationId] to each family's
+ * own exhaustive `copy`. Split out solely to keep [withCorrelationId]'s cyclomatic complexity under the
+ * project threshold; the `else` is unreachable (only called from the grouped branch above).
+ */
+private fun AppError.seriesOrStoryWorldWithCorrelationId(id: String?): AppError =
+    when (this) {
+        is SeriesError -> withCorrelationId(id)
+        is EntityError -> withCorrelationId(id)
+        else -> this // unreachable: only called from the grouped branch above
+    }
+
+private fun EntityError.withCorrelationId(id: String?): EntityError =
+    when (this) {
+        is EntityError.NotFound -> copy(correlationId = id)
+        is EntityError.InvalidParent -> copy(correlationId = id)
+        is EntityError.CycleDetected -> copy(correlationId = id)
+        is EntityError.KindMismatchOnMerge -> copy(correlationId = id)
+        is EntityError.HistoryNotFound -> copy(correlationId = id)
     }
 
 private fun AuthError.withCorrelationId(id: String?): AuthError =

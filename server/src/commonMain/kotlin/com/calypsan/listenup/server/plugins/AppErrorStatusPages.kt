@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.error.CoverError
 import com.calypsan.listenup.api.error.DownloadError
+import com.calypsan.listenup.api.error.EntityError
 import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.error.ImportError
@@ -196,7 +197,8 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is ContributorError -> toHttpStatus()
 
-        is SeriesError -> toHttpStatus()
+        // SeriesError + EntityError share one branch (see CorrelationStamping for the same pairing).
+        is SeriesError, is EntityError -> seriesOrStoryWorldHttpStatus()
 
         is GenreError -> toHttpStatus()
 
@@ -502,6 +504,22 @@ private fun ContributorError.toHttpStatus(): HttpStatusCode =
         is ContributorError.InvalidInput -> HttpStatusCode.BadRequest
         is ContributorError.MergeSelfTarget -> HttpStatusCode.BadRequest
         is ContributorError.AliasNotFound -> HttpStatusCode.NotFound
+    }
+
+private fun AppError.seriesOrStoryWorldHttpStatus(): HttpStatusCode =
+    when (this) {
+        is SeriesError -> toHttpStatus()
+        is EntityError -> toHttpStatus()
+        else -> HttpStatusCode.InternalServerError // unreachable: only called from the grouped branch
+    }
+
+private fun EntityError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is EntityError.NotFound -> HttpStatusCode.NotFound
+        is EntityError.HistoryNotFound -> HttpStatusCode.NotFound
+        is EntityError.InvalidParent -> HttpStatusCode.BadRequest
+        is EntityError.CycleDetected -> HttpStatusCode.Conflict
+        is EntityError.KindMismatchOnMerge -> HttpStatusCode.Conflict
     }
 
 private fun SeriesError.toHttpStatus(): HttpStatusCode =
