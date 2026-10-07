@@ -77,6 +77,9 @@ internal val bookIdTableDispositions: Map<String, RemovalDisposition> =
         "listening_events" to RemovalDisposition.USER_DATA,
         "activities" to RemovalDisposition.USER_DATA,
         "shelf_books" to RemovalDisposition.USER_DATA,
+        // A book's place in a reading order (#962) follows shelf_books: it survives the book's removal, is hidden
+        // while the book is gone (the access filter only admits live books), and the book returns to its place.
+        "reading_order_books" to RemovalDisposition.USER_DATA,
         "active_sessions" to RemovalDisposition.USER_DATA,
         // The current listen-through's start and whether its real start was announced — user history
         // like playback_positions: a removed-then-re-added book continues the same listen-through.
