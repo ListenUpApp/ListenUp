@@ -40,8 +40,10 @@ class ComposeOptionsTest :
                 val audible = FakeCatalogProvider(AUDIBLE, core = AppResult.Success(core(description = "A")))
                 val hardcover = FakeCatalogProvider(HARDCOVER, core = AppResult.Success(core(description = "H", publisher = "P")))
                 val composed =
-                    (coordinator(audible, hardcover).composeBook(BookIdentity(asin = "B", title = "T"), MetadataLocale("us"))
-                        as AppResult.Success).data!!
+                    (
+                        coordinator(audible, hardcover).composeBook(BookIdentity(asin = "B", title = "T"), MetadataLocale("us"))
+                            as AppResult.Success
+                    ).data!!
                 composed.core.description shouldBe "A"
                 composed.core.publisher shouldBe "P"
             }
@@ -50,7 +52,8 @@ class ComposeOptionsTest :
         test("failures are typed per provider: a deadline is a timeout, a 429 keeps its retry-after") {
             runTest {
                 val slow = FakeCatalogProvider(AUDIBLE, core = AppResult.Success(core(title = "x")), slow = 20.seconds)
-                val limited = FakeCatalogProvider(HARDCOVER, core = AppResult.Failure(MetadataError.ExternalRateLimited(retryAfterSeconds = 5)))
+                val limited =
+                    FakeCatalogProvider(HARDCOVER, core = AppResult.Failure(MetadataError.ExternalRateLimited(retryAfterSeconds = 5)))
                 val options =
                     coordinator(slow, limited).composeOptions(BookIdentity(title = "T"), MetadataLocale("us"), deadline = 8.seconds)
                 options.coreFailures shouldBe mapOf(AUDIBLE to CoreFailure.TimedOut, HARDCOVER to CoreFailure.RateLimited(5))

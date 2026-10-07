@@ -37,7 +37,14 @@ internal class BookMatchApplier(
                 is AppResult.Failure -> return reviewed
             }
         val ladders =
-            if (request.genres.add.isNotEmpty()) coordinator.composeGenreLadders(model.identity, locale) else emptyList()
+            if (request.genres.add.isNotEmpty()) {
+                coordinator.composeGenreLadders(
+                    model.identity,
+                    locale,
+                )
+            } else {
+                emptyList()
+            }
         val draft =
             when (val planned = MatchPlanner.plan(model, request, ladders)) {
                 is AppResult.Success -> planned.data

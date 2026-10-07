@@ -69,7 +69,10 @@ class BookMatchUndoTest :
                     val receipt = rig.applier.apply(rig.book(), rig.fullRequest(), US, "u1").shouldSucceed()
                     rig.books.touchRevision(BookId(BOOK)).shouldSucceed()
                     rig.book().lastMatch.shouldBeNull()
-                    rig.undoer.undo(receipt.receiptId).error().shouldBeInstanceOf<MetadataError.UndoExpired>()
+                    rig.undoer
+                        .undo(receipt.receiptId)
+                        .error()
+                        .shouldBeInstanceOf<MetadataError.UndoExpired>()
                 }
             }
         }
@@ -81,7 +84,10 @@ class BookMatchUndoTest :
                     rig.seedBook()
                     val receipt = rig.applier.apply(rig.book(), rig.fullRequest(), US, "u1").shouldSucceed()
                     rig.undoer.undo(receipt.receiptId).shouldSucceed()
-                    rig.undoer.undo(receipt.receiptId).error().shouldBeInstanceOf<MetadataError.UndoExpired>()
+                    rig.undoer
+                        .undo(receipt.receiptId)
+                        .error()
+                        .shouldBeInstanceOf<MetadataError.UndoExpired>()
                 }
             }
         }
@@ -94,10 +100,25 @@ class BookMatchUndoTest :
                     val first = rig.applier.apply(rig.book(), rig.fullRequest(), US, "u1").shouldSucceed()
                     val second =
                         rig.applier
-                            .apply(rig.book(), rig.fullRequest().copy(chapterOrdinals = emptyList(), genres = com.calypsan.listenup.api.dto.match.LabelSetChange(), moods = com.calypsan.listenup.api.dto.match.LabelSetChange()), US, "u2")
-                            .shouldSucceed()
+                            .apply(
+                                rig.book(),
+                                rig.fullRequest().copy(
+                                    chapterOrdinals = emptyList(),
+                                    genres =
+                                        com.calypsan.listenup.api.dto.match
+                                            .LabelSetChange(),
+                                    moods =
+                                        com.calypsan.listenup.api.dto.match
+                                            .LabelSetChange(),
+                                ),
+                                US,
+                                "u2",
+                            ).shouldSucceed()
                     rig.book().lastMatch?.receiptId shouldBe second.receiptId
-                    rig.undoer.undo(first.receiptId).error().shouldBeInstanceOf<MetadataError.UndoExpired>()
+                    rig.undoer
+                        .undo(first.receiptId)
+                        .error()
+                        .shouldBeInstanceOf<MetadataError.UndoExpired>()
                 }
             }
         }

@@ -153,7 +153,8 @@ class OrphanCoverSweepTest :
                     rig.seedBook()
                     rig.scannedCover()
                     val stray = rig.coverFile("$BOOK-stray.jpg")
-                    rig.db.sql.matchReceiptsQueries.insert("r-bad", "book", "other", "u1", 1L, 1L, "{not json", "[]")
+                    rig.db.sql.matchReceiptsQueries
+                        .insert("r-bad", "book", "other", "u1", 1L, 1L, "{not json", "[]")
                     rig.sweeper().runOnce()
                     stray.exists() shouldBe true
                 }

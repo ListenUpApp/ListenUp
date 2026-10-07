@@ -119,6 +119,7 @@ sealed interface MetadataError : AppError {
         override val code: String = "METADATA_UNSAFE_URL"
         override val isRetryable: Boolean = false
     }
+
     /**
      * A metadata source didn't answer in time while composing a Review. Asking again is reasonable; answers
      * already received come back from the provider caches.

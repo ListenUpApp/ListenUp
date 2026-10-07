@@ -10,7 +10,14 @@ import javax.sql.DataSource
 private fun DataSource.execute(sql: String) = connection.use { c -> c.createStatement().use { it.execute(sql) } }
 
 private fun DataSource.count(sql: String): Int =
-    connection.use { c -> c.createStatement().use { s -> s.executeQuery(sql).use { rs -> rs.next(); rs.getInt(1) } } }
+    connection.use { c ->
+        c.createStatement().use { s ->
+            s.executeQuery(sql).use { rs ->
+                rs.next()
+                rs.getInt(1)
+            }
+        }
+    }
 
 private fun receipt(
     id: String,
@@ -23,7 +30,12 @@ private fun receipt(
 class V90MigrationTest :
     FunSpec({
         test("an entity has at most one live receipt, and any number of undone ones") {
-            val path = Files.createTempFile("listenup-v90-", ".db").toFile().apply { deleteOnExit() }.absolutePath
+            val path =
+                Files
+                    .createTempFile("listenup-v90-", ".db")
+                    .toFile()
+                    .apply { deleteOnExit() }
+                    .absolutePath
             val ds = fileBackedTestDataSource("jdbc:sqlite:$path")
             MigrationRunner(path).migrate()
 

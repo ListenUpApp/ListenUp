@@ -39,11 +39,17 @@ class BookReviewerTest :
                 val hardcover = FakeCatalogProvider(HARDCOVER, moods = listOf("Hopeful", "Tense"))
                 val model = reviewer(audible, hardcover).review(yourBook(), KEY, US).shouldSucceed()
                 audible.asked.first().asin shouldBe "B0X"
-                hardcover.asked.first().refFor(HARDCOVER)?.id shouldBe "77"
+                hardcover.asked
+                    .first()
+                    .refFor(HARDCOVER)
+                    ?.id shouldBe "77"
                 model.review.basedOnRevision shouldBe 7L
                 model.review.moods.yours shouldBe listOf("Hopeful")
-                model.review.moods.suggested.map { it.label } shouldBe listOf("Tense")
-                model.review.fields.single { it.field == BookField.DESCRIPTION }.state shouldBe FieldState.FILLS_GAP
+                model.review.moods.suggested
+                    .map { it.label } shouldBe listOf("Tense")
+                model.review.fields
+                    .single { it.field == BookField.DESCRIPTION }
+                    .state shouldBe FieldState.FILLS_GAP
             }
         }
 
@@ -54,7 +60,12 @@ class BookReviewerTest :
                         fieldProvenance = mapOf(BookField.TITLE to FieldProvenance(FieldSourceKind.USER, at = 9L, by = "u1")),
                     )
                 val audible = FakeCatalogProvider(AUDIBLE, core = AppResult.Success(core(title = "Other")))
-                val title = reviewer(audible).review(book, KEY, US).shouldSucceed().review.fields.single { it.field == BookField.TITLE }
+                val title =
+                    reviewer(audible)
+                        .review(book, KEY, US)
+                        .shouldSucceed()
+                        .review.fields
+                        .single { it.field == BookField.TITLE }
                 title.handEdit?.byName shouldBe "Sam"
             }
         }
@@ -71,13 +82,15 @@ class BookReviewerTest :
             runTest {
                 val failing = FakeCatalogProvider(AUDIBLE, core = AppResult.Failure(MetadataError.ExternalUnavailable()))
                 (reviewer(failing).review(yourBook(), KEY, US) as AppResult.Failure)
-                    .error.shouldBeInstanceOf<MetadataError.ExternalUnavailable>()
+                    .error
+                    .shouldBeInstanceOf<MetadataError.ExternalUnavailable>()
             }
         }
 
         test("a rate-limited source is ExternalRateLimited with its retry-after") {
             runTest {
-                val limited = FakeCatalogProvider(AUDIBLE, core = AppResult.Failure(MetadataError.ExternalRateLimited(retryAfterSeconds = 12)))
+                val limited =
+                    FakeCatalogProvider(AUDIBLE, core = AppResult.Failure(MetadataError.ExternalRateLimited(retryAfterSeconds = 12)))
                 val error = (reviewer(limited).review(yourBook(), KEY, US) as AppResult.Failure).error
                 (error as MetadataError.ExternalRateLimited).retryAfterSeconds shouldBe 12
             }
@@ -87,7 +100,8 @@ class BookReviewerTest :
             runTest {
                 val slow = FakeCatalogProvider(AUDIBLE, core = AppResult.Success(core(title = "T")), slow = 30.seconds)
                 (reviewer(slow).review(yourBook(), KEY, US) as AppResult.Failure)
-                    .error.shouldBeInstanceOf<MetadataError.ExternalTimeout>()
+                    .error
+                    .shouldBeInstanceOf<MetadataError.ExternalTimeout>()
             }
         }
 
@@ -95,8 +109,16 @@ class BookReviewerTest :
             runTest {
                 val hardcover = FakeCatalogProvider(HARDCOVER, core = AppResult.Success(core(description = "From Hardcover.")))
                 val key = BookCandidateKey(listOf(ExternalRef("hardcover", "77")))
-                reviewer(FakeCatalogProvider(AUDIBLE), hardcover).review(yourBook(), key, US).shouldSucceed()
-                    .review.fields.single().options.single().sources.single().label shouldBe "Hardcover"
+                reviewer(FakeCatalogProvider(AUDIBLE), hardcover)
+                    .review(yourBook(), key, US)
+                    .shouldSucceed()
+                    .review.fields
+                    .single()
+                    .options
+                    .single()
+                    .sources
+                    .single()
+                    .label shouldBe "Hardcover"
             }
         }
     })

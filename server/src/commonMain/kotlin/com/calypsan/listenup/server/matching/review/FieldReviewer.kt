@@ -103,11 +103,21 @@ internal object FieldReviewer {
             val edit = book.fieldProvenance[field]?.takeIf { it.kind == FieldSourceKind.USER }
             val (state, choice) =
                 when {
-                    current == null -> FieldState.FILLS_GAP to FieldChoice.Option(best.option.optionId)
-                    ReviewKeys.keyOf(current, html) == ReviewKeys.keyOf(best.option.value, html) ->
+                    current == null -> {
+                        FieldState.FILLS_GAP to FieldChoice.Option(best.option.optionId)
+                    }
+
+                    ReviewKeys.keyOf(current, html) == ReviewKeys.keyOf(best.option.value, html) -> {
                         FieldState.SAME to FieldChoice.KeepCurrent
-                    edit != null -> FieldState.USER_EDITED to FieldChoice.KeepCurrent
-                    else -> FieldState.CHANGES to FieldChoice.Option(best.option.optionId)
+                    }
+
+                    edit != null -> {
+                        FieldState.USER_EDITED to FieldChoice.KeepCurrent
+                    }
+
+                    else -> {
+                        FieldState.CHANGES to FieldChoice.Option(best.option.optionId)
+                    }
                 }
             ReviewedField(
                 review =
@@ -215,20 +225,49 @@ internal object FieldReviewer {
         book: BookSyncPayload,
     ): FieldValue? =
         when (field) {
-            BookField.TITLE -> book.title.text()
-            BookField.SUBTITLE -> book.subtitle.text()
-            BookField.DESCRIPTION -> book.description.text()
-            BookField.PUBLISHER -> book.publisher.text()
-            BookField.LANGUAGE -> book.language.text()
-            BookField.PUBLISH_YEAR -> book.publishYear?.let { FieldValue.Year(it) }
-            BookField.AUTHORS -> book.credited(ContributorRole.AUTHOR)
-            BookField.NARRATORS -> book.credited(ContributorRole.NARRATOR)
+            BookField.TITLE -> {
+                book.title.text()
+            }
+
+            BookField.SUBTITLE -> {
+                book.subtitle.text()
+            }
+
+            BookField.DESCRIPTION -> {
+                book.description.text()
+            }
+
+            BookField.PUBLISHER -> {
+                book.publisher.text()
+            }
+
+            BookField.LANGUAGE -> {
+                book.language.text()
+            }
+
+            BookField.PUBLISH_YEAR -> {
+                book.publishYear?.let { FieldValue.Year(it) }
+            }
+
+            BookField.AUTHORS -> {
+                book.credited(ContributorRole.AUTHOR)
+            }
+
+            BookField.NARRATORS -> {
+                book.credited(ContributorRole.NARRATOR)
+            }
+
             BookField.SERIES -> {
                 book.series
                     .takeIf { it.isNotEmpty() }
-                    ?.let { list -> FieldValue.SeriesEntries(list.map { MatchSeriesEntry(it.name, it.sequence?.label()) }) }
+                    ?.let { list ->
+                        FieldValue.SeriesEntries(list.map { MatchSeriesEntry(it.name, it.sequence?.label()) })
+                    }
             }
-            else -> null
+
+            else -> {
+                null
+            }
         }
 
     private fun String?.text(): FieldValue? = this?.trim()?.takeIf { it.isNotEmpty() }?.let { FieldValue.Text(it) }

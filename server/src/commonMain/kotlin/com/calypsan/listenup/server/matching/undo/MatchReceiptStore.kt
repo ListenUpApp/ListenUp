@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.matching.undo
 
-import app.cash.sqldelight.TransactionWithReturn
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.match.AppliedChange
 import com.calypsan.listenup.api.dto.match.LastMatch
@@ -68,7 +67,8 @@ internal object MatchReceiptCodec {
     fun encodeSnapshot(snapshot: BookMatchSnapshot): String =
         contractJson.encodeToString(BookMatchSnapshot.serializer(), snapshot)
 
-    fun decodeSnapshot(json: String): BookMatchSnapshot = contractJson.decodeFromString(BookMatchSnapshot.serializer(), json)
+    fun decodeSnapshot(json: String): BookMatchSnapshot =
+        contractJson.decodeFromString(BookMatchSnapshot.serializer(), json)
 
     /** A live book receipt as the book's sync payload carries it, only while it can still be undone. */
     fun lastMatchOf(
@@ -90,10 +90,7 @@ internal class MatchReceiptStore(
     private val db: ListenUpDatabase,
 ) {
     /** Records [row] as [ReceiptEntity]'s live receipt, replacing any earlier one. Inside an open transaction. */
-    fun replaceLiveInTransaction(
-        tx: TransactionWithReturn<*>,
-        row: MatchReceiptRow,
-    ) {
+    fun replaceLiveInTransaction(row: MatchReceiptRow) {
         db.matchReceiptsQueries.deleteLiveForEntity(row.entity, row.entityId)
         db.matchReceiptsQueries.insert(
             id = row.id,

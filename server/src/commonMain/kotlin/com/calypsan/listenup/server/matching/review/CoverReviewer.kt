@@ -73,16 +73,12 @@ internal object CoverReviewer {
                 }
         val setByHand = book.fieldProvenance[BookField.COVER]?.kind == FieldSourceKind.USER
         val default =
-            when {
-                tiles.isEmpty() || setByHand -> {
-                    ImageChoice.KeepCurrent
-                }
-
-                else -> {
-                    val preferred =
-                        tiles.firstOrNull { it.provider.presentedAs().value in candidateProviders } ?: tiles.first()
-                    ImageChoice.Candidate(preferred.candidate.optionId)
-                }
+            if (tiles.isEmpty() || setByHand) {
+                ImageChoice.KeepCurrent
+            } else {
+                val preferred =
+                    tiles.firstOrNull { it.provider.presentedAs().value in candidateProviders } ?: tiles.first()
+                ImageChoice.Candidate(preferred.candidate.optionId)
             }
         return CoverReviewResult(
             review =

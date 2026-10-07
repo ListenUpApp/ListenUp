@@ -48,7 +48,12 @@ class FieldReviewerTest :
         test("a different value you didn't edit changes, ticked") {
             val title = review(yourBook(), options(AUDIBLE to core(title = "Project Hail Mary: A Novel"))).of(BookField.TITLE)!!
             title.review.state shouldBe FieldState.CHANGES
-            title.review.defaultChoice shouldBe FieldChoice.Option(title.review.options.first().optionId)
+            title.review.defaultChoice shouldBe
+                FieldChoice.Option(
+                    title.review.options
+                        .first()
+                        .optionId,
+                )
         }
 
         test("a different value you edited by hand is protected: unticked, flagged with who and when") {
@@ -85,30 +90,50 @@ class FieldReviewerTest :
                 )
             val publisher = fields.of(BookField.PUBLISHER)!!
             publisher.review.options.size shouldBe 2
-            publisher.review.options[0].sources.map { it.label } shouldBe listOf("Audible", "Hardcover")
-            publisher.review.options[1].sources.map { it.label } shouldBe listOf("Audible")
+            publisher.review.options[0]
+                .sources
+                .map { it.label } shouldBe listOf("Audible", "Hardcover")
+            publisher.review.options[1]
+                .sources
+                .map { it.label } shouldBe listOf("Audible")
         }
 
         test("option ids are stable across derivations and differ between values") {
             val first = review(yourBook(), options(AUDIBLE to core(description = "<p>A  story.</p>")))
             val second = review(yourBook(), options(AUDIBLE to core(description = "<p>A  story.</p>")))
-            val id = first.of(BookField.DESCRIPTION)!!.review.options.single().optionId
-            id shouldBe second.of(BookField.DESCRIPTION)!!.review.options.single().optionId
+            val id =
+                first
+                    .of(BookField.DESCRIPTION)!!
+                    .review.options
+                    .single()
+                    .optionId
+            id shouldBe
+                second
+                    .of(BookField.DESCRIPTION)!!
+                    .review.options
+                    .single()
+                    .optionId
             id.startsWith("audible:") shouldBe true
-            id shouldNotBe review(yourBook(), options(AUDIBLE to core(description = "Another."))).of(BookField.DESCRIPTION)!!
-                .review.options.single().optionId
+            id shouldNotBe
+                review(yourBook(), options(AUDIBLE to core(description = "Another.")))
+                    .of(BookField.DESCRIPTION)!!
+                    .review.options
+                    .single()
+                    .optionId
         }
 
         test("descriptions compare without their HTML") {
             val book = yourBook(description = "A story.")
             review(book, options(AUDIBLE to core(description = "<p>A <b>story</b>.</p>")))
-                .of(BookField.DESCRIPTION)!!.review.state shouldBe FieldState.SAME
+                .of(BookField.DESCRIPTION)!!
+                .review.state shouldBe FieldState.SAME
         }
 
         test("people compare as an order-insensitive name set") {
             val book = yourBook(authors = listOf("Andy Weir", "Ray Porter"))
             review(book, options(AUDIBLE to core(authors = listOf("ray porter", "Andy Weir"))))
-                .of(BookField.AUTHORS)!!.review.state shouldBe FieldState.SAME
+                .of(BookField.AUTHORS)!!
+                .review.state shouldBe FieldState.SAME
         }
 
         test("release dates compare at the year, and the option keeps the provider's full date") {
@@ -117,7 +142,9 @@ class FieldReviewerTest :
             val changes = review(yourBook(publishYear = 2020), options(AUDIBLE to core(releaseDate = "2021-05-04")))
             val year = changes.of(BookField.PUBLISH_YEAR)!!
             year.review.state shouldBe FieldState.CHANGES
-            year.review.options.single().value shouldBe FieldValue.Year(2021)
+            year.review.options
+                .single()
+                .value shouldBe FieldValue.Year(2021)
             year.options.single().write shouldBe OptionWrite.Year(2021, "2021-05-04")
         }
 
@@ -127,15 +154,31 @@ class FieldReviewerTest :
                     yourBook(publishYear = null),
                     options(AUDIBLE to core(releaseDate = "2021"), HARDCOVER to core(releaseDate = "2021-05-04")),
                 )
-            fields.of(BookField.PUBLISH_YEAR)!!.options.single().write shouldBe OptionWrite.Year(2021, "2021-05-04")
+            fields
+                .of(BookField.PUBLISH_YEAR)!!
+                .options
+                .single()
+                .write shouldBe OptionWrite.Year(2021, "2021-05-04")
         }
 
         test("series compare by name and sequence") {
             val book =
                 yourBook().copy(
-                    series = listOf(com.calypsan.listenup.api.sync.BookSeriesPayload("s1", "Bobiverse", 1.0)),
+                    series =
+                        listOf(
+                            com.calypsan.listenup.api.sync
+                                .BookSeriesPayload("s1", "Bobiverse", 1.0),
+                        ),
                 )
-            val opts = { seq: String -> ComposedOptions(emptyMap(), emptySet(), emptyMap(), series = mapOf(AUDIBLE to listOf(SeriesMeta(title = "bobiverse", sequence = seq)))) }
+            val opts = { seq: String ->
+                ComposedOptions(
+                    emptyMap(),
+                    emptySet(),
+                    emptyMap(),
+                    series =
+                        mapOf(AUDIBLE to listOf(SeriesMeta(title = "bobiverse", sequence = seq))),
+                )
+            }
             review(book, opts("1")).of(BookField.SERIES)!!.review.state shouldBe FieldState.SAME
             review(book, opts("2")).of(BookField.SERIES)!!.review.state shouldBe FieldState.CHANGES
         }

@@ -77,7 +77,14 @@ internal fun Module.matchDetailsBindings() {
                             covers = MatchCoverFiles(get<ImageStorage>(), get<CoverImageStore>()),
                             now = ::currentEpochMilliseconds,
                         ),
-                    writer = BookMatchWriter(db, books, moodWriter.bookMoodRepository, receipts, ::currentEpochMilliseconds),
+                    writer =
+                        BookMatchWriter(
+                            db,
+                            books,
+                            moodWriter.bookMoodRepository,
+                            receipts,
+                            ::currentEpochMilliseconds,
+                        ),
                     ratingsRefresh = { id, locale -> ratings.fetch(id, locale, refresh = true) },
                 ),
             undoer = MatchUndoer(db, books, moodWriter.bookMoodRepository, receipts, ::currentEpochMilliseconds),

@@ -344,7 +344,11 @@ class BookMoodRepository(
         suppressed: Boolean,
         capture: FrameCapture?,
     ) = with(tx) {
-        val live = db.bookMoodsQueries.selectLiveIdsForBook(bookId).executeAsList().toSet()
+        val live =
+            db.bookMoodsQueries
+                .selectLiveIdsForBook(bookId)
+                .executeAsList()
+                .toSet()
         val id = db.bookMoodsQueries.selectIdByNaturalPair(bookId, moodId).executeAsOneOrNull() ?: return@with
         if (id !in live) return@with
         softDeleteInOpenTransaction(BookMoodId(bookId, moodId), suppressed)?.let { captureAfterCommit(capture, it) }

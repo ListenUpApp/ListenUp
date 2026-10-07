@@ -21,7 +21,10 @@ internal class GenreLabelIdentity(
         if (yours.any { ReviewKeys.text(it) == ReviewKeys.text(suggested) }) return true
         val resolved =
             suspendTransaction(db) {
-                db.genreAliasesQueries.resolve(suggested.trim()).executeAsOneOrNull()?.let { listOf(it) }
+                db.genreAliasesQueries
+                    .resolve(suggested.trim())
+                    .executeAsOneOrNull()
+                    ?.let { listOf(it) }
                     ?: GenreNormalizer
                         .normalizeToSlugs(suggested)
                         .mapNotNull { slug -> db.genresQueries.findBySlug(slug).executeAsOneOrNull() }

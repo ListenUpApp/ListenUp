@@ -46,7 +46,10 @@ private class ServiceRig(
             peopleFinder = PeopleFinder(MetadataProviderRegistry(emptyList()), EnrichmentRoutes.DEFAULT),
             loadPeople = { _, _, _ -> null },
             peopleRegion = { MetadataLocale.DEFAULT },
-            details = com.calypsan.listenup.server.matching.apply.MatchRig(db).details(),
+            details =
+                com.calypsan.listenup.server.matching.apply
+                    .MatchRig(db)
+                    .details(),
         )
 }
 

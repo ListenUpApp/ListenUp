@@ -19,7 +19,8 @@ class BookLastMatchMigrationTest :
             try {
                 val v17 = helper.createDatabase(version = 17)
                 v17.execSQL(
-                    "INSERT INTO books (id, libraryId, folderId, title, totalDuration, abridged, revision, hasScanWarning, createdAt, updatedAt) " +
+                    "INSERT INTO books (id, libraryId, folderId, title, totalDuration, abridged, revision, hasScanWarning, " +
+                        "createdAt, updatedAt) " +
                         "VALUES ('b1', 'lib', 'f', 'Book', 0, 0, 3, 0, 0, 0)",
                 )
                 v17.execSQL("INSERT INTO sync_cursor (domainName, revision) VALUES ('books', 700)")

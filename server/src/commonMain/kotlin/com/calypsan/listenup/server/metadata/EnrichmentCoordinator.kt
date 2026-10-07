@@ -199,7 +199,11 @@ internal class EnrichmentCoordinator(
                     .mapNotNull { (id, outcome) -> (outcome as? ProviderOutcome.Failed)?.let { id to it.failure } }
                     .toMap()
             if (!proceed(coreOutcomes.keys, cores)) {
-                return@coroutineScope ComposedOptions(cores = cores, coreAsked = coreOutcomes.keys, coreFailures = coreFailures)
+                return@coroutineScope ComposedOptions(
+                    cores = cores,
+                    coreAsked = coreOutcomes.keys,
+                    coreFailures = coreFailures,
+                )
             }
             val (core, _) = mergeCore(cores)
             val coverIdentity =

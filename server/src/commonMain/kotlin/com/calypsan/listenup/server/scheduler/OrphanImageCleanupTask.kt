@@ -26,6 +26,19 @@ import kotlinx.io.files.SystemFileSystem
 private val log = loggerFor<OrphanImageCleanupTask>()
 
 /**
+ * What keeps a file in `covers/` alive: every cover path a book row names (soft-deleted rows too — a book can be
+ * revived) and every cover path a live match receipt's snapshot names (Undo restores it). Either read may throw;
+ * the sweep then deletes nothing.
+ */
+internal interface CoverReferences {
+    /** Every `cover_path` any book row holds. */
+    suspend fun bookCoverPaths(): Set<String>
+
+    /** Every cover path a live match receipt keeps for Undo. */
+    suspend fun pinnedCoverPaths(): Set<String>
+}
+
+/**
  * Periodic sweep that removes image files under `{imageHome}/contributors/`,
  * `{imageHome}/series/` and `{imageHome}/covers/` that nothing points at.
  *
@@ -54,19 +67,6 @@ private val log = loggerFor<OrphanImageCleanupTask>()
  *
  * Mirrors [com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask].
  */
-/**
- * What keeps a file in `covers/` alive: every cover path a book row names (soft-deleted rows too — a book can be
- * revived) and every cover path a live match receipt's snapshot names (Undo restores it). Either read may throw;
- * the sweep then deletes nothing.
- */
-internal interface CoverReferences {
-    /** Every `cover_path` any book row holds. */
-    suspend fun bookCoverPaths(): Set<String>
-
-    /** Every cover path a live match receipt keeps for Undo. */
-    suspend fun pinnedCoverPaths(): Set<String>
-}
-
 internal class OrphanImageCleanupTask(
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,

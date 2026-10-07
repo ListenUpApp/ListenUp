@@ -79,7 +79,7 @@ class BookMatchApplyTest :
                     rig.writer.write(plan, request.basedOnRevision, "u1").shouldSucceed()
                     val published = rig.bus.mark() - mark
                     published shouldBe (plan.moodsToLink.size + plan.moodsToUnlink.size + 1).toLong()
-                    (plan.moodsToLink.size + plan.moodsToUnlink.size) shouldBe 2
+                    plan.moodsToLink.size + plan.moodsToUnlink.size shouldBe 2
                 }
             }
         }
@@ -111,8 +111,14 @@ class BookMatchApplyTest :
                         AppliedChange.Genres(listOf("Science Fiction"), listOf("Fantasy"))
                     receipt.changes.filterIsInstance<AppliedChange.Moods>().single() shouldBe
                         AppliedChange.Moods(listOf("Tense"), listOf("Hopeful"))
-                    receipt.changes.filterIsInstance<AppliedChange.ChapterNames>().single().count shouldBe 2
-                    receipt.changes.filterIsInstance<AppliedChange.Cover>().single().source.label shouldBe "Audible"
+                    receipt.changes
+                        .filterIsInstance<AppliedChange.ChapterNames>()
+                        .single()
+                        .count shouldBe 2
+                    receipt.changes
+                        .filterIsInstance<AppliedChange.Cover>()
+                        .single()
+                        .source.label shouldBe "Audible"
                 }
             }
         }
@@ -140,9 +146,17 @@ class BookMatchApplyTest :
                             fields = listOf(FieldDecision(BookField.AUTHORS, FieldChoice.Option(authors.options.single().optionId))),
                         )
                     rig.applier.apply(rig.book(), request, US, "u1").shouldSucceed()
-                    rig.book().contributors.filter { it.role == ContributorRole.AUTHOR.apiValue }.map { it.name } shouldBe
+                    rig
+                        .book()
+                        .contributors
+                        .filter { it.role == ContributorRole.AUTHOR.apiValue }
+                        .map { it.name } shouldBe
                         listOf("Andy Weir")
-                    rig.book().contributors.filter { it.role == ContributorRole.NARRATOR.apiValue }.map { it.name } shouldBe
+                    rig
+                        .book()
+                        .contributors
+                        .filter { it.role == ContributorRole.NARRATOR.apiValue }
+                        .map { it.name } shouldBe
                         listOf("Old Narrator")
                 }
             }
@@ -154,9 +168,16 @@ class BookMatchApplyTest :
                     val rig = MatchRig(this@withSqlDatabase)
                     rig.seedBook()
                     val request = rig.fullRequest()
-                    rig.books.touchRevision(com.calypsan.listenup.core.BookId(BOOK)).shouldSucceed()
+                    rig.books
+                        .touchRevision(
+                            com.calypsan.listenup.core
+                                .BookId(BOOK),
+                        ).shouldSucceed()
                     val before = rig.book()
-                    rig.applier.apply(before, request, US, "u1").error().shouldBeInstanceOf<MetadataError.ReviewOutdated>()
+                    rig.applier
+                        .apply(before, request, US, "u1")
+                        .error()
+                        .shouldBeInstanceOf<MetadataError.ReviewOutdated>()
                     rig.book() shouldBe before
                     rig.moodNames() shouldBe listOf("Hopeful")
                 }
@@ -172,7 +193,10 @@ class BookMatchApplyTest :
                         rig.fullRequest().copy(
                             fields = listOf(FieldDecision(BookField.DESCRIPTION, FieldChoice.Option("audible:gone"))),
                         )
-                    rig.applier.apply(rig.book(), request, US, "u1").error().shouldBeInstanceOf<MetadataError.ReviewOutdated>()
+                    rig.applier
+                        .apply(rig.book(), request, US, "u1")
+                        .error()
+                        .shouldBeInstanceOf<MetadataError.ReviewOutdated>()
                 }
             }
         }
@@ -181,10 +205,17 @@ class BookMatchApplyTest :
             withSqlDatabase {
                 runTest {
                     val rig = MatchRig(this@withSqlDatabase)
-                    rig.audible.covers = listOf(com.calypsan.listenup.server.metadata.spi.CoverMeta("https://example.test/broken.jpg", sourceKey = "B0X"))
+                    rig.audible.covers =
+                        listOf(
+                            com.calypsan.listenup.server.metadata.spi
+                                .CoverMeta("https://example.test/broken.jpg", sourceKey = "B0X"),
+                        )
                     val before = rig.seedBook()
                     val request = rig.fullRequest(coverUrl = "https://example.test/broken.jpg")
-                    rig.applier.apply(before, request, US, "u1").error().shouldBeInstanceOf<MetadataError.CoverDownloadFailed>()
+                    rig.applier
+                        .apply(before, request, US, "u1")
+                        .error()
+                        .shouldBeInstanceOf<MetadataError.CoverDownloadFailed>()
                     rig.book() shouldBe before
                     rig.moodNames() shouldBe listOf("Hopeful")
                 }
@@ -203,7 +234,9 @@ class BookMatchApplyTest :
                     after shouldBe before
                     rig.moodNames() shouldBe listOf("Hopeful")
                     rig.coverColumns() shouldBe coverBefore
-                    rig.db.sql.matchReceiptsQueries.selectLiveForEntities("book", listOf(BOOK)).executeAsList() shouldBe emptyList()
+                    rig.db.sql.matchReceiptsQueries
+                        .selectLiveForEntities("book", listOf(BOOK))
+                        .executeAsList() shouldBe emptyList()
                 }
             }
         }
@@ -214,8 +247,16 @@ class BookMatchApplyTest :
                     val rig = MatchRig(this@withSqlDatabase)
                     rig.seedBook()
                     val request = rig.fullRequest()
-                    rig.audible.chapters = rig.audible.chapters!!.copy(chapters = rig.audible.chapters!!.chapters.take(2))
-                    rig.applier.apply(rig.book(), request, US, "u1").error()
+                    rig.audible.chapters =
+                        rig.audible.chapters!!.copy(
+                            chapters =
+                                rig.audible.chapters!!
+                                    .chapters
+                                    .take(2),
+                        )
+                    rig.applier
+                        .apply(rig.book(), request, US, "u1")
+                        .error()
                         .shouldBeInstanceOf<MetadataError.ChapterCountMismatch>()
                 }
             }

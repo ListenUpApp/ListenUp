@@ -36,7 +36,11 @@ private suspend fun covers(
     covers =
         if (tiles) {
             mapOf(
-                AUDIBLE to listOf(CoverMeta("https://a/small.jpg", sourceKey = "A"), CoverMeta("https://a/x.jpg", "https://a/big.jpg", "A")),
+                AUDIBLE to
+                    listOf(
+                        CoverMeta("https://a/small.jpg", sourceKey = "A"),
+                        CoverMeta("https://a/x.jpg", "https://a/big.jpg", "A"),
+                    ),
                 HARDCOVER to listOf(CoverMeta("https://h/c.jpg", sourceKey = "1"), CoverMeta("https://a/big.jpg", sourceKey = "1")),
             )
         } else {
@@ -58,7 +62,9 @@ class ExtrasReviewerTest :
             runTest {
                 val result = covers(setOf("audible"))
                 result.review.options.map { it.url } shouldBe listOf("https://a/big.jpg", "https://a/small.jpg", "https://h/c.jpg")
-                result.review.options.first().width shouldBe 2400
+                result.review.options
+                    .first()
+                    .width shouldBe 2400
                 result.review.current shouldBe CurrentCover("h0", setByHand = false)
             }
         }
@@ -66,14 +72,24 @@ class ExtrasReviewerTest :
         test("the default cover is the first tile from a source that found this candidate") {
             runTest {
                 val result = covers(setOf("hardcover"))
-                result.review.defaultChoice shouldBe ImageChoice.Candidate(result.review.options.last().optionId)
+                result.review.defaultChoice shouldBe
+                    ImageChoice.Candidate(
+                        result.review.options
+                            .last()
+                            .optionId,
+                    )
             }
         }
 
         test("with no tile from the candidate's sources, the default is the first tile") {
             runTest {
                 val result = covers(setOf("itunes"))
-                result.review.defaultChoice shouldBe ImageChoice.Candidate(result.review.options.first().optionId)
+                result.review.defaultChoice shouldBe
+                    ImageChoice.Candidate(
+                        result.review.options
+                            .first()
+                            .optionId,
+                    )
             }
         }
 
@@ -100,7 +116,10 @@ class ExtrasReviewerTest :
                     )
                 review.yours shouldBe listOf("Science Fiction")
                 review.suggested.map { it.label } shouldBe listOf("Space Opera", "Humor")
-                review.suggested.first().sources.map { it.label } shouldBe listOf("Audible", "Hardcover")
+                review.suggested
+                    .first()
+                    .sources
+                    .map { it.label } shouldBe listOf("Audible", "Hardcover")
                 reviewed.first().providers shouldBe listOf(AUDIBLE, HARDCOVER)
             }
         }
@@ -132,14 +151,21 @@ class ExtrasReviewerTest :
 
         test("chapter counts that differ are a mismatch; no source is unavailable") {
             val (mismatch, none) =
-                ChapterNamesReviewer.review(listOf(chapter("A", 0)), AUDIBLE to ChapterListMeta(emptyList<ChapterMeta>() + ChapterMeta("x", 0) + ChapterMeta("y", 1), true))
+                ChapterNamesReviewer.review(
+                    listOf(chapter("A", 0)),
+                    AUDIBLE to ChapterListMeta(emptyList<ChapterMeta>() + ChapterMeta("x", 0) + ChapterMeta("y", 1), true),
+                )
             (mismatch as ChapterNamesReview.CountMismatch).let { it.yours to it.theirs } shouldBe (1 to 2)
             none.shouldBeNull()
             ChapterNamesReviewer.review(emptyList(), null).first shouldBe ChapterNamesReview.Unavailable
         }
 
         test("matching chapter names give no rows") {
-            val (review, _) = ChapterNamesReviewer.review(listOf(chapter("A", 0)), AUDIBLE to ChapterListMeta(listOf(ChapterMeta("A", 0)), true))
+            val (review, _) =
+                ChapterNamesReviewer.review(
+                    listOf(chapter("A", 0)),
+                    AUDIBLE to ChapterListMeta(listOf(ChapterMeta("A", 0)), true),
+                )
             (review as ChapterNamesReview.Available).rows.shouldBeEmpty()
         }
     })

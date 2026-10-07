@@ -25,7 +25,12 @@ internal fun yourBook(
         id = "b1",
         title = title,
         contributors =
-            authors.mapIndexed { i, name -> BookContributorPayload("a$i", name, null, ContributorRole.AUTHOR.apiValue, null) },
+            authors.mapIndexed {
+                i,
+                name,
+                ->
+                BookContributorPayload("a$i", name, null, ContributorRole.AUTHOR.apiValue, null)
+            },
     ).copy(description = description, publishYear = publishYear, revision = 7L)
 
 /** A provider's core with the given text fields. */

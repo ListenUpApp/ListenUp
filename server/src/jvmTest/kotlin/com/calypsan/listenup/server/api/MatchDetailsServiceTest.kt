@@ -117,15 +117,35 @@ class MatchDetailsServiceTest :
                         admin
                             .applyBookMatch(
                                 BookId(BOOK),
-                                BookMatchApply(AUDIBLE_KEY, null, review.basedOnRevision, emptyList(), ImageChoice.KeepCurrent, LabelSetChange(), LabelSetChange(), emptyList()),
+                                BookMatchApply(
+                                    AUDIBLE_KEY,
+                                    null,
+                                    review.basedOnRevision,
+                                    emptyList(),
+                                    ImageChoice.KeepCurrent,
+                                    LabelSetChange(),
+                                    LabelSetChange(),
+                                    emptyList(),
+                                ),
                             ).shouldSucceed()
 
                     rig.db.sql.seedTestUser("m", UserRoleColumn.MEMBER, canEdit = false)
                     val member = rig.service().copyWith(memberPrincipal("m"))
                     member.reviewBookMatch(BookId(BOOK), AUDIBLE_KEY, null).error().shouldBeInstanceOf<AuthError.PermissionDenied>()
                     member
-                        .applyBookMatch(BookId(BOOK), BookMatchApply(AUDIBLE_KEY, null, 1, emptyList(), ImageChoice.KeepCurrent, LabelSetChange(), LabelSetChange(), emptyList()))
-                        .error()
+                        .applyBookMatch(
+                            BookId(BOOK),
+                            BookMatchApply(
+                                AUDIBLE_KEY,
+                                null,
+                                1,
+                                emptyList(),
+                                ImageChoice.KeepCurrent,
+                                LabelSetChange(),
+                                LabelSetChange(),
+                                emptyList(),
+                            ),
+                        ).error()
                         .shouldBeInstanceOf<AuthError.PermissionDenied>()
                     member.undoMatch(applied.value.receiptId).error().shouldBeInstanceOf<AuthError.PermissionDenied>()
                     rig.book().lastMatch?.receiptId shouldBe applied.value.receiptId
@@ -151,9 +171,15 @@ class MatchDetailsServiceTest :
                 runTest {
                     val rig = MatchRig(this@withSqlDatabase)
                     rig.seedBook()
-                    rig.service().copyWith(rootPrincipal())
-                        .reviewBookMatch(BookId(BOOK), AUDIBLE_KEY, com.calypsan.listenup.api.metadata.MetadataLocale("zz"))
-                        .error()
+                    rig
+                        .service()
+                        .copyWith(rootPrincipal())
+                        .reviewBookMatch(
+                            BookId(BOOK),
+                            AUDIBLE_KEY,
+                            com.calypsan.listenup.api.metadata
+                                .MetadataLocale("zz"),
+                        ).error()
                         .shouldBeInstanceOf<MetadataError.Malformed>()
                 }
             }

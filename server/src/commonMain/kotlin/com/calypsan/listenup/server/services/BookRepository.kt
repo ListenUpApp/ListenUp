@@ -98,6 +98,13 @@ private class PreparedBatch(
     operator fun component2() = prepareFailed
 }
 
+/** The cover columns a match writes, or an undo restores; a null [source] means no cover. */
+internal data class MatchCoverColumns(
+    val source: CoverSource?,
+    val path: String?,
+    val hash: String?,
+)
+
 /**
  * Server-side repository for the books aggregate, over SQLDelight.
  *
@@ -144,13 +151,6 @@ private class PreparedBatch(
  *   links the book to each scanned tag through it (add-only on rescan), and the
  *   book soft-delete cascades through it.
  */
-/** The cover columns a match writes, or an undo restores; a null [source] means no cover. */
-internal data class MatchCoverColumns(
-    val source: CoverSource?,
-    val path: String?,
-    val hash: String?,
-)
-
 class BookRepository(
     db: ListenUpDatabase,
     bus: ChangeBus,
@@ -1625,7 +1625,7 @@ class BookRepository(
     internal suspend fun resolveGenreIds(raw: String): List<String> = bookGenreWriter.resolveGenreIds(raw)
 
     /** A revision taken from the global counter inside [tx], for a write that must name it before it lands. */
-    internal fun allocateRevision(tx: TransactionWithReturn<*>): Long = nextRevision()
+    internal fun allocateRevision(): Long = nextRevision()
 
     /** [id]'s aggregate, read inside an open transaction; null when the book is absent. */
     internal fun readPayloadInTransaction(id: String): BookSyncPayload? = readPayload(id)

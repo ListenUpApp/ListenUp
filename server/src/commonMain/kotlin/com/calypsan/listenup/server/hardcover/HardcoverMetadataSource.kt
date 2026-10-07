@@ -241,7 +241,11 @@ class HardcoverMetadataSource(
         refresh: Boolean,
     ): Resolved {
         // A Review names the edition: its Hardcover ref is the book, with no link or matcher lookup.
-        book.refFor(id)?.id?.toLongOrNull()?.let { return Resolved.Found(it) }
+        book
+            .refFor(id)
+            ?.id
+            ?.toLongOrNull()
+            ?.let { return Resolved.Found(it) }
         val key = "${book.bookId.orEmpty()}|${book.asin.orEmpty()}|${book.isbn.orEmpty()}"
         if (!refresh) {
             when (val known = cache.resolution(key)) {

@@ -32,6 +32,7 @@ internal object LegacyMatchPlanner {
         ladders: List<List<String>>,
     ): MatchDraft {
         val fallback = MetadataProviderId.AUDIBLE
+
         fun providerOf(field: BookField) = fieldProviders[field] ?: fallback
         val draft = MatchDraftBuilder()
 
@@ -73,7 +74,10 @@ internal object LegacyMatchPlanner {
 
         val genres = selection.genres.toList()
         draft.genres = LabelPlan.ReplaceAll(genres)
-        diff(book.genres.map { it.name }, genres)?.let { (added, removed) -> draft.changes += AppliedChange.Genres(added, removed) }
+        diff(book.genres.map { it.name }, genres)?.let { (added, removed) ->
+            draft.changes +=
+                AppliedChange.Genres(added, removed)
+        }
         if (genres.isNotEmpty()) {
             draft.provenance[BookField.GENRES] = providerOf(BookField.GENRES)
             draft.ladders = ladders

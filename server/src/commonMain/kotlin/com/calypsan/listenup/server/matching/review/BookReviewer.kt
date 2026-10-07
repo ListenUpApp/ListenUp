@@ -143,6 +143,7 @@ internal class BookReviewer(
         keyProviders: Set<String>,
     ): Boolean {
         fun MetadataProviderId.inKey() = presentedAs().value in keyProviders
+
         fun Map<MetadataProviderId, List<*>>.answered() = any { (id, list) -> id.inKey() && list.isNotEmpty() }
         return options.cores.keys.any { it.inKey() } ||
             options.covers.answered() ||
@@ -204,4 +205,5 @@ internal class BookReviewer(
 }
 
 /** Whether [field] was set by hand — the fields Review protects by default. */
-internal fun BookSyncPayload.isHandEdited(field: BookField): Boolean = fieldProvenance[field]?.kind == FieldSourceKind.USER
+internal fun BookSyncPayload.isHandEdited(field: BookField): Boolean =
+    fieldProvenance[field]?.kind == FieldSourceKind.USER

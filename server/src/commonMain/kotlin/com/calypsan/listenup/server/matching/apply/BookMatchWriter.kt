@@ -68,10 +68,9 @@ internal class BookMatchWriter(
             // emits, and frames go out in revision order.
             plan.moodsToUnlink.forEach { moods.unlinkInTransaction(this, bookId, it, suppressed, capture) }
             plan.moodsToLink.forEach { moods.linkInTransaction(this, bookId, it, suppressed, capture) }
-            val revisionAfter = books.allocateRevision(this)
+            val revisionAfter = books.allocateRevision()
             val receipt = MatchReceipt(Uuid.random().toString(), now(), plan.changes, undoable = true)
             receipts.replaceLiveInTransaction(
-                this,
                 MatchReceiptRow(
                     id = receipt.receiptId,
                     entity = ReceiptEntity.BOOK.value,

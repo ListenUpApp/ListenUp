@@ -69,7 +69,9 @@ internal object MatchPlanner {
             genresAdded.firstOrNull()?.let { draft.provenance[BookField.GENRES] = it.providers.first() }
             draft.ladders =
                 ladders.filter { ladder ->
-                    ladder.any { rung -> genresAdded.any { ReviewKeys.text(it.suggestion.label) == ReviewKeys.text(rung) } }
+                    ladder.any { rung ->
+                        genresAdded.any { ReviewKeys.text(it.suggestion.label) == ReviewKeys.text(rung) }
+                    }
                 }
         }
         if (moodsAdded.isNotEmpty() || moodsRemoved.isNotEmpty()) {
@@ -81,7 +83,10 @@ internal object MatchPlanner {
             planChapters(model, request.chapterOrdinals.toSet(), draft)?.let { return AppResult.Failure(it) }
         }
         draft.refs = model.key.refs
-        draft.asin = model.key.refs.firstOrNull { it.provider == ExternalRef.AUDIBLE }?.id
+        draft.asin =
+            model.key.refs
+                .firstOrNull { it.provider == ExternalRef.AUDIBLE }
+                ?.id
         return AppResult.Success(draft.build())
     }
 
@@ -90,13 +95,17 @@ internal object MatchPlanner {
         choice: ImageChoice,
     ): AppError? =
         when (choice) {
-            ImageChoice.KeepCurrent -> null
-            is ImageChoice.Candidate ->
+            ImageChoice.KeepCurrent -> {
+                null
+            }
+
+            is ImageChoice.Candidate -> {
                 if (model.covers.none { it.candidate.optionId == choice.optionId }) {
                     MetadataError.ReviewOutdated(debugInfo = "cover ${choice.optionId} is no longer offered")
                 } else {
                     null
                 }
+            }
         }
 
     private fun planChapters(
@@ -105,9 +114,10 @@ internal object MatchPlanner {
         draft: MatchDraftBuilder,
     ): AppError? {
         val chapters =
-            model.chapters ?: return when (model.review.chapterNames) {
-                is ChapterNamesReview.CountMismatch -> MetadataError.ChapterCountMismatch(debugInfo = "counts differ")
-                else -> MetadataError.ReviewOutdated(debugInfo = "chapter names are no longer offered")
+            model.chapters ?: return if (model.review.chapterNames is ChapterNamesReview.CountMismatch) {
+                MetadataError.ChapterCountMismatch(debugInfo = "counts differ")
+            } else {
+                MetadataError.ReviewOutdated(debugInfo = "chapter names are no longer offered")
             }
         val yours = model.book.chapters.sortedBy { it.startTime }
         val renamed =

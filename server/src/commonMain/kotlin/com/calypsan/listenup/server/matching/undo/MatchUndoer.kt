@@ -45,13 +45,19 @@ internal class MatchUndoer(
                 value = snapshot.book,
                 cover =
                     MatchCoverColumns(
-                        source = CoverSource.entries.firstOrNull { it.name.equals(snapshot.cover.source, ignoreCase = true) },
+                        source =
+                            CoverSource.entries.firstOrNull {
+                                it.name.equals(
+                                    snapshot.cover.source,
+                                    ignoreCase = true,
+                                )
+                            },
                         path = snapshot.cover.path,
                         hash = snapshot.cover.hash,
                     ),
                 genreIds = snapshot.genreIds,
                 ladderRungIds = emptyList(),
-                revision = books.allocateRevision(this),
+                revision = books.allocateRevision(),
                 suppressed = suppressed,
                 capture = capture,
             )

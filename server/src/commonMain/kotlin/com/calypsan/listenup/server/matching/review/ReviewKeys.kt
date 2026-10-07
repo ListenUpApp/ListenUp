@@ -29,7 +29,12 @@ internal object ReviewKeys {
             }
 
             is FieldValue.People -> {
-                "p:" + value.names.map(::text).filter { it.isNotEmpty() }.toSortedSet().joinToString("|")
+                "p:" +
+                    value.names
+                        .map(::text)
+                        .filter { it.isNotEmpty() }
+                        .toSortedSet()
+                        .joinToString("|")
             }
 
             is FieldValue.SeriesEntries -> {

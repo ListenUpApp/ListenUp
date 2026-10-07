@@ -165,8 +165,14 @@ internal class MatchPreparer(
         book: BookSyncPayload,
     ): List<String>? =
         when (plan) {
-            LabelPlan.Unchanged -> null
-            is LabelPlan.ReplaceAll -> plan.labels.distinctBy(ReviewKeys::text).flatMap { catalogs.genreIds(it) }.distinct()
+            LabelPlan.Unchanged -> {
+                null
+            }
+
+            is LabelPlan.ReplaceAll -> {
+                plan.labels.distinctBy(ReviewKeys::text).flatMap { catalogs.genreIds(it) }.distinct()
+            }
+
             is LabelPlan.AddRemove -> {
                 val removed = book.genres.filter { g -> plan.remove.any { ReviewKeys.text(it) == ReviewKeys.text(g.name) } }
                 (book.genres.map { it.id } - removed.map { it.id }.toSet() + plan.add.flatMap { catalogs.genreIds(it) })

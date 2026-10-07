@@ -28,7 +28,10 @@ internal class MatchCoverFiles(
         val bytes =
             when (val fetched = imageStorage.downloadBytes(url)) {
                 is AppResult.Success -> fetched.data
-                is AppResult.Failure -> return null.also { log.warn { "Match cover fetch refused: ${fetched.error.code}" } }
+
+                is AppResult.Failure -> return null.also {
+                    log.warn { "Match cover fetch refused: ${fetched.error.code}" }
+                }
             }
         return try {
             val key = "$bookId-${hashBytesSha256(bytes).take(COVER_KEY_HASH_LENGTH)}"

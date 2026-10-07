@@ -10,7 +10,12 @@ internal class BookCoverReferences(
     private val receipts: MatchReceiptStore,
 ) : CoverReferences {
     override suspend fun bookCoverPaths(): Set<String> =
-        suspendTransaction(db) { db.booksQueries.selectAllCoverPaths().executeAsList().filterNotNullTo(mutableSetOf()) }
+        suspendTransaction(db) {
+            db.booksQueries
+                .selectAllCoverPaths()
+                .executeAsList()
+                .filterNotNullTo(mutableSetOf())
+        }
 
     override suspend fun pinnedCoverPaths(): Set<String> = receipts.pinnedCoverPaths()
 }

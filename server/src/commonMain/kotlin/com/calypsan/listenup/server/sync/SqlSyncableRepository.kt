@@ -197,6 +197,13 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      */
     protected open val userScoped: Boolean = false
 
+    /** A user-scoped domain's writes must name their user. */
+    private fun requireUserForScopedWrite(userId: String?) {
+        if (userScoped) {
+            requireNotNull(userId) { "user-scoped write on '$domainName' requires a userId" }
+        }
+    }
+
     /**
      * Increment the global revision counter and return its new value.
      *
@@ -252,9 +259,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         clientOpId: String? = null,
         userId: String? = null,
     ): AppResult<Pair<T, SyncEvent<T>>> {
-        if (userScoped) {
-            requireNotNull(userId) { "user-scoped write on '$domainName' requires a userId" }
-        }
+        requireUserForScopedWrite(userId)
         // Read the suppression marker in the outer suspend context, before the transaction:
         // the revision still bumps and the row still commits, but a suppressed write skips
         // the live-tail publish (see [FirehoseSuppressed]).
@@ -320,9 +325,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         userId: String? = null,
         revision: Long? = null,
     ): Pair<T, SyncEvent<T>> {
-        if (userScoped) {
-            requireNotNull(userId) { "user-scoped write on '$domainName' requires a userId" }
-        }
+        requireUserForScopedWrite(userId)
         val rev = revision ?: nextRevision()
         val now = clock.now().toEpochMilliseconds()
         val idStr = idAsString(value.id)
@@ -371,9 +374,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         clientOpId: String? = null,
         userId: String? = null,
     ): SyncEvent.Deleted? {
-        if (userScoped) {
-            requireNotNull(userId) { "user-scoped write on '$domainName' requires a userId" }
-        }
+        requireUserForScopedWrite(userId)
         val rev = nextRevision()
         val now = clock.now().toEpochMilliseconds()
         val idStr = idAsString(id)
@@ -476,9 +477,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         clientOpId: String? = null,
         userId: String? = null,
     ): AppResult<Unit> {
-        if (userScoped) {
-            requireNotNull(userId) { "user-scoped write on '$domainName' requires a userId" }
-        }
+        requireUserForScopedWrite(userId)
         val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
         val capture = currentCoroutineContext()[FrameCapture.Key]
         val result =
