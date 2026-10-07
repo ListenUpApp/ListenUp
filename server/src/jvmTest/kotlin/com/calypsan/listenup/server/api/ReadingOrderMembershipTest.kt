@@ -144,6 +144,22 @@ class ReadingOrderMembershipTest :
             }
         }
 
+        test("a reorder naming only some members moves them first and renumbers the rest after, in their old order") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeReadingOrderDeps(this)
+                runTest {
+                    val ids = deps.seedCosmere()
+                    val svc = deps.serviceAs("simon", UserRole.ADMIN)
+                    svc.createReadingOrder(RO, ids.cosmere, "URO")
+                    listOf("tfe", "woa", "elantris").forEachIndexed { i, b -> svc.addBookToReadingOrder(RO, BookId(b), "m$i") }
+                    svc.reorderReadingOrder(RO, listOf(BookId("elantris"))).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    deps.bookIdsOf("ro") shouldContainExactly listOf("elantris", "tfe", "woa")
+                    deps.members.liveMembers("ro").map { it.position } shouldContainExactly listOf(0, 1, 2)
+                }
+            }
+        }
+
         test("reorder rewrites only rows whose position changed") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
