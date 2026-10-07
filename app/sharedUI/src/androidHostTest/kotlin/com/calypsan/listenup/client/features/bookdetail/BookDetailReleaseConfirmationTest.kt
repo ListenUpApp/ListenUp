@@ -149,7 +149,7 @@ class BookDetailReleaseConfirmationTest {
                         bookId = BOOK_ID,
                         onBackClick = {},
                         onEditClick = {},
-                        onMetadataSearchClick = {},
+                        onMatchDetailsClick = {},
                         onEditChaptersClick = {},
                         onSeriesClick = {},
                         onContributorClick = {},

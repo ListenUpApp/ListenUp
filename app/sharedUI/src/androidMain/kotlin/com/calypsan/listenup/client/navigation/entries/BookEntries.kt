@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.features.genredestination.GenreDestinationSc
 import com.calypsan.listenup.client.navigation.AdminCollectionDetail
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BookEdit
+import com.calypsan.listenup.client.navigation.BookMatchDetails
 import com.calypsan.listenup.client.navigation.BookReaders
 import com.calypsan.listenup.client.navigation.HardcoverMatch
 import com.calypsan.listenup.client.navigation.BulkEdit
@@ -24,8 +25,6 @@ import com.calypsan.listenup.client.navigation.ContributorDetail
 import com.calypsan.listenup.client.navigation.DocumentViewer
 import com.calypsan.listenup.client.navigation.GenreDestination
 import com.calypsan.listenup.client.navigation.ListDetailScene
-import com.calypsan.listenup.client.navigation.MatchPreview
-import com.calypsan.listenup.client.navigation.MetadataSearch
 import com.calypsan.listenup.client.navigation.SeriesDetail
 import com.calypsan.listenup.client.navigation.UserProfile
 import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetViewModel
@@ -58,8 +57,8 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
                 onEditClick = { bookId ->
                     backStack.add(BookEdit(bookId))
                 },
-                onMetadataSearchClick = { bookId ->
-                    backStack.add(MetadataSearch(bookId))
+                onMatchDetailsClick = { bookId ->
+                    backStack.add(BookMatchDetails(bookId))
                 },
                 onSeriesClick = { seriesId ->
                     backStack.add(SeriesDetail(seriesId))
@@ -140,35 +139,22 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
     }
     chapterEditorEntry(backStack)
     bulkEditEntry(backStack, scope, snackbarHostState, pendingSelectionExit)
-    entry<MetadataSearch> { args ->
-        com.calypsan.listenup.client.features.metadata.MetadataSearchRoute(
+    entry<BookMatchDetails> { args ->
+        com.calypsan.listenup.client.features.match.BookMatchRoute(
             bookId = args.bookId,
-            onResultSelected = { asin, region ->
-                backStack.add(MatchPreview(args.bookId, asin, region))
-            },
-            onBack = {
-                backStack.removeAt(backStack.lastIndex)
-            },
+            onBack = { backStack.removeAt(backStack.lastIndex) },
+            onApplied = { backStack.returnToBookDetailAfterMatch(args) },
         )
     }
-    entry<MatchPreview> { args ->
-        com.calypsan.listenup.client.features.metadata.MatchPreviewRoute(
-            bookId = args.bookId,
-            asin = args.asin,
-            region = args.region,
-            onBack = {
-                backStack.removeAt(backStack.lastIndex)
-            },
-            onApplySuccess = {
-                // Navigate back to book detail after successful apply
-                // Pop both MatchPreview and MetadataSearch
-                backStack.removeAt(backStack.lastIndex)
-                if (backStack.lastOrNull() is MetadataSearch) {
-                    backStack.removeAt(backStack.lastIndex)
-                }
-            },
-        )
-    }
+}
+
+/**
+ * Leaves Match details for Book Detail, which shows the receipt: a pop when Book Detail opened it, otherwise
+ * (the admin inbox's held-book triage) Book Detail takes the match's place on the stack.
+ */
+internal fun NavBackStack<NavKey>.returnToBookDetailAfterMatch(match: BookMatchDetails) {
+    removeAt(lastIndex)
+    if ((lastOrNull() as? BookDetail)?.bookId != match.bookId) add(BookDetail(match.bookId))
 }
 
 /** The chapter editor entry, split out to keep [bookEntries] within the method-length limit. */
