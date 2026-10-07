@@ -39,13 +39,23 @@ internal interface CoverReferences {
 }
 
 /**
+ * The contributor photos a live person-match receipt keeps for Undo. May throw; the `contributors/` sweep then
+ * deletes nothing.
+ */
+internal fun interface PhotoPins {
+    /** Every `contributors/` path a live person receipt's snapshot names. */
+    suspend fun pinnedPhotoPaths(): Set<String>
+}
+
+/**
  * Periodic sweep that removes image files under `{imageHome}/contributors/`,
  * `{imageHome}/series/` and `{imageHome}/covers/` that nothing points at.
  *
  * **Liveness is by reference, not by name.** Every writer — the metadata applier and the
  * upload route — names a photo or cover by the SHA-256 of its bytes (`contributors/<sha>.jpg`),
  * never by the entity id, so a file is live exactly when some non-tombstoned contributor's
- * `imagePath` (or series' `coverPath`) is that file. The rule is extension-agnostic: whatever
+ * `imagePath` (or series' `coverPath`) is that file — or a live person-match receipt keeps it for Undo
+ * ([PhotoPins]). The rule is extension-agnostic: whatever
  * a row points at is kept, whatever nothing points at goes. An earlier rule that matched the
  * filename stem against entity ids called every real photo an orphan.
  *
@@ -73,6 +83,8 @@ internal class OrphanImageCleanupTask(
     private val imageHome: Path,
     /** Null leaves `covers/` alone (the sweep predates cover matching). */
     private val coverReferences: CoverReferences? = null,
+    /** Null keeps only what live rows name in `contributors/` (the sweep predates person matching). */
+    private val photoPins: PhotoPins? = null,
     private val interval: Duration = 7.days,
     private val clock: Clock = Clock.System,
     /** Nullable — without it the last run is not persisted and every boot sweeps at once. */
@@ -107,9 +119,11 @@ internal class OrphanImageCleanupTask(
      * older than [ORPHAN_GRACE]. Testable without a running coroutine.
      */
     suspend fun runOnce() {
-        val liveContributorImages = contributorRepository.listLiveImagePaths().toFilenames()
+        val liveContributorImages = contributorRepository.listLiveImagePaths()
         val liveSeriesCovers = seriesRepository.listLiveCoverPaths().toFilenames()
-        sweepDir(Path(imageHome, "contributors"), liveContributorImages, "contributor")
+        pinnedPhotos()?.let { pinned ->
+            sweepDir(Path(imageHome, "contributors"), (liveContributorImages + pinned).toFilenames(), "contributor")
+        }
         sweepDir(Path(imageHome, "series"), liveSeriesCovers, "series")
         sweepCovers()
     }
@@ -137,6 +151,22 @@ internal class OrphanImageCleanupTask(
                 return
             }
         sweepDir(Path(imageHome, "covers"), live.toFilenames(), "cover")
+    }
+
+    /**
+     * The photos live person receipts keep for Undo; empty without [photoPins]. **Fail closed:** null when they
+     * can't be read, and the `contributors/` sweep then deletes nothing.
+     */
+    private suspend fun pinnedPhotos(): Set<String>? {
+        val pins = photoPins ?: return emptySet()
+        return try {
+            pins.pinnedPhotoPaths()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.warn(e) { "OrphanImageCleanupTask couldn't read which photos are pinned — leaving contributors/ untouched" }
+            null
+        }
     }
 
     private fun sweepDir(

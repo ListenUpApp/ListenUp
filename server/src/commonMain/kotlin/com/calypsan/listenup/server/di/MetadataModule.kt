@@ -23,6 +23,7 @@ import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.matching.undo.BookCoverReferences
 import com.calypsan.listenup.server.matching.undo.MatchReceiptStore
 import com.calypsan.listenup.server.scheduler.MatchReceiptSweepTask
+import com.calypsan.listenup.server.scheduler.PhotoPins
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
@@ -395,6 +396,7 @@ private fun Module.metadataCleanupBindings(imageHome: Path) {
             seriesRepository = get(),
             imageHome = imageHome,
             coverReferences = BookCoverReferences(get(), get<MatchReceiptStore>()),
+            photoPins = get<MatchReceiptStore>().let { receipts -> PhotoPins { receipts.pinnedPhotoPaths() } },
             settings = get(),
         )
     }
