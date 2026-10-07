@@ -175,7 +175,7 @@ private fun ReviewContent(
     }
 }
 
-/** The candidate's cover, Best match, title and "Found in Audible, Hardcover and iTunes". */
+/** The candidate's cover, Best match, title and "Found in A, B and C". */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ReviewHeader(candidate: CandidateUi) {

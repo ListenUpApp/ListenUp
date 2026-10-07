@@ -188,7 +188,7 @@ private fun FieldRow(
     }
 }
 
-/** "Audible | Hardcover | Keep yours" as one connected group; the choice and the checkbox are one value. */
+/** "Source A | Source B | Keep yours" as one connected group; the choice and the checkbox are one value. */
 @Composable
 private fun SourceSwitch(
     field: FieldUi,

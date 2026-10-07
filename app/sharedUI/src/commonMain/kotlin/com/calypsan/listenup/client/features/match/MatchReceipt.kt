@@ -104,7 +104,7 @@ fun MatchReceiptHost(
 }
 
 /**
- * The receipt as a snackbar: "Changed 5 fields, cover from Hardcover, 16 chapter names" with See what changed
+ * The receipt as a snackbar: "Changed 5 fields, cover from <source>, 16 chapter names" with See what changed
  * and Undo, then "Match undone…" or "…can't be undone." It is announced, takes accessibility focus, and while
  * a screen reader runs it stays until dismissed; otherwise it dismisses itself after a long snackbar's time.
  */
@@ -196,7 +196,7 @@ fun MatchReceiptBanner(
     }
 }
 
-/** "Changed 5 fields, cover from Hardcover, 16 chapter names", or "Matched. Nothing needed changing." */
+/** "Changed 5 fields, cover from <source>, 16 chapter names", or "Matched. Nothing needed changing." */
 @Composable
 internal fun receiptText(receipt: MatchReceiptUi): String {
     val parts =
@@ -263,7 +263,7 @@ private fun WhatChangedSheet(
     }
 }
 
-/** One applied change as the lines See what changed lists: "Description · from Audible". */
+/** One applied change as the lines See what changed lists: "Description · from <source>". */
 @Composable
 private fun AppliedChange.lines(): List<String> =
     when (this) {

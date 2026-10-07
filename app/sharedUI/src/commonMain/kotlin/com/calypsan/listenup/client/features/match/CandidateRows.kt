@@ -114,7 +114,7 @@ private fun ResultCount(count: Int) {
     )
 }
 
-/** "Hardcover didn't answer, so these results are from Audible and iTunes." with Retry Hardcover. */
+/** "Source C didn't answer, so these results are from A and B." with Retry Source C. */
 @Composable
 private fun PartialBanner(
     partial: PartialFailure,

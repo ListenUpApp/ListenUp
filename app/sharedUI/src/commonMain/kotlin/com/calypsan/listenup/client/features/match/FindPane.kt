@@ -203,7 +203,7 @@ private fun MatchSearchField(
     )
 }
 
-/** "Audible store: United States" — a menu of the source's stores, for this search only. */
+/** "<source> store: United States" — a menu of the source's stores, for this search only. */
 @Composable
 private fun StoreButton(
     region: RegionUi,

@@ -69,7 +69,7 @@ internal fun joinedList(items: List<String>): String =
         else -> stringResource(Res.string.match_list_many, items.first(), joinedList(items.drop(1)))
     }
 
-/** Source labels as one phrase: "Audible, Hardcover and iTunes". Labels are opaque; never branched on. */
+/** Source labels as one phrase: "A, B and C". Labels are opaque; never branched on. */
 @Composable
 internal fun sourcesPhrase(sources: List<MetadataSource>): String = joinedList(sources.map { it.label }.distinct())
 
@@ -254,7 +254,7 @@ internal fun YourCopyUi.factsLine(): String =
         chapterCount?.let { chapterCountText(it) },
     ).joinToString(DOT)
 
-/** "Started from your Audible link, then title, author and length." — null when Find took no steps. */
+/** "Started from your <source> link, then title, author and length." — null when Find took no steps. */
 @Composable
 internal fun stepsLine(steps: List<SearchStep>): String? {
     if (steps.isEmpty()) return null
