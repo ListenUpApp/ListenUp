@@ -205,6 +205,7 @@ fun booksModule(
                 accessPolicy = get<BookAccessPolicy>(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("SeriesService"),
+                entityRepo = getOrNull<EntityRepository>(),
             )
         }
         single<TagService> {

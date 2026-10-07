@@ -11,6 +11,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.sync.EntityRepository
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
@@ -26,6 +27,7 @@ internal class SeriesMergeReceipts(
     private val seriesRepo: SeriesRepository,
     private val bookRepo: BookRepository,
     private val hierarchy: SeriesHierarchyWrites,
+    private val entityRepo: EntityRepository?,
     private val clock: Clock,
 ) {
     private val receipts get() = sqlDb.seriesMergeReceiptsQueries
@@ -33,13 +35,14 @@ internal class SeriesMergeReceipts(
     /**
      * Records [source] → [target] by [mergedBy]. Must be called inside the merge's transaction and
      * BEFORE its membership relink — the snapshot reads the memberships the relink rewrites — and
-     * BEFORE the merge re-parents the source's sub-series.
+     * BEFORE the merge re-parents the source's sub-series. Returns the receipt id, which the Story World
+     * re-home snapshots its entities against.
      */
     fun record(
         source: SeriesId,
         target: SeriesId,
         mergedBy: String,
-    ) {
+    ): String {
         val receiptId = Uuid.random().toString()
         receipts.insertReceipt(
             id = receiptId,
@@ -50,6 +53,7 @@ internal class SeriesMergeReceipts(
         )
         receipts.snapshotSourceMemberships(receipt_id = receiptId, target_id = target.value, source_id = source.value)
         receipts.snapshotSourceChildren(receipt_id = receiptId, source_id = source.value)
+        return receiptId
     }
 
     /** Open receipts naming [target] as the survivor, newest first. */
@@ -82,6 +86,8 @@ internal class SeriesMergeReceipts(
      *     doesn't stop the rest — the loop keeps going and the first failure is reported at the end.
      *  5. Every sub-series the merge moved, and that is still under the target, goes back to the
      *     source at its recorded position — unless the source now sits below it.
+     *  6. Every Story World entity the merge moved, and that is still live under the target, goes back
+     *     to the source as it is now ([EntityRepository.restoreForSeriesMergeUndo]).
      */
     suspend fun undo(receiptId: MergeReceiptId): AppResult<MergeUndoResult> {
         val sourceId =
@@ -117,6 +123,10 @@ internal class SeriesMergeReceipts(
                 is AppResult.Failure -> if (firstFailure == null) firstFailure = placed.error
             }
         }
+        // Story World entities the merge re-homed go back to the revived source — those still live under
+        // the target. One transaction of its own, after the membership claim commits, like the book
+        // re-upserts: the claim has marked the receipt, so this runs at most once per receipt.
+        entityRepo?.restoreForSeriesMergeUndo(receiptId.value, claim.sourceId, target = claim.targetId)
         firstFailure?.let { return AppResult.Failure(it) }
         return AppResult.Success(
             MergeUndoResult(
@@ -233,6 +243,7 @@ internal class SeriesMergeReceipts(
                 .map { RestorableChild(SeriesId(it.child_id), it.position?.toInt()) }
         return SeriesUndoClaim.Granted(
             sourceId = SeriesId(receipt.source_id),
+            targetId = SeriesId(receipt.target_id),
             restoredBookIds = restorable.map { it.book_id },
             skipped = (recorded - restorable.size).toInt(),
             restoredChildren = restorableChildren,
@@ -263,6 +274,7 @@ private sealed interface SeriesUndoClaim {
     /** Memberships are restored and the receipt is marked; the books and sub-series still need re-upserting. */
     data class Granted(
         val sourceId: SeriesId,
+        val targetId: SeriesId,
         val restoredBookIds: List<String>,
         val skipped: Int,
         val restoredChildren: List<RestorableChild>,
