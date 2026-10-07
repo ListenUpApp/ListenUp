@@ -54,6 +54,8 @@ import com.calypsan.listenup.client.presentation.match.ChapterRowUi
 import com.calypsan.listenup.client.presentation.match.CoverUi
 import com.calypsan.listenup.client.presentation.match.LabelKind
 import com.calypsan.listenup.client.presentation.match.LabelSetUi
+import com.calypsan.listenup.client.presentation.match.SuggestionUi
+import com.calypsan.listenup.client.presentation.match.YourLabelUi
 import com.calypsan.listenup.client.presentation.match.WhatWillChange
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.match_already_same_one
@@ -244,44 +246,12 @@ private fun LabelSet(
     actions: BookMatchActions,
 ) {
     if (set.yours.isEmpty() && set.suggested.isEmpty()) return
-    val haptics = LocalHaptics.current
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text(title, style = MaterialTheme.typography.titleSmall)
         if (set.yours.isNotEmpty()) {
             SubLabel(stringResource(Res.string.match_yours_kept))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                set.yours.forEach { label ->
-                    val name =
-                        if (label.removed) {
-                            stringResource(Res.string.match_restore_label, label.label)
-                        } else {
-                            stringResource(Res.string.match_remove_label, label.label)
-                        }
-                    InputChip(
-                        selected = false,
-                        onClick = {
-                            haptics.toggle(on = label.removed)
-                            if (label.removed) {
-                                actions.restoreYourLabel(
-                                    kind,
-                                    label.label,
-                                )
-                            } else {
-                                actions.removeYourLabel(kind, label.label)
-                            }
-                        },
-                        label = {
-                            Text(label.label, textDecoration = if (label.removed) TextDecoration.LineThrough else null)
-                        },
-                        trailingIcon = {
-                            Icon(
-                                if (label.removed) Icons.Filled.Undo else Icons.Filled.Close,
-                                contentDescription = null,
-                            )
-                        },
-                        modifier = Modifier.semantics { contentDescription = name },
-                    )
-                }
+                set.yours.forEach { label -> YourLabelChip(label, kind, actions) }
             }
         }
         if (set.suggested.isNotEmpty()) {
@@ -296,29 +266,77 @@ private fun LabelSet(
             )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 set.suggested.forEach { suggestion ->
-                    val sources = sourcesPhrase(suggestion.sources)
-                    val accessibleName = stringResource(Res.string.match_suggestion_a11y, suggestion.label, sources)
-                    FilterChip(
-                        selected = suggestion.selected,
-                        onClick = {
-                            haptics.toggle(on = !suggestion.selected)
-                            actions.toggleSuggestion(kind, suggestion.label)
-                        },
-                        label = {
-                            Text(if (sharedSource == null) suggestion.label + DOT + sources else suggestion.label)
-                        },
-                        leadingIcon = {
-                            Icon(
-                                if (suggestion.selected) Icons.Filled.Check else Icons.Filled.Add,
-                                contentDescription = null,
-                            )
-                        },
-                        modifier = Modifier.semantics { contentDescription = accessibleName },
-                    )
+                    SuggestionChip(suggestion, showSources = sharedSource == null, kind = kind, actions = actions)
                 }
             }
         }
     }
+}
+
+/** One of your labels: × removes it, and a removed one (struck through) restores with a tap. */
+@Composable
+private fun YourLabelChip(
+    label: YourLabelUi,
+    kind: LabelKind,
+    actions: BookMatchActions,
+) {
+    val haptics = LocalHaptics.current
+    val name =
+        if (label.removed) {
+            stringResource(Res.string.match_restore_label, label.label)
+        } else {
+            stringResource(Res.string.match_remove_label, label.label)
+        }
+    InputChip(
+        selected = false,
+        onClick = {
+            haptics.toggle(on = label.removed)
+            if (label.removed) {
+                actions.restoreYourLabel(
+                    kind,
+                    label.label,
+                )
+            } else {
+                actions.removeYourLabel(kind, label.label)
+            }
+        },
+        label = { Text(label.label, textDecoration = if (label.removed) TextDecoration.LineThrough else null) },
+        trailingIcon = {
+            Icon(
+                if (label.removed) Icons.Filled.Undo else Icons.Filled.Close,
+                contentDescription = null,
+            )
+        },
+        modifier = Modifier.semantics { contentDescription = name },
+    )
+}
+
+/** A suggested label: a check when Apply adds it, a + when it doesn't; its sources when they differ by label. */
+@Composable
+private fun SuggestionChip(
+    suggestion: SuggestionUi,
+    showSources: Boolean,
+    kind: LabelKind,
+    actions: BookMatchActions,
+) {
+    val haptics = LocalHaptics.current
+    val sources = sourcesPhrase(suggestion.sources)
+    val accessibleName = stringResource(Res.string.match_suggestion_a11y, suggestion.label, sources)
+    FilterChip(
+        selected = suggestion.selected,
+        onClick = {
+            haptics.toggle(on = !suggestion.selected)
+            actions.toggleSuggestion(kind, suggestion.label)
+        },
+        label = { Text(if (showSources) suggestion.label + DOT + sources else suggestion.label) },
+        leadingIcon = {
+            Icon(
+                if (suggestion.selected) Icons.Filled.Check else Icons.Filled.Add,
+                contentDescription = null,
+            )
+        },
+        modifier = Modifier.semantics { contentDescription = accessibleName },
+    )
 }
 
 @Composable
