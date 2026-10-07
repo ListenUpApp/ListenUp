@@ -123,7 +123,7 @@ private fun HTMLElement.text(selector: String): String? = querySelector(selector
 private fun HTMLElement.texts(selector: String): List<String> =
     querySelectorAll(selector).asList().filterIsInstance<HTMLElement>().map { it.textContent.orEmpty().trim() }
 
-private fun HTMLElement.live(): String = text(".bmx-live").orEmpty()
+private fun HTMLElement.live(): String = text("#$LIVE_ID").orEmpty()
 
 private fun HTMLElement.checkbox(name: String): HTMLInputElement? =
     querySelectorAll("input[type=checkbox]")

@@ -87,6 +87,7 @@
   font-size: var(--fs-small); font-weight: 600;
 }
 .luw .bmx-banner p { margin: 0; flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
+.luw .bmx-failure { align-self: stretch; }
 .luw .bmx-fail-acts { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
 .luw .bmx-err { margin: 0; padding: var(--sp-8) var(--sp-12); border-radius: var(--r-md); background: var(--coral-soft); color: var(--coral-text); font-size: var(--fs-ui); font-weight: 600; overflow-wrap: anywhere; }
 

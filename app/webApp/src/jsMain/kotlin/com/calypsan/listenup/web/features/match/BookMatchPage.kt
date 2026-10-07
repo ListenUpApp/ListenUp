@@ -188,7 +188,8 @@ fun BookMatchPage(
         }
         // The one polite live region: what is happening, in words, for a reader who cannot see it.
         Div(attrs = {
-            classes("sr-only", "bmx-live")
+            classes("sr-only")
+            attr("id", LIVE_ID)
             attr("role", "status")
             attr("aria-live", "polite")
         }) { Text(said) }
@@ -306,6 +307,7 @@ internal const val FIND_HEADING_ID = "bmx-find-h"
 internal const val REVIEW_HEADING_ID = "bmx-review-h"
 internal const val COMPARE_OPEN_ID = "bmx-compare-open"
 internal const val APPLY_ID = "bmx-apply"
+internal const val LIVE_ID = "bmx-live"
 internal const val SEARCHING = "Searching…"
 internal const val APPLYING = "Applying…"
 internal const val REVIEW_RELOADED = "This book changed while you were reviewing. Check the changes again."
