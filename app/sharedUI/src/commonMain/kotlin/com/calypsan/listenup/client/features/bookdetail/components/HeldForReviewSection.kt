@@ -38,7 +38,7 @@ import listenup.composeapp.generated.resources.admin_held_hidden_from_members
 import listenup.composeapp.generated.resources.admin_release
 import listenup.composeapp.generated.resources.chapter_editor_title
 import listenup.composeapp.generated.resources.common_edit
-import listenup.composeapp.generated.resources.metadata_match_on_audible
+import listenup.composeapp.generated.resources.match_menu_item
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -116,7 +116,7 @@ fun HeldForReviewSection(
             // Secondary (spec §10): the overflow menu's two metadata fixes, in its own words.
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SecondaryTriageAction(
-                    text = stringResource(Res.string.metadata_match_on_audible),
+                    text = stringResource(Res.string.match_menu_item),
                     icon = Icons.Outlined.Search,
                     enabled = !isReleasing,
                     onClick = onMatchClick,

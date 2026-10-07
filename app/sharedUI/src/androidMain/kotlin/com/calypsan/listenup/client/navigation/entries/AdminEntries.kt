@@ -17,7 +17,6 @@ import com.calypsan.listenup.client.features.admin.backup.RestoreBackupScreen
 import com.calypsan.listenup.client.features.admin.backup.RestoreFromFileScreen
 import com.calypsan.listenup.client.navigation.ImportFlow
 import com.calypsan.listenup.client.navigation.UploadBooks
-import com.calypsan.listenup.client.navigation.MetadataSearch
 import com.calypsan.listenup.client.navigation.Admin
 import com.calypsan.listenup.client.navigation.AdminBackups
 import com.calypsan.listenup.client.navigation.AdminCategories
@@ -28,6 +27,7 @@ import com.calypsan.listenup.client.navigation.AdminOrganizeSettings
 import com.calypsan.listenup.client.navigation.AdminUserDetail
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BookEdit
+import com.calypsan.listenup.client.navigation.BookMatchDetails
 import com.calypsan.listenup.client.navigation.CreateBackup
 import com.calypsan.listenup.client.navigation.CreateInvite
 import com.calypsan.listenup.client.navigation.RestoreBackup
@@ -135,9 +135,9 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             onEditClick = { bookId ->
                 backStack.add(BookEdit(bookId))
             },
-            // Per-row "Match on Audible" — opens the metadata match wizard for that book (iOS parity).
+            // Per-row "Match details" — opens Match details for that book (iOS parity).
             onMatchClick = { bookId ->
-                backStack.add(MetadataSearch(bookId))
+                backStack.add(BookMatchDetails(bookId))
             },
         )
     }
