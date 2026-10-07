@@ -95,10 +95,10 @@ private fun CoverSection(
     bookId: String,
     session: BookMatchSession,
 ) {
-    ReviewSection(SECTION_COVER, "Cover") {
-        P(attrs = { classes("bmx-note") }) { Text("Pick one. Keep current is always an option.") }
+    ReviewSection(SECTION_COVER, COVER) {
+        P(attrs = { classes(NOTE) }) { Text("Pick one. Keep current is always an option.") }
         Fieldset(attrs = { classes("bmx-fieldset") }) {
-            Legend(attrs = { classes("sr-only") }) { Text("Cover") }
+            Legend(attrs = { classes("sr-only") }) { Text(COVER) }
             Div(attrs = { classes("bmx-covers") }) {
                 CoverOption(
                     checked = cover.choice == ImageChoice.KeepCurrent,
@@ -142,8 +142,8 @@ private fun CoverOption(
     Label(attrs = { classes("bmx-cover") }) {
         Art(url = imageUrl, big = true)
         RadioInput(checked = checked) {
-            attr("name", COVER_GROUP)
-            attr("aria-label", name)
+            attr(ATTR_NAME, COVER_GROUP)
+            attr(ATTR_ARIA_LABEL, name)
             onChange { if (it.value) onChoose() }
         }
         Span(attrs = { classes("bmx-cover-l") }) { Text(label) }
@@ -163,7 +163,7 @@ private fun FieldSection(
 ) {
     if (fields.isEmpty()) return
     ReviewSection(id, title) {
-        lede?.let { P(attrs = { classes("bmx-note") }) { Text(it) } }
+        lede?.let { P(attrs = { classes(NOTE) }) { Text(it) } }
         fields.forEach { FieldRow(it, viewerId, session) }
     }
 }
@@ -190,7 +190,7 @@ private fun FieldRow(
         Div(attrs = { classes("bmx-field-h") }) {
             Label(attrs = { classes("f-check") }) {
                 CheckboxInput(checked = field.isTicked) {
-                    attr("aria-label", fieldName(label, from, field.state))
+                    attr(ATTR_ARIA_LABEL, fieldName(label, from, field.state))
                     onChange { event -> session.setFieldTicked(field.field, event.value) }
                 }
                 Text(label)
@@ -256,7 +256,7 @@ private fun Segment(
 ) {
     Label(attrs = { classes("bmx-seg") }) {
         RadioInput(checked = checked) {
-            attr("name", group)
+            attr(ATTR_NAME, group)
             onChange { if (it.value) onChoose() }
         }
         Text(text)
@@ -301,7 +301,7 @@ private fun LabelsSection(
     ReviewSection(SECTION_LABELS, "Genres & moods") {
         if (hasGenres) LabelSet("Genres", LabelKind.GENRES, genres, session)
         if (hasMoods) LabelSet("Moods", LabelKind.MOODS, moods, session)
-        P(attrs = { classes("bmx-note") }) { Text("Tags are yours. Matching never changes them.") }
+        P(attrs = { classes(NOTE) }) { Text("Tags are yours. Matching never changes them.") }
     }
 }
 
@@ -314,10 +314,10 @@ private fun LabelSet(
 ) {
     H4(attrs = { classes("bmx-sub-t") }) { Text(title) }
     if (set.yours.isNotEmpty()) {
-        P(attrs = { classes("bmx-note") }) { Text("Yours, kept") }
+        P(attrs = { classes(NOTE) }) { Text("Yours, kept") }
         Ul(attrs = {
             classes("bmx-chips")
-            attr("aria-label", "$title, yours")
+            attr(ATTR_ARIA_LABEL, "$title, yours")
         }) {
             set.yours.forEach { yours ->
                 Li(attrs = {
@@ -329,10 +329,10 @@ private fun LabelSet(
                         classes("bmx-chip-x")
                         attr("type", "button")
                         if (yours.removed) {
-                            attr("aria-label", "Keep ${yours.label}")
+                            attr(ATTR_ARIA_LABEL, "Keep ${yours.label}")
                             onClick { session.restoreYourLabel(kind, yours.label) }
                         } else {
-                            attr("aria-label", "Remove ${yours.label}")
+                            attr(ATTR_ARIA_LABEL, "Remove ${yours.label}")
                             onClick { session.removeYourLabel(kind, yours.label) }
                         }
                     }) {
@@ -343,10 +343,10 @@ private fun LabelSet(
         }
     }
     if (set.suggested.isNotEmpty()) {
-        P(attrs = { classes("bmx-note") }) { Text("Suggested") }
+        P(attrs = { classes(NOTE) }) { Text("Suggested") }
         Ul(attrs = {
             classes("bmx-chips")
-            attr("aria-label", "$title, suggested")
+            attr(ATTR_ARIA_LABEL, "$title, suggested")
         }) {
             set.suggested.forEach { suggestion ->
                 val from = sourcesText(suggestion.sources)
@@ -355,7 +355,7 @@ private fun LabelSet(
                         classes("bmx-sug")
                         attr("type", "button")
                         attr("aria-pressed", suggestion.selected.toString())
-                        attr("aria-label", "${suggestion.label}, from $from")
+                        attr(ATTR_ARIA_LABEL, "${suggestion.label}, from $from")
                         onClick { session.toggleSuggestion(kind, suggestion.label) }
                     }) {
                         Text(suggestion.label)
@@ -380,7 +380,7 @@ private fun ChapterNamesSection(
 
         is ChapterNamesUi.CountMismatch -> {
             ReviewSection(SECTION_CHAPTERS, "Chapter names") {
-                P(attrs = { classes("bmx-note") }) {
+                P(attrs = { classes(NOTE) }) {
                     Text(
                         "${names.source.label} has ${names.theirs} chapters and yours has ${names.yours}, " +
                             "so its names can't be matched.",
@@ -410,7 +410,7 @@ private fun AvailableChapterNames(
             }
             Text("Apply chapter names")
         }
-        P(attrs = { classes("bmx-note") }) {
+        P(attrs = { classes(NOTE) }) {
             Text(
                 "${names.rows.size} of $total chapters get names from $source. " +
                     "The other ${names.unchangedCount} already match.",
@@ -422,7 +422,7 @@ private fun AvailableChapterNames(
                 Li(attrs = { classes("bmx-chapter") }) {
                     Label(attrs = { classes("f-check") }) {
                         CheckboxInput(checked = row.selected && names.included) {
-                            attr("aria-label", "Chapter ${row.ordinal + 1}: ${row.yours} becomes ${row.theirs}")
+                            attr(ATTR_ARIA_LABEL, "Chapter ${row.ordinal + 1}: ${row.yours} becomes ${row.theirs}")
                             if (!names.included) attr("disabled", "")
                             onChange { session.toggleChapter(row.ordinal) }
                         }
@@ -452,12 +452,16 @@ private fun AlreadySameSection(
     ReviewSection(SECTION_SAME, "Already the same") {
         Details(attrs = { classes("bmx-same") }) {
             Summary { Text(if (names.size == 1) "1 field already matches" else "${names.size} fields already match") }
-            P(attrs = { classes("bmx-note") }) { Text(names.joinToString(", ")) }
+            P(attrs = { classes(NOTE) }) { Text(names.joinToString(", ")) }
         }
     }
 }
 
 private const val COVER_GROUP = "bmx-cover"
+private const val COVER = "Cover"
+private const val NOTE = "bmx-note"
+private const val ATTR_ARIA_LABEL = "aria-label"
+private const val ATTR_NAME = "name"
 private const val COVER_WIDTH = 176
 private const val CHAPTERS_SHOWN = 3
 private const val CLAMP_AFTER_CHARS = 180

@@ -141,59 +141,16 @@ fun BookMatchPage(
             }
 
             MatchView.Find -> {
-                PageHeader(
-                    title = TITLE,
-                    subtitle =
-                        find.yourCopy?.let { copy ->
-                            listOf(
-                                copy.title,
-                                copy.authors.joinToString(", "),
-                            ).filter { it.isNotBlank() }.joinToString(" · ")
-                        },
+                FindAndReview(
+                    find = find,
+                    review = review,
+                    bookId = bookId,
+                    viewerId = viewerId,
+                    session = session,
+                    reloaded = reloadedFor != null && reloadedFor == (review as? ReviewUiState.Ready)?.candidate?.id,
+                    onOpenCompare = onOpenCompare,
+                    onFocus = { pendingFocus = it },
                 )
-                Div(attrs = { classes("bmx-panes") }) {
-                    Section(attrs = {
-                        classes("bmx-pane", "bmx-find")
-                        attr("aria-labelledby", FIND_HEADING_ID)
-                    }) {
-                        FocusHold(key = findKey(find)) {
-                            FindPane(
-                                find = find,
-                                bookId = bookId,
-                                session = session,
-                                onPick = { candidate ->
-                                    session.pick(candidate.key)
-                                    pendingFocus = REVIEW_HEADING_ID
-                                },
-                                onOpenCompare = onOpenCompare,
-                            )
-                        }
-                    }
-                    Section(attrs = {
-                        classes("bmx-pane", "bmx-review")
-                        attr("aria-labelledby", REVIEW_HEADING_ID)
-                    }) {
-                        FocusHold(key = reviewKey(review)) {
-                            ReviewPane(
-                                review = review,
-                                bookId = bookId,
-                                viewerId = viewerId,
-                                session = session,
-                                reloaded =
-                                    reloadedFor != null &&
-                                        reloadedFor == (review as? ReviewUiState.Ready)?.candidate?.id,
-                                onBack = { candidate ->
-                                    session.backToResults()
-                                    pendingFocus = rowId(candidate)
-                                },
-                                onRetry = { candidate ->
-                                    session.pick(candidate.key)
-                                    pendingFocus = REVIEW_HEADING_ID
-                                },
-                            )
-                        }
-                    }
-                }
             }
         }
         // The one polite live region: what is happening, in words, for a reader who cannot see it.
@@ -203,6 +160,72 @@ fun BookMatchPage(
             attr("role", "status")
             attr("aria-live", "polite")
         }) { Text(said) }
+    }
+}
+
+/** Find and Review, side by side from the 1024px line and one at a time below it. */
+@Suppress("LongParameterList")
+@Composable
+private fun FindAndReview(
+    find: FindUiState,
+    review: ReviewUiState,
+    bookId: String,
+    viewerId: String?,
+    session: BookMatchSession,
+    reloaded: Boolean,
+    onOpenCompare: () -> Unit,
+    onFocus: (String) -> Unit,
+) {
+    PageHeader(
+        title = TITLE,
+        subtitle =
+            find.yourCopy?.let { copy ->
+                listOf(
+                    copy.title,
+                    copy.authors.joinToString(", "),
+                ).filter { it.isNotBlank() }.joinToString(" · ")
+            },
+    )
+    Div(attrs = { classes("bmx-panes") }) {
+        Section(attrs = {
+            classes("bmx-pane", "bmx-find")
+            attr("aria-labelledby", FIND_HEADING_ID)
+        }) {
+            FocusHold(key = findKey(find)) {
+                FindPane(
+                    find = find,
+                    bookId = bookId,
+                    session = session,
+                    onPick = { candidate ->
+                        session.pick(candidate.key)
+                        onFocus(REVIEW_HEADING_ID)
+                    },
+                    onOpenCompare = onOpenCompare,
+                )
+            }
+        }
+        Section(attrs = {
+            classes("bmx-pane", "bmx-review")
+            attr("aria-labelledby", REVIEW_HEADING_ID)
+        }) {
+            FocusHold(key = reviewKey(review)) {
+                ReviewPane(
+                    review = review,
+                    bookId = bookId,
+                    viewerId = viewerId,
+                    session = session,
+                    reloaded = reloaded,
+                    onBack = { candidate ->
+                        session.backToResults()
+                        onFocus(rowId(candidate))
+                    },
+                    onRetry = { candidate ->
+                        session.pick(candidate.key)
+                        onFocus(REVIEW_HEADING_ID)
+                    },
+                )
+            }
+        }
     }
 }
 

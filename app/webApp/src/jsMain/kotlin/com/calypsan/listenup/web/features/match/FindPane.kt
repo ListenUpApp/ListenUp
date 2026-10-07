@@ -241,7 +241,6 @@ private fun CandidateRow(
     picked: Boolean,
     onPick: (CandidateUi) -> Unit,
 ) {
-    val strong = candidate.tier == MatchTier.STRONG
     DomButton(attrs = {
         classes("bmx-row")
         attr("type", "button")
@@ -251,31 +250,42 @@ private fun CandidateRow(
     }) {
         Art(url = candidate.coverUrl)
         Span(attrs = { classes("bmx-row-m") }) {
-            if (candidate.isBest || candidate.isCurrentLink) {
-                Span(attrs = { classes("bmx-badges") }) {
-                    if (candidate.isBest) Span(attrs = { classes("bmx-badge", "is-best") }) { Text("Best match") }
-                    if (candidate.isCurrentLink) Span(attrs = { classes("bmx-badge") }) { Text("Your current link") }
-                }
-            }
+            RowBadges(candidate)
             Span(attrs = { classes("bmx-row-t") }) { Text(candidate.title) }
             candidateMetaText(candidate).takeIf { it.isNotBlank() }?.let {
                 Span(attrs = { classes("bmx-row-meta") }) { Text(it) }
             }
-            if (candidate.reasons.isNotEmpty()) {
-                Span(attrs = { classes("bmx-reasons") }) {
-                    candidate.reasons.forEach { reason ->
-                        Span(attrs = {
-                            classes("bmx-reason")
-                            if (strong) classes("is-strong")
-                        }) {
-                            if (strong) Icon(WebIcon.Check, size = SMALL_ICON)
-                            Text(reasonText(reason))
-                        }
-                    }
-                }
-            }
+            Reasons(candidate)
             if (candidate.foundIn.isNotEmpty()) {
                 Span(attrs = { classes("bmx-row-found") }) { Text(foundInText(candidate.foundIn)) }
+            }
+        }
+    }
+}
+
+/** Best match and Your current link, when either applies. */
+@Composable
+private fun RowBadges(candidate: CandidateUi) {
+    if (!candidate.isBest && !candidate.isCurrentLink) return
+    Span(attrs = { classes("bmx-badges") }) {
+        if (candidate.isBest) Span(attrs = { classes("bmx-badge", "is-best") }) { Text("Best match") }
+        if (candidate.isCurrentLink) Span(attrs = { classes("bmx-badge") }) { Text("Your current link") }
+    }
+}
+
+/** Up to three reasons; a Strong match's carry a check, a Maybe's do not — Maybe is not a recommendation. */
+@Composable
+private fun Reasons(candidate: CandidateUi) {
+    if (candidate.reasons.isEmpty()) return
+    val strong = candidate.tier == MatchTier.STRONG
+    Span(attrs = { classes("bmx-reasons") }) {
+        candidate.reasons.forEach { reason ->
+            Span(attrs = {
+                classes("bmx-reason")
+                if (strong) classes("is-strong")
+            }) {
+                if (strong) Icon(WebIcon.Check, size = SMALL_ICON)
+                Text(reasonText(reason))
             }
         }
     }

@@ -156,7 +156,12 @@ class BookMatchPageTest :
 
             host.texts(".bmx-group-t").map { it.filter { c -> !c.isDigit() } } shouldContainExactly
                 listOf("Strong match", "Maybe")
-            val best = host.querySelectorAll(".bmx-row").asList().filterIsInstance<HTMLElement>().first()
+            val best =
+                host
+                    .querySelectorAll(".bmx-row")
+                    .asList()
+                    .filterIsInstance<HTMLElement>()
+                    .first()
             best.text(".bmx-badges") shouldContain "Best match"
             best.text(".bmx-row-meta") shouldBe "Ray Porter · 16h 10m · 2021 · Unabridged"
             best.texts(".bmx-reason") shouldContainExactly listOf("Same narrator", "Same length", "36 chapters")
@@ -169,7 +174,12 @@ class BookMatchPageTest :
             val host = MatchRig().mount()
             awaitFrame()
 
-            val maybe = host.querySelectorAll(".bmx-row").asList().filterIsInstance<HTMLElement>().last()
+            val maybe =
+                host
+                    .querySelectorAll(".bmx-row")
+                    .asList()
+                    .filterIsInstance<HTMLElement>()
+                    .last()
             maybe.texts(".bmx-reason") shouldContainExactly listOf("6h 26m shorter")
             maybe.querySelector(".bmx-reason.is-strong").shouldBeNull()
         }
@@ -317,7 +327,11 @@ class BookMatchPageTest :
             awaitFrame()
             awaitFrame()
             host.live() shouldBe "You can retry Hardcover now."
-            host.buttonNamed("Retry").shouldNotBeNull().getAttribute("aria-disabled").shouldBeNull()
+            host
+                .buttonNamed("Retry")
+                .shouldNotBeNull()
+                .getAttribute("aria-disabled")
+                .shouldBeNull()
         }
 
         test("not found in a store offers at most two other stores and Search by title") {
@@ -683,7 +697,16 @@ class BookMatchPageTest :
                 MatchRig(
                     find =
                         results(
-                            maybe = listOf(candidate(id = "B2", narrators = emptyList(), chapterCount = null, durationMs = null, reasons = emptyList())),
+                            maybe =
+                                listOf(
+                                    candidate(
+                                        id = "B2",
+                                        narrators = emptyList(),
+                                        chapterCount = null,
+                                        durationMs = null,
+                                        reasons = emptyList(),
+                                    ),
+                                ),
                         ),
                 )
             val host = rig.mount(view = MatchView.Compare)

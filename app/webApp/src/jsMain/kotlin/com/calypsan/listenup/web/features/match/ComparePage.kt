@@ -60,15 +60,15 @@ internal fun ComparePage(
         Table(attrs = { classes("bmx-cmp") }) {
             Thead {
                 Tr {
-                    Th(attrs = { attr("scope", "col") }) { Span(attrs = { classes("sr-only") }) { Text("Detail") } }
-                    Th(attrs = { attr("scope", "col") }) {
+                    Th(attrs = { attr(ATTR_SCOPE, "col") }) { Span(attrs = { classes("sr-only") }) { Text("Detail") } }
+                    Th(attrs = { attr(ATTR_SCOPE, "col") }) {
                         Div(attrs = { classes("bmx-cmp-col") }) {
                             Art(url = find.yourCopy?.coverHash?.let { coverUrl(bookId, it, width = ART_WIDTH) })
                             Text("Your copy")
                         }
                     }
                     candidates.forEach { candidate ->
-                        Th(attrs = { attr("scope", "col") }) {
+                        Th(attrs = { attr(ATTR_SCOPE, "col") }) {
                             Div(attrs = { classes("bmx-cmp-col") }) {
                                 Art(url = candidate.coverUrl)
                                 Badges(candidate)
@@ -81,7 +81,7 @@ internal fun ComparePage(
             Tbody {
                 compareRows(find.yourCopy, candidates).forEach { row ->
                     Tr {
-                        Th(attrs = { attr("scope", "row") }) { Text(row.label) }
+                        Th(attrs = { attr(ATTR_SCOPE, "row") }) { Text(row.label) }
                         Td { Text(row.yours) }
                         row.theirs.forEach { cell ->
                             Td {
@@ -226,4 +226,5 @@ private fun narratorNote(reasons: List<MatchReason>): String? =
     }
 
 private const val NOT_LISTED = "Not listed"
+private const val ATTR_SCOPE = "scope"
 private const val ART_WIDTH = 112
