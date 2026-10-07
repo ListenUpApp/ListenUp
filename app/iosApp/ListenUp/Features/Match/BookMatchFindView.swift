@@ -350,28 +350,41 @@ struct MatchFailureView: View {
     }
 }
 
-/// Searching and its outcome are spoken, never silent.
-struct MatchFindAnnouncements: ViewModifier {
-    let phase: MatchFindPhase
+/// A Find phase VoiceOver follows: whether a search is running, and what to say when one finishes.
+protocol MatchAnnouncedFindPhase: Equatable {
+    var isSearching: Bool { get }
+    /// "4 matches", or a failure's title; nil while searching.
+    var finishedAnnouncement: String? { get }
+}
 
-    private var isSearching: Bool {
-        if case .searching = phase { return true }
+extension MatchFindPhase: MatchAnnouncedFindPhase {
+    var isSearching: Bool {
+        if case .searching = self { return true }
         return false
     }
 
+    var finishedAnnouncement: String? {
+        switch self {
+        case .results(let results): MatchCopy.matchesAnnouncement(results.all.count)
+        case .failed(let failure): failure.title
+        case .searching: nil
+        }
+    }
+}
+
+/// Searching and its outcome are spoken, never silent — for books and people alike.
+struct MatchFindAnnouncements<Phase: MatchAnnouncedFindPhase>: ViewModifier {
+    let phase: Phase
+
     func body(content: Content) -> some View {
         content
-            .onChange(of: isSearching) { _, searching in
+            .onChange(of: phase.isSearching) { _, searching in
                 if searching { VoiceOverAnnouncement.post(String(localized: "match.searching")) }
             }
             // Only when a search finishes: picking a row also changes the results, and isn't news.
             .onChange(of: phase) { old, new in
-                guard case .searching = old else { return }
-                switch new {
-                case .results(let results): VoiceOverAnnouncement.post(MatchCopy.matchesAnnouncement(results.all.count))
-                case .failed(let failure): VoiceOverAnnouncement.post(failure.title)
-                case .searching: break
-                }
+                guard old.isSearching, let announcement = new.finishedAnnouncement else { return }
+                VoiceOverAnnouncement.post(announcement)
             }
     }
 }

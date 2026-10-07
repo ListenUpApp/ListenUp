@@ -202,6 +202,22 @@ struct MatchFieldRow: Identifiable, Equatable {
     let valuesLabel: String
 
     var id: Int32 { field.rawValue }
+
+    var values: MatchValues {
+        MatchValues(name: name, yours: yours, proposed: proposed, isLongText: isLongText, accessibilityLabel: valuesLabel)
+    }
+}
+
+/// Yours → Proposed for one value — a book field or a person's biography.
+struct MatchValues: Equatable {
+    /// "Description", "Biography": what Read All expands.
+    let name: String
+    let yours: String?
+    let proposed: String
+    /// Long text shows three lines and Read All.
+    let isLongText: Bool
+    /// "Biography. Yours: …. Proposed from Hardcover: …."
+    let accessibilityLabel: String
 }
 
 /// One cover tile: Keep current, or a candidate.
@@ -314,12 +330,19 @@ enum MatchReviewPhase: Equatable {
 
 // MARK: - Receipt
 
-/// The receipt on Book Detail.
+/// Whose receipt it is: a book's lists its changes; a person's sentence and expiry name them.
+enum MatchReceiptSubject: Equatable {
+    case book
+    case person(name: String)
+}
+
+/// The receipt on Book Detail or the contributor page.
 enum MatchReceiptPhase: Equatable {
     case none
     case shown(MatchReceiptModel)
     case undone
-    case expired
+    /// "This book has changed since, so the match can't be undone."
+    case expired(message: String)
 }
 
 /// "Changed 5 fields, cover from Hardcover, 16 chapter names", Undo and See What Changed.
@@ -330,4 +353,6 @@ struct MatchReceiptModel: Equatable {
     let canUndo: Bool
     let undoing: Bool
     let undoError: String?
+    /// A person's receipt already names both changes, so it has no See What Changed (plan D6).
+    var showsWhatChanged = true
 }

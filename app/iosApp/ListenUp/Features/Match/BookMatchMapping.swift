@@ -386,23 +386,26 @@ enum BookMatchMapping {
 
     // MARK: - Receipt
 
-    static func receipt(from state: any MatchReceiptUiState) -> MatchReceiptPhase {
+    static func receipt(
+        from state: any MatchReceiptUiState, subject: MatchReceiptSubject = .book
+    ) -> MatchReceiptPhase {
         switch state.sealedType() {
         case .none:
             return .none
         case .undone:
             return .undone
         case .expired:
-            return .expired
+            return .expired(message: MatchCopy.undoExpired(subject))
         case .shown(let shownType):
             let shown = shownType.value
             return .shown(MatchReceiptModel(
                 id: shown.receipt.receiptId,
-                sentence: MatchCopy.receipt(shown.receipt),
+                sentence: MatchCopy.receipt(shown.receipt, subject: subject),
                 changes: shown.receipt.changes.flatMap(MatchCopy.changeLines),
                 canUndo: shown.receipt.undoable,
                 undoing: shown.undoing,
-                undoError: shown.undoError?.message
+                undoError: shown.undoError?.message,
+                showsWhatChanged: subject == .book
             ))
         }
     }
