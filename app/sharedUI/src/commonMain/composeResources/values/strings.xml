@@ -813,6 +813,7 @@ One beautiful library.</string>
     <string name="common_clear_date">Clear date</string>
     <string name="common_clear_search">Clear search</string>
     <string name="common_clear_selection">Clear selection</string>
+    <string name="common_close">Close</string>
     <string name="common_collapse">Collapse</string>
     <string name="common_collapsed">Collapsed</string>
     <string name="common_collection_name_hint">e.g., Staff Picks, Sci-Fi, New Releases...</string>

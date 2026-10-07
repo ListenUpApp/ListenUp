@@ -8121,6 +8121,16 @@
         }
       }
     },
+    "common.close": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close"
+          }
+        }
+      }
+    },
     "common.collapse": {
       "localizations": {
         "en": {
