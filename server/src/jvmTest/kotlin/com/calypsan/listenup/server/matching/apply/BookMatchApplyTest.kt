@@ -65,6 +65,25 @@ class BookMatchApplyTest :
             }
         }
 
+        test("the write publishes exactly one book event, plus one per mood link it changes") {
+            withSqlDatabase {
+                runTest {
+                    val rig = MatchRig(this@withSqlDatabase)
+                    val book = rig.seedBook()
+                    val request = rig.fullRequest()
+                    val model = rig.reviewer.review(book, request.candidate, US).shouldSucceed()
+                    val draft = MatchPlanner.plan(model, request, emptyList()).shouldSucceed()
+                    val plan = rig.preparer.prepare(draft, book, model.currentMoods).shouldSucceed()
+
+                    val mark = rig.bus.mark()
+                    rig.writer.write(plan, request.basedOnRevision, "u1").shouldSucceed()
+                    val published = rig.bus.mark() - mark
+                    published shouldBe (plan.moodsToLink.size + plan.moodsToUnlink.size + 1).toLong()
+                    (plan.moodsToLink.size + plan.moodsToUnlink.size) shouldBe 2
+                }
+            }
+        }
+
         test("every written field, the cover included, is stamped ENRICHMENT with its source") {
             withSqlDatabase {
                 runTest {

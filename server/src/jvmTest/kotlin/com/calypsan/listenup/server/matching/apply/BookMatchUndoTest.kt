@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.matching.apply
 
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.sync.withCapturedFrames
@@ -22,7 +23,9 @@ class BookMatchUndoTest :
             withSqlDatabase {
                 runTest {
                     val rig = MatchRig(this@withSqlDatabase)
-                    val before = rig.seedBook()
+                    rig.seedBook()
+                    rig.books.setManagedCover(BookId(BOOK), "covers/$BOOK.jpg", "h-scan", CoverSource.EMBEDDED).shouldSucceed()
+                    val before = rig.book()
                     val coverBefore = rig.coverColumns()
                     val receipt = rig.applier.apply(before, rig.fullRequest(), US, "u1").shouldSucceed()
                     val applied = rig.book()
