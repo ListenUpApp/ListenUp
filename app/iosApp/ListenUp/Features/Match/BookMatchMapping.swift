@@ -221,7 +221,11 @@ enum BookMatchMapping {
                 labels(ready.moods, kind: .moods, title: String(localized: "match.moods"))
             ].compactMap { $0 },
             chapters: chapters(ready.chapterNames),
-            alreadySame: MatchCopy.alreadySame(ready.alreadySame, lengthAlreadySame: ready.lengthAlreadySame),
+            // Read as names, never as `alreadySame`: a bridged `List<BookField>`'s elements trap when Swift
+            // reads them (NoBridgedEnumCollectionsInUiStateRule). The Swift enum is rebuilt from each name.
+            alreadySame: MatchCopy.alreadySame(
+                ready.alreadySameNames.compactMap { BookField($0) }, lengthAlreadySame: ready.lengthAlreadySame
+            ),
             applyBar: MatchApplyBar(
                 summary: MatchCopy.applyBar(ready.applyBar),
                 canApply: ready.applyBar.canApply,

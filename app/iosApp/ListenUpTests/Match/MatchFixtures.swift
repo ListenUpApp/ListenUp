@@ -97,7 +97,9 @@ enum MatchFixtures {
                 labelsAdded: 0, labelsRemoved: 0, chapterNameCount: 0, keptEditedCount: Int32(youEdited.count)
             ),
             cover: cover, changes: changes, fillsGap: fillsGap, youEdited: youEdited, genres: genres, moods: moods,
-            chapterNames: chapterNames, alreadySame: alreadySame, lengthAlreadySame: lengthAlreadySame,
+            // The names alone, as the ViewModel fills them: Swift never touches the bridged enum list.
+            chapterNames: chapterNames, alreadySame: [], alreadySameNames: alreadySame.map { String(describing: $0) },
+            lengthAlreadySame: lengthAlreadySame,
             applyBar: applyBar, applying: applying, applyError: applyError
         )
     }
