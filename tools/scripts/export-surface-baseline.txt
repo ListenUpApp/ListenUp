@@ -683,6 +683,8 @@ Reader
 ReaderLine
 ReaderLineKind
 ReaderLineKind_SealedType
+ReadingOrderError
+ReadingOrderError_SealedType
 RecentlyAddedUiBook
 RecentlyAddedUiState
 RecentlyAddedUiState_SealedType
