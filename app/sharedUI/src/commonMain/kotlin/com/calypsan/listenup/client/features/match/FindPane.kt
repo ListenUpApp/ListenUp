@@ -124,7 +124,13 @@ internal fun FindPane(
                 ),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            item(key = "search") { MatchSearchField(query = query, onSearch = actions::search) }
+            item(key = "search") {
+                MatchSearchField(
+                    query = query,
+                    label = stringResource(Res.string.match_search_label),
+                    onSearch = actions::search,
+                )
+            }
             region?.let { item(key = "store") { StoreButton(region = it, onChoose = actions::chooseStore) } }
             state.yourCopy?.let { copy ->
                 item(
@@ -133,7 +139,14 @@ internal fun FindPane(
             }
             if (state is FindUiState.Searching) item(key = "searching") { SearchingIndicator() }
             if (state is FindUiState.Failed) {
-                item(key = "failure") { FindFailureContent(failure = state.failure, actions = actions) }
+                item(key = "failure") {
+                    FindFailureContent(
+                        failure = state.failure,
+                        onRetry = actions::retry,
+                        onChooseStore = actions::chooseStore,
+                        onSearchByTitle = actions::searchByTitle,
+                    )
+                }
             }
             results?.let { found ->
                 candidateGroups(
@@ -161,11 +174,12 @@ internal fun FindPane(
     }
 }
 
-/** The M3 search field, seeded with what Find searched; submitting searches again. */
+/** The M3 search field, seeded with what Find searched and named [label]; submitting searches again. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MatchSearchField(
+internal fun MatchSearchField(
     query: String,
+    label: String,
     onSearch: (String) -> Unit,
 ) {
     val textState = rememberTextFieldState(query)
@@ -175,7 +189,6 @@ private fun MatchSearchField(
     LaunchedEffect(query) {
         if (textState.text.toString() != query) textState.setTextAndPlaceCursorAtEnd(query)
     }
-    val label = stringResource(Res.string.match_search_label)
     SearchBar(
         state = searchBarState,
         modifier = Modifier.fillMaxWidth(),
@@ -296,7 +309,7 @@ private fun YourCopyStrip(
 /** The wavy line under the field while Find runs, announced as "Searching…". */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun SearchingIndicator() {
+internal fun SearchingIndicator() {
     val searching = stringResource(Res.string.match_searching)
     Column(
         modifier =

@@ -220,15 +220,19 @@ private fun SourceSwitch(
     )
 }
 
-/** Yours → Proposed: side by side, or stacked at large text. Long values show three lines and Read all. */
+/**
+ * Yours → Proposed: side by side, or stacked at large text or when [alwaysStacked] (a biography is prose, so it
+ * reads down the page). Long values show three lines and Read all.
+ */
 @Composable
-private fun YoursAndProposed(
+internal fun YoursAndProposed(
     yours: String,
     proposed: String,
     proposedLabel: String,
     ticked: Boolean,
+    alwaysStacked: Boolean = false,
 ) {
-    val stacked = LocalDensity.current.fontScale >= LARGE_TEXT_SCALE
+    val stacked = alwaysStacked || LocalDensity.current.fontScale >= LARGE_TEXT_SCALE
     val yoursBlock: @Composable (Modifier) -> Unit = { modifier ->
         LabelledValue(stringResource(Res.string.match_yours), yours, emphasised = false, modifier = modifier)
     }

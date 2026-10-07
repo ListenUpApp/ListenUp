@@ -129,7 +129,17 @@ internal fun ReviewPane(
                 )
             }
         },
-        bottomBar = { if (state is ReviewUiState.Ready) ApplyArea(ready = state, onApply = actions::apply) },
+        bottomBar = {
+            if (state is ReviewUiState.Ready) {
+                ApplyArea(
+                    summary = applySummaryText(state.applyBar),
+                    canApply = state.applyBar.canApply,
+                    applying = state.applying,
+                    applyError = state.applyError,
+                    onApply = actions::apply,
+                )
+            }
+        },
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (state) {
