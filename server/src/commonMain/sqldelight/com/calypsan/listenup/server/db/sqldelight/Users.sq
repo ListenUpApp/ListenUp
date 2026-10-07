@@ -11,6 +11,7 @@
 --   V37__users_timezone.sql          (timezone DEFAULT 'UTC')
 --   V80__hardcover_want_to_read.sql  (starter_shelf_id, hardcover_shelf_id — where Hardcover's Want to Read lands)
 --   V82__drop_can_share.sql          (drops V26's can_share — the inert "Can share" permission)
+--   V93__story_world_entities.sql    (can_contribute_story_world DEFAULT 1, can_curate_story_world DEFAULT 0)
 --
 -- SECURITY-RELEVANT CONSTRAINTS preserved verbatim:
 --   * email_normalized UNIQUE — the single structural guarantee that one email maps to one
@@ -45,7 +46,9 @@ CREATE TABLE users (
     timezone         TEXT    NOT NULL DEFAULT 'UTC',
     avatar_updated_at INTEGER NOT NULL DEFAULT 0,
     starter_shelf_id TEXT,
-    hardcover_shelf_id TEXT
+    hardcover_shelf_id TEXT,
+    can_contribute_story_world INTEGER NOT NULL DEFAULT 1,
+    can_curate_story_world     INTEGER NOT NULL DEFAULT 0
 );
 
 -- Single-row lookup by normalized email — the login / registration uniqueness probe. Indexed
@@ -94,6 +97,16 @@ SELECT id FROM users WHERE role = :role LIMIT 1;
 -- (UserPermissionPolicy). A tombstoned or absent user yields no row → denied.
 selectPermissionsLiveById:
 SELECT can_edit FROM users WHERE id = :id AND deleted_at IS NULL;
+
+-- The two Story World flags of a LIVE user — the UserPermissionPolicy Story World gates.
+selectStoryWorldPermissionsLiveById:
+SELECT can_contribute_story_world, can_curate_story_world FROM users WHERE id = :id AND deleted_at IS NULL;
+
+-- Writes only the Story World flags; AdminUserServiceImpl.updateUser calls it after updateAdminFields.
+updateStoryWorldPermissions:
+UPDATE users
+SET can_contribute_story_world = :can_contribute_story_world, can_curate_story_world = :can_curate_story_world
+WHERE id = :id;
 
 -- IANA timezone name for stats day-boundary math (homeTimeZone). Absent row → caller defaults UTC.
 selectTimezoneById:
