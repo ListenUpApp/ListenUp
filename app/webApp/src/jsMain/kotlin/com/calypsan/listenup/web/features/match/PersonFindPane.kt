@@ -53,11 +53,7 @@ internal fun PersonFindPane(
             is PersonFindUiState.Searching -> find.previous
             is PersonFindUiState.NoProfiles, is PersonFindUiState.Failed -> null
         }
-    val coverage: CoverageNote? =
-        when (find) {
-            is PersonFindUiState.NoProfiles -> find.coverageNote
-            else -> shown?.coverageNote
-        }
+    val coverage: CoverageNote? = if (find is PersonFindUiState.NoProfiles) find.coverageNote else shown?.coverageNote
     val name = find.header?.name.orEmpty()
 
     Div(attrs = { classes("bmx-pane-h") }) {

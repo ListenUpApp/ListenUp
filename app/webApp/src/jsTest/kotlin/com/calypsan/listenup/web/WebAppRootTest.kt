@@ -1660,7 +1660,11 @@ class WebAppRootTest :
                 val region = host.querySelector(".bmx-receipt") as HTMLElement
                 region.querySelector(".bmx-receipt-t")?.textContent shouldBe "Changed photo and biography for Ray Porter"
                 document.activeElement shouldBe region
-                region.querySelectorAll("button").asList().map { it.textContent?.trim() }.contains("See what changed") shouldBe
+                region
+                    .querySelectorAll("button")
+                    .asList()
+                    .map { it.textContent?.trim() }
+                    .contains("See what changed") shouldBe
                     false
                 (region.querySelectorAll("button").asList().first { it.textContent?.trim() == "Undo" } as HTMLElement).click()
                 calls shouldBe listOf("undo")

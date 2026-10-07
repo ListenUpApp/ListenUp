@@ -238,9 +238,18 @@ private fun personReviewAnnouncementKey(review: PersonReviewUiState): String =
 /** What the live region says about a person's Review; null when a ready Review has nothing new to say. */
 internal fun personReviewAnnouncement(review: PersonReviewUiState): String? =
     when (review) {
-        PersonReviewUiState.NoneChosen -> null
-        is PersonReviewUiState.Loading -> LOADING_MATCH
-        is PersonReviewUiState.Failed -> "Couldn't load this match. ${review.error.message}"
+        PersonReviewUiState.NoneChosen -> {
+            null
+        }
+
+        is PersonReviewUiState.Loading -> {
+            LOADING_MATCH
+        }
+
+        is PersonReviewUiState.Failed -> {
+            "Couldn't load this match. ${review.error.message}"
+        }
+
         is PersonReviewUiState.Ready -> {
             when {
                 review.applying -> APPLYING

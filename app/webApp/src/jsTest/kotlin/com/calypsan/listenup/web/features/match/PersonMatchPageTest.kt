@@ -92,8 +92,7 @@ private fun Element.texts(selector: String): List<String> =
 
 private fun HTMLElement.live(): String = text("#$LIVE_ID").orEmpty()
 
-private fun HTMLElement.rows(): List<HTMLElement> =
-    querySelectorAll(".bmx-row").asList().filterIsInstance<HTMLElement>()
+private fun HTMLElement.rows(): List<HTMLElement> = querySelectorAll(".bmx-row").asList().filterIsInstance<HTMLElement>()
 
 private fun Element.inputNamed(name: String): HTMLInputElement? =
     querySelectorAll("input")

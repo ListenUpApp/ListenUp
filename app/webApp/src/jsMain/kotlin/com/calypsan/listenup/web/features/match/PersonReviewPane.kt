@@ -66,7 +66,7 @@ internal fun PersonReviewPane(
                 classes("skel", "bmx-skel")
                 attr("aria-hidden", "true")
             })
-            P(attrs = { classes("bmx-note") }) { Text(LOADING_MATCH) }
+            P(attrs = { classes(NOTE) }) { Text(LOADING_MATCH) }
         }
 
         is PersonReviewUiState.Failed -> {
@@ -87,7 +87,7 @@ internal fun PersonReviewPane(
             SkipToApply()
             PersonReviewHeader(review.candidate, review.role, onBack)
             if (reloaded) P(attrs = { classes("bmx-err") }) { Text(REVIEW_RELOADED_PERSON) }
-            P(attrs = { classes("bmx-note", "pmx-apart") }) { Text("Photo and biography, chosen separately.") }
+            P(attrs = { classes(NOTE, "pmx-apart") }) { Text("Photo and biography, chosen separately.") }
             review.photo?.let { PhotoSection(it, personName, contributorId, session) }
             review.biography?.let { BiographySection(it, viewerId, session) }
             ApplyBar(
@@ -147,8 +147,8 @@ private fun PartHeading(
         }) { Text(title) }
         when (state) {
             FieldState.USER_EDITED -> Span(attrs = { classes("bmx-edited") }) { Text("You edited this") }
-            FieldState.FILLS_GAP -> Span(attrs = { classes("bmx-note") }) { Text("fills a gap") }
-            FieldState.CHANGES -> Span(attrs = { classes("bmx-note") }) { Text("chosen on its own") }
+            FieldState.FILLS_GAP -> Span(attrs = { classes(NOTE) }) { Text("fills a gap") }
+            FieldState.CHANGES -> Span(attrs = { classes(NOTE) }) { Text("chosen on its own") }
             FieldState.SAME -> Unit
         }
     }
@@ -268,7 +268,7 @@ private fun BiographySection(
             state = biography.state,
         )
         if (same) {
-            P(attrs = { classes("bmx-note") }) { Text("Your biography already matches.") }
+            P(attrs = { classes(NOTE) }) { Text("Your biography already matches.") }
             return@Section
         }
         if (biography.options.size > 1 || biography.canKeepYours) BiographySourceSwitch(biography, session)
@@ -316,4 +316,5 @@ internal const val SECTION_PHOTO = "pmx-sec-photo"
 internal const val SECTION_BIOGRAPHY = "pmx-sec-bio"
 private const val PHOTO_GROUP = "pmx-photo"
 private const val BIOGRAPHY_GROUP = "pmx-bio-src"
+private const val NOTE = "bmx-note"
 private const val ATTR_ARIA_LABEL = "aria-label"

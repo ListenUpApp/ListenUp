@@ -96,7 +96,10 @@ private fun personStepText(
 ): String {
     val verb = if (role == ContributorRole.NARRATOR) "narrates" else "wrote"
     return when (step) {
-        is PersonSearchStep.ExistingLink -> "your ${step.source.label} link"
+        is PersonSearchStep.ExistingLink -> {
+            "your ${step.source.label} link"
+        }
+
         is PersonSearchStep.ViaYourBooks -> {
             if (step.bookCount == 1) {
                 "the book $name $verb in your library"
@@ -104,7 +107,10 @@ private fun personStepText(
                 "the ${step.bookCount} books $name $verb in your library"
             }
         }
-        is PersonSearchStep.ByName -> "a search for “${step.query}”"
+
+        is PersonSearchStep.ByName -> {
+            "a search for “${step.query}”"
+        }
     }
 }
 

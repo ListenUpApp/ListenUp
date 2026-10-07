@@ -44,7 +44,13 @@ internal fun inLibrary(
         role = role,
         bookCount = bookCount,
         titles = titles,
-        covers = titles.mapIndexed { index, title -> LibraryCoverUi("b-$index", title, "covers/$index.jpg", "h$index") },
+        covers =
+            titles.mapIndexed {
+                index,
+                title,
+                ->
+                LibraryCoverUi("b-$index", title, "covers/$index.jpg", "h$index")
+            },
     )
 
 internal fun person(
@@ -84,10 +90,26 @@ internal fun authorResults(
     strong: List<PersonCandidateUi> = listOf(person(isBest = true)),
     maybe: List<PersonCandidateUi> =
         listOf(
-            person(id = "P2", knownWorks = listOf("Local history"), libraryCount = 0, noBooksInLibrary = true,
-                foundIn = listOf(HARDCOVER), tier = MatchTier.MAYBE, photoUrl = null),
-            person(id = "P3", name = "Andrew Weir", knownWorks = emptyList(), worksCount = 1, libraryCount = 0,
-                noBooksInLibrary = true, foundIn = listOf(AUDIBLE), tier = MatchTier.MAYBE, photoUrl = null),
+            person(
+                id = "P2",
+                knownWorks = listOf("Local history"),
+                libraryCount = 0,
+                noBooksInLibrary = true,
+                foundIn = listOf(HARDCOVER),
+                tier = MatchTier.MAYBE,
+                photoUrl = null,
+            ),
+            person(
+                id = "P3",
+                name = "Andrew Weir",
+                knownWorks = emptyList(),
+                worksCount = 1,
+                libraryCount = 0,
+                noBooksInLibrary = true,
+                foundIn = listOf(AUDIBLE),
+                tier = MatchTier.MAYBE,
+                photoUrl = null,
+            ),
         ),
     pickedKey: PersonCandidateKey? = null,
     partialFailure: PartialFailure? = null,
@@ -105,12 +127,30 @@ internal fun authorResults(
         pickedKey = pickedKey,
     )
 
-internal val RAY = person(id = "R1", name = "Ray Porter", shownRole = ContributorRole.NARRATOR,
-    knownWorks = listOf("Project Hail Mary", "Bobiverse"), libraryCount = 5, foundIn = listOf(HARDCOVER), isBest = true)
+internal val RAY =
+    person(
+        id = "R1",
+        name = "Ray Porter",
+        shownRole = ContributorRole.NARRATOR,
+        knownWorks = listOf("Project Hail Mary", "Bobiverse"),
+        libraryCount = 5,
+        foundIn = listOf(HARDCOVER),
+        isBest = true,
+    )
 
-internal val RAY_THE_AUTHOR = person(id = "R2", name = "Ray Porter", shownRole = ContributorRole.AUTHOR,
-    knownWorks = emptyList(), worksCount = 1, libraryCount = 0, foundIn = listOf(HARDCOVER), tier = MatchTier.MAYBE,
-    isDifferentRole = true, photoUrl = null)
+internal val RAY_THE_AUTHOR =
+    person(
+        id = "R2",
+        name = "Ray Porter",
+        shownRole = ContributorRole.AUTHOR,
+        knownWorks = emptyList(),
+        worksCount = 1,
+        libraryCount = 0,
+        foundIn = listOf(HARDCOVER),
+        tier = MatchTier.MAYBE,
+        isDifferentRole = true,
+        photoUrl = null,
+    )
 
 internal val NARRATOR_COVERAGE = CoverageNote(withoutProfiles = listOf(AUDIBLE), using = listOf(HARDCOVER))
 
@@ -132,8 +172,7 @@ internal fun narratorResults(): PersonFindUiState.Results =
 internal fun personSearching(
     role: ContributorRole = ContributorRole.AUTHOR,
     previous: PersonFindUiState.Results? = null,
-): PersonFindUiState.Searching =
-    PersonFindUiState.Searching(role, personHeader(), inLibrary(), "Andy Weir", previous)
+): PersonFindUiState.Searching = PersonFindUiState.Searching(role, personHeader(), inLibrary(), "Andy Weir", previous)
 
 internal fun noProfiles(role: ContributorRole = ContributorRole.NARRATOR): PersonFindUiState.NoProfiles =
     PersonFindUiState.NoProfiles(role, personHeader("Ray Porter"), inLibrary(role), "Ray Porter", NARRATOR_COVERAGE)

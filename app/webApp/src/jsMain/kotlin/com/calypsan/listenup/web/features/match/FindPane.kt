@@ -318,7 +318,9 @@ internal fun FailureCard(
         look = EmptyLook.Inset,
         marker = "bmx-failure",
         action = {
-            Div(attrs = { classes("bmx-fail-acts") }) { FailureActions(failure, onRetry, onChooseStore, onSearchByTitle) }
+            Div(
+                attrs = { classes("bmx-fail-acts") },
+            ) { FailureActions(failure, onRetry, onChooseStore, onSearchByTitle) }
             if (failure is FindFailure.RateLimited) P(attrs = { classes("bmx-note") }) { Text(NOTHING_WAS_CHANGED) }
         },
     )
