@@ -76,7 +76,12 @@ private struct MatchReceiptHost: ViewModifier {
                     viewModel: deps.createMatchReceiptViewModel(subjectId: subjectId), subject: subject
                 )
             }
-            .onChange(of: subject) { _, subject in observer?.subject = subject }
+            // The contributor page forgets its name while Match details is pushed over it; keep the last one,
+            // so the receipt never reads "Changed photo for ".
+            .onChange(of: subject) { _, subject in
+                if case .person(let name) = subject, name.isEmpty { return }
+                observer?.subject = subject
+            }
             .onChange(of: phase) { old, new in
                 guard let message = MatchReceiptAnnouncement.text(for: new),
                       MatchReceiptAnnouncement.text(for: old) != message else { return }

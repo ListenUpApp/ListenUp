@@ -36,7 +36,9 @@ struct PersonMatchMappingTests {
 
     @Test func theLibraryStripNamesTheBooksInTheRole() {
         let titles = ["Project Hail Mary", "The Martian", "Artemis"]
-        let wrote = PersonMatchMapping.library(Fixture.inLibrary(role: .author, count: 3, titles: titles), role: .author)
+        let wrote = PersonMatchMapping.library(
+            Fixture.inLibrary(role: .author, count: 3, titles: titles), role: .author
+        )
         #expect(wrote?.line == "Wrote 3 books in your library: Project Hail Mary, The Martian, Artemis")
         #expect(wrote?.covers.map(\.title) == titles)
 
@@ -69,8 +71,8 @@ struct PersonMatchMappingTests {
         #expect(row.sourcesLine == "Shelfdata")
         #expect(row.differentRole == nil)
         #expect(row.isStrong && row.isBest)
-        #expect(row.accessibilityLabel
-            == "Best match. Ray Porter. Narrator, Project Hail Mary and Bobiverse. Narrated 5 books in your library. Shelfdata.")
+        #expect(row.accessibilityLabel == "Best match. Ray Porter. Narrator, Project Hail Mary and Bobiverse. "
+            + "Narrated 5 books in your library. Shelfdata.")
     }
 
     @Test func aPersonWithNoWorksNamedSaysHowManyBooks() {
@@ -186,7 +188,8 @@ struct PersonMatchMappingTests {
         #expect(biography.segments.map(\.title) == ["Shelfdata"])
         #expect(biography.switchStyle == .none)
         #expect(biography.values.accessibilityLabel
-            == "Biography. Yours: —. Proposed from Shelfdata: \(MatchCopy.withoutFinalPeriod(Fixture.proposedBiography)).")
+            == "Biography. Yours: —. Proposed from Shelfdata: "
+            + "\(MatchCopy.withoutFinalPeriod(Fixture.proposedBiography)).")
     }
 
     @Test func aBiographyYouEditedStartsUntickedAndSaysWhose() {
@@ -216,7 +219,9 @@ struct PersonMatchMappingTests {
     @Test func theApplyBarSaysWhatApplyWrites() {
         func bar(_ photo: Bool, _ biography: Bool) -> MatchApplyBar {
             PersonMatchMapping.review(
-                Fixture.ready(applyBar: PersonApplySummary(photo: photo, biography: biography, sources: [Fixture.shelfdata])),
+                Fixture.ready(
+                    applyBar: PersonApplySummary(photo: photo, biography: biography, sources: [Fixture.shelfdata])
+                ),
                 viewerId: nil
             ).applyBar
         }
@@ -261,8 +266,8 @@ struct PersonMatchMappingTests {
                 biographySource: biography, changes: [], undoable: true
             )
         }
-        #expect(MatchCopy.personReceipt(receipt(photo: Fixture.shelfdata, biography: Fixture.shelfdata), name: "Ray Porter")
-            == "Changed photo and biography for Ray Porter")
+        let both = receipt(photo: Fixture.shelfdata, biography: Fixture.shelfdata)
+        #expect(MatchCopy.personReceipt(both, name: "Ray Porter") == "Changed photo and biography for Ray Porter")
         #expect(MatchCopy.personReceipt(receipt(photo: Fixture.shelfdata, biography: nil), name: "Ray Porter")
             == "Changed photo for Ray Porter")
         #expect(MatchCopy.personReceipt(receipt(photo: nil, biography: Fixture.shelfdata), name: "Ray Porter")

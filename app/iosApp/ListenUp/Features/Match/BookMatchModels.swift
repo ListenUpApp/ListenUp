@@ -204,7 +204,9 @@ struct MatchFieldRow: Identifiable, Equatable {
     var id: Int32 { field.rawValue }
 
     var values: MatchValues {
-        MatchValues(name: name, yours: yours, proposed: proposed, isLongText: isLongText, accessibilityLabel: valuesLabel)
+        MatchValues(
+            name: name, yours: yours, proposed: proposed, isLongText: isLongText, accessibilityLabel: valuesLabel
+        )
     }
 }
 

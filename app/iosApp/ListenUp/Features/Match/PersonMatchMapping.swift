@@ -32,7 +32,9 @@ enum PersonMatchMapping {
             )
         case .results(let resultsType):
             let loaded = resultsType.value
-            return make(coverage: loaded.coverageNote, steps: loaded.steps, phase: .results(results(loaded, role: role)))
+            return make(
+                coverage: loaded.coverageNote, steps: loaded.steps, phase: .results(results(loaded, role: role))
+            )
         case .noProfiles(let noProfilesType):
             return make(
                 coverage: noProfilesType.value.coverageNote, steps: [], phase: .noProfiles(noProfiles(role))
@@ -84,7 +86,8 @@ enum PersonMatchMapping {
 
         // "Author, The Martian and Artemis. Not a narrator. Different role" — the role and works as a sentence.
         let worksSentence = candidate.knownWorks.isEmpty ? works : MatchCopy.list(candidate.knownWorks)
-        let roleSentence = [[roleWord, worksSentence].compactMap { $0 }.joined(separator: ", "), notInRole, differentRole]
+        let roleAndWorks = [roleWord, worksSentence].compactMap { $0 }.joined(separator: ", ")
+        let roleSentence = [roleAndWorks, notInRole, differentRole]
             .compactMap { $0 }
             .filter { !$0.isEmpty }
             .joined(separator: ". ")
@@ -219,13 +222,17 @@ enum PersonMatchMapping {
         let proposed = MatchCopy.value(biography.proposed.value)
         let isEdited = biography.state == .userEdited || biography.handEdit != nil
         var segments = biography.options.map {
-            MatchSourceSegment(selection: .option($0.optionId), title: MatchCopy.list(MatchCopy.sourceLabels($0.sources)))
+            MatchSourceSegment(
+                selection: .option($0.optionId), title: MatchCopy.list(MatchCopy.sourceLabels($0.sources))
+            )
         }
         if biography.canKeepYours {
             segments.append(MatchSourceSegment(selection: .keepYours, title: String(localized: "match.keep_yours")))
         }
         let selected: MatchSourceSelection = {
-            if case .option(let optionType) = biography.choice.sealedType() { return .option(optionType.value.optionId) }
+            if case .option(let optionType) = biography.choice.sealedType() {
+                return .option(optionType.value.optionId)
+            }
             return biography.canKeepYours ? .keepYours : .option(biography.proposed.optionId)
         }()
         return PersonBiographySection(

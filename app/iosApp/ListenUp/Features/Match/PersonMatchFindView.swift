@@ -65,7 +65,9 @@ private struct PersonFindScreen: View {
                 onEditByHand: { editingByHand = true }
             ) { row in
                 NavigationLink {
-                    PersonReviewScreen(observer: observer, contributorId: contributorId, candidateId: row.id, layout: .phone)
+                    PersonReviewScreen(
+                        observer: observer, contributorId: contributorId, candidateId: row.id, layout: .phone
+                    )
                         .onAppear { observer.pick(row.id) }
                         .onDisappear { observer.backToResults() }
                 } label: {
@@ -182,10 +184,8 @@ extension PersonFindPhase: MatchAnnouncedFindPhase {
 
     var finishedAnnouncement: String? {
         switch self {
-        case .results(let results):
-            results.all.count == 1
-                ? String(localized: "match.people_count_one")
-                : String(format: String(localized: "match.people_count"), results.all.count)
+        case .results(let results) where results.all.count == 1: String(localized: "match.people_count_one")
+        case .results(let results): String(format: String(localized: "match.people_count"), results.all.count)
         case .noProfiles(let noProfiles): noProfiles.title
         case .failed(let failure): failure.title
         case .searching: nil

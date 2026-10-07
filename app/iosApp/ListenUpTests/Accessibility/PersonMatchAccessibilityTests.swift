@@ -63,7 +63,9 @@ struct PersonMatchAccessibilityTests {
     /// The biography's values read in full as one stop.
     @Test func theBiographyValuesAreOneStopReadInFull() async throws {
         let section = PersonMatchMapping.biography(Fixture.biography(), viewerId: nil)
-        let hosted = await HostedView(List { PersonBiographyRowView(biography: section, actions: PersonReviewActions()) })
+        let hosted = await HostedView(
+            List { PersonBiographyRowView(biography: section, actions: PersonReviewActions()) }
+        )
         defer { hosted.close() }
         #expect(hosted.stop(labelled: section.values.accessibilityLabel) != nil, "\(hosted.tree)")
     }
@@ -87,7 +89,9 @@ struct PersonMatchAccessibilityTests {
 
     /// No profiles anywhere: what happened, and Edit by Hand as a full target.
     @Test func noProfilesOffersEditByHand() async throws {
-        let hosted = await HostedView(PersonNoProfilesView(noProfiles: PersonMatchMapping.noProfiles(.narrator), onEditByHand: {}))
+        let hosted = await HostedView(
+            PersonNoProfilesView(noProfiles: PersonMatchMapping.noProfiles(.narrator), onEditByHand: {})
+        )
         defer { hosted.close() }
         #expect(!hosted.stops(labelContaining: "No source has a profile for this narrator").isEmpty, "\(hosted.tree)")
         let edit = try #require(hosted.stop(labelled: "Edit by Hand"), "\(hosted.tree)")
@@ -118,7 +122,9 @@ struct PersonMatchAccessibilityTests {
     @Test func atAX5TheApplyTrayStaysUnderAQuarterOfTheScreen() async throws {
         let screen = CGSize(width: 393, height: 852)
         let bar = review().applyBar
-        let hosted = await HostedView(MatchApplyBarView(bar: bar, onApply: {}), size: screen, dynamicTypeSize: .accessibility5)
+        let hosted = await HostedView(
+            MatchApplyBarView(bar: bar, onApply: {}), size: screen, dynamicTypeSize: .accessibility5
+        )
         defer { hosted.close() }
         let apply = try #require(hosted.stop(labelled: "Apply Changes"), "\(hosted.tree)")
         #expect(apply.hint == "Photo · biography")

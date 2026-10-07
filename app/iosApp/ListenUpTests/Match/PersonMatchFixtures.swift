@@ -69,7 +69,9 @@ enum PersonMatchFixtures {
         let options = sources.enumerated().map { index, source in
             PhotoOptionUi(optionId: "p\(index)", source: source, url: "https://example.com/p\(index).jpg")
         }
-        let choice: any ImageChoice = ticked ? ImageChoiceCandidate(optionId: options[0].optionId) : ImageChoiceKeepCurrent.shared
+        let choice: any ImageChoice = ticked
+            ? ImageChoiceCandidate(optionId: options[0].optionId)
+            : ImageChoiceKeepCurrent.shared
         return PhotoUi(
             currentPath: currentPath, setByHand: setByHand, state: state, options: options, choice: choice,
             proposed: options[0]
