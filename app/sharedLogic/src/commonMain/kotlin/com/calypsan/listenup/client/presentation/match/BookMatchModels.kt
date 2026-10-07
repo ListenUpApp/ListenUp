@@ -329,12 +329,17 @@ sealed interface BookMatchEvent {
     data object ReviewReloaded : BookMatchEvent
 }
 
-/** The receipt as Book Detail shows it: "Changed 5 fields, cover from Hardcover, 16 chapter names". */
+/**
+ * The receipt as Book Detail or the contributor page shows it: "Changed 5 fields, cover from Hardcover, 16 chapter
+ * names" for a book, "Changed photo and biography for Ray Porter" for a person ([photoSource], [biographySource]).
+ */
 data class MatchReceiptUi(
     val receiptId: String,
     val fieldCount: Int,
     val coverSource: MetadataSource?,
     val chapterNameCount: Int,
+    val photoSource: MetadataSource?,
+    val biographySource: MetadataSource?,
     val changes: List<AppliedChange>,
     val undoable: Boolean,
 )
@@ -368,18 +373,21 @@ internal fun BookCandidateKey.stableId(): String =
 
 /**
  * The receipt's counts. The field count is the scalar and list fields written plus one if genres changed and one
- * if moods changed — the canvas's "5 fields" (description, publisher, release date, genres, moods).
+ * if moods changed — the canvas's "5 fields" (description, publisher, release date, genres, moods). A person's
+ * photo and biography are named, not counted.
  */
 fun MatchReceipt.toUi(): MatchReceiptUi =
     MatchReceiptUi(
         receiptId = receiptId,
         fieldCount =
             changes.count {
-                it is AppliedChange.Field || it is AppliedChange.Genres || it is AppliedChange.Moods ||
-                    it is AppliedChange.Biography
+                it is AppliedChange.Field || it is AppliedChange.Genres ||
+                    it is AppliedChange.Moods
             },
         coverSource = changes.filterIsInstance<AppliedChange.Cover>().firstOrNull()?.source,
         chapterNameCount = changes.filterIsInstance<AppliedChange.ChapterNames>().sumOf { it.count },
+        photoSource = changes.filterIsInstance<AppliedChange.Photo>().firstOrNull()?.source,
+        biographySource = changes.filterIsInstance<AppliedChange.Biography>().firstOrNull()?.source,
         changes = changes,
         undoable = undoable,
     )

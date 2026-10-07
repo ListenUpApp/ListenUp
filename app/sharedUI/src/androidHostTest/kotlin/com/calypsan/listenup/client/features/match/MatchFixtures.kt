@@ -221,6 +221,8 @@ internal object MatchFixtures {
             fieldCount = 5,
             coverSource = BEACON,
             chapterNameCount = 16,
+            photoSource = null,
+            biographySource = null,
             changes =
                 listOf(
                     AppliedChange.Field(BookField.DESCRIPTION, ATLAS),

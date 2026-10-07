@@ -85,4 +85,21 @@ class MatchReceiptViewModelTest :
                 shown.undoing shouldBe false
             }
         }
+        test("a person's receipt names its photo and biography sources and counts no fields; Undo restores them") {
+            runTest(dispatcher) {
+                val repo = FakeMatchingRepository()
+                val store = MatchReceiptStore().apply { put(PERSON, personReceipt()) }
+                val vm = MatchReceiptViewModel(PERSON, store, UndoMatch(repo), ErrorBus())
+                backgroundScope.launch { vm.state.collect {} }
+                advanceUntilIdle()
+                val shown = vm.state.value.shouldBeInstanceOf<MatchReceiptUiState.Shown>()
+                shown.receipt.photoSource shouldBe HARDCOVER
+                shown.receipt.biographySource shouldBe HARDCOVER
+                shown.receipt.fieldCount shouldBe 0
+                vm.undo()
+                advanceUntilIdle()
+                vm.state.value shouldBe MatchReceiptUiState.Undone
+                repo.undoRequests shouldBe listOf("pr-1")
+            }
+        }
     })

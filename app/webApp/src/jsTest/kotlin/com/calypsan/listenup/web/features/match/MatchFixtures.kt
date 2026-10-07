@@ -242,6 +242,8 @@ internal fun receipt(undoable: Boolean = true): MatchReceiptUi =
         fieldCount = 5,
         coverSource = HARDCOVER,
         chapterNameCount = 16,
+        photoSource = null,
+        biographySource = null,
         changes =
             listOf(
                 AppliedChange.Field(BookField.DESCRIPTION, AUDIBLE),

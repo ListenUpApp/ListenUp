@@ -6,6 +6,9 @@ import com.calypsan.listenup.client.presentation.match.BookMatchViewModel
 import com.calypsan.listenup.client.presentation.match.FakeMatchingRepository
 import com.calypsan.listenup.client.presentation.match.MatchReceiptStore
 import com.calypsan.listenup.client.presentation.match.MatchReceiptViewModel
+import com.calypsan.listenup.client.presentation.match.PersonMatchViewModel
+import com.calypsan.listenup.client.presentation.match.FakeContributorRepository
+import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.test.fake.FakeBookRepository
 import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
@@ -30,7 +33,7 @@ class BookMatchResolutionTest :
         beforeTest { Dispatchers.setMain(StandardTestDispatcher()) }
         afterTest { Dispatchers.resetMain() }
 
-        test("Match details and the Book Detail receipt resolve, sharing one receipt store") {
+        test("Match details for books and people, and the receipt, resolve, sharing one receipt store") {
             val app =
                 koinApplication {
                     modules(
@@ -38,12 +41,15 @@ class BookMatchResolutionTest :
                         module {
                             single<BookRepository> { FakeBookRepository() }
                             single<MatchingRepository> { FakeMatchingRepository() }
+                            single<ContributorRepository> { FakeContributorRepository() }
                             single { ErrorBus() }
                         },
                     )
                 }
             val match = app.koin.get<BookMatchViewModel> { parametersOf("book-1") }
             val receipt = app.koin.get<MatchReceiptViewModel> { parametersOf("book-1") }
+            val person = app.koin.get<PersonMatchViewModel> { parametersOf("person-1") }
+            person.shouldNotBeNull()
             (
                 app.koin.get<MatchReceiptStore>() ===
                     app.koin.get<MatchReceiptStore>()

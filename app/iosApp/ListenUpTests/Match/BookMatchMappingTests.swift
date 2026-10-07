@@ -247,6 +247,7 @@ struct BookMatchMappingTests {
     @Test func theReceiptPhaseCarriesItsSentenceAndChanges() {
         let receipt = MatchReceiptUi(
             receiptId: "r1", fieldCount: 1, coverSource: Fixture.shelfdata, chapterNameCount: 0,
+            photoSource: nil, biographySource: nil,
             changes: [AppliedChangeField(field: .publisher, source: Fixture.storefront), AppliedChangeCover(source: Fixture.shelfdata)],
             undoable: true
         )

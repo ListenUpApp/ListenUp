@@ -2,6 +2,8 @@ package com.calypsan.listenup.client.presentation.match
 
 import com.calypsan.listenup.api.dto.match.BookFindResult
 import com.calypsan.listenup.api.dto.match.MatchTier
+import com.calypsan.listenup.api.dto.match.PersonFindResult
+import com.calypsan.listenup.api.dto.match.RoleCoverage
 import com.calypsan.listenup.api.dto.match.SourceStatus
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.TransportError
@@ -32,46 +34,106 @@ internal sealed interface FindOutcome {
  * - No candidates and nothing failed → nothing found.
  */
 internal fun chooseFindOutcome(result: BookFindResult): FindOutcome {
-    val failed = result.sources.filter { it.isFailure() }
     if (result.candidates.isNotEmpty()) {
         val candidates = result.candidates.map { it.toUi() }
-        val partial =
-            failed.takeIf { it.isNotEmpty() }?.let {
-                PartialFailure(
-                    failed = it.map(SourceStatus::source),
-                    answered =
-                        result.sources
-                            .filterIsInstance<SourceStatus.Answered>()
-                            .filter { answered -> answered.results > 0 }
-                            .map(SourceStatus::source),
-                )
-            }
         return FindOutcome.Candidates(
             strong = candidates.filter { it.tier == MatchTier.STRONG },
             maybe = candidates.filter { it.tier == MatchTier.MAYBE },
-            partialFailure = partial,
+            partialFailure = partialFailureOf(result.sources),
         )
     }
     result.sources.filterIsInstance<SourceStatus.NotFoundInStore>().firstOrNull()?.let {
         return FindOutcome.Failure(FindFailure.NotFoundInStore(it.source, it.region, it.suggestedRegions))
     }
-    val deciding = failed.firstOrNull() ?: return FindOutcome.Failure(FindFailure.NothingFound)
-    val failure =
-        when (deciding) {
-            is SourceStatus.TimedOut -> {
-                FindFailure.TimedOut(deciding.source)
-            }
+    return FindOutcome.Failure(decidingFailureOf(result.sources) ?: FindFailure.NothingFound)
+}
 
-            is SourceStatus.RateLimited -> {
-                val latest = failed.filterIsInstance<SourceStatus.RateLimited>().maxOf { it.retryAfterSeconds }
-                FindFailure.RateLimited(deciding.source, latest.toInt().coerceAtLeast(0))
-            }
+/** What one people Find produced: people to show, "No source has a profile", or the failure that explains none. */
+internal sealed interface PersonFindOutcome {
+    /** People to show, split by tier, with the coverage note and the partial-failure banner. */
+    data class Candidates(
+        val strong: List<PersonCandidateUi>,
+        val maybe: List<PersonCandidateUi>,
+        val coverageNote: CoverageNote?,
+        val partialFailure: PartialFailure?,
+    ) : PersonFindOutcome
 
-            else -> {
-                FindFailure.SourceFailed(deciding.source)
-            }
+    /** No source has a profile for this person in the role: every covering source answered empty, or none covers it. */
+    data class NoProfiles(
+        val coverageNote: CoverageNote?,
+    ) : PersonFindOutcome
+
+    /** No people because a source failed: the one failure that explains why. */
+    data class Failure(
+        val failure: FindFailure,
+    ) : PersonFindOutcome
+}
+
+/**
+ * The people counterpart of [chooseFindOutcome], sharing its failure rules. No candidates with nothing failed is
+ * [PersonFindOutcome.NoProfiles] (decision 7) — never when a failed source might have had them, which keeps Retry.
+ */
+internal fun choosePersonFindOutcome(result: PersonFindResult): PersonFindOutcome {
+    val note = coverageNoteOf(result.coverage)
+    if (result.candidates.isNotEmpty()) {
+        val candidates = result.candidates.map { it.toUi(result.role) }
+        return PersonFindOutcome.Candidates(
+            strong = candidates.filter { it.tier == MatchTier.STRONG },
+            maybe = candidates.filter { it.tier == MatchTier.MAYBE },
+            coverageNote = note,
+            partialFailure = partialFailureOf(result.sources),
+        )
+    }
+    return decidingFailureOf(result.sources)?.let(PersonFindOutcome::Failure) ?: PersonFindOutcome.NoProfiles(note)
+}
+
+/** "Audible has no narrator profiles, so this search uses Hardcover" — only when the first source lacks the role. */
+private fun coverageNoteOf(coverage: List<RoleCoverage>): CoverageNote? {
+    if (coverage.firstOrNull()?.hasProfiles != false) return null
+    val using = coverage.filter { it.hasProfiles }.map { it.source }
+    if (using.isEmpty()) return null
+    return CoverageNote(withoutProfiles = coverage.filterNot { it.hasProfiles }.map { it.source }, using = using)
+}
+
+/** The partial banner: the failed sources, and the sources that answered with something. */
+private fun partialFailureOf(sources: List<SourceStatus>): PartialFailure? {
+    val failed = sources.filter { it.isFailure() }
+    if (failed.isEmpty()) return null
+    return PartialFailure(
+        failed = failed.map(SourceStatus::source),
+        answered =
+            sources
+                .filterIsInstance<SourceStatus.Answered>()
+                .filter { it.results > 0 }
+                .map(SourceStatus::source),
+    )
+}
+
+/**
+ * The failure that explains an empty Find: the first failed source in the server's (route) order. Rate limits
+ * count down to the latest `retryAfter` among every rate-limited source, so Retry never fires into a limit still
+ * in force. Null when nothing failed.
+ */
+private fun decidingFailureOf(sources: List<SourceStatus>): FindFailure? {
+    val failed = sources.filter { it.isFailure() }
+    return when (val deciding = failed.firstOrNull()) {
+        null -> {
+            null
         }
-    return FindOutcome.Failure(failure)
+
+        is SourceStatus.TimedOut -> {
+            FindFailure.TimedOut(deciding.source)
+        }
+
+        is SourceStatus.RateLimited -> {
+            val latest = failed.filterIsInstance<SourceStatus.RateLimited>().maxOf { it.retryAfterSeconds }
+            FindFailure.RateLimited(deciding.source, latest.toInt().coerceAtLeast(0))
+        }
+
+        else -> {
+            FindFailure.SourceFailed(deciding.source)
+        }
+    }
 }
 
 /** A whole-call failure: offline is its own screen; anything else carries its typed error. */

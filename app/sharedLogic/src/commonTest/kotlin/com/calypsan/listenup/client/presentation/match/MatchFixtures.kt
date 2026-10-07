@@ -251,6 +251,20 @@ internal class FakeMatchingRepository : MatchingRepository {
     var applyReply: suspend (BookMatchApply) -> AppResult<MatchReceipt> = { AppResult.Success(receipt()) }
     var undoReply: suspend (String) -> AppResult<UndoResult> = { AppResult.Success(UndoResult(it, emptyList())) }
 
+    val personFindRequests = mutableListOf<PersonFindRequest>()
+    val personReviewRequests = mutableListOf<Pair<PersonCandidateKey, ContributorRole>>()
+    val personApplyRequests = mutableListOf<PersonMatchApply>()
+    var personFindReply: suspend (PersonFindRequest) -> AppResult<PersonFindResult> = {
+        AppResult.Success(personFindResult(role = it.role))
+    }
+    var personReviewReply: suspend (
+        PersonCandidateKey,
+        ContributorRole,
+    ) -> AppResult<PersonMatchReview> = { key, role ->
+        AppResult.Success(personReview(key, role = role))
+    }
+    var personApplyReply: suspend (PersonMatchApply) -> AppResult<MatchReceipt> = { AppResult.Success(personReceipt()) }
+
     /** When set, Find suspends until completed — to observe the Searching state. */
     var findGate: CompletableDeferred<Unit>? = null
 
@@ -266,18 +280,28 @@ internal class FakeMatchingRepository : MatchingRepository {
     override suspend fun findPeople(
         contributorId: ContributorId,
         request: PersonFindRequest,
-    ): AppResult<PersonFindResult> = error("not used by book matching")
+    ): AppResult<PersonFindResult> {
+        personFindRequests += request
+        findGate?.await()
+        return personFindReply(request)
+    }
 
     override suspend fun reviewPersonMatch(
         contributorId: ContributorId,
         candidate: PersonCandidateKey,
         role: ContributorRole,
-    ): AppResult<PersonMatchReview> = error("not used by book matching")
+    ): AppResult<PersonMatchReview> {
+        personReviewRequests += candidate to role
+        return personReviewReply(candidate, role)
+    }
 
     override suspend fun applyPersonMatch(
         contributorId: ContributorId,
         request: PersonMatchApply,
-    ): AppResult<MatchReceipt> = error("not used by book matching")
+    ): AppResult<MatchReceipt> {
+        personApplyRequests += request
+        return personApplyReply(request)
+    }
 
     override suspend fun reviewBookMatch(
         bookId: BookId,
