@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.metadata
 
+import com.calypsan.listenup.api.dto.match.ExternalRef
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.MetadataDomain
@@ -33,6 +34,7 @@ import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.metadata.spi.MoodSource
 import com.calypsan.listenup.server.metadata.spi.SeriesMeta
 import com.calypsan.listenup.server.metadata.spi.SeriesSource
+import com.calypsan.listenup.server.metadata.spi.presentedAs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -108,6 +110,16 @@ internal data class ComposedOptions(
     val genres: Map<MetadataProviderId, List<GenreMeta>> = emptyMap(),
     val series: Map<MetadataProviderId, List<SeriesMeta>> = emptyMap(),
     val moods: Map<MetadataProviderId, List<String>> = emptyMap(),
+)
+
+/**
+ * Every key source's own profile of one person ([EnrichmentCoordinator.composeProfiles]): [profiles] holds the
+ * ones that answered with a profile, [asked] every source the routes let it ask, [failures] the ones that failed.
+ */
+internal data class ComposedProfiles(
+    val profiles: Map<MetadataProviderId, ContributorMeta>,
+    val asked: Set<MetadataProviderId>,
+    val failures: Map<MetadataProviderId, CoreFailure>,
 )
 
 /**
@@ -377,6 +389,32 @@ internal class EnrichmentCoordinator(
         val profile = contributorOrder().firstNotNullOfOrNull { byProvider[it] } ?: return null
         val complete = !profile.description.isNullOrBlank() && !profile.imageUrl.isNullOrBlank()
         return if (complete) profile else fillProfileGaps(profile, locale)
+    }
+
+    /**
+     * Each person-profile source named by [refs] reads the profile at its own ref — never another source's key,
+     * and with no gap filling, so a Review shows each source's own bio and photo. A source that took longer than
+     * [deadline] counts as timed out.
+     */
+    suspend fun composeProfiles(
+        refs: List<ExternalRef>,
+        locale: MetadataLocale,
+        deadline: Duration? = null,
+    ): ComposedProfiles {
+        val keys = refs.groupBy { it.provider }.mapValues { (_, same) -> same.first().id }
+        val sources = registry.capable<ContributorSource>().filter { it.id.presentedAs().value in keys }
+        val outcomes =
+            fanOutOutcomes(sources, MetadataDomain.CONTRIBUTORS, "person-profile", deadline) {
+                it.getContributor(keys.getValue(it.id.presentedAs().value), locale)
+            }
+        return ComposedProfiles(
+            profiles = outcomes.succeededValues(),
+            asked = outcomes.keys,
+            failures =
+                outcomes
+                    .mapNotNull { (id, outcome) -> (outcome as? ProviderOutcome.Failed)?.let { id to it.failure } }
+                    .toMap(),
+        )
     }
 
     /**
