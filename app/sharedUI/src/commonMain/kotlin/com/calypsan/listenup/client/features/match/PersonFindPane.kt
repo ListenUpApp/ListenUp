@@ -73,11 +73,7 @@ internal fun PersonFindPane(
             is PersonFindUiState.Searching -> state.previous
             is PersonFindUiState.NoProfiles, is PersonFindUiState.Failed -> null
         }
-    val coverageNote =
-        when (state) {
-            is PersonFindUiState.NoProfiles -> state.coverageNote
-            else -> results?.coverageNote
-        }
+    val coverageNote = if (state is PersonFindUiState.NoProfiles) state.coverageNote else results?.coverageNote
     val name = state.header?.name
 
     ListenUpScaffold(

@@ -146,30 +146,7 @@ fun MatchReceiptBanner(
         }
     }
 
-    val message =
-        when (state) {
-            is MatchReceiptUiState.Shown -> {
-                state.undoError?.localized() ?: when (subject) {
-                    MatchReceiptSubject.Book -> receiptText(state.receipt)
-                    is MatchReceiptSubject.Person -> personReceiptText(state.receipt, subject.name)
-                }
-            }
-
-            MatchReceiptUiState.Undone -> {
-                stringResource(Res.string.match_undone)
-            }
-
-            MatchReceiptUiState.Expired -> {
-                when (subject) {
-                    MatchReceiptSubject.Book -> stringResource(Res.string.match_undo_expired)
-                    is MatchReceiptSubject.Person -> stringResource(Res.string.match_undo_expired_person, subject.name)
-                }
-            }
-
-            MatchReceiptUiState.None -> {
-                ""
-            }
-        }
+    val message = receiptMessage(state, subject)
 
     Snackbar(
         modifier =
@@ -220,6 +197,36 @@ fun MatchReceiptBanner(
         WhatChangedSheet(receipt = state.receipt, onDismiss = { seeingChanges = false })
     }
 }
+
+/** What the receipt says: the change, the Undo error, "Match undone…", or why it can't be undone. */
+@Composable
+private fun receiptMessage(
+    state: MatchReceiptUiState,
+    subject: MatchReceiptSubject,
+): String =
+    when (state) {
+        is MatchReceiptUiState.Shown -> {
+            state.undoError?.localized() ?: when (subject) {
+                MatchReceiptSubject.Book -> receiptText(state.receipt)
+                is MatchReceiptSubject.Person -> personReceiptText(state.receipt, subject.name)
+            }
+        }
+
+        MatchReceiptUiState.Undone -> {
+            stringResource(Res.string.match_undone)
+        }
+
+        MatchReceiptUiState.Expired -> {
+            when (subject) {
+                MatchReceiptSubject.Book -> stringResource(Res.string.match_undo_expired)
+                is MatchReceiptSubject.Person -> stringResource(Res.string.match_undo_expired_person, subject.name)
+            }
+        }
+
+        MatchReceiptUiState.None -> {
+            ""
+        }
+    }
 
 /** "Changed 5 fields, cover from <source>, 16 chapter names", or "Matched. Nothing needed changing." */
 @Composable
