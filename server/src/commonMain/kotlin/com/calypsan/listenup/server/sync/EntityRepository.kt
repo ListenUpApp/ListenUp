@@ -343,11 +343,12 @@ class EntityRepository(
 
     // ── Book removal cascade (BookRepository.softDelete / reviveByIds) ──
     // Like every write here, each takes its revision before it reads, so the transaction is the writer
-    // first. A book with no entities therefore burns one revision — harmless (revisions are a cursor, not
-    // a count), and cheaper than a read that a concurrent write could overtake.
+    // first. A cheap read-only check runs before that, so a book with no entities burns no revision; the
+    // write transaction then re-reads, so a write that overtakes the check is still seen.
 
     /** Tombstones every live entity homed on [bookId] (DELETE, no actor). Returns how many. */
     suspend fun softDeleteAllForBook(bookId: String): Int {
+        if (!suspendTransaction(db) { db.entitiesQueries.hasLiveForBook(bookId).executeAsOne() }) return 0
         val ctx = writeContext()
         return suspendTransaction(db) {
             val lease = RevisionLease(nextRevision())
@@ -359,19 +360,19 @@ class EntityRepository(
         }
     }
 
-    /** Revives the entities of [bookIds] tombstoned at or after [cascadeFloor] (REVERT, no actor). */
-    suspend fun reviveAllForBooks(
-        bookIds: List<String>,
-        cascadeFloor: Long,
-    ): Int {
+    /**
+     * Revives the entities of [bookIds] that a book removal tombstoned (REVERT, no actor): exactly those
+     * whose newest history row is the cascade's DELETE with no actor. History, not a `deleted_at` floor,
+     * decides — a re-delete of an already-removed book re-stamps the book's `deleted_at`, and a curator's
+     * later revert or delete is a newer row with an actor, so a deliberate delete stays deleted.
+     */
+    suspend fun reviveAllForBooks(bookIds: List<String>): Int {
         if (bookIds.isEmpty()) return 0
+        if (suspendTransaction(db) { cascadeDeletedFor(bookIds) }.isEmpty()) return 0
         val ctx = writeContext()
         return suspendTransaction(db) {
             val lease = RevisionLease(nextRevision())
-            val dead =
-                bookIds.chunked(SQLITE_IN_CHUNK).flatMap { chunk ->
-                    db.entitiesQueries.selectDeletedForBooksSince(chunk, cascadeFloor).executeAsList()
-                }
+            val dead = cascadeDeletedFor(bookIds)
             dead.forEach { id ->
                 val before = checkNotNull(readPayload(id))
                 rewrite(before, before.copy(deletedAt = null), StoryWorldOp.REVERT, null, ctx, revision = lease.take())
@@ -379,6 +380,11 @@ class EntityRepository(
             dead.size
         }
     }
+
+    private fun cascadeDeletedFor(bookIds: List<String>): List<String> =
+        bookIds.chunked(SQLITE_IN_CHUNK).flatMap { chunk ->
+            db.entitiesQueries.selectCascadeDeletedForBooks(chunk).executeAsList()
+        }
 
     // ── Series merge (SeriesServiceImpl.mergeSeries / SeriesMergeReceipts.undo) ──
 
@@ -469,7 +475,8 @@ class EntityRepository(
         val entityIds =
             suspendTransaction(db) {
                 matchValues
-                    .chunked(SQLITE_IN_CHUNK)
+                    // The query binds each chunk twice (both halves of its UNION), so half a chunk per call.
+                    .chunked(SQLITE_IN_CHUNK / 2)
                     .flatMap { chunk -> db.entitiesQueries.selectIdsTouchingBooks(chunk, chunk).executeAsList() }
                     .distinct()
             }
@@ -625,7 +632,7 @@ class EntityRepository(
     private fun EntityKind.storageName(): String = name.lowercase()
 
     private companion object {
-        /** Kept under SQLite's default variable limit with headroom. */
+        /** Bound variables per IN list, under SQLite's historical 999 limit with headroom. */
         const val SQLITE_IN_CHUNK = 900
 
         /** Entity ids per access-filtered id match in [pullByIds] (its access clause binds variables too). */

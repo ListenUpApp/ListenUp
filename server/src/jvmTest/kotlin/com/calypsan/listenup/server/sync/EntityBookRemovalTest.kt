@@ -109,6 +109,62 @@ class EntityBookRemovalTest :
                 }
             }
         }
+
+        test("a book removed twice still revives its entities when it comes back") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                runTest {
+                    val rig = removalRig()
+                    seedSeriesWithBooks("S", "b1")
+                    rig.entities.upsertEntity(entityPayload("kept", homeBookId = "b1"), UserId("u1"))
+                    rig.books.softDelete(BookId("b1"), clientOpId = null)
+
+                    // A second removal of the already-removed book re-stamps the book's deleted_at.
+                    rig.clock.instant += 5.seconds
+                    rig.books.softDelete(BookId("b1"), clientOpId = null)
+                    val secondRemovalAt = rig.clock.instant.toEpochMilliseconds()
+
+                    rig.books.reviveByIds(listOf(BookId("b1")), cascadeFloor = secondRemovalAt)
+
+                    rig.entities
+                        .findById(EntityId("kept"))
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldBeNull()
+                }
+            }
+        }
+
+        test("an entity a curator deletes by hand while its book is removed stays deleted on re-add") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                runTest {
+                    val rig = removalRig()
+                    seedSeriesWithBooks("S", "b1")
+                    rig.entities.upsertEntity(entityPayload("curated", homeBookId = "b1"), UserId("u1"))
+                    rig.books.softDelete(BookId("b1"), clientOpId = null)
+                    val bookRemovedAt = rig.clock.instant.toEpochMilliseconds()
+                    val cascade = rig.entities.listHistory(EntityId("curated")).first()
+
+                    // The admin brings it back, then deletes it deliberately.
+                    rig.clock.instant += 5.seconds
+                    rig.entities
+                        .revert(cascade.id, UserId("admin"))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+                    rig.entities
+                        .deleteEntity(EntityId("curated"), UserId("admin"))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    rig.books.reviveByIds(listOf(BookId("b1")), cascadeFloor = bookRemovedAt)
+
+                    rig.entities
+                        .findById(EntityId("curated"))
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldNotBeNull()
+                }
+            }
+        }
     })
 
 /** A [BookRepository] wired to an [EntityRepository], both on one advanceable clock. */

@@ -1139,10 +1139,11 @@ class BookRepository(
     }
 
     /**
-     * Revives the junction rows (`book_tags` / `book_moods` / `collection_books`), and book-homed Story
-     * World entities, for [bookIds] that
-     * were tombstoned at or after [cascadeFloor] — the same cascade [reviveByIds] runs for a folder
-     * re-add, reused by the scan revival paths.
+     * Revives the junction rows (`book_tags` / `book_moods` / `collection_books`) for [bookIds] that
+     * were tombstoned at or after [cascadeFloor], and the book-homed Story World entities the removal
+     * tombstoned (decided by their history, not the floor — see
+     * [com.calypsan.listenup.server.sync.EntityRepository.reviveAllForBooks]) —
+     * the same cascade [reviveByIds] runs for a folder re-add, reused by the scan revival paths.
      *
      * A scan re-ingest of a removed book revives the book ROW ([updateContent] clears `deleted_at`) but
      * would otherwise leave its cascade-tombstoned junctions dead — so the book returned uncollected
@@ -1160,7 +1161,7 @@ class BookRepository(
         bookTagRepository?.reviveAllForBooks(bookIds, cascadeFloor)
         bookMoodRepository?.reviveAllForBooks(bookIds, cascadeFloor)
         collectionBookRepository?.reviveAllForBooks(bookIds, cascadeFloor)
-        entityRepository?.reviveAllForBooks(bookIds, cascadeFloor)
+        entityRepository?.reviveAllForBooks(bookIds)
     }
 
     /**

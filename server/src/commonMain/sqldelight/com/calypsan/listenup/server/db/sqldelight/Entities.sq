@@ -64,11 +64,25 @@ SELECT id FROM entities WHERE parent_id = :parent_id AND deleted_at IS NULL ORDE
 selectLiveIdsForBook:
 SELECT id FROM entities WHERE home_book_id = :home_book_id AND deleted_at IS NULL ORDER BY id;
 
--- Book re-add: entities the removal tombstoned (deleted at or after the book's own deleted_at).
-selectDeletedForBooksSince:
-SELECT id FROM entities
-WHERE home_book_id IN :book_ids AND deleted_at IS NOT NULL AND deleted_at >= :floor
-ORDER BY id;
+-- Does this book home any live entity? The cascade skips its transaction (and revision) when not.
+hasLiveForBook:
+SELECT EXISTS(SELECT 1 FROM entities WHERE home_book_id = :home_book_id AND deleted_at IS NULL);
+
+-- Book re-add: the entities a book removal tombstoned — those whose newest history row is a DELETE with
+-- no actor (the cascade's). Keyed on history, not on deleted_at: a re-delete of a removed book re-stamps
+-- the book's deleted_at, and a curator's later delete or revert is newer than the cascade's row.
+selectCascadeDeletedForBooks:
+SELECT e.id FROM entities e
+WHERE e.home_book_id IN :book_ids AND e.deleted_at IS NOT NULL
+  AND EXISTS (
+    SELECT 1 FROM story_world_history h
+    WHERE h.target_type = 'entity' AND h.target_id = e.id AND h.op = 'DELETE' AND h.actor_id IS NULL
+      AND h.revision = (
+        SELECT MAX(h2.revision) FROM story_world_history h2
+        WHERE h2.target_type = 'entity' AND h2.target_id = e.id
+      )
+  )
+ORDER BY e.id;
 
 -- The scoped AccessChanged delta asks by book id: every entity homed on one of these books, plus every
 -- entity homed on a series that contains one of them. Tombstones included (the delta must deliver them).
