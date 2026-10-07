@@ -72,16 +72,10 @@ struct BookDetailView: View {
         .sheet(isPresented: $showChapterEditor) {
             ChapterEditorView(bookId: bookId)
         }
-        .sheet(isPresented: $showMetadataMatch) {
-            if let observer {
-                MetadataMatchView(
-                    bookId: bookId,
-                    title: observer.title,
-                    author: observer.heroAuthors.first?.name ?? "",
-                    asin: observer.asin
-                )
-            }
-        }
+        // Match details: pushed on a compact width, a full-screen split view on a regular one.
+        .bookMatchDetails($matchTarget)
+        // The receipt Match details leaves behind, with Undo and See What Changed.
+        .matchReceipt(bookId: bookId)
         .sheet(isPresented: $showRateSheet) {
             if let ratingsObserver, case .ready(let snapshot) = ratingsObserver.phase {
                 RateBookSheet(
@@ -357,7 +351,8 @@ struct BookDetailView: View {
     @State var showDeleteBookConfirmation = false
     @State var showEdit = false
     @State var showChapterEditor = false
-    @State var showMetadataMatch = false
+    /// Match details, open for this book. `nil` when closed; Match details clears it after Apply.
+    @State var matchTarget: BookMatchTarget?
     @State var showReleaseConfirmation = false
     @State private var showCast = false
 

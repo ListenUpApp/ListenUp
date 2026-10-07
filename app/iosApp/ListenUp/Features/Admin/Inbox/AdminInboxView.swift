@@ -29,8 +29,8 @@ struct AdminInboxView: View {
     /// The inbox book currently being edited in the BookEdit sheet (metadata + admin collections),
     /// so an admin can review and assign collections before releasing. `nil` when no sheet is open.
     @State private var editingBook: InboxEditTarget?
-    /// The inbox book currently being matched against Audible metadata. `nil` when no sheet is open.
-    @State private var metadataBook: InboxMetadataTarget?
+    /// The inbox book Match details is open for. `nil` when it is closed.
+    @State private var matchTarget: BookMatchTarget?
     /// Select is on: rows toggle instead of opening (`InboxMode`).
     @State private var isSelectRequested = false
     /// The held book whose triage page is pushed onto this stack. `nil` when none is.
@@ -56,9 +56,8 @@ struct AdminInboxView: View {
         .sheet(item: $editingBook) { target in
             BookEditView(bookId: target.id)
         }
-        .sheet(item: $metadataBook) { target in
-            MetadataMatchView(bookId: target.id, title: target.title, author: target.author, asin: nil)
-        }
+        // Match details: pushed onto this stack on a compact width, a full-screen split view on a regular one.
+        .bookMatchDetails($matchTarget)
         .onAppear {
             if observer == nil {
                 observer = AdminInboxObserver(viewModel: deps.createAdminInboxViewModel())
@@ -161,7 +160,7 @@ struct AdminInboxView: View {
                             isSelecting: mode(ready) == .selecting,
                             onTap: { tap(book, in: ready, observer: observer) },
                             onEdit: { editingBook = InboxEditTarget(id: book.id) },
-                            onFindMetadata: { metadataBook = InboxMetadataTarget(book: book) }
+                            onFindMetadata: { matchTarget = BookMatchTarget(bookId: book.id) }
                         )
                         .listRowBackground(InboxBookRow.background(isSelected: isSelected))
                     }
@@ -197,7 +196,7 @@ struct AdminInboxView: View {
                         isSelecting: mode(ready) == .selecting,
                         onTap: { tap(book, in: ready, observer: observer) },
                         onEdit: { editingBook = InboxEditTarget(id: book.id) },
-                        onFindMetadata: { metadataBook = InboxMetadataTarget(book: book) }
+                        onFindMetadata: { matchTarget = BookMatchTarget(bookId: book.id) }
                     )
                     .padding(.horizontal, Spacing.m)
                     .padding(.vertical, Spacing.s)
@@ -395,19 +394,6 @@ private struct InboxEditTarget: Identifiable {
     let id: String
 }
 
-/// Identifiable wrapper carrying the fields `MetadataMatchView` needs to seed its Audible search.
-private struct InboxMetadataTarget: Identifiable {
-    let id: String
-    let title: String
-    let author: String
-
-    init(book: InboxBookRowModel) {
-        self.id = book.id
-        self.title = book.title
-        self.author = book.author ?? ""
-    }
-}
-
 private struct InboxBookRow: View {
     let book: InboxBookRowModel
     let isSelected: Bool
@@ -468,7 +454,7 @@ private struct InboxBookRow: View {
         Color.luSurface2.overlay(isSelected ? Color.luTint.opacity(0.08) : Color.clear)
     }
 
-    /// Visible per-row actions: review/edit (metadata fields + collections) or match against Audible —
+    /// Visible per-row actions: review/edit (metadata fields + collections) or Match details —
     /// both before releasing. A `Menu` so the two share one discoverable, HIG-standard affordance; the
     /// long-press context menu mirrors it via the same `rowActions`.
     private var actionsMenu: some View {
@@ -488,9 +474,9 @@ private struct InboxBookRow: View {
     @ViewBuilder
     private var rowActions: some View {
         Button(String(localized: "admin.inbox_review_edit"), systemImage: "square.and.pencil", action: onEdit)
-        // Same label + icon as BookDetail's "Match on Audible" — one canonical affordance for the
-        // shared MetadataMatchView flow across both entry points.
-        Button(String(localized: "metadata.match_on_audible"), systemImage: "sparkles", action: onFindMetadata)
+        // Same label + icon as Book Detail's "Match details" — one canonical affordance for the
+        // shared Match details flow across both entry points.
+        Button(String(localized: "match.menu_item"), systemImage: "sparkles", action: onFindMetadata)
     }
 
     private var selectionIndicator: some View {

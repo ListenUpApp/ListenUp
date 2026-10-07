@@ -18,7 +18,7 @@ extension BookDetailView {
                 switch action {
                 case .release: showReleaseConfirmation = true
                 case .edit: showEdit = true
-                case .match: showMetadataMatch = true
+                case .match: matchTarget = BookMatchTarget(bookId: bookId)
                 case .editChapters: showChapterEditor = true
                 }
             }

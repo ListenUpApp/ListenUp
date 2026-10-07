@@ -38,7 +38,7 @@ enum ContributorPreviewPhase: Equatable {
 /// Observes `ContributorMetadataViewModel` — the "Find on Audible" contributor-scrape flow —
 /// flattening its sealed `ContributorMetadataUiState` (Idle/Search/Preview) into `@Observable`
 /// Swift properties and native value types. Thin over `FlowBridge`; mirrors
-/// `ContributorDetailObserver` / `MetadataMatchObserver`. Sub-state mapping (search results,
+/// `ContributorDetailObserver` / `BookMatchObserver`. Sub-state mapping (search results,
 /// preview phase, profile) is pure and unit-tested in isolation via `ContributorMetadataMapping`.
 ///
 /// There are no per-field toggles: the server applies asin + biography + photo, never the name.
