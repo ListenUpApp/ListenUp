@@ -357,9 +357,18 @@ class EntityRepository(
     /** True when this change edited a live entry's content and left it live; its revert does the same. */
     private fun EntityChange.isContentEdit(): Boolean =
         when (op) {
-            StoryWorldOp.UPDATE -> true
-            StoryWorldOp.REVERT -> before != null && before?.deletedAt == null && after != null && after?.deletedAt == null
-            StoryWorldOp.CREATE, StoryWorldOp.DELETE, StoryWorldOp.MERGE -> false
+            StoryWorldOp.UPDATE -> {
+                true
+            }
+
+            StoryWorldOp.REVERT -> {
+                before != null && before?.deletedAt == null && after != null &&
+                    after?.deletedAt == null
+            }
+
+            StoryWorldOp.CREATE, StoryWorldOp.DELETE, StoryWorldOp.MERGE -> {
+                false
+            }
         }
 
     // ── Book removal cascade (BookRepository.softDelete / reviveByIds) ──

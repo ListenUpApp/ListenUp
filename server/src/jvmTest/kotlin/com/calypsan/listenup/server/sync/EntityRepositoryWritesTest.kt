@@ -36,7 +36,14 @@ class EntityRepositoryWritesTest :
                     val deletion = repo.listHistory(EntityId("e1")).first()
                     deletion.op shouldBe StoryWorldOp.DELETE
 
-                    val reverted = repo.revert(deletion.id, ACTOR, allowStructural = true).shouldBeInstanceOf<AppResult.Success<EntityChange>>().data
+                    val reverted =
+                        repo
+                            .revert(
+                                deletion.id,
+                                ACTOR,
+                                allowStructural = true,
+                            ).shouldBeInstanceOf<AppResult.Success<EntityChange>>()
+                            .data
                     reverted.op shouldBe StoryWorldOp.REVERT
                     repo
                         .findById(EntityId("e1"))
@@ -56,7 +63,14 @@ class EntityRepositoryWritesTest :
                 runTest {
                     repo.upsertEntity(entityPayload("e1", homeBookId = "b1"), ACTOR)
                     val creation = repo.listHistory(EntityId("e1")).single()
-                    val undoCreate = repo.revert(creation.id, ACTOR, allowStructural = true).shouldBeInstanceOf<AppResult.Success<EntityChange>>().data
+                    val undoCreate =
+                        repo
+                            .revert(
+                                creation.id,
+                                ACTOR,
+                                allowStructural = true,
+                            ).shouldBeInstanceOf<AppResult.Success<EntityChange>>()
+                            .data
                     repo
                         .findById(EntityId("e1"))
                         .shouldNotBeNull()
