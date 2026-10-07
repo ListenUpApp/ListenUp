@@ -144,6 +144,66 @@ class BookAccessPolicy(
     ): SqlFragment? = junctionIdsSql("book_external_ratings", userId, role)
 
     /**
+     * Visible `entities` row ids for `(userId, role)`, or null for ROOT/ADMIN. A book-homed entity is
+     * visible iff its book is; a series-homed entity iff at least one book of its series is — both built
+     * on [accessibleBookIdsSubquery], so the entity rule can never drift from the book rule.
+     */
+    fun accessibleEntityIdsSql(
+        userId: String,
+        role: UserRole,
+    ): SqlFragment? {
+        if (role == UserRole.ROOT || role == UserRole.ADMIN) return null
+        val sql =
+            """
+            SELECT e.id FROM entities e
+            WHERE e.home_book_id IN ($accessibleBookIdsSubquery)
+               OR e.home_series_id IN (
+                 SELECT m.series_id FROM book_series_memberships m
+                 WHERE m.book_id IN ($accessibleBookIdsSubquery)
+               )
+            """.trimIndent()
+        return SqlFragment(sql = sql, args = listOf(userId, userId, userId, userId))
+    }
+
+    /**
+     * True when `(userId, role)` may see series [seriesId]: ROOT/ADMIN see any live series; a member sees
+     * a series when at least one of its books is visible to them.
+     */
+    suspend fun canAccessSeries(
+        userId: String,
+        role: UserRole,
+        seriesId: String,
+    ): Boolean =
+        suspendTransaction(db) {
+            if (role == UserRole.ROOT || role == UserRole.ADMIN) {
+                existsRow(
+                    sql = "SELECT 1 FROM book_series WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+                    args = listOf(seriesId),
+                )
+            } else {
+                existsRow(
+                    sql =
+                        "SELECT 1 FROM book_series_memberships m WHERE m.series_id = ? " +
+                            "AND m.book_id IN ($accessibleBookIdsSubquery) LIMIT 1",
+                    args = listOf(seriesId, userId, userId),
+                )
+            }
+        }
+
+    /** True when `(userId, role)` may see a Story World entity homed on [homeBookId] or [homeSeriesId]. */
+    suspend fun canSeeEntityHome(
+        userId: String,
+        role: UserRole,
+        homeSeriesId: String?,
+        homeBookId: String?,
+    ): Boolean =
+        when {
+            homeBookId != null -> canAccess(userId, role, homeBookId)
+            homeSeriesId != null -> canAccessSeries(userId, role, homeSeriesId)
+            else -> false
+        }
+
+    /**
      * Shared shape for a book-keyed junction table: its row is visible iff its book is.
      *
      * [table] is a compile-time constant supplied by this class only — never caller input — so the
