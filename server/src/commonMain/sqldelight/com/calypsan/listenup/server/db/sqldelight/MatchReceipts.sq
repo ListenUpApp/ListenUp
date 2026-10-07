@@ -26,8 +26,8 @@ SELECT * FROM match_receipts WHERE id = :id;
 selectLiveForEntities:
 SELECT * FROM match_receipts WHERE entity_kind = :entity_kind AND entity_id IN :entity_ids AND undone_at IS NULL;
 
-selectLiveSnapshots:
-SELECT snapshot FROM match_receipts WHERE undone_at IS NULL;
+selectLiveSnapshotsForKind:
+SELECT snapshot FROM match_receipts WHERE entity_kind = :entity_kind AND undone_at IS NULL;
 
 markUndone:
 UPDATE match_receipts SET undone_at = :undone_at WHERE id = :id AND undone_at IS NULL;
@@ -40,5 +40,16 @@ WHERE entity_kind = 'book'
     OR NOT EXISTS (
       SELECT 1 FROM books b
       WHERE b.id = match_receipts.entity_id AND b.deleted_at IS NULL AND b.revision = match_receipts.revision_after
+    )
+  );
+
+deleteDeadContributorReceipts:
+DELETE FROM match_receipts
+WHERE entity_kind = 'contributor'
+  AND (
+    undone_at IS NOT NULL
+    OR NOT EXISTS (
+      SELECT 1 FROM contributors c
+      WHERE c.id = match_receipts.entity_id AND c.deleted_at IS NULL AND c.revision = match_receipts.revision_after
     )
   );

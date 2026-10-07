@@ -1,5 +1,10 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.match.PersonCandidateKey
+import com.calypsan.listenup.api.dto.match.PersonMatchApply
+import com.calypsan.listenup.api.dto.match.PersonMatchReview
+import com.calypsan.listenup.api.dto.match.PhotoReview
+import com.calypsan.listenup.api.dto.match.FieldChoice
 import com.calypsan.listenup.api.MatchingService
 import com.calypsan.listenup.api.dto.match.BookCandidateKey
 import com.calypsan.listenup.api.dto.match.BookFindRequest
@@ -101,6 +106,27 @@ private class FakeMatchingService(
         return applyReply
     }
 
+    val personReviews = mutableListOf<Triple<ContributorId, PersonCandidateKey, ContributorRole>>()
+    val personApplies = mutableListOf<Pair<ContributorId, PersonMatchApply>>()
+    var personApplyReply: AppResult<Mutated<MatchReceipt>> = AppResult.Success(Mutated(RECEIPT))
+
+    override suspend fun reviewPersonMatch(
+        contributorId: ContributorId,
+        candidate: PersonCandidateKey,
+        role: ContributorRole,
+    ): AppResult<PersonMatchReview> {
+        personReviews += Triple(contributorId, candidate, role)
+        return AppResult.Success(PERSON_REVIEW)
+    }
+
+    override suspend fun applyPersonMatch(
+        contributorId: ContributorId,
+        request: PersonMatchApply,
+    ): AppResult<Mutated<MatchReceipt>> {
+        personApplies += contributorId to request
+        return personApplyReply
+    }
+
     override suspend fun undoMatch(receiptId: String): AppResult<Mutated<UndoResult>> {
         undos += receiptId
         return AppResult.Success(Mutated(UndoResult(receiptId, RECEIPT.changes)))
@@ -122,6 +148,20 @@ private val REVIEW =
         moods = LabelSetReview(emptyList(), emptyList()),
         chapterNames = ChapterNamesReview.Unavailable,
     )
+
+private val PERSON_KEY = PersonCandidateKey(listOf(ExternalRef("hardcover", "250716")))
+
+private val PERSON_REVIEW =
+    PersonMatchReview(
+        candidate = PERSON_KEY,
+        role = ContributorRole.NARRATOR,
+        basedOnRevision = 4L,
+        photo = PhotoReview(current = null, setByHand = false, options = emptyList(), defaultChoice = ImageChoice.KeepCurrent),
+        biography = null,
+    )
+
+private val PERSON_APPLY =
+    PersonMatchApply(PERSON_KEY, ContributorRole.NARRATOR, 4L, ImageChoice.KeepCurrent, FieldChoice.KeepCurrent)
 
 private val APPLY =
     BookMatchApply(KEY, null, 3L, emptyList(), ImageChoice.KeepCurrent, LabelSetChange(), LabelSetChange(), emptyList())
@@ -171,6 +211,21 @@ class MatchingRepositoryImplTest :
 
             service.applyReply = AppResult.Failure(MetadataError.ReviewOutdated())
             repository.applyBookMatch(BookId("b1"), APPLY) shouldBe AppResult.Failure(MetadataError.ReviewOutdated())
+        }
+
+        test("a person Review and Apply pass the contributor through; Apply unwraps the receipt and passes failures") {
+            val service = FakeMatchingService()
+            val repository = MatchingRepositoryImpl(RpcChannel.forTest(service))
+            repository.reviewPersonMatch(ContributorId("c1"), PERSON_KEY, ContributorRole.NARRATOR) shouldBe
+                AppResult.Success(PERSON_REVIEW)
+            service.personReviews shouldBe listOf(Triple(ContributorId("c1"), PERSON_KEY, ContributorRole.NARRATOR))
+
+            repository.applyPersonMatch(ContributorId("c1"), PERSON_APPLY) shouldBe AppResult.Success(RECEIPT)
+            service.personApplies shouldBe listOf(ContributorId("c1") to PERSON_APPLY)
+
+            service.personApplyReply = AppResult.Failure(MetadataError.CoverDownloadFailed())
+            repository.applyPersonMatch(ContributorId("c1"), PERSON_APPLY) shouldBe
+                AppResult.Failure(MetadataError.CoverDownloadFailed())
         }
 
         test("a typed failure from the server passes through untouched") {

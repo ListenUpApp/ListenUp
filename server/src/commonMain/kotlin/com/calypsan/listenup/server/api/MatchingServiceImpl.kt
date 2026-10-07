@@ -9,6 +9,14 @@ import com.calypsan.listenup.api.dto.match.BookMatchReview
 import com.calypsan.listenup.api.dto.match.ExternalRef
 import com.calypsan.listenup.api.dto.match.MatchReceipt
 import com.calypsan.listenup.api.dto.match.UndoResult
+import com.calypsan.listenup.api.dto.match.PersonCandidateKey
+import com.calypsan.listenup.api.dto.match.PersonMatchApply
+import com.calypsan.listenup.api.dto.match.PersonMatchReview
+import com.calypsan.listenup.api.sync.ContributorSyncPayload
+import com.calypsan.listenup.server.matching.person.PersonMatchApplier
+import com.calypsan.listenup.server.matching.person.PersonMatchUndoer
+import com.calypsan.listenup.server.matching.person.PersonReviewer
+import com.calypsan.listenup.server.matching.undo.ReceiptEntity
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.sync.Mutated
 import com.calypsan.listenup.server.matching.apply.BookMatchApplier
@@ -51,6 +59,15 @@ internal class MatchDetails(
     val applier: BookMatchApplier,
     val undoer: MatchUndoer,
     val receipts: MatchReceiptStore,
+    val people: PersonMatchDetails,
+)
+
+/** Match details' person Review, Apply and Undo. [loadPerson] reads a live contributor, or null. */
+internal class PersonMatchDetails(
+    val reviewer: PersonReviewer,
+    val applier: PersonMatchApplier,
+    val undoer: PersonMatchUndoer,
+    val loadPerson: suspend (ContributorId) -> ContributorSyncPayload?,
 )
 
 /**
@@ -156,13 +173,77 @@ internal class MatchingServiceImpl(
         return withCapturedFrames { details.applier.apply(book, request, locale, caller.userId.value) }
     }
 
+    override suspend fun reviewPersonMatch(
+        contributorId: ContributorId,
+        candidate: PersonCandidateKey,
+        role: ContributorRole,
+    ): AppResult<PersonMatchReview> {
+        enforceRate(MetadataRateBucket.FETCH)?.let { return AppResult.Failure(it) }
+        requireEditor()?.let { return AppResult.Failure(it) }
+        unsearchableRole(role)?.let { return AppResult.Failure(it) }
+        val person = details.people.loadPerson(contributorId) ?: return AppResult.Failure(notFound(contributorId))
+        return details.people.reviewer
+            .review(person, candidate, role, personLocale(candidate))
+            .map { it.review }
+    }
+
+    override suspend fun applyPersonMatch(
+        contributorId: ContributorId,
+        request: PersonMatchApply,
+    ): AppResult<Mutated<MatchReceipt>> {
+        requireEditor()?.let { return AppResult.Failure(it) }
+        unsearchableRole(request.role)?.let { return AppResult.Failure(it) }
+        val caller = principal.current() ?: return AppResult.Failure(AuthError.PermissionDenied())
+        val person = details.people.loadPerson(contributorId) ?: return AppResult.Failure(notFound(contributorId))
+        val locale = personLocale(request.candidate)
+        return withCapturedFrames { details.people.applier.apply(person, request, locale, caller.userId.value) }
+    }
+
     override suspend fun undoMatch(receiptId: String): AppResult<Mutated<UndoResult>> {
         val receipt =
             details.receipts.find(receiptId)
                 ?: return AppResult.Failure(MetadataError.UndoExpired(debugInfo = "no receipt $receiptId"))
-        requireEditableBook(BookId(receipt.entityId))?.let { return AppResult.Failure(it) }
-        return withCapturedFrames { details.undoer.undo(receiptId) }
+        return when (receipt.entity) {
+            ReceiptEntity.BOOK.value -> {
+                requireEditableBook(BookId(receipt.entityId))?.let { return AppResult.Failure(it) }
+                withCapturedFrames { details.undoer.undo(receiptId) }
+            }
+
+            ReceiptEntity.CONTRIBUTOR.value -> {
+                requireEditor()?.let { return AppResult.Failure(it) }
+                withCapturedFrames { details.people.undoer.undo(receiptId) }
+            }
+
+            else -> {
+                AppResult.Failure(MetadataError.UndoExpired(debugInfo = "receipt $receiptId is for ${receipt.entity}"))
+            }
+        }
     }
+
+    /** People have no per-book visibility: editing them needs only `canEdit`. */
+    private suspend fun requireEditor(): AppError? {
+        val caller = principal.current() ?: return AuthError.PermissionDenied()
+        return permissionPolicy.requireCanEdit(caller.userId, caller.role)
+    }
+
+    private fun unsearchableRole(role: ContributorRole): AppError? =
+        if (role in SEARCHABLE_ROLES) {
+            null
+        } else {
+            MetadataError.Malformed(debugInfo = "people are matched as authors or narrators, not $role")
+        }
+
+    /** The store a person Review reads: the Audible ref's own, else the library's. */
+    private suspend fun personLocale(candidate: PersonCandidateKey): MetadataLocale =
+        candidate.refs
+            .firstOrNull { it.provider == ExternalRef.AUDIBLE }
+            ?.region
+            ?.takeIf { ref -> MetadataLocale.SUPPORTED.any { it.region == ref } }
+            ?.let(::MetadataLocale)
+            ?: peopleRegion()
+
+    private fun notFound(contributorId: ContributorId) =
+        MetadataError.NotFound(debugInfo = "no contributor for id ${contributorId.value}")
 
     /** The store a Review reads: the Audible ref's own, else this request's, else the library's, else the default. */
     private suspend fun matchLocale(

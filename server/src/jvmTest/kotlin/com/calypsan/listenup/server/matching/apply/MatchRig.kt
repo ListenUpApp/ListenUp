@@ -209,7 +209,16 @@ internal class MatchRig(
     suspend fun tagNames(): List<String> = bookTags.findAllForBook(BOOK).mapNotNull { tags.findById(it.tagId)?.name }
 
     /** The rig's Review, Apply and Undo, as the matching service takes them. */
-    fun details() = com.calypsan.listenup.server.api.MatchDetails(reviewer, applier, undoer, receipts)
+    fun details() =
+        com.calypsan.listenup.server.api.MatchDetails(
+            reviewer,
+            applier,
+            undoer,
+            receipts,
+            com.calypsan.listenup.server.matching.person
+                .PersonRig(db)
+                .people(),
+        )
 
     fun coverColumns() = db.sql.booksQueries.selectCoverColumnsById(BOOK).executeAsOne()
 }

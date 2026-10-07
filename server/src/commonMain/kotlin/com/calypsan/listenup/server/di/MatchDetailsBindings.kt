@@ -3,6 +3,13 @@ package com.calypsan.listenup.server.di
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.server.api.MatchDetails
+import com.calypsan.listenup.server.api.PersonMatchDetails
+import com.calypsan.listenup.server.matching.person.ContributorPhotoFiles
+import com.calypsan.listenup.server.matching.person.PersonMatchApplier
+import com.calypsan.listenup.server.matching.person.PersonMatchUndoer
+import com.calypsan.listenup.server.matching.person.PersonMatchWriter
+import com.calypsan.listenup.server.matching.person.PersonReviewer
+import kotlinx.io.files.Path
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -27,12 +34,13 @@ import com.calypsan.listenup.server.services.GenreHierarchyFromLadder
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import org.koin.core.module.Module
+import org.koin.core.scope.Scope
 
 /**
  * Match details' Review, Apply and Undo (matching redesign PR 3): the reviewer, the one-transaction applier and
  * writer, the receipts and the undoer, bundled as [MatchDetails] for the matching service.
  */
-internal fun Module.matchDetailsBindings() {
+internal fun Module.matchDetailsBindings(imageHome: Path) {
     single { MatchReceiptStore(get<ListenUpDatabase>()) }
     single {
         val db = get<ListenUpDatabase>()
@@ -89,6 +97,35 @@ internal fun Module.matchDetailsBindings() {
                 ),
             undoer = MatchUndoer(db, books, moodWriter.bookMoodRepository, receipts, ::currentEpochMilliseconds),
             receipts = receipts,
+            people = personMatchDetails(db, contributors, receipts, imageHome),
         )
     }
+}
+
+/** Match details' person Review, Apply and Undo (matching redesign PR 4b), on the same receipt table as books. */
+private fun Scope.personMatchDetails(
+    db: ListenUpDatabase,
+    contributors: ContributorRepository,
+    receipts: MatchReceiptStore,
+    imageHome: Path,
+): PersonMatchDetails {
+    val reviewer =
+        PersonReviewer(
+            coordinator = get<EnrichmentCoordinator>(),
+            displayName = { userId ->
+                suspendTransaction(db) { db.usersQueries.selectDisplayNameById(userId).executeAsOneOrNull() }
+            },
+        )
+    return PersonMatchDetails(
+        reviewer = reviewer,
+        applier =
+            PersonMatchApplier(
+                reviewer = reviewer,
+                photoFiles = ContributorPhotoFiles(get<ImageStorage>(), imageHome),
+                writer = PersonMatchWriter(db, contributors, receipts, ::currentEpochMilliseconds),
+                now = ::currentEpochMilliseconds,
+            ),
+        undoer = PersonMatchUndoer(db, contributors, receipts, ::currentEpochMilliseconds),
+        loadPerson = { id -> contributors.findById(id.value)?.takeIf { it.deletedAt == null } },
+    )
 }

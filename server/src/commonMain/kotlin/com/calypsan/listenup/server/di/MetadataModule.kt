@@ -23,6 +23,7 @@ import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.matching.undo.BookCoverReferences
 import com.calypsan.listenup.server.matching.undo.MatchReceiptStore
 import com.calypsan.listenup.server.scheduler.MatchReceiptSweepTask
+import com.calypsan.listenup.server.scheduler.PhotoPins
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
@@ -252,7 +253,7 @@ fun metadataModule(imageHome: Path): Module =
             )
         }
 
-        matchingBindings()
+        matchingBindings(imageHome)
         metadataCleanupBindings(imageHome)
         ratingsBindings()
     }
@@ -349,8 +350,8 @@ internal fun HttpClientConfig<*>.installMetadataClientDefaults() {
  * Match details (the matching redesign): the Find orchestrator over the provider registry and routes, and the
  * [MatchingService] it backs. Split out to keep [metadataModule] under the length budget.
  */
-private fun Module.matchingBindings() {
-    matchDetailsBindings()
+private fun Module.matchingBindings(imageHome: Path) {
+    matchDetailsBindings(imageHome)
     single { BookFinder(registry = get<MetadataProviderRegistry>(), routes = get<EnrichmentRoutes>()) }
     single { PeopleFinder(registry = get<MetadataProviderRegistry>(), routes = get<EnrichmentRoutes>()) }
     single {
@@ -395,6 +396,7 @@ private fun Module.metadataCleanupBindings(imageHome: Path) {
             seriesRepository = get(),
             imageHome = imageHome,
             coverReferences = BookCoverReferences(get(), get<MatchReceiptStore>()),
+            photoPins = get<MatchReceiptStore>().let { receipts -> PhotoPins { receipts.pinnedPhotoPaths() } },
             settings = get(),
         )
     }
