@@ -2,17 +2,23 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.GenreMutation
+import com.calypsan.listenup.api.dto.entity.EntityMutation
+import com.calypsan.listenup.api.dto.entity.EntityUpsert
 import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.error.ContributorError
+import com.calypsan.listenup.api.error.EntityError
 import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.error.ShelfError
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.EntityKind
 import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.EntityId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
@@ -34,6 +40,7 @@ class DeleteIdempotencyTest :
                 GenreError.NotFound(),
                 SeriesError.NotFound(),
                 ContributorError.NotFound(),
+                EntityError.NotFound(),
             ).forEach { notFound ->
                 AppResult.Failure(notFound).orSuccessIfNotFound() shouldBe AppResult.Success(Unit)
             }
@@ -80,6 +87,41 @@ class DeleteIdempotencyTest :
                 queue.drain()
 
                 // A successful send deletes the op — nothing dead-lettered, nothing left to dispatch.
+                db.pendingOperationV2Dao().get(opId).shouldBeNull()
+                db.close()
+            }
+        }
+
+        test("an entities upsert that finds the entity already deleted drains (the delete has won)") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                // The server answers an upsert on a tombstoned entity with EntityError.NotFound; the
+                // entities sender folds it, so an edit queued behind another device's delete drains.
+                val sender =
+                    DomainPendingOperationSender(
+                        mapOf(
+                            OutboxChannels.Entities.name to
+                                OutboxOpSender(OutboxChannels.Entities) { _, _ ->
+                                    AppResult.Failure(EntityError.NotFound()).orSuccessIfNotFound()
+                                },
+                        ),
+                    )
+                val queue = PendingOperationQueue(dao = db.pendingOperationV2Dao(), sender = sender)
+                val upsert =
+                    EntityMutation.Upsert(
+                        EntityUpsert(id = EntityId("e1"), kind = EntityKind.CHARACTER, name = "Kaladin", homeBookId = BookId("b1")),
+                    )
+                val opId =
+                    queue.enqueue(
+                        channel = OutboxChannels.Entities,
+                        entityId = "e1",
+                        op = OpKind.Upsert,
+                        payload = contractJson.encodeToString(OutboxChannels.Entities.serializer, upsert),
+                        ownerUserId = "u1",
+                    )
+
+                queue.drain()
+
                 db.pendingOperationV2Dao().get(opId).shouldBeNull()
                 db.close()
             }

@@ -71,6 +71,7 @@ internal fun syncDomainCatalog(
                 ),
                 adminUserRosterDomain(database = database),
                 notificationsDomain(database = database),
+                entitiesDomain(database = database),
             ),
         refreshed =
             listOf(

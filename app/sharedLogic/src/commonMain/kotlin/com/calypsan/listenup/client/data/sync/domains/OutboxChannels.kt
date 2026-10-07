@@ -15,6 +15,7 @@ import com.calypsan.listenup.api.dto.TagMutation
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.api.dto.SeriesMutation
+import com.calypsan.listenup.api.dto.entity.EntityMutation
 import com.calypsan.listenup.api.dto.preferences.UpdateUserPreferencesRequest
 import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.sync.SyncDomains
@@ -182,6 +183,18 @@ internal object OutboxChannels {
             idempotent = true,
         )
 
+    // Story World entities: create and edit are one Upsert (a full snapshot with a client-minted id, applied
+    // in arrival order like every synced write) and delete is Delete. Both idempotent — a re-fired upsert
+    // re-applies the same snapshot; a re-fired delete finds the entity already gone (NotFound folds to
+    // success). Merge and revert stay online.
+    val Entities =
+        OutboxChannel(
+            SyncDomains.ENTITIES.name,
+            EntityMutation.serializer(),
+            setOf(OpKind.Upsert, OpKind.Delete),
+            idempotent = true,
+        )
+
     /** The complete, ordered channel list — the set the sender map must bind exactly. */
     val all: List<OutboxChannel<*>> =
         listOf(
@@ -202,6 +215,7 @@ internal object OutboxChannels {
             Collections,
             CollectionBooks,
             Notifications,
+            Entities,
         )
 
     private val byName: Map<String, OutboxChannel<*>> = all.associateBy { it.name }

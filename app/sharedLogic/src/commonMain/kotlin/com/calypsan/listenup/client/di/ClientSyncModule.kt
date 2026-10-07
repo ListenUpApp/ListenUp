@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.di
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.result.onSuccess
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.data.sync.describeSupersededPositionWrite
@@ -8,6 +9,7 @@ import com.calypsan.listenup.api.BookRatingService
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.EntityService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.NotificationService
@@ -73,6 +75,7 @@ import com.calypsan.listenup.api.dto.BookTagMutation
 import com.calypsan.listenup.api.dto.CollectionBookMutation
 import com.calypsan.listenup.api.dto.CollectionMutation
 import com.calypsan.listenup.api.dto.ContributorMutation
+import com.calypsan.listenup.api.dto.entity.EntityMutation
 import com.calypsan.listenup.api.dto.GenreMutation
 import com.calypsan.listenup.api.dto.NotificationMutation
 import com.calypsan.listenup.api.dto.RateBookRequest
@@ -83,6 +86,7 @@ import com.calypsan.listenup.api.dto.TagMutation
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.EntityId
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.MoodId
 import com.calypsan.listenup.core.SeriesId
@@ -187,6 +191,7 @@ internal val clientSyncModule =
             val shelfChannel = rpcChannel<ShelfService>()
             val genreChannel = rpcChannel<GenreService>()
             val notificationChannel = rpcChannel<NotificationService>()
+            val entityChannel = rpcChannel<EntityService>()
             outboxSender(
                 mapOf(
                     outboxBinding(OutboxChannels.Positions) { _, request ->
@@ -417,6 +422,20 @@ internal val clientSyncModule =
                                         BookId(mutation.bookId),
                                     )
                                 }
+                            }
+                        }
+                    },
+                    // The op's entityId is the entity id. Upsert carries the whole snapshot (create and edit alike).
+                    // Both branches fold NotFound: a re-fired delete finds the entity gone, and an edit queued
+                    // behind someone else's delete finds a tombstone — either way the delete has already won.
+                    outboxBinding(OutboxChannels.Entities) { id, mutation ->
+                        when (mutation) {
+                            is EntityMutation.Upsert -> {
+                                entityChannel.call { it.upsertEntity(mutation.upsert) }.map { }.orSuccessIfNotFound()
+                            }
+
+                            is EntityMutation.Delete -> {
+                                entityChannel.call { it.deleteEntity(EntityId(id)) }.orSuccessIfNotFound()
                             }
                         }
                     },

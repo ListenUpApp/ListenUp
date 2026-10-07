@@ -51,6 +51,8 @@ class AccessGateParitySpec :
                         "book_moods",
                         "book_ratings",
                         "book_external_ratings",
+                        // A Story World entity names its home book or series; an ungated one would reveal a hidden book's world.
+                        "entities",
                     )
             }
 

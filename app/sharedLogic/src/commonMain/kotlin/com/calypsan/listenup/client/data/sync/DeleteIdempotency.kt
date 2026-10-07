@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.error.ContributorError
+import com.calypsan.listenup.api.error.EntityError
 import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.error.ShelfError
@@ -19,9 +20,13 @@ import com.calypsan.listenup.api.result.AppResult
  * true — i.e. success. Applied at every delete-tombstone sender binding so a lost-then-retried delete
  * drains cleanly instead of quarantining.
  *
- * Only the six row-level target `*.NotFound` failures are folded — never a sub-entity miss like
+ * Only the seven row-level target `*.NotFound` failures are folded — never a sub-entity miss like
  * [TagError.BookNotFound], [CollectionError.BookNotFound], or [ContributorError.AliasNotFound], which
  * are genuine failures that must surface.
+ *
+ * The `entities` sender also folds its Upsert through here: the server answers an upsert on a tombstoned
+ * entity with [EntityError.NotFound], and the delete has already won — the tombstone reaches the mirror
+ * through sync, so the queued edit drains instead of dead-lettering against an entity that is gone.
  */
 internal fun AppResult<Unit>.orSuccessIfNotFound(): AppResult<Unit> =
     if (this is AppResult.Failure && error.isDeleteTargetNotFound()) AppResult.Success(Unit) else this
@@ -32,4 +37,5 @@ private fun com.calypsan.listenup.api.error.AppError.isDeleteTargetNotFound(): B
         this is CollectionError.NotFound ||
         this is GenreError.NotFound ||
         this is SeriesError.NotFound ||
-        this is ContributorError.NotFound
+        this is ContributorError.NotFound ||
+        this is EntityError.NotFound
