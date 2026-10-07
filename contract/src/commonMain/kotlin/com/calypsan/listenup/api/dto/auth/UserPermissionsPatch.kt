@@ -29,6 +29,7 @@ import kotlinx.serialization.Serializable
  * @property canCurateLibrary see [UserPermissions.canCurateLibrary]; null leaves it unchanged.
  * @property canContributeStoryWorld see [UserPermissions.canContributeStoryWorld]; null leaves it unchanged.
  * @property canCurateStoryWorld see [UserPermissions.canCurateStoryWorld]; null leaves it unchanged.
+ * @property canMakeReadingOrders see [UserPermissions.canMakeReadingOrders]; null leaves it unchanged.
  */
 @Serializable
 data class UserPermissionsPatch(
@@ -36,6 +37,7 @@ data class UserPermissionsPatch(
     @SerialName("canCurateLibrary") val canCurateLibrary: Boolean? = null,
     @SerialName("canContributeStoryWorld") val canContributeStoryWorld: Boolean? = null,
     @SerialName("canCurateStoryWorld") val canCurateStoryWorld: Boolean? = null,
+    @SerialName("canMakeReadingOrders") val canMakeReadingOrders: Boolean? = null,
 ) {
     /** True when the patch names no flag at all. */
     val isEmpty: Boolean
@@ -43,7 +45,8 @@ data class UserPermissionsPatch(
             canEditMetadata == null &&
                 canCurateLibrary == null &&
                 canContributeStoryWorld == null &&
-                canCurateStoryWorld == null
+                canCurateStoryWorld == null &&
+                canMakeReadingOrders == null
 }
 
 /** This patch, also naming [permission] as [granted]. [Permission.UNKNOWN] is never sent, so it changes nothing. */
@@ -56,6 +59,7 @@ fun UserPermissionsPatch.granting(
         Permission.CURATE_LIBRARY -> copy(canCurateLibrary = granted)
         Permission.CONTRIBUTE_STORY_WORLD -> copy(canContributeStoryWorld = granted)
         Permission.CURATE_STORY_WORLD -> copy(canCurateStoryWorld = granted)
+        Permission.MAKE_READING_ORDERS -> copy(canMakeReadingOrders = granted)
         Permission.UNKNOWN -> this
     }
 
@@ -69,5 +73,6 @@ fun UserPermissions.patchedBy(patch: UserPermissionsPatch?): UserPermissions =
             canCurateLibrary = patch.canCurateLibrary ?: canCurateLibrary,
             canContributeStoryWorld = patch.canContributeStoryWorld ?: canContributeStoryWorld,
             canCurateStoryWorld = patch.canCurateStoryWorld ?: canCurateStoryWorld,
+            canMakeReadingOrders = patch.canMakeReadingOrders ?: canMakeReadingOrders,
         )
     }

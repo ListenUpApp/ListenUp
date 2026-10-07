@@ -27,6 +27,7 @@ import com.calypsan.listenup.api.error.RatingError
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.error.ServerConnectError
+import com.calypsan.listenup.api.error.ReadingOrderError
 import com.calypsan.listenup.api.error.ShelfError
 import com.calypsan.listenup.api.error.SocialError
 import com.calypsan.listenup.api.error.SyncError
@@ -179,10 +180,10 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is CollectionError -> toHttpStatus()
 
-        // ShelfError + SocialError share one branch (delegating to an exhaustive helper) to keep
-        // this function's cyclomatic complexity under the project threshold while preserving
-        // per-variant exhaustiveness for both families.
-        is ShelfError, is SocialError -> shelfOrSocialHttpStatus()
+        // ShelfError + SocialError + ReadingOrderError share one branch (delegating to an exhaustive
+        // helper) to keep this function's cyclomatic complexity under the project threshold while
+        // preserving per-variant exhaustiveness for every family.
+        is ShelfError, is SocialError, is ReadingOrderError -> shelfOrSocialHttpStatus()
 
         is AdminError -> toHttpStatus()
 
@@ -571,7 +572,7 @@ private fun ShelfError.toHttpStatus(): HttpStatusCode =
     }
 
 /**
- * Re-dispatches the grouped `ShelfError`/`SocialError` branch of [toHttpStatus] to each family's
+ * Re-dispatches the grouped `ShelfError`/`SocialError`/`ReadingOrderError` branch of [toHttpStatus] to each family's
  * own exhaustive mapping. Split out solely to keep [toHttpStatus]'s cyclomatic complexity under the
  * project threshold; the `else` is unreachable (only called from the grouped branch above).
  */
@@ -579,7 +580,20 @@ private fun AppError.shelfOrSocialHttpStatus(): HttpStatusCode =
     when (this) {
         is ShelfError -> toHttpStatus()
         is SocialError -> toHttpStatus()
+        is ReadingOrderError -> toHttpStatus()
         else -> HttpStatusCode.InternalServerError // unreachable: only called from the grouped branch
+    }
+
+private fun ReadingOrderError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is ReadingOrderError.NotFound -> HttpStatusCode.NotFound
+        is ReadingOrderError.Forbidden -> HttpStatusCode.Forbidden
+        is ReadingOrderError.NameAlreadyExists -> HttpStatusCode.Conflict
+        is ReadingOrderError.InvalidName,
+        is ReadingOrderError.BookOutsideSeries,
+        is ReadingOrderError.ChoiceUnavailable,
+        is ReadingOrderError.InvalidInput,
+        -> HttpStatusCode.BadRequest
     }
 
 private fun SocialError.toHttpStatus(): HttpStatusCode =

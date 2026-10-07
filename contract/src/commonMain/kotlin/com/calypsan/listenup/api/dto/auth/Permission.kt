@@ -16,6 +16,9 @@ enum class PermissionGroup {
     /** Story World, the encyclopedia of a series or book: adding to it, and merging its entries. */
     STORY_WORLD,
 
+    /** Reading orders: making named orders within a series, and editing the ones you made. */
+    READING_ORDERS,
+
     /** The group of [Permission.UNKNOWN]. Never rendered. */
     UNKNOWN,
 }
@@ -70,6 +73,12 @@ enum class Permission(
 
     /** Merge Story World entries, and revert a merge. Merging rewrites a whole world, so off by default. */
     CURATE_STORY_WORLD(PermissionGroup.STORY_WORLD, wireKey = "canCurateStoryWorld", defaultGranted = false),
+
+    /**
+     * Make reading orders within a series, and rename, reorder, add to, remove from and delete the ones
+     * you made. Additive and undoable, so on by default. Following an order needs no permission.
+     */
+    MAKE_READING_ORDERS(PermissionGroup.READING_ORDERS, wireKey = "canMakeReadingOrders", defaultGranted = true),
 
     /** A permission this build does not know (a newer server's). Grants nothing and never renders. */
     UNKNOWN(PermissionGroup.UNKNOWN, wireKey = "", defaultGranted = false),

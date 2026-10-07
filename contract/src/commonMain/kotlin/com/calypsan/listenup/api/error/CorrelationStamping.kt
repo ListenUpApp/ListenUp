@@ -48,7 +48,10 @@ public fun AppError.withCorrelationId(id: String?): AppError =
 
         is CollectionError -> withCorrelationId(id)
 
-        is ShelfError -> withCorrelationId(id)
+        // ShelfError + ReadingOrderError share one branch (delegating to an exhaustive helper) to keep
+        // this function under the project's cyclomatic-complexity ceiling. Both are hand-made lists
+        // of books.
+        is ShelfError, is ReadingOrderError -> bookListWithCorrelationId(id)
 
         is SocialError -> withCorrelationId(id)
 
@@ -401,6 +404,28 @@ private fun CollectionError.withCorrelationId(id: String?): CollectionError =
         is CollectionError.SelfShare -> copy(correlationId = id)
         is CollectionError.AlreadyShared -> copy(correlationId = id)
         is CollectionError.ReleaseIncomplete -> copy(correlationId = id)
+    }
+
+/**
+ * Re-dispatches the grouped `ShelfError`/`ReadingOrderError` branch of [withCorrelationId] to each
+ * family's own exhaustive stamping. The `else` is unreachable (only called from that branch).
+ */
+private fun AppError.bookListWithCorrelationId(id: String?): AppError =
+    when (this) {
+        is ShelfError -> withCorrelationId(id)
+        is ReadingOrderError -> withCorrelationId(id)
+        else -> this // unreachable: only called from the grouped branch
+    }
+
+private fun ReadingOrderError.withCorrelationId(id: String?): ReadingOrderError =
+    when (this) {
+        is ReadingOrderError.NotFound -> copy(correlationId = id)
+        is ReadingOrderError.Forbidden -> copy(correlationId = id)
+        is ReadingOrderError.InvalidName -> copy(correlationId = id)
+        is ReadingOrderError.NameAlreadyExists -> copy(correlationId = id)
+        is ReadingOrderError.BookOutsideSeries -> copy(correlationId = id)
+        is ReadingOrderError.ChoiceUnavailable -> copy(correlationId = id)
+        is ReadingOrderError.InvalidInput -> copy(correlationId = id)
     }
 
 private fun ShelfError.withCorrelationId(id: String?): ShelfError =

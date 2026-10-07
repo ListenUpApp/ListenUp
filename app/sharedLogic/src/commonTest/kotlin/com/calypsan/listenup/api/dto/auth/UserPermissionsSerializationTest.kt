@@ -6,8 +6,9 @@ import io.kotest.matchers.shouldBe
 
 class UserPermissionsSerializationTest :
     FunSpec({
-        test("defaults follow the rule: edit metadata on, curate library off") {
-            UserPermissions() shouldBe UserPermissions(canEditMetadata = true, canCurateLibrary = false)
+        test("defaults follow the rule: edit metadata on, curate library off, reading orders on") {
+            UserPermissions() shouldBe
+                UserPermissions(canEditMetadata = true, canCurateLibrary = false, canMakeReadingOrders = true)
         }
 
         test("canEditMetadata keeps the wire name canEdit") {
