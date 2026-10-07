@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.sync.ExternalRatingSyncPayload
 import com.calypsan.listenup.api.sync.ActivitySyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
+import com.calypsan.listenup.api.sync.EntitySyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.server.api.BookAccessPolicy
 
@@ -48,6 +49,12 @@ internal const val BOOK_MOODS_DOMAIN = "book_moods"
 internal const val BOOK_RATINGS_DOMAIN = "book_ratings"
 internal const val BOOK_EXTERNAL_RATINGS_DOMAIN = "book_external_ratings"
 
+/**
+ * Story World entities. Access-gated by home: a book-homed entity is visible iff its book is, a
+ * series-homed one iff at least one of the series' books is.
+ */
+internal const val ENTITIES_DOMAIN = "entities"
+
 internal const val LIBRARY_FOLDERS_DOMAIN = "library_folders"
 
 // Admin-only domain: a row carries a user's email/role/status, which non-admins must never
@@ -75,6 +82,7 @@ internal suspend fun firehoseGateReason(
         isActivityEventHidden(busEvent, userId, role, bookAccessPolicy) -> "activity"
         isCollectionEventHidden(busEvent, userId, role, bookAccessPolicy) -> "collection"
         isBookJunctionEventHidden(busEvent, userId, role, bookAccessPolicy) -> "bookJunction"
+        isEntityEventHidden(busEvent, userId, role, bookAccessPolicy) -> "entity"
         isLibraryFolderEventHidden(busEvent, role) -> "libraryFolder"
         isAdminRosterEventHidden(busEvent, role) -> "adminRoster"
         else -> null
@@ -192,6 +200,28 @@ private fun activityBookIdOf(event: SyncEvent<*>): String? =
         is SyncEvent.Updated<*> -> (event.payload as ActivitySyncPayload).bookId
         is SyncEvent.Deleted -> null
     }
+
+/**
+ * Whether a live `entities` event must be withheld from `(userId, role)`. Mirrors the catch-up fragment
+ * (`BookAccessPolicy.accessibleEntityIdsSql`): content events gate on the payload's home; ROOT/ADMIN and
+ * tombstones always pass (a tombstone carries no content — `EntityRepository.minimizeTombstone`).
+ */
+private suspend fun isEntityEventHidden(
+    busEvent: BusEvent<*>,
+    userId: String,
+    role: UserRole,
+    bookAccessPolicy: () -> BookAccessPolicy,
+): Boolean {
+    if (busEvent.repo.domainName != ENTITIES_DOMAIN) return false
+    if (isAdmin(role)) return false
+    val payload =
+        when (val event = busEvent.event) {
+            is SyncEvent.Created<*> -> event.payload as EntitySyncPayload
+            is SyncEvent.Updated<*> -> event.payload as EntitySyncPayload
+            is SyncEvent.Deleted -> return false
+        }
+    return !bookAccessPolicy().canSeeEntityHome(userId, role, payload.homeSeriesId, payload.homeBookId)
+}
 
 /**
  * Whether a live firehose [busEvent] on the `library_folders` domain must be withheld from

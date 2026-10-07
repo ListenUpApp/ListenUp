@@ -33,6 +33,8 @@ internal val BOOK_ID_MATCH_DOMAINS =
         BOOK_MOODS_DOMAIN,
         BOOK_RATINGS_DOMAIN,
         BOOK_EXTERNAL_RATINGS_DOMAIN,
+        // entities have no book_id column; EntityRepository.pullByIds resolves the book ids itself.
+        ENTITIES_DOMAIN,
     )
 
 // Domains whose rows carry a `collection_id` column, so [TargetedMatch.COLLECTION_ID] (the
@@ -133,6 +135,8 @@ internal val ACCESS_FILTERS: Map<String, AccessFilterSpec> =
             AccessFilterSpec.PerRow { policy, userId, role -> policy.accessibleBookRatingIdsSql(userId, role) },
         BOOK_EXTERNAL_RATINGS_DOMAIN to
             AccessFilterSpec.PerRow { policy, userId, role -> policy.accessibleBookExternalRatingIdsSql(userId, role) },
+        ENTITIES_DOMAIN to
+            AccessFilterSpec.PerRow { policy, userId, role -> policy.accessibleEntityIdsSql(userId, role) },
         LIBRARY_FOLDERS_DOMAIN to AccessFilterSpec.RoleGatedHide(LIBRARY_FOLDERS_HIDDEN),
         ADMIN_USER_ROSTER_DOMAIN to AccessFilterSpec.RoleGatedHide(ADMIN_USER_ROSTER_HIDDEN),
     )
