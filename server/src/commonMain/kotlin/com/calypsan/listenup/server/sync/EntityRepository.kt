@@ -307,16 +307,17 @@ class EntityRepository(
      * Restores the `before` of [changeId] as a new forward write and records REVERT: a CREATE reverts to a
      * tombstone; anything else restores (and revives) the earlier snapshot, keeping its home.
      *
-     * Whether the revert is structural is decided here, inside the write's transaction, against the
-     * current row — never from a read a concurrent delete could overtake. Reverting a CREATE, DELETE or
-     * MERGE, a REVERT that crossed between live and deleted, or anything of an entity that is deleted
-     * now, is structural; without [allowStructural] (the caller's curate capability) it is
-     * [AuthError.PermissionDenied], so a content revert can never revive a deleted entity.
+     * The change, the current row and the restore are all read inside the write's transaction, so the
+     * REVERT's `before` is the row as it stands — a delete that lands between the caller's read and this
+     * write is what the revert records, and undoes. Reverting a MERGE row needs [allowMergeRevert] (the
+     * caller's curate capability); without it that is [AuthError.PermissionDenied]. Every other change,
+     * including a CREATE, a DELETE, or any change of an entity that is deleted now, is anyone's to revert
+     * whom the service let through.
      */
     suspend fun revert(
         changeId: StoryWorldHistoryId,
         actor: UserId?,
-        allowStructural: Boolean,
+        allowMergeRevert: Boolean,
     ): AppResult<EntityChange> {
         val ctx = writeContext()
         return suspendTransaction(db) {
@@ -331,9 +332,9 @@ class EntityRepository(
                     ?: return@suspendTransaction AppResult.Failure(
                         EntityError.NotFound(debugInfo = "entity=${change.entityId.value}"),
                     )
-            if (!allowStructural && (current.deletedAt != null || !change.isContentEdit())) {
+            if (!allowMergeRevert && change.op == StoryWorldOp.MERGE) {
                 return@suspendTransaction AppResult.Failure(
-                    AuthError.PermissionDenied(debugInfo = "structural revert of change=${changeId.value}"),
+                    AuthError.PermissionDenied(debugInfo = "merge revert of change=${changeId.value}"),
                 )
             }
             val restore =
@@ -353,23 +354,6 @@ class EntityRepository(
             AppResult.Success(rewrite(current, restored, StoryWorldOp.REVERT, actor, ctx, revision = rev))
         }
     }
-
-    /** True when this change edited a live entry's content and left it live; its revert does the same. */
-    private fun EntityChange.isContentEdit(): Boolean =
-        when (op) {
-            StoryWorldOp.UPDATE -> {
-                true
-            }
-
-            StoryWorldOp.REVERT -> {
-                before != null && before?.deletedAt == null && after != null &&
-                    after?.deletedAt == null
-            }
-
-            StoryWorldOp.CREATE, StoryWorldOp.DELETE, StoryWorldOp.MERGE -> {
-                false
-            }
-        }
 
     // ── Book removal cascade (BookRepository.softDelete / reviveByIds) ──
     // Like every write here, each takes its revision before it reads, so the transaction is the writer

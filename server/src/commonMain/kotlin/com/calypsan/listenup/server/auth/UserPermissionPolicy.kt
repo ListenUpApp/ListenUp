@@ -48,7 +48,7 @@ class UserPermissionPolicy(
     }
 
     /**
-     * Null when [userId]/[role] may create, edit and revert Story World content;
+     * Null when [userId]/[role] may create, edit, delete and revert (all but a merge) Story World content;
      * [AuthError.PermissionDenied] otherwise.
      */
     suspend fun requireCanContributeStoryWorld(
@@ -57,7 +57,7 @@ class UserPermissionPolicy(
     ): AppError? = requireStoryWorld(userId, role) { it.can_contribute_story_world != 0L }
 
     /**
-     * Null when [userId]/[role] may merge and delete Story World content;
+     * Null when [userId]/[role] may merge Story World content and revert a merge;
      * [AuthError.PermissionDenied] otherwise.
      */
     suspend fun requireCanCurateStoryWorld(

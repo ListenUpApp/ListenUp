@@ -41,7 +41,7 @@ class EntityRepositoryWritesTest :
                             .revert(
                                 deletion.id,
                                 ACTOR,
-                                allowStructural = true,
+                                allowMergeRevert = true,
                             ).shouldBeInstanceOf<AppResult.Success<EntityChange>>()
                             .data
                     reverted.op shouldBe StoryWorldOp.REVERT
@@ -68,7 +68,7 @@ class EntityRepositoryWritesTest :
                             .revert(
                                 creation.id,
                                 ACTOR,
-                                allowStructural = true,
+                                allowMergeRevert = true,
                             ).shouldBeInstanceOf<AppResult.Success<EntityChange>>()
                             .data
                     repo
@@ -77,7 +77,7 @@ class EntityRepositoryWritesTest :
                         .deletedAt
                         .shouldNotBeNull()
 
-                    repo.revert(undoCreate.id, ACTOR, allowStructural = true).shouldBeInstanceOf<AppResult.Success<EntityChange>>()
+                    repo.revert(undoCreate.id, ACTOR, allowMergeRevert = true).shouldBeInstanceOf<AppResult.Success<EntityChange>>()
                     repo
                         .findById(EntityId("e1"))
                         .shouldNotBeNull()
@@ -97,7 +97,7 @@ class EntityRepositoryWritesTest :
                     repo.upsertEntity(entityPayload("e1", homeBookId = "b1", name = "Virginia"), ACTOR)
                     val edit = repo.listHistory(EntityId("e1")).first()
 
-                    repo.revert(edit.id, ACTOR, allowStructural = false)
+                    repo.revert(edit.id, ACTOR, allowMergeRevert = false)
 
                     repo.findById(EntityId("e1")).shouldNotBeNull().name shouldBe "Mustang"
                 }
@@ -151,7 +151,7 @@ class EntityRepositoryWritesTest :
             }
         }
 
-        test("a content revert can't revive an entity deleted after the caller was classified") {
+        test("a content revert is decided against the row as it stands inside the revert's transaction") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestBook("b1")
@@ -160,24 +160,28 @@ class EntityRepositoryWritesTest :
                     repo.upsertEntity(entityPayload("e1", homeBookId = "b1", name = "Mustang"), ACTOR)
                     repo.upsertEntity(entityPayload("e1", homeBookId = "b1", name = "Virginia"), ACTOR)
                     val rename = repo.listHistory(EntityId("e1")).first()
-                    // A curator's delete lands between the service's read and the revert's transaction.
-                    repo.deleteEntity(EntityId("e1"), UserId("curator"))
+                    // Another contributor's delete lands between the service's read and the revert's transaction.
+                    repo.deleteEntity(EntityId("e1"), UserId("other"))
 
-                    repo
-                        .revert(rename.id, ACTOR, allowStructural = false)
-                        .shouldBeInstanceOf<AppResult.Failure>()
-                        .error
-                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
-                    repo
-                        .findById(EntityId("e1"))
+                    val reverted =
+                        repo
+                            .revert(rename.id, ACTOR, allowMergeRevert = false)
+                            .shouldBeInstanceOf<AppResult.Success<EntityChange>>()
+                            .data
+                    // The REVERT's `before` is the tombstone the delete left, read inside the transaction.
+                    reverted.before
                         .shouldNotBeNull()
                         .deletedAt
                         .shouldNotBeNull()
+                    repo.findById(EntityId("e1")).shouldNotBeNull().let {
+                        it.deletedAt.shouldBeNull()
+                        it.name shouldBe "Mustang"
+                    }
                 }
             }
         }
 
-        test("a caller without curate can't revert a create, delete or merge") {
+        test("without merge-revert a caller still reverts a create and a delete, but not a merge") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestBook("b1")
@@ -185,15 +189,29 @@ class EntityRepositoryWritesTest :
                 runTest {
                     repo.upsertEntity(entityPayload("e1", homeBookId = "b1"), ACTOR)
                     val creation = repo.listHistory(EntityId("e1")).single()
+                    repo.revert(creation.id, ACTOR, allowMergeRevert = false).shouldBeInstanceOf<AppResult.Success<EntityChange>>()
                     repo
-                        .revert(creation.id, ACTOR, allowStructural = false)
-                        .shouldBeInstanceOf<AppResult.Failure>()
-                        .error
-                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                        .findById(EntityId("e1"))
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldNotBeNull()
+                    val undoCreate = repo.listHistory(EntityId("e1")).first()
+                    repo.revert(undoCreate.id, ACTOR, allowMergeRevert = false).shouldBeInstanceOf<AppResult.Success<EntityChange>>()
                     repo.deleteEntity(EntityId("e1"), ACTOR)
                     val deletion = repo.listHistory(EntityId("e1")).first()
+                    repo.revert(deletion.id, ACTOR, allowMergeRevert = false).shouldBeInstanceOf<AppResult.Success<EntityChange>>()
                     repo
-                        .revert(deletion.id, ACTOR, allowStructural = false)
+                        .findById(EntityId("e1"))
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldBeNull()
+
+                    repo.upsertEntity(entityPayload("e2", homeBookId = "b1"), ACTOR)
+                    repo.mergeEntities(EntityId("e1"), EntityId("e2"), ACTOR)
+                    val merge = repo.listHistory(EntityId("e1")).first()
+                    merge.op shouldBe StoryWorldOp.MERGE
+                    repo
+                        .revert(merge.id, ACTOR, allowMergeRevert = false)
                         .shouldBeInstanceOf<AppResult.Failure>()
                         .error
                         .shouldBeInstanceOf<AuthError.PermissionDenied>()
@@ -202,6 +220,12 @@ class EntityRepositoryWritesTest :
                         .shouldNotBeNull()
                         .deletedAt
                         .shouldNotBeNull()
+                    repo.revert(merge.id, ACTOR, allowMergeRevert = true).shouldBeInstanceOf<AppResult.Success<EntityChange>>()
+                    repo
+                        .findById(EntityId("e1"))
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldBeNull()
                 }
             }
         }
@@ -214,7 +238,7 @@ class EntityRepositoryWritesTest :
                             com.calypsan.listenup.core
                                 .StoryWorldHistoryId("nope"),
                             ACTOR,
-                            allowStructural = true,
+                            allowMergeRevert = true,
                         ).shouldBeInstanceOf<AppResult.Failure>()
                         .error
                         .shouldBeInstanceOf<EntityError.HistoryNotFound>()

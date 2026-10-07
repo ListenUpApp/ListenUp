@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.EntityService
 import com.calypsan.listenup.api.dto.entity.EntityChange
 import com.calypsan.listenup.api.dto.entity.EntityUpsert
+import com.calypsan.listenup.api.dto.entity.StoryWorldOp
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.EntityError
 import com.calypsan.listenup.api.error.ValidationError
@@ -19,8 +20,8 @@ import com.calypsan.listenup.server.sync.EntityRepository
 import kotlin.time.Clock
 
 /**
- * [EntityService]: permissions from [permissionPolicy] (contribute for create/edit and reverting an edit,
- * curate for merge/delete and reverting anything structural, ROOT/ADMIN implicit), visibility from [accessPolicy] (a member needs to see the home).
+ * [EntityService]: permissions from [permissionPolicy] (contribute for create, edit, delete and reverting
+ * anything but a merge; curate for merge and reverting a merge; ROOT/ADMIN implicit), visibility from [accessPolicy] (a member needs to see the home).
  * A hidden home answers [EntityError.NotFound] for writes and history, and an empty list for listings —
  * existence never leaks. Route handlers bind the caller per request via [copyWith].
  */
@@ -73,7 +74,11 @@ internal class EntityServiceImpl(
 
     override suspend fun deleteEntity(id: EntityId): AppResult<Unit> {
         val caller = principal.current() ?: return denied()
-        permissionPolicy.requireCanCurateStoryWorld(caller.userId, caller.role)?.let { return AppResult.Failure(it) }
+        permissionPolicy
+            .requireCanContributeStoryWorld(
+                caller.userId,
+                caller.role,
+            )?.let { return AppResult.Failure(it) }
         if (visibleLive(caller, id) == null) return notFound(id)
         return entityRepo.deleteEntity(id, caller.userId)
     }
@@ -109,13 +114,11 @@ internal class EntityServiceImpl(
     }
 
     /**
-     * Reverting needs the permission the reverted change itself needed. A content edit — an UPDATE, or a
-     * REVERT between two live states (a rename, a descriptor or parent change) — needs contribute.
-     * Anything structural needs curate: reverting a CREATE deletes, reverting a DELETE or MERGE revives,
-     * and so does reverting any change of an entry that is deleted now. The repository classifies the
-     * change inside the revert's transaction, against the current row, given whether the caller may
-     * curate — so a delete landing after this check can't turn a content revert into a revival. A change
-     * of an entity the caller can't see is [EntityError.HistoryNotFound], before any permission is consulted.
+     * Reverting needs the permission the reverted change itself needed: a MERGE row needs curate; any
+     * other (an UPDATE, a CREATE — which deletes — a DELETE or a REVERT, reviving a deleted entry or not)
+     * needs contribute. The repository re-checks the merge gate inside the revert's transaction, and
+     * records the row as it stands there. A change of an entity the caller can't see is
+     * [EntityError.HistoryNotFound], before any permission is consulted.
      */
     override suspend fun revert(changeId: StoryWorldHistoryId): AppResult<EntityChange> {
         val caller = principal.current() ?: return denied()
@@ -124,12 +127,14 @@ internal class EntityServiceImpl(
         val entity = entityRepo.findById(change.entityId) ?: return missing
         if (!canSee(caller, entity.homeSeriesId, entity.homeBookId)) return missing
         val curateRefusal = permissionPolicy.requireCanCurateStoryWorld(caller.userId, caller.role)
-        if (curateRefusal != null) {
-            permissionPolicy
-                .requireCanContributeStoryWorld(caller.userId, caller.role)
-                ?.let { return AppResult.Failure(it) }
-        }
-        return entityRepo.revert(changeId, caller.userId, allowStructural = curateRefusal == null)
+        val refusal =
+            if (change.op == StoryWorldOp.MERGE) {
+                curateRefusal
+            } else {
+                permissionPolicy.requireCanContributeStoryWorld(caller.userId, caller.role)
+            }
+        refusal?.let { return AppResult.Failure(it) }
+        return entityRepo.revert(changeId, caller.userId, allowMergeRevert = curateRefusal == null)
     }
 
     private fun validate(upsert: EntityUpsert): ValidationError? =

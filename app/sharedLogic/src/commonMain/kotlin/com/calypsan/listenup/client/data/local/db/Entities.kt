@@ -62,7 +62,7 @@ internal data class UserEntity(
     val canEdit: Boolean = true,
     /** Whether this user may add to Story World (the contract's `UserPermissions.canContributeStoryWorld`). */
     val canContributeStoryWorld: Boolean = true,
-    /** Whether this user may merge and delete Story World entries (`UserPermissions.canCurateStoryWorld`). */
+    /** Whether this user may merge Story World entries (`UserPermissions.canCurateStoryWorld`). */
     val canCurateStoryWorld: Boolean = false,
 )
 

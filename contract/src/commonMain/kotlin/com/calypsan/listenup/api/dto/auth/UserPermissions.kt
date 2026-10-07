@@ -13,12 +13,12 @@ import kotlinx.serialization.Serializable
  * mean unchanged.
  *
  * @property canEdit may edit book content metadata (title, genres, contributors, series).
- * @property canContributeStoryWorld may create and edit Story World entities and entries, and revert
- *   changes. **A deliberate exception to the rule above:** it grants a new power yet defaults to
+ * @property canContributeStoryWorld may create, edit and delete Story World entities and entries, and
+ *   revert any change but a merge (including reviving a deleted entry). **A deliberate exception to the rule above:** it grants a new power yet defaults to
  *   `true`, by product decision — contributing to Story World is a default member capability, guarded
  *   by edit history and undo rather than by permission. An admin can still switch it off per member.
- * @property canCurateStoryWorld may merge and delete Story World entities and entries. Grants a new
- *   power, so it defaults to `false`.
+ * @property canCurateStoryWorld may merge Story World entities and entries, and revert a merge. Grants
+ *   a new power, so it defaults to `false`.
  */
 @Serializable
 data class UserPermissions(

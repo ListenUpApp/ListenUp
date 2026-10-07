@@ -109,19 +109,15 @@ class EntityServiceImplTest :
             }
         }
 
-        test("curate: delete and merge need the curator flag; admins hold it implicitly") {
+        test("contribute deletes anyone's entry; merge needs the curator flag; admins hold both implicitly") {
             withSqlDatabase {
                 runTest {
                     val world = storyWorld()
                     val member = world.asMember("member")
-                    member.upsertEntity(upsert("a", homeBookId = "open"))
-                    member.upsertEntity(upsert("b", homeBookId = "open"))
+                    val root = world.asRoot()
+                    listOf("a", "b", "c").forEach { root.upsertEntity(upsert(it, homeBookId = "open")) }
 
-                    member
-                        .deleteEntity(EntityId("a"))
-                        .shouldBeInstanceOf<AppResult.Failure>()
-                        .error
-                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                    member.deleteEntity(EntityId("c")) shouldBe AppResult.Success(Unit)
                     member
                         .mergeEntities(EntityId("a"), EntityId("b"))
                         .shouldBeInstanceOf<AppResult.Failure>()
@@ -132,6 +128,32 @@ class EntityServiceImplTest :
                         .mergeEntities(EntityId("a"), EntityId("b"))
                         .shouldBeInstanceOf<AppResult.Success<EntitySyncPayload>>()
                     world.asRoot().deleteEntity(EntityId("b")) shouldBe AppResult.Success(Unit)
+                }
+            }
+        }
+
+        test("a member with neither flag is refused every write") {
+            withSqlDatabase {
+                runTest {
+                    val world = storyWorld()
+                    val root = world.asRoot()
+                    listOf("a", "b").forEach { root.upsertEntity(upsert(it, homeBookId = "open")) }
+                    root.upsertEntity(upsert("a", homeBookId = "open", name = "Renamed"))
+                    val none = world.asMember("nocontrib")
+
+                    listOf(
+                        none.upsertEntity(upsert("x", homeBookId = "open")),
+                        none.upsertEntity(upsert("a", homeBookId = "open", name = "Mine now")),
+                        none.deleteEntity(EntityId("a")),
+                        none.mergeEntities(EntityId("a"), EntityId("b")),
+                        none.revert(world.changeOf("a", StoryWorldOp.UPDATE)),
+                        none.revert(world.changeOf("b", StoryWorldOp.CREATE)),
+                    ).forEach { result ->
+                        result
+                            .shouldBeInstanceOf<AppResult.Failure>()
+                            .error
+                            .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                    }
                 }
             }
         }
@@ -320,7 +342,7 @@ class EntityServiceImplTest :
             }
         }
 
-        test("a contributor reverts content edits; reverting a create, delete or merge needs curate") {
+        test("a contributor reverts an update, a create or a delete; reverting a merge needs curate") {
             withSqlDatabase {
                 runTest {
                     val world = storyWorld()
@@ -332,28 +354,23 @@ class EntityServiceImplTest :
                     val member = world.asMember("member")
 
                     member.revert(world.changeOf("u", StoryWorldOp.UPDATE)).shouldBeInstanceOf<AppResult.Success<*>>()
-                    listOf(
-                        world.changeOf("c", StoryWorldOp.CREATE),
-                        world.changeOf("d", StoryWorldOp.DELETE),
-                        world.changeOf("m", StoryWorldOp.MERGE),
-                    ).forEach { structural ->
-                        member
-                            .revert(structural)
-                            .shouldBeInstanceOf<AppResult.Failure>()
-                            .error
-                            .shouldBeInstanceOf<AuthError.PermissionDenied>()
-                    }
+                    member.revert(world.changeOf("c", StoryWorldOp.CREATE)).shouldBeInstanceOf<AppResult.Success<*>>()
+                    member.revert(world.changeOf("d", StoryWorldOp.DELETE)).shouldBeInstanceOf<AppResult.Success<*>>()
+                    member
+                        .revert(world.changeOf("m", StoryWorldOp.MERGE))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
 
-                    val curator = world.asMember("curator")
-                    curator.revert(world.changeOf("u", StoryWorldOp.UPDATE)).shouldBeInstanceOf<AppResult.Success<*>>()
-                    curator.revert(world.changeOf("c", StoryWorldOp.CREATE)).shouldBeInstanceOf<AppResult.Success<*>>()
-                    curator.revert(world.changeOf("d", StoryWorldOp.DELETE)).shouldBeInstanceOf<AppResult.Success<*>>()
-                    curator.revert(world.changeOf("m", StoryWorldOp.MERGE)).shouldBeInstanceOf<AppResult.Success<*>>()
+                    world
+                        .asMember("curator")
+                        .revert(world.changeOf("m", StoryWorldOp.MERGE))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
                 }
             }
         }
 
-        test("a contributor can't revive a deleted entry by reverting one of its content edits") {
+        test("a contributor may revive a deleted entry by reverting one of its content edits") {
             withSqlDatabase {
                 runTest {
                     val world = storyWorld()
@@ -365,9 +382,15 @@ class EntityServiceImplTest :
                     world
                         .asMember("member")
                         .revert(world.changeOf("d", StoryWorldOp.UPDATE))
-                        .shouldBeInstanceOf<AppResult.Failure>()
-                        .error
-                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                        .shouldBeInstanceOf<AppResult.Success<EntityChange>>()
+                        .data
+                        .after
+                        ?.deletedAt shouldBe null
+                    root
+                        .listEntitiesForBook(BookId("open"))
+                        .shouldBeInstanceOf<AppResult.Success<List<EntitySyncPayload>>>()
+                        .data
+                        .map { it.name } shouldBe listOf("d")
                 }
             }
         }

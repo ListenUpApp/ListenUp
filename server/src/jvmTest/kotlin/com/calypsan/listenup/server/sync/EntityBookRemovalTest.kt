@@ -149,7 +149,7 @@ class EntityBookRemovalTest :
                     // The admin brings it back, then deletes it deliberately.
                     rig.clock.instant += 5.seconds
                     rig.entities
-                        .revert(cascade.id, UserId("admin"), allowStructural = true)
+                        .revert(cascade.id, UserId("admin"), allowMergeRevert = true)
                         .shouldBeInstanceOf<AppResult.Success<*>>()
                     rig.entities
                         .deleteEntity(EntityId("curated"), UserId("admin"))
