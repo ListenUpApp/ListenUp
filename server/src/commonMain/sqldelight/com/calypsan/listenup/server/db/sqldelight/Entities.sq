@@ -94,7 +94,3 @@ SET kind = :kind, name = :name, descriptor = :descriptor, parent_id = :parent_id
     updated_by = :updated_by, updated_at = :updated_at, revision = :revision, deleted_at = NULL,
     client_op_id = :client_op_id
 WHERE id = :id;
-
--- Test-scoped hard delete.
-deleteById:
-DELETE FROM entities WHERE id = :id;
