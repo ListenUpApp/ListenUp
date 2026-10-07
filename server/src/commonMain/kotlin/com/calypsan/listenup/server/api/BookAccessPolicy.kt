@@ -145,7 +145,8 @@ class BookAccessPolicy(
 
     /**
      * Visible `entities` row ids for `(userId, role)`, or null for ROOT/ADMIN. A book-homed entity is
-     * visible iff its book is; a series-homed entity iff at least one book of its series is — both built
+     * visible iff its book is; a series-homed entity iff its series is live and at least one of its books is
+     * visible (the same rule as [canAccessSeries], so the pull and the firehose agree) — both built
      * on [accessibleBookIdsSubquery], so the entity rule can never drift from the book rule.
      */
     fun accessibleEntityIdsSql(
@@ -159,6 +160,7 @@ class BookAccessPolicy(
             WHERE e.home_book_id IN ($accessibleBookIdsSubquery)
                OR e.home_series_id IN (
                  SELECT m.series_id FROM book_series_memberships m
+                 JOIN book_series s ON s.id = m.series_id AND s.deleted_at IS NULL
                  WHERE m.book_id IN ($accessibleBookIdsSubquery)
                )
             """.trimIndent()
@@ -167,7 +169,7 @@ class BookAccessPolicy(
 
     /**
      * True when `(userId, role)` may see series [seriesId]: ROOT/ADMIN see any live series; a member sees
-     * a series when at least one of its books is visible to them.
+     * a live series when at least one of its books is visible to them.
      */
     suspend fun canAccessSeries(
         userId: String,
@@ -183,8 +185,9 @@ class BookAccessPolicy(
             } else {
                 existsRow(
                     sql =
-                        "SELECT 1 FROM book_series_memberships m WHERE m.series_id = ? " +
-                            "AND m.book_id IN ($accessibleBookIdsSubquery) LIMIT 1",
+                        "SELECT 1 FROM book_series_memberships m " +
+                            "JOIN book_series s ON s.id = m.series_id AND s.deleted_at IS NULL " +
+                            "WHERE m.series_id = ? AND m.book_id IN ($accessibleBookIdsSubquery) LIMIT 1",
                     args = listOf(seriesId, userId, userId),
                 )
             }
