@@ -36,7 +36,6 @@ import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
 import com.calypsan.listenup.web.features.bookdetail.readyBook
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
-import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
 import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
@@ -54,7 +53,6 @@ import com.calypsan.listenup.client.presentation.contributordetail.ContributorBo
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorBooks
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
-import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.web.design.WebAppSurface
 import com.calypsan.listenup.web.nav.Router
@@ -121,7 +119,6 @@ class ComposeHtmlRenderTest :
                         openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
                         openContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
                         openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
-                        openContributorMetadata = fixedContributorMetadata(ContributorMetadataUiState.Idle()),
                         openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
                         openSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
                         openNotifications = fixedNotifications(NotificationsUiState.Empty),
@@ -198,7 +195,6 @@ class ComposeHtmlRenderTest :
                         openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
                         openContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
                         openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
-                        openContributorMetadata = fixedContributorMetadata(ContributorMetadataUiState.Idle()),
                         openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
                         openSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
                         openNotifications = fixedNotifications(NotificationsUiState.Empty),

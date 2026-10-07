@@ -1011,65 +1011,6 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .drift-refused { margin: 0; font-size: var(--fs-ui); font-weight: 650; color: var(--coral-text); }
 .luw .drift-acts { display: flex; justify-content: flex-end; gap: var(--sp-8); }
 
-/* Match metadata — the Audible wizard. Two phases, one page: find the edition, then choose what
-   to take from it. Nothing here writes anything until Apply. */
-
-
-
-/* What we are matching — stated before the search box, so the reader can tell at a glance whether
-   they opened the wizard on the book they meant. */
-
-.luw .mdx-regions { display: flex; align-items: center; gap: var(--sp-8); flex-wrap: wrap; }
-.luw .mdx-regions-l { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
-
-
-
-/* One field: the tick, what it would become, and where it came from. The value is muted against
-   the label because the decision is "take this or not", not "read this". */
-/* Provenance. A field merged in from another provider is still worth taking — but the reader is
-   entitled to know it is not what the edition they picked says. */
-
-
-/* A refused offer is dimmed but still readable: the numbers are the explanation. */
-/* The name being replaced, struck through: the reader is approving a change, not reading a list. */
-
-
-/* Match contributor — the same wizard shape as the book one, over a person. Narrower, because the
-   server applies the profile as a unit: the decision is which person, not which fields. */
-.luw .cmx { width: 100%; max-width: 720px; margin: 0 auto; padding: var(--sp-24) 28px 40px; display: flex; flex-direction: column; gap: 14px; }
-
-.luw .cmx-skel { height: 18rem; border-radius: var(--r-lg); }
-
-.luw .cmx-err { margin: 0; padding: 10px 14px; border-radius: var(--r-md); background: var(--coral-soft); color: var(--coral-text); font-size: var(--fs-ui); font-weight: 600; }
-.luw .cmx-ctx { display: flex; align-items: baseline; gap: var(--sp-8); }
-.luw .cmx-ctx-l { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
-.luw .cmx-ctx-n { font-size: 1rem; font-weight: 700; color: var(--ink); }
-.luw .cmx-search { display: flex; align-items: flex-end; gap: var(--sp-12); }
-.luw .cmx-search .f-wrap { flex: 1; min-width: 12rem; }
-.luw .cmx-hits { display: flex; flex-direction: column; gap: var(--sp-4); }
-.luw .cmx-hit { display: flex; align-items: center; gap: var(--sp-12); width: 100%; padding: 10px var(--sp-12); border: 1.5px solid transparent; border-radius: var(--r-md); background: var(--surface-2); color: var(--ink); text-align: left; cursor: pointer; font-family: inherit; }
-@media (hover: hover) { .luw .cmx-hit:hover { border-color: var(--coral); background: var(--surface); } }
-.luw .cmx-hit-n { flex: 1; min-width: 0; font-size: var(--fs-body); font-weight: 650; }
-.luw .cmx-asin { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-3); }
-
-/* Which person was matched. NOT a before-and-after: Apply never renames anybody. */
-.luw .cmx-who { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.luw .cmx-who-n { font-size: 1.15rem; font-weight: 750; color: var(--ink); }
-.luw .cmx-src { padding: 2px 9px; border-radius: var(--r-pill); background: var(--surface-3); font-size: 0.72rem; font-weight: 700; color: var(--ink-2); }
-.luw .cmx-cmp { display: flex; flex-direction: column; gap: var(--sp-8); padding: 14px; border-radius: var(--r-lg); background: var(--surface-2); }
-.luw .cmx-cmp-h { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-8); }
-.luw .cmx-same { font-size: var(--fs-caption); font-weight: 600; color: var(--ink-3); }
-.luw .cmx-cmp-l { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
-.luw .cmx-side { font-size: var(--fs-caption); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
-/* The incoming side is the one that will win, so it carries the accent. */
-.luw .cmx-side.on { color: var(--coral-text); }
-.luw .cmx-side-v { display: flex; flex-direction: column; gap: 2px; }
-.luw .cmx-bio { margin: 0; font-size: var(--fs-ui); color: var(--ink-2); line-height: 1.5; }
-.luw .cmx-photos { display: flex; gap: var(--sp-16); }
-.luw .cmx-photo { display: flex; flex-direction: column; align-items: center; gap: 5px; }
-.luw .cmx-photo-i { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; background: var(--surface-3); display: block; }
-.luw .cmx-photo-none { display: flex; align-items: center; justify-content: center; color: var(--ink-3); font-size: 0.72rem; font-weight: 600; text-align: center; }
-.luw .cmx-apply { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .luw .cd-match { flex: none; align-self: flex-start; }
 /* Delete sits with Edit and Match, sized the same: it is one of the hero's actions, not a
    special zone. The warning lives in the confirm dialog's words, per ConfirmDialog's "no red". */
