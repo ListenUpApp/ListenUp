@@ -190,7 +190,9 @@ struct MatchReceiptCapsule: View {
 extension View {
     /// A text button's label grown to a 44-point target, all of it tappable.
     func fullTarget() -> some View {
-        frame(minWidth: TapTarget.minimum, minHeight: TapTarget.minimum).contentShape(Rectangle())
+        fixedSize(horizontal: false, vertical: true)   // wraps at large sizes rather than truncating
+            .frame(minWidth: TapTarget.minimum, minHeight: TapTarget.minimum)
+            .contentShape(Rectangle())
     }
 }
 
