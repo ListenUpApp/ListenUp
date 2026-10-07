@@ -208,6 +208,7 @@ internal object MatchFixtures {
             moods = LabelSetUi(yours = emptyList(), suggested = emptyList()),
             chapterNames = chapterNames,
             alreadySame = listOf(BookField.TITLE, BookField.AUTHORS),
+            alreadySameNames = listOf("TITLE", "AUTHORS"),
             lengthAlreadySame = true,
             applyBar = ApplySummary(fieldCount = 2, coverChanges = true, chapterNameCount = 16),
             applying = false,

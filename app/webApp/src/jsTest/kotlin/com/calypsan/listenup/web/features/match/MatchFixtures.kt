@@ -206,6 +206,7 @@ internal fun ready(
         moods = moods,
         chapterNames = chapterNames,
         alreadySame = alreadySame,
+        alreadySameNames = alreadySame.map { it.name },
         lengthAlreadySame = true,
         applyBar = applyBar,
         applying = applying,
