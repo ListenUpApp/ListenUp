@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.sync.ReadingOrderRepository
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
@@ -67,6 +68,7 @@ class SeriesServiceImplAccessTest :
                     bookRepo = bookRepo,
                     sqlDb = sql,
                     accessPolicy = BookAccessPolicy(sql, driver),
+                    readingOrders = ReadingOrderRepository(sql, ChangeBus(), SyncRegistry()),
                 )
             return SeriesAccessFixture(
                 service = service,

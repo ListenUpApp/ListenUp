@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.sync.ReadingOrderRepository
 import app.cash.sqldelight.db.QueryResult
 
 import com.calypsan.listenup.api.error.SeriesError
@@ -287,6 +288,7 @@ private fun makeMergeSeriesServiceAndDeps(dbs: SqlTestDatabases): MergeSeriesSer
             bookRepo = bookRepo,
             sqlDb = dbs.sql,
             accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
+            readingOrders = ReadingOrderRepository(dbs.sql, ChangeBus(), SyncRegistry()),
             principal = rootPrincipal(),
         )
     return MergeSeriesServiceDeps(service, seriesRepo, bookRepo)

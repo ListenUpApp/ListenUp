@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.sync.ReadingOrderRepository
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.FileEntry
@@ -110,6 +111,7 @@ private fun rescanFixture(
             bookRepo = bookRepo,
             sqlDb = sql,
             accessPolicy = BookAccessPolicy(sql, driver),
+            readingOrders = ReadingOrderRepository(sql, ChangeBus(), SyncRegistry()),
             principal = rootPrincipal(),
         )
     return RescanFixture(bookRepo, seriesRepo, LibraryRegistry(sql), service)

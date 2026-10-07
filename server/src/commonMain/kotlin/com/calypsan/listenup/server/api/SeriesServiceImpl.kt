@@ -20,6 +20,7 @@ import com.calypsan.listenup.server.db.sqldelight.suspendTransaction as sqlTrans
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.EntityRepository
+import com.calypsan.listenup.server.sync.ReadingOrderRepository
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.time.Clock
@@ -81,17 +82,37 @@ internal class SeriesServiceImpl(
     private val bookRepo: BookRepository,
     private val sqlDb: ListenUpDatabase,
     private val accessPolicy: BookAccessPolicy,
+    private val readingOrders: ReadingOrderRepository,
     private val permissionPolicy: PermissionPolicy = PermissionPolicy(sqlDb),
     private val principal: PrincipalProvider = PrincipalProvider.None,
     private val clock: Clock = Clock.System,
     private val entityRepo: EntityRepository? = null,
 ) : SeriesService {
     private val hierarchy = SeriesHierarchyWrites(seriesRepo)
-    private val mergeReceipts = SeriesMergeReceipts(sqlDb, seriesRepo, bookRepo, hierarchy, entityRepo, clock)
+    private val mergeReceipts =
+        SeriesMergeReceipts(
+            sqlDb,
+            seriesRepo,
+            bookRepo,
+            hierarchy,
+            entityRepo,
+            SeriesMergeReadingOrders(readingOrders, sqlDb),
+            clock,
+        )
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): SeriesServiceImpl =
-        SeriesServiceImpl(seriesRepo, bookRepo, sqlDb, accessPolicy, permissionPolicy, principal, clock, entityRepo)
+        SeriesServiceImpl(
+            seriesRepo,
+            bookRepo,
+            sqlDb,
+            accessPolicy,
+            readingOrders,
+            permissionPolicy,
+            principal,
+            clock,
+            entityRepo,
+        )
 
     /**
      * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
@@ -216,6 +237,10 @@ internal class SeriesServiceImpl(
         val handedOn = hierarchy.handChildrenTo(sourcePayload, target)
         if (handedOn is AppResult.Failure) return handedOn
 
+        // So do its reading orders (#962): a maker's order stays in use rather than vanishing with the
+        // merged-away series. The receipt remembers each one's name, so undo can hand it back.
+        mergeReceipts.moveReadingOrders(receiptId, target, sourcePayload.name)?.let { return AppResult.Failure(it) }
+
         // Tombstone the source AND record its merge redirect, so a rescan of a book whose files
         // still carry the old name lands in the target instead of reviving the source.
         return when (val softDeleteResult = seriesRepo.softDeleteMergedInto(source, target)) {
@@ -315,7 +340,8 @@ fun createSeriesService(
     bookRepo: BookRepository,
     sqlDb: ListenUpDatabase,
     driver: app.cash.sqldelight.db.SqlDriver,
-): SeriesService = SeriesServiceImpl(seriesRepo, bookRepo, sqlDb, BookAccessPolicy(sqlDb, driver))
+    readingOrders: ReadingOrderRepository,
+): SeriesService = SeriesServiceImpl(seriesRepo, bookRepo, sqlDb, BookAccessPolicy(sqlDb, driver), readingOrders)
 
 /**
  * Scopes a [SeriesService] built by [createSeriesService] to [principal] for one request.
