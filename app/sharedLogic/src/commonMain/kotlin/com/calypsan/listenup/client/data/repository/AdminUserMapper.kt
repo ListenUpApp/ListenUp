@@ -26,6 +26,7 @@ internal fun User.toAdminUserInfo(): AdminUserInfo =
                 canCurateLibrary = permissions.canCurateLibrary,
                 canContributeStoryWorld = permissions.canContributeStoryWorld,
                 canCurateStoryWorld = permissions.canCurateStoryWorld,
+                canMakeReadingOrders = permissions.canMakeReadingOrders,
             ),
         createdAt = createdAt.toString(),
     )

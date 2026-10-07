@@ -33,6 +33,7 @@ fun ContractUser.toDomain(): User =
                 canCurateLibrary = permissions.canCurateLibrary,
                 canContributeStoryWorld = permissions.canContributeStoryWorld,
                 canCurateStoryWorld = permissions.canCurateStoryWorld,
+                canMakeReadingOrders = permissions.canMakeReadingOrders,
             ),
         tagline = null,
         createdAtMs = createdAt,

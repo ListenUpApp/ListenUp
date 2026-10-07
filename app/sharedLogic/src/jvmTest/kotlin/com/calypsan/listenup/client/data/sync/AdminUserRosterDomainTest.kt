@@ -84,6 +84,23 @@ class AdminUserRosterDomainTest :
             }
         }
 
+        test("the reading-order permission mirrors from the nested permissions, and is on when they are absent") {
+            withHandler { handler, db ->
+                handler.onEvent(
+                    created(payload("revoked", permissions = UserPermissions(canMakeReadingOrders = false))),
+                )
+                handler.onEvent(created(payload("older-server")))
+                val rows =
+                    db
+                        .adminUserRosterDao()
+                        .observeAll()
+                        .first()
+                        .associateBy { it.id }
+                rows.getValue("revoked").canMakeReadingOrders shouldBe false
+                rows.getValue("older-server").canMakeReadingOrders shouldBe true
+            }
+        }
+
         test("onCatchUpItem for a row not in Room upserts it") {
             withHandler { handler, db ->
                 handler
