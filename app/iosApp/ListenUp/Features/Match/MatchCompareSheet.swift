@@ -46,9 +46,12 @@ struct MatchCompareSheet: View {
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets())
 
-                    Button(String(localized: "match.back_to_results_title"), action: onBack)
-                        .frame(maxWidth: .infinity, minHeight: TapTarget.minimum)
-                        .listRowBackground(Color.clear)
+                    Button(action: onBack) {
+                        Text(String(localized: "match.back_to_results_title"))
+                            .frame(maxWidth: .infinity, minHeight: TapTarget.minimum)
+                            .contentShape(Rectangle())
+                    }
+                    .listRowBackground(Color.clear)
                 }
             }
             .listStyle(.insetGrouped)

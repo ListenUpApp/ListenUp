@@ -209,6 +209,11 @@ enum MatchCopy {
         }
     }
 
+    /// A value placed before a sentence's own full stop, so "survivor." doesn't read "survivor..".
+    static func withoutFinalPeriod(_ text: String) -> String {
+        text.hasSuffix(".") && !text.hasSuffix("...") ? String(text.dropLast()) : text
+    }
+
     /// Text with any HTML or Markdown rendered away, as the book's own description surfaces read it.
     static func plainText(_ text: String) -> String {
         String(AttributedString.fromBookMarkdown(text).characters)

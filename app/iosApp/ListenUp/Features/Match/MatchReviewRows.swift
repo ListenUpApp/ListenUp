@@ -40,12 +40,14 @@ struct MatchFieldRowView: View {
                 if row.isEdited { MatchEditedFlag() }
                 values
                 if row.isLongText {
-                    Button(expanded ? String(localized: "match.show_less") : String(localized: "match.read_all")) {
+                    Button {
                         withAnimation(.easeInOut(duration: 0.2)) { expanded.toggle() }
+                    } label: {
+                        Text(expanded ? String(localized: "match.show_less") : String(localized: "match.read_all"))
+                            .fullTarget()
                     }
                     .font(.subheadline.weight(.semibold))
                     .buttonStyle(.borderless)
-                    .frame(minHeight: TapTarget.minimum)
                     .accessibilityHint(row.name)
                 }
                 sourceSwitch
@@ -318,8 +320,11 @@ struct MatchChapterSectionView: View {
                 chapterRow(row, enabled: included)
             }
             if rows.count > preview, !showsAll {
-                Button(String(format: String(localized: "match.show_all_chapters"), rows.count)) { showsAll = true }
-                    .frame(minHeight: TapTarget.minimum)
+                Button {
+                    showsAll = true
+                } label: {
+                    Text(String(format: String(localized: "match.show_all_chapters"), rows.count)).fullTarget()
+                }
             }
         }
     }

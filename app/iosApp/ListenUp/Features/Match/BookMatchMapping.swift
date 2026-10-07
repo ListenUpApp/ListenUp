@@ -252,7 +252,8 @@ enum BookMatchMapping {
             tickLabel: tickLabel,
             valuesLabel: String(
                 format: String(localized: "match.field_full_a11y"),
-                name, yours ?? String(localized: "match.empty_value"), proposedSources, proposed
+                name, MatchCopy.withoutFinalPeriod(yours ?? String(localized: "match.empty_value")), proposedSources,
+                MatchCopy.withoutFinalPeriod(proposed)
             )
         )
     }

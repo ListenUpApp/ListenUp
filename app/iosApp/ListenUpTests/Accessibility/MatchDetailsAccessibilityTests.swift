@@ -59,6 +59,18 @@ struct MatchDetailsAccessibilityTests {
         #expect(hosted.stop(labelled: row.valuesLabel) != nil, "\(hosted.tree)")
     }
 
+    /// Long text shows three lines and Read all — a full target, not just its word.
+    @Test func readAllIsAFullTarget() async throws {
+        let long = String(repeating: "Ryland Grace is the sole survivor on a desperate mission. ", count: 4)
+        let options = [FieldOptionUi(optionId: "o1", value: F.text(long), sources: [F.storefront])]
+        let row = BookMatchMapping.field(F.field(options: options), viewerId: nil)
+        #expect(row.isLongText)
+        let hosted = await HostedView(List { MatchFieldRowView(row: row, onTick: { _ in }, onChooseSource: { _ in }) })
+        defer { hosted.close() }
+        let readAll = try #require(hosted.stop(labelled: "Read all"), "\(hosted.tree)")
+        #expect(readAll.frame.height >= TapTarget.minimum - 0.5, "\(readAll)")
+    }
+
     // MARK: - Cover
 
     @Test func coverTilesAreARadioGroupThatSaysWhichIsChosen() async throws {

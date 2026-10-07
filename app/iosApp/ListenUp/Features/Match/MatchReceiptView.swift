@@ -146,17 +146,19 @@ struct MatchReceiptCapsule: View {
     @ViewBuilder
     private var actions: some View {
         if case .shown(let receipt) = phase {
-            Button(String(localized: "match.see_what_changed_title"), action: onSeeWhatChanged)
-                .buttonStyle(.borderless)
-                .frame(minHeight: TapTarget.minimum)
+            // The 44-point frame sits inside each label: outside it, only the text is tappable.
+            Button(action: onSeeWhatChanged) {
+                Text(String(localized: "match.see_what_changed_title")).fullTarget()
+            }
+            .buttonStyle(.borderless)
             if receipt.canUndo {
                 if receipt.undoing {
                     ProgressView().frame(minWidth: TapTarget.minimum, minHeight: TapTarget.minimum)
                 } else {
-                    Button(String(localized: "match.undo"), action: onUndo)
-                        .buttonStyle(.borderless)
-                        .fontWeight(.semibold)
-                        .frame(minHeight: TapTarget.minimum)
+                    Button(action: onUndo) {
+                        Text(String(localized: "match.undo")).fontWeight(.semibold).fullTarget()
+                    }
+                    .buttonStyle(.borderless)
                 }
             }
         }
@@ -168,6 +170,13 @@ struct MatchReceiptCapsule: View {
         }
         .buttonStyle(.borderless)
         .accessibilityLabel(String(localized: "match.dismiss"))
+    }
+}
+
+extension View {
+    /// A text button's label grown to a 44-point target, all of it tappable.
+    func fullTarget() -> some View {
+        frame(minWidth: TapTarget.minimum, minHeight: TapTarget.minimum).contentShape(Rectangle())
     }
 }
 
