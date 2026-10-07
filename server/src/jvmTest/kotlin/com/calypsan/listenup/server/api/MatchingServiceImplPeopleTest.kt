@@ -53,6 +53,7 @@ private class PeopleServiceRig(
             peopleFinder = PeopleFinder(MetadataProviderRegistry(listOf(hardcover)), EnrichmentRoutes.DEFAULT),
             loadPeople = loader::load,
             peopleRegion = loader::region,
+            details = com.calypsan.listenup.server.matching.apply.MatchRig(db).details(),
         )
 }
 

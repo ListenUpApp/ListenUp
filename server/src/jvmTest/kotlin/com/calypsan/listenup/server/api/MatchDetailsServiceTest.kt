@@ -16,6 +16,7 @@ import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.matching.BookFinder
 import com.calypsan.listenup.server.matching.FakeRegionalFindSource
+import com.calypsan.listenup.server.matching.PeopleFinder
 import com.calypsan.listenup.server.matching.apply.BOOK
 import com.calypsan.listenup.server.matching.apply.MatchRig
 import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
@@ -54,6 +55,9 @@ private fun MatchRig.service(): MatchingServiceImpl {
         libraryRegion = { null },
         permissionPolicy = UserPermissionPolicy(db.sql),
         bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
+        peopleFinder = PeopleFinder(MetadataProviderRegistry(emptyList()), EnrichmentRoutes.DEFAULT),
+        loadPeople = { _, _, _ -> null },
+        peopleRegion = { com.calypsan.listenup.api.metadata.MetadataLocale.DEFAULT },
         details = details(),
     )
 }
