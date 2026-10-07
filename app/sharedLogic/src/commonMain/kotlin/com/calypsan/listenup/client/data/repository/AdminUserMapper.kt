@@ -20,6 +20,11 @@ internal fun User.toAdminUserInfo(): AdminUserInfo =
         isRoot = role == UserRole.ROOT,
         role = role.name,
         status = status.name,
-        permissions = UserPermissions(canEdit = permissions.canEdit),
+        permissions =
+            UserPermissions(
+                canEdit = permissions.canEdit,
+                canContributeStoryWorld = permissions.canContributeStoryWorld,
+                canCurateStoryWorld = permissions.canCurateStoryWorld,
+            ),
         createdAt = createdAt.toString(),
     )

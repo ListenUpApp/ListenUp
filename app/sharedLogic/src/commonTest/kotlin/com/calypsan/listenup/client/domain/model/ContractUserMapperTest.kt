@@ -57,4 +57,16 @@ class ContractUserMapperTest :
             contractUser(role = UserRole.ADMIN).toDomain().isAdmin shouldBe true
             contractUser(role = UserRole.MEMBER).toDomain().isAdmin shouldBe false
         }
+
+        test("carries the Story World flags across") {
+            val domain =
+                contractUser()
+                    .copy(
+                        permissions =
+                            ContractUserPermissions(canEdit = true, canContributeStoryWorld = false, canCurateStoryWorld = true),
+                    ).toDomain()
+
+            domain.permissions.canContributeStoryWorld shouldBe false
+            domain.permissions.canCurateStoryWorld shouldBe true
+        }
     })

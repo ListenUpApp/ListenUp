@@ -85,7 +85,12 @@ private fun UserEntity.toDomain(): User =
         firstName = firstName,
         lastName = lastName,
         isAdmin = isRoot,
-        permissions = UserPermissions(canEdit = canEdit),
+        permissions =
+            UserPermissions(
+                canEdit = canEdit,
+                canContributeStoryWorld = canContributeStoryWorld,
+                canCurateStoryWorld = canCurateStoryWorld,
+            ),
         tagline = tagline,
         createdAtMs = createdAt.epochMillis,
         updatedAtMs = updatedAt.epochMillis,
@@ -105,6 +110,8 @@ private fun User.toEntity(): UserEntity =
         lastName = lastName,
         isRoot = isAdmin,
         canEdit = permissions.canEdit,
+        canContributeStoryWorld = permissions.canContributeStoryWorld,
+        canCurateStoryWorld = permissions.canCurateStoryWorld,
         tagline = tagline,
         createdAt = Timestamp(createdAtMs),
         updatedAt = Timestamp(updatedAtMs),

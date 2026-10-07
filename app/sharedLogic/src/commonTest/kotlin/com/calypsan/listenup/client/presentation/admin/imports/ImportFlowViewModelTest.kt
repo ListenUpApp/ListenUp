@@ -1127,6 +1127,8 @@ private class FakeAdminRepository(
         lastName: String?,
         role: String?,
         canEdit: Boolean?,
+        canContributeStoryWorld: Boolean?,
+        canCurateStoryWorld: Boolean?,
     ): AppResult<AdminUserInfo> = AppResult.Success(fakeAdminUser(userId, "stub@example.com"))
 
     override suspend fun listPasswordResetRequests(): AppResult<List<PasswordResetRequest>> = AppResult.Success(emptyList())

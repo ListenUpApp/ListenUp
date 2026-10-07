@@ -106,14 +106,22 @@ internal class AdminRepositoryImpl(
         lastName: String?,
         role: String?,
         canEdit: Boolean?,
+        canContributeStoryWorld: Boolean?,
+        canCurateStoryWorld: Boolean?,
     ): AppResult<AdminUserInfo> {
         // firstName/lastName have no contract field — they must NOT be sent. The permissions patch carries
         // only the flags being changed (null = unchanged), so neither an older server nor a newer one ever
         // reads an untouched flag as its default. Null when no flag is being changed.
+        val changesPermissions = canEdit != null || canContributeStoryWorld != null || canCurateStoryWorld != null
         val patch =
             AdminUserPatch(
                 role = role?.let { UserRole.valueOf(it) },
-                permissions = canEdit?.let { UserPermissionsPatch(canEdit = it) },
+                permissions =
+                    UserPermissionsPatch(
+                        canEdit = canEdit,
+                        canContributeStoryWorld = canContributeStoryWorld,
+                        canCurateStoryWorld = canCurateStoryWorld,
+                    ).takeIf { changesPermissions },
             )
         return adminUserChannel.call { it.updateUser(UserId(userId), patch) }.map { it.toAdminUserInfo() }
     }

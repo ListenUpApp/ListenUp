@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserPermissions
+import com.calypsan.listenup.api.dto.auth.UserPermissionsPatch
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.UserStatus
 import com.calypsan.listenup.api.error.TransportError
@@ -85,7 +86,11 @@ private class FakeAdminUserService : AdminUserService {
                 role = patch.role ?: existing.role,
                 permissions =
                     patch.permissions?.let { change ->
-                        existing.permissions.copy(canEdit = change.canEdit ?: existing.permissions.canEdit)
+                        existing.permissions.copy(
+                            canEdit = change.canEdit ?: existing.permissions.canEdit,
+                            canContributeStoryWorld = change.canContributeStoryWorld ?: existing.permissions.canContributeStoryWorld,
+                            canCurateStoryWorld = change.canCurateStoryWorld ?: existing.permissions.canCurateStoryWorld,
+                        )
                     } ?: existing.permissions,
             )
         users[id.value] = updated
@@ -359,5 +364,29 @@ class AdminRepositoryImplUserTest :
                 .shouldBeInstanceOf<AppResult.Failure>()
                 .error
                 .shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+        }
+
+        test("toggling a Story World flag sends only that flag and leaves the others as they are") {
+            val service = FakeAdminUserService()
+            service.seedUser(testUser("u6").copy(permissions = UserPermissions(canEdit = false)))
+            val repo = buildRepo(service)
+
+            val result = repo.updateUser(userId = "u6", canCurateStoryWorld = true)
+
+            service.lastPatch?.permissions shouldBe UserPermissionsPatch(canCurateStoryWorld = true)
+            val info = (result as AppResult.Success).data
+            info.permissions.canCurateStoryWorld shouldBe true
+            info.permissions.canContributeStoryWorld shouldBe true
+            info.permissions.canEdit shouldBe false
+        }
+
+        test("a change to no flag sends no permissions patch at all") {
+            val service = FakeAdminUserService()
+            service.seedUser(testUser("u7"))
+            val repo = buildRepo(service)
+
+            repo.updateUser(userId = "u7", role = "ADMIN")
+
+            service.lastPatch?.permissions shouldBe null
         }
     })

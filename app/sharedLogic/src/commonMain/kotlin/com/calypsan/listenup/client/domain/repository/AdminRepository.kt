@@ -96,6 +96,8 @@ interface AdminRepository {
      * @param lastName New last name (null to keep unchanged)
      * @param role New role (null to keep unchanged)
      * @param canEdit New metadata-edit permission (null to keep unchanged)
+     * @param canContributeStoryWorld New Story World contribute permission (null leaves the flag unchanged)
+     * @param canCurateStoryWorld New Story World curate permission (null leaves the flag unchanged)
      * @return [AppResult] carrying the updated user info, or a failure.
      */
     suspend fun updateUser(
@@ -104,6 +106,8 @@ interface AdminRepository {
         lastName: String? = null,
         role: String? = null,
         canEdit: Boolean? = null,
+        canContributeStoryWorld: Boolean? = null,
+        canCurateStoryWorld: Boolean? = null,
     ): AppResult<AdminUserInfo>
 
     // ═══════════════════════════════════════════════════════════════════════

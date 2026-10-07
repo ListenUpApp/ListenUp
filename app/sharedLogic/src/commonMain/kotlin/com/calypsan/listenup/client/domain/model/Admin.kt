@@ -9,9 +9,16 @@ package com.calypsan.listenup.client.domain.model
  * admin bit and dropped the rest.
  *
  * @property canEdit Whether user can edit content metadata — tags, moods, genres, series, contributors
+ * @property canContributeStoryWorld Whether user can create and edit Story World entries and revert edits.
+ *   Defaults to `true` by product decision: contributing is a default member capability, guarded by edit
+ *   history and undo rather than by permission.
+ * @property canCurateStoryWorld Whether user can merge and delete Story World entries. Grants a new power,
+ *   so it defaults to `false`.
  */
 data class UserPermissions(
     val canEdit: Boolean = true,
+    val canContributeStoryWorld: Boolean = true,
+    val canCurateStoryWorld: Boolean = false,
 )
 
 /**
