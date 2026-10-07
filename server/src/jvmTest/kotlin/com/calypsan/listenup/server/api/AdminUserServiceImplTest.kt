@@ -775,7 +775,10 @@ class AdminUserServiceImplTest :
                         ).shouldSucceed()
                         .permissions shouldBe
                         UserPermissions(canEdit = true, canContributeStoryWorld = false, canCurateStoryWorld = true)
-                    svc.getUser(UserId("m1")).shouldSucceed().permissions.canCurateStoryWorld shouldBe true
+                    svc
+                        .getUser(UserId("m1"))
+                        .shouldSucceed()
+                        .permissions.canCurateStoryWorld shouldBe true
                 }
             }
         }
