@@ -135,9 +135,18 @@ internal class EntityServiceImpl(
     /** True when this change edited a live entry's content and left it live; its revert does the same. */
     private fun EntityChange.isContentEdit(): Boolean =
         when (op) {
-            StoryWorldOp.UPDATE -> true
-            StoryWorldOp.REVERT -> before?.deletedAt == null && before != null && after?.deletedAt == null && after != null
-            StoryWorldOp.CREATE, StoryWorldOp.DELETE, StoryWorldOp.MERGE -> false
+            StoryWorldOp.UPDATE -> {
+                true
+            }
+
+            StoryWorldOp.REVERT -> {
+                before?.deletedAt == null && before != null && after?.deletedAt == null &&
+                    after != null
+            }
+
+            StoryWorldOp.CREATE, StoryWorldOp.DELETE, StoryWorldOp.MERGE -> {
+                false
+            }
         }
 
     private fun validate(upsert: EntityUpsert): ValidationError? =

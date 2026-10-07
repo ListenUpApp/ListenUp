@@ -45,14 +45,20 @@ class SeriesMergeEntitiesTest :
 
                     rig.service.mergeSeries(source, target) shouldBe AppResult.Success(Unit)
 
-                    rig.entities.findById(EntityId("lysander")).shouldNotBeNull().homeSeriesId shouldBe target.value
+                    rig.entities
+                        .findById(EntityId("lysander"))
+                        .shouldNotBeNull()
+                        .homeSeriesId shouldBe target.value
                     val rehome = rig.entities.listHistory(EntityId("lysander")).first()
                     rehome.op shouldBe StoryWorldOp.UPDATE
                     rehome.actorId.shouldBeNull()
 
                     rig.undoOnlyMergeInto(target)
 
-                    rig.entities.findById(EntityId("lysander")).shouldNotBeNull().homeSeriesId shouldBe source.value
+                    rig.entities
+                        .findById(EntityId("lysander"))
+                        .shouldNotBeNull()
+                        .homeSeriesId shouldBe source.value
                 }
             }
         }
@@ -88,7 +94,10 @@ class SeriesMergeEntitiesTest :
 
                     rig.undoOnlyMergeInto(target)
 
-                    rig.entities.findById(EntityId("late")).shouldNotBeNull().homeSeriesId shouldBe target.value
+                    rig.entities
+                        .findById(EntityId("late"))
+                        .shouldNotBeNull()
+                        .homeSeriesId shouldBe target.value
                 }
             }
         }
@@ -124,7 +133,11 @@ class SeriesMergeEntitiesTest :
                     )
                     rig.undoOnlyMergeInto(target)
 
-                    rig.entities.findById(EntityId("luna")).shouldNotBeNull().parentId.shouldBeNull()
+                    rig.entities
+                        .findById(EntityId("luna"))
+                        .shouldNotBeNull()
+                        .parentId
+                        .shouldBeNull()
                     val lykos = rig.entities.findById(EntityId("lykos")).shouldNotBeNull()
                     lykos.homeSeriesId shouldBe source.value
                     lykos.parentId.shouldBeNull()

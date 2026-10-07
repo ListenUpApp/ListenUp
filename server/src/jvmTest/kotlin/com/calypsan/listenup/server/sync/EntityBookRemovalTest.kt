@@ -44,9 +44,21 @@ class EntityBookRemovalTest :
 
                     rig.books.softDelete(BookId("b1"), clientOpId = null)
 
-                    rig.entities.findById(EntityId("in-book")).shouldNotBeNull().deletedAt.shouldNotBeNull()
-                    rig.entities.findById(EntityId("other-book")).shouldNotBeNull().deletedAt.shouldBeNull()
-                    rig.entities.findById(EntityId("in-series")).shouldNotBeNull().deletedAt.shouldBeNull()
+                    rig.entities
+                        .findById(EntityId("in-book"))
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldNotBeNull()
+                    rig.entities
+                        .findById(EntityId("other-book"))
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldBeNull()
+                    rig.entities
+                        .findById(EntityId("in-series"))
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldBeNull()
                     val removal = rig.entities.listHistory(EntityId("in-book")).first()
                     removal.op shouldBe StoryWorldOp.DELETE
                     removal.actorId.shouldBeNull()
@@ -66,7 +78,12 @@ class EntityBookRemovalTest :
                     rig.clock.instant += 5.seconds
 
                     rig.books.softDelete(BookId("b1"), clientOpId = null)
-                    val bookRemovedAt = rig.entities.findById(EntityId("kept")).shouldNotBeNull().deletedAt.shouldNotBeNull()
+                    val bookRemovedAt =
+                        rig.entities
+                            .findById(EntityId("kept"))
+                            .shouldNotBeNull()
+                            .deletedAt
+                            .shouldNotBeNull()
 
                     // An ordinary edit can't bring a tombstoned entity back — only the re-add does.
                     rig.entities
@@ -84,7 +101,11 @@ class EntityBookRemovalTest :
                     revival.op shouldBe StoryWorldOp.REVERT
                     revival.actorId.shouldBeNull()
                     // Deleted by hand before the removal: an older tombstone, so it stays deleted.
-                    rig.entities.findById(EntityId("binned")).shouldNotBeNull().deletedAt.shouldNotBeNull()
+                    rig.entities
+                        .findById(EntityId("binned"))
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldNotBeNull()
                 }
             }
         }
