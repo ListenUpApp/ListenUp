@@ -12,8 +12,12 @@ import com.calypsan.listenup.api.sync.EntitySyncPayload
 internal object EntityParentRules {
     private val NESTING_KINDS = setOf(EntityKind.LOCATION, EntityKind.GROUP)
     private const val MAX_DEPTH = 1_000
+    private const val UNAVAILABLE_PARENT = "parent is not a live entry in this series or book"
 
-    /** Null when [child] may sit under [parent] (null = absent or deleted); the refusal otherwise. */
+    /**
+     * Null when [child] may sit under [parent] (null = absent or deleted); the refusal otherwise. An absent,
+     * deleted or other-home parent gets one identical refusal, so it never reveals a hidden entity.
+     */
     fun check(
         child: EntitySyncPayload,
         parent: EntitySyncPayload?,
@@ -25,16 +29,15 @@ internal object EntityParentRules {
                 EntityError.CycleDetected(debugInfo = "entity=${child.id} names itself")
             }
 
-            parent == null -> {
-                EntityError.InvalidParent(debugInfo = "parent=$parentId missing or deleted")
+            // Missing, deleted and elsewhere are one answer, decided before anything about the parent
+            // itself: a parent in another home may be one the caller can't see, and debugInfo crosses the
+            // wire — a distinct answer would confirm it exists, and the kind check would name its kind.
+            parent == null || parent.homeSeriesId != child.homeSeriesId || parent.homeBookId != child.homeBookId -> {
+                EntityError.InvalidParent(debugInfo = UNAVAILABLE_PARENT)
             }
 
             child.kind !in NESTING_KINDS || parent.kind != child.kind -> {
                 EntityError.InvalidParent(debugInfo = "kind ${child.kind} cannot sit under ${parent.kind}")
-            }
-
-            parent.homeSeriesId != child.homeSeriesId || parent.homeBookId != child.homeBookId -> {
-                EntityError.InvalidParent(debugInfo = "parent=$parentId has another home")
             }
 
             isAncestor(ancestorId = child.id, startingAt = parent.parentId, parentOf = parentOf) -> {

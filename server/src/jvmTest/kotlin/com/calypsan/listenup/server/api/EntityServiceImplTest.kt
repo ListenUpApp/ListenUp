@@ -171,6 +171,30 @@ class EntityServiceImplTest :
             }
         }
 
+        test("naming a hidden entity as a parent answers exactly as naming an id that doesn't exist") {
+            withSqlDatabase {
+                runTest {
+                    val world = storyWorld()
+                    world.asRoot().upsertEntity(upsert("secret", homeBookId = "hidden", kind = EntityKind.CHARACTER))
+                    val member = world.asMember("member")
+
+                    val hidden =
+                        member
+                            .upsertEntity(upsert("x", homeBookId = "open", kind = EntityKind.LOCATION).copy(parentId = EntityId("secret")))
+                            .shouldBeInstanceOf<AppResult.Failure>()
+                            .error
+                    val absent =
+                        member
+                            .upsertEntity(upsert("x", homeBookId = "open", kind = EntityKind.LOCATION).copy(parentId = EntityId("nobody")))
+                            .shouldBeInstanceOf<AppResult.Failure>()
+                            .error
+
+                    hidden.shouldBeInstanceOf<EntityError.InvalidParent>()
+                    hidden shouldBe absent
+                }
+            }
+        }
+
         test("a series-homed entity is visible once one of the series' books is") {
             withSqlDatabase {
                 runTest {
