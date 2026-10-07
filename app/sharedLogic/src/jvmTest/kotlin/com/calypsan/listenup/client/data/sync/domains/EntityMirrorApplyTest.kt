@@ -87,7 +87,11 @@ class EntityMirrorApplyTest :
             runTest {
                 val db = createInMemoryTestDatabase()
                 EntityMirrorApply(db).upsert(payload("e1", kind = EntityKind.UNKNOWN))
-                db.entityDao().getById("e1").shouldNotBeNull().kind shouldBe EntityKind.UNKNOWN
+                db
+                    .entityDao()
+                    .getById("e1")
+                    .shouldNotBeNull()
+                    .kind shouldBe EntityKind.UNKNOWN
                 db.close()
             }
         }
