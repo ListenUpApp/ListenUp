@@ -185,6 +185,37 @@ value class MergeReceiptId(
 }
 
 /**
+ * Type-safe wrapper for a Story World entity id (a character, location, item, group, people, event
+ * or concept). Client-minted (random UUID) so an entity can be created offline.
+ */
+@Serializable
+@JvmInline
+value class EntityId(
+    val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "Entity ID cannot be blank" }
+    }
+
+    override fun toString(): String = value
+}
+
+/**
+ * Type-safe wrapper for one row of Story World edit history — the handle `revert` takes.
+ */
+@Serializable
+@JvmInline
+value class StoryWorldHistoryId(
+    val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "Story World history ID cannot be blank" }
+    }
+
+    override fun toString(): String = value
+}
+
+/**
  * Type-safe wrapper for Contributor IDs.
  */
 @Serializable
