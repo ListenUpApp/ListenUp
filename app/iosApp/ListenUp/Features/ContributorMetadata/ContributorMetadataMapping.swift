@@ -4,7 +4,7 @@ import Shared
 /// Pure transforms from the Kotlin `ContributorMetadataViewModel` sealed sub-states into the
 /// flattened Swift value types `ContributorMetadataObserver` exposes. Kept free of `@Observable`/
 /// actor state so every branch is unit-testable in isolation (see
-/// `ContributorMetadataMappingTests`) — mirrors `MetadataMatchMapping`.
+/// `ContributorMetadataMappingTests`) — mirrors `BookMatchMapping`.
 enum ContributorMetadataMapping {
     // MARK: - Search
 

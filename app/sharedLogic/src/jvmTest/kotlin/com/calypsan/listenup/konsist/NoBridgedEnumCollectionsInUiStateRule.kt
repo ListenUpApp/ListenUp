@@ -139,6 +139,8 @@ class NoBridgedEnumCollectionsInUiStateRule :
                 "orderedVisibleRoles",
                 // HANDLED: iOS reads fallbackSourceFor(field) / selectedTypeNames instead
                 "fallbackSources",
+                // HANDLED: iOS reads ReviewUiState.Ready.alreadySameNames instead
+                "alreadySame",
                 "selectedTypes",
                 // LATENT (Android-only today): guard against future iOS materialization
                 "booksCategories",

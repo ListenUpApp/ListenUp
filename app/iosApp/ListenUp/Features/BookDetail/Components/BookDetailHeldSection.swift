@@ -93,7 +93,7 @@ struct BookDetailHeldSection: View {
         switch action {
         case .release: String(localized: "admin.release")
         case .edit: String(localized: "common.edit")
-        case .match: String(localized: "metadata.match_on_audible")
+        case .match: String(localized: "match.menu_item")
         case .editChapters: String(localized: "chapter_editor.title")
         }
     }

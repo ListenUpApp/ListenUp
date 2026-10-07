@@ -90,33 +90,13 @@ data class BulkEdit(
 ) : Route
 
 /**
- * Match preview screen - preview Audible metadata before applying.
+ * Match details for one book: Find, Compare and Review in one screen, one ViewModel, one Apply. After
+ * Apply it returns to Book Detail, which shows the receipt.
  *
- * Shows side-by-side comparison of current book metadata vs metadata
- * from Audible. User can confirm to apply the changes.
- *
- * @property bookId The unique ID of the book to update.
- * @property asin The Audible ASIN of the matched book.
- * @property region The Audible region the match was found in, carried over from the search screen so
- *   the preview fetches in the same storefront instead of re-defaulting to US.
+ * @property bookId The unique ID of the book being matched.
  */
 @Serializable
-data class MatchPreview(
-    val bookId: String,
-    val asin: String,
-    val region: MetadataLocale,
-) : Route
-
-/**
- * Book metadata search screen - search Audible for metadata matches.
- *
- * Shows search results from Audible. Selecting a result navigates to
- * the MatchPreview screen.
- *
- * @property bookId The unique ID of the book to find metadata for.
- */
-@Serializable
-data class MetadataSearch(
+data class BookMatchDetails(
     val bookId: String,
 ) : Route
 
@@ -207,7 +187,7 @@ data class ContributorMetadataSearch(
  * @property asin The Audible ASIN of the matched contributor.
  * @property region The region the match was found in, carried over from the search screen so the
  *   preview fetches from the same catalog instead of re-defaulting to US — profiles are
- *   region-localized (mirrors [MatchPreview.region]).
+ *   region-localized.
  */
 @Serializable
 data class ContributorMetadataPreview(

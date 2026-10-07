@@ -15,7 +15,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.ui.draw.clip
@@ -49,6 +53,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.LocalNowPlayingInsets
+import com.calypsan.listenup.client.features.match.MatchReceiptHost
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.components.BookCoverImage
@@ -127,7 +132,7 @@ fun BookDetailScreen(
     bookId: String,
     onBackClick: () -> Unit,
     onEditClick: (bookId: String) -> Unit,
-    onMetadataSearchClick: (bookId: String) -> Unit,
+    onMatchDetailsClick: (bookId: String) -> Unit,
     onEditChaptersClick: (bookId: String) -> Unit,
     onSeriesClick: (seriesId: String) -> Unit,
     onContributorClick: (contributorId: String) -> Unit,
@@ -140,6 +145,10 @@ fun BookDetailScreen(
     /** Opens an admin collection from the Visibility card; null shows the names as plain labels. */
     onCollectionClick: ((collectionId: String) -> Unit)? = null,
     onOpenDocumentViewer: (localPath: String) -> Unit = {},
+    /** The receipt after Match details applied; a slot so a test can render the screen without its ViewModel. */
+    matchReceipt: @Composable (
+        Modifier,
+    ) -> Unit = { modifier -> MatchReceiptHost(bookId = bookId, modifier = modifier) },
     viewModel: BookDetailViewModel = koinViewModel(),
 ) {
     LaunchedEffect(bookId) {
@@ -210,24 +219,32 @@ fun BookDetailScreen(
             }
 
             is BookDetailUiState.Ready -> {
-                BookDetailReadyContent(
-                    bookId = bookId,
-                    state = s,
-                    viewModel = viewModel,
-                    onBackClick = onBackClick,
-                    onEditClick = onEditClick,
-                    onMetadataSearchClick = onMetadataSearchClick,
-                    onEditChaptersClick = onEditChaptersClick,
-                    onSeriesClick = onSeriesClick,
-                    onContributorClick = onContributorClick,
-                    onGenreClick = onGenreClick,
-                    onTagClick = onTagClick,
-                    onMoodClick = onMoodClick,
-                    onUserProfileClick = onUserProfileClick,
-                    onSeeAllReaders = onSeeAllReaders,
-                    onFindHardcoverMatch = onFindHardcoverMatch,
-                    onCollectionClick = onCollectionClick,
-                )
+                Box(modifier = Modifier.fillMaxSize()) {
+                    BookDetailReadyContent(
+                        bookId = bookId,
+                        state = s,
+                        viewModel = viewModel,
+                        onBackClick = onBackClick,
+                        onEditClick = onEditClick,
+                        onMatchDetailsClick = onMatchDetailsClick,
+                        onEditChaptersClick = onEditChaptersClick,
+                        onSeriesClick = onSeriesClick,
+                        onContributorClick = onContributorClick,
+                        onGenreClick = onGenreClick,
+                        onTagClick = onTagClick,
+                        onMoodClick = onMoodClick,
+                        onUserProfileClick = onUserProfileClick,
+                        onSeeAllReaders = onSeeAllReaders,
+                        onFindHardcoverMatch = onFindHardcoverMatch,
+                        onCollectionClick = onCollectionClick,
+                    )
+                    // The receipt after Match details applied, above the mini player.
+                    matchReceipt(
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .windowInsetsPadding(LocalNowPlayingInsets.current.union(WindowInsets.navigationBars)),
+                    )
+                }
             }
         }
     }
@@ -309,7 +326,7 @@ private fun BookDetailReadyContent(
     viewModel: BookDetailViewModel,
     onBackClick: () -> Unit,
     onEditClick: (bookId: String) -> Unit,
-    onMetadataSearchClick: (bookId: String) -> Unit,
+    onMatchDetailsClick: (bookId: String) -> Unit,
     onEditChaptersClick: (bookId: String) -> Unit,
     onSeriesClick: (seriesId: String) -> Unit,
     onContributorClick: (contributorId: String) -> Unit,
@@ -340,9 +357,9 @@ private fun BookDetailReadyContent(
     var showRestartDialog by remember { mutableStateOf(false) }
     var showReleaseDialog by remember { mutableStateOf(false) }
 
-    // Callback for opening metadata search
+    // Opens Match details for this book.
     val onFindMetadataClick: () -> Unit = {
-        onMetadataSearchClick(bookId)
+        onMatchDetailsClick(bookId)
     }
 
     val book = state.book

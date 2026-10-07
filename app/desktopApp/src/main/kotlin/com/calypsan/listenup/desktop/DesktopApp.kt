@@ -58,12 +58,11 @@ import com.calypsan.listenup.client.features.contributormetadata.ContributorMeta
 import com.calypsan.listenup.client.features.contributormetadata.ContributorMetadataSearchRoute
 import com.calypsan.listenup.client.features.shelf.CreateEditShelfScreen
 import com.calypsan.listenup.api.metadata.MetadataLocale
-import com.calypsan.listenup.client.features.metadata.MatchPreviewRoute
 import com.calypsan.listenup.client.features.bulkedit.BulkEditScreen
 import com.calypsan.listenup.client.features.bulkedit.PendingSelectionExit
 import com.calypsan.listenup.client.features.bulkedit.bulkEditAppliedMessage
 import com.calypsan.listenup.client.features.chaptereditor.ChapterEditorScreen
-import com.calypsan.listenup.client.features.metadata.MetadataSearchRoute
+import com.calypsan.listenup.client.features.match.BookMatchRoute
 import com.calypsan.listenup.client.features.shelf.ShelfDetailScreen
 import com.calypsan.listenup.client.features.library.LibraryScreen
 import com.calypsan.listenup.client.features.seriesdetail.SeriesDetailScreen
@@ -149,14 +148,8 @@ sealed interface DetailDestination {
 
     data object ShelfCreate : DetailDestination
 
-    data class MetadataSearch(
+    data class BookMatchDetails(
         val bookId: String,
-    ) : DetailDestination
-
-    data class MatchPreview(
-        val bookId: String,
-        val asin: String,
-        val region: MetadataLocale,
     ) : DetailDestination
 
     data class ContributorMetadataSearch(
@@ -391,7 +384,7 @@ private fun DetailScreen(
                 bookId = destination.bookId,
                 onBackClick = navigateBack,
                 onEditClick = { navigateTo(DetailDestination.BookEdit(it)) },
-                onMetadataSearchClick = { navigateTo(DetailDestination.MetadataSearch(it)) },
+                onMatchDetailsClick = { navigateTo(DetailDestination.BookMatchDetails(it)) },
                 onEditChaptersClick = { navigateTo(DetailDestination.ChapterEditor(it)) },
                 onSeriesClick = { navigateTo(DetailDestination.Series(it)) },
                 onContributorClick = { navigateTo(DetailDestination.Contributor(it)) },
@@ -560,27 +553,11 @@ private fun DetailScreen(
             )
         }
 
-        is DetailDestination.MetadataSearch -> {
-            MetadataSearchRoute(
+        is DetailDestination.BookMatchDetails -> {
+            BookMatchRoute(
                 bookId = destination.bookId,
-                onResultSelected = { asin, region ->
-                    navigateTo(DetailDestination.MatchPreview(destination.bookId, asin, region))
-                },
                 onBack = navigateBack,
-            )
-        }
-
-        is DetailDestination.MatchPreview -> {
-            MatchPreviewRoute(
-                bookId = destination.bookId,
-                asin = destination.asin,
-                region = destination.region,
-                onBack = navigateBack,
-                onApplySuccess = {
-                    // Pop both MatchPreview and MetadataSearch to go back to BookDetail
-                    navigateBack()
-                    navigateBack()
-                },
+                onApplied = navigateBack,
             )
         }
 
@@ -738,8 +715,8 @@ private fun DetailScreen(
                 onBookClick = { navigateTo(DetailDestination.Book(it)) },
                 // The row's edit button goes straight to book-edit to fix tags/collections.
                 onEditClick = { navigateTo(DetailDestination.BookEdit(it)) },
-                // Per-row "Match on Audible" — opens the metadata match wizard for that book (iOS parity).
-                onMatchClick = { navigateTo(DetailDestination.MetadataSearch(it)) },
+                // Per-row "Match details" — opens Match details for that book (iOS parity).
+                onMatchClick = { navigateTo(DetailDestination.BookMatchDetails(it)) },
             )
         }
 

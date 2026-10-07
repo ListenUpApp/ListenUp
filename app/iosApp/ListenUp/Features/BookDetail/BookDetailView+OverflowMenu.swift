@@ -48,9 +48,9 @@ extension BookDetailView {
                 }
 
                 Button {
-                    showMetadataMatch = true
+                    matchTarget = BookMatchTarget(bookId: bookId)
                 } label: {
-                    Label(String(localized: "metadata.match_on_audible"), systemImage: "sparkles")
+                    Label(String(localized: "match.menu_item"), systemImage: "sparkles")
                 }
 
                 Button {

@@ -31,7 +31,7 @@ import listenup.composeapp.generated.resources.book_detail_restart_book
 import listenup.composeapp.generated.resources.common_book
 import listenup.composeapp.generated.resources.common_delete_name
 import listenup.composeapp.generated.resources.common_share
-import listenup.composeapp.generated.resources.metadata_match_on_audible
+import listenup.composeapp.generated.resources.match_menu_item
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -88,7 +88,7 @@ fun BookActionsMenu(
 
         // Find Metadata
         ActionMenuItem(
-            label = stringResource(Res.string.metadata_match_on_audible),
+            label = stringResource(Res.string.match_menu_item),
             icon = Icons.Outlined.Search,
             onClick = onFindMetadataClick,
             enabled = actionsEnabled,

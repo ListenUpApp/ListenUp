@@ -464,7 +464,7 @@ private fun HeroActions(
             kind = ButtonKind.Icon,
             size = ButtonSize.Lg,
             onClick = { onMatchMetadata() },
-            label = "Match metadata",
+            label = "Match details",
         ) { Icon(WebIcon.Sparkles) }
     }
 }
