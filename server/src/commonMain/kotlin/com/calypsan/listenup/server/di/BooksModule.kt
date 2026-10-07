@@ -197,17 +197,7 @@ fun booksModule(
                 principal = unscopedPlaceholder("ContributorService"),
             )
         }
-        single<SeriesService> {
-            SeriesServiceImpl(
-                seriesRepo = get(),
-                bookRepo = get(),
-                sqlDb = get<ListenUpDatabase>(),
-                accessPolicy = get<BookAccessPolicy>(),
-                permissionPolicy = get<UserPermissionPolicy>(),
-                principal = unscopedPlaceholder("SeriesService"),
-                entityRepo = getOrNull<EntityRepository>(),
-            )
-        }
+        seriesServiceBinding()
         single<TagService> {
             TagServiceImpl(
                 tagRepository = get<TagRepository>(),
@@ -250,6 +240,21 @@ fun booksModule(
         genreBootstrapBindings()
         coverAndPersisterBindings(embeddedCoverCacheSize, homeDir)
     }
+
+/** [SeriesService], whose series merge carries Story World entities when that domain is wired. */
+private fun Module.seriesServiceBinding() {
+    single<SeriesService> {
+        SeriesServiceImpl(
+            seriesRepo = get(),
+            bookRepo = get(),
+            sqlDb = get<ListenUpDatabase>(),
+            accessPolicy = get<BookAccessPolicy>(),
+            permissionPolicy = get<UserPermissionPolicy>(),
+            principal = unscopedPlaceholder("SeriesService"),
+            entityRepo = getOrNull<EntityRepository>(),
+        )
+    }
+}
 
 /**
  * Moods slice bindings — the affective axis, mirroring tags (flat, syncable, soft-delete):

@@ -163,7 +163,7 @@ internal class EntityServiceImpl(
                 ValidationError(message = "Keep the description to $MAX_DESCRIPTOR characters.", field = "descriptor")
             }
 
-            (upsert.homeSeriesId == null) == (upsert.homeBookId == null) -> {
+            listOfNotNull(upsert.homeSeriesId, upsert.homeBookId).size != 1 -> {
                 ValidationError(message = "An entry belongs to exactly one series or book.")
             }
 
