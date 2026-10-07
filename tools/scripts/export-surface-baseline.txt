@@ -58,6 +58,9 @@ AppStartupViewModel
 AppleDownloadService
 AppleNetworkMonitor
 AppleStoragePaths
+AppliedChange
+AppliedChange_SealedType
+ApplySummary
 AudioFile
 AudioFileDownloader
 AudioFormatDisplay
@@ -85,6 +88,7 @@ BackupInfo
 BackupRepository
 BackupSummary
 BookAvailability
+BookCandidateKey
 BookContext
 BookContributor
 BookContributorInput
@@ -117,6 +121,9 @@ BookHardcoverUiState_SealedType
 BookHardcoverViewModel
 BookId
 BookListItem
+BookMatchEvent
+BookMatchEvent_SealedType
+BookMatchViewModel
 BookMetadata
 BookMultiSelectEvent
 BookMultiSelectEvent_SealedType
@@ -159,6 +166,7 @@ BulkEditViewModel
 BulkEdit_SealedType
 CachedAudioTokenProvider
 CachedUserProfile
+CandidateUi
 Chapter
 ChapterAnchor
 ChapterEditorEvent
@@ -168,6 +176,9 @@ ChapterEditorUiState_SealedType
 ChapterEditorViewModel
 ChapterInput
 ChapterNameRow
+ChapterNamesUi
+ChapterNamesUi_SealedType
+ChapterRowUi
 ChapterSetProblem
 ChapterSetProblem_SealedType
 ChapterSuggestion
@@ -235,9 +246,11 @@ ContributorSearchResult
 ContributorUpdate
 ContributorUpdateRequest
 ContributorWithBookCount
+CoverCandidate
 CoverEntry
 CoverError
 CoverError_SealedType
+CoverUi
 CoverUploadDelegate
 CreateEditShelfNavAction
 CreateEditShelfNavAction_SealedType
@@ -253,6 +266,7 @@ CreateInviteUiState
 CreateInviteUiState_SealedType
 CreateInviteViewModel
 CreditRoleGroup
+CurrentCover
 CurrentlyListeningUiSession
 CurrentlyListeningUiState
 CurrentlyListeningUiState_SealedType
@@ -312,18 +326,31 @@ EditableGenre
 EditableMood
 EditableSeries
 EditableTag
+EditionFormat
 ErrorBus
 EventStreamRepository
 ExistingSeriesMatch
 ExternalRating
 ExternalRatingSource
+ExternalRef
 FacetCount
 FacetIcon
 FacetIdentity
 FacetKind
 FacetStats
+FieldChoice
+FieldChoice_SealedType
+FieldOptionUi
+FieldState
+FieldUi
+FieldValue
+FieldValue_SealedType
 FileLogSink
 FileSource
+FindFailure
+FindFailure_SealedType
+FindUiState
+FindUiState_SealedType
 FineScrubStep
 FinishDates
 FinishDatesProblem
@@ -332,6 +359,7 @@ FolderId
 ForgotPasswordUiState
 ForgotPasswordUiState_SealedType
 ForgotPasswordViewModel
+FoundIn
 Genre
 GenreCrumb
 GenreDestinationUiState
@@ -348,6 +376,7 @@ GenreShareBar
 GenreTagEditDelegate
 GenreTreeNode
 GenreUpdate
+HandEdit
 HardcoverApiTokenStatus
 HardcoverApiTokenStatus_SealedType
 HardcoverBookSync
@@ -397,7 +426,10 @@ HomeStatsViewModel
 HomeUiState
 HomeUiState_SealedType
 HomeViewModel
+IdentifierKind
 ImageApiContract
+ImageChoice
+ImageChoice_SealedType
 ImagePickerResult
 ImagePickerResult_SealedType
 ImageRepository
@@ -442,6 +474,8 @@ KeptOffBooksUiState
 KeptOffBooksUiState_SealedType
 KeptOffBooksViewModel
 KoinHelper
+LabelKind
+LabelSetUi
 Language
 LanguageOption
 LastPlayedInfo
@@ -497,7 +531,14 @@ LoginUiState_SealedType
 LoginViewModel
 LoudnessMeter
 MatchProvenance
-MatchTier
+MatchReason
+MatchReason_SealedType
+MatchReceipt
+MatchReceiptUi
+MatchReceiptUiState
+MatchReceiptUiState_SealedType
+MatchReceiptViewModel
+MatchSeriesEntry
 MediaFocus
 MergeHistory
 MergeHistoryState
@@ -520,6 +561,7 @@ MetadataLocale
 MetadataRepository
 MetadataSelections
 MetadataSeriesRef
+MetadataSource
 MetadataUiState
 MetadataUiState_SealedType
 MetadataViewModel
@@ -575,6 +617,7 @@ OutsideShare
 ParentPickerDisabledReason
 ParentPickerRow
 PartGroup
+PartialFailure
 PasswordChange
 PasswordResetRepository
 PasswordResetRequest
@@ -644,6 +687,8 @@ RecentlyAddedUiBook
 RecentlyAddedUiState
 RecentlyAddedUiState_SealedType
 RefreshToken
+RegionOrigin
+RegionUi
 RegisterRequest
 RegisterUiState
 RegisterUiState_SealedType
@@ -661,6 +706,8 @@ RestoreFromFileViewModel
 RestoreResult
 RestrictedBooksViewModel
 ResumePhraseDetector
+ReviewUiState
+ReviewUiState_SealedType
 RoleSection
 RoleWithBookCount
 RpcCacheInvalidator
@@ -685,6 +732,8 @@ SearchNavAction_SealedType
 SearchRepository
 SearchResult
 SearchResultCaps
+SearchStep
+SearchStep_SealedType
 SearchUiState
 SearchUiState_SealedType
 SearchViewModel
@@ -802,6 +851,7 @@ StreamedRegistrationStatus_SealedType
 SubGenre
 SubSeriesCandidateUi
 SubSeriesPlacement
+SuggestionUi
 SurfaceMetadata
 SyncError
 SyncError_SealedType
@@ -872,3 +922,6 @@ VolumeGain
 WeakPasswordReason
 WeekChartColumn
 WeeklyStats
+WhatWillChange
+YourCopyUi
+YourLabelUi
