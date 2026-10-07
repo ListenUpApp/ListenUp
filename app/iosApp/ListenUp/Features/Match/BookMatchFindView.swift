@@ -44,6 +44,8 @@ private struct MatchFindScreen: View {
     @State private var draft: String?
     @State private var comparing: MatchCandidateRow?
     @State private var reviewing: String?
+    /// The chosen row grows into Review (a zoom, which Reduce Motion turns into a cross-fade).
+    @Namespace private var transition
 
     private var query: Binding<String> {
         Binding(get: { draft ?? observer.find.query }, set: { draft = $0 })
@@ -71,6 +73,7 @@ private struct MatchFindScreen: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .matchedTransitionSource(id: row.id, in: transition)
                     .accessibilityAddTraits(row.id == observer.find.phase.results?.pickedId ? .isSelected : [])
 
                     Button {
@@ -99,6 +102,7 @@ private struct MatchFindScreen: View {
         }
         .navigationDestination(item: reviewBinding) { candidateId in
             MatchReviewScreen(observer: observer, bookId: bookId, candidateId: candidateId, layout: .phone)
+                .navigationTransition(.zoom(sourceID: candidateId, in: transition))
         }
         .sheet(item: $comparing) { row in
             MatchCompareSheet(

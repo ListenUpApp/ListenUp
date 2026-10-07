@@ -9,6 +9,19 @@ enum MatchReceiptTiming {
     }
 }
 
+/// What VoiceOver hears when the receipt arrives or changes: the receipt itself, Undo in flight, or
+/// Undo's outcome. Nothing for no receipt.
+enum MatchReceiptAnnouncement {
+    static func text(for phase: MatchReceiptPhase) -> String? {
+        switch phase {
+        case .none: nil
+        case .shown(let receipt): receipt.undoing ? String(localized: "match.undoing") : receipt.sentence
+        case .undone: String(localized: "match.undone")
+        case .expired: String(localized: "match.undo_expired")
+        }
+    }
+}
+
 extension View {
     /// Book Detail's receipt after Match details applied: a bottom capsule with Undo and See What Changed.
     func matchReceipt(bookId: String) -> some View {
@@ -56,7 +69,8 @@ private struct MatchReceiptHost: ViewModifier {
                 observer = MatchReceiptObserver(viewModel: deps.createMatchReceiptViewModel(bookId: bookId))
             }
             .onChange(of: phase) { old, new in
-                guard let message = Self.announcement(for: new), Self.announcement(for: old) != message else { return }
+                guard let message = MatchReceiptAnnouncement.text(for: new),
+                      MatchReceiptAnnouncement.text(for: old) != message else { return }
                 VoiceOverAnnouncement.post(message)
                 isFocused = true
             }
@@ -81,14 +95,6 @@ private struct MatchReceiptHost: ViewModifier {
         }
     }
 
-    static func announcement(for phase: MatchReceiptPhase) -> String? {
-        switch phase {
-        case .none: nil
-        case .shown(let receipt): receipt.undoing ? String(localized: "match.undoing") : receipt.sentence
-        case .undone: String(localized: "match.undone")
-        case .expired: String(localized: "match.undo_expired")
-        }
-    }
 }
 
 /// The receipt: what Apply changed, See What Changed, Undo and a close button; or Undo's confirmation.

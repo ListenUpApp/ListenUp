@@ -127,6 +127,7 @@ struct MatchReviewContent: View {
 
                 if !review.labels.isEmpty {
                     section(.labels, String(localized: "match.section_genres_moods"),
+                            count: Self.addedCount(review.labels),
                             footer: String(localized: "match.tags_note")) {
                         ForEach(review.labels) { group in
                             MatchLabelGroupView(group: group, actions: actions)
@@ -135,7 +136,8 @@ struct MatchReviewContent: View {
                 }
 
                 if let chapters = review.chapters {
-                    section(.chapterNames, String(localized: "match.section_chapter_names")) {
+                    section(.chapterNames, String(localized: "match.section_chapter_names"),
+                            count: Self.chapterCount(chapters)) {
                         MatchChapterSectionView(section: chapters, actions: actions)
                     }
                 }
@@ -154,7 +156,7 @@ struct MatchReviewContent: View {
     @ViewBuilder
     private func fieldSection(_ id: MatchReviewSection, _ title: String, _ rows: [MatchFieldRow]) -> some View {
         if !rows.isEmpty {
-            section(id, title) {
+            section(id, title, count: String(rows.count)) {
                 ForEach(rows) { row in
                     MatchFieldRowView(
                         row: row,
@@ -166,17 +168,36 @@ struct MatchReviewContent: View {
         }
     }
 
+    /// "+5" suggested labels Apply adds, or nil when it adds none.
+    static func addedCount(_ groups: [MatchLabelGroup]) -> String? {
+        let added = groups.flatMap(\.suggested).filter(\.selected).count
+        return added > 0 ? "+\(added)" : nil
+    }
+
+    /// How many chapter names would change, or nil for a different edition's count mismatch.
+    static func chapterCount(_ section: MatchChapterSection) -> String? {
+        if case .available(_, _, let rows) = section { return String(rows.count) }
+        return nil
+    }
+
     /// A section whose title is a rotor heading (HIG, VoiceOver) and a scroll target for What will change.
+    /// The count beside the title ("Changes 1", "Genres & moods +5") is part of the heading.
     private func section<Content: View>(
         _ id: MatchReviewSection,
         _ title: String,
+        count: String? = nil,
         footer: String? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
         Section {
             content()
         } header: {
-            Text(title).accessibilityAddTraits(.isHeader)
+            HStack(spacing: Spacing.xs) {
+                Text(title)
+                if let count { Text(count).foregroundStyle(.secondary) }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
         } footer: {
             if let footer { Text(footer) }
         }

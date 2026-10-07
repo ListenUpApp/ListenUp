@@ -12,15 +12,25 @@ struct MatchCompareSheet: View {
         NavigationStack {
             List {
                 Section {
+                    HStack(alignment: .top, spacing: Spacing.m) {
+                        column(
+                            title: String(localized: "match.your_copy"),
+                            caption: String(localized: "match.in_your_library")
+                        ) {
+                            BookCoverImage(coverPath: yourCopy?.coverPath, coverHash: yourCopy?.coverHash)
+                        }
+                        column(title: String(localized: "match.this_match"), caption: candidate.foundInLine) {
+                            MetadataRemoteCover(url: candidate.coverURL)
+                        } badges: {
+                            MatchBadges(isBest: candidate.isBest, isCurrentLink: candidate.isCurrentLink)
+                        }
+                    }
+                }
+
+                Section {
                     ForEach(Self.rows(yourCopy: yourCopy?.compare, candidate: candidate.compare)) { row in
                         MatchCompareRowView(row: row)
                     }
-                } header: {
-                    HStack {
-                        Text(String(localized: "match.your_copy")).frame(maxWidth: .infinity, alignment: .leading)
-                        Text(String(localized: "match.this_match")).frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .accessibilityHidden(true)
                 }
 
                 Section {
@@ -52,6 +62,28 @@ struct MatchCompareSheet: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+
+    /// One edition at the top of Compare: its cover, what it is, and where it lives.
+    private func column<Cover: View, Badges: View>(
+        title: String,
+        caption: String,
+        @ViewBuilder cover: () -> Cover,
+        @ViewBuilder badges: () -> Badges = { EmptyView() }
+    ) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
+            cover()
+                .frame(width: 72, height: 72)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.s))
+                .accessibilityHidden(true)
+            Text(title).font(.subheadline.weight(.semibold))
+            badges()
+            if !caption.isEmpty {
+                Text(caption).font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 
     /// One fact for both editions.
