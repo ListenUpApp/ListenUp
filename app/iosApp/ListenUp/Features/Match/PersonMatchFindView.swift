@@ -265,6 +265,7 @@ struct PersonNoProfilesView: View {
         } actions: {
             Button(noProfiles.editTitle, action: onEditByHand)
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
         }
     }
 }

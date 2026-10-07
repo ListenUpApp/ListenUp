@@ -346,6 +346,8 @@ struct MatchFailureView: View {
                         .disabled(!action.isEnabled)
                 }
             }
+            // The default size draws 28-point buttons; large keeps every way forward a 44-point target.
+            .controlSize(.large)
         }
     }
 }

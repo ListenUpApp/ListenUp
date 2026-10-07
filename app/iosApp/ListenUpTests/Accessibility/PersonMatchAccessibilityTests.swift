@@ -95,6 +95,16 @@ struct PersonMatchAccessibilityTests {
         #expect(edit.frame.height >= TapTarget.minimum - 0.5, "\(edit)")
     }
 
+    /// A failed person search offers Retry as a full target (HIG, Content unavailable).
+    @Test func aFailureOffersRetryAsAFullTarget() async throws {
+        let failure = PersonMatchMapping.failure(FindFailureOffline.shared)
+        let hosted = await HostedView(MatchFailureView(failure: failure, onAction: { _ in }))
+        defer { hosted.close() }
+        let retry = try #require(hosted.stop(labelled: "Try Again"), "\(hosted.tree)")
+        #expect(retry.isButton)
+        #expect(retry.frame.height >= TapTarget.minimum - 0.5, "\(retry)")
+    }
+
     @Test func asAuthorAndAsNarratorAreBothOffered() async throws {
         let hosted = await HostedView(List { PersonRolePicker(role: .narrator, onChoose: { _ in }) })
         defer { hosted.close() }
