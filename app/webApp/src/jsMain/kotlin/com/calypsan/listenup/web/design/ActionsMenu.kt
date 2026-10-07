@@ -19,6 +19,11 @@ data class MenuAction(
     val label: String,
     val icon: WebIcon,
     val onSelect: () -> Unit,
+    /**
+     * Non-null makes the item one of a set of choices — `menuitemradio`, saying whether it is the one
+     * in force — rather than a command. A store picker's current store is `true`.
+     */
+    val checked: Boolean? = null,
 )
 
 /**
@@ -63,6 +68,10 @@ fun ActionsMenu(
  *
  * [tooltip] repeats [label] as a `title` for an icon-only trigger whose purpose is not obvious from
  * its glyph (the account shield).
+ *
+ * [triggerText] draws words beside the trigger's glyph, for a menu whose trigger says what is chosen
+ * now ("Audible store: United States"); [label] must then contain them, so the name a voice command
+ * uses is the one on screen.
  */
 @Composable
 fun PopupMenu(
@@ -72,6 +81,7 @@ fun PopupMenu(
     triggerClasses: Array<String>,
     enabled: Boolean = true,
     tooltip: Boolean = false,
+    triggerText: String? = null,
 ) {
     var open by remember { mutableStateOf(false) }
     val anchor = remember { NodeHolder() }
@@ -115,7 +125,10 @@ fun PopupMenu(
                 onDispose { trigger.element = null }
             }
             onClick { open = !open }
-        }) { Icon(icon, size = MENU_ICON_SIZE) }
+        }) {
+            Icon(icon, size = MENU_ICON_SIZE)
+            triggerText?.let { Text(it) }
+        }
 
         if (open) {
             MenuItems(items = items, label = label, onChosen = { close(returnFocus = false) })
@@ -171,7 +184,8 @@ private fun MenuItems(
             Button(attrs = {
                 classes("menu-i")
                 attr("type", "button")
-                attr("role", "menuitem")
+                attr("role", if (item.checked == null) "menuitem" else "menuitemradio")
+                item.checked?.let { attr("aria-checked", it.toString()) }
                 // Only the first item is a Tab stop; the arrows are how a menu is walked.
                 attr("tabindex", if (index == 0) "0" else "-1")
                 if (index == 0) {
@@ -183,7 +197,7 @@ private fun MenuItems(
                 onKeyDown { event ->
                     rovingTarget(event.key, index, items.size, RovingAxis.Vertical)?.let { next ->
                         event.preventDefault()
-                        event.currentTarget.focusSibling(":scope > [role=menuitem]", next)
+                        event.currentTarget.focusSibling(":scope > [role^=menuitem]", next)
                     }
                 }
                 onClick {

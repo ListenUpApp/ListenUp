@@ -40,7 +40,7 @@ import com.calypsan.listenup.web.features.readers.OpenBookReaders
 import com.calypsan.listenup.web.features.ratings.OpenBookRatings
 import com.calypsan.listenup.web.features.sync.OpenDeadLetters
 import com.calypsan.listenup.web.features.search.OpenSeeAll
-import com.calypsan.listenup.web.features.metadata.OpenMetadata
+import com.calypsan.listenup.web.features.match.MatchDetailsGraph
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorBooks
 import com.calypsan.listenup.web.features.licences.OpenLicences
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
@@ -95,7 +95,7 @@ fun AuthGate(
     openBookDetail: OpenBookDetail,
     openBookEdit: OpenBookEdit,
     openChapterEditor: OpenChapterEditor,
-    openMetadata: OpenMetadata,
+    matchDetails: MatchDetailsGraph,
     openContributorDetail: OpenContributorDetail,
     openContributorBooks: OpenContributorBooks,
     openContributorEdit: OpenContributorEdit,
@@ -231,7 +231,7 @@ fun AuthGate(
                         openBookDetail = openBookDetail,
                         openBookEdit = openBookEdit,
                         openChapterEditor = openChapterEditor,
-                        openMetadata = openMetadata,
+                        matchDetails = matchDetails,
                         openContributorDetail = openContributorDetail,
                         openContributorBooks = openContributorBooks,
                         openContributorEdit = openContributorEdit,
