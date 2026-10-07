@@ -22,13 +22,13 @@ import com.calypsan.listenup.api.metadata.BookField
  * vanished falls back to the server's default. Nothing here can name an option the server didn't offer.
  */
 internal data class ReviewChoices(
-    val fields: Map<BookField, FieldChoice> = emptyMap(),
-    val lastOption: Map<BookField, String> = emptyMap(),
-    val cover: ImageChoice? = null,
-    val removedYours: Map<LabelKind, Set<String>> = emptyMap(),
-    val deselectedSuggestions: Map<LabelKind, Set<String>> = emptyMap(),
-    val chapterNamesIncluded: Boolean = true,
-    val deselectedChapters: Set<Int> = emptySet(),
+    internal val fields: Map<BookField, FieldChoice> = emptyMap(),
+    internal val lastOption: Map<BookField, String> = emptyMap(),
+    internal val cover: ImageChoice? = null,
+    internal val removedYours: Map<LabelKind, Set<String>> = emptyMap(),
+    internal val deselectedSuggestions: Map<LabelKind, Set<String>> = emptyMap(),
+    internal val chapterNamesIncluded: Boolean = true,
+    internal val deselectedChapters: Set<Int> = emptySet(),
 ) {
     fun choose(
         field: BookField,
@@ -204,6 +204,7 @@ internal fun ReviewChoices.project(
         moods = moods,
         chapterNames = chapterNames,
         alreadySame = shown.filter { it.state == FieldState.SAME }.map { it.field },
+        alreadySameNames = shown.filter { it.state == FieldState.SAME }.map { it.field.name },
         lengthAlreadySame = candidate.reasons.any { it is MatchReason.SameLength },
         applyBar =
             ApplySummary(

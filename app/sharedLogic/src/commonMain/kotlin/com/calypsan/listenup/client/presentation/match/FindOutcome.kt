@@ -8,12 +8,14 @@ import com.calypsan.listenup.api.error.TransportError
 
 /** What one Find produced: candidates to show, or the single failure that explains why there are none. */
 internal sealed interface FindOutcome {
+    /** Candidates to show, split by tier, with the partial-failure banner if some sources failed. */
     data class Candidates(
         val strong: List<CandidateUi>,
         val maybe: List<CandidateUi>,
         val partialFailure: PartialFailure?,
     ) : FindOutcome
 
+    /** No candidates: the one failure that explains why. */
     data class Failure(
         val failure: FindFailure,
     ) : FindOutcome
