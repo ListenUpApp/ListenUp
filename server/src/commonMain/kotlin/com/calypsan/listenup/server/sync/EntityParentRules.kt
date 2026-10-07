@@ -47,7 +47,10 @@ internal object EntityParentRules {
         }
     }
 
-    /** True when [ancestorId] appears on the chain that starts at [startingAt] and climbs via [parentOf]. */
+    /**
+     * True when [ancestorId] appears on the chain that starts at [startingAt] and climbs via [parentOf] — or
+     * when the chain is still going after [MAX_DEPTH] steps, which only a stored loop can do.
+     */
     fun isAncestor(
         ancestorId: String,
         startingAt: String?,
@@ -60,6 +63,7 @@ internal object EntityParentRules {
             cursor = parentOf(cursor)
             steps++
         }
-        return false
+        // A walk that ran out of steps with the chain still going is a stored loop: refuse it as a cycle.
+        return cursor != null
     }
 }
