@@ -260,9 +260,14 @@ struct MatchYourCopyView: View {
 /// it was found.
 struct MatchCandidateRowView: View {
     let row: MatchCandidateRow
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        HStack(alignment: .top, spacing: Spacing.s) {
+        // The cover moves above the words at the accessibility sizes, so the title keeps the row's width.
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Spacing.xs))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: Spacing.s))
+        layout {
             MetadataRemoteCover(url: row.coverURL)
                 .frame(width: 56, height: 56)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.s))
@@ -300,7 +305,8 @@ struct MatchBadges: View {
 
     var body: some View {
         if isBest || isCurrentLink {
-            HStack(spacing: Spacing.xxs) {
+            // Wraps badge by badge rather than squeezing one into three lines.
+            FlowLayout(spacing: Spacing.xxs) {
                 if isBest { badge(String(localized: "match.best_match"), systemImage: "star.fill") }
                 if isCurrentLink { badge(String(localized: "match.your_current_link"), systemImage: "link") }
             }

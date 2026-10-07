@@ -208,9 +208,14 @@ struct MatchReviewContent: View {
 /// The candidate Review is about: its cover, badges, title, where it was found and the facts.
 private struct MatchReviewHeader: View {
     let review: MatchReview
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        HStack(alignment: .top, spacing: Spacing.m) {
+        // The cover sits above the words at the accessibility sizes, so the title keeps the row's width.
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Spacing.s))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: Spacing.m))
+        layout {
             MetadataRemoteCover(url: review.candidate.coverURL)
                 .frame(width: 72, height: 72)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.m))

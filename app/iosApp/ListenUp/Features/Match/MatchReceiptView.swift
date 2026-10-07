@@ -105,15 +105,29 @@ struct MatchReceiptCapsule: View {
     let onSeeWhatChanged: () -> Void
     let onDismiss: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: Spacing.s) {
-                message.frame(maxWidth: .infinity, alignment: .leading)
-                actions
-            }
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                message
-                HStack(spacing: Spacing.s) { actions }
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                // At the accessibility sizes nothing shares a line: the sentence wraps in full and each
+                // action gets its own row.
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
+                    message.fixedSize(horizontal: false, vertical: true)
+                    actions
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: Spacing.s) {
+                        message.frame(maxWidth: .infinity, alignment: .leading)
+                        actions
+                    }
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        message.fixedSize(horizontal: false, vertical: true)
+                        HStack(spacing: Spacing.s) { actions }
+                    }
+                }
             }
         }
         .padding(.horizontal, Spacing.m)
