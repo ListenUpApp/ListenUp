@@ -128,6 +128,10 @@ internal class EntityServiceImpl(
                 ValidationError(message = "Give this entry a name.", field = "name")
             }
 
+            upsert.name.trim().length > MAX_NAME -> {
+                ValidationError(message = "Keep the name to $MAX_NAME characters.", field = "name")
+            }
+
             (upsert.descriptor?.trim()?.length ?: 0) > MAX_DESCRIPTOR -> {
                 ValidationError(message = "Keep the description to $MAX_DESCRIPTOR characters.", field = "descriptor")
             }
@@ -161,6 +165,7 @@ internal class EntityServiceImpl(
         AppResult.Failure(EntityError.NotFound(debugInfo = "entity=${id.value}"))
 
     private companion object {
+        const val MAX_NAME = 200
         const val MAX_DESCRIPTOR = 60
     }
 }

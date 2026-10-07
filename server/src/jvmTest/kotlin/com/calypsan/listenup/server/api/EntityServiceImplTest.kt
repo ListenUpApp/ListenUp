@@ -233,7 +233,7 @@ class EntityServiceImplTest :
             }
         }
 
-        test("input rules: exactly one home, a kind on create, a fixed home, a 60-character descriptor") {
+        test("input rules: exactly one home, a kind on create, a fixed home, a 200-character name, a 60-character descriptor") {
             withSqlDatabase {
                 runTest {
                     val world = storyWorld()
@@ -248,6 +248,15 @@ class EntityServiceImplTest :
                         .shouldBeInstanceOf<AppResult.Failure>()
                         .error
                         .shouldBeInstanceOf<ValidationError>()
+                    member
+                        .upsertEntity(upsert("x", homeBookId = "open", name = "n".repeat(201)))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ValidationError>()
+                        .field shouldBe "name"
+                    member
+                        .upsertEntity(upsert("x", homeBookId = "open", name = "n".repeat(200)))
+                        .shouldBeInstanceOf<AppResult.Success<EntitySyncPayload>>()
                     member
                         .upsertEntity(upsert("x", homeBookId = "open").copy(descriptor = "d".repeat(61)))
                         .shouldBeInstanceOf<AppResult.Failure>()
