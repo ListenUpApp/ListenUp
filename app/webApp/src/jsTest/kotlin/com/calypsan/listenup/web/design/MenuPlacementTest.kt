@@ -12,8 +12,8 @@ import org.jetbrains.compose.web.dom.Div
 
 private val ITEMS =
     listOf(
-        MenuAction("Add to a shelf you keep", WebIcon.Book) {},
-        MenuAction("Remove this book from the library", WebIcon.Trash) {},
+        MenuAction("Add to a shelf you keep", WebIcon.Book, onSelect = {}),
+        MenuAction("Remove this book from the library", WebIcon.Trash, onSelect = {}),
     )
 
 /**

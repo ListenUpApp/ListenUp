@@ -40,7 +40,7 @@ class ContrastTest :
                             Span(attrs = { classes("rs-s", "is-empty") }) { Text("★") }
                         }
                         Button(kind = ButtonKind.Primary) { Text("Sign in") }
-                        Span(attrs = { classes("mdx-from") }) { Text("from Hardcover") }
+                        Span(attrs = { classes("bmx-edited") }) { Text("You edited this") }
                         Div(attrs = { id("sw-off") }) { SwitchField(label = "Sync", checked = false, onChange = {}) }
                         Div(attrs = { id("sw-on") }) { SwitchField(label = "Sync", checked = true, onChange = {}) }
                     }
@@ -90,6 +90,10 @@ class ContrastTest :
 
             test("$theme: a warning reads at 4.5:1 on its own wash") {
                 palette(theme).assertContrast("--warn", "--warn-soft", AA_TEXT)
+            }
+
+            test("$theme: Match details' You edited this flag reads at 4.5:1 on its own wash") {
+                palette(theme).assertContrast("--edited", "--edited-soft", AA_TEXT)
             }
 
             test("$theme: an empty rating star is visible at 3:1 against the card it sits on") {
@@ -158,9 +162,9 @@ class ContrastTest :
                 }
             }
 
-            test("$theme: the 'from Hardcover' chip reads at 4.5:1 on its own fill") {
+            test("$theme: Match details' You edited this flag reads at 4.5:1 as drawn") {
                 val palette = palette(theme)
-                val chip = palette.frame.find(".mdx-from")
+                val chip = palette.frame.find(".bmx-edited")
                 val fill = palette.elementColour(chip, "background-color").over(palette.token("--surface"))
                 val ink = palette.elementColour(chip, "color").over(fill)
 
