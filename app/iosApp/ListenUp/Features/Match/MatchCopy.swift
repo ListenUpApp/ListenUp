@@ -177,7 +177,7 @@ enum MatchCopy {
         return field == .isbn || field == .asin ? raw : raw.replacingOccurrences(of: "_", with: " ").capitalized
     }
 
-    private static let fieldNameKeys: [BookField: String] = [
+    private static var fieldNameKeys: [BookField: String] { [
         .title: "match.field_title",
         .subtitle: "match.field_subtitle",
         .description: "match.field_description",
@@ -191,7 +191,7 @@ enum MatchCopy {
         .moods: "match.moods",
         .cover: "match.section_cover",
         .chapters: "match.section_chapter_names"
-    ]
+    ] }
 
     /// A value as Review shows it. Release date is the year only; descriptions lose their markup.
     static func value(_ value: any FieldValue) -> String {
