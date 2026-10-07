@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.sync
 
+import app.cash.sqldelight.TransactionWithReturn
 import com.calypsan.listenup.api.sync.ReadingOrderSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.core.ReadingOrderId
@@ -137,6 +138,12 @@ class ReadingOrderRepository(
                 .selectLiveIdByName(series_id = seriesId, normalized_name = ReadingOrderName.normalize(name))
                 .executeAsOneOrNull()
         }
+
+    /** Tombstones order [id] inside the caller's open transaction; false when no such order exists. */
+    internal fun TransactionWithReturn<*>.tombstoneOrder(
+        id: ReadingOrderId,
+        suppressed: Boolean,
+    ): Boolean = softDeleteInOpenTransaction(id, suppressed) != null
 
     private fun Reading_orders.toSyncPayload(): ReadingOrderSyncPayload =
         ReadingOrderSyncPayload(

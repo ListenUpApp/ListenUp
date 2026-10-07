@@ -1,9 +1,9 @@
 package com.calypsan.listenup.server.sync
 
+import app.cash.sqldelight.TransactionWithReturn
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.sync.ReadingOrderBookSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
-import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Reading_order_books
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -28,7 +28,7 @@ data class ReadingOrderBookKey(
  * `book_id` through the injected [driver], and tombstones minimized so a member never learns which
  * order held a book they can't see.
  *
- * Multi-row writes ([rewritePositions], [softDeleteAllForOrder]) run in ONE transaction, each row with
+ * Multi-row writes ([rewritePositions], [tombstoneAllForOrder]) run in ONE transaction, each row with
  * its own revision and after-commit event.
  */
 class ReadingOrderBookRepository(
@@ -192,24 +192,21 @@ class ReadingOrderBookRepository(
         }
     }
 
-    /** Tombstones every live member of [orderId] in one transaction, each with its own revision and event. */
-    suspend fun softDeleteAllForOrder(orderId: String): Int =
-        suspendTransaction(db) {
-            val live = db.readingOrderBooksQueries.selectLiveForOrder(orderId).executeAsList()
-            for (row in live) {
-                val rev = nextRevision()
-                val now = clock.now().toEpochMilliseconds()
-                db.readingOrderBooksQueries.softDeleteById(
-                    revision = rev,
-                    updated_at = now,
-                    deleted_at = now,
-                    client_op_id = null,
-                    id = row.id,
-                )
-                emitAfterCommit(SyncEvent.Deleted(id = row.id, revision = rev, occurredAt = now, clientOpId = null))
-            }
-            live.size
+    /**
+     * Tombstones every live member of [orderId] inside the caller's open transaction — the membership half
+     * of an order's delete, which must commit together with the order's own tombstone. Each row gets its
+     * own revision and after-commit event.
+     */
+    internal fun TransactionWithReturn<*>.tombstoneAllForOrder(
+        orderId: String,
+        suppressed: Boolean,
+    ): Int {
+        val live = db.readingOrderBooksQueries.selectLiveForOrder(orderId).executeAsList()
+        for (row in live) {
+            softDeleteInOpenTransaction(ReadingOrderBookKey(row.reading_order_id, row.book_id, row.id), suppressed)
         }
+        return live.size
+    }
 
     private fun Reading_order_books.toPayload(): ReadingOrderBookSyncPayload =
         ReadingOrderBookSyncPayload(

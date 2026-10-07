@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.sync
 
+import app.cash.sqldelight.TransactionWithReturn
 import com.calypsan.listenup.api.dto.readingorder.ReadingOrderChoiceKind
 import com.calypsan.listenup.api.sync.ReadingOrderFollowSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
@@ -135,6 +136,29 @@ class ReadingOrderFollowRepository(
                 client_op_id = clientOpId,
             )
         }
+    }
+
+    /** The live follow with [id], or null when there is none or it is tombstoned (the series inherits). */
+    suspend fun findLive(id: String): ReadingOrderFollowSyncPayload? =
+        suspendTransaction(db) { readPayload(id)?.takeIf { it.deletedAt == null } }
+
+    /**
+     * Tombstones every user's live follow of [orderId] inside the caller's open transaction — part of the
+     * order's delete. Each tombstone is published to its owner only, so each follower's series falls back
+     * to inheritance on every device.
+     */
+    internal fun TransactionWithReturn<*>.tombstoneFollowsOf(
+        orderId: String,
+        suppressed: Boolean,
+    ): Int {
+        val followers =
+            db.readingOrderFollowsQueries
+                .selectLiveFollowersOfOrder(orderId) { id, userId -> ReadingOrderFollower(id, userId) }
+                .executeAsList()
+        for (follower in followers) {
+            softDeleteInOpenTransaction(follower.followId, suppressed, userId = follower.userId)
+        }
+        return followers.size
     }
 
     /** "<userId>:<seriesId>" — the deterministic follow id both sides compute. */
