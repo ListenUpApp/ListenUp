@@ -366,16 +366,19 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
 
     /**
      * Soft-deletes [id] inside an **already-open** transaction — [softDelete]'s body without its wrapper. Returns
-     * the deferred [SyncEvent.Deleted], or null when no row has that id (nothing written).
+     * the deferred [SyncEvent.Deleted], or null when no row has that id (nothing written). [revision], when
+     * given, is a revision the caller already took from [nextRevision] inside this transaction — taking it
+     * before reading makes the transaction a writer first, so its reads can't be overtaken by another writer.
      */
     protected fun TransactionWithReturn<*>.softDeleteInOpenTransaction(
         id: ID,
         suppressed: Boolean,
         clientOpId: String? = null,
         userId: String? = null,
+        revision: Long? = null,
     ): SyncEvent.Deleted? {
         requireUserForScopedWrite(userId)
-        val rev = nextRevision()
+        val rev = revision ?: nextRevision()
         val now = clock.now().toEpochMilliseconds()
         val idStr = idAsString(id)
         val rowsAffected =

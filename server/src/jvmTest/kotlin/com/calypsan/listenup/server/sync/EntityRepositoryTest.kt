@@ -24,8 +24,8 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import kotlin.time.Instant
 
 private val ACTOR = UserId("u1")
@@ -79,22 +79,24 @@ class EntityRepositoryTest :
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestBook("b1")
                 val repo = entityRepository()
-                runBlocking(Dispatchers.IO) {
-                    repeat(RACE_ROUNDS) { round ->
-                        val id = "race-$round"
-                        repo.upsertEntity(entityPayload(id, homeBookId = "b1", name = "v0"), ACTOR)
-                        coroutineScope {
-                            launch { repo.upsertEntity(entityPayload(id, homeBookId = "b1", name = "a"), ACTOR) }
-                            launch { repo.upsertEntity(entityPayload(id, homeBookId = "b1", name = "b"), ACTOR) }
-                        }
+                runTest {
+                    withContext(Dispatchers.IO) {
+                        repeat(RACE_ROUNDS) { round ->
+                            val id = "race-$round"
+                            repo.upsertEntity(entityPayload(id, homeBookId = "b1", name = "v0"), ACTOR)
+                            coroutineScope {
+                                launch { repo.upsertEntity(entityPayload(id, homeBookId = "b1", name = "a"), ACTOR) }
+                                launch { repo.upsertEntity(entityPayload(id, homeBookId = "b1", name = "b"), ACTOR) }
+                            }
 
-                        val updates = repo.listHistory(EntityId(id)).filter { it.op == StoryWorldOp.UPDATE }.reversed()
-                        updates shouldHaveSize 2
-                        updates.map { it.after.shouldNotBeNull().name } shouldContainExactlyInAnyOrder listOf("a", "b")
-                        val (first, last) = updates
-                        first.before.shouldNotBeNull().name shouldBe "v0"
-                        last.before shouldBe first.after
-                        repo.findById(EntityId(id)) shouldBe last.after
+                            val updates = repo.listHistory(EntityId(id)).filter { it.op == StoryWorldOp.UPDATE }.reversed()
+                            updates shouldHaveSize 2
+                            updates.map { it.after.shouldNotBeNull().name } shouldContainExactlyInAnyOrder listOf("a", "b")
+                            val (first, last) = updates
+                            first.before.shouldNotBeNull().name shouldBe "v0"
+                            last.before shouldBe first.after
+                            repo.findById(EntityId(id)) shouldBe last.after
+                        }
                     }
                 }
             }

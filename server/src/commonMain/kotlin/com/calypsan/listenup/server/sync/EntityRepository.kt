@@ -196,8 +196,20 @@ class EntityRepository(
     // ── Writes (each one transaction: read, decide, write, record history) ──
 
     /**
-     * Creates or edits [value] as a full overwrite, refusing a parent [EntityParentRules] rejects.
-     * Records CREATE or UPDATE, whose `before` is the row this write replaced.
+     * Creates or edits [value] as a full overwrite. Records CREATE or UPDATE, whose `before` is the row this
+     * write replaced.
+     *
+     * The integrity rules are decided here, against that same row, inside the write's transaction — never
+     * from a separate read a concurrent write could overtake:
+     * - the home is fixed at creation; an edit naming another home is a [ValidationError];
+     * - [EntityKind.UNKNOWN] is refused on create, and keeps the stored kind on an edit (an older client
+     *   can't clobber a kind it doesn't know);
+     * - authorship is the server's: `createdBy` is [actor] on create and never changes, `updatedBy` is
+     *   [actor] on every write — whatever the payload claims;
+     * - an edit carries the stored `imageRef` over;
+     * - a deleted entity stays deleted: an edit to it is [EntityError.NotFound] (a late offline edit can't
+     *   undo a curator's delete; only [revert] or a book re-add revives);
+     * - a parent [EntityParentRules] rejects is refused.
      */
     suspend fun upsertEntity(
         value: EntitySyncPayload,
@@ -205,9 +217,21 @@ class EntityRepository(
     ): AppResult<EntitySyncPayload> {
         val ctx = writeContext()
         return suspendTransaction(db) {
+            // Take the revision first: the transaction becomes the writer before it reads `before`, so no
+            // other write can slip between the read and this write.
+            val rev = nextRevision()
             val before = readPayload(value.id)
-            parentProblem(value)?.let { return@suspendTransaction AppResult.Failure(it) }
-            val (saved, event) = upsertEventInOpenTransaction(value, ctx.suppressed)
+            upsertRefusal(value, before)?.let { return@suspendTransaction AppResult.Failure(it) }
+            val resolved =
+                value.copy(
+                    kind = if (value.kind == EntityKind.UNKNOWN) checkNotNull(before).kind else value.kind,
+                    imageRef = if (before == null) value.imageRef else before.imageRef,
+                    createdBy = if (before == null) actor?.value else before.createdBy,
+                    updatedBy = actor?.value,
+                    deletedAt = null,
+                )
+            parentProblem(resolved)?.let { return@suspendTransaction AppResult.Failure(it) }
+            val (saved, event) = upsertEventInOpenTransaction(resolved, ctx.suppressed, revision = rev)
             if (!ctx.suppressed) captureAfterCommit(ctx.capture, event)
             history.record(
                 entityId = saved.id,
@@ -229,12 +253,13 @@ class EntityRepository(
     ): AppResult<Unit> {
         val ctx = writeContext()
         return suspendTransaction(db) {
+            val rev = nextRevision()
             val before =
                 liveOrNull(id.value)
                     ?: return@suspendTransaction AppResult.Failure(
                         EntityError.NotFound(debugInfo = "entity=${id.value}"),
                     )
-            tombstone(before, StoryWorldOp.DELETE, actor, ctx)
+            tombstone(before, StoryWorldOp.DELETE, actor, ctx, revision = rev)
             AppResult.Success(Unit)
         }
     }
@@ -250,6 +275,10 @@ class EntityRepository(
     ): AppResult<EntitySyncPayload> {
         val ctx = writeContext()
         return suspendTransaction(db) {
+            var leadRevision: Long? = nextRevision()
+
+            fun takeRevision(): Long? = leadRevision.also { leadRevision = null }
+
             val from = liveOrNull(source.value)
             val into = liveOrNull(target.value)
             if (from == null || into == null) {
@@ -266,9 +295,10 @@ class EntityRepository(
                     StoryWorldOp.UPDATE,
                     actor,
                     ctx,
+                    revision = takeRevision(),
                 )
             }
-            tombstone(from, StoryWorldOp.MERGE, actor, ctx)
+            tombstone(from, StoryWorldOp.MERGE, actor, ctx, revision = takeRevision())
             AppResult.Success(into)
         }
     }
@@ -283,6 +313,7 @@ class EntityRepository(
     ): AppResult<EntityChange> {
         val ctx = writeContext()
         return suspendTransaction(db) {
+            val rev = nextRevision()
             val change =
                 history.find(changeId)
                     ?: return@suspendTransaction AppResult.Failure(
@@ -295,7 +326,7 @@ class EntityRepository(
                     )
             val restore =
                 change.before
-                    ?: return@suspendTransaction AppResult.Success(tombstone(current, StoryWorldOp.REVERT, actor, ctx))
+                    ?: return@suspendTransaction AppResult.Success(tombstone(current, StoryWorldOp.REVERT, actor, ctx, revision = rev))
             val restored =
                 restore.copy(
                     homeSeriesId = current.homeSeriesId,
@@ -305,7 +336,7 @@ class EntityRepository(
                     deletedAt = null,
                 )
             parentProblem(restored)?.let { return@suspendTransaction AppResult.Failure(it) }
-            AppResult.Success(rewrite(current, restored, StoryWorldOp.REVERT, actor, ctx))
+            AppResult.Success(rewrite(current, restored, StoryWorldOp.REVERT, actor, ctx, revision = rev))
         }
     }
 
@@ -427,6 +458,32 @@ class EntityRepository(
     private fun parentProblem(value: EntitySyncPayload): EntityError? =
         value.parentId?.let { parentId -> EntityParentRules.check(value, liveOrNull(parentId), ::storedParentOf) }
 
+    /** Why [value] may not be written over [before] (the stored row, or null on create), or null when it may. */
+    private fun upsertRefusal(
+        value: EntitySyncPayload,
+        before: EntitySyncPayload?,
+    ) = when {
+        before == null && value.kind == EntityKind.UNKNOWN -> {
+            ValidationError(message = "Choose what kind of entry this is.", field = "kind")
+        }
+
+        before == null -> {
+            null
+        }
+
+        before.deletedAt != null -> {
+            EntityError.NotFound(debugInfo = "entity=${value.id} is deleted")
+        }
+
+        before.homeSeriesId != value.homeSeriesId || before.homeBookId != value.homeBookId -> {
+            ValidationError(message = "An entry stays in the series or book it was created in.")
+        }
+
+        else -> {
+            null
+        }
+    }
+
     /** Why [from] may not fold into [into], or null when the merge may proceed. */
     private fun mergeRefusal(
         from: EntitySyncPayload,
@@ -453,28 +510,36 @@ class EntityRepository(
         }
     }
 
-    /** Writes [after] over [before], records [op], mirrors the frame; returns the recorded entry. */
+    /**
+     * Writes [after] over [before], records [op], mirrors the frame; returns the recorded entry. [revision] is
+     * one the caller already took (see [upsertEntity]), or null to take a fresh one.
+     */
     private fun TransactionWithReturn<*>.rewrite(
         before: EntitySyncPayload,
         after: EntitySyncPayload,
         op: StoryWorldOp,
         actor: UserId?,
         ctx: WriteContext,
+        revision: Long? = null,
     ): EntityChange {
-        val (saved, event) = upsertEventInOpenTransaction(after, ctx.suppressed)
+        val (saved, event) = upsertEventInOpenTransaction(after, ctx.suppressed, revision = revision)
         if (!ctx.suppressed) captureAfterCommit(ctx.capture, event)
         return history.record(saved.id, op, actor, event.occurredAt, event.revision, before, saved)
     }
 
-    /** Tombstones [before], records [op] with the tombstone as `after`; returns the recorded entry. */
+    /**
+     * Tombstones [before], records [op] with the tombstone as `after`; returns the recorded entry. [revision]
+     * is one the caller already took, or null to take a fresh one.
+     */
     private fun TransactionWithReturn<*>.tombstone(
         before: EntitySyncPayload,
         op: StoryWorldOp,
         actor: UserId?,
         ctx: WriteContext,
+        revision: Long? = null,
     ): EntityChange {
         val event: SyncEvent.Deleted =
-            checkNotNull(softDeleteInOpenTransaction(EntityId(before.id), ctx.suppressed)) {
+            checkNotNull(softDeleteInOpenTransaction(EntityId(before.id), ctx.suppressed, revision = revision)) {
                 "entity ${before.id} vanished mid-transaction"
             }
         if (!ctx.suppressed) captureAfterCommit(ctx.capture, event)

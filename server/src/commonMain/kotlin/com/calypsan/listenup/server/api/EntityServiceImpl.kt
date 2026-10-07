@@ -3,12 +3,10 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.EntityService
 import com.calypsan.listenup.api.dto.entity.EntityChange
 import com.calypsan.listenup.api.dto.entity.EntityUpsert
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.EntityError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.EntityKind
 import com.calypsan.listenup.api.sync.EntitySyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.EntityId
@@ -42,26 +40,28 @@ internal class EntityServiceImpl(
         permissionPolicy.requireCanContributeStoryWorld(caller.userId, caller.role)?.let { return AppResult.Failure(it) }
         validate(upsert)?.let { return AppResult.Failure(it) }
         if (!canSee(caller, upsert.homeSeriesId?.value, upsert.homeBookId?.value)) return notFound(upsert.id)
+        // A stored row in a home the caller can't see answers NotFound before the repository's integrity
+        // rules (a home change, say) could tell them it exists.
         val existing = entityRepo.findById(upsert.id)
-        existingProblem(caller, upsert, existing)?.let { return AppResult.Failure(it) }
-        val kind = if (upsert.kind == EntityKind.UNKNOWN) existing?.kind ?: EntityKind.UNKNOWN else upsert.kind
-        // The repository stamps updated_at (and created_at on insert) with the server clock; these are placeholders.
+        if (existing != null && !canSee(caller, existing.homeSeriesId, existing.homeBookId)) return notFound(upsert.id)
+        // The repository decides kind, authorship, image, home and revival against the stored row inside the
+        // write's transaction, and stamps the server clock; the stamps below are placeholders.
         val now = clock.now().toEpochMilliseconds()
         val payload =
             EntitySyncPayload(
                 id = upsert.id.value,
-                kind = kind,
+                kind = upsert.kind,
                 name = upsert.name.trim(),
                 descriptor = upsert.descriptor?.trim()?.ifEmpty { null },
                 parentId = upsert.parentId?.value,
                 homeSeriesId = upsert.homeSeriesId?.value,
                 homeBookId = upsert.homeBookId?.value,
-                imageRef = existing?.imageRef,
-                createdBy = existing?.createdBy ?: caller.userId.value,
+                imageRef = null,
+                createdBy = caller.userId.value,
                 updatedBy = caller.userId.value,
-                revision = existing?.revision ?: 0L,
+                revision = 0L,
                 updatedAt = now,
-                createdAt = existing?.createdAt ?: now,
+                createdAt = now,
                 deletedAt = null,
             )
         return entityRepo.upsertEntity(payload, caller.userId)
@@ -113,23 +113,6 @@ internal class EntityServiceImpl(
         if (!canSee(caller, entity.homeSeriesId, entity.homeBookId)) return missing
         return entityRepo.revert(changeId, caller.userId)
     }
-
-    /** Refusals that depend on the stored row: a hidden existing home, a changed home, an UNKNOWN create. */
-    private suspend fun existingProblem(
-        caller: UserPrincipal,
-        upsert: EntityUpsert,
-        existing: EntitySyncPayload?,
-    ): AppError? =
-        when {
-            existing == null && upsert.kind == EntityKind.UNKNOWN ->
-                ValidationError(message = "Choose what kind of entry this is.", field = "kind")
-            existing == null -> null
-            !canSee(caller, existing.homeSeriesId, existing.homeBookId) ->
-                EntityError.NotFound(debugInfo = "entity=${upsert.id.value}")
-            existing.homeSeriesId != upsert.homeSeriesId?.value || existing.homeBookId != upsert.homeBookId?.value ->
-                ValidationError(message = "An entry stays in the series or book it was created in.")
-            else -> null
-        }
 
     private fun validate(upsert: EntityUpsert): ValidationError? =
         when {
