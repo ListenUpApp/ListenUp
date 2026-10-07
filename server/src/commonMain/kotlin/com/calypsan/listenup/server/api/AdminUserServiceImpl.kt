@@ -234,6 +234,8 @@ class AdminUserServiceImpl(
                 val mergedRole = patch.role?.toColumn() ?: user.role
                 demoted = user.role == UserRoleColumn.ADMIN && mergedRole == UserRoleColumn.MEMBER
                 val mergedCanEdit = patch.permissions?.canEdit ?: user.canEdit
+                val mergedContribute = patch.permissions?.canContributeStoryWorld ?: user.canContributeStoryWorld
+                val mergedCurate = patch.permissions?.canCurateStoryWorld ?: user.canCurateStoryWorld
                 val now = clock.now().toEpochMilliseconds()
                 sql.usersQueries.updateAdminFields(
                     display_name = mergedDisplayName,
@@ -242,12 +244,19 @@ class AdminUserServiceImpl(
                     updated_at = now,
                     id = id.value,
                 )
+                sql.usersQueries.updateStoryWorldPermissions(
+                    can_contribute_story_world = mergedContribute.toDbLong(),
+                    can_curate_story_world = mergedCurate.toDbLong(),
+                    id = id.value,
+                )
                 AppResult.Success(
                     user
                         .copy(
                             displayName = mergedDisplayName,
                             role = mergedRole,
                             canEdit = mergedCanEdit,
+                            canContributeStoryWorld = mergedContribute,
+                            canCurateStoryWorld = mergedCurate,
                         ).toContract(),
                 )
             }

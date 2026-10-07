@@ -49,6 +49,7 @@ class InstanceServiceImpl(
                 instanceId = instanceIdentity.instanceId(),
                 pushEnabled = settings.pushNotificationsEnabled() && pushConfig.configured,
                 rootResetArmed = rootResetToken.isLive(clock.now()),
+                storyWorld = true,
             ),
         )
     }

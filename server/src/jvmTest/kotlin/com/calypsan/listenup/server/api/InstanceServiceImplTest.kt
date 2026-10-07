@@ -168,4 +168,13 @@ class InstanceServiceImplTest :
                 }
             }
         }
+
+        test("getServerInfo advertises Story World") {
+            withSqlDatabase {
+                runTest {
+                    val settings = ServerSettingsRepository(sql, default = RegistrationPolicy.OPEN)
+                    (instanceService(sql, settings).getServerInfo() as AppResult.Success).data.storyWorld shouldBe true
+                }
+            }
+        }
     })

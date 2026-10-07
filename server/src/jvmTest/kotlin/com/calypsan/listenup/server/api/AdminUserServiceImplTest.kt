@@ -733,6 +733,52 @@ class AdminUserServiceImplTest :
                 }
             }
         }
+
+        test("a canEdit-only patch leaves the Story World flags exactly as they were") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
+                sql.usersQueries.updateStoryWorldPermissions(
+                    can_contribute_story_world = 0L,
+                    can_curate_story_world = 1L,
+                    id = "m1",
+                )
+                runTest {
+                    val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
+                    val user =
+                        svc
+                            .updateUser(UserId("m1"), AdminUserPatch(permissions = UserPermissionsPatch(canEdit = false)))
+                            .shouldSucceed()
+                    user.permissions shouldBe
+                        UserPermissions(canEdit = false, canContributeStoryWorld = false, canCurateStoryWorld = true)
+                }
+            }
+        }
+
+        test("each Story World flag is granted and revoked on its own") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
+                runTest {
+                    val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
+                    svc
+                        .updateUser(UserId("m1"), AdminUserPatch(permissions = UserPermissionsPatch(canCurateStoryWorld = true)))
+                        .shouldSucceed()
+                        .permissions shouldBe
+                        UserPermissions(canEdit = true, canContributeStoryWorld = true, canCurateStoryWorld = true)
+                    svc
+                        .updateUser(
+                            UserId("m1"),
+                            AdminUserPatch(permissions = UserPermissionsPatch(canContributeStoryWorld = false)),
+                        ).shouldSucceed()
+                        .permissions shouldBe
+                        UserPermissions(canEdit = true, canContributeStoryWorld = false, canCurateStoryWorld = true)
+                    svc.getUser(UserId("m1")).shouldSucceed().permissions.canCurateStoryWorld shouldBe true
+                }
+            }
+        }
     })
 
 private fun <T> AppResult<T>.shouldSucceed(): T = shouldBeInstanceOf<AppResult.Success<T>>().data

@@ -32,6 +32,8 @@ internal data class AuthUser(
     val approvedBy: String?,
     val approvedAt: Long?,
     val deletedAt: Long?,
+    val canContributeStoryWorld: Boolean = true,
+    val canCurateStoryWorld: Boolean = false,
 )
 
 /** Map a generated `users` row into the server-side [AuthUser] projection. */
@@ -51,6 +53,8 @@ internal fun Users.toAuthUser(): AuthUser =
         approvedBy = approved_by,
         approvedAt = approved_at,
         deletedAt = deleted_at,
+        canContributeStoryWorld = can_contribute_story_world != 0L,
+        canCurateStoryWorld = can_curate_story_world != 0L,
     )
 
 /** The wire-facing [User] contract for this user. Mirrors the old `UserEntity.toContract()`. */
@@ -62,7 +66,12 @@ internal fun AuthUser.toContract(): User =
         role = role.toContract(),
         status = status.toContract(),
         createdAt = createdAt,
-        permissions = UserPermissions(canEdit = canEdit),
+        permissions =
+            UserPermissions(
+                canEdit = canEdit,
+                canContributeStoryWorld = canContributeStoryWorld,
+                canCurateStoryWorld = canCurateStoryWorld,
+            ),
         approvedBy = approvedBy,
         approvedAt = approvedAt,
     )

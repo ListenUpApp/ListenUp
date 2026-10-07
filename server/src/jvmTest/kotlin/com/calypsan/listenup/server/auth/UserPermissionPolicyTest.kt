@@ -79,4 +79,55 @@ class UserPermissionPolicyTest :
                 }
             }
         }
+
+        test("a MEMBER contributes to Story World by default but may not curate") {
+            withSqlDatabase {
+                val policy = UserPermissionPolicy(sql)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
+                runTest {
+                    policy.requireCanContributeStoryWorld(UserId("m1"), UserRole.MEMBER) shouldBe null
+                    policy
+                        .requireCanCurateStoryWorld(UserId("m1"), UserRole.MEMBER)
+                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                }
+            }
+        }
+
+        test("the Story World flags follow the stored columns, and ROOT/ADMIN hold both") {
+            withSqlDatabase {
+                val policy = UserPermissionPolicy(sql)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
+                sql.seedTestUser("a1", UserRoleColumn.ADMIN)
+                sql.usersQueries.updateStoryWorldPermissions(
+                    can_contribute_story_world = 0L,
+                    can_curate_story_world = 1L,
+                    id = "m1",
+                )
+                sql.usersQueries.updateStoryWorldPermissions(
+                    can_contribute_story_world = 0L,
+                    can_curate_story_world = 0L,
+                    id = "a1",
+                )
+                runTest {
+                    policy
+                        .requireCanContributeStoryWorld(UserId("m1"), UserRole.MEMBER)
+                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                    policy.requireCanCurateStoryWorld(UserId("m1"), UserRole.MEMBER) shouldBe null
+                    policy.requireCanContributeStoryWorld(UserId("a1"), UserRole.ADMIN) shouldBe null
+                    policy.requireCanCurateStoryWorld(UserId("a1"), UserRole.ADMIN) shouldBe null
+                }
+            }
+        }
+
+        test("a soft-deleted MEMBER holds no Story World permission") {
+            withSqlDatabase {
+                val policy = UserPermissionPolicy(sql)
+                sql.seedTestUser("gone", UserRoleColumn.MEMBER, deletedAt = 5L)
+                runTest {
+                    policy
+                        .requireCanContributeStoryWorld(UserId("gone"), UserRole.MEMBER)
+                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                }
+            }
+        }
     })
