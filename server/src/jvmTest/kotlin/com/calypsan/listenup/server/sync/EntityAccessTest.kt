@@ -54,6 +54,27 @@ class EntityAccessTest :
             }
         }
 
+        test("the book-id match answers every entity of a large series, across id chunks") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("viewer")
+                val repo = entityRepository()
+                runTest {
+                    val saga = seedSeriesWithBooks("Saga", "open")
+                    makeBookAccessible(sql, driver, bookId = "open", viewerId = "viewer")
+                    val ids = (1..1_201).map { "e$it" }
+                    ids.forEach { repo.upsertEntity(entityPayload(it, homeSeriesId = saga.value), ACTOR) }
+                    val filter = accessFilterFor("entities", "viewer", UserRole.MEMBER) { BookAccessPolicy(sql, driver) }
+
+                    repo
+                        .pullByIds(userId = "viewer", matchColumn = "book_id", matchValues = listOf("open"), extraWhere = filter)
+                        .items
+                        .map { it.id }
+                        .toSet() shouldBe ids.toSet()
+                }
+            }
+        }
+
         test("entities is a per-row gated domain that supports the book-id match") {
             ("entities" in perRowAccessGatedSyncDomains) shouldBe true
             ("entities" in BOOK_ID_MATCH_DOMAINS) shouldBe true

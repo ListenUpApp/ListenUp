@@ -473,8 +473,13 @@ class EntityRepository(
                     .flatMap { chunk -> db.entitiesQueries.selectIdsTouchingBooks(chunk, chunk).executeAsList() }
                     .distinct()
             }
-        if (entityIds.isEmpty()) return Page(items = emptyList(), nextCursor = null, hasMore = false)
-        return super.pullByIds(userId, "id", entityIds, extraWhere)
+        // One series can hold far more entities than the caller asked books for, so the id match is
+        // chunked to keep each IN list well inside SQLite's bound-variable limit.
+        val items = mutableListOf<EntitySyncPayload>()
+        for (chunk in entityIds.chunked(PULL_BY_ID_CHUNK)) {
+            items += super.pullByIds(userId, "id", chunk, extraWhere).items
+        }
+        return Page(items = items, nextCursor = null, hasMore = false)
     }
 
     // ── In-transaction helpers ──
@@ -622,6 +627,9 @@ class EntityRepository(
     private companion object {
         /** Kept under SQLite's default variable limit with headroom. */
         const val SQLITE_IN_CHUNK = 900
+
+        /** Entity ids per access-filtered id match in [pullByIds] (its access clause binds variables too). */
+        const val PULL_BY_ID_CHUNK = 500
 
         /** The column `TargetedMatch.BOOK_ID` resolves to (see SyncPullSupport). */
         const val BOOK_ID_COLUMN = "book_id"
