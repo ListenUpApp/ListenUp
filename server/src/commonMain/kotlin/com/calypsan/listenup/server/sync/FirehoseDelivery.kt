@@ -63,6 +63,16 @@ internal const val ENTITIES_DOMAIN = "entities"
  */
 internal const val READING_ORDER_BOOKS_DOMAIN = "reading_order_books"
 
+/** The book-keyed junction domains whose live events [isBookJunctionEventHidden] gates on the payload's book. */
+private val BOOK_JUNCTION_DOMAINS =
+    setOf(
+        BOOK_TAGS_DOMAIN,
+        BOOK_MOODS_DOMAIN,
+        BOOK_RATINGS_DOMAIN,
+        BOOK_EXTERNAL_RATINGS_DOMAIN,
+        READING_ORDER_BOOKS_DOMAIN,
+    )
+
 internal const val LIBRARY_FOLDERS_DOMAIN = "library_folders"
 
 // Admin-only domain: a row carries a user's email/role/status, which non-admins must never
@@ -162,14 +172,7 @@ private suspend fun isBookJunctionEventHidden(
     bookAccessPolicy: () -> BookAccessPolicy,
 ): Boolean {
     val domain = busEvent.repo.domainName
-    if (domain != BOOK_TAGS_DOMAIN &&
-        domain != BOOK_MOODS_DOMAIN &&
-        domain != BOOK_RATINGS_DOMAIN &&
-        domain != BOOK_EXTERNAL_RATINGS_DOMAIN &&
-        domain != READING_ORDER_BOOKS_DOMAIN
-    ) {
-        return false
-    }
+    if (domain !in BOOK_JUNCTION_DOMAINS) return false
     if (role.isAdmin()) return false
     if (busEvent.event is SyncEvent.Deleted) return false
     val bookId = junctionBookIdOf(busEvent.event) ?: return true

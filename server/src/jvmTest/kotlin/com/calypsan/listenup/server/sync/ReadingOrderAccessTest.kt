@@ -57,7 +57,7 @@ class ReadingOrderAccessTest :
 
         test("an admin's pull is unfiltered") {
             withSqlDatabase {
-                (accessFilterFor("reading_order_books", "simon", UserRole.ADMIN) { BookAccessPolicy(sql, driver) }) shouldBe
+                accessFilterFor("reading_order_books", "simon", UserRole.ADMIN) { BookAccessPolicy(sql, driver) } shouldBe
                     null
             }
         }

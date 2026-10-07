@@ -70,7 +70,7 @@ internal class ReadingOrderServiceImpl(
         seriesId: SeriesId,
         name: String,
     ): AppResult<Unit> {
-        val caller = principal.current() ?: return notFound("no principal")
+        val caller = principal.current() ?: return notFound(NO_PRINCIPAL)
         permissionPolicy.requireCanMakeReadingOrders(caller.userId, caller.role)?.let { return AppResult.Failure(it) }
         orders.findAny(id.value)?.let { existing -> return replayOfCreate(existing, caller) }
         if (!seriesIsLive(seriesId.value)) return notFound("series=${seriesId.value}")
@@ -164,7 +164,7 @@ internal class ReadingOrderServiceImpl(
         seriesId: SeriesId,
         choice: ReadingOrderChoice,
     ): AppResult<Unit> {
-        val caller = principal.current() ?: return notFound("no principal")
+        val caller = principal.current() ?: return notFound(NO_PRINCIPAL)
         if (!seriesIsLive(seriesId.value)) return notFound("series=${seriesId.value}")
         val orderId = choice.readingOrderIdOrNull()
         if (orderId != null) {
@@ -184,7 +184,7 @@ internal class ReadingOrderServiceImpl(
     }
 
     override suspend fun clearReadingOrderChoice(seriesId: SeriesId): AppResult<Unit> {
-        val caller = principal.current() ?: return notFound("no principal")
+        val caller = principal.current() ?: return notFound(NO_PRINCIPAL)
         val followId = follows.followId(caller.userId.value, seriesId.value)
         // No live choice is already the state the caller asked for.
         if (follows.findLive(followId) == null) return AppResult.Success(Unit)
@@ -203,7 +203,7 @@ internal class ReadingOrderServiceImpl(
      * that is gone, or whose series is not live, is [ReadingOrderError.NotFound].
      */
     private suspend fun requireEditable(id: ReadingOrderId): EditGate {
-        val caller = principal.current() ?: return EditGate.Denied(notFound("no principal"))
+        val caller = principal.current() ?: return EditGate.Denied(notFound(NO_PRINCIPAL))
         val order =
             orders.findLive(id.value)?.takeIf { seriesIsLive(it.seriesId) }
                 ?: return EditGate.Denied(notFound("order=${id.value}"))
@@ -235,3 +235,6 @@ internal class ReadingOrderServiceImpl(
         ) : EditGate
     }
 }
+
+/** debugInfo for a call that reached the service without a bound caller — a wiring bug. */
+private const val NO_PRINCIPAL = "no principal"

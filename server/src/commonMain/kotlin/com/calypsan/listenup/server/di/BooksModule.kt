@@ -241,7 +241,11 @@ fun booksModule(
         coverAndPersisterBindings(embeddedCoverCacheSize, homeDir)
     }
 
-/** [SeriesService], whose series merge carries reading orders, and Story World entities when that domain is wired. */
+/**
+ * The [SeriesService] binding. Its merge moves the merged-away series' reading orders, so it needs the
+ * reading-order repository, which `readingOrderModule` binds; it carries Story World entities too when
+ * that domain is wired.
+ */
 private fun Module.seriesServiceBinding() {
     single<SeriesService> {
         SeriesServiceImpl(
