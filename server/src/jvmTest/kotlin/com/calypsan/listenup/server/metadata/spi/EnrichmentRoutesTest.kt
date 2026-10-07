@@ -48,7 +48,7 @@ class EnrichmentRoutesTest :
             d.orderFor(BookField.DESCRIPTION) shouldBe listOf(audible, audnexus, hardcover)
             d.orderFor(BookField.AUTHORS) shouldBe listOf(audnexus, audible, hardcover)
             d.orderFor(BookField.CHAPTERS) shouldBe listOf(audnexus, audible)
-            d.orderFor(BookField.COVER) shouldBe listOf(audible, itunes)
+            d.orderFor(BookField.COVER) shouldBe listOf(audible, itunes, hardcover)
             d.orderFor(BookField.GENRES) shouldBe listOf(audible, audnexus, hardcover)
             d.orderFor(BookField.SERIES) shouldBe listOf(audible, audnexus, hardcover)
             d.orderFor(BookField.MOODS) shouldBe listOf(hardcover)
