@@ -7,25 +7,25 @@ import Shared
 
 @Suite("Match details copy")
 struct MatchCopyTests {
-    private typealias F = MatchFixtures
+    private typealias Fixture = MatchFixtures
 
     // MARK: - Lists
 
     @Test func listsJoinTheWayASentenceDoes() {
-        #expect(MatchCopy.list([]) == "")
+        #expect(MatchCopy.list([]).isEmpty)
         #expect(MatchCopy.list(["A"]) == "A")
         #expect(MatchCopy.list(["A", "B"]) == "A and B")
         #expect(MatchCopy.list(["A", "B", "C"]) == "A, B and C")
     }
 
     @Test func eachSourceIsNamedOnceInTheOrderGiven() {
-        #expect(MatchCopy.sourceLabels([F.shelfdata, F.storefront, F.shelfdata]) == ["Shelfdata", "Storefront"])
+        #expect(MatchCopy.sourceLabels([Fixture.shelfdata, Fixture.storefront, Fixture.shelfdata]) == ["Shelfdata", "Storefront"])
     }
 
     // MARK: - Find
 
     @Test func theStepsLineSaysWhereFindStarted() {
-        let steps: [any SearchStep] = [SearchStepExistingLink(source: F.storefront), SearchStepTitleAuthorLength.shared]
+        let steps: [any SearchStep] = [SearchStepExistingLink(source: Fixture.storefront), SearchStepTitleAuthorLength.shared]
         #expect(MatchCopy.stepsLine(steps) == "Started from your Storefront link, then title, author and length.")
         #expect(MatchCopy.stepsLine([SearchStepYourQuery(query: "hail mary")]) == "Started from your search “hail mary”.")
         #expect(MatchCopy.stepsLine([]) == nil)
@@ -41,17 +41,17 @@ struct MatchCopyTests {
     }
 
     @Test func aRowsMetadataLineTellsEditionsApart() {
-        #expect(MatchCopy.metadataLine(F.candidate()) == "Ray Porter · 16h 10m · 2021 · Unabridged")
-        let cast = F.candidate(narrators: ["A", "B", "C"], durationMs: 35_040_000, year: 2023, format: nil)
+        #expect(MatchCopy.metadataLine(Fixture.candidate()) == "Ray Porter · 16h 10m · 2021 · Unabridged")
+        let cast = Fixture.candidate(narrators: ["A", "B", "C"], durationMs: 35_040_000, year: 2023, format: nil)
         #expect(MatchCopy.metadataLine(cast) == "Full cast · 9h 44m · 2023")
     }
 
     @Test func theStoreButtonNamesItsSourceAndStore() {
-        #expect(MatchCopy.storeButton(source: F.storefront, store: F.unitedStates).hasPrefix("Storefront store: "))
+        #expect(MatchCopy.storeButton(source: Fixture.storefront, store: Fixture.unitedStates).hasPrefix("Storefront store: "))
     }
 
     @Test func thePartialBannerSaysWhoDidntAnswer() {
-        let banner = MatchCopy.partialBanner(PartialFailure(failed: [F.shelfdata], answered: [F.storefront, F.tuneshop]))
+        let banner = MatchCopy.partialBanner(PartialFailure(failed: [Fixture.shelfdata], answered: [Fixture.storefront, Fixture.tuneshop]))
         #expect(banner.message == "Shelfdata didn't answer, so these results are from Storefront and Tuneshop.")
         #expect(banner.retryTitle == "Retry Shelfdata")
     }
@@ -67,12 +67,12 @@ struct MatchCopyTests {
     @Test func valuesReadAsPlainText() {
         #expect(MatchCopy.value(FieldValueYear(year: 2021)) == "2021")
         #expect(MatchCopy.value(FieldValuePeople(names: ["Ray Porter", "Andy Weir"])) == "Ray Porter, Andy Weir")
-        #expect(MatchCopy.value(F.text("<p>Ryland Grace is the <b>sole</b> survivor.</p>")) == "Ryland Grace is the sole survivor.")
+        #expect(MatchCopy.value(Fixture.text("<p>Ryland Grace is the <b>sole</b> survivor.</p>")) == "Ryland Grace is the sole survivor.")
     }
 
     @Test func theEditedNoteSaysWhoAndWhen() {
         let gb = Locale(identifier: "en_GB")
-        let day = F.twelfthOfSeptember
+        let day = Fixture.twelfthOfSeptember
         let mine = HandEdit(byUserId: "u1", byName: "Simon", at: day)
         #expect(MatchCopy.editedNote(mine, viewerId: "u1", locale: gb) == "Edited by you, 12 Sep. Kept unless you tick it.")
         #expect(MatchCopy.editedNote(mine, viewerId: "u2", locale: gb) == "Edited by Simon, 12 Sep. Kept unless you tick it.")
@@ -111,7 +111,7 @@ struct MatchCopyTests {
 
     @Test func whatWillChangeLeavesOutZeroCounts() {
         let summary = WhatWillChange(
-            coverSource: F.shelfdata, changeCount: 1, gapCount: 2, labelsAdded: 0, labelsRemoved: 0,
+            coverSource: Fixture.shelfdata, changeCount: 1, gapCount: 2, labelsAdded: 0, labelsRemoved: 0,
             chapterNameCount: 16, keptEditedCount: 0
         )
         let items = MatchCopy.summaryItems(summary)
@@ -124,7 +124,7 @@ struct MatchCopyTests {
 
     @Test func theReceiptSaysWhatChangedAndFromWhere() {
         let receipt = MatchReceiptUi(
-            receiptId: "r1", fieldCount: 5, coverSource: F.shelfdata, chapterNameCount: 16, changes: [], undoable: true
+            receiptId: "r1", fieldCount: 5, coverSource: Fixture.shelfdata, chapterNameCount: 16, changes: [], undoable: true
         )
         #expect(MatchCopy.receipt(receipt) == "Changed 5 fields, cover from Shelfdata, 16 chapter names")
         let none = MatchReceiptUi(receiptId: "r2", fieldCount: 0, coverSource: nil, chapterNameCount: 0, changes: [], undoable: true)
@@ -132,11 +132,11 @@ struct MatchCopyTests {
     }
 
     @Test func seeWhatChangedListsEveryChangeWithItsSource() {
-        #expect(MatchCopy.changeLines(AppliedChangeField(field: .publisher, source: F.storefront)) == ["Publisher · from Storefront"])
-        #expect(MatchCopy.changeLines(AppliedChangeCover(source: F.shelfdata)) == ["Cover · from Shelfdata"])
+        #expect(MatchCopy.changeLines(AppliedChangeField(field: .publisher, source: Fixture.storefront)) == ["Publisher · from Storefront"])
+        #expect(MatchCopy.changeLines(AppliedChangeCover(source: Fixture.shelfdata)) == ["Cover · from Shelfdata"])
         #expect(MatchCopy.changeLines(AppliedChangeGenres(added: ["Thriller"], removed: ["Space Opera"]))
             == ["Genres added: Thriller", "Genres removed: Space Opera"])
-        #expect(MatchCopy.changeLines(AppliedChangeChapterNames(count: 16, source: F.storefront))
+        #expect(MatchCopy.changeLines(AppliedChangeChapterNames(count: 16, source: Fixture.storefront))
             == ["16 chapter names · from Storefront"])
     }
 }

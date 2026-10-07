@@ -76,7 +76,9 @@ private struct MatchReceiptHost: ViewModifier {
             }
             .task(id: dismissalKey) {
                 guard dismissalKey != nil,
-                      let delay = MatchReceiptTiming.autoDismissDelay(voiceOverRunning: UIAccessibility.isVoiceOverRunning)
+                      let delay = MatchReceiptTiming.autoDismissDelay(
+                          voiceOverRunning: UIAccessibility.isVoiceOverRunning
+                      )
                 else { return }
                 try? await Task.sleep(for: delay)
                 guard !Task.isCancelled, !showsChanges else { return }

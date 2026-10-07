@@ -171,25 +171,27 @@ enum MatchCopy {
 
     /// A field's name as Review heads it.
     static func fieldName(_ field: BookField) -> String {
-        switch field {
-        case .title: String(localized: "match.field_title")
-        case .subtitle: String(localized: "match.field_subtitle")
-        case .description: String(localized: "match.field_description")
-        case .publisher: String(localized: "match.field_publisher")
-        case .publishYear: String(localized: "match.field_release_date")
-        case .language: String(localized: "match.field_language")
-        case .authors: String(localized: "match.field_authors")
-        case .narrators: String(localized: "match.field_narrators")
-        case .series: String(localized: "match.field_series")
-        case .genres: String(localized: "match.genres")
-        case .moods: String(localized: "match.moods")
-        case .cover: String(localized: "match.section_cover")
-        case .chapters: String(localized: "match.section_chapter_names")
-        case .isbn, .asin: String(describing: field)
-        case .sortTitle, .abridged, .explicit, .tags:
-            String(describing: field).replacingOccurrences(of: "_", with: " ").capitalized
-        }
+        if let key = fieldNameKeys[field] { return String(localized: String.LocalizationValue(key)) }
+        // Fields Review never shows; named plainly rather than crashing if one ever arrives.
+        let raw = String(describing: field)
+        return field == .isbn || field == .asin ? raw : raw.replacingOccurrences(of: "_", with: " ").capitalized
     }
+
+    private static let fieldNameKeys: [BookField: String] = [
+        .title: "match.field_title",
+        .subtitle: "match.field_subtitle",
+        .description: "match.field_description",
+        .publisher: "match.field_publisher",
+        .publishYear: "match.field_release_date",
+        .language: "match.field_language",
+        .authors: "match.field_authors",
+        .narrators: "match.field_narrators",
+        .series: "match.field_series",
+        .genres: "match.genres",
+        .moods: "match.moods",
+        .cover: "match.section_cover",
+        .chapters: "match.section_chapter_names"
+    ]
 
     /// A value as Review shows it. Release date is the year only; descriptions lose their markup.
     static func value(_ value: any FieldValue) -> String {
@@ -325,7 +327,8 @@ enum MatchCopy {
         if receipt.chapterNameCount == 1 {
             parts.append(String(localized: "match.receipt_chapter_name_one"))
         } else if receipt.chapterNameCount > 1 {
-            parts.append(String(format: String(localized: "match.receipt_chapter_names"), Int(receipt.chapterNameCount)))
+            let pattern = String(localized: "match.receipt_chapter_names")
+            parts.append(String(format: pattern, Int(receipt.chapterNameCount)))
         }
         guard !parts.isEmpty else { return String(localized: "match.receipt_nothing") }
         return String(format: String(localized: "match.receipt_changed"), parts.joined(separator: ", "))
@@ -353,7 +356,8 @@ enum MatchCopy {
             )
         case .chapterNames(let chaptersType):
             let names = chaptersType.value
-            return [String(format: String(localized: "match.change_chapter_names"), Int(names.count), names.source.label)]
+            let pattern = String(localized: "match.change_chapter_names")
+            return [String(format: pattern, Int(names.count), names.source.label)]
         case .photo(let photoType):
             return [String(format: String(localized: "match.change_photo"), photoType.value.source.label)]
         case .biography(let biographyType):
@@ -361,7 +365,9 @@ enum MatchCopy {
         }
     }
 
-    private static func labelLines(added: [String], removed: [String], addedKey: String, removedKey: String) -> [String] {
+    private static func labelLines(
+        added: [String], removed: [String], addedKey: String, removedKey: String
+    ) -> [String] {
         var lines: [String] = []
         if !added.isEmpty { lines.append(String(format: addedKey, added.joined(separator: ", "))) }
         if !removed.isEmpty { lines.append(String(format: removedKey, removed.joined(separator: ", "))) }

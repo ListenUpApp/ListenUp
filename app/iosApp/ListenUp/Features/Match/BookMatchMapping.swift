@@ -131,21 +131,7 @@ enum BookMatchMapping {
                 actions: [retry]
             )
         case .rateLimited(let limitedType):
-            let limited = limitedType.value
-            let remaining = limited.secondsRemaining
-            return MatchFailure(
-                systemImage: "hourglass",
-                title: String(format: String(localized: "match.rate_limited_title"), limited.source.label),
-                message: String(format: String(localized: "match.rate_limited_body"), Int(max(0, remaining))),
-                actions: [
-                    remaining > 0
-                        ? .retryCountdown(
-                            title: String(format: String(localized: "match.retry_in"), MatchCopy.countdown(seconds: remaining)),
-                            isEnabled: false
-                        )
-                        : .retryCountdown(title: String(localized: "match.try_again"), isEnabled: true)
-                ]
-            )
+            return rateLimited(limitedType.value)
         case .sourceFailed(let failedType):
             return MatchFailure(
                 systemImage: "exclamationmark.triangle",
@@ -184,6 +170,23 @@ enum BookMatchMapping {
         }
     }
 
+    /// A rate limit: Retry stays disabled, counting down, until the source will listen again.
+    static func rateLimited(_ limited: FindFailureRateLimited) -> MatchFailure {
+        let remaining = limited.secondsRemaining
+        let retry: MatchFailureAction = remaining > 0
+            ? .retryCountdown(
+                title: String(format: String(localized: "match.retry_in"), MatchCopy.countdown(seconds: remaining)),
+                isEnabled: false
+            )
+            : .retryCountdown(title: String(localized: "match.try_again"), isEnabled: true)
+        return MatchFailure(
+            systemImage: "hourglass",
+            title: String(format: String(localized: "match.rate_limited_title"), limited.source.label),
+            message: String(format: String(localized: "match.rate_limited_body"), Int(max(0, remaining))),
+            actions: [retry]
+        )
+    }
+
     // MARK: - Review
 
     static func review(from state: any ReviewUiState, viewerId: String?) -> MatchReviewPhase {
@@ -195,7 +198,9 @@ enum BookMatchMapping {
             return .loading(candidateId: candidate.id, title: candidate.title)
         case .failed(let failedType):
             let failed = failedType.value
-            return .failed(candidateId: failed.candidate.id, title: failed.candidate.title, message: failed.error.message)
+            return .failed(
+                candidateId: failed.candidate.id, title: failed.candidate.title, message: failed.error.message
+            )
         case .ready(let readyType):
             return .ready(review(readyType.value, viewerId: viewerId))
         }
@@ -299,7 +304,9 @@ enum BookMatchMapping {
             MatchCoverTile(
                 id: option.optionId,
                 title: option.source.label,
-                detail: String(format: String(localized: "match.cover_dimensions"), Int(option.width), Int(option.height)),
+                detail: String(
+                    format: String(localized: "match.cover_dimensions"), Int(option.width), Int(option.height)
+                ),
                 url: option.url,
                 isKeepCurrent: false,
                 isSelected: option.optionId == chosenId,
@@ -330,7 +337,9 @@ enum BookMatchMapping {
                     label: suggestion.label,
                     sources: sources,
                     selected: suggestion.selected,
-                    accessibilityLabel: String(format: String(localized: "match.suggestion_a11y"), suggestion.label, sources)
+                    accessibilityLabel: String(
+                        format: String(localized: "match.suggestion_a11y"), suggestion.label, sources
+                    )
                 )
             }
         )

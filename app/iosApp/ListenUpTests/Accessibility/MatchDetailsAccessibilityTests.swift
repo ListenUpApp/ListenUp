@@ -9,9 +9,9 @@ import Shared
 @MainActor
 @Suite("Match details accessibility", .serialized)
 struct MatchDetailsAccessibilityTests {
-    private typealias F = MatchFixtures
+    private typealias Fixture = MatchFixtures
 
-    private func review(_ ready: ReviewUiStateReady = F.ready()) -> MatchReview {
+    private func review(_ ready: ReviewUiStateReady = Fixture.ready()) -> MatchReview {
         BookMatchMapping.review(ready, viewerId: "u1")
     }
 
@@ -28,9 +28,9 @@ struct MatchDetailsAccessibilityTests {
     @Test func everyReviewSectionIsAHeading() async throws {
         let genres = LabelSetUi(
             yours: [YourLabelUi(label: "Science Fiction", removed: false)],
-            suggested: [SuggestionUi(label: "Thriller", sources: [F.shelfdata], selected: true)]
+            suggested: [SuggestionUi(label: "Thriller", sources: [Fixture.shelfdata], selected: true)]
         )
-        let hosted = await hostedReview(review(F.ready(genres: genres, alreadySame: [.authors])))
+        let hosted = await hostedReview(review(Fixture.ready(genres: genres, alreadySame: [.authors])))
         defer { hosted.close() }
         for title in ["Cover", "Changes", "Genres & moods", "Already the same"] {
             let heading = try #require(hosted.stops(labelContaining: title).first { $0.isHeader }, "\(title)\n\(hosted.tree)")
@@ -42,7 +42,7 @@ struct MatchDetailsAccessibilityTests {
 
     /// "Description, proposed from Storefront, changes yours" — what and where, and its state in words.
     @Test func aFieldTickSaysWhatItAppliesAndWhetherItWill() async throws {
-        let row = BookMatchMapping.field(F.field(), viewerId: nil)
+        let row = BookMatchMapping.field(Fixture.field(), viewerId: nil)
         let hosted = await HostedView(List { MatchFieldRowView(row: row, onTick: { _ in }, onChooseSource: { _ in }) })
         defer { hosted.close() }
         let tick = try #require(hosted.stop(labelled: row.tickLabel), "\(hosted.tree)")
@@ -53,7 +53,7 @@ struct MatchDetailsAccessibilityTests {
 
     /// The values are read in full as one stop: "Description. Yours: …. Proposed from Storefront: …."
     @Test func theValuesAreOneStopReadInFull() async throws {
-        let row = BookMatchMapping.field(F.field(), viewerId: nil)
+        let row = BookMatchMapping.field(Fixture.field(), viewerId: nil)
         let hosted = await HostedView(List { MatchFieldRowView(row: row, onTick: { _ in }, onChooseSource: { _ in }) })
         defer { hosted.close() }
         #expect(hosted.stop(labelled: row.valuesLabel) != nil, "\(hosted.tree)")
@@ -62,8 +62,8 @@ struct MatchDetailsAccessibilityTests {
     /// Long text shows three lines and Read all — a full target, not just its word.
     @Test func readAllIsAFullTarget() async throws {
         let long = String(repeating: "Ryland Grace is the sole survivor on a desperate mission. ", count: 4)
-        let options = [FieldOptionUi(optionId: "o1", value: F.text(long), sources: [F.storefront])]
-        let row = BookMatchMapping.field(F.field(options: options), viewerId: nil)
+        let options = [FieldOptionUi(optionId: "o1", value: Fixture.text(long), sources: [Fixture.storefront])]
+        let row = BookMatchMapping.field(Fixture.field(options: options), viewerId: nil)
         #expect(row.isLongText)
         let hosted = await HostedView(List { MatchFieldRowView(row: row, onTick: { _ in }, onChooseSource: { _ in }) })
         defer { hosted.close() }
@@ -74,7 +74,7 @@ struct MatchDetailsAccessibilityTests {
     // MARK: - Cover
 
     @Test func coverTilesAreARadioGroupThatSaysWhichIsChosen() async throws {
-        let section = try #require(BookMatchMapping.cover(F.cover()))
+        let section = try #require(BookMatchMapping.cover(Fixture.cover()))
         let hosted = await HostedView(List { MatchCoverPicker(cover: section, bookId: nil, onChoose: { _ in }) })
         defer { hosted.close() }
         let chosen = try #require(hosted.stop(labelled: "Cover from Shelfdata, 1600 by 2400"), "\(hosted.tree)")

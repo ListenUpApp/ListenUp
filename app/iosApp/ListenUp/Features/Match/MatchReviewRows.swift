@@ -71,7 +71,9 @@ struct MatchFieldRowView: View {
 
     private var values: some View {
         VStack(alignment: .leading, spacing: Spacing.xxs) {
-            valueLine(String(localized: "match.yours"), row.yours ?? String(localized: "match.empty_value"), isProposed: false)
+            valueLine(
+                String(localized: "match.yours"), row.yours ?? String(localized: "match.empty_value"), isProposed: false
+            )
             valueLine(String(localized: "match.proposed"), row.proposed, isProposed: true)
         }
         .accessibilityElement(children: .ignore)
@@ -173,7 +175,10 @@ struct MatchCoverPicker: View {
             .clipShape(RoundedRectangle(cornerRadius: Radius.m))
             .overlay {
                 RoundedRectangle(cornerRadius: Radius.m)
-                    .strokeBorder(tile.isSelected ? Color.accentColor : Color.luSeparator, lineWidth: tile.isSelected ? 3 : 0.5)
+                    .strokeBorder(
+                        tile.isSelected ? Color.accentColor : Color.luSeparator,
+                        lineWidth: tile.isSelected ? 3 : 0.5
+                    )
             }
             .overlay(alignment: .topTrailing) {
                 if tile.isSelected {

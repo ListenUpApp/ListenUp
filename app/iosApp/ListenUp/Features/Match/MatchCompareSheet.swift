@@ -41,7 +41,8 @@ struct MatchCompareSheet: View {
                     }
                     .prominentAction()
                     .accessibilityLabel(String(
-                        format: String(localized: "match.review_this_match_a11y"), candidate.title, candidate.foundInList
+                        format: String(localized: "match.review_this_match_a11y"),
+                        candidate.title, candidate.foundInList
                     ))
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets())
