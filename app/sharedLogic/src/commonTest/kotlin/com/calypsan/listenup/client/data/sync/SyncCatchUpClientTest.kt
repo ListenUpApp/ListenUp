@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.data.sync
 import com.calypsan.listenup.client.test.db.passThroughTransactionRunner
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.client.data.auth.invalidatesSession
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.SyncPage
 import com.calypsan.listenup.api.sync.Tag
@@ -276,6 +278,65 @@ class SyncCatchUpClientTest :
 
                 // Registry sorts domain names alphabetically.
                 seenDomains shouldContainExactly listOf("books", "tags")
+            }
+        }
+
+        test("catchUpAll keeps going past a domain an older server does not have, and nothing session-shaped is reported") {
+            // A client that knows the reading-order domains (#962) against a server that predates them:
+            // every pull of those domains is UnknownDomain. The rest of the library must still sync, and
+            // the failure must never read as a lost session.
+            runTest {
+                fun handler(name: String) =
+                    object : SyncDomainHandler<Tag> {
+                        override val domainName = name
+                        override val payloadSerializer = Tag.serializer()
+
+                        override fun syncId(item: Tag): String = item.id
+
+                        override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> = AppResult.Success(Unit)
+
+                        override suspend fun onCatchUpItem(
+                            item: Tag,
+                            isTombstone: Boolean,
+                        ): AppResult<Unit> = AppResult.Success(Unit)
+
+                        override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
+                    }
+                val registry = ClientSyncDomainRegistry()
+                listOf("reading_order_books", "reading_order_follows", "reading_orders", "tags").forEach {
+                    registry.register(handler(it))
+                }
+                val pulled = mutableListOf<String>()
+                val service =
+                    object : FakeSyncStreamService() {
+                        override suspend fun pullDomain(
+                            domain: String,
+                            since: Long,
+                            limit: Int,
+                        ): AppResult<SyncPage> {
+                            if (domain.startsWith("reading_order")) {
+                                return AppResult.Failure(SyncError.UnknownDomain(domain = domain))
+                            }
+                            pulled += domain
+                            return AppResult.Success(
+                                syncPageOf(domain, Tag.serializer(), emptyList(), nextCursor = null, hasMore = false),
+                            )
+                        }
+                    }
+                val reported = mutableListOf<AppError>()
+                val catchUp =
+                    SyncCatchUpClient(
+                        channel = RpcChannel.forTest(service),
+                        store = SyncCursorStore(InMemorySyncCursorDao()),
+                        transactionRunner = passThroughTransactionRunner(),
+                        reportConnectionIssue = { reported += it },
+                    )
+
+                catchUp.catchUpAll(registry).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                pulled shouldContainExactly listOf("tags")
+                reported.size shouldBe 3
+                reported.none { it.invalidatesSession() } shouldBe true
             }
         }
 
