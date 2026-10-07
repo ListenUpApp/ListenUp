@@ -5,11 +5,11 @@ import Shared
 /// Hand-built shared states for Match details' tests. The sources carry made-up names: matching code
 /// never names a real provider, and its tests prove the label comes from `MetadataSource.label`.
 enum MatchFixtures {
-    static let storefront = MetadataSource(id: "storefront", label: "Storefront")
-    static let shelfdata = MetadataSource(id: "shelfdata", label: "Shelfdata")
-    static let tuneshop = MetadataSource(id: "tuneshop", label: "Tuneshop")
+    static var storefront: MetadataSource { MetadataSource(id: "storefront", label: "Storefront") }
+    static var shelfdata: MetadataSource { MetadataSource(id: "shelfdata", label: "Shelfdata") }
+    static var tuneshop: MetadataSource { MetadataSource(id: "tuneshop", label: "Tuneshop") }
 
-    static let unitedStates = MetadataLocale(region: "us", language: nil)
+    static var unitedStates: MetadataLocale { MetadataLocale(region: "us", language: nil) }
 
     static func key(_ id: String) -> BookCandidateKey {
         BookCandidateKey(refs: [ExternalRef(provider: "storefront", id: id, region: "us")])
@@ -28,7 +28,7 @@ enum MatchFixtures {
             FoundIn(source: shelfdata, region: nil),
             FoundIn(source: tuneshop, region: nil)
         ],
-        tier: MatchTier = .strong,
+        isStrong: Bool = true,
         isBest: Bool = true,
         isCurrentLink: Bool = false,
         reasons: [any MatchReason] = [
@@ -38,7 +38,7 @@ enum MatchFixtures {
         CandidateUi(
             id: id, key: key(id), title: title, subtitle: nil, authors: ["Andy Weir"], narrators: narrators,
             durationMs: durationMs, year: year, format: format, chapterCount: chapterCount,
-            coverUrl: "https://example.com/c.jpg", foundIn: foundIn, tier: tier, isBest: isBest,
+            coverUrl: "https://example.com/c.jpg", foundIn: foundIn, tier: isStrong ? .strong : .maybe, isBest: isBest,
             isCurrentLink: isCurrentLink, reasons: reasons
         )
     }

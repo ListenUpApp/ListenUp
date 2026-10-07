@@ -6,6 +6,7 @@ import Shared
 // Match details' boundary: every shared Find, Review and receipt state lands on its native value, so the
 // views only lay out what the mapping already said.
 
+@MainActor
 @Suite("Match details mapping")
 struct BookMatchMappingTests {
     private typealias F = MatchFixtures
@@ -49,7 +50,7 @@ struct BookMatchMappingTests {
     @Test func theRowLastOpenedInReviewIsMarked() {
         let results = FindUiStateResults(
             yourCopy: nil, steps: [], query: "q", strong: [F.candidate()],
-            maybe: [F.candidate(id: "storefront:B2:us", tier: .maybe, isBest: false)], partialFailure: nil,
+            maybe: [F.candidate(id: "storefront:B2:us", isStrong: false, isBest: false)], partialFailure: nil,
             region: nil, pickedKey: F.key("storefront:B2:us")
         )
         #expect(BookMatchMapping.results(results).pickedId == "storefront:B2:us")
