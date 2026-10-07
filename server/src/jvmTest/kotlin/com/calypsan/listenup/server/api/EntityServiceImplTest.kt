@@ -171,6 +171,22 @@ class EntityServiceImplTest :
             }
         }
 
+        test("reusing a hidden entity's id under a visible home answers NotFound, not a home-change refusal") {
+            withSqlDatabase {
+                runTest {
+                    val world = storyWorld()
+                    world.asRoot().upsertEntity(upsert("secret", homeBookId = "hidden"))
+
+                    world
+                        .asMember("member")
+                        .upsertEntity(upsert("secret", homeBookId = "open"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<EntityError.NotFound>()
+                }
+            }
+        }
+
         test("naming a hidden entity as a parent answers exactly as naming an id that doesn't exist") {
             withSqlDatabase {
                 runTest {
