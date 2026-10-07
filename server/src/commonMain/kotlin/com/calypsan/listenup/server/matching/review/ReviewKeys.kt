@@ -33,7 +33,8 @@ internal object ReviewKeys {
                     value.names
                         .map(::text)
                         .filter { it.isNotEmpty() }
-                        .toSortedSet()
+                        .distinct()
+                        .sorted()
                         .joinToString("|")
             }
 
@@ -41,7 +42,8 @@ internal object ReviewKeys {
                 "s:" +
                     value.entries
                         .map { "${text(it.name)}#${parseSeriesSequence(it.sequence) ?: it.sequence?.let(::text)}" }
-                        .toSortedSet()
+                        .distinct()
+                        .sorted()
                         .joinToString("|")
             }
 
