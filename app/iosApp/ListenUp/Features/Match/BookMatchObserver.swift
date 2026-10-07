@@ -152,18 +152,29 @@ final class BookMatchObserver {
     }
 }
 
-/// Observes Book Detail's receipt — `MatchReceiptViewModel` — as one native phase.
+/// Observes a receipt — `MatchReceiptViewModel` — as one native phase, for Book Detail or the contributor
+/// page. A person's name arrives with their page, so a new `subject` re-says the receipt already shown.
 @Observable
 @MainActor
 final class MatchReceiptObserver {
     private(set) var phase: MatchReceiptPhase = .none
+    var subject: MatchReceiptSubject {
+        didSet { if let lastState { phase = BookMatchMapping.receipt(from: lastState, subject: subject) } }
+    }
 
     private let viewModel: MatchReceiptViewModel
     private let bridge = FlowBridge()
+    /// The last shared state, re-said when `subject` changes. Never handed to a view.
+    private var lastState: (any MatchReceiptUiState)?
 
-    init(viewModel: MatchReceiptViewModel) {
+    init(viewModel: MatchReceiptViewModel, subject: MatchReceiptSubject = .book) {
         self.viewModel = viewModel
-        bridge.bind(viewModel.state) { [weak self] in self?.phase = BookMatchMapping.receipt(from: $0) }
+        self.subject = subject
+        bridge.bind(viewModel.state) { [weak self] state in
+            guard let self else { return }
+            lastState = state
+            phase = BookMatchMapping.receipt(from: state, subject: self.subject)
+        }
     }
 
     deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.

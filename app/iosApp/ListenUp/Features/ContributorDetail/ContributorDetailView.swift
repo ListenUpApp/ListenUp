@@ -13,7 +13,8 @@ struct ContributorDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var observer: ContributorDetailObserver?
     @State private var showEdit = false
-    @State private var showFindOnAudible = false
+    /// Set to open person Match details for the contributor on screen.
+    @State private var matchTarget: PersonMatchTarget?
     /// Set when an edit-sheet merge re-targets this screen; from then on it shows the survivor
     /// instead. (A rename-collision merge soft-deletes the contributor we were opened with; an
     /// alias merge survives in place, so the re-target is a same-id refresh.)
@@ -50,12 +51,9 @@ struct ContributorDetailView: View {
                             Label(String(localized: "common.edit"), systemImage: "pencil")
                         }
                         Button {
-                            showFindOnAudible = true
+                            matchTarget = PersonMatchTarget(contributorId: activeContributorId)
                         } label: {
-                            Label(
-                                String(localized: "contributor.find_on_audible"),
-                                systemImage: "sparkle.magnifyingglass"
-                            )
+                            Label(String(localized: "match.menu_item"), systemImage: "sparkles")
                         }
                         Button(role: .destructive, action: {
                             observer?.onDeleteContributor()
@@ -91,9 +89,11 @@ struct ContributorDetailView: View {
                 onMergedInto: { survivor in mergedIntoContributorId = survivor }
             )
         }
-        .sheet(isPresented: $showFindOnAudible) {
-            ContributorMetadataView(contributorId: activeContributorId)
-        }
+        // Match details: pushed on a compact width, a full-screen split view on a regular one. A merge made
+        // from its Edit by Hand re-targets this screen, as one made from Edit does.
+        .personMatchDetails($matchTarget, onMergedInto: { survivor in mergedIntoContributorId = survivor })
+        // The receipt Match details leaves behind, with Undo.
+        .matchReceipt(contributorId: activeContributorId, name: observer?.name ?? "")
         .task(id: activeContributorId) {
             let vm = deps.createContributorDetailViewModel()
             let obs = ContributorDetailObserver(viewModel: vm)

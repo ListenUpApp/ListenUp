@@ -17,7 +17,7 @@ enum MatchReceiptAnnouncement {
         case .none: nil
         case .shown(let receipt): receipt.undoing ? String(localized: "match.undoing") : receipt.sentence
         case .undone: String(localized: "match.undone")
-        case .expired: String(localized: "match.undo_expired")
+        case .expired(let message): message
         }
     }
 }
@@ -25,14 +25,20 @@ enum MatchReceiptAnnouncement {
 extension View {
     /// Book Detail's receipt after Match details applied: a bottom capsule with Undo and See What Changed.
     func matchReceipt(bookId: String) -> some View {
-        modifier(MatchReceiptHost(bookId: bookId))
+        modifier(MatchReceiptHost(subjectId: bookId, subject: .book))
+    }
+
+    /// The contributor page's receipt after person Match details applied: a bottom capsule with Undo.
+    func matchReceipt(contributorId: String, name: String) -> some View {
+        modifier(MatchReceiptHost(subjectId: contributorId, subject: .person(name: name)))
     }
 }
 
-/// Hosts `MatchReceiptViewModel` for one book. When a receipt (or Undo's confirmation) arrives it is
-/// announced and VoiceOver focus moves to it, so the person hears what Apply or Undo did.
+/// Hosts `MatchReceiptViewModel` for one book or person. When a receipt (or Undo's confirmation) arrives it
+/// is announced and VoiceOver focus moves to it, so the person hears what Apply or Undo did.
 private struct MatchReceiptHost: ViewModifier {
-    let bookId: String
+    let subjectId: String
+    let subject: MatchReceiptSubject
 
     @Environment(\.dependencies) private var deps
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -64,9 +70,17 @@ private struct MatchReceiptHost: ViewModifier {
                     MatchWhatChangedSheet(receipt: receipt, onClose: { showsChanges = false })
                 }
             }
-            .task(id: bookId) {
+            .task(id: subjectId) {
                 guard observer == nil else { return }
-                observer = MatchReceiptObserver(viewModel: deps.createMatchReceiptViewModel(bookId: bookId))
+                observer = MatchReceiptObserver(
+                    viewModel: deps.createMatchReceiptViewModel(subjectId: subjectId), subject: subject
+                )
+            }
+            // The contributor page forgets its name while Match details is pushed over it; keep the last one,
+            // so the receipt never reads "Changed photo for ".
+            .onChange(of: subject) { _, subject in
+                if case .person(let name) = subject, name.isEmpty { return }
+                observer?.subject = subject
             }
             .onChange(of: phase) { old, new in
                 guard let message = MatchReceiptAnnouncement.text(for: new),
@@ -99,7 +113,8 @@ private struct MatchReceiptHost: ViewModifier {
 
 }
 
-/// The receipt: what Apply changed, See What Changed, Undo and a close button; or Undo's confirmation.
+/// The receipt: what Apply changed, See What Changed (books only), Undo and a close button; or Undo's
+/// confirmation.
 /// It reflows to a column when large text won't fit one line.
 struct MatchReceiptCapsule: View {
     let phase: MatchReceiptPhase
@@ -152,8 +167,8 @@ struct MatchReceiptCapsule: View {
             }
         case .undone:
             Text(String(localized: "match.undone")).font(.subheadline.weight(.semibold))
-        case .expired:
-            Text(String(localized: "match.undo_expired")).font(.subheadline.weight(.semibold))
+        case .expired(let message):
+            Text(message).font(.subheadline.weight(.semibold))
         case .none:
             EmptyView()
         }
@@ -163,10 +178,12 @@ struct MatchReceiptCapsule: View {
     private var actions: some View {
         if case .shown(let receipt) = phase {
             // The 44-point frame sits inside each label: outside it, only the text is tappable.
-            Button(action: onSeeWhatChanged) {
-                Text(String(localized: "match.see_what_changed_title")).fullTarget()
+            if receipt.showsWhatChanged {
+                Button(action: onSeeWhatChanged) {
+                    Text(String(localized: "match.see_what_changed_title")).fullTarget()
+                }
+                .buttonStyle(.borderless)
             }
-            .buttonStyle(.borderless)
             if receipt.canUndo {
                 if receipt.undoing {
                     ProgressView().frame(minWidth: TapTarget.minimum, minHeight: TapTarget.minimum)
