@@ -4,6 +4,7 @@ import com.calypsan.listenup.server.testing.fileBackedTestDataSource
 import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import java.nio.file.Files
 import javax.sql.DataSource
 
@@ -36,11 +37,19 @@ class V93MigrationTest :
         test("an entity with no home, or with both homes, is refused") {
             val ds = migrated()
             val cols = "id, kind, name, created_at, updated_at, revision"
-            shouldThrowAny { ds.execute("INSERT INTO entities ($cols) VALUES ('e1', 'character', 'A', 1, 1, 1)") }
+            shouldThrowAny {
+                ds.execute("INSERT INTO entities ($cols) VALUES ('e1', 'character', 'A', 1, 1, 1)")
+            }.message shouldContain "CHECK constraint"
             ds.execute(
                 "INSERT INTO book_series (id, name, normalized_name, revision, created_at, updated_at) " +
                     "VALUES ('s1', 'S', 's', 1, 1, 1)",
             )
+            shouldThrowAny {
+                ds.execute(
+                    "INSERT INTO entities ($cols, home_series_id, home_book_id) " +
+                        "VALUES ('e3', 'character', 'C', 1, 1, 1, 's1', 'b1')",
+                )
+            }.message shouldContain "CHECK constraint"
             ds.execute("INSERT INTO entities ($cols, home_series_id) VALUES ('e2', 'character', 'B', 1, 1, 1, 's1')")
             ds.long("SELECT COUNT(*) FROM entities") shouldBe 1
         }
