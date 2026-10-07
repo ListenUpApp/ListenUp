@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.match
 
 import com.calypsan.listenup.api.dto.ContributorRole
+import com.calypsan.listenup.api.dto.match.AppliedChange
 import com.calypsan.listenup.api.dto.match.ExternalRef
 import com.calypsan.listenup.api.dto.match.FieldChoice
 import com.calypsan.listenup.api.dto.match.FieldState
@@ -261,6 +262,6 @@ internal fun personReceipt(
         chapterNameCount = 0,
         photoSource = photo,
         biographySource = biography,
-        changes = emptyList(),
+        changes = listOfNotNull(photo?.let(AppliedChange::Photo), biography?.let(AppliedChange::Biography)),
         undoable = true,
     )
