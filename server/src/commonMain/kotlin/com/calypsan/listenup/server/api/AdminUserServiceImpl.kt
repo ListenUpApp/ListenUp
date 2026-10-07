@@ -250,6 +250,7 @@ class AdminUserServiceImpl(
                     can_curate_library = mergedPermissions.canCurateLibrary.toDbLong(),
                     can_contribute_story_world = mergedPermissions.canContributeStoryWorld.toDbLong(),
                     can_curate_story_world = mergedPermissions.canCurateStoryWorld.toDbLong(),
+                    can_make_reading_orders = mergedPermissions.canMakeReadingOrders.toDbLong(),
                     updated_at = now,
                     id = id.value,
                 )
@@ -262,6 +263,7 @@ class AdminUserServiceImpl(
                             canCurateLibrary = mergedPermissions.canCurateLibrary,
                             canContributeStoryWorld = mergedPermissions.canContributeStoryWorld,
                             canCurateStoryWorld = mergedPermissions.canCurateStoryWorld,
+                            canMakeReadingOrders = mergedPermissions.canMakeReadingOrders,
                         ).toContract(),
                 )
             }

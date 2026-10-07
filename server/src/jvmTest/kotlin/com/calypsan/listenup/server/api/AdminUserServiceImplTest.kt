@@ -273,6 +273,45 @@ class AdminUserServiceImplTest :
             }
         }
 
+        test("updateUser merges each permission on its own: an edit-metadata patch keeps canMakeReadingOrders") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER, canMakeReadingOrders = false)
+                runTest {
+                    val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
+                    svc
+                        .updateUser(UserId("m1"), AdminUserPatch(permissions = UserPermissionsPatch(canEditMetadata = false)))
+                        .shouldSucceed()
+                        .permissions shouldBe
+                        UserPermissions(canEditMetadata = false, canCurateLibrary = false, canMakeReadingOrders = false)
+                    sql.usersQueries
+                        .selectPermissionFlagsLiveById("m1")
+                        .executeAsOne()
+                        .can_make_reading_orders shouldBe 0L
+                }
+            }
+        }
+
+        test("updateUser revokes and grants canMakeReadingOrders without touching the other flags") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER, canEdit = false)
+                runTest {
+                    val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
+                    svc
+                        .updateUser(UserId("m1"), AdminUserPatch(permissions = UserPermissionsPatch(canMakeReadingOrders = false)))
+                        .shouldSucceed()
+                        .permissions shouldBe UserPermissions(canEditMetadata = false, canMakeReadingOrders = false)
+                    svc
+                        .updateUser(UserId("m1"), AdminUserPatch(permissions = UserPermissionsPatch(canMakeReadingOrders = true)))
+                        .shouldSucceed()
+                        .permissions shouldBe UserPermissions(canEditMetadata = false, canMakeReadingOrders = true)
+                }
+            }
+        }
+
         test("updateUser cannot change the root account's role") {
             withSqlDatabase {
                 val db = this

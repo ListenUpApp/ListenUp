@@ -1,0 +1,72 @@
+-- reading_order_books (#962): one book's place in one reading order. Global junction, per-row
+-- access-gated on book_id. Natural PK (reading_order_id, book_id) like book_tags; `id` is the opaque wire
+-- identity (SERVER-SYNC-04). Column set matches V96__reading_orders.sql exactly; the FK to reading_orders
+-- lives in the migration only (SQLDelight resolves FK targets within one .sq file).
+CREATE TABLE reading_order_books (
+    id               TEXT    NOT NULL,
+    reading_order_id TEXT    NOT NULL,
+    book_id          TEXT    NOT NULL,
+    position         INTEGER NOT NULL,
+    created_at       INTEGER NOT NULL,
+    updated_at       INTEGER NOT NULL,
+    revision         INTEGER NOT NULL,
+    deleted_at       INTEGER,
+    client_op_id     TEXT,
+    PRIMARY KEY (reading_order_id, book_id)
+);
+
+CREATE UNIQUE INDEX idx_reading_order_books_id ON reading_order_books(id);
+CREATE INDEX idx_reading_order_books_book ON reading_order_books(book_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_reading_order_books_revision ON reading_order_books(revision);
+
+-- Substrate queries keyed on the opaque `id` column.
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM reading_order_books WHERE id = :id);
+
+softDeleteById:
+UPDATE reading_order_books
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM reading_order_books WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM reading_order_books WHERE deleted_at IS NULL AND revision <= :cursor;
+
+-- Domain queries.
+
+-- The REAL stored opaque id for the natural pair (live or tombstoned), or null — so a re-add or a revive
+-- reuses the same id instead of minting a new one ("the existing row's id wins", SERVER-SYNC-04).
+selectIdByNaturalPair:
+SELECT id FROM reading_order_books WHERE reading_order_id = :reading_order_id AND book_id = :book_id;
+
+selectById:
+SELECT * FROM reading_order_books WHERE id = :id;
+
+selectByIds:
+SELECT * FROM reading_order_books WHERE id IN :ids;
+
+-- Live members of an order, first to last.
+selectLiveForOrder:
+SELECT * FROM reading_order_books
+WHERE reading_order_id = :reading_order_id AND deleted_at IS NULL
+ORDER BY position ASC, id ASC;
+
+-- One past the highest live position, or 0 for an empty order.
+nextPosition:
+SELECT COALESCE(MAX(position) + 1, 0) FROM reading_order_books
+WHERE reading_order_id = :reading_order_id AND deleted_at IS NULL;
+
+insert:
+INSERT INTO reading_order_books (id, reading_order_id, book_id, position, created_at, updated_at, revision, deleted_at, client_op_id)
+VALUES (:id, :reading_order_id, :book_id, :position, :created_at, :updated_at, :revision, :deleted_at, :client_op_id);
+
+-- A write to an existing pair (re-add revives it, reorder moves it).
+update:
+UPDATE reading_order_books
+SET position = :position, revision = :revision, updated_at = :updated_at,
+    deleted_at = :deleted_at, client_op_id = :client_op_id
+WHERE reading_order_id = :reading_order_id AND book_id = :book_id;

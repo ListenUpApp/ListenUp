@@ -48,6 +48,17 @@ CREATE TABLE series_merge_receipt_entities (
     PRIMARY KEY (receipt_id, entity_id)
 );
 
+-- series_merge_receipt_reading_orders (#962): the live reading orders the source held at merge time,
+-- with the name each had there. The merge moves them onto the target (renaming one whose name the target
+-- already uses); undo hands back each one still on the target, under its old name. reading_order_id carries
+-- no FK — orders are only ever tombstoned.
+CREATE TABLE series_merge_receipt_reading_orders (
+    receipt_id       TEXT NOT NULL REFERENCES series_merge_receipts(id) ON DELETE CASCADE,
+    reading_order_id TEXT NOT NULL,
+    name             TEXT NOT NULL,
+    PRIMARY KEY (receipt_id, reading_order_id)
+);
+
 -- ── writes ───────────────────────────────────────────────────────────────────
 
 insertReceipt:
@@ -75,6 +86,13 @@ INSERT INTO series_merge_receipt_children (receipt_id, child_id, position)
 SELECT :receipt_id, s.id, s.parent_position
 FROM book_series s
 WHERE s.parent_id = :source_id AND s.deleted_at IS NULL;
+
+-- Snapshots the source's live reading orders. Must run BEFORE the merge moves them.
+snapshotSourceReadingOrders:
+INSERT INTO series_merge_receipt_reading_orders (receipt_id, reading_order_id, name)
+SELECT :receipt_id, o.id, o.name
+FROM reading_orders o
+WHERE o.series_id = :source_id AND o.deleted_at IS NULL;
 
 -- Only an open receipt can be marked; returns 0 rows affected for one already undone.
 markUndone:
@@ -127,3 +145,17 @@ SELECT :receipt_id, e.id FROM entities e WHERE e.home_series_id = :source_id AND
 
 selectReceiptEntityIds:
 SELECT entity_id FROM series_merge_receipt_entities WHERE receipt_id = :receipt_id ORDER BY entity_id;
+
+-- The reading orders a merge recorded, in name order — the ones it moves onto the target.
+selectReceiptReadingOrders:
+SELECT reading_order_id, name FROM series_merge_receipt_reading_orders
+WHERE receipt_id = :receipt_id
+ORDER BY name, reading_order_id;
+
+-- Reading orders an undo can still hand back: live, and still on the target where the merge put them.
+selectRestorableReadingOrders:
+SELECT ro.reading_order_id, ro.name
+FROM series_merge_receipt_reading_orders ro
+JOIN reading_orders o ON o.id = ro.reading_order_id
+WHERE ro.receipt_id = :receipt_id AND o.deleted_at IS NULL AND o.series_id = :target_id
+ORDER BY ro.name, ro.reading_order_id;

@@ -47,6 +47,7 @@ class AdminUserRosterMaintainer(
                         canCurateLibrary = row.can_curate_library == 1L,
                         canContributeStoryWorld = row.can_contribute_story_world == 1L,
                         canCurateStoryWorld = row.can_curate_story_world == 1L,
+                        canMakeReadingOrders = row.can_make_reading_orders == 1L,
                     ),
                 accountCreatedAt = row.created_at,
                 revision = 0,

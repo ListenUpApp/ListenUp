@@ -35,6 +35,7 @@ internal data class AuthUser(
     val canCurateLibrary: Boolean = false,
     val canContributeStoryWorld: Boolean = true,
     val canCurateStoryWorld: Boolean = false,
+    val canMakeReadingOrders: Boolean = true,
 ) {
     /** Every permission flag on this row, as the contract carries them. */
     val permissions: UserPermissions
@@ -44,6 +45,7 @@ internal data class AuthUser(
                 canCurateLibrary = canCurateLibrary,
                 canContributeStoryWorld = canContributeStoryWorld,
                 canCurateStoryWorld = canCurateStoryWorld,
+                canMakeReadingOrders = canMakeReadingOrders,
             )
 }
 
@@ -64,6 +66,7 @@ internal fun Users.toAuthUser(): AuthUser =
         canCurateLibrary = can_curate_library != 0L,
         canContributeStoryWorld = can_contribute_story_world != 0L,
         canCurateStoryWorld = can_curate_story_world != 0L,
+        canMakeReadingOrders = can_make_reading_orders != 0L,
         approvedBy = approved_by,
         approvedAt = approved_at,
         deletedAt = deleted_at,
