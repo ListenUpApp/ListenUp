@@ -3,7 +3,9 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.entity.EntityChange
 import com.calypsan.listenup.api.dto.entity.EntityUpsert
+import com.calypsan.listenup.api.dto.entity.StoryWorldOp
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.EntityError
 import com.calypsan.listenup.api.error.ValidationError
@@ -13,6 +15,7 @@ import com.calypsan.listenup.api.sync.EntitySyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.EntityId
 import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.core.StoryWorldHistoryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -58,6 +61,18 @@ private class World(
     fun asMember(userId: String) = service.copyWith(as_(userId, UserRole.MEMBER))
 
     fun asRoot() = service.copyWith(as_("root", UserRole.ROOT))
+
+    /** The newest [op] in [entityId]'s history, read as root. */
+    suspend fun changeOf(
+        entityId: String,
+        op: StoryWorldOp,
+    ): StoryWorldHistoryId =
+        asRoot()
+            .listHistory(EntityId(entityId))
+            .shouldBeInstanceOf<AppResult.Success<List<EntityChange>>>()
+            .data
+            .first { it.op == op }
+            .id
 }
 
 private suspend fun SqlTestDatabases.storyWorld(): World {
@@ -291,15 +306,68 @@ class EntityServiceImplTest :
                     val world = storyWorld()
                     val member = world.asMember("member")
                     member.upsertEntity(upsert("e", homeBookId = "open"))
-                    val change = (member.listHistory(EntityId("e")) as AppResult.Success).data.single()
+                    member.upsertEntity(upsert("e", homeBookId = "open", name = "Eo"))
+                    val rename = world.changeOf("e", StoryWorldOp.UPDATE)
 
                     world
                         .asMember("nocontrib")
-                        .revert(change.id)
+                        .revert(rename)
                         .shouldBeInstanceOf<AppResult.Failure>()
                         .error
                         .shouldBeInstanceOf<AuthError.PermissionDenied>()
-                    member.revert(change.id).shouldBeInstanceOf<AppResult.Success<*>>()
+                    member.revert(rename).shouldBeInstanceOf<AppResult.Success<*>>()
+                }
+            }
+        }
+
+        test("a contributor reverts content edits; reverting a create, delete or merge needs curate") {
+            withSqlDatabase {
+                runTest {
+                    val world = storyWorld()
+                    val root = world.asRoot()
+                    listOf("u", "c", "d", "m", "t").forEach { root.upsertEntity(upsert(it, homeBookId = "open")) }
+                    root.upsertEntity(upsert("u", homeBookId = "open", name = "Renamed"))
+                    root.deleteEntity(EntityId("d"))
+                    root.mergeEntities(EntityId("m"), EntityId("t"))
+                    val member = world.asMember("member")
+
+                    member.revert(world.changeOf("u", StoryWorldOp.UPDATE)).shouldBeInstanceOf<AppResult.Success<*>>()
+                    listOf(
+                        world.changeOf("c", StoryWorldOp.CREATE),
+                        world.changeOf("d", StoryWorldOp.DELETE),
+                        world.changeOf("m", StoryWorldOp.MERGE),
+                    ).forEach { structural ->
+                        member
+                            .revert(structural)
+                            .shouldBeInstanceOf<AppResult.Failure>()
+                            .error
+                            .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                    }
+
+                    val curator = world.asMember("curator")
+                    curator.revert(world.changeOf("u", StoryWorldOp.UPDATE)).shouldBeInstanceOf<AppResult.Success<*>>()
+                    curator.revert(world.changeOf("c", StoryWorldOp.CREATE)).shouldBeInstanceOf<AppResult.Success<*>>()
+                    curator.revert(world.changeOf("d", StoryWorldOp.DELETE)).shouldBeInstanceOf<AppResult.Success<*>>()
+                    curator.revert(world.changeOf("m", StoryWorldOp.MERGE)).shouldBeInstanceOf<AppResult.Success<*>>()
+                }
+            }
+        }
+
+        test("a contributor can't revive a deleted entry by reverting one of its content edits") {
+            withSqlDatabase {
+                runTest {
+                    val world = storyWorld()
+                    val root = world.asRoot()
+                    root.upsertEntity(upsert("d", homeBookId = "open"))
+                    root.upsertEntity(upsert("d", homeBookId = "open", name = "Renamed"))
+                    root.deleteEntity(EntityId("d"))
+
+                    world
+                        .asMember("member")
+                        .revert(world.changeOf("d", StoryWorldOp.UPDATE))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
                 }
             }
         }

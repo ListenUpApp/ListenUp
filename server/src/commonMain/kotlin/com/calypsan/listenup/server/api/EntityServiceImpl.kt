@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.EntityService
 import com.calypsan.listenup.api.dto.entity.EntityChange
 import com.calypsan.listenup.api.dto.entity.EntityUpsert
+import com.calypsan.listenup.api.dto.entity.StoryWorldOp
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.EntityError
 import com.calypsan.listenup.api.error.ValidationError
@@ -19,8 +20,8 @@ import com.calypsan.listenup.server.sync.EntityRepository
 import kotlin.time.Clock
 
 /**
- * [EntityService]: permissions from [permissionPolicy] (contribute for create/edit/revert, curate for
- * merge/delete, ROOT/ADMIN implicit), visibility from [accessPolicy] (a member needs to see the home).
+ * [EntityService]: permissions from [permissionPolicy] (contribute for create/edit and reverting an edit,
+ * curate for merge/delete and reverting anything structural, ROOT/ADMIN implicit), visibility from [accessPolicy] (a member needs to see the home).
  * A hidden home answers [EntityError.NotFound] for writes and history, and an empty list for listings —
  * existence never leaks. Route handlers bind the caller per request via [copyWith].
  */
@@ -108,19 +109,36 @@ internal class EntityServiceImpl(
         return AppResult.Success(entityRepo.listHistory(entityId))
     }
 
+    /**
+     * Reverting needs the permission the reverted change itself needed. A content edit — an UPDATE, or a
+     * REVERT between two live states (a rename, a descriptor or parent change) — needs contribute.
+     * Anything structural needs curate: reverting a CREATE deletes, reverting a DELETE or MERGE revives,
+     * and so does reverting any change of an entry that is deleted now. A change of an entity the caller
+     * can't see is [EntityError.HistoryNotFound], before any permission is consulted.
+     */
     override suspend fun revert(changeId: StoryWorldHistoryId): AppResult<EntityChange> {
         val caller = principal.current() ?: return denied()
-        permissionPolicy
-            .requireCanContributeStoryWorld(
-                caller.userId,
-                caller.role,
-            )?.let { return AppResult.Failure(it) }
         val missing = AppResult.Failure(EntityError.HistoryNotFound(debugInfo = "change=${changeId.value}"))
         val change = entityRepo.findChange(changeId) ?: return missing
         val entity = entityRepo.findById(change.entityId) ?: return missing
         if (!canSee(caller, entity.homeSeriesId, entity.homeBookId)) return missing
+        val refusal =
+            if (entity.deletedAt == null && change.isContentEdit()) {
+                permissionPolicy.requireCanContributeStoryWorld(caller.userId, caller.role)
+            } else {
+                permissionPolicy.requireCanCurateStoryWorld(caller.userId, caller.role)
+            }
+        refusal?.let { return AppResult.Failure(it) }
         return entityRepo.revert(changeId, caller.userId)
     }
+
+    /** True when this change edited a live entry's content and left it live; its revert does the same. */
+    private fun EntityChange.isContentEdit(): Boolean =
+        when (op) {
+            StoryWorldOp.UPDATE -> true
+            StoryWorldOp.REVERT -> before?.deletedAt == null && before != null && after?.deletedAt == null && after != null
+            StoryWorldOp.CREATE, StoryWorldOp.DELETE, StoryWorldOp.MERGE -> false
+        }
 
     private fun validate(upsert: EntityUpsert): ValidationError? =
         when {

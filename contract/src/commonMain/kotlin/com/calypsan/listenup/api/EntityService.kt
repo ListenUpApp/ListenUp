@@ -13,8 +13,8 @@ import kotlinx.rpc.annotations.Rpc
 /**
  * RPC surface for Story World entities.
  *
- * Permissions: creating, editing and reverting need `canContributeStoryWorld`; merging and deleting
- * need `canCurateStoryWorld`; ROOT/ADMIN hold both. A member also needs to see the entity's home — a
+ * Permissions: creating, editing and reverting an edit need `canContributeStoryWorld`; merging,
+ * deleting and reverting anything structural need `canCurateStoryWorld`; ROOT/ADMIN hold both. A member also needs to see the entity's home — a
  * hidden home answers [com.calypsan.listenup.api.error.EntityError.NotFound] for writes and an empty
  * list for reads. Every write records an [EntityChange] in the same transaction.
  */
@@ -50,7 +50,10 @@ interface EntityService {
 
     /**
      * Restores the `before` state of [changeId] as a new forward write (a CREATE reverts to a delete)
-     * and returns the REVERT entry it recorded. Needs `canContributeStoryWorld`.
+     * and returns the REVERT entry it recorded. Reverting a content edit (an UPDATE: a rename, a descriptor
+     * or parent change) needs `canContributeStoryWorld`; reverting a CREATE, DELETE or MERGE — or any
+     * change of an entity that is deleted now, which the revert would revive — needs `canCurateStoryWorld`,
+     * like the structural action itself.
      */
     suspend fun revert(changeId: StoryWorldHistoryId): AppResult<EntityChange>
 }
