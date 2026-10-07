@@ -78,7 +78,9 @@ internal class PersonReviewer(
         val photos = photos(profiles)
         val biographies = biographies(profiles)
         if (photos.isEmpty() && biographies.isEmpty()) {
-            return AppResult.Failure(MetadataError.NotFound(debugInfo = "person review: empty profiles (regional shell)"))
+            return AppResult.Failure(
+                MetadataError.NotFound(debugInfo = "person review: empty profiles (regional shell)"),
+            )
         }
         val photoSetByHand = contributor.fieldProvenance[ContributorField.PHOTO]?.kind == FieldSourceKind.USER
         return AppResult.Success(
@@ -109,8 +111,12 @@ internal class PersonReviewer(
 
     private fun photos(profiles: List<Pair<MetadataProviderId, ContributorMeta>>) =
         profiles
-            .mapNotNull { (provider, profile) -> profile.imageUrl?.trim()?.takeIf { it.isNotEmpty() }?.let { provider to it } }
-            .distinctBy { (_, url) -> url }
+            .mapNotNull { (provider, profile) ->
+                profile.imageUrl?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                    provider to
+                        it
+                }
+            }.distinctBy { (_, url) -> url }
             .map { (provider, url) ->
                 ReviewedPhoto(
                     PhotoCandidate(
@@ -124,8 +130,9 @@ internal class PersonReviewer(
 
     private fun biographies(profiles: List<Pair<MetadataProviderId, ContributorMeta>>) =
         profiles
-            .mapNotNull { (provider, profile) -> profile.description?.takeIf { it.isNotBlank() }?.let { provider to it } }
-            .groupBy { (_, text) -> ReviewKeys.keyOf(FieldValue.Text(text), html = true) }
+            .mapNotNull { (provider, profile) ->
+                profile.description?.takeIf { it.isNotBlank() }?.let { provider to it }
+            }.groupBy { (_, text) -> ReviewKeys.keyOf(FieldValue.Text(text), html = true) }
             .map { (key, group) ->
                 val providers = group.map { it.first }
                 ReviewedBiography(

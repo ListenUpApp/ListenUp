@@ -53,7 +53,10 @@ internal class MatchingRepositoryImpl(
         contributorId: ContributorId,
         candidate: PersonCandidateKey,
         role: ContributorRole,
-    ): AppResult<PersonMatchReview> = channel.call(idempotent = true) { it.reviewPersonMatch(contributorId, candidate, role) }
+    ): AppResult<PersonMatchReview> =
+        channel.call(idempotent = true) {
+            it.reviewPersonMatch(contributorId, candidate, role)
+        }
 
     override suspend fun applyPersonMatch(
         contributorId: ContributorId,

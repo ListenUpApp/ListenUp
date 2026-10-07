@@ -30,7 +30,11 @@ internal class PersonMatchUndoer(
         val capture = currentCoroutineContext()[FrameCapture.Key]
         return suspendTransaction(db) {
             val receipt = receipts.findInTransaction(receiptId)?.takeIf { it.entity == ReceiptEntity.CONTRIBUTOR.value }
-            val current = receipt?.let { contributors.readPayloadInTransaction(it.entityId) }?.takeIf { it.deletedAt == null }
+            val current =
+                receipt?.let { contributors.readPayloadInTransaction(it.entityId) }?.takeIf {
+                    it.deletedAt ==
+                        null
+                }
             if (receipt == null || receipt.undoneAt != null || current?.revision != receipt.revisionAfter) {
                 return@suspendTransaction AppResult.Failure(MetadataError.UndoExpired(debugInfo = "receipt $receiptId"))
             }

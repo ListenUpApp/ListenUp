@@ -164,7 +164,9 @@ internal class OrphanImageCleanupTask(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            log.warn(e) { "OrphanImageCleanupTask couldn't read which photos are pinned — leaving contributors/ untouched" }
+            log.warn(
+                e,
+            ) { "OrphanImageCleanupTask couldn't read which photos are pinned — leaving contributors/ untouched" }
             null
         }
     }

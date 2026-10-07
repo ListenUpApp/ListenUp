@@ -94,7 +94,9 @@ internal class PersonMatchApplier(
         val photoPath =
             photo?.let {
                 photoFiles.store(it.candidate.url)
-                    ?: return AppResult.Failure(MetadataError.CoverDownloadFailed(debugInfo = "person photo fetch failed"))
+                    ?: return AppResult.Failure(
+                        MetadataError.CoverDownloadFailed(debugInfo = "person photo fetch failed"),
+                    )
             }
         val plan =
             PersonMatchPlan(

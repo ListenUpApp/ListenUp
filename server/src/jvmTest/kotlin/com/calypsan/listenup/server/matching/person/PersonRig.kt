@@ -119,14 +119,30 @@ internal class PersonRig(
     suspend fun mixedRequest(): PersonMatchApply {
         val review = review()
         return defaultRequest().copy(
-            photo = ImageChoice.Candidate(review.photo.options.first { it.url == HARDCOVER_PHOTO }.optionId),
-            biography = FieldChoice.Option(review.biography!!.options.first { it.sources.first().id == "audible" }.optionId),
+            photo =
+                ImageChoice.Candidate(
+                    review.photo.options
+                        .first { it.url == HARDCOVER_PHOTO }
+                        .optionId,
+                ),
+            biography =
+                FieldChoice.Option(
+                    review.biography!!
+                        .options
+                        .first { it.sources.first().id == "audible" }
+                        .optionId,
+                ),
         )
     }
 
     /** The rig's person Review, Apply and Undo, as the matching service takes them. */
     fun people() =
-        PersonMatchDetails(reviewer, applier, undoer) { id -> contributors.findById(id.value)?.takeIf { it.deletedAt == null } }
+        PersonMatchDetails(reviewer, applier, undoer) { id ->
+            contributors.findById(id.value)?.takeIf {
+                it.deletedAt ==
+                    null
+            }
+        }
 
     suspend fun apply(request: PersonMatchApply) = applier.apply(person(), request, PERSON_US, appliedBy = "u1")
 }

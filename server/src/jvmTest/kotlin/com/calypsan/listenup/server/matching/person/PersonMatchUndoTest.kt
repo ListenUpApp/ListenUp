@@ -54,7 +54,10 @@ class PersonMatchUndoTest :
                     val receipt = rig.apply(rig.mixedRequest()).shouldSucceed()
                     rig.contributors.upsert(rig.person().copy(website = "https://ray.example")).shouldSucceed()
                     val moved = rig.person()
-                    rig.undoer.undo(receipt.receiptId).error().shouldBeInstanceOf<MetadataError.UndoExpired>()
+                    rig.undoer
+                        .undo(receipt.receiptId)
+                        .error()
+                        .shouldBeInstanceOf<MetadataError.UndoExpired>()
                     rig.person() shouldBe moved
                 }
             }
@@ -67,7 +70,10 @@ class PersonMatchUndoTest :
                     rig.seedRay()
                     val receipt = rig.apply(rig.mixedRequest()).shouldSucceed()
                     rig.undoer.undo(receipt.receiptId).shouldSucceed()
-                    rig.undoer.undo(receipt.receiptId).error().shouldBeInstanceOf<MetadataError.UndoExpired>()
+                    rig.undoer
+                        .undo(receipt.receiptId)
+                        .error()
+                        .shouldBeInstanceOf<MetadataError.UndoExpired>()
                 }
             }
         }
@@ -82,8 +88,14 @@ class PersonMatchUndoTest :
                     people.seedRay()
                     val personReceipt = people.apply(people.mixedRequest()).shouldSucceed()
 
-                    people.undoer.undo(bookReceipt.receiptId).error().shouldBeInstanceOf<MetadataError.UndoExpired>()
-                    books.undoer.undo(personReceipt.receiptId).error().shouldBeInstanceOf<MetadataError.UndoExpired>()
+                    people.undoer
+                        .undo(bookReceipt.receiptId)
+                        .error()
+                        .shouldBeInstanceOf<MetadataError.UndoExpired>()
+                    books.undoer
+                        .undo(personReceipt.receiptId)
+                        .error()
+                        .shouldBeInstanceOf<MetadataError.UndoExpired>()
                 }
             }
         }
@@ -94,13 +106,19 @@ class PersonMatchUndoTest :
                     val people = PersonRig(this@withSqlDatabase)
                     val ray = people.seedRay()
                     sql.matchReceiptsQueries.insert("r-book", "book", ray.id, "u1", 1L, ray.revision, "{}", "[]")
-                    people.undoer.undo("r-book").error().shouldBeInstanceOf<MetadataError.UndoExpired>()
+                    people.undoer
+                        .undo("r-book")
+                        .error()
+                        .shouldBeInstanceOf<MetadataError.UndoExpired>()
                     people.person() shouldBe ray
 
                     val books = MatchRig(this@withSqlDatabase)
                     val book = books.seedBook()
                     sql.matchReceiptsQueries.insert("r-person", "contributor", book.id, "u1", 1L, book.revision, "{}", "[]")
-                    books.undoer.undo("r-person").error().shouldBeInstanceOf<MetadataError.UndoExpired>()
+                    books.undoer
+                        .undo("r-person")
+                        .error()
+                        .shouldBeInstanceOf<MetadataError.UndoExpired>()
                 }
             }
         }
@@ -131,7 +149,10 @@ class PersonMatchUndoTest :
                     rig.seedRay()
                     val receipt = rig.apply(rig.mixedRequest()).shouldSucceed()
                     rig.contributors.softDelete(ContributorId(rig.rayId)).shouldSucceed()
-                    rig.undoer.undo(receipt.receiptId).error().shouldBeInstanceOf<MetadataError.UndoExpired>()
+                    rig.undoer
+                        .undo(receipt.receiptId)
+                        .error()
+                        .shouldBeInstanceOf<MetadataError.UndoExpired>()
                     rig.receipts.deleteDead()
                     rig.receipts.find(receipt.receiptId) shouldBe null
                 }

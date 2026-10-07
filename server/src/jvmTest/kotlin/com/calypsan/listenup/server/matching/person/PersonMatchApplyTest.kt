@@ -224,7 +224,14 @@ class PersonMatchApplyTest :
                     val before = rig.seedRay()
                     val review = rig.review()
                     val request =
-                        rig.defaultRequest().copy(photo = ImageChoice.Candidate(review.photo.options.first { "broken" in it.url }.optionId))
+                        rig.defaultRequest().copy(
+                            photo =
+                                ImageChoice.Candidate(
+                                    review.photo.options
+                                        .first { "broken" in it.url }
+                                        .optionId,
+                                ),
+                        )
                     rig.apply(request).error().shouldBeInstanceOf<MetadataError.CoverDownloadFailed>()
                     rig.person() shouldBe before
                     rig.receipts.pinnedPhotoPaths() shouldBe emptySet()

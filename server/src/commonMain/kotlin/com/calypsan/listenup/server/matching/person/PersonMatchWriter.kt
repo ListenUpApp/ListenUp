@@ -51,7 +51,9 @@ internal class PersonMatchWriter(
             val before = contributors.readPayloadInTransaction(id)?.takeIf { it.deletedAt == null }
             if (before == null || before.revision != basedOnRevision) {
                 return@suspendTransaction AppResult.Failure(
-                    MetadataError.ReviewOutdated(debugInfo = "person $id is at ${before?.revision}, not $basedOnRevision"),
+                    MetadataError.ReviewOutdated(
+                        debugInfo = "person $id is at ${before?.revision}, not $basedOnRevision",
+                    ),
                 )
             }
             val revisionAfter = contributors.allocateRevision()
@@ -97,14 +99,24 @@ private fun ContributorSyncPayload.matchedBy(
     val hardcover = plan.refs.firstOrNull { it.provider == HARDCOVER }
     val column =
         when {
-            audible != null -> audible.id
-            hardcover != null && asin?.trim()?.startsWith(HARDCOVER_AUTHOR_KEY_PREFIX) == true ->
+            audible != null -> {
+                audible.id
+            }
+
+            hardcover != null && asin?.trim()?.startsWith(HARDCOVER_AUTHOR_KEY_PREFIX) == true -> {
                 HARDCOVER_AUTHOR_KEY_PREFIX + hardcover.id
-            else -> asin
+            }
+
+            else -> {
+                asin
+            }
         }
     val stamps =
         listOfNotNull(
-            plan.photo?.let { ContributorField.PHOTO to FieldProvenance(FieldSourceKind.ENRICHMENT, it.provider.value, at) },
+            plan.photo?.let {
+                ContributorField.PHOTO to
+                    FieldProvenance(FieldSourceKind.ENRICHMENT, it.provider.value, at)
+            },
             plan.biography?.let {
                 ContributorField.BIOGRAPHY to FieldProvenance(FieldSourceKind.ENRICHMENT, it.provider.value, at)
             },

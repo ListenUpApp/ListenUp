@@ -50,8 +50,7 @@ private class Rig {
 
 private fun AppResult<*>.error() = (this as AppResult.Failure).error
 
-private fun userEdit(field: ContributorField) =
-    mapOf(field to FieldProvenance(FieldSourceKind.USER, provider = null, at = 12L, by = "u1"))
+private fun userEdit(field: ContributorField) = mapOf(field to FieldProvenance(FieldSourceKind.USER, provider = null, at = 12L, by = "u1"))
 
 /** Person Review: photo and biography, each Yours → Proposed per source, with book Review's state rules. */
 class PersonReviewerTest :
@@ -80,7 +79,12 @@ class PersonReviewerTest :
                 val rig = Rig()
                 rig.audnexus.profiles = mapOf("B0RAY" to ray("B0RAY", bio = "Audible bio."))
                 rig.hardcover.profiles = mapOf("250716" to ray("250716", bio = "Hardcover bio."))
-                val bio = rig.review().shouldSucceed().review.biography.shouldNotBeNull()
+                val bio =
+                    rig
+                        .review()
+                        .shouldSucceed()
+                        .review.biography
+                        .shouldNotBeNull()
                 bio.state shouldBe FieldState.FILLS_GAP
                 bio.options.map { (it.value as FieldValue.Text).text } shouldBe listOf("Audible bio.", "Hardcover bio.")
                 bio.options.map { o -> o.sources.map { it.id } } shouldBe listOf(listOf("audible"), listOf("hardcover"))
@@ -94,9 +98,17 @@ class PersonReviewerTest :
                 val rig = Rig()
                 rig.audnexus.profiles = mapOf("B0RAY" to ray("B0RAY", bio = "<p>Same  bio.</p>"))
                 rig.hardcover.profiles = mapOf("250716" to ray("250716", bio = "same bio."))
-                val bio = rig.review().shouldSucceed().review.biography.shouldNotBeNull()
+                val bio =
+                    rig
+                        .review()
+                        .shouldSucceed()
+                        .review.biography
+                        .shouldNotBeNull()
                 bio.options.size shouldBe 1
-                bio.options.single().sources.map { it.id } shouldBe listOf("audible", "hardcover")
+                bio.options
+                    .single()
+                    .sources
+                    .map { it.id } shouldBe listOf("audible", "hardcover")
             }
         }
 
@@ -104,10 +116,18 @@ class PersonReviewerTest :
             runTest {
                 val rig = Rig()
                 rig.audnexus.profiles = mapOf("B0RAY" to ray("B0RAY", bio = "Mine."))
-                val same = rig.review(yourRay(description = " mine. ")).shouldSucceed().review.biography!!
+                val same =
+                    rig
+                        .review(yourRay(description = " mine. "))
+                        .shouldSucceed()
+                        .review.biography!!
                 same.state shouldBe FieldState.SAME
                 same.defaultChoice shouldBe FieldChoice.KeepCurrent
-                val changes = rig.review(yourRay(description = "Old.")).shouldSucceed().review.biography!!
+                val changes =
+                    rig
+                        .review(yourRay(description = "Old."))
+                        .shouldSucceed()
+                        .review.biography!!
                 changes.state shouldBe FieldState.CHANGES
                 changes.current shouldBe "Old."
                 changes.defaultChoice shouldBe FieldChoice.Option(changes.options.first().optionId)
@@ -119,7 +139,11 @@ class PersonReviewerTest :
                 val rig = Rig()
                 rig.audnexus.profiles = mapOf("B0RAY" to ray("B0RAY", bio = "Theirs."))
                 val you = yourRay(description = "Mine.").copy(fieldProvenance = userEdit(ContributorField.BIOGRAPHY))
-                val bio = rig.review(you).shouldSucceed().review.biography!!
+                val bio =
+                    rig
+                        .review(you)
+                        .shouldSucceed()
+                        .review.biography!!
                 bio.state shouldBe FieldState.USER_EDITED
                 bio.defaultChoice shouldBe FieldChoice.KeepCurrent
                 bio.handEdit shouldBe HandEdit(byUserId = "u1", byName = "Sam", at = 12L)
@@ -130,7 +154,11 @@ class PersonReviewerTest :
             runTest {
                 val rig = Rig()
                 rig.hardcover.profiles = mapOf("250716" to ray("250716", photo = HARDCOVER_PHOTO))
-                rig.review().shouldSucceed().review.biography.shouldBeNull()
+                rig
+                    .review()
+                    .shouldSucceed()
+                    .review.biography
+                    .shouldBeNull()
             }
         }
 
@@ -139,7 +167,11 @@ class PersonReviewerTest :
                 val rig = Rig()
                 rig.audnexus.profiles = mapOf("B0RAY" to ray("B0RAY", photo = AUDIBLE_PHOTO))
                 rig.hardcover.profiles = mapOf("250716" to ray("250716", photo = HARDCOVER_PHOTO))
-                val photo = rig.review(yourRay(imagePath = "contributors/old.jpg")).shouldSucceed().review.photo
+                val photo =
+                    rig
+                        .review(yourRay(imagePath = "contributors/old.jpg"))
+                        .shouldSucceed()
+                        .review.photo
                 photo.options.map { it.url } shouldBe listOf(AUDIBLE_PHOTO, HARDCOVER_PHOTO)
                 photo.options.map { it.source.id } shouldBe listOf("audible", "hardcover")
                 photo.current shouldBe "contributors/old.jpg"
@@ -153,7 +185,11 @@ class PersonReviewerTest :
                 val rig = Rig()
                 rig.hardcover.profiles = mapOf("250716" to ray("250716", photo = HARDCOVER_PHOTO))
                 val you = yourRay(imagePath = "contributors/mine.jpg").copy(fieldProvenance = userEdit(ContributorField.PHOTO))
-                val photo = rig.review(you).shouldSucceed().review.photo
+                val photo =
+                    rig
+                        .review(you)
+                        .shouldSucceed()
+                        .review.photo
                 photo.setByHand shouldBe true
                 photo.defaultChoice shouldBe ImageChoice.KeepCurrent
             }
@@ -197,7 +233,8 @@ class PersonReviewerTest :
             runTest {
                 val rig = Rig()
                 rig.audnexus.slow = 30.seconds
-                rig.review(key = PersonCandidateKey(listOf(ExternalRef("audible", "B0RAY"))))
+                rig
+                    .review(key = PersonCandidateKey(listOf(ExternalRef("audible", "B0RAY"))))
                     .error()
                     .shouldBeInstanceOf<MetadataError.ExternalTimeout>()
             }

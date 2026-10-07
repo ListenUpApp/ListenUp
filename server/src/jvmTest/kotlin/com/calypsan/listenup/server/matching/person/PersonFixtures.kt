@@ -13,7 +13,8 @@ import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import kotlinx.coroutines.delay
 import kotlin.time.Duration
 
-internal val PERSON_KEY = PersonCandidateKey(listOf(ExternalRef("audible", "B0RAY"), ExternalRef("hardcover", "250716")))
+internal val PERSON_KEY =
+    PersonCandidateKey(listOf(ExternalRef("audible", "B0RAY"), ExternalRef("hardcover", "250716")))
 internal const val AUDIBLE_PHOTO = "https://example.test/audible-ray.jpg"
 internal const val HARDCOVER_PHOTO = "https://example.test/hardcover-ray.jpg"
 

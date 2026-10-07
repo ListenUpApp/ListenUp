@@ -100,9 +100,13 @@ class MatchingServiceImplPersonMatchTest :
                     val receipt = people.apply(people.defaultRequest()).value()
                     val viewer = personService(people).copyWith(memberPrincipal("viewer"))
 
-                    viewer.reviewPersonMatch(ray, PERSON_KEY, ContributorRole.NARRATOR).error()
+                    viewer
+                        .reviewPersonMatch(ray, PERSON_KEY, ContributorRole.NARRATOR)
+                        .error()
                         .shouldBeInstanceOf<AuthError.PermissionDenied>()
-                    viewer.applyPersonMatch(ray, people.defaultRequest()).error()
+                    viewer
+                        .applyPersonMatch(ray, people.defaultRequest())
+                        .error()
                         .shouldBeInstanceOf<AuthError.PermissionDenied>()
                     viewer.undoMatch(receipt.receiptId).error().shouldBeInstanceOf<AuthError.PermissionDenied>()
                     people.receipts.find(receipt.receiptId)!!.undoneAt shouldBe null
@@ -116,10 +120,14 @@ class MatchingServiceImplPersonMatchTest :
                     val people = PersonRig(this@withSqlDatabase)
                     people.seedRay()
                     val service = personService(people).copyWith(rootPrincipal())
-                    service.reviewPersonMatch(ContributorId("nobody"), PERSON_KEY, ContributorRole.AUTHOR).error()
+                    service
+                        .reviewPersonMatch(ContributorId("nobody"), PERSON_KEY, ContributorRole.AUTHOR)
+                        .error()
                         .shouldBeInstanceOf<MetadataError.NotFound>()
                     people.contributors.softDelete(ContributorId(people.rayId))
-                    service.reviewPersonMatch(ContributorId(people.rayId), PERSON_KEY, ContributorRole.AUTHOR).error()
+                    service
+                        .reviewPersonMatch(ContributorId(people.rayId), PERSON_KEY, ContributorRole.AUTHOR)
+                        .error()
                         .shouldBeInstanceOf<MetadataError.NotFound>()
                 }
             }
@@ -132,7 +140,9 @@ class MatchingServiceImplPersonMatchTest :
                     people.seedRay()
                     val service = personService(people).copyWith(rootPrincipal())
                     val ray = ContributorId(people.rayId)
-                    service.reviewPersonMatch(ray, PERSON_KEY, ContributorRole.TRANSLATOR).error()
+                    service
+                        .reviewPersonMatch(ray, PERSON_KEY, ContributorRole.TRANSLATOR)
+                        .error()
                         .shouldBeInstanceOf<MetadataError.Malformed>()
                     service
                         .applyPersonMatch(ray, people.defaultRequest().copy(role = ContributorRole.EDITOR))
@@ -155,7 +165,11 @@ class MatchingServiceImplPersonMatchTest :
                         )
                     val applied = service.applyPersonMatch(ContributorId(people.rayId), request).value()
                     applied.value.changes shouldBe emptyList()
-                    people.person().externalRefs.map { it.id }.toSet() shouldBe setOf("B0RAY", "ray", "250716")
+                    people
+                        .person()
+                        .externalRefs
+                        .map { it.id }
+                        .toSet() shouldBe setOf("B0RAY", "ray", "250716")
                 }
             }
         }
