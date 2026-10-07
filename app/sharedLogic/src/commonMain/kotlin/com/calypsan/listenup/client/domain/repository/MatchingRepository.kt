@@ -8,8 +8,12 @@ import com.calypsan.listenup.api.dto.match.BookFindResult
 import com.calypsan.listenup.api.dto.match.BookMatchApply
 import com.calypsan.listenup.api.dto.match.BookMatchReview
 import com.calypsan.listenup.api.dto.match.MatchReceipt
+import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.PersonFindRequest
 import com.calypsan.listenup.api.dto.match.PersonFindResult
+import com.calypsan.listenup.api.dto.match.PersonCandidateKey
+import com.calypsan.listenup.api.dto.match.PersonMatchApply
+import com.calypsan.listenup.api.dto.match.PersonMatchReview
 import com.calypsan.listenup.api.dto.match.UndoResult
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
@@ -53,6 +57,22 @@ internal interface MatchingRepository {
         request: BookMatchApply,
     ): AppResult<MatchReceipt>
 
-    /** Undoes the match [receiptId]; the restored book is applied to Room before this returns. */
+    /** Reviews [candidate] against [contributorId] for [role]: photo and biography, each Yours → Proposed. */
+    suspend fun reviewPersonMatch(
+        contributorId: ContributorId,
+        candidate: PersonCandidateKey,
+        role: ContributorRole,
+    ): AppResult<PersonMatchReview>
+
+    /**
+     * Applies [request] — photo and biography, chosen separately — in one server transaction. The person's change
+     * is applied to Room before this returns (read-your-writes); the value is the receipt.
+     */
+    suspend fun applyPersonMatch(
+        contributorId: ContributorId,
+        request: PersonMatchApply,
+    ): AppResult<MatchReceipt>
+
+    /** Undoes the match [receiptId] — a book's or a person's; the restored entity is applied to Room before this returns. */
     suspend fun undoMatch(receiptId: String): AppResult<UndoResult>
 }
