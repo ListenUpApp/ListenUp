@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.match.AppliedChange
 import com.calypsan.listenup.api.dto.match.LastMatch
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Match_receipts
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -11,11 +12,12 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 
-/** The entity kinds a receipt can be for. People arrive with the people PR, on this same table. */
+/** The entity kinds a receipt can be for. */
 internal enum class ReceiptEntity(
     val value: String,
 ) {
     BOOK("book"),
+    CONTRIBUTOR("contributor"),
 }
 
 /** A book's cover columns as they were before a match. A null [source] means it had no cover. */
@@ -41,6 +43,17 @@ internal data class BookMatchSnapshot(
     @SerialName("genreIds") val genreIds: List<String>,
     @SerialName("moodsLinked") val moodsLinked: List<String>,
     @SerialName("moodsUnlinked") val moodsUnlinked: List<String>,
+)
+
+/**
+ * Everything a person match touched, as it was before: the whole pre-apply aggregate (bio, photo path, refs, the
+ * asin column, provenance). Undo only runs while the revision is unchanged, so restoring the rest is a no-op. The
+ * orphan sweep keeps [contributor]'s photo file while the receipt is live.
+ */
+@Serializable
+@SerialName("ContributorMatchSnapshot")
+internal data class ContributorMatchSnapshot(
+    @SerialName("contributor") val contributor: ContributorSyncPayload,
 )
 
 /** One stored receipt, decoded. */
@@ -69,6 +82,12 @@ internal object MatchReceiptCodec {
 
     fun decodeSnapshot(json: String): BookMatchSnapshot =
         contractJson.decodeFromString(BookMatchSnapshot.serializer(), json)
+
+    fun encodeContributorSnapshot(snapshot: ContributorMatchSnapshot): String =
+        contractJson.encodeToString(ContributorMatchSnapshot.serializer(), snapshot)
+
+    fun decodeContributorSnapshot(json: String): ContributorMatchSnapshot =
+        contractJson.decodeFromString(ContributorMatchSnapshot.serializer(), json)
 
     /** A live book receipt as the book's sync payload carries it, only while it can still be undone. */
     fun lastMatchOf(
@@ -136,11 +155,27 @@ internal class MatchReceiptStore(
     suspend fun pinnedCoverPaths(): Set<String> =
         suspendTransaction(db) {
             db.matchReceiptsQueries
-                .selectLiveSnapshots()
+                .selectLiveSnapshotsForKind(ReceiptEntity.BOOK.value)
                 .executeAsList()
                 .mapNotNullTo(mutableSetOf()) { MatchReceiptCodec.decodeSnapshot(it).cover.path }
         }
 
-    /** Deletes book receipts that can no longer be undone: undone, or their book has changed or gone. */
-    suspend fun deleteDead(): Unit = suspendTransaction(db) { db.matchReceiptsQueries.deleteDeadBookReceipts() }
+    /**
+     * Every contributor photo path a live person receipt's snapshot names — `contributors/` files the orphan sweep
+     * must keep so Undo can restore them. Throws when a snapshot can't be read, so the sweep deletes nothing.
+     */
+    suspend fun pinnedPhotoPaths(): Set<String> =
+        suspendTransaction(db) {
+            db.matchReceiptsQueries
+                .selectLiveSnapshotsForKind(ReceiptEntity.CONTRIBUTOR.value)
+                .executeAsList()
+                .mapNotNullTo(mutableSetOf()) { MatchReceiptCodec.decodeContributorSnapshot(it).contributor.imagePath }
+        }
+
+    /** Deletes receipts that can no longer be undone: undone, or their book or person has changed or gone. */
+    suspend fun deleteDead(): Unit =
+        suspendTransaction(db) {
+            db.matchReceiptsQueries.deleteDeadBookReceipts()
+            db.matchReceiptsQueries.deleteDeadContributorReceipts()
+        }
 }

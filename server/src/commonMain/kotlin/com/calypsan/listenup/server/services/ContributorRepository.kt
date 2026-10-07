@@ -23,6 +23,7 @@ import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import kotlin.uuid.Uuid
 import kotlin.time.Clock
 import kotlinx.coroutines.currentCoroutineContext
+import app.cash.sqldelight.TransactionWithReturn
 
 private val log = loggerFor<ContributorRepository>()
 
@@ -514,6 +515,30 @@ class ContributorRepository(
         }
         return result.map { }
     }
+
+    /** A fresh revision for a write the caller is about to make inside its open transaction. */
+    internal fun allocateRevision(): Long = nextRevision()
+
+    /** [id]'s aggregate, read inside an open transaction; null when absent. */
+    internal fun readPayloadInTransaction(id: String): ContributorSyncPayload? = readPayload(id)
+
+    /**
+     * Writes a person match (or its undo) as [value] inside the caller's open transaction, at [revision] — one
+     * revision, one contributor event, deferred to commit and mirrored into [capture]. The synchronous counterpart
+     * of [upsert], so a match and its receipt commit together.
+     */
+    internal fun writeMatchInTransaction(
+        tx: TransactionWithReturn<*>,
+        value: ContributorSyncPayload,
+        revision: Long,
+        suppressed: Boolean,
+        capture: FrameCapture?,
+    ): ContributorSyncPayload =
+        with(tx) {
+            val (saved, event) = upsertEventInOpenTransaction(value, suppressed, revision = revision)
+            captureAfterCommit(capture, event)
+            saved
+        }
 
     /** Reads a contributor by raw id outside substrate orchestration — test/diagnostic use. */
     suspend fun findById(idStr: String): ContributorSyncPayload? = suspendTransaction(db) { readPayload(idStr) }

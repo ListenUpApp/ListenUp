@@ -252,7 +252,7 @@ fun metadataModule(imageHome: Path): Module =
             )
         }
 
-        matchingBindings()
+        matchingBindings(imageHome)
         metadataCleanupBindings(imageHome)
         ratingsBindings()
     }
@@ -349,8 +349,8 @@ internal fun HttpClientConfig<*>.installMetadataClientDefaults() {
  * Match details (the matching redesign): the Find orchestrator over the provider registry and routes, and the
  * [MatchingService] it backs. Split out to keep [metadataModule] under the length budget.
  */
-private fun Module.matchingBindings() {
-    matchDetailsBindings()
+private fun Module.matchingBindings(imageHome: Path) {
+    matchDetailsBindings(imageHome)
     single { BookFinder(registry = get<MetadataProviderRegistry>(), routes = get<EnrichmentRoutes>()) }
     single { PeopleFinder(registry = get<MetadataProviderRegistry>(), routes = get<EnrichmentRoutes>()) }
     single {
