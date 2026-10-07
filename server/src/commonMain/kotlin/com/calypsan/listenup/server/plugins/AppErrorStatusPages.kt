@@ -383,6 +383,10 @@ private fun MetadataError.toHttpStatus(): HttpStatusCode =
         is MetadataError.Malformed -> HttpStatusCode.BadGateway
         is MetadataError.ChapterCountMismatch -> HttpStatusCode.UnprocessableEntity
         is MetadataError.UnsafeUrl -> HttpStatusCode.BadRequest
+        is MetadataError.ExternalTimeout -> HttpStatusCode.GatewayTimeout
+        is MetadataError.ReviewOutdated -> HttpStatusCode.Conflict
+        is MetadataError.CoverDownloadFailed -> HttpStatusCode.BadGateway
+        is MetadataError.UndoExpired -> HttpStatusCode.Conflict
     }
 
 /**

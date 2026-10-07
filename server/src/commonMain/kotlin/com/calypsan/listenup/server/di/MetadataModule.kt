@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.MatchingService
 import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.server.api.BookAccessPolicy
+import com.calypsan.listenup.server.api.MatchDetails
 import com.calypsan.listenup.server.api.MatchingServiceImpl
 import com.calypsan.listenup.server.api.MetadataEnrichmentDeps
 import com.calypsan.listenup.server.api.MetadataImageDeps
@@ -19,6 +20,9 @@ import com.calypsan.listenup.server.matching.BookFinder
 import com.calypsan.listenup.server.matching.PeopleFinder
 import com.calypsan.listenup.server.matching.PeopleSubjectLoader
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.matching.undo.BookCoverReferences
+import com.calypsan.listenup.server.matching.undo.MatchReceiptStore
+import com.calypsan.listenup.server.scheduler.MatchReceiptSweepTask
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
@@ -346,6 +350,7 @@ internal fun HttpClientConfig<*>.installMetadataClientDefaults() {
  * [MatchingService] it backs. Split out to keep [metadataModule] under the length budget.
  */
 private fun Module.matchingBindings() {
+    matchDetailsBindings()
     single { BookFinder(registry = get<MetadataProviderRegistry>(), routes = get<EnrichmentRoutes>()) }
     single { PeopleFinder(registry = get<MetadataProviderRegistry>(), routes = get<EnrichmentRoutes>()) }
     single {
@@ -371,6 +376,7 @@ private fun Module.matchingBindings() {
                 PrincipalProvider {
                     error("Unscoped MatchingService — call copyWith(PrincipalProvider) at the route")
                 },
+            details = get<MatchDetails>(),
             rateLimiter = get<MetadataRateLimiter>(),
         )
     }
@@ -388,9 +394,11 @@ private fun Module.metadataCleanupBindings(imageHome: Path) {
             contributorRepository = get(),
             seriesRepository = get(),
             imageHome = imageHome,
+            coverReferences = BookCoverReferences(get(), get<MatchReceiptStore>()),
             settings = get(),
         )
     }
+    single { MatchReceiptSweepTask(receipts = get<MatchReceiptStore>(), settings = get()) }
 }
 
 /**

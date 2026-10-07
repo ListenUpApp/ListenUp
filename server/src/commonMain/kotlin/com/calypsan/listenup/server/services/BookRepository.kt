@@ -40,6 +40,7 @@ import com.calypsan.listenup.server.sync.SqlFragment
 import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
+import app.cash.sqldelight.TransactionWithReturn
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.io.files.Path
@@ -96,6 +97,13 @@ private class PreparedBatch(
 
     operator fun component2() = prepareFailed
 }
+
+/** The cover columns a match writes, or an undo restores; a null [source] means no cover. */
+internal data class MatchCoverColumns(
+    val source: CoverSource?,
+    val path: String?,
+    val hash: String?,
+)
 
 /**
  * Server-side repository for the books aggregate, over SQLDelight.
@@ -286,6 +294,7 @@ class BookRepository(
             chapterSource = ChapterSource.EMBEDDED,
             externalRefs = emptyList(),
             releaseDate = null,
+            lastMatch = null,
         )
 
     /**
@@ -1584,6 +1593,9 @@ class BookRepository(
                 // revision on every scan, forever.
                 bookTierLabel = stored.bookTierLabel,
                 partTierLabel = stored.partTierLabel,
+                // The live match receipt is read, never written, by this path: a rescan that changes
+                // nothing must not look "changed" and expire the book's Undo.
+                lastMatch = stored.lastMatch,
                 audioFiles = audioFiles.map { it.copy(id = "") },
                 chapters = chapters.map { it.copy(id = "") },
             )
@@ -1605,6 +1617,57 @@ class BookRepository(
         bookId: BookId,
         rawGenres: List<String>,
     ): AppResult<Unit> = bookGenreWriter.setBookGenres(bookId, rawGenres)
+
+    /**
+     * Resolves one raw genre through the scanner's cascade (alias → normaliser → auto-create), to the genre ids
+     * it links — without linking them. A match resolves its genres with this before its transaction.
+     */
+    internal suspend fun resolveGenreIds(raw: String): List<String> = bookGenreWriter.resolveGenreIds(raw)
+
+    /** A revision taken from the global counter inside [tx], for a write that must name it before it lands. */
+    internal fun allocateRevision(): Long = nextRevision()
+
+    /** [id]'s aggregate, read inside an open transaction; null when the book is absent. */
+    internal fun readPayloadInTransaction(id: String): BookSyncPayload? = readPayload(id)
+
+    /** [id]'s stored revision, read inside an open transaction; null when the book is absent. */
+    internal fun revisionInTransaction(id: String): Long? = db.booksQueries.selectRevisionById(id).executeAsOneOrNull()
+
+    /**
+     * Writes a metadata match (or its undo) to [value]'s book inside the caller's open transaction, at
+     * [revision]: the cover columns when [cover] is given (null leaves them), the genre junctions when [genreIds]
+     * is given (the whole set), [ladderRungIds] linked on top, the chapter source the payload names, then the
+     * aggregate itself — one revision, one book event, deferred to commit and mirrored into [capture]. The
+     * synchronous counterpart of `upsert` + `setManagedCover` + `setBookGenres`, so the whole match is atomic.
+     */
+    internal fun writeMatchInTransaction(
+        tx: TransactionWithReturn<*>,
+        value: BookSyncPayload,
+        cover: MatchCoverColumns?,
+        genreIds: List<String>?,
+        ladderRungIds: List<String>,
+        revision: Long,
+        suppressed: Boolean,
+        capture: FrameCapture?,
+    ): BookSyncPayload =
+        with(tx) {
+            cover?.let {
+                db.booksQueries.setCoverColumns(
+                    cover_source = it.source?.name?.lowercase(),
+                    cover_path = it.path,
+                    cover_hash = it.hash,
+                    id = value.id,
+                )
+            }
+            genreIds?.let { bookGenreWriter.writeJunctions(value.id, it) }
+            ladderRungIds.forEach { db.bookGenresQueries.insertIfAbsent(book_id = value.id, genre_id = it) }
+            // The payload's chapter source is the one to keep: set it first, so the sticky-user-chapters guard
+            // in writePayload lets an undo restore chapters a match had renamed.
+            db.booksQueries.updateChapterSource(value.chapterSource.name.lowercase(), value.id)
+            val (saved, event) = upsertEventInOpenTransaction(value, suppressed, revision = revision)
+            captureAfterCommit(capture, event)
+            saved
+        }
 
     /**
      * Reads the full book aggregate for [id], or null when absent. Opens its own

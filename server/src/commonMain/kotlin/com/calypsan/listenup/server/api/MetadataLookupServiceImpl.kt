@@ -301,6 +301,7 @@ internal class MetadataLookupServiceImpl(
         selection: MetadataApplySelection,
     ): AppResult<Mutated<Unit>> {
         requireEditableBook(bookId)?.let { return AppResult.Failure(it) }
+        val appliedBy = principal.current()?.userId?.value ?: return AppResult.Failure(AuthError.PermissionDenied())
         val genreAutoCreator = GenreAutoCreator(genreRepository)
         // Echo-in-response: withCapturedFrames collects EVERY frame the match emits — the book plus any
         // newly-created contributors/series/moods/tags/genres and the cover — so the originating device
@@ -317,11 +318,11 @@ internal class MetadataLookupServiceImpl(
                         composed?.let { MetadataMatch(it.toMetadataBook(), it.fieldProviders) }
                     }
                 },
-                enrichmentProvider = MetadataProviderId.AUDIBLE.value,
                 genreHierarchy = GenreHierarchyFromLadder(sqlDb, genreRepository, genreAutoCreator),
                 sqlDb = sqlDb,
                 ladderSource = { locale, a -> coordinator.composeGenreLadders(bookIdentity(a), locale) },
                 enrichmentDeps = enrichmentDeps,
+                appliedBy = appliedBy,
                 externalRatingsFetch =
                     externalRatingsFetcher?.let { fetcher ->
                         { id, locale -> fetcher.fetch(id, locale, refresh = true) }

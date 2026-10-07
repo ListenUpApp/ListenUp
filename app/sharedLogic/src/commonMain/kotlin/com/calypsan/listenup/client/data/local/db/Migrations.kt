@@ -399,3 +399,19 @@ internal val MIGRATION_16_17 =
             connection.executeDdl("DELETE FROM `sync_cursor` WHERE `domainName` = 'libraries'")
         }
     }
+
+/**
+ * v17 → v18: `books.lastMatch` — the book's live metadata match (its receipt), mirrored from
+ * `BookSyncPayload.lastMatch` so Book Detail can offer "Undo last match" offline. A nullable `ADD COLUMN`, per
+ * the migration policy in [ListenUpDatabase].
+ *
+ * Unlike [MIGRATION_16_17] it does not rewind the `books` cursor: that would re-pull the whole library, and the
+ * only thing it could recover is a match applied on another device while this one ran an older build — whose
+ * Undo row then simply doesn't show here, never a wrong one. Every later book change carries the field.
+ */
+internal val MIGRATION_17_18 =
+    object : Migration(17, 18) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE `books` ADD COLUMN `lastMatch` TEXT")
+        }
+    }

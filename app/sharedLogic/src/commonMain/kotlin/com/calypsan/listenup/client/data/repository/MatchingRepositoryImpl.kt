@@ -1,10 +1,16 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.MatchingService
+import com.calypsan.listenup.api.dto.match.BookCandidateKey
 import com.calypsan.listenup.api.dto.match.BookFindRequest
 import com.calypsan.listenup.api.dto.match.BookFindResult
+import com.calypsan.listenup.api.dto.match.BookMatchApply
+import com.calypsan.listenup.api.dto.match.BookMatchReview
+import com.calypsan.listenup.api.dto.match.MatchReceipt
 import com.calypsan.listenup.api.dto.match.PersonFindRequest
 import com.calypsan.listenup.api.dto.match.PersonFindResult
+import com.calypsan.listenup.api.dto.match.UndoResult
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.repository.MatchingRepository
@@ -27,4 +33,18 @@ internal class MatchingRepositoryImpl(
         contributorId: ContributorId,
         request: PersonFindRequest,
     ): AppResult<PersonFindResult> = channel.call(idempotent = true) { it.findPeople(contributorId, request) }
+
+    override suspend fun reviewBookMatch(
+        bookId: BookId,
+        candidate: BookCandidateKey,
+        region: MetadataLocale?,
+    ): AppResult<BookMatchReview> = channel.call(idempotent = true) { it.reviewBookMatch(bookId, candidate, region) }
+
+    override suspend fun applyBookMatch(
+        bookId: BookId,
+        request: BookMatchApply,
+    ): AppResult<MatchReceipt> = channel.callMutation { it.applyBookMatch(bookId, request) }
+
+    override suspend fun undoMatch(receiptId: String): AppResult<UndoResult> =
+        channel.callMutation { it.undoMatch(receiptId) }
 }

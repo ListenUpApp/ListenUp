@@ -197,6 +197,13 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      */
     protected open val userScoped: Boolean = false
 
+    /** A user-scoped domain's writes must name their user. */
+    private fun requireUserForScopedWrite(userId: String?) {
+        if (userScoped) {
+            requireNotNull(userId) { "user-scoped write on '$domainName' requires a userId" }
+        }
+    }
+
     /**
      * Increment the global revision counter and return its new value.
      *
@@ -252,9 +259,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         clientOpId: String? = null,
         userId: String? = null,
     ): AppResult<Pair<T, SyncEvent<T>>> {
-        if (userScoped) {
-            requireNotNull(userId) { "user-scoped write on '$domainName' requires a userId" }
-        }
+        requireUserForScopedWrite(userId)
         // Read the suppression marker in the outer suspend context, before the transaction:
         // the revision still bumps and the row still commits, but a suppressed write skips
         // the live-tail publish (see [FirehoseSuppressed]).
@@ -266,43 +271,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         val capture = currentCoroutineContext()[FrameCapture.Key]
         val result =
             suspendTransaction(db) {
-                val rev = nextRevision()
-                val now = clock.now().toEpochMilliseconds()
-                val idStr = idAsString(value.id)
-
-                val existed = substrate.existsById(idStr)
-
-                writePayload(value, rev, now, clientOpId, userId, existed)
-
-                val saved =
-                    readPayload(idStr)
-                        ?: error("readPayload returned null immediately after writePayload for $idStr")
-
-                val event =
-                    if (existed) {
-                        SyncEvent.Updated(
-                            id = idStr,
-                            revision = rev,
-                            occurredAt = now,
-                            clientOpId = clientOpId,
-                            payload = saved,
-                        )
-                    } else {
-                        SyncEvent.Created(
-                            id = idStr,
-                            revision = rev,
-                            occurredAt = now,
-                            clientOpId = clientOpId,
-                            payload = saved,
-                        )
-                    }
-                if (!suppressed) {
-                    deferEmit(event, userId)
-                } else {
-                    log.debug { "change suppressed (firehose): domain=$domainName id=$idStr" }
-                }
-
-                AppResult.Success(saved to event)
+                AppResult.Success(upsertEventInOpenTransaction(value, suppressed, clientOpId, userId))
             }
         if (capture != null && !suppressed && result is AppResult.Success) {
             capture.add(toSyncFrame(result.data.second))
@@ -341,11 +310,23 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         suppressed: Boolean,
         clientOpId: String? = null,
         userId: String? = null,
-    ): T {
-        if (userScoped) {
-            requireNotNull(userId) { "user-scoped write on '$domainName' requires a userId" }
-        }
-        val rev = nextRevision()
+    ): T = upsertEventInOpenTransaction(value, suppressed, clientOpId, userId).first
+
+    /**
+     * [upsertInOpenTransaction], returning the event it defers alongside the saved aggregate, so a caller that
+     * owns the transaction can mirror the event into a [FrameCapture] ([captureAfterCommit]). [revision], when
+     * given, is a revision the caller already took from [nextRevision] inside this transaction — so it can
+     * write a row that names the revision (a match receipt) before this write reads the aggregate back.
+     */
+    protected fun TransactionWithReturn<*>.upsertEventInOpenTransaction(
+        value: T,
+        suppressed: Boolean,
+        clientOpId: String? = null,
+        userId: String? = null,
+        revision: Long? = null,
+    ): Pair<T, SyncEvent<T>> {
+        requireUserForScopedWrite(userId)
+        val rev = revision ?: nextRevision()
         val now = clock.now().toEpochMilliseconds()
         val idStr = idAsString(value.id)
 
@@ -380,7 +361,50 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         } else {
             log.debug { "change suppressed (firehose): domain=$domainName id=$idStr" }
         }
-        return saved
+        return saved to event
+    }
+
+    /**
+     * Soft-deletes [id] inside an **already-open** transaction — [softDelete]'s body without its wrapper. Returns
+     * the deferred [SyncEvent.Deleted], or null when no row has that id (nothing written).
+     */
+    protected fun TransactionWithReturn<*>.softDeleteInOpenTransaction(
+        id: ID,
+        suppressed: Boolean,
+        clientOpId: String? = null,
+        userId: String? = null,
+    ): SyncEvent.Deleted? {
+        requireUserForScopedWrite(userId)
+        val rev = nextRevision()
+        val now = clock.now().toEpochMilliseconds()
+        val idStr = idAsString(id)
+        val rowsAffected =
+            substrate.softDeleteById(
+                id = idStr,
+                revision = rev,
+                updatedAt = now,
+                deletedAt = now,
+                clientOpId = clientOpId,
+            )
+        if (rowsAffected == 0L) return null
+        val event = SyncEvent.Deleted(id = idStr, revision = rev, occurredAt = now, clientOpId = clientOpId)
+        if (!suppressed) {
+            deferEmit(event = event, userId = userId)
+        } else {
+            log.debug { "change suppressed (firehose): domain=$domainName id=$idStr" }
+        }
+        return event
+    }
+
+    /**
+     * Mirrors [event] into [capture] when this transaction commits — the in-transaction counterpart of the
+     * capture [upsert] and [softDelete] do, for writers that own their transaction. A no-op without a capture.
+     */
+    internal fun TransactionCallbacks.captureAfterCommit(
+        capture: FrameCapture?,
+        event: SyncEvent<*>,
+    ) {
+        if (capture != null) afterCommit { capture.add(toSyncFrame(event)) }
     }
 
     /**
@@ -453,46 +477,14 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         clientOpId: String? = null,
         userId: String? = null,
     ): AppResult<Unit> {
-        if (userScoped) {
-            requireNotNull(userId) { "user-scoped write on '$domainName' requires a userId" }
-        }
+        requireUserForScopedWrite(userId)
         val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
         val capture = currentCoroutineContext()[FrameCapture.Key]
         val result =
             suspendTransaction(db) {
-                val rev = nextRevision()
-                val now = clock.now().toEpochMilliseconds()
-                val idStr = idAsString(id)
-                val rowsAffected =
-                    substrate.softDeleteById(
-                        id = idStr,
-                        revision = rev,
-                        updatedAt = now,
-                        deletedAt = now,
-                        clientOpId = clientOpId,
-                    )
-                if (rowsAffected == 0L) {
-                    AppResult.Failure(
-                        SyncError.NotFound(
-                            domain = domainName,
-                            entityId = idStr,
-                        ),
-                    )
-                } else {
-                    val event =
-                        SyncEvent.Deleted(
-                            id = idStr,
-                            revision = rev,
-                            occurredAt = now,
-                            clientOpId = clientOpId,
-                        )
-                    if (!suppressed) {
-                        deferEmit(event = event, userId = userId)
-                    } else {
-                        log.debug { "change suppressed (firehose): domain=$domainName id=$idStr" }
-                    }
-                    AppResult.Success(event)
-                }
+                softDeleteInOpenTransaction(id, suppressed, clientOpId, userId)
+                    ?.let { AppResult.Success(it) }
+                    ?: AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idAsString(id)))
             }
         // Ambient frame capture: mirror the firehose emit above so a mutation's own deletions reach
         // the originating device read-your-writes (see [FrameCapture]). Suppressed writes append nothing.

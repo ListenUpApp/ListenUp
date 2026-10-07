@@ -335,6 +335,27 @@ class BookRepositoryUpsertTest :
             }
         }
 
+        test("re-scanning an unchanged, matched book keeps its revision, so the match can still be undone") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = makeRepo()
+                runTest {
+                    val analyzed = analyzedFixture(rootRelPath = "books/b-matched", hasScanWarning = false)
+                    val id = BookId("b-matched")
+                    val first = repo.upsertFromAnalyzed(id, LibraryId("test-library"), FolderId("test-folder"), analyzed)
+                    first.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
+                    val r1 = first.data.revision
+                    sql.matchReceiptsQueries.insert("r1", "book", "b-matched", "u1", 5L, r1, "{}", "[]")
+                    repo.findById(id)!!.lastMatch?.receiptId shouldBe "r1"
+
+                    val second = repo.upsertFromAnalyzed(id, LibraryId("test-library"), FolderId("test-folder"), analyzed)
+                    second.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
+                    second.data.revision shouldBe r1
+                    repo.findById(id)!!.lastMatch?.receiptId shouldBe "r1"
+                }
+            }
+        }
+
         test("a changed book bumps its revision on re-scan") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()

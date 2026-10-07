@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.data.local.db
 
+import com.calypsan.listenup.api.dto.match.AppliedChange
+import com.calypsan.listenup.api.dto.match.LastMatch
+import com.calypsan.listenup.api.dto.match.MetadataSource
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
@@ -210,6 +213,15 @@ class BookEntityMapperTest :
                 .toBookEntity(bookPayload().copy(normalizationGainDb = null), existing = null)
                 .normalizationGainDb
                 .shouldBeNull()
+        }
+
+        test("toBookEntity carries the live match from payload, and clears it when the server has none") {
+            val match = LastMatch("r1", 5L, "u1", 3L, listOf(AppliedChange.Cover(MetadataSource("audible", "Audible"))))
+            val existing = mapper.toBookEntity(bookPayload().copy(lastMatch = match), existing = null)
+            existing.lastMatch shouldBe match
+            mapper.toBookEntity(bookPayload(), existing = existing).lastMatch.shouldBeNull()
+            LastMatchConverter().let { it.toLastMatch(it.fromLastMatch(match)) } shouldBe match
+            LastMatchConverter().toLastMatch("{not json").shouldBeNull()
         }
 
         // --- toDetail mapping ---

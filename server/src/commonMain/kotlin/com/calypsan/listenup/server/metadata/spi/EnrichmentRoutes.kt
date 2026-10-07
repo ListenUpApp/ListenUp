@@ -78,7 +78,8 @@ data class EnrichmentRoutes(
                 MetadataDomain.CONTRIBUTORS to
                     listOf(MetadataProviderId.AUDNEXUS, MetadataProviderId.AUDIBLE, MetadataProviderId.HARDCOVER),
                 MetadataDomain.CHAPTERS to listOf(MetadataProviderId.AUDNEXUS, MetadataProviderId.AUDIBLE),
-                MetadataDomain.COVER to listOf(MetadataProviderId.AUDIBLE, MetadataProviderId.ITUNES),
+                MetadataDomain.COVER to
+                    listOf(MetadataProviderId.AUDIBLE, MetadataProviderId.ITUNES, MetadataProviderId.HARDCOVER),
                 MetadataDomain.SERIES to
                     listOf(MetadataProviderId.AUDIBLE, MetadataProviderId.AUDNEXUS, MetadataProviderId.HARDCOVER),
                 MetadataDomain.GENRES to

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.sync
 
+import app.cash.sqldelight.TransactionWithReturn
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookMoodSyncPayload
@@ -9,6 +10,7 @@ import com.calypsan.listenup.server.db.sqldelight.Book_moods
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
+import kotlin.uuid.Uuid
 
 /**
  * Natural-pair identity for `book_moods` junction rows — the server-internal type the
@@ -307,6 +309,49 @@ class BookMoodRepository(
             }
             count
         }
+    }
+
+    /**
+     * Links [bookId] to [moodId] inside the caller's open transaction (a match apply or its undo): reuses or
+     * revives the pair's row, bumps its revision, defers its firehose emit, and mirrors it into [capture].
+     */
+    internal fun linkInTransaction(
+        tx: TransactionWithReturn<*>,
+        bookId: String,
+        moodId: String,
+        suppressed: Boolean,
+        capture: FrameCapture?,
+    ) = with(tx) {
+        val payload =
+            BookMoodSyncPayload(
+                id = Uuid.random().toString(),
+                bookId = bookId,
+                moodId = moodId,
+                createdAt = clock.now().toEpochMilliseconds(),
+                revision = 0L,
+                deletedAt = null,
+            )
+        captureAfterCommit(capture, upsertEventInOpenTransaction(payload, suppressed).second)
+    }
+
+    /**
+     * Unlinks [bookId] from [moodId] inside the caller's open transaction; a pair with no live row is a no-op.
+     */
+    internal fun unlinkInTransaction(
+        tx: TransactionWithReturn<*>,
+        bookId: String,
+        moodId: String,
+        suppressed: Boolean,
+        capture: FrameCapture?,
+    ) = with(tx) {
+        val live =
+            db.bookMoodsQueries
+                .selectLiveIdsForBook(bookId)
+                .executeAsList()
+                .toSet()
+        val id = db.bookMoodsQueries.selectIdByNaturalPair(bookId, moodId).executeAsOneOrNull() ?: return@with
+        if (id !in live) return@with
+        softDeleteInOpenTransaction(BookMoodId(bookId, moodId), suppressed)?.let { captureAfterCommit(capture, it) }
     }
 
     /**

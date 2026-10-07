@@ -1,6 +1,7 @@
 package com.calypsan.listenup.api.sync
 
 import com.calypsan.listenup.api.dto.match.ExternalRef
+import com.calypsan.listenup.api.dto.match.LastMatch
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.metadata.FieldProvenanceMapSerializer
@@ -96,6 +97,11 @@ data class BookSyncPayload(
      * [publishYear]; a write that changes the year without a date clears it. Clients display the year only.
      */
     @SerialName("releaseDate") val releaseDate: String? = null,
+    /**
+     * The book's live metadata match, when one can still be undone: the server fills it from the match receipt.
+     * Clients show "Undo last match" only while [LastMatch.revision] equals [revision].
+     */
+    @SerialName("lastMatch") val lastMatch: LastMatch? = null,
 ) : SyncPayload
 
 /**

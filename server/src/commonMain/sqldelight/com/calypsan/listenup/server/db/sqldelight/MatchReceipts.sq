@@ -1,0 +1,44 @@
+-- match_receipts: what one metadata match changed, so it can be undone. See V90__match_receipts.sql.
+CREATE TABLE match_receipts (
+    id             TEXT    NOT NULL PRIMARY KEY,
+    entity_kind    TEXT    NOT NULL,
+    entity_id      TEXT    NOT NULL,
+    applied_by     TEXT    NOT NULL,
+    applied_at     INTEGER NOT NULL,
+    revision_after INTEGER NOT NULL,
+    snapshot       TEXT    NOT NULL,
+    changes        TEXT    NOT NULL,
+    undone_at      INTEGER
+);
+
+CREATE UNIQUE INDEX match_receipts_live ON match_receipts (entity_kind, entity_id) WHERE undone_at IS NULL;
+
+insert:
+INSERT INTO match_receipts (id, entity_kind, entity_id, applied_by, applied_at, revision_after, snapshot, changes, undone_at)
+VALUES (:id, :entity_kind, :entity_id, :applied_by, :applied_at, :revision_after, :snapshot, :changes, NULL);
+
+deleteLiveForEntity:
+DELETE FROM match_receipts WHERE entity_kind = :entity_kind AND entity_id = :entity_id AND undone_at IS NULL;
+
+selectById:
+SELECT * FROM match_receipts WHERE id = :id;
+
+selectLiveForEntities:
+SELECT * FROM match_receipts WHERE entity_kind = :entity_kind AND entity_id IN :entity_ids AND undone_at IS NULL;
+
+selectLiveSnapshots:
+SELECT snapshot FROM match_receipts WHERE undone_at IS NULL;
+
+markUndone:
+UPDATE match_receipts SET undone_at = :undone_at WHERE id = :id AND undone_at IS NULL;
+
+deleteDeadBookReceipts:
+DELETE FROM match_receipts
+WHERE entity_kind = 'book'
+  AND (
+    undone_at IS NOT NULL
+    OR NOT EXISTS (
+      SELECT 1 FROM books b
+      WHERE b.id = match_receipts.entity_id AND b.deleted_at IS NULL AND b.revision = match_receipts.revision_after
+    )
+  );

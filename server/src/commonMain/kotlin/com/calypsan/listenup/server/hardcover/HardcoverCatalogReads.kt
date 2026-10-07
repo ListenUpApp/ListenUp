@@ -42,6 +42,8 @@ data class HardcoverBookDetails(
     val moods: List<HardcoverTag>,
     val series: List<HardcoverSeriesPlacement>,
     val authors: List<HardcoverAuthorProfile>,
+    /** The book's cover on Hardcover, when it has one. */
+    val imageUrl: String? = null,
 )
 
 /** `cached_tags` categories and a tag's keys, as confirmed live in the plan's Task 0. */
@@ -52,7 +54,7 @@ internal const val TAG_COUNT_KEY = "count"
 
 private const val AUTHOR_FIELDS = "id name bio image{ url }"
 private const val BOOK_DETAILS_QUERY =
-    "query(\$id:Int!){ books(where:{id:{_eq:\$id}}, limit:1){ id description cached_tags " +
+    "query(\$id:Int!){ books(where:{id:{_eq:\$id}}, limit:1){ id description cached_tags image{ url } " +
         "book_series{ position series{ id name } } contributions{ contribution author{ $AUTHOR_FIELDS } } } }"
 private const val AUTHORS_NAMED_QUERY =
     "query(\$name:String!){ authors(where:{name:{_eq:\$name}}, order_by:{books_count:desc}, limit:5){ $AUTHOR_FIELDS } }"
@@ -115,6 +117,7 @@ internal fun BookDetailsWire.toDetails(): HardcoverBookDetails =
                 .filter { it.contribution.isNullOrBlank() || it.contribution.equals("Author", ignoreCase = true) }
                 .mapNotNull { it.author?.toProfile() }
                 .distinctBy { it.id },
+        imageUrl = image?.url?.takeIf { it.isNotBlank() },
     )
 
 internal fun AuthorProfileWire.toProfile(): HardcoverAuthorProfile =

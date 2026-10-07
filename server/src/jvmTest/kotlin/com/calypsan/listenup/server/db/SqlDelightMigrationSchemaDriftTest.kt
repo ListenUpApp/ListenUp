@@ -147,6 +147,7 @@ private val SQ_TABLES =
         "hardcover_book_exclusions",
         "hardcover_api_token",
         "external_refs",
+        "match_receipts",
     )
 
 /** A table's comparable shape: column → storage-class category, and the set of its indexes. */

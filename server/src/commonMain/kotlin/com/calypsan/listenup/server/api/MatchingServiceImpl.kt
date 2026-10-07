@@ -2,7 +2,20 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.MatchingService
 import com.calypsan.listenup.api.dto.ContributorRole
+import com.calypsan.listenup.api.dto.match.BookCandidateKey
 import com.calypsan.listenup.api.dto.match.BookFindRequest
+import com.calypsan.listenup.api.dto.match.BookMatchApply
+import com.calypsan.listenup.api.dto.match.BookMatchReview
+import com.calypsan.listenup.api.dto.match.ExternalRef
+import com.calypsan.listenup.api.dto.match.MatchReceipt
+import com.calypsan.listenup.api.dto.match.UndoResult
+import com.calypsan.listenup.api.result.map
+import com.calypsan.listenup.api.sync.Mutated
+import com.calypsan.listenup.server.matching.apply.BookMatchApplier
+import com.calypsan.listenup.server.matching.review.BookReviewer
+import com.calypsan.listenup.server.matching.undo.MatchReceiptStore
+import com.calypsan.listenup.server.matching.undo.MatchUndoer
+import com.calypsan.listenup.server.sync.withCapturedFrames
 import com.calypsan.listenup.api.dto.match.BookFindResult
 import com.calypsan.listenup.api.dto.match.PersonFindRequest
 import com.calypsan.listenup.api.dto.match.PersonFindResult
@@ -32,9 +45,17 @@ private const val MAX_FIND_QUERY_LENGTH = 200
 /** The roles a people Find offers (spec: only authors and narrators). */
 private val SEARCHABLE_ROLES = setOf(ContributorRole.AUTHOR, ContributorRole.NARRATOR)
 
+/** Match details' Review, Apply and Undo, bundled for [MatchingServiceImpl]. */
+internal class MatchDetails(
+    val reviewer: BookReviewer,
+    val applier: BookMatchApplier,
+    val undoer: MatchUndoer,
+    val receipts: MatchReceiptStore,
+)
+
 /**
- * Server side of [MatchingService]. Find is gated like an edit — the caller needs `canEdit` and must be able
- * to see the book; a denial reads exactly like a missing book, so it is no existence oracle — and shares the
+ * Server side of [MatchingService]. Find, Review, Apply and Undo are all gated like an edit — the caller needs
+ * `canEdit` and must be able to see the book; a denial reads exactly like a missing book, so it is no existence oracle — and shares the
  * per-user metadata search throttle. [loadBook] and [libraryRegion] read the book and its library's store;
  * [loadPeople] and [peopleRegion] a people Find's subject (only books the caller can see) and the library's store.
  * Route handlers call [copyWith] to bind the caller per request.
@@ -49,6 +70,7 @@ internal class MatchingServiceImpl(
     private val loadPeople: suspend (ContributorId, ContributorRole, UserPrincipal) -> PeopleSubject?,
     private val peopleRegion: suspend () -> MetadataLocale,
     private val principal: PrincipalProvider = PrincipalProvider.None,
+    private val details: MatchDetails,
     private val rateLimiter: MetadataRateLimiter? = null,
 ) : MatchingService {
     /** A copy scoped to [principal]; route handlers call this per request. */
@@ -63,6 +85,7 @@ internal class MatchingServiceImpl(
             loadPeople = loadPeople,
             peopleRegion = peopleRegion,
             principal = principal,
+            details = details,
             rateLimiter = rateLimiter,
         )
 
@@ -109,6 +132,56 @@ internal class MatchingServiceImpl(
             }
         }
 
+    override suspend fun reviewBookMatch(
+        bookId: BookId,
+        candidate: BookCandidateKey,
+        region: MetadataLocale?,
+    ): AppResult<BookMatchReview> {
+        enforceRate(MetadataRateBucket.FETCH)?.let { return AppResult.Failure(it) }
+        requireEditableBook(bookId)?.let { return AppResult.Failure(it) }
+        unsupportedStore(region)?.let { return AppResult.Failure(it) }
+        val book = loadBook(bookId) ?: return AppResult.Failure(notFound(bookId))
+        return details.reviewer.review(book, candidate, matchLocale(candidate, region, book)).map { it.review }
+    }
+
+    override suspend fun applyBookMatch(
+        bookId: BookId,
+        request: BookMatchApply,
+    ): AppResult<Mutated<MatchReceipt>> {
+        requireEditableBook(bookId)?.let { return AppResult.Failure(it) }
+        unsupportedStore(request.region)?.let { return AppResult.Failure(it) }
+        val caller = principal.current() ?: return AppResult.Failure(AuthError.PermissionDenied())
+        val book = loadBook(bookId) ?: return AppResult.Failure(notFound(bookId))
+        val locale = matchLocale(request.candidate, request.region, book)
+        return withCapturedFrames { details.applier.apply(book, request, locale, caller.userId.value) }
+    }
+
+    override suspend fun undoMatch(receiptId: String): AppResult<Mutated<UndoResult>> {
+        val receipt =
+            details.receipts.find(receiptId)
+                ?: return AppResult.Failure(MetadataError.UndoExpired(debugInfo = "no receipt $receiptId"))
+        requireEditableBook(BookId(receipt.entityId))?.let { return AppResult.Failure(it) }
+        return withCapturedFrames { details.undoer.undo(receiptId) }
+    }
+
+    /** The store a Review reads: the Audible ref's own, else this request's, else the library's, else the default. */
+    private suspend fun matchLocale(
+        candidate: BookCandidateKey,
+        region: MetadataLocale?,
+        book: BookSyncPayload,
+    ): MetadataLocale =
+        candidate.refs
+            .firstOrNull { it.provider == ExternalRef.AUDIBLE }
+            ?.region
+            ?.takeIf { ref -> MetadataLocale.SUPPORTED.any { it.region == ref } }
+            ?.let(::MetadataLocale)
+            ?: resolveFindRegion(region, libraryRegion(book.libraryId)).locale
+
+    private fun unsupportedStore(region: MetadataLocale?): AppError? =
+        region?.takeIf { r -> MetadataLocale.SUPPORTED.none { it.region == r.region } }?.let {
+            MetadataError.Malformed(debugInfo = "unsupported store ${it.region}")
+        }
+
     private suspend fun requireEditableBook(bookId: BookId): AppError? {
         val caller = principal.current() ?: return AuthError.PermissionDenied()
         permissionPolicy.requireCanEdit(caller.userId, caller.role)?.let { return it }
@@ -117,10 +190,10 @@ internal class MatchingServiceImpl(
     }
 
     /** Per-user throttle; a no-op when no limiter or no principal is bound (direct-construction tests). */
-    private suspend fun enforceRate(): AppError? {
+    private suspend fun enforceRate(bucket: MetadataRateBucket = MetadataRateBucket.SEARCH): AppError? {
         val limiter = rateLimiter ?: return null
         val userId = principal.current()?.userId?.value ?: return null
-        return when (val decision = limiter.check(MetadataRateBucket.SEARCH, userId)) {
+        return when (val decision = limiter.check(bucket, userId)) {
             RateDecision.Allowed -> null
             is RateDecision.Throttled -> AuthError.RateLimited(retryAfterSeconds = decision.retryAfterSeconds)
         }

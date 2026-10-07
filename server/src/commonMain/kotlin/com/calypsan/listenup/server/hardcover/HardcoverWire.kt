@@ -227,6 +227,7 @@ internal data class BookDetailsWire(
     @SerialName("cached_tags") val cachedTags: JsonElement? = null,
     @SerialName("book_series") val bookSeries: List<BookSeriesWire> = emptyList(),
     @SerialName("contributions") val contributions: List<CreditWire> = emptyList(),
+    @SerialName("image") val image: ImageWire? = null,
 )
 
 @Serializable

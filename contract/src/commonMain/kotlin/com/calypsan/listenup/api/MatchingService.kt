@@ -4,6 +4,13 @@ import com.calypsan.listenup.api.dto.match.BookFindRequest
 import com.calypsan.listenup.api.dto.match.BookFindResult
 import com.calypsan.listenup.api.dto.match.PersonFindRequest
 import com.calypsan.listenup.api.dto.match.PersonFindResult
+import com.calypsan.listenup.api.dto.match.BookMatchApply
+import com.calypsan.listenup.api.dto.match.BookMatchReview
+import com.calypsan.listenup.api.dto.match.MatchReceipt
+import com.calypsan.listenup.api.dto.match.UndoResult
+import com.calypsan.listenup.api.dto.match.BookCandidateKey
+import com.calypsan.listenup.api.metadata.MetadataLocale
+import com.calypsan.listenup.api.sync.Mutated
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
@@ -42,4 +49,33 @@ interface MatchingService {
         contributorId: ContributorId,
         request: PersonFindRequest,
     ): AppResult<PersonFindResult>
+
+    /**
+     * Reviews [candidate] (a Find candidate's key) against [bookId]: every field Yours → Proposed with its
+     * sources, the cover, genres, moods and chapter names. [region] is the store to read when the candidate's
+     * own refs don't carry one. Gated like Find. A source that didn't answer in time is
+     * `MetadataError.ExternalTimeout`; every source failing is `MetadataError.ExternalUnavailable`.
+     */
+    suspend fun reviewBookMatch(
+        bookId: BookId,
+        candidate: BookCandidateKey,
+        region: MetadataLocale?,
+    ): AppResult<BookMatchReview>
+
+    /**
+     * Applies [request] to [bookId] in one transaction — fields, cover, genres, moods, chapter names and refs —
+     * and returns the receipt. Nothing is written on any failure: `MetadataError.ReviewOutdated` when the book
+     * or a chosen option changed since the Review, `MetadataError.CoverDownloadFailed`, or
+     * `MetadataError.ChapterCountMismatch`.
+     */
+    suspend fun applyBookMatch(
+        bookId: BookId,
+        request: BookMatchApply,
+    ): AppResult<Mutated<MatchReceipt>>
+
+    /**
+     * Undoes the match [receiptId], restoring everything it changed. Any editor of the matched entity may undo.
+     * `MetadataError.UndoExpired` when it was already undone or the entity has changed since.
+     */
+    suspend fun undoMatch(receiptId: String): AppResult<Mutated<UndoResult>>
 }
