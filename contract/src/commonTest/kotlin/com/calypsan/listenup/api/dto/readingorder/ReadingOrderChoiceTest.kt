@@ -1,16 +1,10 @@
 package com.calypsan.listenup.api.dto.readingorder
 
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.sync.ReadingOrderFollowSyncPayload
 import com.calypsan.listenup.core.ReadingOrderId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-
-@Serializable
-private data class KindHolder(
-    @SerialName("kind") val kind: ReadingOrderChoiceKind = ReadingOrderChoiceKind.SERIES,
-)
 
 class ReadingOrderChoiceTest :
     FunSpec({
@@ -43,7 +37,9 @@ class ReadingOrderChoiceTest :
         }
 
         test("a kind a newer server adds decodes as SERIES on this build") {
-            contractJson.decodeFromString<KindHolder>("""{"kind":"CHRONOLOGICAL"}""").kind shouldBe
-                ReadingOrderChoiceKind.SERIES
+            contractJson
+                .decodeFromString<ReadingOrderFollowSyncPayload>(
+                    """{"id":"u:s","seriesId":"s","choice":"CHRONOLOGICAL","revision":1,"updatedAt":1,"createdAt":1}""",
+                ).choice shouldBe ReadingOrderChoiceKind.SERIES
         }
     })

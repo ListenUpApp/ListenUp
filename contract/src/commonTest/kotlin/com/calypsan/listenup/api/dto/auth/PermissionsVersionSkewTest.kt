@@ -3,21 +3,12 @@ package com.calypsan.listenup.api.dto.auth
 import com.calypsan.listenup.api.contractJson
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
-/** The shape `UserPermissions` and the patch had before #962, as an older binary decodes them. */
-@Serializable
-private data class OldPermissions(
-    @SerialName("canEdit") val canEdit: Boolean = true,
-    @SerialName("canCurateLibrary") val canCurateLibrary: Boolean = false,
-)
-
-@Serializable
-private data class OldAdminUserPatch(
-    @SerialName("permissions") val permissions: OldPermissions? = null,
-)
-
+/** The reading-order permission (#962) across version skew, pinned as literal wire text. */
 class PermissionsVersionSkewTest :
     FunSpec({
         test("a new client reading an older server's user holds the reading-order permission, its default") {
@@ -25,22 +16,27 @@ class PermissionsVersionSkewTest :
                 UserPermissions(canEditMetadata = true, canCurateLibrary = false, canMakeReadingOrders = true)
         }
 
-        test("an old client reading a new server's user ignores the new flag") {
+        test("an old client reading a new server's user finds canEdit where it always was; the new key is ignorable") {
             val newServer =
                 contractJson.encodeToString(UserPermissions(canEditMetadata = false, canMakeReadingOrders = false))
-            contractJson.decodeFromString<OldPermissions>(newServer) shouldBe OldPermissions(canEdit = false)
+            val wire = contractJson.decodeFromString<JsonObject>(newServer)
+            wire.getValue("canEdit").jsonPrimitive.boolean shouldBe false
+            contractJson.configuration.ignoreUnknownKeys shouldBe true
         }
 
         test("an old admin client's canEdit patch leaves the new flag unchanged on a new server") {
-            val oldClient = """{"permissions":{"canEdit":false}}"""
-            contractJson.decodeFromString<AdminUserPatch>(oldClient).permissions shouldBe
+            contractJson.decodeFromString<AdminUserPatch>("""{"permissions":{"canEdit":false}}""").permissions shouldBe
                 UserPermissionsPatch(canEditMetadata = false, canMakeReadingOrders = null)
         }
 
         test("a new client's reading-order toggle sends only the toggled field") {
-            contractJson.encodeToString(
-                AdminUserPatch(permissions = UserPermissionsPatch(canMakeReadingOrders = false)),
-            ) shouldBe """{"permissions":{"canMakeReadingOrders":false}}"""
+            val wire =
+                contractJson.encodeToString(
+                    AdminUserPatch(permissions = UserPermissionsPatch(canMakeReadingOrders = false)),
+                )
+            wire shouldBe """{"permissions":{"canMakeReadingOrders":false}}"""
+            contractJson.decodeFromString<JsonObject>(wire).getValue("permissions").jsonObject.keys shouldBe
+                setOf("canMakeReadingOrders")
         }
 
         test("a patch naming only the reading-order flag is not empty") {
