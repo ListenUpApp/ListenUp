@@ -300,6 +300,11 @@ sealed interface ReviewUiState {
         val moods: LabelSetUi,
         val chapterNames: ChapterNamesUi,
         val alreadySame: List<BookField>,
+        /**
+         * [alreadySame] as `BookField` names, for iOS: the elements of a bridged `List<BookField>` trap when Swift
+         * reads them (see `NoBridgedEnumCollectionsInUiStateRule`), so Swift reads these and rebuilds the enum.
+         */
+        val alreadySameNames: List<String>,
         val lengthAlreadySame: Boolean,
         val applyBar: ApplySummary,
         val applying: Boolean,

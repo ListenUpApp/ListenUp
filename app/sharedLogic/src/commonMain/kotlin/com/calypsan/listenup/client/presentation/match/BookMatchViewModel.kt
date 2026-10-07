@@ -320,10 +320,12 @@ class BookMatchViewModel internal constructor(
     }
 
     private sealed interface FindPhase {
+        /** A Find is running; the last results stay on screen. */
         data class Searching(
             val previous: Loaded?,
         ) : FindPhase
 
+        /** Find returned candidates. */
         data class Loaded(
             val result: BookFindResult,
             val outcome: FindOutcome.Candidates,
@@ -331,6 +333,7 @@ class BookMatchViewModel internal constructor(
             val candidates: List<CandidateUi> get() = outcome.strong + outcome.maybe
         }
 
+        /** Find returned no candidates, for this reason. */
         data class Failed(
             val failure: FindFailure,
             val region: RegionContext?,
@@ -340,10 +343,12 @@ class BookMatchViewModel internal constructor(
     private sealed interface ReviewPhase {
         data object None : ReviewPhase
 
+        /** The Review for this candidate is loading. */
         data class Loading(
             val candidate: CandidateUi,
         ) : ReviewPhase
 
+        /** The Review is loaded; Apply may be running. */
         data class Ready(
             val candidate: CandidateUi,
             val review: BookMatchReview,
@@ -351,6 +356,7 @@ class BookMatchViewModel internal constructor(
             val applyError: AppError?,
         ) : ReviewPhase
 
+        /** The Review couldn't load. */
         data class Failed(
             val candidate: CandidateUi,
             val error: AppError,

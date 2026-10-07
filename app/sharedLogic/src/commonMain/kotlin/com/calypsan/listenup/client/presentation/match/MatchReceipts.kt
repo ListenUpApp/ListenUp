@@ -142,6 +142,7 @@ class MatchReceiptViewModel internal constructor(
 
         data object Undoing : Outcome
 
+        /** Undo failed for a reason other than expiry; the receipt stays. */
         data class UndoFailed(
             val error: AppError,
         ) : Outcome
