@@ -8,5 +8,5 @@ import kotlinx.serialization.Serializable
 data class AdminUserPatch(
     @SerialName("displayName") val displayName: String? = null,
     @SerialName("role") val role: UserRole? = null,
-    @SerialName("permissions") val permissions: UserPermissions? = null,
+    @SerialName("permissions") val permissions: UserPermissionsPatch? = null,
 )

@@ -14,7 +14,7 @@ import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.api.dto.auth.UserPermissions
+import com.calypsan.listenup.api.dto.auth.UserPermissionsPatch
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.getOrNull
@@ -107,14 +107,13 @@ internal class AdminRepositoryImpl(
         role: String?,
         canEdit: Boolean?,
     ): AppResult<AdminUserInfo> {
-        // firstName/lastName have no contract field — they must NOT be sent (displayName is deferred
-        // to a future domain-realignment follow-up). The server applies AdminUserPatch.permissions
-        // wholesale, and canEdit is the only flag it carries, so the patch states it outright — there
-        // is no other flag to read back and carry through unchanged. Null leaves permissions untouched.
+        // firstName/lastName have no contract field — they must NOT be sent. The permissions patch carries
+        // only the flags being changed (null = unchanged), so neither an older server nor a newer one ever
+        // reads an untouched flag as its default. Null when no flag is being changed.
         val patch =
             AdminUserPatch(
                 role = role?.let { UserRole.valueOf(it) },
-                permissions = canEdit?.let { UserPermissions(canEdit = it) },
+                permissions = canEdit?.let { UserPermissionsPatch(canEdit = it) },
             )
         return adminUserChannel.call { it.updateUser(UserId(userId), patch) }.map { it.toAdminUserInfo() }
     }

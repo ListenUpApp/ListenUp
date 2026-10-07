@@ -83,7 +83,10 @@ private class FakeAdminUserService : AdminUserService {
         val updated =
             existing.copy(
                 role = patch.role ?: existing.role,
-                permissions = patch.permissions ?: existing.permissions,
+                permissions =
+                    patch.permissions?.let { change ->
+                        existing.permissions.copy(canEdit = change.canEdit ?: existing.permissions.canEdit)
+                    } ?: existing.permissions,
             )
         users[id.value] = updated
         return AppResult.Success(updated)

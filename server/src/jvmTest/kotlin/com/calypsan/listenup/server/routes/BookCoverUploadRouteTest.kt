@@ -9,7 +9,7 @@ import com.calypsan.listenup.api.dto.auth.AdminUserPatch
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
-import com.calypsan.listenup.api.dto.auth.UserPermissions
+import com.calypsan.listenup.api.dto.auth.UserPermissionsPatch
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
@@ -131,7 +131,7 @@ class BookCoverUploadRouteTest :
                     val (memberToken, memberId) = registerMember("member@x")
                     // Revoke canEdit via the admin PATCH endpoint — MEMBERs default to canEdit=true.
                     authedService<AdminUserService>(rootToken)
-                        .updateUser(UserId(memberId), AdminUserPatch(permissions = UserPermissions(canEdit = false)))
+                        .updateUser(UserId(memberId), AdminUserPatch(permissions = UserPermissionsPatch(canEdit = false)))
                     seedTestLibraryAndFolder()
 
                     val repo by application.inject<BookRepository>()
