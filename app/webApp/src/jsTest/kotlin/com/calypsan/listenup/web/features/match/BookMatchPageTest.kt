@@ -445,6 +445,18 @@ class BookMatchPageTest :
                 )
         }
 
+        test("What will change counts each part, and each count jumps to its section") {
+            val host = MatchRig(review = ready()).mount()
+            awaitFrame()
+
+            val items = host.querySelectorAll(".bmx-sum-i").asList().filterIsInstance<HTMLElement>()
+            items.first().textContent?.trim() shouldBe "2changes"
+            items.first().click()
+            awaitFrame()
+
+            focusedId() shouldBe SECTION_CHANGES
+        }
+
         test("an empty section is not rendered") {
             val host =
                 MatchRig(
