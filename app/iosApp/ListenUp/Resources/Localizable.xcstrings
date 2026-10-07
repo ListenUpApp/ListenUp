@@ -9471,46 +9471,6 @@
         }
       }
     },
-    "contributor.apply_match": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apply"
-          }
-        }
-      }
-    },
-    "contributor.audible": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Audible"
-          }
-        }
-      }
-    },
-    "contributor.audible_region": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Audible region"
-          }
-        }
-      }
-    },
-    "contributor.author_or_narrator_name": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Author or narrator name..."
-          }
-        }
-      }
-    },
     "contributor.biography": {
       "localizations": {
         "en": {
@@ -9561,26 +9521,6 @@
         }
       }
     },
-    "contributor.born_year": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Born %1$@"
-          }
-        }
-      }
-    },
-    "contributor.change_match": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Change match"
-          }
-        }
-      }
-    },
     "contributor.change_photo": {
       "localizations": {
         "en": {
@@ -9591,42 +9531,12 @@
         }
       }
     },
-    "contributor.contributor_name": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Contributor name"
-          }
-        }
-      }
-    },
     "contributor.contributor_photo": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Contributor photo"
-          }
-        }
-      }
-    },
-    "contributor.current": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Current"
-          }
-        }
-      }
-    },
-    "contributor.current_image": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Current image"
           }
         }
       }
@@ -9737,26 +9647,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Enter a biography..."
-          }
-        }
-      }
-    },
-    "contributor.failed_to_load_profile": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Failed to load profile"
-          }
-        }
-      }
-    },
-    "contributor.find_on_audible": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Find on Audible"
           }
         }
       }
@@ -9881,32 +9771,12 @@
         }
       }
     },
-    "contributor.new_image": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "New image"
-          }
-        }
-      }
-    },
     "contributor.no_aliases_hint": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "No alternate names yet. Merge another author to add one."
-          }
-        }
-      }
-    },
-    "contributor.no_change": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No change"
           }
         }
       }
@@ -9931,32 +9801,12 @@
         }
       }
     },
-    "contributor.no_profile_in_region": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No profile data in the %1$@ catalog. Try a different region:"
-          }
-        }
-      }
-    },
     "contributor.other_books": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Other books"
-          }
-        }
-      }
-    },
-    "contributor.preview_changes": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Preview changes"
           }
         }
       }
@@ -15371,16 +15221,6 @@
         }
       }
     },
-    "match.chosen_on_its_own": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "chosen on its own"
-          }
-        }
-      }
-    },
     "match.clear_search": {
       "localizations": {
         "en": {
@@ -15961,16 +15801,6 @@
         }
       }
     },
-    "match.no_photo_yet": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No photo yet"
-          }
-        }
-      }
-    },
     "match.no_profiles_author_title": {
       "localizations": {
         "en": {
@@ -16067,16 +15897,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Not selected"
-          }
-        }
-      }
-    },
-    "match.nothing_changes_until_apply": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nothing changes until you apply."
           }
         }
       }
@@ -17811,52 +17631,12 @@
         }
       }
     },
-    "metadata.audible_region": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Region"
-          }
-        }
-      }
-    },
-    "metadata.audible_source": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Audible · %1$@"
-          }
-        }
-      }
-    },
-    "metadata.audible_source_region": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Audible · %1$@"
-          }
-        }
-      }
-    },
     "metadata.field_toggle_all_hint": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Turns every one on or off."
-          }
-        }
-      }
-    },
-    "metadata.searching_for": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Searching for: %1$@"
           }
         }
       }

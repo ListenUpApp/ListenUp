@@ -530,14 +530,6 @@ internal val contributorPresentationModule =
                 errorBus = get(),
             )
         }
-        factory {
-            com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataViewModel(
-                contributorRepository = get<com.calypsan.listenup.client.domain.repository.ContributorRepository>(),
-                metadataRepository = get(),
-                errorBus = get(),
-                libraryRepository = get(),
-            )
-        }
     }
 
 /**

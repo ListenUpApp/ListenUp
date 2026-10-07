@@ -76,7 +76,6 @@ import com.calypsan.listenup.client.presentation.bulkedit.BulkEditViewModel
 import com.calypsan.listenup.client.presentation.connect.ServerConnectViewModel
 import com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditViewModel
-import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataViewModel
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
 import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
 import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
@@ -438,8 +437,6 @@ object KoinHelper {
     /** The receipt for [subjectId]: a book id on Book Detail, a contributor id on the contributor page. */
     fun getMatchReceiptViewModel(subjectId: String): MatchReceiptViewModel =
         resolveWithParams(MatchReceiptViewModel::class, listOf(subjectId))
-
-    fun getContributorMetadataViewModel(): ContributorMetadataViewModel = resolve(ContributorMetadataViewModel::class)
 
     fun getPlaybackProgressReporter(): PlaybackProgressReporter = resolve(PlaybackProgressReporter::class)
 

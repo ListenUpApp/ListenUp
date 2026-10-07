@@ -7,7 +7,6 @@ import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
-import com.calypsan.listenup.client.domain.repository.MetadataRepository
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.kotest.core.spec.style.FunSpec
@@ -28,7 +27,6 @@ import org.koin.test.verify.verify
  *  - [NetworkMonitor] — owned by the platform device module.
  *  - [ImageStorage] — owned by the platform storage module.
  *  - [SyncDomainHandler] (named `contributors`) — owned by `clientSyncModule`.
- *  - [MetadataRepository] — owned by `bookModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class ContributorModuleVerifyTest :
@@ -45,7 +43,6 @@ class ContributorModuleVerifyTest :
                         NetworkMonitor::class,
                         ImageStorage::class,
                         SyncDomainHandler::class,
-                        MetadataRepository::class,
                         ApiClientFactory::class,
                         ServerConfig::class,
                     ),
