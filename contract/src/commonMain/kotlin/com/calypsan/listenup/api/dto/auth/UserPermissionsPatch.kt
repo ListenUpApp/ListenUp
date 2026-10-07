@@ -17,8 +17,12 @@ import kotlinx.serialization.Serializable
  * only when the server advertises them.
  *
  * @property canEdit see [UserPermissions.canEdit]; null leaves it unchanged.
+ * @property canContributeStoryWorld see [UserPermissions.canContributeStoryWorld]; null leaves it unchanged.
+ * @property canCurateStoryWorld see [UserPermissions.canCurateStoryWorld]; null leaves it unchanged.
  */
 @Serializable
 data class UserPermissionsPatch(
     @SerialName("canEdit") val canEdit: Boolean? = null,
+    @SerialName("canContributeStoryWorld") val canContributeStoryWorld: Boolean? = null,
+    @SerialName("canCurateStoryWorld") val canCurateStoryWorld: Boolean? = null,
 )

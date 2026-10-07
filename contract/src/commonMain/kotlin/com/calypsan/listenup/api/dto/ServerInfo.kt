@@ -52,4 +52,12 @@ data class ServerInfo(
      */
     @SerialName("instanceId")
     val instanceId: String,
+    /**
+     * True when this server has Story World (entities, their history, and the two Story World
+     * permissions). Gates the admin's Story World permission toggles: against an older server a patch
+     * naming only a Story World flag would decode `canEdit` as its default and could grant metadata
+     * editing. Absent from older servers, which therefore read as `false`.
+     */
+    @SerialName("storyWorld")
+    val storyWorld: Boolean = false,
 )
