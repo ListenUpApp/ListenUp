@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.features.match
 
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowDpSize
 import androidx.compose.material3.adaptive.layout.AnimatedPane
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
@@ -13,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.design.TwoPaneMinWidth
@@ -84,7 +86,9 @@ fun BookMatchScreen(
     modifier: Modifier = Modifier,
 ) {
     val adaptiveInfo = currentWindowAdaptiveInfo()
-    val isTwoPane = adaptiveInfo.windowSizeClass.isWidthAtLeastBreakpoint(TwoPaneMinWidth.value.toInt())
+    // The window's real width, not its size-class bucket: the default buckets stop at 840dp, so a
+    // 960dp breakpoint read through them would never be reached.
+    val isTwoPane = currentWindowDpSize().width >= TwoPaneMinWidth
     val directive =
         remember(adaptiveInfo, isTwoPane) {
             calculatePaneScaffoldDirective(adaptiveInfo).copy(maxHorizontalPartitions = if (isTwoPane) 2 else 1)
@@ -138,4 +142,4 @@ fun BookMatchScreen(
 }
 
 /** The results pane's width beside Review: room for a cover, a title and three reasons. */
-private val LIST_PANE_WIDTH = androidx.compose.ui.unit.Dp(420f)
+private val LIST_PANE_WIDTH = 420.dp

@@ -150,6 +150,7 @@ class BookDetailReleaseConfirmationTest {
                         onBackClick = {},
                         onEditClick = {},
                         onMatchDetailsClick = {},
+                        matchReceipt = {},
                         onEditChaptersClick = {},
                         onSeriesClick = {},
                         onContributorClick = {},

@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.features.match
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -45,7 +47,7 @@ class BookMatchFindTest {
     }
 
     private fun scrollTo(text: String) {
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(text, substring = true))
+        composeRule.onNode(hasScrollAction() and SemanticsMatcher.keyIsDefined(SemanticsProperties.CollectionInfo)).performScrollToNode(hasText(text, substring = true))
     }
 
     @Test

@@ -145,6 +145,8 @@ fun BookDetailScreen(
     /** Opens an admin collection from the Visibility card; null shows the names as plain labels. */
     onCollectionClick: ((collectionId: String) -> Unit)? = null,
     onOpenDocumentViewer: (localPath: String) -> Unit = {},
+    /** The receipt after Match details applied; a slot so a test can render the screen without its ViewModel. */
+    matchReceipt: @Composable (Modifier) -> Unit = { modifier -> MatchReceiptHost(bookId = bookId, modifier = modifier) },
     viewModel: BookDetailViewModel = koinViewModel(),
 ) {
     LaunchedEffect(bookId) {
@@ -235,12 +237,10 @@ fun BookDetailScreen(
                     onCollectionClick = onCollectionClick,
                 )
                     // The receipt after Match details applied, above the mini player.
-                    MatchReceiptHost(
-                        bookId = bookId,
-                        modifier =
-                            Modifier
-                                .align(Alignment.BottomCenter)
-                                .windowInsetsPadding(LocalNowPlayingInsets.current.union(WindowInsets.navigationBars)),
+                    matchReceipt(
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .windowInsetsPadding(LocalNowPlayingInsets.current.union(WindowInsets.navigationBars)),
                     )
                 }
             }

@@ -46,12 +46,14 @@ internal object MatchFixtures {
 
     const val BOOK_ID = "book-1"
     const val VIEWER_ID = "user-1"
+    const val LOCAL_COVER = "/nonexistent/cover.jpg"
 
     val yourCopy =
         YourCopyUi(
             title = "Project Hail Mary",
             authors = listOf("Andy Weir"),
-            coverPath = null,
+            // A local path keeps the cover on its synchronous path, clear of global Koin.
+            coverPath = LOCAL_COVER,
             coverHash = null,
             durationMs = (16 * 60 + 10) * 60_000L,
             narrators = listOf("Ray Porter"),
@@ -191,7 +193,7 @@ internal object MatchFixtures {
             cover =
                 CoverUi(
                     current = CurrentCover(hash = null, setByHand = false),
-                    currentCoverPath = null,
+                    currentCoverPath = LOCAL_COVER,
                     options = listOf(CoverCandidate(optionId = "cover-1", source = BEACON, url = "", width = 1000, height = 1000)),
                     choice = ImageChoice.Candidate("cover-1"),
                 ),

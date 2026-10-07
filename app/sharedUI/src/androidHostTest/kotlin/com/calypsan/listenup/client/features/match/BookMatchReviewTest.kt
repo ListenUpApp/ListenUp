@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.match
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.SemanticsMatcher
@@ -58,11 +59,11 @@ class BookMatchReviewTest {
     }
 
     private fun scrollTo(text: String) {
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(text, substring = true))
+        composeRule.onNode(hasScrollAction() and SemanticsMatcher.keyIsDefined(SemanticsProperties.CollectionInfo)).performScrollToNode(hasText(text, substring = true))
     }
 
     private fun scrollToTag(tag: String) {
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag(tag))
+        composeRule.onNode(hasScrollAction() and SemanticsMatcher.keyIsDefined(SemanticsProperties.CollectionInfo)).performScrollToNode(hasTestTag(tag))
     }
 
     @Test
@@ -182,10 +183,9 @@ class BookMatchReviewTest {
     @Test
     fun `already the same is one collapsed line that includes Length`() {
         setReview(MatchFixtures.ready)
-        scrollTo("already match")
+        scrollTo("fields already match")
 
-        composeRule.onNodeWithText("already match", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Length", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("3 fields already match: Title, Authors, Length").assertIsDisplayed()
     }
 
     @Test
@@ -204,9 +204,8 @@ class BookMatchReviewTest {
 
         val radios =
             composeRule
-                .onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.Selected))
+                .onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
                 .fetchSemanticsNodes()
-                .filter { it.config.getOrNull(SemanticsProperties.Role) == androidx.compose.ui.semantics.Role.RadioButton }
         radios.size shouldBe 2
         composeRule.onNodeWithText("Keep current").assertIsDisplayed()
     }

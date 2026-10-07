@@ -6,6 +6,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.printToString
 import com.calypsan.listenup.client.presentation.match.ReviewUiState
 import com.calypsan.listenup.client.testing.Windows
 import com.calypsan.listenup.client.testing.assertSideBySide
@@ -47,6 +49,8 @@ class BookMatchLayoutTest {
     @Config(qualifiers = Windows.TABLET)
     fun `on a tablet the results sit beside Review and the session hears two panes`() {
         setScreen(MatchFixtures.ready)
+        composeRule.waitForIdle()
+        actions.twoPaneReports shouldContainExactly listOf(true)
 
         assertSideBySide(composeRule.onNodeWithTag(FIND_PANE_TAG), composeRule.onNodeWithTag(REVIEW_PANE_TAG))
         composeRule.onNodeWithTag(APPLY_SUMMARY_TAG).assertIsDisplayed()
