@@ -5,6 +5,7 @@ import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.entity.EntityChange
 import com.calypsan.listenup.api.dto.entity.StoryWorldOp
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.EntityError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
@@ -305,10 +306,17 @@ class EntityRepository(
     /**
      * Restores the `before` of [changeId] as a new forward write and records REVERT: a CREATE reverts to a
      * tombstone; anything else restores (and revives) the earlier snapshot, keeping its home.
+     *
+     * Whether the revert is structural is decided here, inside the write's transaction, against the
+     * current row — never from a read a concurrent delete could overtake. Reverting a CREATE, DELETE or
+     * MERGE, a REVERT that crossed between live and deleted, or anything of an entity that is deleted
+     * now, is structural; without [allowStructural] (the caller's curate capability) it is
+     * [AuthError.PermissionDenied], so a content revert can never revive a deleted entity.
      */
     suspend fun revert(
         changeId: StoryWorldHistoryId,
         actor: UserId?,
+        allowStructural: Boolean,
     ): AppResult<EntityChange> {
         val ctx = writeContext()
         return suspendTransaction(db) {
@@ -323,6 +331,11 @@ class EntityRepository(
                     ?: return@suspendTransaction AppResult.Failure(
                         EntityError.NotFound(debugInfo = "entity=${change.entityId.value}"),
                     )
+            if (!allowStructural && (current.deletedAt != null || !change.isContentEdit())) {
+                return@suspendTransaction AppResult.Failure(
+                    AuthError.PermissionDenied(debugInfo = "structural revert of change=${changeId.value}"),
+                )
+            }
             val restore =
                 change.before
                     ?: return@suspendTransaction AppResult.Success(
@@ -340,6 +353,14 @@ class EntityRepository(
             AppResult.Success(rewrite(current, restored, StoryWorldOp.REVERT, actor, ctx, revision = rev))
         }
     }
+
+    /** True when this change edited a live entry's content and left it live; its revert does the same. */
+    private fun EntityChange.isContentEdit(): Boolean =
+        when (op) {
+            StoryWorldOp.UPDATE -> true
+            StoryWorldOp.REVERT -> before != null && before?.deletedAt == null && after != null && after?.deletedAt == null
+            StoryWorldOp.CREATE, StoryWorldOp.DELETE, StoryWorldOp.MERGE -> false
+        }
 
     // ── Book removal cascade (BookRepository.softDelete / reviveByIds) ──
     // Like every write here, each takes its revision before it reads, so the transaction is the writer

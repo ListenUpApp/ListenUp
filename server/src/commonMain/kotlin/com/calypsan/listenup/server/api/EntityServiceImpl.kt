@@ -3,7 +3,6 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.EntityService
 import com.calypsan.listenup.api.dto.entity.EntityChange
 import com.calypsan.listenup.api.dto.entity.EntityUpsert
-import com.calypsan.listenup.api.dto.entity.StoryWorldOp
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.EntityError
 import com.calypsan.listenup.api.error.ValidationError
@@ -113,8 +112,10 @@ internal class EntityServiceImpl(
      * Reverting needs the permission the reverted change itself needed. A content edit — an UPDATE, or a
      * REVERT between two live states (a rename, a descriptor or parent change) — needs contribute.
      * Anything structural needs curate: reverting a CREATE deletes, reverting a DELETE or MERGE revives,
-     * and so does reverting any change of an entry that is deleted now. A change of an entity the caller
-     * can't see is [EntityError.HistoryNotFound], before any permission is consulted.
+     * and so does reverting any change of an entry that is deleted now. The repository classifies the
+     * change inside the revert's transaction, against the current row, given whether the caller may
+     * curate — so a delete landing after this check can't turn a content revert into a revival. A change
+     * of an entity the caller can't see is [EntityError.HistoryNotFound], before any permission is consulted.
      */
     override suspend fun revert(changeId: StoryWorldHistoryId): AppResult<EntityChange> {
         val caller = principal.current() ?: return denied()
@@ -122,32 +123,14 @@ internal class EntityServiceImpl(
         val change = entityRepo.findChange(changeId) ?: return missing
         val entity = entityRepo.findById(change.entityId) ?: return missing
         if (!canSee(caller, entity.homeSeriesId, entity.homeBookId)) return missing
-        val refusal =
-            if (entity.deletedAt == null && change.isContentEdit()) {
-                permissionPolicy.requireCanContributeStoryWorld(caller.userId, caller.role)
-            } else {
-                permissionPolicy.requireCanCurateStoryWorld(caller.userId, caller.role)
-            }
-        refusal?.let { return AppResult.Failure(it) }
-        return entityRepo.revert(changeId, caller.userId)
-    }
-
-    /** True when this change edited a live entry's content and left it live; its revert does the same. */
-    private fun EntityChange.isContentEdit(): Boolean =
-        when (op) {
-            StoryWorldOp.UPDATE -> {
-                true
-            }
-
-            StoryWorldOp.REVERT -> {
-                before?.deletedAt == null && before != null && after?.deletedAt == null &&
-                    after != null
-            }
-
-            StoryWorldOp.CREATE, StoryWorldOp.DELETE, StoryWorldOp.MERGE -> {
-                false
-            }
+        val curateRefusal = permissionPolicy.requireCanCurateStoryWorld(caller.userId, caller.role)
+        if (curateRefusal != null) {
+            permissionPolicy
+                .requireCanContributeStoryWorld(caller.userId, caller.role)
+                ?.let { return AppResult.Failure(it) }
         }
+        return entityRepo.revert(changeId, caller.userId, allowStructural = curateRefusal == null)
+    }
 
     private fun validate(upsert: EntityUpsert): ValidationError? =
         when {
