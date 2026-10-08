@@ -6,6 +6,8 @@ import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserPermissionsPatch
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.imports.AbsItemRef
 import com.calypsan.listenup.api.dto.imports.AbsUserMatch
 import com.calypsan.listenup.api.dto.imports.ImportAnalysis
@@ -1123,10 +1125,8 @@ private class FakeAdminRepository(
 
     override suspend fun updateUser(
         userId: String,
-        firstName: String?,
-        lastName: String?,
-        role: String?,
-        canEdit: Boolean?,
+        role: UserRole?,
+        permissions: UserPermissionsPatch?,
     ): AppResult<AdminUserInfo> = AppResult.Success(fakeAdminUser(userId, "stub@example.com"))
 
     override suspend fun listPasswordResetRequests(): AppResult<List<PasswordResetRequest>> = AppResult.Success(emptyList())

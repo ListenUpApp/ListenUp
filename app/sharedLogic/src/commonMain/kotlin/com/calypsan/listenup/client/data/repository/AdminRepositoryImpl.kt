@@ -102,20 +102,12 @@ internal class AdminRepositoryImpl(
 
     override suspend fun updateUser(
         userId: String,
-        firstName: String?,
-        lastName: String?,
-        role: String?,
-        canEdit: Boolean?,
+        role: UserRole?,
+        permissions: UserPermissionsPatch?,
     ): AppResult<AdminUserInfo> {
-        // firstName/lastName have no contract field — they must NOT be sent (displayName is deferred
-        // to a future domain-realignment follow-up). The server applies AdminUserPatch.permissions
-        // wholesale, and canEdit is the only flag it carries, so the patch states it outright — there
-        // is no other flag to read back and carry through unchanged. Null leaves permissions untouched.
-        val patch =
-            AdminUserPatch(
-                role = role?.let { UserRole.valueOf(it) },
-                permissions = canEdit?.let { UserPermissionsPatch(canEditMetadata = it) },
-            )
+        // An empty patch is never sent: the server reads `{"permissions":{}}` as an older client's
+        // `canEdit` and turns editing on. Null leaves every flag as it is.
+        val patch = AdminUserPatch(role = role, permissions = permissions?.takeUnless { it.isEmpty })
         return adminUserChannel.call { it.updateUser(UserId(userId), patch) }.map { it.toAdminUserInfo() }
     }
 

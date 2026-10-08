@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserPermissions
+import com.calypsan.listenup.api.dto.auth.UserPermissionsPatch
 import com.calypsan.listenup.api.dto.auth.patchedBy
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.UserStatus
@@ -223,34 +224,40 @@ class AdminRepositoryImplUserTest :
             service.deletedIds shouldBe listOf("u3")
         }
 
-        test("updateUser sets role + canEdit, never sends displayName") {
+        test("updateUser sends only the role and the flags it is given") {
             val service = FakeAdminUserService()
             service.seedUser(
-                testUser("u4", role = UserRole.MEMBER).copy(
-                    permissions = UserPermissions(canEditMetadata = true),
-                ),
+                testUser("u1").copy(permissions = UserPermissions(canEditMetadata = true, canCurateLibrary = false)),
             )
             val repo = buildRepo(service)
 
             val result =
                 repo.updateUser(
-                    userId = "u4",
-                    firstName = "Alice",
-                    lastName = "Smith",
-                    role = "ADMIN",
-                    canEdit = false,
+                    userId = "u1",
+                    role = UserRole.ADMIN,
+                    permissions = UserPermissionsPatch(canCurateLibrary = true),
                 )
 
-            (result is AppResult.Success) shouldBe true
-            val patch = service.lastPatch
-            // displayName must NOT be sent — no contract field for first/last name
-            patch?.displayName shouldBe null
-            patch?.role shouldBe UserRole.ADMIN
-            patch?.permissions?.canEditMetadata shouldBe false
-
+            service.lastPatch shouldBe
+                AdminUserPatch(role = UserRole.ADMIN, permissions = UserPermissionsPatch(canCurateLibrary = true))
             val info = (result as AppResult.Success).data
             info.role shouldBe "ADMIN"
-            info.permissions.canEditMetadata shouldBe false
+            info.permissions.canEditMetadata shouldBe true
+            info.permissions.canCurateLibrary shouldBe true
+        }
+
+        test("updateUser with nothing to change still round-trips, sending an empty patch") {
+            val service = FakeAdminUserService()
+            service.seedUser(testUser("u2"))
+            buildRepo(service).updateUser(userId = "u2").shouldBeInstanceOf<AppResult.Success<*>>()
+            service.lastPatch shouldBe AdminUserPatch()
+        }
+
+        test("an empty permissions patch is never sent, because the server reads {} as a legacy canEdit") {
+            val service = FakeAdminUserService()
+            service.seedUser(testUser("u3", role = UserRole.MEMBER).copy(permissions = UserPermissions(canEditMetadata = false)))
+            buildRepo(service).updateUser(userId = "u3", role = UserRole.ADMIN, permissions = UserPermissionsPatch())
+            service.lastPatch shouldBe AdminUserPatch(role = UserRole.ADMIN, permissions = null)
         }
 
         test("updateUser without canEdit sends no permissions, so the server keeps canEdit as it is") {
@@ -263,7 +270,7 @@ class AdminRepositoryImplUserTest :
             )
             val repo = buildRepo(service)
 
-            val result = repo.updateUser(userId = "u5", role = "ADMIN")
+            val result = repo.updateUser(userId = "u5", role = UserRole.ADMIN)
 
             (result is AppResult.Success) shouldBe true
             service.lastPatch?.permissions shouldBe null

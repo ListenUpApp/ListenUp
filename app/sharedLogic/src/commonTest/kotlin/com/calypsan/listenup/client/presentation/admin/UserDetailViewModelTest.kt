@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.api.dto.auth.UserPermissionsPatch
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
@@ -118,7 +119,7 @@ class UserDetailViewModelTest :
                 val updatedUser = user.copy(permissions = UserPermissions(canEditMetadata = true))
                 everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(user)
                 everySuspend {
-                    adminRepository.updateUser(userId = "user-1", canEdit = true)
+                    adminRepository.updateUser(userId = "user-1", permissions = UserPermissionsPatch(canEditMetadata = true))
                 } returns AppResult.Success(updatedUser)
 
                 val viewModel =
@@ -140,7 +141,7 @@ class UserDetailViewModelTest :
                     .shouldBeInstanceOf<UserDetailUiState.Ready>()
                     .canEdit shouldBe true
                 verifySuspend(VerifyMode.atLeast(1)) {
-                    adminRepository.updateUser(userId = "user-1", canEdit = true)
+                    adminRepository.updateUser(userId = "user-1", permissions = UserPermissionsPatch(canEditMetadata = true))
                 }
             }
         }
@@ -152,7 +153,7 @@ class UserDetailViewModelTest :
                 val adminRepository: AdminRepository = mock()
                 everySuspend { adminRepository.getUser("user-1") } returns
                     AppResult.Success(createUser(canEdit = false))
-                everySuspend { adminRepository.updateUser(userId = "user-1", canEdit = true) } returns
+                everySuspend { adminRepository.updateUser(userId = "user-1", permissions = UserPermissionsPatch(canEditMetadata = true)) } returns
                     networkFailure()
 
                 val viewModel =
@@ -181,7 +182,7 @@ class UserDetailViewModelTest :
                 val adminRepository: AdminRepository = mock()
                 val user = createUser(canEdit = false)
                 everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(user)
-                everySuspend { adminRepository.updateUser(userId = "user-1", canEdit = true) } sequentiallyReturns
+                everySuspend { adminRepository.updateUser(userId = "user-1", permissions = UserPermissionsPatch(canEditMetadata = true)) } sequentiallyReturns
                     listOf(
                         networkFailure(),
                         AppResult.Success(user.copy(permissions = UserPermissions(canEditMetadata = true))),
@@ -222,7 +223,7 @@ class UserDetailViewModelTest :
                 everySuspend {
                     adminRepository.updateUser(
                         userId = "user-1",
-                        canEdit = false,
+                        permissions = UserPermissionsPatch(canEditMetadata = false),
                     )
                 } returns networkFailure()
 

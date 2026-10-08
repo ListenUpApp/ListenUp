@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.dto.auth.UserPermissionsPatch
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.error.ErrorBus
@@ -78,7 +79,7 @@ class UserDetailViewModel(
             name = "canEdit",
             previousValue = ready.canEdit,
             optimistic = { current, value -> current.copy(canEdit = value) },
-            save = { value -> adminRepository.updateUser(userId = userId, canEdit = value) },
+            save = { value -> adminRepository.updateUser(userId = userId, permissions = UserPermissionsPatch(canEditMetadata = value)) },
             reconcile = { current, user -> current.copy(canEdit = user.permissions.canEditMetadata) },
         )
     }

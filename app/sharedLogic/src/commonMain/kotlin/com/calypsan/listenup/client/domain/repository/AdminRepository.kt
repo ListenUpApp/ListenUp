@@ -7,6 +7,8 @@ import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
+import com.calypsan.listenup.api.dto.auth.UserPermissionsPatch
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
@@ -89,21 +91,18 @@ interface AdminRepository {
     suspend fun getUser(userId: String): AppResult<AdminUserInfo>
 
     /**
-     * Update a user's details and permissions.
+     * Change a user's role and/or permission flags in one call. Null (or an empty patch) leaves that
+     * part unchanged; the server merges each flag on its own.
      *
-     * @param userId The user ID to update
-     * @param firstName New first name (null to keep unchanged)
-     * @param lastName New last name (null to keep unchanged)
-     * @param role New role (null to keep unchanged)
-     * @param canEdit New metadata-edit permission (null to keep unchanged)
-     * @return [AppResult] carrying the updated user info, or a failure.
+     * @param userId The user to update.
+     * @param role The new role, or null to keep it.
+     * @param permissions The flags to change, or null to change none.
+     * @return [AppResult] carrying the updated user, or a failure.
      */
     suspend fun updateUser(
         userId: String,
-        firstName: String? = null,
-        lastName: String? = null,
-        role: String? = null,
-        canEdit: Boolean? = null,
+        role: UserRole? = null,
+        permissions: UserPermissionsPatch? = null,
     ): AppResult<AdminUserInfo>
 
     // ═══════════════════════════════════════════════════════════════════════
