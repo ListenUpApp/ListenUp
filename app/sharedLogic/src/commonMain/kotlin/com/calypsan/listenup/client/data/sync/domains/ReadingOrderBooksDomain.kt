@@ -48,8 +48,9 @@ internal fun readingOrderBooksDomain(database: ListenUpDatabase): MirroredDomain
                 tombstoneByIds = database.readingOrderBookDao()::tombstoneByIds,
                 delta =
                     AccessDeltaPolicy.Targeted(
-                        // After the books gate: a membership is decidable once its book is.
-                        order = 7,
+                        // After the books gate: a membership is decidable once its book is. After entities (7)
+                        // too, so the delta order stays total.
+                        order = 8,
                         axis = ScopeAxis.Books,
                         fetchFor = { TargetedFetch.ByBookIds(it) },
                         candidatesFor = { bookIds ->
