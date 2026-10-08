@@ -68,8 +68,9 @@ struct PermissionSectionModel: Identifiable {
 /// Native snapshot of the ready state: the drafted role and flags, the preset they read as, and the
 /// save state.
 struct UserPermissionsReadyModel {
-    /// The presets an admin can pick, in menu order. Custom is arrived at, never picked.
-    static var pickablePresets: [PermissionPreset] { Array(PermissionPreset.Companion.shared.pickable) }
+    /// The presets an admin can pick, in menu order (Kotlin's `PermissionPreset.pickable`). Custom is
+    /// arrived at, never picked. Spelled here because Swift Export traps casting a Kotlin list of enums.
+    static var pickablePresets: [PermissionPreset] { [.listener, .contributor, .librarian] }
 
     let name: String
     let isOwner: Bool
