@@ -144,6 +144,35 @@ class UserPermissionsViewModelTest :
             }
         }
 
+        test("a server that enforces reading orders shows their own group, and saving a toggle names only that flag") {
+            runTest {
+                val all = setOf("canEdit", "canCurateLibrary", "canMakeReadingOrders")
+                val patch = UserPermissionsPatch(canMakeReadingOrders = false)
+                val repo: AdminRepository =
+                    mock {
+                        everySuspend { getUser("u1") } returns AppResult.Success(member())
+                        everySuspend { updateUser(userId = "u1", role = null, permissions = patch) } returns
+                            AppResult.Success(member(UserPermissions(canMakeReadingOrders = false)))
+                    }
+                val viewModel = open(repo, flags = all)
+                val ready = viewModel.ready()
+                ready.preset shouldBe PermissionPreset.CONTRIBUTOR
+                ready.sections.map { it.group } shouldContainExactly
+                    listOf(PermissionGroup.LIBRARY, PermissionGroup.READING_ORDERS)
+                ready.sections
+                    .last()
+                    .rows
+                    .map { it.permission } shouldContainExactly listOf(Permission.MAKE_READING_ORDERS)
+                viewModel.setPermission(Permission.MAKE_READING_ORDERS, false)
+                advanceUntilIdle()
+                viewModel.ready().preset shouldBe PermissionPreset.CUSTOM
+                viewModel.save()
+                advanceUntilIdle()
+                verifySuspend(VerifyMode.exactly(1)) { repo.updateUser(userId = "u1", role = null, permissions = patch) }
+                viewModel.ready().changeCount shouldBe 0
+            }
+        }
+
         test("changing Edit metadata names Curate library too, so edit off with curate on is kept") {
             runTest {
                 val librarian = member(UserPermissions(canEditMetadata = true, canCurateLibrary = true))
