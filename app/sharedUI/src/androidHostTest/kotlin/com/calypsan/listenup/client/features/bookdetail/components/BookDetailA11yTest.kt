@@ -10,7 +10,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookSync
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.CachedUserProfile

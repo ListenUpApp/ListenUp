@@ -5,7 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerScrubber
 import com.calypsan.listenup.client.playback.PlaybackProgress
 import io.kotest.matchers.shouldBe

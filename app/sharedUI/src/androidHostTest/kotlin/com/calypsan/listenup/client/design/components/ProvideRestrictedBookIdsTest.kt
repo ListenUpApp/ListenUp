@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.design.components
 
 import androidx.compose.material3.Text
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.domain.model.BookVisibility
 import com.calypsan.listenup.client.domain.repository.BookVisibilityRepository

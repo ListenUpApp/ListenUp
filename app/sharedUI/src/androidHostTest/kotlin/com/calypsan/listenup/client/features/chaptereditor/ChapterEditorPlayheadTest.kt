@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.features.chaptereditor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineGeometry

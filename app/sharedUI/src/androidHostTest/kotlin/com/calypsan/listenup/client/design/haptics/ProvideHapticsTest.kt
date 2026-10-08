@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.design.haptics
 
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import org.junit.Rule

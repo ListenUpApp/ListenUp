@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.features.profile
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import com.calypsan.listenup.client.design.components.LocalRestrictedBookIds
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
