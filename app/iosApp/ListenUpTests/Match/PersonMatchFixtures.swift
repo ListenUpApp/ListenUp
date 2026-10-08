@@ -39,9 +39,9 @@ enum PersonMatchFixtures {
     static var header: PersonHeaderUi { PersonHeaderUi(name: "Ray Porter", imagePath: nil) }
 
     /// Ray Porter here: narrated five books and translated one, by default.
-    static let rayCredits = [
-        LibraryCredit(role: .narrator, bookCount: 5), LibraryCredit(role: .translator, bookCount: 1)
-    ]
+    static var rayCredits: [LibraryCredit] {
+        [LibraryCredit(role: .narrator, bookCount: 5), LibraryCredit(role: .translator, bookCount: 1)]
+    }
 
     static func inLibrary(
         credits: [LibraryCredit] = rayCredits, count: Int32 = 6, titles: [String] = []
