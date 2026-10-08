@@ -15,7 +15,8 @@ CREATE TABLE admin_user_roster (
     updated_at         INTEGER NOT NULL,
     revision           INTEGER NOT NULL,
     deleted_at         INTEGER,
-    client_op_id       TEXT
+    client_op_id       TEXT,
+    can_curate_library INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX idx_admin_user_roster_revision ON admin_user_roster(revision);

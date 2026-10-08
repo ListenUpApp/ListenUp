@@ -11,6 +11,7 @@
 --   V37__users_timezone.sql          (timezone DEFAULT 'UTC')
 --   V80__hardcover_want_to_read.sql  (starter_shelf_id, hardcover_shelf_id — where Hardcover's Want to Read lands)
 --   V82__drop_can_share.sql          (drops V26's can_share — the inert "Can share" permission)
+--   V92__curate_library_permission.sql (can_curate_library DEFAULT 0, backfilled from can_edit)
 --
 -- SECURITY-RELEVANT CONSTRAINTS preserved verbatim:
 --   * email_normalized UNIQUE — the single structural guarantee that one email maps to one
@@ -45,7 +46,8 @@ CREATE TABLE users (
     timezone         TEXT    NOT NULL DEFAULT 'UTC',
     avatar_updated_at INTEGER NOT NULL DEFAULT 0,
     starter_shelf_id TEXT,
-    hardcover_shelf_id TEXT
+    hardcover_shelf_id TEXT,
+    can_curate_library INTEGER NOT NULL DEFAULT 0
 );
 
 -- Single-row lookup by normalized email — the login / registration uniqueness probe. Indexed
@@ -94,6 +96,15 @@ SELECT id FROM users WHERE role = :role LIMIT 1;
 -- (UserPermissionPolicy). A tombstoned or absent user yields no row → denied.
 selectPermissionsLiveById:
 SELECT can_edit FROM users WHERE id = :id AND deleted_at IS NULL;
+
+-- Both permission flags for a LIVE (non-tombstoned) user — the per-operation gate (PermissionPolicy).
+-- A tombstoned or absent user yields no row → denied.
+selectPermissionFlagsLiveById:
+SELECT can_edit, can_curate_library FROM users WHERE id = :id AND deleted_at IS NULL;
+
+-- Set both permission flags at once — test seeding.
+updatePermissionFlags:
+UPDATE users SET can_edit = :can_edit, can_curate_library = :can_curate_library WHERE id = :id;
 
 -- IANA timezone name for stats day-boundary math (homeTimeZone). Absent row → caller defaults UTC.
 selectTimezoneById:
