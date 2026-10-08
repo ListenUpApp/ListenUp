@@ -132,14 +132,10 @@ internal class MatchingServiceImpl(
     }
 
     private fun rejectUnusable(request: PersonFindRequest): AppError? =
-        when {
-            (request.query?.length ?: 0) > MAX_FIND_QUERY_LENGTH -> {
-                MetadataError.Malformed(debugInfo = "find query longer than $MAX_FIND_QUERY_LENGTH")
-            }
-
-            else -> {
-                null
-            }
+        if ((request.query?.length ?: 0) > MAX_FIND_QUERY_LENGTH) {
+            MetadataError.Malformed(debugInfo = "find query longer than $MAX_FIND_QUERY_LENGTH")
+        } else {
+            null
         }
 
     override suspend fun reviewBookMatch(
