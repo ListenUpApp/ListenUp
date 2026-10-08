@@ -550,6 +550,7 @@ private fun DetailScreen(
                 showSleepTimer = false,
                 onNavigateToStorage = { navigateTo(DetailDestination.Storage) },
                 onNavigateToLicenses = { navigateTo(DetailDestination.Licenses) },
+                onNavigateToCategories = { navigateTo(DetailDestination.AdminCategories) },
             )
         }
 

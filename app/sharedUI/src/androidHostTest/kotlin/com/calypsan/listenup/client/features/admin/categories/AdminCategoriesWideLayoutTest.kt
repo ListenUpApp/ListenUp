@@ -97,6 +97,8 @@ class AdminCategoriesWideLayoutTest {
                         GenreTreeNode(genre = SCIENCE_FICTION, children = emptyList(), depth = 0),
                     ),
                 totalBookCount = 19,
+                canEditMetadata = true,
+                canCurateLibrary = true,
             )
     }
 }

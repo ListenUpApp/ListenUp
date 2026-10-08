@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.settings
 
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -85,6 +86,8 @@ import listenup.composeapp.generated.resources.hardcover_row_subtitle_not_connec
 import listenup.composeapp.generated.resources.hardcover_row_title
 import kotlin.math.roundToInt
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.admin_categories_curate_subtitle
+import listenup.composeapp.generated.resources.common_categories
 import listenup.composeapp.generated.resources.common_about
 import listenup.composeapp.generated.resources.common_account
 import listenup.composeapp.generated.resources.common_library
@@ -207,6 +210,8 @@ object SleepTimerPresets {
  * @param onNavigateToNotificationSettings Optional callback to navigate to notification settings
  * @param onNavigateToHardcover Optional callback to navigate to the Hardcover screen; null (Desktop,
  *   which is frozen) hides the row
+ * @param onNavigateToCategories Optional callback to open Categories; the row shows only when the user
+ *   may curate the library
  * @param showDynamicColors Whether the dynamic-colors toggle is available on this platform
  * @param showSleepTimer Whether the sleep-timer group is shown
  * @param viewModel SettingsViewModel injected via Koin
@@ -220,6 +225,7 @@ fun SettingsScreen(
     onNavigateToLicenses: (() -> Unit)? = null,
     onNavigateToNotificationSettings: (() -> Unit)? = null,
     onNavigateToHardcover: (() -> Unit)? = null,
+    onNavigateToCategories: (() -> Unit)? = null,
     showDynamicColors: Boolean = false,
     showSleepTimer: Boolean = true,
     viewModel: SettingsViewModel = koinViewModel(),
@@ -227,6 +233,7 @@ fun SettingsScreen(
     val platformActions: SettingsPlatformActions = koinInject()
     val state by viewModel.state.collectAsStateWithLifecycle()
     val hardcoverRow by viewModel.hardcoverRow.collectAsStateWithLifecycle()
+    val canCurateLibrary by viewModel.canCurateLibrary.collectAsStateWithLifecycle()
     var showSignOutDialog by remember { mutableStateOf(false) }
 
     if (showSignOutDialog) {
@@ -293,6 +300,7 @@ fun SettingsScreen(
             onSendTestNotification = viewModel::sendTestNotification,
             hardcoverRow = hardcoverRow.takeIf { onNavigateToHardcover != null },
             onNavigateToHardcover = { onNavigateToHardcover?.invoke() },
+            onNavigateToCategories = onNavigateToCategories.takeIf { canCurateLibrary },
             modifier = Modifier.padding(padding),
         )
     }
@@ -338,6 +346,7 @@ internal fun SettingsContent(
     modifier: Modifier = Modifier,
     hardcoverRow: HardcoverRowState? = null,
     onNavigateToHardcover: () -> Unit = {},
+    onNavigateToCategories: (() -> Unit)? = null,
 ) {
     val isWide =
         currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
@@ -348,7 +357,9 @@ internal fun SettingsContent(
     }
     val playback: @Composable () -> Unit = { PlaybackSection(state = state, actions = actions) }
     val sleepTimer: @Composable () -> Unit = { SleepTimerSection(state = state, actions = actions) }
-    val library: @Composable () -> Unit = { LibrarySection(state = state, actions = actions) }
+    val library: @Composable () -> Unit = {
+        LibrarySection(state = state, actions = actions, onOpenCategories = onNavigateToCategories)
+    }
     val account: @Composable () -> Unit = {
         AccountSection(
             state = state,
@@ -563,6 +574,7 @@ private fun SleepTimerSection(
 private fun LibrarySection(
     state: SettingsUiState,
     actions: SettingsActions,
+    onOpenCategories: (() -> Unit)?,
 ) {
     val accent = MaterialTheme.colorScheme.primary
     SectionGroup(
@@ -584,7 +596,21 @@ private fun LibrarySection(
             checked = state.hideSingleBookSeries,
             onCheckedChange = actions.onHideSingleBookSeriesChange,
         )
+        CurationRow(onOpenCategories = onOpenCategories)
     }
+}
+
+/** Settings → Library → Categories: only for those who may curate the library (a null [onOpenCategories] draws nothing). */
+@Composable
+internal fun CurationRow(onOpenCategories: (() -> Unit)?) {
+    if (onOpenCategories == null) return
+    SettingNavigationRow(
+        icon = Icons.Default.Category,
+        accent = MaterialTheme.colorScheme.primary,
+        title = stringResource(Res.string.common_categories),
+        subtitle = stringResource(Res.string.admin_categories_curate_subtitle),
+        onClick = onOpenCategories,
+    )
 }
 
 @Composable

@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.features.settings.HardcoverMatchScreen
 import com.calypsan.listenup.client.features.settings.HardcoverSettingsScreen
 import com.calypsan.listenup.client.features.settings.NotificationSettingsScreen
 import com.calypsan.listenup.client.features.settings.SettingsScreen
+import com.calypsan.listenup.client.navigation.AdminCategories
 import com.calypsan.listenup.client.navigation.Devices
 import com.calypsan.listenup.client.navigation.HardcoverKeptOff
 import com.calypsan.listenup.client.navigation.HardcoverMatch
@@ -32,6 +33,7 @@ internal fun EntryProviderScope<NavKey>.settingsEntries(
     entry<Settings> {
         SettingsScreen(
             showDynamicColors = true,
+            onNavigateToCategories = { backStack.add(AdminCategories) },
             onNavigateBack = {
                 backStack.removeAt(backStack.lastIndex)
             },
