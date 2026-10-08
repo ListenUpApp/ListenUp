@@ -6,13 +6,13 @@ import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -102,7 +102,6 @@ class CollectionServiceImplSetBookCollectionsTest :
                     bus = bus,
                     sql = db.sql,
                     clock = fixedClock,
-                    permissionPolicy = PermissionPolicy(db.sql),
                     bookRevisionTouch = FakeBookRevisionTouch(),
                     principal = principalFor("u1"),
                 )
@@ -174,7 +173,7 @@ class CollectionServiceImplSetBookCollectionsTest :
                     val member = service.actAs("u1", UserRole.MEMBER)
                     val result = member.setBookCollections(BookId("book1"), listOf(c1.data.id))
                     require(result is AppResult.Failure)
-                    result.error.shouldBeInstanceOf<CollectionError.Forbidden>()
+                    result.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
                 }
             }
         }

@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.getOrElse
@@ -20,7 +21,6 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.isAdmin
 import com.calypsan.listenup.server.auth.toColumn
 import com.calypsan.listenup.server.auth.toContract
@@ -283,11 +283,11 @@ private fun decisionFor(
  *   otherwise [CollectionError.NotFound] — we never leak the existence of a collection
  *   the caller has no relationship to.
  * - **Write-book** ([addBookToCollection], [removeBookFromCollection]) require write
- *   permission; a caller who can read but not write gets [CollectionError.Forbidden],
+ *   permission; a caller who can read but not write gets [AuthError.PermissionDenied],
  *   a caller who can't see it at all gets [CollectionError.NotFound].
  * - **Admin-only management** ([renameCollection], [deleteCollection]) require ROOT/ADMIN;
  *   a member who can read (even one owning a collection from before the admin-only rule)
- *   gets [CollectionError.Forbidden], one who can't see it gets [CollectionError.NotFound].
+ *   gets [AuthError.PermissionDenied], one who can't see it gets [CollectionError.NotFound].
  *
  * Route handlers call [copyWith] to bind each request to the authenticated principal;
  * the Koin singleton carries an unscoped placeholder that yields no principal.
@@ -305,7 +305,6 @@ internal class CollectionServiceImpl(
     private val grantRepo: CollectionGrantRepository,
     private val accessPolicy: CollectionAccessPolicy,
     private val bookAccessPolicy: BookAccessPolicy,
-    private val permissionPolicy: PermissionPolicy,
     private val bus: ChangeBus,
     private val sql: ListenUpDatabase,
     private val clock: Clock = Clock.System,
@@ -883,7 +882,7 @@ internal class CollectionServiceImpl(
      * sequence of per-book commits, not one: a crash part-way leaves the books before it released and
      * the rest held, never a book in no collection.
      *
-     * Admin-only ([CollectionError.Forbidden] otherwise); requires a caller principal.
+     * Admin-only ([AuthError.PermissionDenied] otherwise); requires a caller principal.
      */
     override suspend fun releaseBooks(
         libraryId: LibraryId,
@@ -1159,7 +1158,7 @@ internal class CollectionServiceImpl(
      * Returns the live book ids in the library's inbox, or an empty list when no inbox
      * exists yet — a read must never auto-create one.
      *
-     * Admin-only ([CollectionError.Forbidden] otherwise); requires a caller principal.
+     * Admin-only ([AuthError.PermissionDenied] otherwise); requires a caller principal.
      */
     override suspend fun listInbox(libraryId: LibraryId): AppResult<List<BookId>> {
         val caller = resolveCaller() ?: return noPrincipal()
@@ -1181,7 +1180,6 @@ internal class CollectionServiceImpl(
             grantRepo = grantRepo,
             accessPolicy = accessPolicy,
             bookAccessPolicy = bookAccessPolicy,
-            permissionPolicy = permissionPolicy,
             bus = bus,
             sql = sql,
             clock = clock,
@@ -1203,7 +1201,7 @@ internal class CollectionServiceImpl(
 
     /**
      * Management gate (rename, delete, share, list shares): null = allowed (ROOT/ADMIN);
-     * [CollectionError.Forbidden] if the caller can see the collection but is not an admin;
+     * [AuthError.PermissionDenied] if the caller can see the collection but is not an admin;
      * [CollectionError.NotFound] if they can't see it at all (don't leak existence).
      *
      * Only admins write collections — a member who owns a collection from before that rule
@@ -1212,10 +1210,10 @@ internal class CollectionServiceImpl(
     private fun manageGate(
         decision: CollectionAccessPolicy.Decision,
         role: UserRoleColumn,
-    ): CollectionError? =
+    ): AppError? =
         when {
             role.isAdmin() -> null
-            decision.canAccess -> CollectionError.Forbidden()
+            decision.canAccess -> AuthError.PermissionDenied()
             else -> CollectionError.NotFound()
         }
 
@@ -1279,15 +1277,14 @@ internal class CollectionServiceImpl(
         softDelete(id, clientOpId = null)
 }
 
-/** Admin gate: null = allowed (ROOT/ADMIN); [CollectionError.Forbidden] for everyone else. */
-private fun adminGate(role: UserRoleColumn): CollectionError? =
-    if (role.isAdmin()) null else CollectionError.Forbidden()
+/** Admin gate: null = allowed (ROOT/ADMIN); [AuthError.PermissionDenied] for everyone else. */
+private fun adminGate(role: UserRoleColumn): AppError? = if (role.isAdmin()) null else AuthError.PermissionDenied()
 
-/** Write gate: null = allowed; Forbidden if the caller can read but not write; NotFound otherwise. */
-private fun writeGate(decision: CollectionAccessPolicy.Decision): CollectionError? =
+/** Write gate: null = allowed; PermissionDenied if the caller can read but not write; NotFound otherwise. */
+private fun writeGate(decision: CollectionAccessPolicy.Decision): AppError? =
     when {
         decision.canAccess && decision.permission.canWrite() -> null
-        decision.canAccess -> CollectionError.Forbidden()
+        decision.canAccess -> AuthError.PermissionDenied()
         else -> CollectionError.NotFound()
     }
 
@@ -1317,7 +1314,6 @@ fun createCollectionService(
         grantRepo = grantRepo,
         accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
         bookAccessPolicy = BookAccessPolicy(sql, driver),
-        permissionPolicy = PermissionPolicy(sql),
         bus = bus,
         sql = sql,
         clock = clock,

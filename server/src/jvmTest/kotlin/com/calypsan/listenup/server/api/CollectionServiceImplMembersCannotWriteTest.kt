@@ -6,14 +6,13 @@ import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
-import com.calypsan.listenup.api.error.CollectionError
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
@@ -66,7 +65,6 @@ class CollectionServiceImplMembersCannotWriteTest :
                 grantRepo = grantRepo,
                 accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
                 bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
-                permissionPolicy = PermissionPolicy(db.sql),
                 bus = bus,
                 sql = db.sql,
                 clock = FixedClock(Instant.fromEpochMilliseconds(1_700_000_000_000L)),
@@ -115,7 +113,7 @@ class CollectionServiceImplMembersCannotWriteTest :
                 runTest {
                     val result = makeService(this@withSqlDatabase, "u1").createCollection("test-library", "Mine")
                     require(result is AppResult.Failure)
-                    result.error.shouldBeInstanceOf<CollectionError.Forbidden>()
+                    result.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
                 }
             }
         }
@@ -189,6 +187,6 @@ class CollectionServiceImplMembersCannotWriteTest :
     })
 
 private fun AppResult<*>.forbidden() {
-    require(this is AppResult.Failure) { "expected Forbidden, got $this" }
-    error.shouldBeInstanceOf<CollectionError.Forbidden>()
+    require(this is AppResult.Failure) { "expected PermissionDenied, got $this" }
+    error.shouldBeInstanceOf<AuthError.PermissionDenied>()
 }

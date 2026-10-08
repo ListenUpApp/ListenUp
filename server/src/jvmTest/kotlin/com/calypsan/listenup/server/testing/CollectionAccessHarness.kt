@@ -12,7 +12,6 @@ import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.CollectionAccessPolicy
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.BookRepository
@@ -103,7 +102,6 @@ internal fun SqlTestDatabases.collectionAccessHarness(
             bus = bus,
             sql = sql,
             clock = harnessFixedClock,
-            permissionPolicy = PermissionPolicy(sql),
             bookRevisionTouch = revisionTouch,
             principal = principalFor("admin", UserRole.ADMIN),
         )

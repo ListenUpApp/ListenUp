@@ -234,7 +234,6 @@ fun booksModule(
                 grantRepo = get(),
                 accessPolicy = get(),
                 bookAccessPolicy = get<BookAccessPolicy>(),
-                permissionPolicy = get<PermissionPolicy>(),
                 bus = get(),
                 sql = get<ListenUpDatabase>(),
                 clock = get(),

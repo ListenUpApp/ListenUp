@@ -7,6 +7,8 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.shelf.DiscoveredShelf
 import com.calypsan.listenup.api.dto.shelf.Shelf
 import com.calypsan.listenup.api.dto.shelf.ShelfDetail
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.ShelfError
 import com.calypsan.listenup.api.result.AppResult
@@ -53,9 +55,9 @@ internal const val MAX_BOOKS_PER_SHELF_REORDER = 5000
  * Access semantics — shelves are single-owner, so the rule is simpler than
  * collections (no shared write grants):
  * - **Mutation** ([createShelf], [updateShelf], [deleteShelf], [addBookToShelf],
- *   [removeBookFromShelf], [reorderShelfBooks]) is owner-only. A non-owner gets
- *   [ShelfError.Forbidden] (the shelf exists, they just can't touch it); a missing
- *   shelf gets [ShelfError.NotFound]. ROOT/ADMIN bypass ownership.
+ *   [removeBookFromShelf], [reorderShelfBooks]) is owner-only, with no admin bypass —
+ *   a personal shelf is its owner's alone. A non-owner gets [AuthError.PermissionDenied]
+ *   (the shelf exists, they just can't touch it); a missing shelf gets [ShelfError.NotFound].
  * - **Read** ([getShelf]) returns all books to the owner/admin; to a non-owner on a
  *   *public* shelf it returns only [BookAccessPolicy]-visible books; to a non-owner on
  *   a *private* shelf it returns [ShelfError.NotFound] — never leaking the shelf's
@@ -328,9 +330,9 @@ internal class ShelfServiceImpl(
             val owned: OwnedShelf,
         ) : OwnerGate
 
-        /** Ownership failed; carries the typed [ShelfError] to return to the caller. */
+        /** Ownership failed; carries the typed [AppError] to return to the caller. */
         data class Denied(
-            val error: ShelfError,
+            val error: AppError,
         ) : OwnerGate
     }
 
@@ -346,7 +348,7 @@ internal class ShelfServiceImpl(
     /**
      * Owner-only gate: loads the shelf and decides whether [caller] may mutate it.
      * Missing shelf → [OwnerGate.Denied] with [ShelfError.NotFound]; present but
-     * neither owner nor admin → [OwnerGate.Denied] with [ShelfError.Forbidden];
+     * not the owner → [OwnerGate.Denied] with [AuthError.PermissionDenied];
      * otherwise [OwnerGate.Allowed] with the loaded shelf.
      */
     private suspend fun requireOwner(
@@ -354,10 +356,12 @@ internal class ShelfServiceImpl(
         caller: Caller,
     ): OwnerGate {
         val owned = shelfRepo.findOwnedById(shelfId.value) ?: return OwnerGate.Denied(ShelfError.NotFound())
-        return if (owned.ownerId == caller.userId || caller.isAdmin) {
+        // Personal shelves are their owner's alone: no admin bypass. A shelf that exists but is someone
+        // else's is the one denial shape every client folds.
+        return if (owned.ownerId == caller.userId) {
             OwnerGate.Allowed(owned)
         } else {
-            OwnerGate.Denied(ShelfError.Forbidden())
+            OwnerGate.Denied(AuthError.PermissionDenied())
         }
     }
 

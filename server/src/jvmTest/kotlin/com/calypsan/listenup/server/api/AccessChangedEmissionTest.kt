@@ -103,7 +103,6 @@ class AccessChangedEmissionTest :
                     grantRepo = grantRepo,
                     accessPolicy = accessPolicy,
                     bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
-                    permissionPolicy = PermissionPolicy(db.sql),
                     bus = bus,
                     sql = db.sql,
                     clock = fixedClock,
