@@ -151,7 +151,7 @@ private fun ReadyContent(
     }
 
     // An editor gets the panel on a flat series too: its tile is how a hierarchy starts.
-    if (state.childSeries.isNotEmpty() || state.canEditHierarchy) SubSeriesPanel(state, actions)
+    if (state.childSeries.isNotEmpty() || state.canEditMetadata) SubSeriesPanel(state, actions)
 
     // en.json's series.books
     Panel(title = "Books", trailing = { CountBadge(state.books.size) }) {

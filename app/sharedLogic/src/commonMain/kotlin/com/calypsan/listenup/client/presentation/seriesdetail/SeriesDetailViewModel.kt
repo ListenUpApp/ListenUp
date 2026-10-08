@@ -60,7 +60,7 @@ class SeriesDetailViewModel(
     /** The reader's own expand/collapse choices on this page — series id to expanded. */
     private val expandOverrides = MutableStateFlow<Map<String, Boolean>>(emptyMap())
 
-    /** Whether the reader may change the hierarchy (Edit metadata), and whether the server can be reached to do it. */
+    /** Whether the reader may edit the series (Edit metadata), and whether the server can be reached to do it. */
     private val hierarchyAccess: Flow<Pair<Boolean, Boolean>> =
         combine(
             permissionsRepository.observeCan(Permission.EDIT_METADATA),
@@ -82,7 +82,7 @@ class SeriesDetailViewModel(
                     ) { seriesWithBooks, lineage, positions, overrides, (canEdit, online) ->
                         if (seriesWithBooks != null) {
                             buildReadyState(id, seriesWithBooks, lineage, positions, overrides)
-                                .copy(canEditHierarchy = canEdit, isOnline = online)
+                                .copy(canEditMetadata = canEdit, isOnline = online)
                         } else {
                             SeriesDetailUiState.Error("Series not found")
                         }
@@ -332,8 +332,8 @@ sealed interface SeriesDetailUiState {
         val bookSections: List<SeriesBookSection> = emptyList(),
         /** The book Continue resumes, with the series it is listed under; null when all are finished. */
         val resumeBook: SeriesResumeUi? = null,
-        /** Whether the reader may change the hierarchy (Edit metadata; admins always may). */
-        val canEditHierarchy: Boolean = false,
+        /** Whether the reader may edit the series and its hierarchy (Edit metadata; admins always may). */
+        val canEditMetadata: Boolean = false,
         /** Whether the device has a network route; hierarchy changes need the server. */
         val isOnline: Boolean = true,
     ) : SeriesDetailUiState {

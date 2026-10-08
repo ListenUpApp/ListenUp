@@ -869,12 +869,12 @@ class SeriesDetailViewModelTest :
                 val permissions = fixture.permissions
                 permissions.granted.value = emptySet()
                 advanceUntilIdle()
-                ready().canEditHierarchy shouldBe false
+                ready().canEditMetadata shouldBe false
 
                 permissions.granted.value = setOf(Permission.EDIT_METADATA)
                 fixture.online.value = false
                 advanceUntilIdle()
-                ready().canEditHierarchy shouldBe true
+                ready().canEditMetadata shouldBe true
                 ready().isOnline shouldBe false
             }
         }

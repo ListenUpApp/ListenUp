@@ -271,11 +271,11 @@ private fun LazyGridScope.subSeriesItem(
     hierarchy: SeriesPageHierarchyActions,
     modifier: Modifier,
 ) {
-    if (state.childSeries.isEmpty() && !state.canEditHierarchy) return
+    if (state.childSeries.isEmpty() && !state.canEditMetadata) return
     item(key = "sub-series", span = { GridItemSpan(maxLineSpan) }) {
         SubSeriesSection(
             childSeries = state.childSeries,
-            canAddSubSeries = state.canEditHierarchy,
+            canAddSubSeries = state.canEditMetadata,
             isOnline = state.isOnline,
             onSeriesClick = hierarchy.onSeriesClick,
             onAddSubSeries = hierarchy.onAddSubSeries,

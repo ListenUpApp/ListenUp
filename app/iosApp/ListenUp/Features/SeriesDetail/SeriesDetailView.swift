@@ -273,7 +273,7 @@ struct SeriesDetailView: View {
     /// under each sub-series on a parent page, one flat sortable list otherwise.
     @ViewBuilder
     private func listSections(observer: SeriesDetailObserver) -> some View {
-        if observer.isGrouped || observer.canEditHierarchy {
+        if observer.isGrouped || observer.canEditMetadata {
             subSeriesSection(observer: observer)
         }
         if observer.isGrouped {
@@ -288,7 +288,7 @@ struct SeriesDetailView: View {
             ForEach(observer.childSeries) { card in
                 ChildSeriesRow(card: card)
             }
-            if observer.canEditHierarchy {
+            if observer.canEditMetadata {
                 // Editors only; needs the server, so it is disabled — not hidden — offline.
                 Button { observer.send(.opened) } label: {
                     Label(String(localized: "series.add_subseries"), systemImage: "plus")
