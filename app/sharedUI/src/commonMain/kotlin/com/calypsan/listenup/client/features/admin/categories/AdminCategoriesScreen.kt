@@ -911,7 +911,12 @@ private fun CategoryRow(
 
     var showContextMenu by remember { mutableStateOf(false) }
     // With neither permission there is nothing in the menu, so the long-press offers nothing either.
-    val openContextMenu: (() -> Unit)? = if (canEdit || canCurate) ({ showContextMenu = true }) else null
+    val openContextMenu: (() -> Unit)? =
+        if (canEdit || canCurate) {
+            { showContextMenu = true }
+        } else {
+            null
+        }
     var rowPosition by remember { mutableStateOf(Offset.Zero) }
     var rowHeight by remember { mutableStateOf(0) }
 
