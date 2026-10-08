@@ -1,5 +1,6 @@
 import com.calypsan.listenup.gradle.LISTENUP_FREE_COMPILER_ARGS
 import com.calypsan.listenup.gradle.LISTENUP_MAIN_ONLY_COMPILER_ARGS
+import com.calypsan.listenup.gradle.useStrictKotestEquality
 import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompilerOptions
@@ -71,3 +72,6 @@ kotlin {
         }
     }
 }
+
+// Kotest's shouldBe is plain equals in every JVM test task (see KotestEquality.kt).
+tasks.withType<Test>().configureEach { useStrictKotestEquality() }
