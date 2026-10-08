@@ -57,15 +57,18 @@ struct SeriesDetailView: View {
         .navigationTitle(observer?.seriesName ?? String(localized: "common.series"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button {
-                        showEdit = true
+            // Edit is the menu's only action, so a reader without Edit metadata gets no menu at all.
+            if observer?.editAccess.offersEditing == true {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button {
+                            showEdit = true
+                        } label: {
+                            Label(String(localized: "common.edit"), systemImage: "pencil")
+                        }
                     } label: {
-                        Label(String(localized: "common.edit"), systemImage: "pencil")
+                        Image(systemName: "ellipsis.circle")
                     }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
                 }
             }
         }
@@ -273,7 +276,7 @@ struct SeriesDetailView: View {
     /// under each sub-series on a parent page, one flat sortable list otherwise.
     @ViewBuilder
     private func listSections(observer: SeriesDetailObserver) -> some View {
-        if observer.isGrouped || observer.canEditMetadata {
+        if observer.isGrouped || observer.editAccess.offersEditing {
             subSeriesSection(observer: observer)
         }
         if observer.isGrouped {
@@ -288,12 +291,12 @@ struct SeriesDetailView: View {
             ForEach(observer.childSeries) { card in
                 ChildSeriesRow(card: card)
             }
-            if observer.canEditMetadata {
+            if observer.editAccess.offersEditing {
                 // Editors only; needs the server, so it is disabled — not hidden — offline.
                 Button { observer.send(.opened) } label: {
                     Label(String(localized: "series.add_subseries"), systemImage: "plus")
                 }
-                .disabled(!observer.isOnline)
+                .disabled(!observer.editAccess.canAddSubSeriesNow)
             }
         } header: {
             sectionTitle(String(localized: "series.subseries"), count: observer.childSeries.count)
