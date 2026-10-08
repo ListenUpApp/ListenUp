@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.repository.EventStreamRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.ImportRepository
+import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.UploadRepository
 import com.calypsan.listenup.client.domain.repository.OrganizeRepository
 import com.calypsan.listenup.client.domain.repository.InboxRepository
@@ -60,6 +61,7 @@ import org.koin.test.verify.verify
  *  - [GenreRepository] — owned by `genreTagModule` (pulled in by `AdminCategoriesViewModel`).
  *  - [AdminRepository] — owned by `adminModule`.
  *  - [UserRepository] — owned by `socialModule`.
+ *  - [InstanceRepository] — owned by `connectionModule`.
  *  - [SearchRepository] — owned by `searchModule`.
  *  - [BackupRepository] — owned by `adminModule`.
  *  - [SyncRepository] — owned by `clientSyncModule`.
@@ -104,6 +106,7 @@ class AdminPresentationModuleVerifyTest :
                         UploadRepository::class,
                         OrganizeRepository::class,
                         BookVisibilityRepository::class,
+                        InstanceRepository::class,
                     ),
             )
         }

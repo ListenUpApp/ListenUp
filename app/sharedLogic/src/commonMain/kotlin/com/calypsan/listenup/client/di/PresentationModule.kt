@@ -225,6 +225,15 @@ internal val adminPresentationModule =
                 errorBus = get(),
             )
         }
+        // UserPermissionsViewModel - takes userId as parameter
+        factory { params ->
+            com.calypsan.listenup.client.presentation.admin.UserPermissionsViewModel(
+                userId = params.get<String>(0),
+                adminRepository = get(),
+                instanceRepository = get(),
+                errorBus = get(),
+            )
+        }
         // LibrarySettingsViewModel — operates on THE singleton library (no id param)
         factory {
             com.calypsan.listenup.client.presentation.admin.LibrarySettingsViewModel(
