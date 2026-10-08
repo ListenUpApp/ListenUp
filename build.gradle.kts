@@ -136,6 +136,14 @@ detekt {
     )
 }
 
+// The root task is the untyped pass over every source directory above; each module's own `detekt` runs its
+// type-resolved pass (the `listenup.detekt` convention). Depending on them here makes `detekt` mean both
+// wherever it is named — `./gradlew detekt` on CI, and verifyLocal's dependsOn, where a bare "detekt"
+// resolves to this root task alone and would otherwise skip every typed pass.
+tasks.named("detekt") {
+    dependsOn(provider { subprojects.mapNotNull { it.tasks.findByName("detekt") } })
+}
+
 dependencies {
     // Formatting is owned by Spotless/ktlint, so the detekt formatting plugin
     // (renamed detekt-formatting → detekt-rules-ktlint-wrapper in 2.0) is omitted.
