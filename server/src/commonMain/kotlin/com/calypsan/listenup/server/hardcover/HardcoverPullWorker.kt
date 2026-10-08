@@ -290,10 +290,7 @@ class HardcoverPullWorker(
 
     private fun bumpFailures(userId: String): Int =
         synchronized(lock) {
-            ((failures[userId] ?: 0) + 1).also {
-                failures[userId] =
-                    it
-            }
+            ((failures[userId] ?: 0) + 1).also { count -> failures[userId] = count }
         }
 
     private fun forget(userId: String) {

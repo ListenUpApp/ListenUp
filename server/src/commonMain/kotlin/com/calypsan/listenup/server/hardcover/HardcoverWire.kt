@@ -194,7 +194,7 @@ internal data class ChangedUserBookWire(
             statusId = statusId,
             finishedReads = reads.mapNotNull { read -> read.finishedAt?.let { HardcoverFinishedRead(read.id, it) } },
             title = book?.title,
-            authors = book?.contributions?.mapNotNull { it.author?.name }.orEmpty(),
+            authors = book?.run { contributions.mapNotNull { it.author?.name } }.orEmpty(),
             editionAsin = edition?.asin?.takeIf { it.isNotBlank() },
             editionIsbns = listOfNotNull(edition?.isbn13, edition?.isbn10).filter { it.isNotBlank() },
             defaultAudioEditionId = book?.defaultAudioEditionId,

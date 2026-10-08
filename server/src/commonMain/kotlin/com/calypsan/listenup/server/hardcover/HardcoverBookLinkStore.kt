@@ -66,7 +66,7 @@ class HardcoverBookLinkStore(
                 book_id = bookId,
                 hc_book_id = match?.hcBookId,
                 hc_edition_id = match?.hcEditionId,
-                match_method = match?.method?.name,
+                match_method = match?.run { method.name },
                 match_state = if (match != null) LINKED else NEEDS_MATCH,
                 updated_at = now(),
             )

@@ -63,6 +63,9 @@ private const val MILLIS_PER_SECOND = 1_000L
 private const val INSUFFICIENT_SCOPE = "insufficient_scope"
 private val SCOPE_IN_CHALLENGE = Regex("""scope="([^"]*)"""")
 
+/** The `scope="…"` a `WWW-Authenticate` challenge names, if it names one. */
+private fun scopeInChallenge(challenge: String): String? = SCOPE_IN_CHALLENGE.find(challenge)?.run { groupValues[1] }
+
 /**
  * Classifies one Hardcover HTTP answer. A 2xx whose body carries a GraphQL `errors` array is a
  * failure too: Hasura reports a malformed or forbidden query that way, with status 200.
@@ -87,7 +90,7 @@ internal fun classifyHardcoverResponse(
         status == HttpStatusCode.Forbidden &&
             (oauthError?.error == INSUFFICIENT_SCOPE || wwwAuthenticate?.contains(INSUFFICIENT_SCOPE) == true) -> {
             HardcoverCall.MissingScope(
-                oauthError?.scope ?: wwwAuthenticate?.let { SCOPE_IN_CHALLENGE.find(it)?.groupValues?.get(1) },
+                oauthError?.scope ?: wwwAuthenticate?.let(::scopeInChallenge),
             )
         }
 
@@ -103,10 +106,8 @@ internal fun classifyHardcoverResponse(
 
 private fun graphQlErrorIn(body: String): String? =
     decodeOrNull<GraphQlErrorBody>(body)
-        ?.errors
-        ?.firstOrNull()
-        ?.message
-        ?.ifBlank { "GraphQL error" }
+        ?.run { errors.firstOrNull() }
+        ?.run { message.ifBlank { "GraphQL error" } }
 
 private fun oauthErrorIn(body: String): OAuthErrorBody? = decodeOrNull<OAuthErrorBody>(body)
 

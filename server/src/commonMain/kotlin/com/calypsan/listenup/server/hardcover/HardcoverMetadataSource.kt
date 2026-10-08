@@ -73,7 +73,14 @@ class HardcoverMetadataSource(
     BookFindSource {
     override val id: MetadataProviderId = MetadataProviderId.HARDCOVER
 
-    private val finder = HardcoverFind(graphQl, catalogToken, rateLimiter, links, sourceSettings)
+    private val finder =
+        HardcoverFind(
+            graphQl = graphQl,
+            catalogToken = catalogToken,
+            rateLimiter = rateLimiter,
+            links = links,
+            sourceSettings = sourceSettings,
+        )
     private val people = HardcoverPeople(graphQl, catalogToken, rateLimiter)
 
     /** Hardcover has profiles for narrators as well as authors — the one source that does. */
@@ -109,11 +116,16 @@ class HardcoverMetadataSource(
         locale: MetadataLocale,
     ): AppResult<List<SeriesMeta>?> =
         details(book).map { found ->
-            found
-                ?.series
-                ?.map {
-                    SeriesMeta(key = HARDCOVER_SERIES_KEY_PREFIX + it.seriesId, title = it.name, sequence = it.sequence)
-                }?.ifEmpty { null }
+            found?.run {
+                series
+                    .map { entry ->
+                        SeriesMeta(
+                            key = HARDCOVER_SERIES_KEY_PREFIX + entry.seriesId,
+                            title = entry.name,
+                            sequence = entry.sequence,
+                        )
+                    }.ifEmpty { null }
+            }
         }
 
     override suspend fun getGenres(
@@ -121,12 +133,15 @@ class HardcoverMetadataSource(
         locale: MetadataLocale,
     ): AppResult<List<GenreMeta>?> =
         details(book).map { found ->
-            found
-                ?.genres
-                ?.sortedByDescending { it.count }
-                ?.take(MAX_GENRES)
-                ?.map { GenreMeta(it.name, GenreKind.GENRE) }
-                ?.ifEmpty { null }
+            found?.run {
+                genres
+                    .asSequence()
+                    .sortedByDescending { it.count }
+                    .take(MAX_GENRES)
+                    .map { GenreMeta(it.name, GenreKind.GENRE) }
+                    .toList()
+                    .ifEmpty { null }
+            }
         }
 
     /** Hardcover's cover for the book (matching redesign PR 3), so Review can offer it as a tile. */
@@ -143,7 +158,7 @@ class HardcoverMetadataSource(
         locale: MetadataLocale,
     ): AppResult<List<String>?> =
         details(book).map { found ->
-            found?.let { wellSupportedMoods(it.moods) }?.ifEmpty { null }
+            found?.run { wellSupportedMoods(moods).ifEmpty { null } }
         }
 
     override suspend fun searchContributors(
@@ -169,7 +184,11 @@ class HardcoverMetadataSource(
                 )
             }
 
-            else -> {
+            HardcoverCall.Unauthorized,
+            is HardcoverCall.MissingScope,
+            is HardcoverCall.Throttled,
+            is HardcoverCall.Failed,
+            -> {
                 failure(answer)
             }
         }
@@ -195,11 +214,17 @@ class HardcoverMetadataSource(
 
             is HardcoverCall.Ok -> {
                 AppResult.Success(
-                    answer.value?.let { ContributorMeta(key, it.name, it.bio, it.imageUrl) },
+                    answer.value?.let {
+                        ContributorMeta(key = key, name = it.name, description = it.bio, imageUrl = it.imageUrl)
+                    },
                 )
             }
 
-            else -> {
+            HardcoverCall.Unauthorized,
+            is HardcoverCall.MissingScope,
+            is HardcoverCall.Throttled,
+            is HardcoverCall.Failed,
+            -> {
                 failure(answer)
             }
         }
@@ -228,8 +253,14 @@ class HardcoverMetadataSource(
                 }
             when (answer) {
                 null -> AppResult.Success(null)
+
                 is HardcoverCall.Ok -> AppResult.Success(answer.value?.also { cache.rememberDetails(it) })
-                else -> failure(answer)
+
+                HardcoverCall.Unauthorized,
+                is HardcoverCall.MissingScope,
+                is HardcoverCall.Throttled,
+                is HardcoverCall.Failed,
+                -> failure(answer)
             }
         }
     }
@@ -281,7 +312,7 @@ class HardcoverMetadataSource(
      */
     private suspend fun lookupIdentity(book: BookIdentity): BookIdentity {
         val local = book.bookId?.let { identities.identityOf(it) }
-        val title = local?.title?.takeIf { it.isNotBlank() } ?: book.title
+        val title = local?.run { title.takeIf { it.isNotBlank() } } ?: book.title
         return BookIdentity(
             asin = book.asin ?: local?.asin,
             isbn = book.isbn ?: local?.isbn,
@@ -325,8 +356,10 @@ class HardcoverMetadataSource(
 internal fun wellSupportedMoods(moods: List<HardcoverTag>): List<String> {
     val top = moods.maxOfOrNull { it.count } ?: return emptyList()
     return moods
+        .asSequence()
         .filter { it.count >= MIN_MOOD_VOTES && it.count * TOP_MOOD_SHARE_DIVISOR >= top }
         .sortedByDescending { it.count }
         .take(MAX_MOODS)
         .map { mood -> mood.name.replaceFirstChar { it.uppercaseChar() } }
+        .toList()
 }

@@ -27,7 +27,7 @@ class RouteResponsesTest :
                 testApplication {
                     routing {
                         get("/boom") {
-                            call.respondAppResult<String>(AppResult.Failure(FOUR_XX_ERROR))
+                            respondAppResult<String>(call, AppResult.Failure(FOUR_XX_ERROR))
                         }
                     }
                     client.get("/boom")
@@ -46,7 +46,7 @@ class RouteResponsesTest :
                 testApplication {
                     routing {
                         get("/fail") {
-                            call.respondAppResult<String>(AppResult.Failure(FIVE_XX_ERROR))
+                            respondAppResult<String>(call, AppResult.Failure(FIVE_XX_ERROR))
                         }
                     }
                     client.get("/fail")
@@ -65,7 +65,7 @@ class RouteResponsesTest :
             val capture = ListenUpLoggerFactory.installTestCapture()
             try {
                 testApplication {
-                    routing { get("/ok") { call.respondAppResult(AppResult.Success("ok")) } }
+                    routing { get("/ok") { respondAppResult(call, AppResult.Success("ok")) } }
                     client.get("/ok")
                 }
                 capture.events.none { it.message.contains("domain error") }.shouldBeTrue()

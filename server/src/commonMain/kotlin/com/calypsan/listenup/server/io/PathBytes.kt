@@ -29,7 +29,8 @@ internal fun Path.writeBytes(bytes: ByteArray) {
  * already exist. The temp file is cleaned up if the write fails.
  */
 internal fun Path.writeBytesAtomically(bytes: ByteArray) {
-    val tmp = Path(parent!!.toString(), "$name.tmp")
+    val parentDir = requireNotNull(parent) { "$this has no parent directory to stage a temp file in" }
+    val tmp = Path(parentDir.toString(), "$name.tmp")
     try {
         SystemFileSystem.sink(tmp).buffered().use { it.write(bytes) }
         SystemFileSystem.atomicMove(tmp, this)

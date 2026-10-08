@@ -64,15 +64,38 @@ internal class HardcoverHistoryPush(
                 }
 
                 hardcoverReads(row, shelf) >=
-                    sql.ownReadsThrough(row.userId, row.bookId, payload.finishedAt, payload.readId) -> {
-                    alreadyThere(row, hcBookId, shelf, dates.finished, token)
+                    sql.ownReadsThrough(
+                        userId = row.userId,
+                        bookId = row.bookId,
+                        finishedAt = payload.finishedAt,
+                        readId = payload.readId,
+                    ) -> {
+                    alreadyThere(
+                        row = row,
+                        hcBookId = hcBookId,
+                        shelf = shelf,
+                        finishedOn = dates.finished,
+                        token = token,
+                    )
                 }
 
                 else -> {
-                    addRead(row, link, hcBookId, shelf, dates, token)
+                    addRead(
+                        row = row,
+                        link = link,
+                        hcBookId = hcBookId,
+                        shelf = shelf,
+                        dates = dates,
+                        token = token,
+                    )
                 }
             }.valueOr { return PushOutcome.Failed(it) }
-        sql.recordHardcoverHistoryRead(row.userId, payload.readId, outcome, clock.now().toEpochMilliseconds())
+        sql.recordHardcoverHistoryRead(
+            userId = row.userId,
+            readId = payload.readId,
+            outcome = outcome,
+            at = clock.now().toEpochMilliseconds(),
+        )
         return PushOutcome.Done
     }
 
@@ -82,7 +105,14 @@ internal class HardcoverHistoryPush(
         hcBookId: Long,
         hcEditionId: Long?,
     ): HardcoverCall<HardcoverUserBook> {
-        paced { userBooks.createUserBook(token, hcBookId, hcEditionId, HardcoverStatus.READING) }.valueOr { return it }
+        paced {
+            userBooks.createUserBook(
+                accessToken = token,
+                hcBookId = hcBookId,
+                hcEditionId = hcEditionId,
+                statusId = HardcoverStatus.READING,
+            )
+        }.valueOr { return it }
         return readBack(token, hcBookId)
     }
 
@@ -114,7 +144,9 @@ internal class HardcoverHistoryPush(
         val ours =
             shelf.reads.firstOrNull { it.finishedAt == finishedOn.toString() && links.isPushedRead(row.userId, it.id) }
                 ?: return HardcoverCall.Ok(HardcoverHistoryOutcome.ALREADY_THERE)
-        if (shelf.statusId != HardcoverStatus.READ) markRead(token, hcBookId, shelf, ours.id).valueOr { return it }
+        if (shelf.statusId != HardcoverStatus.READ) {
+            markRead(token = token, hcBookId = hcBookId, shelf = shelf, ours = ours.id).valueOr { return it }
+        }
         return HardcoverCall.Ok(HardcoverHistoryOutcome.SENT)
     }
 
@@ -136,7 +168,7 @@ internal class HardcoverHistoryPush(
         val open = shelf.openRead
         val ours =
             if (open != null) {
-                links.recordPushedRead(row.userId, open.id, row.bookId, historic = true)
+                links.recordPushedRead(userId = row.userId, readId = open.id, bookId = row.bookId, historic = true)
                 val finishedRead =
                     open.copy(
                         startedAt = startFor(open.startedAt, dates),
@@ -149,18 +181,18 @@ internal class HardcoverHistoryPush(
                 val readId =
                     paced {
                         userBooks.openRead(
-                            token,
-                            shelf.id,
-                            dates.started,
-                            link.hcEditionId,
+                            accessToken = token,
+                            userBookId = shelf.id,
+                            startedAt = dates.started,
+                            hcEditionId = link.hcEditionId,
                             finishedAt = dates.finished,
                         )
                     }.valueOr { return it }
-                links.recordPushedRead(row.userId, readId, row.bookId, historic = true)
+                links.recordPushedRead(userId = row.userId, readId = readId, bookId = row.bookId, historic = true)
                 readId
             }
         if (shelf.statusId != HardcoverStatus.READ) {
-            markRead(token, hcBookId, shelf, ours).valueOr { return it }
+            markRead(token = token, hcBookId = hcBookId, shelf = shelf, ours = ours).valueOr { return it }
         }
         return HardcoverCall.Ok(HardcoverHistoryOutcome.SENT)
     }

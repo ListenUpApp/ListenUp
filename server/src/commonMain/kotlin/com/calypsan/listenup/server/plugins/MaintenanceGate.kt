@@ -11,7 +11,6 @@ import io.ktor.server.application.ApplicationCallPipeline
 import io.ktor.server.application.call
 import io.ktor.server.request.path
 import io.ktor.server.response.respondText
-import kotlinx.serialization.encodeToString
 
 /**
  * Path prefixes that remain reachable during a restore. The RPC mount must stay open
@@ -38,7 +37,7 @@ private val ALLOW_DURING_RESTORE = listOf("/api/rpc")
 fun Application.installMaintenanceGate(state: MaintenanceState) {
     intercept(ApplicationCallPipeline.Plugins) {
         val path = call.request.path()
-        val isAllowlisted = ALLOW_DURING_RESTORE.any { path.startsWith(it) }
+        val isAllowlisted = ALLOW_DURING_RESTORE.any { prefix -> path.startsWith(prefix) }
 
         if (state.isActive && !isAllowlisted) {
             call.respondText(

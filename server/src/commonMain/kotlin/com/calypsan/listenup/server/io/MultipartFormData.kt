@@ -1,7 +1,7 @@
 package com.calypsan.listenup.server.io
 
 import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.readRemaining
+import io.ktor.utils.io.readBuffer
 import kotlinx.io.Sink
 import kotlinx.io.readByteArray
 
@@ -92,7 +92,7 @@ private fun isFilePartDisposition(headerLine: String): Boolean {
 private enum class BoundaryTrailer { More, End }
 
 /** One CRLF-terminated header line, and the bytes it occupied on the wire including the terminator. */
-private class HeaderLine(
+private data class HeaderLine(
     val text: String,
     val byteCount: Int,
 )
@@ -189,13 +189,13 @@ private class MultipartBodyReader(
         while (true) {
             val idx = indexOf(delimiter, pos)
             if (idx >= 0) {
-                emitted = emit(sink, pos, idx - pos, emitted, limit)
+                emitted = emit(sink = sink, offset = pos, count = idx - pos, emitted = emitted, limit = limit)
                 pos = idx + delimiter.size
                 return
             }
             val end = safeEnd(delimiter.size)
             if (end > pos) {
-                emitted = emit(sink, pos, end - pos, emitted, limit)
+                emitted = emit(sink = sink, offset = pos, count = end - pos, emitted = emitted, limit = limit)
                 pos = end
             }
             if (!fill()) throw MalformedMultipartException("Multipart body ended before its boundary.")
@@ -267,7 +267,7 @@ private class MultipartBodyReader(
      */
     private suspend fun fill(): Boolean {
         if (pos > 0) {
-            buf.copyInto(buf, 0, pos, limit)
+            buf.copyInto(destination = buf, destinationOffset = 0, startIndex = pos, endIndex = limit)
             limit -= pos
             pos = 0
         }
@@ -278,7 +278,7 @@ private class MultipartBodyReader(
             buf = buf.copyOf(minOf(buf.size * 2, MAX_BUFFER_BYTES))
         }
         if (eof) return false
-        val chunk = channel.readRemaining((buf.size - limit).toLong()).readByteArray()
+        val chunk = channel.readBuffer((buf.size - limit).toLong()).readByteArray()
         if (chunk.isEmpty()) {
             eof = true
             return false

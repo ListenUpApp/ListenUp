@@ -132,6 +132,7 @@ class HardcoverLinker(
     }
 
     /** [userId]'s live connection state. */
+    @Suppress("SuspendFunWithFlowReturnType") // hot state seeded from the DB on first use: handing it out must suspend
     suspend fun observe(userId: String): StateFlow<HardcoverConnection> = stateFor(userId).asStateFlow()
 
     /**
@@ -247,6 +248,7 @@ class HardcoverLinker(
         if (pollJobs[userId] === job) pollJobs.remove(userId)
     }
 
+    @Suppress("SuspendFunWithFlowReturnType") // seeded from the DB on first use, so getting it must suspend
     private suspend fun stateFor(userId: String): MutableStateFlow<HardcoverConnection> {
         synchronized(lock) { states[userId] }?.let { return it }
         val seeded = decorate(userId, store.connectionState(userId))

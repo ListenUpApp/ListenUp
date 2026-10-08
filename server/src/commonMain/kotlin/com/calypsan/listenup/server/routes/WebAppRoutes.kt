@@ -3,7 +3,6 @@ package com.calypsan.listenup.server.routes
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.createRouteScopedPlugin
-import io.ktor.server.application.install
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
 import io.ktor.server.routing.Route
@@ -31,15 +30,20 @@ import kotlinx.io.files.Path
  * each file) and this route picks the best variant the request accepts — see [negotiateEncoding].
  * That is cheaper than runtime compression anyway: brotli at its highest setting, once per build,
  * and no CPU per request.
+ *
+ * A null [webRoot] — no bundle resolved — mounts nothing; that is the release-safety contract
+ * `WebRootResolutionTest` pins, so the nullable parameter is the API, not an oversight.
  */
-fun Route.webAppRoutes(webRoot: Path?) = webAppRoutes(webRoot, SystemWebBundleFiles)
+@Suppress("CanBeNonNullable")
+fun Route.webAppRoutes(webRoot: Path?) {
+    if (webRoot != null) webAppRoutes(webRoot, SystemWebBundleFiles)
+}
 
 /** [webAppRoutes] over an explicit [files] seam, so a test can count disk visits. */
 internal fun Route.webAppRoutes(
-    webRoot: Path?,
+    webRoot: Path,
     files: WebBundleFiles,
 ) {
-    if (webRoot == null) return
     val bundle = WebBundle(webRoot, files)
 
     install(CrossOriginIsolation)

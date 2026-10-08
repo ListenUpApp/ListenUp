@@ -254,7 +254,13 @@ private data class TokenWire(
     @SerialName("scope") val scope: String = "",
 )
 
-private fun TokenWire.toTokens() = HardcoverTokens(accessToken, refreshToken, expiresIn, scope)
+private fun TokenWire.toTokens() =
+    HardcoverTokens(
+        accessToken = accessToken,
+        refreshToken = refreshToken,
+        expiresInSeconds = expiresIn,
+        scope = scope,
+    )
 
 @Serializable
 private data class OAuthErrorWire(

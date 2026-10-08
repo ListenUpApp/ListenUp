@@ -16,7 +16,8 @@ import kotlinx.io.files.Path
  * body channel and decodes the wire format itself via [streamFirstFilePart]. Both runtimes serve
  * uploads with identical behaviour.
  */
-internal expect suspend fun ApplicationCall.streamFirstFilePartTo(
+internal expect suspend fun streamFirstFilePartTo(
+    call: ApplicationCall,
     dest: Path,
     formFieldLimit: Long,
 ): Boolean
@@ -36,4 +37,7 @@ internal expect suspend fun ApplicationCall.streamFirstFilePartTo(
  *
  * @throws MultipartPartTooLargeException if the file part exceeds [formFieldLimit].
  */
-internal expect suspend fun ApplicationCall.receiveFirstFilePartBytes(formFieldLimit: Long): ByteArray?
+internal expect suspend fun receiveFirstFilePartBytes(
+    call: ApplicationCall,
+    formFieldLimit: Long,
+): ByteArray?

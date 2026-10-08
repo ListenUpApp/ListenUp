@@ -51,11 +51,23 @@ internal class HardcoverPeople(
         val ids = (linked + hits.map { it.id }).distinct()
         if (ids.isEmpty() && PersonStep.VIA_BOOKS !in steps) return AppResult.Success(PersonAnswer(emptyList(), steps))
         val details =
-            when (val answer = read { token -> graphQl.peopleDetails(token, ids, asins, isbns, bookIds) }) {
+            when (
+                val answer =
+                    read { token ->
+                        graphQl.peopleDetails(
+                            accessToken = token,
+                            ids = ids,
+                            asins = asins,
+                            isbns = isbns,
+                            bookIds = bookIds,
+                        )
+                    }
+            ) {
                 is HardcoverCall.Ok -> answer.value
                 else -> return failure(answer)
             }
-        return AppResult.Success(PersonAnswer(people(lookup, linked, hits, details), steps))
+        val found = people(lookup = lookup, linked = linked, hits = hits, details = details)
+        return AppResult.Success(PersonAnswer(found, steps))
     }
 
     private fun people(
@@ -73,9 +85,8 @@ internal class HardcoverPeople(
                 .flatMap { it.credits }
                 .forEach { credit ->
                     credited.getOrPut(credit.person.id) { mutableSetOf() } += book.bookId
-                    credit.role.toContributorRole()?.let {
-                        creditedAs.getOrPut(credit.person.id) { mutableSetOf() } +=
-                            it
+                    credit.role.toContributorRole()?.let { role ->
+                        creditedAs.getOrPut(credit.person.id) { mutableSetOf() } += role
                     }
                     viaBooks.getOrPut(credit.person.id) { credit.person }
                 }
@@ -132,7 +143,7 @@ internal class HardcoverPeople(
                 )
             }
 
-            else -> {
+            HardcoverCall.Unauthorized, is HardcoverCall.MissingScope, is HardcoverCall.Ok, is HardcoverCall.Failed -> {
                 AppResult.Failure(HardcoverError.Unavailable(debugInfo = "hardcover people: ${answer.describe()}"))
             }
         }

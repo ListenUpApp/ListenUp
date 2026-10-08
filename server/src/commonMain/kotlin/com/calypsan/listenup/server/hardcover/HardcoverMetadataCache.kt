@@ -33,7 +33,7 @@ class HardcoverMetadataCache(
     private val clock: Clock = Clock.System,
     private val capacity: Int = DEFAULT_CAPACITY,
 ) {
-    private class Stamped<T>(
+    private data class Stamped<T>(
         val value: T,
         val at: Instant,
     )
@@ -46,7 +46,9 @@ class HardcoverMetadataCache(
     fun details(hcBookId: Long): HardcoverBookDetails? = synchronized(lock) { details.fresh(hcBookId, DETAILS_TTL) }
 
     /** Keeps [found] under its Hardcover id. */
-    fun rememberDetails(found: HardcoverBookDetails) = synchronized(lock) { details.keep(found.hcBookId, found) }
+    fun rememberDetails(found: HardcoverBookDetails) {
+        synchronized(lock) { details.keep(found.hcBookId, found) }
+    }
 
     internal fun resolution(key: String): HardcoverResolution? =
         synchronized(lock) {

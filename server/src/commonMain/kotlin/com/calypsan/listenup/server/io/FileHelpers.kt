@@ -106,7 +106,7 @@ internal fun Path.lexicallyNormalized(): Path {
     for (segment in raw.split('/')) {
         when {
             segment.isEmpty() || segment == "." -> {
-                Unit
+                // An empty or `.` segment names the current directory: nothing to push or pop.
             }
 
             segment == ".." -> {

@@ -117,7 +117,13 @@ class HardcoverPushRecorder(
         links.clearSuppressionUnlessFor(userId, bookId, startedAt)
         if (sql.hardcoverShareMode(userId) == HardcoverShareMode.FINISHED_ONLY) return
         if (links.linkFor(userId, bookId)?.suppressedListenThrough == startedAt) return
-        outbox.enqueueStart(userId, bookId, listenThrough = startedAt, startedAt = startedAt, isReread = isReread)
+        outbox.enqueueStart(
+            userId = userId,
+            bookId = bookId,
+            listenThrough = startedAt,
+            startedAt = startedAt,
+            isReread = isReread,
+        )
         nudge.nudge(userId)
     }
 
@@ -135,7 +141,13 @@ class HardcoverPushRecorder(
         if (link?.suppressedListenThrough == listenThrough) return
         val now = clock.now().toEpochMilliseconds()
         val notBefore = link?.lastProgressPushedAt?.let { it + RealListen.SITTING_GAP_MS } ?: now
-        outbox.enqueueProgress(userId, bookId, listenThrough, positionMs / MILLIS_PER_SECOND, notBefore)
+        outbox.enqueueProgress(
+            userId = userId,
+            bookId = bookId,
+            listenThrough = listenThrough,
+            positionSeconds = positionMs / MILLIS_PER_SECOND,
+            notBefore = notBefore,
+        )
         nudge.nudge(userId)
     }
 
@@ -154,7 +166,13 @@ class HardcoverPushRecorder(
             ) { sql.listenThroughsQueries.selectCurrent(userId, bookId).executeAsOneOrNull() }?.started_at
                 ?: LEGACY_LISTEN_THROUGH
         if (links.linkFor(userId, bookId)?.suppressedListenThrough == listenThrough) return
-        outbox.enqueueFinish(userId, bookId, listenThrough, finishedAt, startedAt)
+        outbox.enqueueFinish(
+            userId = userId,
+            bookId = bookId,
+            listenThrough = listenThrough,
+            finishedAt = finishedAt,
+            startedAt = startedAt,
+        )
         nudge.nudge(userId)
     }
 

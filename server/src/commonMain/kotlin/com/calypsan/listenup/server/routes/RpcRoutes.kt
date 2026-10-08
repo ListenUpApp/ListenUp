@@ -13,7 +13,6 @@ import io.ktor.server.routing.Route
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException
 import kotlinx.rpc.krpc.ktor.server.KrpcRoute
-import kotlinx.rpc.registerService
 
 internal class PingServiceImpl : PingService {
     @OpenToAllMembers(reason = "public liveness probe")
@@ -63,7 +62,8 @@ internal fun streamLiveness(
     liveness: SessionLiveness,
 ): suspend () -> Boolean =
     {
-        provider.current()?.sessionId?.let { liveness.isLive(it, issuedAtEpochSeconds = null) } ?: false
+        val sessionId = provider.current()?.sessionId
+        sessionId != null && liveness.isLive(sessionId, issuedAtEpochSeconds = null)
     }
 
 /**
@@ -82,7 +82,7 @@ internal fun <T> guardedConstruction(block: () -> T): T =
     } catch (e: Throwable) {
         val cid = Uuid.random().toString()
         rpcRoutesLogger.error(e) { "RPC service construction failed [cid=$cid]" }
-        throw IllegalStateException("Service unavailable [cid=$cid]")
+        error("Service unavailable [cid=$cid]")
     }
 
 /**
