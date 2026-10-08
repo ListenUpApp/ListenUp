@@ -21,7 +21,7 @@ class ProvideHapticsTest {
         composeRule.setContent {
             ProvideHaptics(hapticFeedbackEnabled = true) {
                 haptics = LocalHaptics.current
-                feedbackClassName = LocalHapticFeedback.current::class.simpleName ?: ""
+                feedbackClassName = LocalHapticFeedback.current::class.simpleName.orEmpty()
             }
         }
 

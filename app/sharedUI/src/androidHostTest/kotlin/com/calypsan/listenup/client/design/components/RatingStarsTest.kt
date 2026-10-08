@@ -21,9 +21,6 @@ import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.click
-import androidx.compose.ui.test.down
-import androidx.compose.ui.test.moveTo
-import androidx.compose.ui.test.up
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
@@ -190,9 +187,9 @@ class RatingStarsTest {
             var stars by remember { mutableIntStateOf(0) }
             RatingStars(
                 halfStars = stars,
-                onHalfStarsChange = {
-                    stars = it
-                    changes += it
+                onHalfStarsChange = { halfStars ->
+                    stars = halfStars
+                    changes += halfStars
                 },
                 onHalfStarsCommit = { commits += it },
                 modifier = Modifier.testTag(TAG),

@@ -21,6 +21,7 @@ import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
 import com.calypsan.listenup.core.GenreId
 import io.kotest.assertions.withClue
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -154,12 +155,13 @@ class BulkEditRelationsTest {
         composeRule.onNodeWithText("Search people").performTextInput("Wil Wheaton")
         composeRule.onNodeWithText("Add \u201cWil Wheaton\u201d", useUnmergedTree = true).performClick()
 
-        credited?.single()?.name shouldBe "Wil Wheaton"
+        val credit = credited.shouldNotBeNull().single()
+        credit.name shouldBe "Wil Wheaton"
         withClue("no id, because the library has no such person yet") {
-            credited?.single()?.id shouldBe null
+            credit.id shouldBe null
         }
         withClue("credited in the role the picker was set to") {
-            credited?.single()?.role shouldBe "author"
+            credit.role shouldBe "author"
         }
     }
 

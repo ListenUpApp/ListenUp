@@ -95,7 +95,7 @@ class ApplicationBootTest {
                     field.isAccessible = true
                     runCatching { (field.get(activity) as Lazy<*>).value }
                         .exceptionOrNull()
-                        ?.let { "${field.name.removeSuffix("\$delegate")}: ${it.message?.take(120)}" }
+                        ?.let { "${field.name.removeSuffix("\$delegate")}: ${(it.message ?: it.javaClass.name).take(120)}" }
                 }
         unresolved shouldBe emptyList()
     }

@@ -58,8 +58,8 @@ class DeviceTypeWireNameTest :
         test("every name is non-blank and lowercase") {
             // deviceVisualFor lowercases before matching, but the wire value is what the server
             // persists — emit it already normalised rather than relying on the reader.
-            DeviceType.entries.forEach {
-                val name = it.wireName()
+            DeviceType.entries.forEach { type ->
+                val name = type.wireName()
                 name.shouldNotBeBlank()
                 name shouldBe name.lowercase()
             }

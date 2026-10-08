@@ -132,7 +132,7 @@ class HardcoverSettingsContentTest {
         clipboard.primaryClip
             ?.getItemAt(0)
             ?.text
-            .toString() shouldBe "ABCD-1234"
+            ?.toString() shouldBe "ABCD-1234"
     }
 
     @Test

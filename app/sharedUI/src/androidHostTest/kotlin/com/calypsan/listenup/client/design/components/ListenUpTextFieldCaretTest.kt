@@ -111,9 +111,9 @@ class ListenUpTextFieldCaretTest {
             MaterialTheme {
                 ListenUpTextField(
                     value = vmValue,
-                    onValueChange = {
+                    onValueChange = { newValue ->
                         calls++
-                        vmValue = it
+                        vmValue = newValue
                     },
                     label = "Author",
                     modifier = Modifier.testTag(FIELD_TAG),

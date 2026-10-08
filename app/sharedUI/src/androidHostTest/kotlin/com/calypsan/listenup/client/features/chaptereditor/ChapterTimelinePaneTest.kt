@@ -48,9 +48,9 @@ class ChapterTimelinePaneTest {
                     chapters = chapters.mapIndexed { i, c -> NumberedChapter(c, i + 1) },
                     bookDurationMs = 100_000L,
                     lane = lane,
-                    onLaneChange = {
-                        lane = it
-                        onLane(it)
+                    onLaneChange = { newLane ->
+                        lane = newLane
+                        onLane(newLane)
                     },
                     selectedChapterId = null,
                     playheadMs = { null },

@@ -71,6 +71,9 @@ class BookDetailVisibilityPlacementTest {
     private var restores = 0
     private var pickers = 0
 
+    private val restrictedToKids =
+        BookVisibility.Restricted(listOf(CollectionRef("c1", "Kids")), HiddenFrom.Everyone)
+
     @Test
     fun `a restricted book's detail shows the card, and a name opens its collection`() {
         show(ready(BookVisibility.Restricted(listOf(CollectionRef("c1", "Kids")), HiddenFrom.Everyone)))
@@ -177,9 +180,6 @@ class BookDetailVisibilityPlacementTest {
         composeRule.onNodeWithText("Kids").performScrollTo().performClick()
         composeRule.runOnIdle { opened shouldBe "c1" }
     }
-
-    private val restrictedToKids =
-        BookVisibility.Restricted(listOf(CollectionRef("c1", "Kids")), HiddenFrom.Everyone)
 
     private fun ready(
         visibility: BookVisibility?,

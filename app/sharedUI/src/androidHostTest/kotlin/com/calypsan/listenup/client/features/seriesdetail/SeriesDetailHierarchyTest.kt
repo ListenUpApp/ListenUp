@@ -1,13 +1,12 @@
 package com.calypsan.listenup.client.features.seriesdetail
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.assertIsEnabled
@@ -127,9 +126,9 @@ class SeriesDetailHierarchyTest {
     fun `group headings are headings and open their series`() {
         render(Cosmere.parentPage())
 
-        composeRule.onNodeWithText("Books").assert(isHeading)
-        composeRule.onNodeWithText("Mistborn Era 1").assert(isHeading).performClick()
-        composeRule.onNodeWithText("Also in Cosmere").assert(isHeading)
+        composeRule.onNodeWithText("Books").assert(isHeading())
+        composeRule.onNodeWithText("Mistborn Era 1").assert(isHeading()).performClick()
+        composeRule.onNodeWithText("Also in Cosmere").assert(isHeading())
 
         opened shouldBe listOf("era1")
     }
@@ -188,7 +187,7 @@ class SeriesDetailHierarchyTest {
         composeRule.onNode(hasScrollToIndexAction()).performScrollToIndex(ERA_ONE_BOOK_20)
 
         val heading = composeRule.onNodeWithText("Mistborn Era 1")
-        heading.assertIsDisplayed().assert(isHeading)
+        heading.assertIsDisplayed().assert(isHeading())
         val top = heading.getUnclippedBoundsInRoot().top
         (top >= STATUS_BAR) shouldBe true
         (top < STATUS_BAR + 48.dp) shouldBe true
@@ -220,8 +219,6 @@ class SeriesDetailHierarchyTest {
         composeRule.onNodeWithContentDescription("Mistborn, 2 series, 8 books, 2 finished").assertExists()
         composeRule.onNodeWithText("Also in Cosmere").assertExists()
     }
-
-    private val isHeading = SemanticsMatcher.keyIsDefined(SemanticsProperties.Heading)
 }
 
 private const val TALL_PHONE = "w400dp-h4000dp"

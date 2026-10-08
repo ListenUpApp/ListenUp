@@ -243,7 +243,7 @@ class BrowseTreeProviderTest {
             val children = provider.getChildren(BrowseTree.LIBRARY_SERIES)
             children shouldHaveSize 2
             children[0].mediaId shouldBe BrowseTree.seriesId("series-1")
-            children[0].mediaMetadata.title.toString() shouldBe "The Stormlight Archive"
+            children[0].mediaMetadata.title?.toString() shouldBe "The Stormlight Archive"
             children[0].mediaMetadata.isBrowsable shouldBe true
             children[1].mediaId shouldBe BrowseTree.seriesId("series-2")
         }
@@ -271,7 +271,7 @@ class BrowseTreeProviderTest {
             val children = provider.getChildren(BrowseTree.LIBRARY_AUTHORS)
             children shouldHaveSize 2
             children[0].mediaId shouldBe BrowseTree.authorId("author-1")
-            children[0].mediaMetadata.title.toString() shouldBe "Brandon Sanderson"
+            children[0].mediaMetadata.title?.toString() shouldBe "Brandon Sanderson"
             children[0].mediaMetadata.isBrowsable shouldBe true
             children[1].mediaId shouldBe BrowseTree.authorId("author-2")
         }
@@ -416,7 +416,7 @@ class BrowseTreeProviderTest {
 
             val item = provider.getChildren(BrowseTree.seriesId("series-sa")).first()
 
-            item.mediaMetadata.artworkUri.toString() shouldBe
+            item.mediaMetadata.artworkUri?.toString() shouldBe
                 "content://com.calypsan.listenup.client.covers/covers/book-sw1"
         }
 
@@ -428,7 +428,7 @@ class BrowseTreeProviderTest {
 
             val item = provider.getChildren(BrowseTree.CONTINUE_LISTENING).first()
 
-            item.mediaMetadata.artworkUri.toString() shouldBe
+            item.mediaMetadata.artworkUri?.toString() shouldBe
                 "content://com.calypsan.listenup.client.covers/covers/book-cl1"
         }
 
