@@ -23,9 +23,6 @@ enum class UnavailableReason {
 
     /** An admin switched it off. */
     DISABLED,
-
-    /** It has no profiles for the role searched (people search). */
-    NO_PROFILES_FOR_ROLE,
 }
 
 /**
