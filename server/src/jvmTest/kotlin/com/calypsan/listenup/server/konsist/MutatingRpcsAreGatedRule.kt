@@ -17,10 +17,13 @@ import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
  * **Scope.** Every class in `server` production whose name ends in `ServiceImpl`, and every `override`
  * function on it.
  *
- * **Reads are exempt by name** ([READ_PREFIXES]). A write whose name starts like a read slips through;
- * the prefixes are the read verbs the codebase already uses, each checked by hand.
+ * **Reads are exempt by name** ([READ_PREFIXES]) — the whole word, not any prefix: `list` and
+ * `listShelves` are reads, `listenTo` is not. A read-named override that writes anyway (a
+ * [WRITE_MARKERS] hit: a `…Queries.insert/update/delete/upsert…` call, a `.publish(`, the `changeBus`)
+ * loses the exemption and is checked like any write.
  *
- * **A write passes** if its body, comments stripped, calls one of [GATE_CALLS], or it carries
+ * **A write passes** if its body, comments stripped, calls one of [GATE_CALLS], denies non-admins in
+ * the [ADMIN_DENIAL_SHAPE] (a bare `.isAdmin()` that denies nothing does not count), or it carries
  * `@OpenToAllMembers(reason = "…")` with a non-blank reason.
  *
  * **Known limit.** The rule trusts the helper names in [GATE_CALLS]; each is a private one-liner over
@@ -55,6 +58,7 @@ class MutatingRpcsAreGatedRule :
                 "preview",
                 "discover",
                 "current",
+                "currently",
                 "last",
             )
 
@@ -70,8 +74,21 @@ class MutatingRpcsAreGatedRule :
                 "adminGate(",
                 "manageGate(",
                 "writeGate(",
-                ".isAdmin()",
             )
+
+        /** Calls that mark a body as a write, whatever its name says. */
+        val WRITE_MARKERS =
+            listOf(
+                Regex("""Queries\s*\.\s*(insert|update|delete|upsert)\w*\s*\("""),
+                Regex("""\.publish\("""),
+                Regex("""\bchangeBus\b"""),
+            )
+
+        /** True when [name] is [prefix] itself, or [prefix] followed by a new camel-case word. */
+        fun isReadName(name: String): Boolean =
+            READ_PREFIXES.any { prefix ->
+                name == prefix || (name.startsWith(prefix) && name[prefix.length].isUpperCase())
+            }
 
         private val REASONED_ESCAPE = Regex("""@OpenToAllMembers\s*\(\s*(reason\s*=\s*)?"[^"]*\S[^"]*"\s*,?\s*\)""")
 
@@ -84,11 +101,13 @@ class MutatingRpcsAreGatedRule :
                     cls
                         .functions()
                         .filter { it.hasOverrideModifier }
-                        .filterNot { fn -> READ_PREFIXES.any { fn.name.startsWith(it) } }
+                        .filterNot { fn ->
+                            isReadName(fn.name) && WRITE_MARKERS.none { it.containsMatchIn(stripComments(fn.text)) }
+                        }
                         .filterNot { fn -> REASONED_ESCAPE.containsMatchIn(stripComments(fn.text)) }
                         .filterNot { fn ->
                             val body = stripComments(fn.text)
-                            GATE_CALLS.any { it in body }
+                            GATE_CALLS.any { it in body } || ADMIN_DENIAL_SHAPE.containsMatchIn(body)
                         }.map { fn -> "${cls.name}.${fn.name} @ ${cls.path}" }
                 }
     }

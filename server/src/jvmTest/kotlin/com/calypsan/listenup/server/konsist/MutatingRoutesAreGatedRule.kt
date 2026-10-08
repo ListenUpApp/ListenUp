@@ -52,7 +52,7 @@ class MutatingRoutesAreGatedRule :
             listOf(
                 Regex("""\brequire\w*Permission\("""),
                 Regex("""\brequire\w*Admin\("""),
-                Regex("""if\s*\(\s*!\s*[\w.?]+\.isAdmin\(\)\s*\)\s*(return|throw|\{[^}]*\b(return|throw)\b)"""),
+                ADMIN_DENIAL_SHAPE,
                 Regex("""\bscoped\("""),
             )
 
