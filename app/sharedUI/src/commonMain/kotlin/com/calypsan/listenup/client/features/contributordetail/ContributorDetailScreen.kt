@@ -804,7 +804,7 @@ private fun NarrowWorkSection(
  * details under Edit metadata, Delete under Curate library — and is absent when that is nothing.
  */
 @Composable
-private fun NavigationBar(
+internal fun NavigationBar(
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
     onMatchDetails: () -> Unit,
