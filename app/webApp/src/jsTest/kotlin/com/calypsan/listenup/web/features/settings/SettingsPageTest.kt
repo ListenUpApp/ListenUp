@@ -11,6 +11,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.Node
 import org.w3c.dom.asList
 import org.w3c.dom.HTMLSelectElement
 import org.w3c.dom.events.Event
@@ -281,6 +282,19 @@ class SettingsPageTest :
             entry.textContent.orEmpty() shouldContain "Categories"
             entry.click()
             opened shouldBe 1
+
+            // ⛔ Categories is the server's, for everyone — so it sits above the section's
+            // "Kept on this browser." note, never under it, where the note would claim it.
+            val library =
+                curator
+                    .querySelectorAll(".set-section")
+                    .asList()
+                    .filterIsInstance<HTMLElement>()
+                    .single { it.querySelector(".set-section-h")?.textContent == "Library" }
+            val note = library.querySelector(".set-section-note").shouldNotBeNull()
+            library.contains(entry) shouldBe true
+            (entry.compareDocumentPosition(note).toInt() and Node.DOCUMENT_POSITION_FOLLOWING.toInt()) shouldBe
+                Node.DOCUMENT_POSITION_FOLLOWING.toInt()
 
             val listener = mounts.mount { page(canCurateLibrary = false) }
             listener.textContent.orEmpty() shouldNotContain "Merge and delete genres for everyone"

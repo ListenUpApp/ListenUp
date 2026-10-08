@@ -109,7 +109,14 @@ fun SettingsPage(
             )
         }
 
-        Section("Library", "Kept on this browser.") {
+        // Categories is the server's, shared by everyone, so it leads the section — above the note
+        // that says the sorting below it is kept on this browser. Only for those who may curate the
+        // library: the server refuses merge and delete to anyone else.
+        Section(
+            "Library",
+            "Kept on this browser.",
+            lead = if (canCurateLibrary) ({ CategoriesEntry(onOpenCategories) }) else null,
+        ) {
             CheckboxField(
                 label = "Sort titles ignoring “A”, “An” and “The”",
                 checked = state.ignoreTitleArticles,
@@ -120,8 +127,6 @@ fun SettingsPage(
                 checked = state.hideSingleBookSeries,
                 onChange = onHideSingleBookSeries,
             )
-            // Only for those who may curate the library — the server refuses merge and delete to anyone else.
-            if (canCurateLibrary) CategoriesEntry(onOpenCategories)
         }
 
         Section("Account", null) {
@@ -187,10 +192,13 @@ private fun hardcoverSubtitle(row: HardcoverRowState): String =
 private fun Section(
     heading: String,
     note: String?,
+    lead: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     Div(attrs = { classes("set-section") }) {
         H2(attrs = { classes("set-section-h") }) { Text(heading) }
+        // What the note does not cover goes above it, so the note only ever speaks for what follows.
+        lead?.let { Div(attrs = { classes("set-fields") }) { it() } }
         // Says where a setting lives before it is changed, not after.
         note?.let { P(attrs = { classes("set-section-note") }) { Text(it) } }
         Div(attrs = { classes("set-fields") }) { content() }
