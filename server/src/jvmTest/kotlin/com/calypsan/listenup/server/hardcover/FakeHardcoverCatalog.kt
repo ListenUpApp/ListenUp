@@ -60,6 +60,8 @@ class FakeHardcoverCatalog {
         val moods: List<Pair<String, Int>> = emptyList(),
         val series: List<Series> = emptyList(),
         val narrators: List<Author> = emptyList(),
+        /** Credited on the book with Hardcover's free-text "Translator" role. */
+        val translators: List<Author> = emptyList(),
         val ratingsCount: Int = 0,
         val subtitle: String? = null,
         /** The audiobook edition's length; null means the book has no default audiobook edition. */
@@ -341,7 +343,7 @@ class FakeHardcoverCatalog {
                     put("contributions", creditsJson(book.narrators, "Narrator"))
                     putJsonObject("book") {
                         put("id", book.id)
-                        put("contributions", creditsJson(book.authors, null))
+                        put("contributions", bookCreditsJson(book))
                     }
                 }
             }
@@ -350,7 +352,7 @@ class FakeHardcoverCatalog {
             books.filter { it.id in bookIds }.forEach { book ->
                 addJsonObject {
                     put("id", book.id)
-                    put("contributions", creditsJson(book.authors, null))
+                    put("contributions", bookCreditsJson(book))
                     putJsonArray("editions") {
                         addJsonObject { put("contributions", creditsJson(book.narrators, "Narrator")) }
                     }
@@ -360,10 +362,18 @@ class FakeHardcoverCatalog {
     }
 
     /** Everyone credited on any book, narrators included — Hardcover keeps both in `authors`. */
-    private fun allPeople(): List<Author> = books.flatMap { it.authors + it.narrators }.distinctBy { it.id }
+    private fun allPeople(): List<Author> =
+        books.flatMap { it.authors + it.narrators + it.translators }.distinctBy { it.id }
 
     private fun creditedBooks(person: Author): List<Book> =
-        books.filter { book -> (book.authors + book.narrators).any { it.id == person.id } }
+        books.filter { book -> (book.authors + book.narrators + book.translators).any { it.id == person.id } }
+
+    /** A book's own credits: its authors (no role) and its translators. */
+    private fun bookCreditsJson(book: Book) =
+        buildJsonArray {
+            creditsJson(book.authors, null).forEach { add(it) }
+            creditsJson(book.translators, "Translator").forEach { add(it) }
+        }
 
     /** A person with their role counts: narrations are edition credits, authorships book credits. */
     private fun personJson(person: Author) =

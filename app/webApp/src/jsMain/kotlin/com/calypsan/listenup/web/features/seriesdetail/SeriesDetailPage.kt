@@ -151,7 +151,7 @@ private fun ReadyContent(
     }
 
     // An editor gets the panel on a flat series too: its tile is how a hierarchy starts.
-    if (state.childSeries.isNotEmpty() || state.canEditHierarchy) SubSeriesPanel(state, actions)
+    if (state.childSeries.isNotEmpty() || state.canEditMetadata) SubSeriesPanel(state, actions)
 
     // en.json's series.books
     Panel(title = "Books", trailing = { CountBadge(state.books.size) }) {
@@ -220,16 +220,18 @@ private fun Hero(
 
         // Icon-only, so the accessible name is the attribute rather than the content — the same
         // shape Book Detail and Contributor Detail use, for the same reason: a hero has no room
-        // for a verb.
-        Button(
-            kind = ButtonKind.Icon,
-            size = ButtonSize.Lg,
-            onClick = { onEdit() },
-            label = "Edit series",
-            attrs = {
-                classes("sd-edit")
-            },
-        ) { Icon(WebIcon.Pencil) }
+        // for a verb. Offered only to a reader who may edit metadata.
+        if (state.canEditMetadata) {
+            Button(
+                kind = ButtonKind.Icon,
+                size = ButtonSize.Lg,
+                onClick = { onEdit() },
+                label = "Edit series",
+                attrs = {
+                    classes("sd-edit")
+                },
+            ) { Icon(WebIcon.Pencil) }
+        }
     }
 }
 

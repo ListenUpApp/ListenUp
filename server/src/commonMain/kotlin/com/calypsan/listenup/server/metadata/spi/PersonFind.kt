@@ -5,23 +5,27 @@ import com.calypsan.listenup.api.dto.match.ExternalRef
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 
-/** One of this library's books crediting the person in the role searched, with what identifies it at a catalogue. */
+/**
+ * One of this library's books crediting the person, with what identifies it at a catalogue and the [roles] the
+ * person holds on it here.
+ */
 data class PersonLibraryBook(
     val bookId: String,
     val title: String,
     val asin: String?,
     val isbn: String?,
     val refs: List<ExternalRef>,
+    val roles: Set<ContributorRole>,
 )
 
 /**
  * Everything a people Find knows, handed to one source: the [name] to search (the contributor's, or what the
- * person typed), the [role] searched, this source's own [keys] for the person (their refs here), and up to five
- * library [books] crediting them in [role] — whose credits at the source name the person.
+ * person typed), this source's own [keys] for the person (their refs here), and up to five library [books]
+ * crediting them in any role — whose credits at the source name the person. A Find has no role: the person is
+ * looked for in every role the source knows.
  */
 data class PersonLookup(
     val name: String,
-    val role: ContributorRole,
     val keys: List<String>,
     val books: List<PersonLibraryBook>,
 )
@@ -41,8 +45,8 @@ enum class PersonStep {
 /**
  * One person a source found. [key] is the source's own id for them (a ref id: an ASIN, a Hardcover author id);
  * [roles] are the roles the source credits them in; [knownWorks] are up to two titles and [worksCount] how many
- * books the source credits them on; [creditedBookIds] are the lookup's books the source credits them on *in the
- * role searched*; [viaLink] marks the person's existing ref; [foundByName] marks a hit of the name search (a
+ * books the source credits them on; [creditedBookIds] are the lookup's books the source credits them on, in any
+ * role; [viaLink] marks the person's existing ref; [foundByName] marks a hit of the name search (a
  * person found only through your books' credits is a co-credit candidate, kept only when their name matches).
  */
 data class FoundPerson(
@@ -65,8 +69,8 @@ data class PersonAnswer(
 
 /**
  * People Find (matching redesign PR 4): look a person up by everything we know in one go — their ref here, the
- * credits of their books, then their name — so each source batches its own calls. Only asked for a role in
- * [profileRoles]. The return convention is [MetadataCapability]'s; a rate limit is
+ * credits of their books, then their name — so each source batches its own calls. Every people source is asked,
+ * whatever roles brought the person into the library. The return convention is [MetadataCapability]'s; a rate limit is
  * `MetadataError.ExternalRateLimited` with its retry-after when the source gave one.
  */
 interface PersonFindSource : ContributorSource {

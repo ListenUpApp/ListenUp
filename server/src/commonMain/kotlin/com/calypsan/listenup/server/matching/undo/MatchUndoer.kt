@@ -30,7 +30,7 @@ internal class MatchUndoer(
         val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
         val capture = currentCoroutineContext()[FrameCapture.Key]
         return suspendTransaction(db) {
-            val receipt = receipts.findInTransaction(receiptId)
+            val receipt = receipts.findInTransaction(receiptId)?.takeIf { it.entity == ReceiptEntity.BOOK.value }
             val revision = receipt?.let { books.revisionInTransaction(it.entityId) }
             if (receipt == null || receipt.undoneAt != null || revision != receipt.revisionAfter) {
                 return@suspendTransaction AppResult.Failure(MetadataError.UndoExpired(debugInfo = "receipt $receiptId"))

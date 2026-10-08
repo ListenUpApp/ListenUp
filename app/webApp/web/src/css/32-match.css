@@ -1,0 +1,248 @@
+/* ── Match details ───────────────────────────────────────────────────────────
+   /book/{id}/match — Find and Review for one book (canvas W-01…W-09). Two paper
+   panes from the 1024px line: results on the left, the review on the right with
+   its Apply bar pinned to the bottom of the pane. Below it, one column, and the
+   review replaces the results while a match is open (W-08). Every control is a
+   real element and at least 44px tall, so the fingertip rule holds at any
+   pointer without a coarse-pointer patch. */
+
+.luw .bmx { display: flex; flex-direction: column; gap: var(--sp-16); width: 100%; min-width: 0; }
+.luw .bmx-panes { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-16); align-items: start; }
+@media (min-width: 1024px) {
+  .luw .bmx-panes { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+}
+@media (max-width: 1023px) {
+  .luw .bmx.is-reviewing .bmx-find { display: none; }
+  .luw .bmx:not(.is-reviewing) .bmx-review { display: none; }
+}
+
+.luw .bmx-pane {
+  display: flex; flex-direction: column; gap: var(--sp-16); min-width: 0;
+  padding: var(--sp-16); border-radius: var(--r-lg);
+  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-card);
+}
+.luw .bmx-pane-h { display: flex; align-items: center; gap: var(--sp-12); flex-wrap: wrap; }
+.luw .bmx-pane-t { margin: 0; font-size: var(--fs-title); font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+.luw .bmx-pane-t:focus { outline: none; }
+.luw .bmx-pane-t:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; border-radius: var(--r-xs); }
+.luw .bmx-count { font-size: var(--fs-small); color: var(--ink-3); }
+.luw .bmx-grow { flex: 1; }
+.luw .bmx-note { margin: 0; font-size: var(--fs-small); line-height: 1.45; color: var(--ink-3); overflow-wrap: anywhere; }
+.luw .bmx-skel { height: 6rem; border-radius: var(--r-md); }
+
+/* Your copy */
+.luw .bmx-copy { display: flex; align-items: center; gap: var(--sp-12); padding: var(--sp-12); border-radius: var(--r-md); background: var(--surface-2); min-width: 0; }
+.luw .bmx-copy-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.luw .bmx-copy-l { font-size: var(--fs-caption); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.luw .bmx-copy-m { font-size: var(--fs-small); color: var(--ink-2); }
+
+.luw .bmx-art { flex: none; width: 56px; height: 56px; border-radius: var(--r-sm); object-fit: cover; background: var(--surface-3); display: block; }
+.luw .bmx-art.is-big { width: 84px; height: 84px; }
+.luw .bmx-art-blank { display: flex; align-items: center; justify-content: center; color: var(--ink-3); }
+
+/* Search */
+.luw .bmx-search { display: flex; align-items: flex-end; gap: var(--sp-8); flex-wrap: wrap; }
+.luw .bmx-q { flex: 1 1 12rem; min-width: 0; }
+.luw .bmx-store { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8); }
+.luw .bmx-store-b {
+  display: inline-flex; align-items: center; gap: var(--sp-8); min-height: 44px; max-width: 100%;
+  padding: 0 var(--sp-12); border: 1px solid var(--outline); border-radius: var(--r-md);
+  background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-ui); font-weight: 650;
+  cursor: pointer; text-align: left; overflow-wrap: anywhere;
+}
+@media (hover: hover) { .luw .bmx-store-b:hover { background: var(--surface-2); } }
+.luw .bmx-store-b:active { transform: translateY(1px); }
+.luw .bmx-searching { margin: 0; display: flex; align-items: center; gap: var(--sp-8); font-size: var(--fs-small); color: var(--ink-3); }
+
+/* Results */
+.luw .bmx-group { display: flex; flex-direction: column; gap: var(--sp-8); }
+.luw .bmx-group-t { margin: 0; display: flex; align-items: center; gap: var(--sp-8); font-size: var(--fs-ui); font-weight: 750; color: var(--ink); }
+.luw .bmx-rows { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-8); }
+.luw .bmx-rows[aria-busy="true"] { opacity: 0.6; }
+.luw .bmx-row {
+  display: flex; align-items: flex-start; gap: var(--sp-12); width: 100%; min-height: 44px;
+  padding: var(--sp-12); border: 1.5px solid var(--line); border-radius: var(--r-md);
+  background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer;
+}
+@media (hover: hover) { .luw .bmx-row:hover { border-color: var(--coral); } }
+.luw .bmx-row:active { background: var(--surface-2); }
+.luw .bmx-row[aria-current="true"] { border-color: var(--coral); background: var(--coral-soft); }
+.luw .bmx-row-m { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.luw .bmx-row-t { font-size: var(--fs-body); font-weight: 750; color: var(--ink); }
+.luw .bmx-row-meta, .luw .bmx-row-found { font-size: var(--fs-small); color: var(--ink-2); }
+.luw .bmx-reasons { display: flex; flex-wrap: wrap; gap: 2px var(--sp-12); font-size: var(--fs-small); color: var(--ink-2); }
+.luw .bmx-reason { display: inline-flex; align-items: center; gap: var(--sp-4); }
+.luw .bmx-reason.is-strong { color: var(--success); font-weight: 650; }
+.luw .bmx-badges { display: flex; flex-wrap: wrap; gap: var(--sp-4); }
+.luw .bmx-badge {
+  display: inline-flex; align-items: center; padding: 1px var(--sp-8); border-radius: var(--r-pill);
+  background: var(--surface-3); color: var(--ink-2); font-size: var(--fs-caption); font-weight: 750;
+}
+.luw .bmx-badge.is-best { background: var(--success-soft); color: var(--success); }
+
+/* Banners and failures */
+.luw .bmx-banner {
+  display: flex; align-items: center; gap: var(--sp-12); flex-wrap: wrap;
+  padding: var(--sp-12); border-radius: var(--r-md); background: var(--warn-soft); color: var(--warn);
+  font-size: var(--fs-small); font-weight: 600;
+}
+.luw .bmx-banner p { margin: 0; flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
+.luw .bmx-failure { align-self: stretch; }
+.luw .bmx-fail-acts { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+.luw .bmx-err { margin: 0; padding: var(--sp-8) var(--sp-12); border-radius: var(--r-md); background: var(--coral-soft); color: var(--coral-text); font-size: var(--fs-ui); font-weight: 600; overflow-wrap: anywhere; }
+
+/* Review */
+.luw .bmx-review { position: relative; }
+.luw .bmx-skip { align-self: flex-start; min-height: 44px; }
+.luw .bmx-head { display: flex; align-items: flex-start; gap: var(--sp-12); flex-wrap: wrap; }
+.luw .bmx-head-m { display: flex; flex-direction: column; gap: 3px; flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
+.luw .bmx-head-t { font-size: var(--fs-title); font-weight: 800; color: var(--ink); }
+
+.luw .bmx-sum { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+.luw .bmx-sum-i {
+  display: inline-flex; align-items: baseline; gap: var(--sp-4); min-height: 44px; padding: var(--sp-8) var(--sp-12);
+  border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); color: var(--ink-2);
+  font: inherit; font-size: var(--fs-small); cursor: pointer; text-align: left;
+}
+@media (hover: hover) { .luw .bmx-sum-i:hover { border-color: var(--coral); } }
+.luw .bmx-sum-i:active { transform: translateY(1px); }
+.luw .bmx-sum-n { font-size: var(--fs-title); font-weight: 800; color: var(--ink); }
+
+.luw .bmx-sec { display: flex; flex-direction: column; gap: var(--sp-8); padding-top: var(--sp-12); border-top: 1px solid var(--line-2); min-width: 0; }
+.luw .bmx-sec-t { margin: 0; font-size: var(--fs-ui); font-weight: 800; color: var(--ink); }
+.luw .bmx-sec-t:focus { outline: none; }
+.luw .bmx-sec-t:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; border-radius: var(--r-xs); }
+.luw .bmx-sub-t { margin: 0; font-size: var(--fs-small); font-weight: 750; color: var(--ink-2); }
+
+.luw .bmx-fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+.luw .bmx-covers { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+.luw .bmx-cover {
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-4); min-height: 44px; min-width: 44px;
+  padding: var(--sp-8); border: 1.5px solid var(--line); border-radius: var(--r-md); background: var(--surface-2);
+  font-size: var(--fs-small); color: var(--ink); cursor: pointer; text-align: center;
+}
+.luw .bmx-cover:has(input:checked) { border-color: var(--coral); background: var(--coral-soft); }
+.luw .bmx-cover:has(input:focus-visible) { outline: 2px solid var(--coral); outline-offset: 2px; }
+.luw .bmx-cover input { width: 18px; height: 18px; margin: 0; accent-color: var(--coral); }
+.luw .bmx-cover-l { font-weight: 700; }
+.luw .bmx-dim { font-size: var(--fs-caption); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+.luw .bmx-field { display: flex; flex-direction: column; gap: var(--sp-8); padding: var(--sp-12); border-radius: var(--r-md); background: var(--surface-2); min-width: 0; }
+.luw .bmx-field-h { display: flex; align-items: center; gap: var(--sp-8); flex-wrap: wrap; min-height: 44px; }
+.luw .bmx-field-h .f-check { min-height: 44px; color: var(--ink); font-weight: 750; }
+.luw .bmx-edited {
+  display: inline-flex; align-items: center; padding: 1px var(--sp-8); border-radius: var(--r-pill);
+  background: var(--edited-soft); color: var(--edited); font-size: var(--fs-caption); font-weight: 750;
+}
+.luw .bmx-edited-note { margin: 0; font-size: var(--fs-small); color: var(--edited); background: var(--edited-soft); padding: var(--sp-4) var(--sp-8); border-radius: var(--r-sm); overflow-wrap: anywhere; }
+.luw .bmx-src { display: flex; flex-wrap: wrap; gap: var(--sp-4); }
+.luw .bmx-seg {
+  display: inline-flex; align-items: center; gap: var(--sp-8); min-height: 44px; padding: 0 var(--sp-12);
+  border: 1px solid var(--outline); border-radius: var(--r-pill); background: var(--surface);
+  font-size: var(--fs-small); font-weight: 650; color: var(--ink); cursor: pointer;
+}
+.luw .bmx-seg:has(input:checked) { border-color: var(--coral); background: var(--coral-soft); }
+.luw .bmx-seg:has(input:focus-visible) { outline: 2px solid var(--coral); outline-offset: 2px; }
+.luw .bmx-seg input { margin: 0; accent-color: var(--coral); }
+.luw .bmx-vals { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr)); gap: var(--sp-8) var(--sp-16); margin: 0; }
+.luw .bmx-val { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.luw .bmx-val dt { font-size: var(--fs-caption); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
+.luw .bmx-val dd { margin: 0; font-size: var(--fs-ui); line-height: 1.45; color: var(--ink); overflow-wrap: anywhere; white-space: pre-line; }
+.luw .bmx-val dd.is-clamped { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.luw .bmx-more { align-self: flex-start; min-height: 44px; }
+
+.luw .bmx-chips { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+.luw .bmx-chip {
+  display: inline-flex; align-items: center; gap: var(--sp-4); min-height: 44px; padding: 0 var(--sp-4) 0 var(--sp-12);
+  border: 1px solid var(--outline); border-radius: var(--r-pill); background: var(--surface);
+  font-size: var(--fs-small); font-weight: 650; color: var(--ink);
+}
+.luw .bmx-chip.is-removed .bmx-chip-l { text-decoration: line-through; color: var(--ink-3); }
+.luw .bmx-chip-x {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px;
+  margin: 0; padding: 0 var(--sp-8); border: 0; border-radius: var(--r-pill); background: none; color: var(--ink-2);
+  font: inherit; font-size: var(--fs-small); cursor: pointer;
+}
+@media (hover: hover) { .luw .bmx-chip-x:hover { background: var(--surface-2); color: var(--ink); } }
+.luw .bmx-chip-x:active { transform: translateY(1px); }
+.luw .bmx-sug {
+  display: inline-flex; align-items: center; gap: var(--sp-8); min-height: 44px; padding: 0 var(--sp-12);
+  border: 1px solid var(--outline); border-radius: var(--r-pill); background: var(--surface);
+  font: inherit; font-size: var(--fs-small); font-weight: 650; color: var(--ink); cursor: pointer; text-align: left;
+}
+.luw .bmx-sug[aria-pressed="true"] { border-color: var(--coral); background: var(--coral-soft); }
+@media (hover: hover) { .luw .bmx-sug:hover { border-color: var(--coral); } }
+.luw .bmx-sug:active { transform: translateY(1px); }
+.luw .bmx-sug-src { font-size: var(--fs-caption); font-weight: 600; color: var(--ink-3); }
+
+.luw .bmx-chapters { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.luw .bmx-chapter { display: flex; align-items: center; gap: var(--sp-8); flex-wrap: wrap; min-height: 44px; font-size: var(--fs-small); color: var(--ink); }
+.luw .bmx-chapter .f-check { min-height: 44px; flex-wrap: wrap; color: var(--ink); font-weight: 600; }
+.luw .bmx-was { color: var(--ink-3); text-decoration: line-through; }
+
+.luw .bmx-same summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-size: var(--fs-ui); font-weight: 650; color: var(--ink-2); }
+
+/* The Apply bar: pinned to the bottom of the review pane while it scrolls, wrapping rather than
+   clipping when the text is large or the column narrow. */
+.luw .bmx-apply {
+  position: sticky; bottom: 0; z-index: 2;
+  display: flex; flex-direction: column; gap: var(--sp-8);
+  margin: 0 calc(-1 * var(--sp-16)) calc(-1 * var(--sp-16)); padding: var(--sp-12) var(--sp-16);
+  border-top: 1px solid var(--line); border-radius: 0 0 var(--r-lg) var(--r-lg);
+  background: var(--surface); box-shadow: var(--shadow-up);
+}
+.luw .bmx-bar { display: flex; align-items: center; gap: var(--sp-12); flex-wrap: wrap; }
+.luw .bmx-bar-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
+.luw .bmx-bar-sum { font-size: var(--fs-ui); font-weight: 750; color: var(--ink); }
+
+/* Compare editions */
+.luw .bmx-cmp-wrap { overflow-x: auto; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--surface); }
+.luw .bmx-cmp { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
+.luw .bmx-cmp th, .luw .bmx-cmp td { padding: var(--sp-8) var(--sp-12); text-align: left; vertical-align: top; border-bottom: 1px solid var(--line-2); min-width: 9rem; overflow-wrap: anywhere; }
+.luw .bmx-cmp thead th { vertical-align: bottom; }
+.luw .bmx-cmp tbody th { font-weight: 700; color: var(--ink-2); min-width: 6rem; }
+.luw .bmx-cmp-col { display: flex; flex-direction: column; gap: var(--sp-4); }
+.luw .bmx-cmp-note { display: block; font-size: var(--fs-caption); color: var(--ink-3); }
+
+/* The receipt on Book Detail after Apply (W-04): pinned to the bottom of the page until it is
+   dismissed or the reader leaves — never a timed toast. */
+.luw .bmx-receipt:empty { display: none; }
+.luw .bmx-receipt {
+  position: sticky; bottom: var(--sp-16); z-index: 3; align-self: center;
+  display: flex; align-items: center; gap: var(--sp-12); flex-wrap: wrap;
+  width: min(100%, 44rem); margin-top: var(--sp-16); padding: var(--sp-12) var(--sp-16);
+  border-radius: var(--r-lg); background: var(--ink); color: var(--paper); box-shadow: var(--shadow-float);
+}
+.luw .bmx-receipt:focus { outline: none; }
+.luw .bmx-receipt:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+.luw .bmx-receipt-t { margin: 0; flex: 1 1 14rem; min-width: 0; font-size: var(--fs-ui); font-weight: 650; overflow-wrap: anywhere; }
+.luw .bmx-receipt-acts { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+.luw .bmx-receipt .btn-ghost, .luw .bmx-receipt .btn-icon { color: var(--paper); }
+.luw .bmx-changes { margin: 0; padding: 0 0 0 1.1rem; display: flex; flex-direction: column; gap: var(--sp-4); font-size: var(--fs-ui); color: var(--ink); }
+
+/* ── Match details for people ────────────────────────────────────────────────
+   /contributor/{id}/match (W-06, W-07). The same two panes, rows and Apply bar as a
+   book's; what differs is drawn here: the Your-library strip, round portraits, and the
+   photo and biography sections. */
+
+.luw .pmx-lib { flex-wrap: wrap; }
+.luw .pmx-lib-covers { display: flex; flex: none; }
+.luw .pmx-lib-covers .bmx-art { width: 40px; height: 56px; box-shadow: 0 0 0 2px var(--surface-2); }
+.luw .pmx-lib-covers .bmx-art + .bmx-art { margin-left: -12px; }
+.luw .pmx-lib-t { overflow-wrap: anywhere; }
+.luw .pmx-row { align-items: center; }
+.luw .pmx-row[aria-pressed="true"] { border-color: var(--coral); background: var(--coral-soft); }
+.luw .pmx-lib-line { display: inline-flex; align-items: center; gap: var(--sp-4); font-size: var(--fs-small); color: var(--ink-3); }
+.luw .pmx-lib-line.is-some { color: var(--success); font-weight: 650; }
+.luw .pmx-face {
+  flex: none; width: 56px; height: 56px; border-radius: 50%; object-fit: cover; display: flex;
+  align-items: center; justify-content: center; background: var(--surface-3);
+}
+.luw .pmx-face.is-big { width: 84px; height: 84px; }
+.luw .pmx-face-blank { color: var(--ink-2); font-size: var(--fs-ui); font-weight: 750; letter-spacing: 0.02em; }
+.luw .pmx-face-blank.is-big { font-size: var(--fs-title); }
+.luw .pmx-from { color: var(--ink-2); }
+.luw .pmx-apart { padding-top: var(--sp-4); }
+.luw .pmx-photo, .luw .pmx-bio { gap: var(--sp-12); }
+.luw .pmx-photos .bmx-cover { min-width: 7rem; }
+.luw .pmx-bio-src { align-self: stretch; }

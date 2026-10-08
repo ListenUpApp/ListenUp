@@ -47,11 +47,10 @@ import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.presentation.connection.ConnectionHealthUi
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
-import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
 import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
 import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
 import com.calypsan.listenup.web.features.chaptereditor.fixedChapterEditor
-import com.calypsan.listenup.web.features.metadata.fixedMetadata
+import com.calypsan.listenup.web.features.match.fixedMatchDetails
 import com.calypsan.listenup.web.features.bookdetail.readyBook
 import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
@@ -72,7 +71,6 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
-import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
 import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
@@ -100,7 +98,6 @@ import com.calypsan.listenup.client.presentation.contributordetail.ContributorBo
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorBooks
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
-import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
@@ -186,11 +183,10 @@ private fun Gate(
         openBookDetail = fixedBookDetail(readyBook()),
         openBookEdit = fixedBookEdit(BookEditUiState()),
         openChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
-        openMetadata = fixedMetadata(MetadataUiState.Idle()),
+        matchDetails = fixedMatchDetails(),
         openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
         openContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
         openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
-        openContributorMetadata = fixedContributorMetadata(ContributorMetadataUiState.Idle()),
         openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
         openSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
         openNotifications = fixedNotifications(NotificationsUiState.Empty),

@@ -103,13 +103,16 @@ fun SeriesEditPage(
             FormSection(title = "Identity") { IdentityFields(state, onEvent) }
             // en.json's series.place_in_library
             FormSection(title = "Place in library") { PlaceInLibrarySection(state, onEvent, onAddSubSeriesEvent) }
-            FormSection(title = "This series") { MergeSection(state, onEvent) }
-            FormSection(title = "Merged into this") {
-                MergeHistoryList(
-                    state = mergeHistory,
-                    onUndo = { onEvent(SeriesEditUiEvent.UndoMerge(it)) },
-                    onRetry = { onEvent(SeriesEditUiEvent.RetryMergeHistory) },
-                )
+            // Merging, and undoing a merge, are curating: only for a reader who may curate.
+            if (state.canCurateLibrary) {
+                FormSection(title = "This series") { MergeSection(state, onEvent) }
+                FormSection(title = "Merged into this") {
+                    MergeHistoryList(
+                        state = mergeHistory,
+                        onUndo = { onEvent(SeriesEditUiEvent.UndoMerge(it)) },
+                        onRetry = { onEvent(SeriesEditUiEvent.RetryMergeHistory) },
+                    )
+                }
             }
             EditActions(state, onEvent)
         }

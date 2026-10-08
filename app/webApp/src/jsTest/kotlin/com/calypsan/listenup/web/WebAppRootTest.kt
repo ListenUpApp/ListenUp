@@ -27,10 +27,21 @@ import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEven
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterSetProblem
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
-import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataEvent
 import com.calypsan.listenup.client.presentation.genredestination.SubGenre
 import com.calypsan.listenup.client.presentation.home.HomeUiState
-import com.calypsan.listenup.client.presentation.metadata.MetadataEvent
+import com.calypsan.listenup.api.dto.match.MatchReceipt
+import com.calypsan.listenup.client.presentation.match.BookMatchEvent
+import com.calypsan.listenup.client.presentation.match.MatchReceiptUiState
+import com.calypsan.listenup.client.presentation.match.PersonMatchEvent
+import com.calypsan.listenup.web.features.match.andyResults
+import com.calypsan.listenup.web.features.match.fixedPersonMatch
+import com.calypsan.listenup.web.features.match.noProfiles
+import com.calypsan.listenup.web.features.match.personReceipt
+import com.calypsan.listenup.web.features.match.fixedBookMatch
+import com.calypsan.listenup.web.features.match.fixedMatchDetails
+import com.calypsan.listenup.web.features.match.fixedMatchReceipt
+import com.calypsan.listenup.web.features.match.receipt
+import com.calypsan.listenup.web.features.match.results
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
@@ -68,9 +79,6 @@ import com.calypsan.listenup.web.features.contributordetail.fixedContributorDeta
 import com.calypsan.listenup.web.features.contributordetail.readyContributor
 import com.calypsan.listenup.web.features.contributordetail.roleSection
 import com.calypsan.listenup.web.features.contributordetail.seriesWithBooks
-import com.calypsan.listenup.web.features.contributormetadata.contributorSearchState
-import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
-import com.calypsan.listenup.web.features.contributormetadata.localContributor
 import com.calypsan.listenup.web.features.contributors.contributor
 import com.calypsan.listenup.web.features.home.OpenHome
 import com.calypsan.listenup.web.features.home.fixedHome
@@ -894,57 +902,74 @@ class WebAppRootTest :
             }
         }
 
-        // ⛔ The seed comes from the BOOK, and the book has to have loaded first. A session opened
-        // before Book Detail's state arrives seeds an empty query, and the reader lands on a search
-        // that finds nothing on a book the wizard could have found immediately.
-        test("/book/{id}/match seeds the search from the book it was opened on") {
-            val recorder = RecordingMetadata()
+        test("/book/{id}/match opens Match details for that book, and not the book's own page") {
+            val opened = mutableListOf<String>()
             val (host, router) =
                 mountAt(
                     "/book/b-kings/match",
                     openBookDetail = fixedBookDetail(readyBook()),
-                    openMetadata = recorder.open,
+                    matchDetails = fixedMatchDetails(opened = { opened += it }),
                 )
 
             try {
                 awaitFrame()
 
-                recorder.seeds.size shouldBe 1
-                recorder.seeds.single() shouldContain "b-kings|"
-                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Match metadata"
-                // ⛔ The book's own page must not also be up.
+                opened shouldBe listOf("b-kings")
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Match details"
                 host.querySelector(".bd-head") shouldBe null
             } finally {
                 router.dispose()
             }
         }
 
-        test("the wizard waits for the book rather than seeding an empty search") {
-            val recorder = RecordingMetadata()
-            val (_, router) =
+        test("/book/{id}/match?view=compare is Compare editions over the same session") {
+            val opened = mutableListOf<String>()
+            val (host, router) =
                 mountAt(
-                    "/book/b-kings/match",
-                    openBookDetail = fixedBookDetail(BookDetailUiState.Loading),
-                    openMetadata = recorder.open,
+                    "/book/b-kings/match?view=compare",
+                    matchDetails = fixedMatchDetails(opened = { opened += it }),
                 )
 
             try {
                 awaitFrame()
 
-                recorder.seeds shouldBe emptyList()
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Compare editions"
+                opened shouldBe listOf("b-kings")
             } finally {
                 router.dispose()
             }
         }
 
-        test("Match metadata on a book's page opens the wizard") {
+        test("Match details on a book's page opens Match details") {
             val (host, router) = mountAt("/book/b-kings", openBookDetail = fixedBookDetail(readyBook()))
 
             try {
-                (host.querySelector("button[aria-label=\"Match metadata\"]") as HTMLElement).click()
+                (host.querySelector("button[aria-label=\"Match details\"]") as HTMLElement).click()
                 awaitFrame()
 
                 window.location.pathname shouldBe "/book/b-kings/match"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("Book Detail shows the receipt Match details left") {
+            val receipt =
+                MutableStateFlow<MatchReceiptUiState>(
+                    MatchReceiptUiState.Shown(receipt(), undoing = false, undoError = null),
+                )
+            val (host, router) =
+                mountAt(
+                    "/book/b-kings",
+                    openBookDetail = fixedBookDetail(readyBook()),
+                    matchDetails = fixedMatchDetails(receipt = fixedMatchReceipt(state = receipt)),
+                )
+
+            try {
+                awaitFrame()
+
+                host.querySelector(".bmx-receipt .bmx-receipt-t")?.textContent shouldBe
+                    "Changed 5 fields, cover from Hardcover, 16 chapter names"
             } finally {
                 router.dispose()
             }
@@ -978,16 +1003,22 @@ class WebAppRootTest :
         }
 
         test("an applied match lands back on the book it changed") {
-            val recorder = RecordingMetadata(events = flowOf(MetadataEvent.MatchApplied))
+            val applied = Channel<BookMatchEvent>(Channel.BUFFERED)
+            applied.trySend(BookMatchEvent.Applied(MatchReceipt("r-1", 0, emptyList(), undoable = true)))
             val (_, router) =
                 mountAt(
                     "/book/b-kings/match",
                     openBookDetail = fixedBookDetail(readyBook()),
-                    openMetadata = recorder.open,
+                    matchDetails =
+                        fixedMatchDetails(match = {
+                            fixedBookMatch(MutableStateFlow(results()), events = applied.receiveAsFlow())
+                        }),
                 )
 
             try {
-                awaitFrame()
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    while (window.location.pathname != "/book/b-kings") delay(NAV_POLL)
+                }
 
                 window.location.pathname shouldBe "/book/b-kings"
             } finally {
@@ -1529,30 +1560,30 @@ class WebAppRootTest :
             }
         }
 
-        test("/contributor/{id}/match renders the wizard, not the contributor's page") {
+        test("/contributor/{id}/match opens Match details for that person, not their page") {
+            val opened = mutableListOf<String>()
             val (host, router) =
-                mountAt(
-                    "/contributor/c-king/match",
-                    openContributorMetadata =
-                        fixedContributorMetadata(contributorSearchState(current = localContributor(name = "Pat"))),
-                )
+                mountAt("/contributor/c-king/match", matchDetails = fixedMatchDetails(opened = { opened += it }))
 
             try {
-                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Match contributor"
+                awaitFrame()
+
+                opened shouldBe listOf("c-king")
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Match details"
                 // ⛔ `/contributor/{id}` is a prefix of this route; a branch order that tests it
-                // first makes the wizard unreachable by link.
+                // first makes Match details unreachable by link.
                 host.querySelector(".cd-hero") shouldBe null
             } finally {
                 router.dispose()
             }
         }
 
-        test("the sparkle on a contributor's page opens the wizard") {
+        test("Match details on a contributor's page opens Match details") {
             val (host, router) =
                 mountAt("/contributor/c-king", openContributorDetail = fixedContributorDetail(readyContributor()))
 
             try {
-                (host.querySelector(".cd-match") as HTMLElement).click()
+                (host.querySelector("button[aria-label=\"Match details\"]") as HTMLElement).click()
                 awaitFrame()
 
                 window.location.pathname shouldBe "/contributor/c-king/match"
@@ -1561,21 +1592,89 @@ class WebAppRootTest :
             }
         }
 
-        test("an applied contributor profile lands back on the person it changed") {
+        test("an applied person match lands back on the person it changed") {
+            val applied = Channel<PersonMatchEvent>(Channel.BUFFERED)
+            applied.trySend(PersonMatchEvent.Applied(MatchReceipt("r-p", 0, emptyList(), undoable = true)))
             val (_, router) =
                 mountAt(
                     "/contributor/c-king/match",
-                    openContributorMetadata =
-                        fixedContributorMetadata(
-                            state = contributorSearchState(),
-                            events = flowOf(ContributorMetadataEvent.MetadataApplied),
-                        ),
+                    matchDetails =
+                        fixedMatchDetails(person = {
+                            fixedPersonMatch(MutableStateFlow(andyResults()), events = applied.receiveAsFlow())
+                        }),
+                )
+
+            try {
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    while (window.location.pathname != "/contributor/c-king") delay(NAV_POLL)
+                }
+
+                window.location.pathname shouldBe "/contributor/c-king"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("Edit by hand, when no source has a profile, opens the person's own form") {
+            val (host, router) =
+                mountAt(
+                    "/contributor/c-king/match",
+                    matchDetails = fixedMatchDetails(person = { fixedPersonMatch(MutableStateFlow(noProfiles())) }),
                 )
 
             try {
                 awaitFrame()
+                (host.querySelectorAll("button").asList().first { it.textContent?.trim() == "Edit by hand" } as HTMLElement)
+                    .click()
+                awaitFrame()
 
-                window.location.pathname shouldBe "/contributor/c-king"
+                window.location.pathname shouldBe "/contributor/c-king/edit"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the contributor page shows the receipt Match details left, focused, with Undo and no See what changed") {
+            val receipt =
+                MutableStateFlow<MatchReceiptUiState>(
+                    MatchReceiptUiState.Shown(personReceipt(), undoing = false, undoError = null),
+                )
+            val calls = mutableListOf<String>()
+            val opened = mutableListOf<String>()
+            val (host, router) =
+                mountAt(
+                    "/contributor/c-king",
+                    openContributorDetail = fixedContributorDetail(readyContributor(name = "Ray Porter")),
+                    matchDetails =
+                        fixedMatchDetails(receipt = { id ->
+                            opened += id
+                            fixedMatchReceipt(state = receipt, undo = { calls += "undo" })(id)
+                        }),
+                )
+
+            try {
+                awaitFrame()
+                awaitFrame()
+
+                opened shouldBe listOf("c-king")
+                val region = host.querySelector(".bmx-receipt") as HTMLElement
+                region.querySelector(".bmx-receipt-t")?.textContent shouldBe "Changed photo and biography for Ray Porter"
+                document.activeElement shouldBe region
+                region
+                    .querySelectorAll("button")
+                    .asList()
+                    .map { it.textContent?.trim() }
+                    .contains("See what changed") shouldBe
+                    false
+                (region.querySelectorAll("button").asList().first { it.textContent?.trim() == "Undo" } as HTMLElement).click()
+                calls shouldBe listOf("undo")
+
+                receipt.value = MatchReceiptUiState.Undone
+                awaitFrame()
+                awaitFrame()
+
+                region.querySelector(".bmx-receipt-t")?.textContent shouldBe "Match undone. Everything it changed is back."
+                document.activeElement shouldBe region
             } finally {
                 router.dispose()
             }
@@ -1704,7 +1803,10 @@ class WebAppRootTest :
 
         test("the pencil on a series page opens the form over it") {
             val (host, router) =
-                mountAt("/series/s-cosmere", openSeriesDetail = fixedSeriesDetail(readySeries()))
+                mountAt(
+                    "/series/s-cosmere",
+                    openSeriesDetail = fixedSeriesDetail(readySeries(canEditMetadata = true)),
+                )
 
             try {
                 (host.querySelector(".sd-edit") as HTMLElement).click()

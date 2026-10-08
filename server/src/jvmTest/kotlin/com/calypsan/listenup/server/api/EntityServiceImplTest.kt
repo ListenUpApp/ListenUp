@@ -17,7 +17,7 @@ import com.calypsan.listenup.core.EntityId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.StoryWorldHistoryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.testing.SqlTestDatabases
@@ -82,9 +82,9 @@ private suspend fun SqlTestDatabases.storyWorld(): World {
     val redRising = seedSeriesWithBooks("Red Rising", "open", "hidden")
     val sealed = seedSeriesWithBooks("Sealed", "hidden2")
     listOf("member", "nocontrib", "curator").forEach { makeBookAccessible(sql, driver, bookId = "open", viewerId = it) }
-    sql.usersQueries.updateStoryWorldPermissions(can_contribute_story_world = 0L, can_curate_story_world = 0L, id = "nocontrib")
-    sql.usersQueries.updateStoryWorldPermissions(can_contribute_story_world = 1L, can_curate_story_world = 1L, id = "curator")
-    val service = EntityServiceImpl(entityRepository(), UserPermissionPolicy(sql), BookAccessPolicy(sql, driver))
+    sql.usersQueries.updateStoryWorldPermissionFlags(can_contribute_story_world = 0L, can_curate_story_world = 0L, id = "nocontrib")
+    sql.usersQueries.updateStoryWorldPermissionFlags(can_contribute_story_world = 1L, can_curate_story_world = 1L, id = "curator")
+    val service = EntityServiceImpl(entityRepository(), PermissionPolicy(sql), BookAccessPolicy(sql, driver))
     return World(service, redRising, sealed)
 }
 

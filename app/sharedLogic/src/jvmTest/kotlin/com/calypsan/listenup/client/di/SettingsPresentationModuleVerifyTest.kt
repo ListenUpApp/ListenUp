@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.connection.ConnectionHealthStore
+import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
@@ -39,6 +40,7 @@ import org.koin.test.verify.verify
  *  - [LogoutUseCase] — owned by `authModule`.
  *  - [PushRepository] — owned by the push module.
  *  - [HardcoverRepository] — owned by `hardcoverClientModule` (the Settings row's state).
+ *  - [PermissionsRepository] — owned by `socialModule` (who may open Categories).
  *  - [BookRepository] — owned by `bookModule` (names the Hardcover books that need a match).
  *  - [ErrorBus] — owned by `appCoreModule`.
  *  - [CoroutineScope] — the `appScope`, owned by `appCoreModule` (Find on Hardcover's Undo outlives the screen).
@@ -69,6 +71,7 @@ class SettingsPresentationModuleVerifyTest :
                         LogoutUseCase::class,
                         PushRepository::class,
                         HardcoverRepository::class,
+                        PermissionsRepository::class,
                         BookRepository::class,
                         ErrorBus::class,
                         CoroutineScope::class,

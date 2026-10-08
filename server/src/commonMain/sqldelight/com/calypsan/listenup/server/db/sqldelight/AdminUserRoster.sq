@@ -15,7 +15,10 @@ CREATE TABLE admin_user_roster (
     updated_at         INTEGER NOT NULL,
     revision           INTEGER NOT NULL,
     deleted_at         INTEGER,
-    client_op_id       TEXT
+    client_op_id       TEXT,
+    can_curate_library INTEGER NOT NULL DEFAULT 0,
+    can_contribute_story_world INTEGER NOT NULL DEFAULT 1,
+    can_curate_story_world     INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX idx_admin_user_roster_revision ON admin_user_roster(revision);
@@ -47,12 +50,14 @@ selectByIds:
 SELECT * FROM admin_user_roster WHERE id IN :ids;
 
 insert:
-INSERT INTO admin_user_roster (id, email, display_name, role, status, can_edit, account_created_at, created_at, updated_at, revision, deleted_at, client_op_id)
-VALUES (:id, :email, :display_name, :role, :status, :can_edit, :account_created_at, :created_at, :updated_at, :revision, :deleted_at, :client_op_id);
+INSERT INTO admin_user_roster (id, email, display_name, role, status, can_edit, can_curate_library, can_contribute_story_world, can_curate_story_world, account_created_at, created_at, updated_at, revision, deleted_at, client_op_id)
+VALUES (:id, :email, :display_name, :role, :status, :can_edit, :can_curate_library, :can_contribute_story_world, :can_curate_story_world, :account_created_at, :created_at, :updated_at, :revision, :deleted_at, :client_op_id);
 
 update:
 UPDATE admin_user_roster
 SET email = :email, display_name = :display_name, role = :role, status = :status, can_edit = :can_edit,
+    can_curate_library = :can_curate_library, can_contribute_story_world = :can_contribute_story_world,
+    can_curate_story_world = :can_curate_story_world,
     account_created_at = :account_created_at, revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at, client_op_id = :client_op_id
 WHERE id = :id;
 

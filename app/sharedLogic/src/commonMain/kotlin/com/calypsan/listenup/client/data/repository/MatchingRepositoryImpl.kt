@@ -9,6 +9,9 @@ import com.calypsan.listenup.api.dto.match.BookMatchReview
 import com.calypsan.listenup.api.dto.match.MatchReceipt
 import com.calypsan.listenup.api.dto.match.PersonFindRequest
 import com.calypsan.listenup.api.dto.match.PersonFindResult
+import com.calypsan.listenup.api.dto.match.PersonCandidateKey
+import com.calypsan.listenup.api.dto.match.PersonMatchApply
+import com.calypsan.listenup.api.dto.match.PersonMatchReview
 import com.calypsan.listenup.api.dto.match.UndoResult
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
@@ -44,6 +47,19 @@ internal class MatchingRepositoryImpl(
         bookId: BookId,
         request: BookMatchApply,
     ): AppResult<MatchReceipt> = channel.callMutation { it.applyBookMatch(bookId, request) }
+
+    override suspend fun reviewPersonMatch(
+        contributorId: ContributorId,
+        candidate: PersonCandidateKey,
+    ): AppResult<PersonMatchReview> =
+        channel.call(idempotent = true) {
+            it.reviewPersonMatch(contributorId, candidate, role = null)
+        }
+
+    override suspend fun applyPersonMatch(
+        contributorId: ContributorId,
+        request: PersonMatchApply,
+    ): AppResult<MatchReceipt> = channel.callMutation { it.applyPersonMatch(contributorId, request) }
 
     override suspend fun undoMatch(receiptId: String): AppResult<UndoResult> =
         channel.callMutation { it.undoMatch(receiptId) }

@@ -7,6 +7,8 @@ import kotlinx.coroutines.channels.Channel
 import com.calypsan.listenup.client.domain.repository.PushRepository
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.client.domain.repository.HardcoverRepository
+import com.calypsan.listenup.client.domain.repository.PermissionsRepository
+import com.calypsan.listenup.api.dto.auth.Permission
 import kotlinx.coroutines.flow.map
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
@@ -99,6 +101,7 @@ class SettingsViewModel(
     private val logoutUseCase: LogoutUseCase,
     private val pushRepository: PushRepository,
     hardcoverRepository: HardcoverRepository,
+    permissionsRepository: PermissionsRepository,
     private val appVersion: String,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
@@ -110,6 +113,12 @@ class SettingsViewModel(
      * one-shot-events rule — a `StateFlow` would replay the toast on every recomposition.
      */
     val events: Flow<SettingsEvent> = testNotificationEvents.receiveAsFlow()
+
+    /** Whether Settings offers the Categories screen: members with Curate library, and admins. */
+    val canCurateLibrary: StateFlow<Boolean> =
+        permissionsRepository
+            .observeCan(Permission.CURATE_LIBRARY)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     private val internalState = MutableStateFlow(SettingsUiState(appVersion = appVersion))
 

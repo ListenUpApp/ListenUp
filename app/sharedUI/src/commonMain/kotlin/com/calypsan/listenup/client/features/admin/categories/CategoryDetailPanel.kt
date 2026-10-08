@@ -51,6 +51,8 @@ private val FabClearance = 80.dp
  * selected it says how to pick one.
  *
  * @param genre The selected category, or null when none is selected (or it was just deleted).
+ * @param canEdit Whether add, rename and move are offered (Edit metadata).
+ * @param canCurate Whether merge, merge history and delete are offered (Curate library).
  *
  * One callback per category action, the same set the tree rows' menus take; a parameter object
  * would only add an indirection layer Compose tooling discourages.
@@ -59,6 +61,8 @@ private val FabClearance = 80.dp
 @Composable
 internal fun CategoryDetailPanel(
     genre: Genre?,
+    canEdit: Boolean,
+    canCurate: Boolean,
     onAddChild: (String, String) -> Unit,
     onRename: (String, String) -> Unit,
     onDelete: (String, String) -> Unit,
@@ -79,6 +83,8 @@ internal fun CategoryDetailPanel(
         } else {
             CategoryHeader(genre = genre)
             CategoryActions(
+                canEdit = canEdit,
+                canCurate = canCurate,
                 onAddChild = { onAddChild(genre.id, genre.name) },
                 onRename = { onRename(genre.id, genre.name) },
                 onMove = { onMove(genre.id, genre.name) },
@@ -132,11 +138,18 @@ private fun CategoryHeader(genre: Genre) {
     }
 }
 
-// One row per category action; a parameter object would only add an indirection layer Compose
-// tooling discourages.
+/**
+ * The selected category's actions as rows: add, rename and move under Edit metadata ([canEdit]);
+ * merge, merge history and delete under Curate library ([canCurate]). With neither, nothing is drawn.
+ *
+ * One row per category action; a parameter object would only add an indirection layer Compose
+ * tooling discourages.
+ */
 @Suppress("LongParameterList")
 @Composable
-private fun CategoryActions(
+internal fun CategoryActions(
+    canEdit: Boolean,
+    canCurate: Boolean,
     onAddChild: () -> Unit,
     onRename: () -> Unit,
     onMove: () -> Unit,
@@ -144,37 +157,42 @@ private fun CategoryActions(
     onMergeHistory: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    if (!canEdit && !canCurate) return
     SegmentedGroup {
-        SettingRow(
-            title = stringResource(Res.string.admin_add_subgenre),
-            icon = Icons.Outlined.Add,
-            onClick = onAddChild,
-        )
-        SettingRow(
-            title = stringResource(Res.string.common_rename),
-            icon = Icons.Outlined.Edit,
-            onClick = onRename,
-        )
-        SettingRow(
-            title = stringResource(Res.string.admin_move_to),
-            icon = Icons.AutoMirrored.Outlined.ArrowForward,
-            onClick = onMove,
-        )
-        SettingRow(
-            title = stringResource(Res.string.admin_merge_into),
-            icon = Icons.AutoMirrored.Outlined.CallMerge,
-            onClick = onMerge,
-        )
-        SettingRow(
-            title = stringResource(Res.string.merge_history_open),
-            icon = Icons.Outlined.History,
-            onClick = onMergeHistory,
-        )
-        SettingRow(
-            title = stringResource(Res.string.common_delete),
-            icon = Icons.Outlined.Delete,
-            danger = true,
-            onClick = onDelete,
-        )
+        if (canEdit) {
+            SettingRow(
+                title = stringResource(Res.string.admin_add_subgenre),
+                icon = Icons.Outlined.Add,
+                onClick = onAddChild,
+            )
+            SettingRow(
+                title = stringResource(Res.string.common_rename),
+                icon = Icons.Outlined.Edit,
+                onClick = onRename,
+            )
+            SettingRow(
+                title = stringResource(Res.string.admin_move_to),
+                icon = Icons.AutoMirrored.Outlined.ArrowForward,
+                onClick = onMove,
+            )
+        }
+        if (canCurate) {
+            SettingRow(
+                title = stringResource(Res.string.admin_merge_into),
+                icon = Icons.AutoMirrored.Outlined.CallMerge,
+                onClick = onMerge,
+            )
+            SettingRow(
+                title = stringResource(Res.string.merge_history_open),
+                icon = Icons.Outlined.History,
+                onClick = onMergeHistory,
+            )
+            SettingRow(
+                title = stringResource(Res.string.common_delete),
+                icon = Icons.Outlined.Delete,
+                danger = true,
+                onClick = onDelete,
+            )
+        }
     }
 }

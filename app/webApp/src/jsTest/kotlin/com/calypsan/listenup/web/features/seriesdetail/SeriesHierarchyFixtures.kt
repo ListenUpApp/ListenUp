@@ -26,7 +26,7 @@ internal val warbreakerBook: BookListItem = seriesBook("wb", "Warbreaker", null,
  * sub-series, then Warbreaker under "Also in Cosmere". Elantris is finished, so it starts folded.
  */
 internal fun groupedCosmere(
-    canEditHierarchy: Boolean = false,
+    canEditMetadata: Boolean = false,
     isOnline: Boolean = true,
     elantrisCollapsed: Boolean = true,
 ): SeriesDetailUiState.Ready =
@@ -92,7 +92,7 @@ internal fun groupedCosmere(
                 sequence = "3",
                 hasStarted = true,
             ),
-        canEditHierarchy = canEditHierarchy,
+        canEditMetadata = canEditMetadata,
         isOnline = isOnline,
     )
 

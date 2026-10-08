@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 19,
-    "identityHash": "278df08f4a7149c2b76448a59ecbd46e",
+    "identityHash": "e71cc6e0a57d9797d16c86787377b42e",
     "entities": [
       {
         "tableName": "users",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `email` TEXT NOT NULL, `displayName` TEXT NOT NULL, `firstName` TEXT, `lastName` TEXT, `isRoot` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `tagline` TEXT, `canEdit` INTEGER NOT NULL, `canContributeStoryWorld` INTEGER NOT NULL, `canCurateStoryWorld` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `email` TEXT NOT NULL, `displayName` TEXT NOT NULL, `firstName` TEXT, `lastName` TEXT, `isRoot` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `tagline` TEXT, `canEdit` INTEGER NOT NULL, `canCurateLibrary` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -66,14 +66,8 @@
             "notNull": true
           },
           {
-            "fieldPath": "canContributeStoryWorld",
-            "columnName": "canContributeStoryWorld",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "canCurateStoryWorld",
-            "columnName": "canCurateStoryWorld",
+            "fieldPath": "canCurateLibrary",
+            "columnName": "canCurateLibrary",
             "affinity": "INTEGER",
             "notNull": true
           }
@@ -2646,7 +2640,7 @@
       },
       {
         "tableName": "pending_operation",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`clientOpId` TEXT NOT NULL, `domainName` TEXT NOT NULL, `entityId` TEXT NOT NULL, `opType` TEXT NOT NULL, `payload` TEXT NOT NULL, `enqueuedAt` INTEGER NOT NULL, `lastAttemptAt` INTEGER, `failureCount` INTEGER NOT NULL, `lastError` TEXT, `ownerUserId` TEXT NOT NULL, `mayHaveLanded` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`clientOpId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`clientOpId` TEXT NOT NULL, `domainName` TEXT NOT NULL, `entityId` TEXT NOT NULL, `opType` TEXT NOT NULL, `payload` TEXT NOT NULL, `enqueuedAt` INTEGER NOT NULL, `lastAttemptAt` INTEGER, `failureCount` INTEGER NOT NULL, `lastError` TEXT, `ownerUserId` TEXT NOT NULL, PRIMARY KEY(`clientOpId`))",
         "fields": [
           {
             "fieldPath": "clientOpId",
@@ -2705,13 +2699,6 @@
             "columnName": "ownerUserId",
             "affinity": "TEXT",
             "notNull": true
-          },
-          {
-            "fieldPath": "mayHaveLanded",
-            "columnName": "mayHaveLanded",
-            "affinity": "INTEGER",
-            "notNull": true,
-            "defaultValue": "0"
           }
         ],
         "primaryKey": {
@@ -2745,7 +2732,7 @@
       },
       {
         "tableName": "admin_user_roster",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `email` TEXT NOT NULL, `displayName` TEXT NOT NULL, `role` TEXT NOT NULL, `status` TEXT NOT NULL, `canEdit` INTEGER NOT NULL, `accountCreatedAt` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `email` TEXT NOT NULL, `displayName` TEXT NOT NULL, `role` TEXT NOT NULL, `status` TEXT NOT NULL, `canEdit` INTEGER NOT NULL, `canCurateLibrary` INTEGER NOT NULL, `accountCreatedAt` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -2780,6 +2767,12 @@
           {
             "fieldPath": "canEdit",
             "columnName": "canEdit",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "canCurateLibrary",
+            "columnName": "canCurateLibrary",
             "affinity": "INTEGER",
             "notNull": true
           },
@@ -3175,137 +3168,11 @@
             "createSql": "CREATE INDEX IF NOT EXISTS `index_book_external_ratings_deletedAt` ON `${TABLE_NAME}` (`deletedAt`)"
           }
         ]
-      },
-      {
-        "tableName": "entities",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `kind` TEXT NOT NULL, `name` TEXT NOT NULL, `descriptor` TEXT, `parentId` TEXT, `homeSeriesId` TEXT, `homeBookId` TEXT, `imageRef` TEXT, `createdBy` TEXT, `updatedBy` TEXT, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
-        "fields": [
-          {
-            "fieldPath": "id",
-            "columnName": "id",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "kind",
-            "columnName": "kind",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "name",
-            "columnName": "name",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "descriptor",
-            "columnName": "descriptor",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "parentId",
-            "columnName": "parentId",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "homeSeriesId",
-            "columnName": "homeSeriesId",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "homeBookId",
-            "columnName": "homeBookId",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "imageRef",
-            "columnName": "imageRef",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "createdBy",
-            "columnName": "createdBy",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "updatedBy",
-            "columnName": "updatedBy",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "revision",
-            "columnName": "revision",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "deletedAt",
-            "columnName": "deletedAt",
-            "affinity": "INTEGER"
-          },
-          {
-            "fieldPath": "createdAt",
-            "columnName": "createdAt",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "updatedAt",
-            "columnName": "updatedAt",
-            "affinity": "INTEGER",
-            "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": false,
-          "columnNames": [
-            "id"
-          ]
-        },
-        "indices": [
-          {
-            "name": "index_entities_homeSeriesId",
-            "unique": false,
-            "columnNames": [
-              "homeSeriesId"
-            ],
-            "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_entities_homeSeriesId` ON `${TABLE_NAME}` (`homeSeriesId`)"
-          },
-          {
-            "name": "index_entities_homeBookId",
-            "unique": false,
-            "columnNames": [
-              "homeBookId"
-            ],
-            "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_entities_homeBookId` ON `${TABLE_NAME}` (`homeBookId`)"
-          },
-          {
-            "name": "index_entities_parentId",
-            "unique": false,
-            "columnNames": [
-              "parentId"
-            ],
-            "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_entities_parentId` ON `${TABLE_NAME}` (`parentId`)"
-          },
-          {
-            "name": "index_entities_deletedAt",
-            "unique": false,
-            "columnNames": [
-              "deletedAt"
-            ],
-            "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_entities_deletedAt` ON `${TABLE_NAME}` (`deletedAt`)"
-          }
-        ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '278df08f4a7149c2b76448a59ecbd46e')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e71cc6e0a57d9797d16c86787377b42e')"
     ]
   }
 }

@@ -14,7 +14,7 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.ImageStorage
@@ -554,7 +554,7 @@ private fun makeService(
                 imageHome = Path(tempDir.toString()),
             ),
         enrichmentDeps = testEnrichmentDeps(dbs.sql, dbs.driver, bus, syncRegistry),
-        permissionPolicy = UserPermissionPolicy(dbs.sql),
+        permissionPolicy = PermissionPolicy(dbs.sql),
         bookAccessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
         sqlDb = dbs.sql,
         genreRepository = genreRepo,

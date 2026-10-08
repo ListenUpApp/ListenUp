@@ -28,14 +28,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PersonOff
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
@@ -75,6 +79,7 @@ import com.calypsan.listenup.client.design.components.EmptyState
 import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
+import com.calypsan.listenup.client.design.components.LocalNowPlayingInsets
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
@@ -84,6 +89,8 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorColorScheme
 import com.calypsan.listenup.client.features.contributoredit.components.rememberContributorColorScheme
 import com.calypsan.listenup.client.features.library.BookCard
+import com.calypsan.listenup.client.features.match.MatchReceiptHost
+import com.calypsan.listenup.client.features.match.MatchReceiptSubject
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailNavAction
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailViewModel
@@ -105,7 +112,7 @@ import listenup.composeapp.generated.resources.common_read_less
 import listenup.composeapp.generated.resources.common_read_more
 import listenup.composeapp.generated.resources.common_view_all
 import listenup.composeapp.generated.resources.contributor_aka
-import listenup.composeapp.generated.resources.contributor_find_on_audible
+import listenup.composeapp.generated.resources.match_menu_item
 import listenup.composeapp.generated.resources.contributor_from_your_library_this_action
 import listenup.composeapp.generated.resources.contributor_name_profile_image
 import listenup.composeapp.generated.resources.contributor_no_longer_here
@@ -131,7 +138,14 @@ fun ContributorDetailScreen(
     onBookClick: (String) -> Unit,
     onEditClick: (String) -> Unit,
     onViewAllClick: (contributorId: String, role: String) -> Unit,
-    onMetadataClick: (String) -> Unit,
+    onMatchDetailsClick: (String) -> Unit,
+    /**
+     * The receipt after a person's Match details applied, given the person's name; a slot so a test can render
+     * the screen without its ViewModel.
+     */
+    matchReceipt: @Composable (name: String, modifier: Modifier) -> Unit = { name, modifier ->
+        MatchReceiptHost(subjectId = contributorId, subject = MatchReceiptSubject.Person(name), modifier = modifier)
+    },
     viewModel: ContributorDetailViewModel = koinViewModel(),
 ) {
     LaunchedEffect(contributorId) {
@@ -216,7 +230,7 @@ fun ContributorDetailScreen(
                         state = current,
                         onBackClick = onBackClick,
                         onEditClick = { onEditClick(contributorId) },
-                        onDownloadMetadata = { onMetadataClick(contributorId) },
+                        onMatchDetails = { onMatchDetailsClick(contributorId) },
                         onDeleteClick = { showDeleteConfirmation = true },
                         onBookClick = onBookClick,
                         onViewAllClick = { role -> onViewAllClick(contributorId, role) },
@@ -227,7 +241,7 @@ fun ContributorDetailScreen(
                         state = current,
                         onBackClick = onBackClick,
                         onEditClick = { onEditClick(contributorId) },
-                        onDownloadMetadata = { onMetadataClick(contributorId) },
+                        onMatchDetails = { onMatchDetailsClick(contributorId) },
                         onDeleteClick = { showDeleteConfirmation = true },
                         onBookClick = onBookClick,
                         onViewAllClick = { role -> onViewAllClick(contributorId, role) },
@@ -254,6 +268,14 @@ fun ContributorDetailScreen(
                         ListenUpLoadingIndicator(color = LocalContentColor.current)
                     }
                 }
+
+                // The receipt after Match details applied: "Changed photo and biography for Ray Porter" with Undo.
+                matchReceipt(
+                    current.contributor.name,
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .windowInsetsPadding(LocalNowPlayingInsets.current.union(WindowInsets.navigationBars)),
+                )
             }
         }
 
@@ -274,7 +296,7 @@ private fun WideContributorPortfolio(
     state: ContributorDetailUiState.Ready,
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
-    onDownloadMetadata: () -> Unit,
+    onMatchDetails: () -> Unit,
     onDeleteClick: () -> Unit,
     onBookClick: (String) -> Unit,
     onViewAllClick: (role: String) -> Unit,
@@ -299,7 +321,7 @@ private fun WideContributorPortfolio(
                 onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
                 onBackClick = onBackClick,
                 onEditClick = onEditClick,
-                onDownloadMetadata = onDownloadMetadata,
+                onMatchDetails = onMatchDetails,
                 onDeleteClick = onDeleteClick,
             )
         }
@@ -347,7 +369,7 @@ private fun WideHeroHeader(
     onToggleDescription: () -> Unit,
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
-    onDownloadMetadata: () -> Unit,
+    onMatchDetails: () -> Unit,
     onDeleteClick: () -> Unit,
 ) {
     val contributor = state.contributor
@@ -368,8 +390,10 @@ private fun WideHeroHeader(
             NavigationBar(
                 onBackClick = onBackClick,
                 onEditClick = onEditClick,
-                onDownloadMetadata = onDownloadMetadata,
+                onMatchDetails = onMatchDetails,
                 onDeleteClick = onDeleteClick,
+                canEditMetadata = state.canEditMetadata,
+                canCurateLibrary = state.canCurateLibrary,
                 applyStatusBarInset = false,
             )
 
@@ -574,7 +598,7 @@ private fun NarrowContributorPortfolio(
     state: ContributorDetailUiState.Ready,
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
-    onDownloadMetadata: () -> Unit,
+    onMatchDetails: () -> Unit,
     onDeleteClick: () -> Unit,
     onBookClick: (String) -> Unit,
     onViewAllClick: (role: String) -> Unit,
@@ -597,7 +621,7 @@ private fun NarrowContributorPortfolio(
                 roleLabels = roleLabels,
                 onBackClick = onBackClick,
                 onEditClick = onEditClick,
-                onDownloadMetadata = onDownloadMetadata,
+                onMatchDetails = onMatchDetails,
                 onDeleteClick = onDeleteClick,
             )
         }
@@ -653,7 +677,7 @@ private fun NarrowColorHero(
     roleLabels: List<String>,
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
-    onDownloadMetadata: () -> Unit,
+    onMatchDetails: () -> Unit,
     onDeleteClick: () -> Unit,
 ) {
     val ink = MaterialTheme.colorScheme.onPrimaryContainer
@@ -669,8 +693,10 @@ private fun NarrowColorHero(
             NavigationBar(
                 onBackClick = onBackClick,
                 onEditClick = onEditClick,
-                onDownloadMetadata = onDownloadMetadata,
+                onMatchDetails = onMatchDetails,
                 onDeleteClick = onDeleteClick,
+                canEditMetadata = state.canEditMetadata,
+                canCurateLibrary = state.canCurateLibrary,
             )
             Column(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
@@ -774,14 +800,17 @@ private fun NarrowWorkSection(
 // =============================================================================
 
 /**
- * Floating back button and overflow menu.
+ * Floating back button and overflow menu. The menu offers only what the user may do — Edit and Match
+ * details under Edit metadata, Delete under Curate library — and is absent when that is nothing.
  */
 @Composable
-private fun NavigationBar(
+internal fun NavigationBar(
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
-    onDownloadMetadata: () -> Unit,
+    onMatchDetails: () -> Unit,
     onDeleteClick: () -> Unit,
+    canEditMetadata: Boolean,
+    canCurateLibrary: Boolean,
     applyStatusBarInset: Boolean = true,
     actionsEnabled: Boolean = true,
 ) {
@@ -789,11 +818,13 @@ private fun NavigationBar(
         onBack = onBackClick,
         applyStatusBarInset = applyStatusBarInset,
     ) {
-        if (!LocalDeviceContext.current.isLeanback) {
+        if (!LocalDeviceContext.current.isLeanback && (canEditMetadata || canCurateLibrary)) {
             OverflowMenu(
                 onEditClick = onEditClick,
-                onDownloadMetadata = onDownloadMetadata,
+                onMatchDetails = onMatchDetails,
                 onDeleteClick = onDeleteClick,
+                canEditMetadata = canEditMetadata,
+                canCurateLibrary = canCurateLibrary,
                 actionsEnabled = actionsEnabled,
             )
         }
@@ -801,13 +832,15 @@ private fun NavigationBar(
 }
 
 /**
- * Overflow menu (edit / download metadata / delete) shared by both hero navigation rows.
+ * Overflow menu (edit / Match details / delete) shared by both hero navigation rows.
  */
 @Composable
 private fun OverflowMenu(
     onEditClick: () -> Unit,
-    onDownloadMetadata: () -> Unit,
+    onMatchDetails: () -> Unit,
     onDeleteClick: () -> Unit,
+    canEditMetadata: Boolean,
+    canCurateLibrary: Boolean,
     actionsEnabled: Boolean = true,
 ) {
     val haptics = LocalHaptics.current
@@ -838,48 +871,52 @@ private fun OverflowMenu(
             expanded = showMenu,
             onDismissRequest = { showMenu = false },
         ) {
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.common_edit)) },
-                leadingIcon = { Icon(Icons.Default.Edit, null) },
-                onClick = {
-                    haptics.press()
-                    showMenu = false
-                    onEditClick()
-                },
-                enabled = actionsEnabled,
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.contributor_find_on_audible)) },
-                leadingIcon = { Icon(Icons.Default.CloudDownload, null) },
-                onClick = {
-                    haptics.press()
-                    showMenu = false
-                    onDownloadMetadata()
-                },
-                enabled = actionsEnabled,
-            )
-            HorizontalDivider()
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        stringResource(Res.string.common_delete),
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        Icons.Default.Delete,
-                        null,
-                        tint = MaterialTheme.colorScheme.error,
-                    )
-                },
-                onClick = {
-                    haptics.press()
-                    showMenu = false
-                    onDeleteClick()
-                },
-                enabled = actionsEnabled,
-            )
+            if (canEditMetadata) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.common_edit)) },
+                    leadingIcon = { Icon(Icons.Default.Edit, null) },
+                    onClick = {
+                        haptics.press()
+                        showMenu = false
+                        onEditClick()
+                    },
+                    enabled = actionsEnabled,
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.match_menu_item)) },
+                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    onClick = {
+                        haptics.press()
+                        showMenu = false
+                        onMatchDetails()
+                    },
+                    enabled = actionsEnabled,
+                )
+            }
+            if (canCurateLibrary) {
+                if (canEditMetadata) HorizontalDivider()
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            stringResource(Res.string.common_delete),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Delete,
+                            null,
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                    },
+                    onClick = {
+                        haptics.press()
+                        showMenu = false
+                        onDeleteClick()
+                    },
+                    enabled = actionsEnabled,
+                )
+            }
         }
     }
 }
@@ -1027,8 +1064,10 @@ private fun ContributorDetailLoadingFrame(
             NavigationBar(
                 onBackClick = onBackClick,
                 onEditClick = {},
-                onDownloadMetadata = {},
+                onMatchDetails = {},
                 onDeleteClick = {},
+                canEditMetadata = false,
+                canCurateLibrary = false,
                 // Stub callbacks while the contributor loads: disable the rows so none of
                 // them confirms a tap that does nothing.
                 actionsEnabled = false,

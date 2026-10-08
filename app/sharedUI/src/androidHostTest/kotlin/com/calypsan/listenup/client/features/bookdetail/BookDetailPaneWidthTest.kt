@@ -154,6 +154,7 @@ private fun BookDetailUnderTest() {
         isComplete = false,
         hasProgress = false,
         isAdmin = false,
+        canEditMetadata = true,
         isWaitingForWifi = false,
         showPlaybackActions = true,
         onBackClick = {},

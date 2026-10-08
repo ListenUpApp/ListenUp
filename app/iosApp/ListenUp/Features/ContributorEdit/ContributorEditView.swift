@@ -84,6 +84,7 @@ struct ContributorEditView: View {
 
                     AliasesEditSection(
                         aliases: observer.aliases,
+                        canCurate: observer.canCurateLibrary,
                         onUnmerge: { observer.onUnmergeAlias($0) },
                         onMergeTapped: {
                             // The VM computes merge candidates only while it believes
@@ -109,8 +110,11 @@ struct ContributorEditView: View {
                     ),
                     presenting: observer.renameCollisionCandidate
                 ) { _ in
-                    Button(String(localized: "contributor.rename_collision_merge")) {
-                        observer.onConfirmMergeOnRename()
+                    // Merging is Curate library's: without it the collision offers only keep-separate.
+                    if observer.canCurateLibrary {
+                        Button(String(localized: "contributor.rename_collision_merge")) {
+                            observer.onConfirmMergeOnRename()
+                        }
                     }
                     Button(String(localized: "contributor.rename_collision_keep_separate")) {
                         observer.onKeepSeparateOnRename()
@@ -154,8 +158,11 @@ struct ContributorEditView: View {
 }
 
 /// "Also Known As" block in the contributor editor: removable alias chips + a merge entry point.
+/// Merging and unmerging are Curate library's: without `canCurate` the chips are read-only and the
+/// merge button is gone.
 private struct AliasesEditSection: View {
     let aliases: [String]
+    let canCurate: Bool
     let onUnmerge: (String) -> Void
     let onMergeTapped: () -> Void
 
@@ -171,7 +178,7 @@ private struct AliasesEditSection: View {
                 } else {
                     FlowLayout(spacing: 8) {
                         ForEach(aliases, id: \.self) { alias in
-                            AliasChip(alias: alias, onRemove: { pendingUnmerge = alias })
+                            AliasChip(alias: alias, onRemove: canCurate ? { pendingUnmerge = alias } : nil)
                         }
                     }
                     .padding(.vertical, Spacing.xxs)
@@ -193,29 +200,33 @@ private struct AliasesEditSection: View {
                 }
             }
 
-            Button {
-                onMergeTapped()
-            } label: {
-                Label(String(localized: "contributor.merge_button"), systemImage: "arrow.triangle.merge")
+            if canCurate {
+                Button {
+                    onMergeTapped()
+                } label: {
+                    Label(String(localized: "contributor.merge_button"), systemImage: "arrow.triangle.merge")
+                }
             }
         }
     }
 }
 
-/// A single removable alias chip.
+/// A single alias chip, removable when `onRemove` is given.
 private struct AliasChip: View {
     let alias: String
-    let onRemove: () -> Void
+    let onRemove: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 6) {
             Text(alias).font(.callout).foregroundStyle(.primary)
-            Button(action: onRemove) {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(Color.secondary)
+            if let onRemove {
+                Button(action: onRemove) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(Color.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(format: String(localized: "contributor.remove_aliasname"), alias))
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(String(format: String(localized: "contributor.remove_aliasname"), alias))
         }
         .padding(.horizontal, Spacing.s)
         .padding(.vertical, Spacing.xs)

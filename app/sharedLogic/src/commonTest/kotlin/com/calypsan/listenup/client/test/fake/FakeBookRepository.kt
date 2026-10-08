@@ -71,11 +71,18 @@ class FakeBookRepository(
         return books.value.filter { it.id in wanted }
     }
 
-    override fun observeBookDetail(id: String): Flow<BookDetail?> = MutableStateFlow(null)
+    private val details = MutableStateFlow<Map<String, BookDetail>>(emptyMap())
+
+    override fun observeBookDetail(id: String): Flow<BookDetail?> = details.asStateFlow().map { it[id] }
 
     override fun search(query: String): Flow<List<BookListItem>> = MutableStateFlow(emptyList())
 
-    override suspend fun getBookDetail(id: String): BookDetail? = null
+    override suspend fun getBookDetail(id: String): BookDetail? = details.value[id]
+
+    /** Test helper: set (or replace) the detail [observeBookDetail] emits for its book. */
+    fun setBookDetail(detail: BookDetail) {
+        details.value = details.value + (detail.id.value to detail)
+    }
 
     /** Not exercised here — these fakes cover read paths, and a delete is a server-only write. */
     override suspend fun deleteBook(id: BookId): AppResult<Unit> = AppResult.Success(Unit)

@@ -56,7 +56,7 @@ private val logger = KotlinLogging.logger {}
  * @property libraryAdminChannel Dispatches the [com.calypsan.listenup.api.LibraryAdminService] library-admin RPC.
  * @property serverConfig source of the active server URL (used to reconstruct invite URLs)
  * @property adminUserRosterDao Room DAO for the synced `admin_user_roster` sync domain, backing
- *   [observeRoster]
+ *   [observeRoster] and [observeUser]
  */
 internal class AdminRepositoryImpl(
     private val adminUserChannel: RpcChannel<AdminUserService>,
@@ -81,6 +81,9 @@ internal class AdminRepositoryImpl(
     override fun observeRoster(): Flow<List<AdminUserInfo>> =
         adminUserRosterDao.observeAll().map { rows -> rows.map { it.toAdminUserInfo() } }
 
+    override fun observeUser(userId: String): Flow<AdminUserInfo?> =
+        adminUserRosterDao.observeById(userId).map { it?.toAdminUserInfo() }
+
     override suspend fun approveUser(userId: String): AppResult<AdminUserInfo> =
         // One RPC frame per call block: approve in its own frame, then re-fetch the user in its own
         // frame, composed with flatMap. A single block issuing both would re-run BOTH on the engine's
@@ -102,27 +105,12 @@ internal class AdminRepositoryImpl(
 
     override suspend fun updateUser(
         userId: String,
-        firstName: String?,
-        lastName: String?,
-        role: String?,
-        canEdit: Boolean?,
-        canContributeStoryWorld: Boolean?,
-        canCurateStoryWorld: Boolean?,
+        role: UserRole?,
+        permissions: UserPermissionsPatch?,
     ): AppResult<AdminUserInfo> {
-        // firstName/lastName have no contract field — they must NOT be sent. The permissions patch carries
-        // only the flags being changed (null = unchanged), so neither an older server nor a newer one ever
-        // reads an untouched flag as its default. Null when no flag is being changed.
-        val changesPermissions = canEdit != null || canContributeStoryWorld != null || canCurateStoryWorld != null
-        val patch =
-            AdminUserPatch(
-                role = role?.let { UserRole.valueOf(it) },
-                permissions =
-                    UserPermissionsPatch(
-                        canEdit = canEdit,
-                        canContributeStoryWorld = canContributeStoryWorld,
-                        canCurateStoryWorld = canCurateStoryWorld,
-                    ).takeIf { changesPermissions },
-            )
+        // An empty patch is never sent: the server reads `{"permissions":{}}` as an older client's
+        // `canEdit` and turns editing on. Null leaves every flag as it is.
+        val patch = AdminUserPatch(role = role, permissions = permissions?.takeUnless { it.isEmpty })
         return adminUserChannel.call { it.updateUser(UserId(userId), patch) }.map { it.toAdminUserInfo() }
     }
 

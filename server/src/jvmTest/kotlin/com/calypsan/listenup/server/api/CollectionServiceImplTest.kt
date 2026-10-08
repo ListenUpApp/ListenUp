@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
@@ -14,7 +15,6 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -72,7 +72,6 @@ class CollectionServiceImplTest :
                 grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
                 bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
-                permissionPolicy = UserPermissionPolicy(db.sql),
                 bus = bus,
                 sql = db.sql,
                 clock = fixedClock,
@@ -173,7 +172,7 @@ class CollectionServiceImplTest :
                     val u2 = service.actAs("u2")
                     val u2Add = u2.addBookToCollection(collectionId, BookId("book1"))
                     require(u2Add is AppResult.Failure)
-                    u2Add.error.shouldBeInstanceOf<CollectionError.Forbidden>()
+                    u2Add.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
                 }
             }
         }
@@ -466,7 +465,7 @@ class CollectionServiceImplTest :
                     val member = makeService(db).actAs("u1")
                     val shared = member.shareCollection(CollectionId("legacy"), "u2", SharePermission.Read)
                     require(shared is AppResult.Failure)
-                    shared.error.shouldBeInstanceOf<CollectionError.Forbidden>()
+                    shared.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
                 }
             }
         }
@@ -620,12 +619,12 @@ class CollectionServiceImplTest :
                     val u2 = service.actAs("u2")
                     val u2Share = u2.shareCollection(collectionId, "u3", SharePermission.Read)
                     require(u2Share is AppResult.Failure)
-                    u2Share.error.shouldBeInstanceOf<CollectionError.Forbidden>()
+                    u2Share.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
 
                     // u2 cannot revoke either.
                     val u2Revoke = u2.revokeShare(collectionId, "u3")
                     require(u2Revoke is AppResult.Failure)
-                    u2Revoke.error.shouldBeInstanceOf<CollectionError.Forbidden>()
+                    u2Revoke.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
                 }
             }
         }
@@ -784,11 +783,11 @@ class CollectionServiceImplTest :
 
                     val memberList = member.listInbox(LibraryId("test-library"))
                     require(memberList is AppResult.Failure)
-                    memberList.error.shouldBeInstanceOf<CollectionError.Forbidden>()
+                    memberList.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
 
                     val memberRelease = member.releaseBooks(LibraryId("test-library"), mapOf(BookId("book1") to emptyList()))
                     require(memberRelease is AppResult.Failure)
-                    memberRelease.error.shouldBeInstanceOf<CollectionError.Forbidden>()
+                    memberRelease.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
                 }
             }
         }

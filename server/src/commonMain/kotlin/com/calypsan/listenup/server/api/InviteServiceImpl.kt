@@ -34,6 +34,8 @@ import com.calypsan.listenup.server.db.sqldelight.Invites
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.api.dto.activity.ActivityType
+import com.calypsan.listenup.server.auth.OpenToAllMembers
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.AdminUserRosterMaintainer
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
@@ -224,6 +226,7 @@ class InviteServiceImpl(
 
     // ── Public (anonymous) surface ──────────────────────────────────────────────
 
+    @OpenToAllMembers(reason = "public: claiming an invite is how an account is made; rate-bucketed")
     override suspend fun claimInvite(
         code: String,
         password: String,
@@ -409,7 +412,7 @@ class InviteServiceImpl(
     /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */
     private fun requireAdmin(): AppResult.Failure? {
         val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        return if (caller.role.isAdmin()) null else AppResult.Failure(AuthError.PermissionDenied())
+        return PermissionPolicy.requireAdmin(caller)?.let { AppResult.Failure(it) }
     }
 
     /**
@@ -435,8 +438,6 @@ class InviteServiceImpl(
             expires_at < now -> InviteStatus.EXPIRED
             else -> InviteStatus.PENDING
         }
-
-    private fun UserRole.isAdmin(): Boolean = this == UserRole.ROOT || this == UserRole.ADMIN
 
     // UUIDv4 mirrors AuthServiceImpl.newUserId — TEXT primary key with no time-ordered scan path.
     private fun newInviteId(): String = Uuid.random().toString()

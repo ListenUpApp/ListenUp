@@ -54,6 +54,8 @@ fun SettingsPage(
     onOpenLicences: () -> Unit = {},
     hardcoverRow: HardcoverRowState? = null,
     onOpenHardcover: () -> Unit = {},
+    canCurateLibrary: Boolean = false,
+    onOpenCategories: () -> Unit = {},
 ) {
     Div(attrs = { classes("set") }) {
         PageHeader(title = "Settings")
@@ -107,7 +109,16 @@ fun SettingsPage(
             )
         }
 
-        Section("Library", "Kept on this browser.") {
+        // Categories is the server's, shared by everyone, so it leads the section — above the note
+        // that says the sorting below it is kept on this browser. Only for those who may curate the
+        // library: the server refuses merge and delete to anyone else.
+        val categories: (@Composable () -> Unit)? =
+            if (canCurateLibrary) {
+                { CategoriesEntry(onOpenCategories) }
+            } else {
+                null
+            }
+        Section("Library", "Kept on this browser.", lead = categories) {
             CheckboxField(
                 label = "Sort titles ignoring “A”, “An” and “The”",
                 checked = state.ignoreTitleArticles,
@@ -157,6 +168,19 @@ private fun HardcoverEntry(
     }
 }
 
+/** Settings → Library → Categories, worded as `common.categories` and `admin.categories_curate_subtitle`. */
+@Composable
+private fun CategoriesEntry(onOpen: () -> Unit) {
+    Button(attrs = {
+        classes("set-link")
+        attr("type", TYPE_BUTTON)
+        onClick { onOpen() }
+    }) {
+        Span(attrs = { classes("set-link-t") }) { Text("Categories") }
+        Span(attrs = { classes("set-link-sub") }) { Text("Merge and delete genres for everyone") }
+    }
+}
+
 /** The entry's second line, from en.json's `hardcover.row_subtitle_*`. */
 private fun hardcoverSubtitle(row: HardcoverRowState): String =
     when (row) {
@@ -170,10 +194,13 @@ private fun hardcoverSubtitle(row: HardcoverRowState): String =
 private fun Section(
     heading: String,
     note: String?,
+    lead: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     Div(attrs = { classes("set-section") }) {
         H2(attrs = { classes("set-section-h") }) { Text(heading) }
+        // What the note does not cover goes above it, so the note only ever speaks for what follows.
+        lead?.let { Div(attrs = { classes("set-fields") }) { it() } }
         // Says where a setting lives before it is changed, not after.
         note?.let { P(attrs = { classes("set-section-note") }) { Text(it) } }
         Div(attrs = { classes("set-fields") }) { content() }

@@ -12,7 +12,6 @@ import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -93,7 +92,6 @@ class InboxApproveReachesMemberTest :
                 grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
                 bookAccessPolicy = BookAccessPolicy(sql, driver),
-                permissionPolicy = UserPermissionPolicy(sql),
                 bus = bus,
                 sql = sql,
                 clock = fixedClock,

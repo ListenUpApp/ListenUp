@@ -1,8 +1,9 @@
 import SwiftUI
 import Shared
 
-/// Admin Categories — the genre hierarchy as an indented tree with create, rename, move, merge and
-/// delete. The same screen Android and the web have; iOS had none.
+/// Categories — the genre hierarchy as an indented tree with create, rename, move, merge and delete,
+/// for admins and for members with Curate library. Each control follows its permission: create,
+/// rename and move need Edit metadata; merge, merge history and delete need Curate library.
 ///
 /// The tree is a plain `List` of `GenreRowModel` values the observer has already flattened by
 /// expansion state, indented by depth — no outline group, because expansion lives in the shared
@@ -103,7 +104,7 @@ struct AdminCategoriesView: View {
             Section {
                 ForEach(ready.rows) { row in
                     genreRow(row, observer: observer)
-                        .contextMenu { rowMenu(row: row) }
+                        .contextMenu { rowMenu(row: row, ready: ready) }
                 }
             } header: {
                 Text(
@@ -126,7 +127,7 @@ struct AdminCategoriesView: View {
         }
         .overlay {
             if ready.rows.isEmpty {
-                emptyState
+                emptyState(canEdit: ready.canEditMetadata)
             }
         }
         .alert(
@@ -144,38 +145,47 @@ struct AdminCategoriesView: View {
     }
 
     /// Add Sub-genre, Rename, Merge into…, Merge history, Move to…, Delete — the same six, in the
-    /// same order, as Compose's long-press menu.
+    /// same order, as Compose's long-press menu. Each shows only to those allowed it: adding, renaming
+    /// and moving need Edit metadata; merging, its history and deleting need Curate library.
     @ViewBuilder
-    private func rowMenu(row: GenreRowModel) -> some View {
-        Button {
-            nameSheet = .create(parentId: row.id, parentName: row.name)
-        } label: {
-            Label(String(localized: "admin.add_subgenre"), systemImage: "plus")
+    private func rowMenu(row: GenreRowModel, ready: AdminCategoriesReadyModel) -> some View {
+        if ready.canEditMetadata {
+            Button {
+                nameSheet = .create(parentId: row.id, parentName: row.name)
+            } label: {
+                Label(String(localized: "admin.add_subgenre"), systemImage: "plus")
+            }
+            Button {
+                nameSheet = .rename(id: row.id, currentName: row.name)
+            } label: {
+                Label(String(localized: "common.rename"), systemImage: "pencil")
+            }
         }
-        Button {
-            nameSheet = .rename(id: row.id, currentName: row.name)
-        } label: {
-            Label(String(localized: "common.rename"), systemImage: "pencil")
+        if ready.canCurateLibrary {
+            Button {
+                mergeSource = pick(for: row)
+            } label: {
+                Label(String(localized: "admin.merge_into"), systemImage: "arrow.triangle.merge")
+            }
+            Button {
+                observer?.openMergeHistory(id: row.id)
+            } label: {
+                Label(String(localized: "merge_history.open"), systemImage: "clock.arrow.circlepath")
+            }
         }
-        Button {
-            mergeSource = pick(for: row)
-        } label: {
-            Label(String(localized: "admin.merge_into"), systemImage: "arrow.triangle.merge")
+        if ready.canEditMetadata {
+            Button {
+                moveSource = pick(for: row)
+            } label: {
+                Label(String(localized: "admin.move_to"), systemImage: "arrow.right")
+            }
         }
-        Button {
-            observer?.openMergeHistory(id: row.id)
-        } label: {
-            Label(String(localized: "merge_history.open"), systemImage: "clock.arrow.circlepath")
-        }
-        Button {
-            moveSource = pick(for: row)
-        } label: {
-            Label(String(localized: "admin.move_to"), systemImage: "arrow.right")
-        }
-        Button(role: .destructive) {
-            pendingDelete = row
-        } label: {
-            Label(String(localized: "common.delete"), systemImage: "trash")
+        if ready.canCurateLibrary {
+            Button(role: .destructive) {
+                pendingDelete = row
+            } label: {
+                Label(String(localized: "common.delete"), systemImage: "trash")
+            }
         }
     }
 
@@ -193,7 +203,7 @@ struct AdminCategoriesView: View {
         .padding()
     }
 
-    private var emptyState: some View {
+    private func emptyState(canEdit: Bool) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "tag")
                 .scaledFont(size: 44, relativeTo: .largeTitle)
@@ -201,12 +211,14 @@ struct AdminCategoriesView: View {
             Text(String(localized: "genre.no_genres_yet"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Button(String(localized: "admin.add_genre")) {
-                nameSheet = .create(parentId: nil, parentName: nil)
+            if canEdit {
+                Button(String(localized: "admin.add_genre")) {
+                    nameSheet = .create(parentId: nil, parentName: nil)
+                }
+                .buttonStyle(.borderedProminent)
+                .onBrandFillLabel()
+                .padding(.top, Spacing.xxs)
             }
-            .buttonStyle(.borderedProminent)
-            .onBrandFillLabel()
-            .padding(.top, Spacing.xxs)
         }
         .padding()
     }
@@ -230,12 +242,14 @@ struct AdminCategoriesView: View {
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
-            Button {
-                nameSheet = .create(parentId: nil, parentName: nil)
-            } label: {
-                Image(systemName: "plus")
+            if case .ready(let ready) = observer?.phase, ready.canEditMetadata {
+                Button {
+                    nameSheet = .create(parentId: nil, parentName: nil)
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel(Text(String(localized: "admin.add_genre")))
             }
-            .accessibilityLabel(Text(String(localized: "admin.add_genre")))
         }
     }
 

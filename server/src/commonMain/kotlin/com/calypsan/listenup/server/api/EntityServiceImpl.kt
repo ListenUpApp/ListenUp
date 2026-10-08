@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.EntityService
 import com.calypsan.listenup.api.dto.entity.EntityChange
 import com.calypsan.listenup.api.dto.entity.EntityUpsert
@@ -14,7 +15,7 @@ import com.calypsan.listenup.core.EntityId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.StoryWorldHistoryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.sync.EntityRepository
 import kotlin.time.Clock
@@ -27,7 +28,7 @@ import kotlin.time.Clock
  */
 internal class EntityServiceImpl(
     private val entityRepo: EntityRepository,
-    private val permissionPolicy: UserPermissionPolicy,
+    private val permissionPolicy: PermissionPolicy,
     private val accessPolicy: BookAccessPolicy,
     private val principal: PrincipalProvider = PrincipalProvider.None,
     private val clock: Clock = Clock.System,
@@ -38,11 +39,7 @@ internal class EntityServiceImpl(
 
     override suspend fun upsertEntity(upsert: EntityUpsert): AppResult<EntitySyncPayload> {
         val caller = principal.current() ?: return denied()
-        permissionPolicy
-            .requireCanContributeStoryWorld(
-                caller.userId,
-                caller.role,
-            )?.let { return AppResult.Failure(it) }
+        permissionPolicy.require(caller, Permission.CONTRIBUTE_STORY_WORLD)?.let { return AppResult.Failure(it) }
         validate(upsert)?.let { return AppResult.Failure(it) }
         if (!canSee(caller, upsert.homeSeriesId?.value, upsert.homeBookId?.value)) return notFound(upsert.id)
         // A stored row in a home the caller can't see answers NotFound before the repository's integrity
@@ -74,11 +71,7 @@ internal class EntityServiceImpl(
 
     override suspend fun deleteEntity(id: EntityId): AppResult<Unit> {
         val caller = principal.current() ?: return denied()
-        permissionPolicy
-            .requireCanContributeStoryWorld(
-                caller.userId,
-                caller.role,
-            )?.let { return AppResult.Failure(it) }
+        permissionPolicy.require(caller, Permission.CONTRIBUTE_STORY_WORLD)?.let { return AppResult.Failure(it) }
         if (visibleLive(caller, id) == null) return notFound(id)
         return entityRepo.deleteEntity(id, caller.userId)
     }
@@ -88,7 +81,7 @@ internal class EntityServiceImpl(
         target: EntityId,
     ): AppResult<EntitySyncPayload> {
         val caller = principal.current() ?: return denied()
-        permissionPolicy.requireCanCurateStoryWorld(caller.userId, caller.role)?.let { return AppResult.Failure(it) }
+        permissionPolicy.require(caller, Permission.CURATE_STORY_WORLD)?.let { return AppResult.Failure(it) }
         if (visibleLive(caller, source) == null) return notFound(source)
         if (visibleLive(caller, target) == null) return notFound(target)
         return entityRepo.mergeEntities(source, target, caller.userId)
@@ -126,12 +119,12 @@ internal class EntityServiceImpl(
         val change = entityRepo.findChange(changeId) ?: return missing
         val entity = entityRepo.findById(change.entityId) ?: return missing
         if (!canSee(caller, entity.homeSeriesId, entity.homeBookId)) return missing
-        val curateRefusal = permissionPolicy.requireCanCurateStoryWorld(caller.userId, caller.role)
+        val curateRefusal = permissionPolicy.require(caller, Permission.CURATE_STORY_WORLD)
         val refusal =
             if (change.op == StoryWorldOp.MERGE) {
                 curateRefusal
             } else {
-                permissionPolicy.requireCanContributeStoryWorld(caller.userId, caller.role)
+                permissionPolicy.require(caller, Permission.CONTRIBUTE_STORY_WORLD)
             }
         refusal?.let { return AppResult.Failure(it) }
         return entityRepo.revert(changeId, caller.userId, allowMergeRevert = curateRefusal == null)

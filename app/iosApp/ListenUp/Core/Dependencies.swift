@@ -136,9 +136,17 @@ final class Dependencies {
     func createBulkEditViewModel(bookIds: [String]) -> BulkEditViewModel {
         KoinHelper.shared.getBulkEditViewModel(bookIds: bookIds)
     }
-    func createMetadataViewModel() -> MetadataViewModel { KoinHelper.shared.getMetadataViewModel() }
-    func createContributorMetadataViewModel() -> ContributorMetadataViewModel {
-        KoinHelper.shared.getContributorMetadataViewModel()
+    /// Match details for exactly this book. Parametrized, so a fresh instance per book.
+    func createBookMatchViewModel(bookId: String) -> BookMatchViewModel {
+        KoinHelper.shared.getBookMatchViewModel(bookId: bookId)
+    }
+    /// Match details for exactly this person. Parametrized, so a fresh instance per contributor.
+    func createPersonMatchViewModel(contributorId: String) -> PersonMatchViewModel {
+        KoinHelper.shared.getPersonMatchViewModel(contributorId: contributorId)
+    }
+    /// The match receipt for exactly this book or person, keyed by its id.
+    func createMatchReceiptViewModel(subjectId: String) -> MatchReceiptViewModel {
+        KoinHelper.shared.getMatchReceiptViewModel(subjectId: subjectId)
     }
 
     func createDiscoverViewModel() -> DiscoverViewModel { KoinHelper.shared.getDiscoverViewModel() }
@@ -207,6 +215,10 @@ final class Dependencies {
 
     func createUserDetailViewModel(userId: String) -> UserDetailViewModel {
         KoinHelper.shared.getUserDetailViewModel(userId: userId)
+    }
+
+    func createUserPermissionsViewModel(userId: String) -> UserPermissionsViewModel {
+        KoinHelper.shared.getUserPermissionsViewModel(userId: userId)
     }
 }
 

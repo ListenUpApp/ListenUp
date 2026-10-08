@@ -239,6 +239,18 @@ struct SettingsView: View {
                 )
             }
             .haptic(observer.hideSingleBookSeries ? .toggleOn : .toggleOff, trigger: observer.hideSingleBookSeries)
+
+            // Curators merge and delete genres from here; admins also reach it from Administration.
+            if observer.canCurateLibrary {
+                NavigationLink(value: AdminCategoriesDestination()) {
+                    SettingsLabel(
+                        title: String(localized: "common.categories"),
+                        subtitle: String(localized: "admin.categories_curate_subtitle"),
+                        systemImage: "tag.fill",
+                        tint: .orange
+                    )
+                }
+            }
         }
     }
 

@@ -10,7 +10,7 @@ class DeviceContextTest :
         }
 
         test("phoneCanEdit") {
-            DeviceContext(DeviceType.Phone).canEdit shouldBe true
+            DeviceContext(DeviceType.Phone).supportsEditing shouldBe true
         }
 
         test("phoneSupportsFullLibrary") {
@@ -31,13 +31,13 @@ class DeviceContextTest :
             ctx.hasDpad shouldBe true
             ctx.prefersLargeTargets shouldBe true
             ctx.hasTouch shouldBe false
-            ctx.canEdit shouldBe false
+            ctx.supportsEditing shouldBe false
             ctx.supportsFullLibrary shouldBe true
         }
 
         test("desktopCanEditButNoDpad") {
             val ctx = DeviceContext(DeviceType.Desktop)
-            ctx.canEdit shouldBe true
+            ctx.supportsEditing shouldBe true
             ctx.hasDpad shouldBe false
             ctx.hasTouch shouldBe false
             ctx.supportsFullLibrary shouldBe true
@@ -47,7 +47,7 @@ class DeviceContextTest :
             val ctx = DeviceContext(DeviceType.Watch)
             ctx.isWearable shouldBe true
             ctx.hasTouch shouldBe true
-            ctx.canEdit shouldBe false
+            ctx.supportsEditing shouldBe false
             ctx.supportsFullLibrary shouldBe false
         }
 
@@ -56,7 +56,7 @@ class DeviceContextTest :
             ctx.hasDpad shouldBe true
             ctx.prefersLargeTargets shouldBe true
             ctx.hasTouch shouldBe false
-            ctx.canEdit shouldBe false
+            ctx.supportsEditing shouldBe false
         }
 
         test("xrHasTouchAndLargeTargets") {
@@ -69,7 +69,7 @@ class DeviceContextTest :
         test("tabletCapabilities") {
             val ctx = DeviceContext(DeviceType.Tablet)
             ctx.hasTouch shouldBe true
-            ctx.canEdit shouldBe true
+            ctx.supportsEditing shouldBe true
             ctx.supportsFullLibrary shouldBe true
             ctx.hasDpad shouldBe false
             ctx.isLeanback shouldBe false

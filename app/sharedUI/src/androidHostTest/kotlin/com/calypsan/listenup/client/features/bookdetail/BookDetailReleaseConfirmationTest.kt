@@ -22,6 +22,7 @@ import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.Reachability
 import com.calypsan.listenup.client.domain.repository.ServerReachability
@@ -149,7 +150,8 @@ class BookDetailReleaseConfirmationTest {
                         bookId = BOOK_ID,
                         onBackClick = {},
                         onEditClick = {},
-                        onMetadataSearchClick = {},
+                        onMatchDetailsClick = {},
+                        matchReceipt = {},
                         onEditChaptersClick = {},
                         onSeriesClick = {},
                         onContributorClick = {},
@@ -195,6 +197,7 @@ class BookDetailReleaseConfirmationTest {
                     every { observeCurrentUser() } returns flowOf(null)
                     every { observeIsAdmin() } returns flowOf(true)
                 },
+            permissionsRepository = mock<PermissionsRepository> { every { observeCan(any()) } returns flowOf(true) },
             shelfRepository =
                 mock<ShelfRepository> {
                     every { observeMyShelves(any()) } returns flowOf(emptyList())

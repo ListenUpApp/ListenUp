@@ -1,10 +1,10 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.local.db.SeriesDao
+import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
-import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
@@ -27,8 +27,8 @@ import org.koin.test.verify.verify
  *  - [SeriesEditRepository] — owned by `seriesModule`.
  *  - [SeriesDao] — owned by `persistenceModule`.
  *  - [ErrorBus] — owned by `appCoreModule`.
- *  - [UserRepository] — owned by `userModule`.
  *  - [NetworkMonitor] — owned by the platform module.
+ *  - [PermissionsRepository] — owned by `socialModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class SeriesPresentationModuleVerifyTest :
@@ -38,6 +38,7 @@ class SeriesPresentationModuleVerifyTest :
             seriesPresentationModule.verify(
                 extraTypes =
                     listOf(
+                        PermissionsRepository::class,
                         SeriesRepository::class,
                         ImageRepository::class,
                         PlaybackPositionRepository::class,
@@ -46,7 +47,6 @@ class SeriesPresentationModuleVerifyTest :
                         SeriesEditRepository::class,
                         SeriesDao::class,
                         ErrorBus::class,
-                        UserRepository::class,
                         NetworkMonitor::class,
                     ),
             )

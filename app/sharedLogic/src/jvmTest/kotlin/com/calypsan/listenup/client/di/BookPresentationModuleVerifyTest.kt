@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.BookRatingRepository
@@ -16,7 +17,7 @@ import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.HardcoverRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.LibraryRepository
-import com.calypsan.listenup.client.domain.repository.MetadataRepository
+import com.calypsan.listenup.client.domain.repository.MatchingRepository
 import com.calypsan.listenup.client.domain.repository.MoodRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.ServerReachability
@@ -67,12 +68,13 @@ import org.koin.test.verify.verify
  *  - [SeriesRepository] — owned by `seriesModule`.
  *  - [BookEditRepository] — owned by `bookModule`.
  *  - [ImageStagingRepository] — owned by `mediaModule`.
- *  - [MetadataRepository] — owned by `bookModule`.
+ *  - [MatchingRepository] — owned by `bookModule` (Match details and its receipt's Undo).
  *  - [LibraryRepository] — owned by `libraryModule` (matching starts in the library's Audible store).
  *  - [GenreRepository] — owned by `genreTagModule`.
  *  - [MoodRepository] — owned by `genreTagModule`.
  *  - [PlaybackManager] / [PlaybackController] — owned by the platform playback modules; the chapter
  *    editor's "Play from here" and its file boundaries read them.
+ *  - [PermissionsRepository] — owned by `socialModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class BookPresentationModuleVerifyTest :
@@ -82,6 +84,7 @@ class BookPresentationModuleVerifyTest :
             bookPresentationModule.verify(
                 extraTypes =
                     listOf(
+                        PermissionsRepository::class,
                         BookRepository::class,
                         PlaybackManager::class,
                         PlaybackController::class,
@@ -108,7 +111,7 @@ class BookPresentationModuleVerifyTest :
                         SeriesRepository::class,
                         BookEditRepository::class,
                         ImageStagingRepository::class,
-                        MetadataRepository::class,
+                        MatchingRepository::class,
                         LibraryRepository::class,
                         GenreRepository::class,
                         MoodRepository::class,

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
+import com.calypsan.listenup.api.dto.auth.Permission
+import com.calypsan.listenup.client.test.fake.FakePermissionsRepository
 import app.cash.turbine.turbineScope
 import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.api.result.AppResult
@@ -114,6 +116,7 @@ class BookDetailViewModelTest :
             val tagRepository: TagRepository = mock()
             val playbackPositionRepository: PlaybackPositionRepository = mock()
             val userRepository: UserRepository = mock()
+            val permissionsRepository = FakePermissionsRepository(Permission.EDIT_METADATA)
             val shelfRepository: ShelfRepository = mock()
             val collectionRepository: CollectionRepository = mock()
             val addBooksToShelfUseCase: AddBooksToShelfUseCase = mock()
@@ -142,6 +145,7 @@ class BookDetailViewModelTest :
                     tagRepository = tagRepository,
                     playbackPositionRepository = playbackPositionRepository,
                     userRepository = userRepository,
+                    permissionsRepository = permissionsRepository,
                     shelfRepository = shelfRepository,
                     collectionRepository = collectionRepository,
                     addBooksToShelfUseCase = addBooksToShelfUseCase,
@@ -1237,6 +1241,34 @@ class BookDetailViewModelTest :
                     advanceUntilIdle()
                     (states.expectMostRecentItem() as BookDetailUiState.Ready).deleteError shouldBe null
                     navActions.cancel()
+                    states.cancel()
+                }
+            }
+        }
+
+        test("canEditMetadata follows the permission, live, and is independent of isAdmin") {
+            runTest {
+                val fixture = createTestFixture()
+                fixture.permissionsRepository.granted.value = emptySet()
+                every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(TestData.bookDetail())
+                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val states = viewModel.state.testIn(backgroundScope)
+                    states.awaitItem() // initial Loading
+                    viewModel.loadBook("book-1")
+                    advanceUntilIdle()
+
+                    val denied = states.expectMostRecentItem() as BookDetailUiState.Ready
+                    denied.canEditMetadata shouldBe false
+                    denied.isAdmin shouldBe false
+
+                    fixture.permissionsRepository.granted.value = setOf(Permission.EDIT_METADATA)
+                    advanceUntilIdle()
+                    val granted = states.expectMostRecentItem() as BookDetailUiState.Ready
+                    granted.canEditMetadata shouldBe true
+                    granted.isAdmin shouldBe false
                     states.cancel()
                 }
             }

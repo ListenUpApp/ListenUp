@@ -4,25 +4,35 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Per-user action permissions, independent of [UserRole]. ROOT/ADMIN implicitly hold all
- * permissions; these flags grant capabilities to MEMBER users.
+ * Per-user action permissions, independent of [UserRole]. ROOT and ADMIN implicitly hold every
+ * permission; these flags grant capabilities to MEMBER users. One field per known [Permission], named
+ * on the wire by its [Permission.wireKey].
  *
- * **Adding a flag.** A new flag that *restricts* defaults to the permissive value; a new flag that
- * *grants a new power* defaults to `false`, so neither an old server's response nor an old admin
- * client can grant it by omission. Patches always go through [UserPermissionsPatch], whose null fields
- * mean unchanged.
+ * **The defaults rule** (see [Permission]): additive, undoable work defaults on; destructive or
+ * library-wide work defaults off. A new flag's default follows it, so neither an older server's response
+ * nor an older admin client can grant a destructive power by omission. Admin changes go through
+ * [UserPermissionsPatch], whose null fields mean unchanged.
  *
- * @property canEdit may edit book content metadata (title, genres, contributors, series).
- * @property canContributeStoryWorld may create, edit and delete Story World entities and entries, and
- *   revert any change but a merge (including reviving a deleted entry). **A deliberate exception to the rule above:** it grants a new power yet defaults to
- *   `true`, by product decision — contributing to Story World is a default member capability, guarded
- *   by edit history and undo rather than by permission. An admin can still switch it off per member.
- * @property canCurateStoryWorld may merge Story World entities and entries, and revert a merge. Grants
- *   a new power, so it defaults to `false`.
+ * @property canEditMetadata [Permission.EDIT_METADATA]. Serialized as `canEdit`, the name every older
+ *   client and server already speaks.
+ * @property canCurateLibrary [Permission.CURATE_LIBRARY]. Off by default.
+ * @property canContributeStoryWorld [Permission.CONTRIBUTE_STORY_WORLD]. On by default.
+ * @property canCurateStoryWorld [Permission.CURATE_STORY_WORLD]. Off by default.
  */
 @Serializable
 data class UserPermissions(
-    @SerialName("canEdit") val canEdit: Boolean = true,
+    @SerialName("canEdit") val canEditMetadata: Boolean = true,
+    @SerialName("canCurateLibrary") val canCurateLibrary: Boolean = false,
     @SerialName("canContributeStoryWorld") val canContributeStoryWorld: Boolean = true,
     @SerialName("canCurateStoryWorld") val canCurateStoryWorld: Boolean = false,
 )
+
+/** Whether these flags grant [permission]. [Permission.UNKNOWN] is never granted. */
+fun UserPermissions.allows(permission: Permission): Boolean =
+    when (permission) {
+        Permission.EDIT_METADATA -> canEditMetadata
+        Permission.CURATE_LIBRARY -> canCurateLibrary
+        Permission.CONTRIBUTE_STORY_WORLD -> canContributeStoryWorld
+        Permission.CURATE_STORY_WORLD -> canCurateStoryWorld
+        Permission.UNKNOWN -> false
+    }

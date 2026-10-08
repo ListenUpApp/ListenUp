@@ -1,8 +1,11 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.auth.UserPermissions
+import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.AdminUserRosterRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -57,7 +60,7 @@ class AdminUserRosterMaintainerTest :
 
         test("refresh projects a revoked canEdit flag") {
             // The projection did not carry can_edit until #1270, which is why no admin UI could
-            // ever reach canEdit — UserPermissionPolicy gated every metadata mutation on a flag
+            // ever reach canEdit — PermissionPolicy gated every metadata mutation on a flag
             // that existed on `users` and stopped there. A user who may NOT edit is the case a
             // projection that hardcoded the flag would fail.
             withSqlDatabase {
@@ -92,6 +95,33 @@ class AdminUserRosterMaintainerTest :
 
                     val saved = repo.pullSince(userId = null, cursor = 0, limit = 100).items.single()
                     saved.canEdit shouldBe false
+                }
+            }
+        }
+
+        test("the roster row carries every permission flag, nested, and the flat canEdit for older admin apps") {
+            withSqlDatabase {
+                sql.seedTestUser("user-3", UserRoleColumn.MEMBER, canEdit = false, canCurateLibrary = true)
+                sql.usersQueries.updateStoryWorldPermissionFlags(
+                    can_contribute_story_world = 0L,
+                    can_curate_story_world = 1L,
+                    id = "user-3",
+                )
+                val repo = AdminUserRosterRepository(sql, ChangeBus(), SyncRegistry(), driver = driver)
+                val maintainer = AdminUserRosterMaintainer(sql, repo)
+
+                runTest {
+                    maintainer.refresh("user-3")
+
+                    val saved = repo.pullSince(userId = null, cursor = 0, limit = 100).items.single()
+                    saved.canEdit shouldBe false
+                    saved.permissions shouldBe
+                        UserPermissions(
+                            canEditMetadata = false,
+                            canCurateLibrary = true,
+                            canContributeStoryWorld = false,
+                            canCurateStoryWorld = true,
+                        )
                 }
             }
         }

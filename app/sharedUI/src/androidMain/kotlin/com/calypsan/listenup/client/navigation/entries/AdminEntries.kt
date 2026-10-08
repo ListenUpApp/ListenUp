@@ -15,9 +15,10 @@ import com.calypsan.listenup.client.features.admin.upload.UploadBooksScreen
 import com.calypsan.listenup.client.features.admin.backup.CreateBackupScreen
 import com.calypsan.listenup.client.features.admin.backup.RestoreBackupScreen
 import com.calypsan.listenup.client.features.admin.backup.RestoreFromFileScreen
+import com.calypsan.listenup.client.navigation.MatchDetails
+import com.calypsan.listenup.client.navigation.MatchSubject
 import com.calypsan.listenup.client.navigation.ImportFlow
 import com.calypsan.listenup.client.navigation.UploadBooks
-import com.calypsan.listenup.client.navigation.MetadataSearch
 import com.calypsan.listenup.client.navigation.Admin
 import com.calypsan.listenup.client.navigation.AdminBackups
 import com.calypsan.listenup.client.navigation.AdminCategories
@@ -26,6 +27,7 @@ import com.calypsan.listenup.client.navigation.AdminCollections
 import com.calypsan.listenup.client.navigation.AdminLibrarySettings
 import com.calypsan.listenup.client.navigation.AdminOrganizeSettings
 import com.calypsan.listenup.client.navigation.AdminUserDetail
+import com.calypsan.listenup.client.navigation.AdminUserPermissions
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BookEdit
 import com.calypsan.listenup.client.navigation.CreateBackup
@@ -135,9 +137,9 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             onEditClick = { bookId ->
                 backStack.add(BookEdit(bookId))
             },
-            // Per-row "Match on Audible" — opens the metadata match wizard for that book (iOS parity).
+            // Per-row "Match details" — opens Match details for that book (iOS parity).
             onMatchClick = { bookId ->
-                backStack.add(MetadataSearch(bookId))
+                backStack.add(MatchDetails(MatchSubject.Book(bookId)))
             },
         )
     }
@@ -207,6 +209,19 @@ internal fun EntryProviderScope<NavKey>.adminDetailEntries(backStack: NavBackSta
             onBackClick = {
                 backStack.removeAt(backStack.lastIndex)
             },
+            onPermissionsClick = { backStack.add(AdminUserPermissions(args.userId)) },
+        )
+    }
+    entry<AdminUserPermissions> { args ->
+        val viewModel:
+            com.calypsan.listenup.client.presentation.admin.UserPermissionsViewModel =
+            koinViewModel {
+                org.koin.core.parameter
+                    .parametersOf(args.userId)
+            }
+        com.calypsan.listenup.client.features.admin.UserPermissionsScreen(
+            viewModel = viewModel,
+            onBackClick = { backStack.removeAt(backStack.lastIndex) },
         )
     }
     entry<AdminLibrarySettings> {

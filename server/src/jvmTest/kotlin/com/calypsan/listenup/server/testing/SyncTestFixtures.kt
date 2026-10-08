@@ -295,12 +295,14 @@ fun ListenUpDatabase.seedTestBook(
  * Booleans are stored as `1L`/`0L` (SQLite INTEGER 0/1 affinity); enums by their `.name`.
  *
  * @param canEdit the `can_edit` flag (default true, matching the column default).
+ * @param canCurateLibrary the can_curate_library flag (default false, matching the column default).
  * @param deletedAt the soft-delete tombstone in epoch-millis; null (default) is a live user.
  */
 fun ListenUpDatabase.seedTestUser(
     userId: String,
     userRole: UserRoleColumn = UserRoleColumn.MEMBER,
     canEdit: Boolean = true,
+    canCurateLibrary: Boolean = false,
     deletedAt: Long? = null,
     timezone: String = "UTC",
 ) {
@@ -324,6 +326,11 @@ fun ListenUpDatabase.seedTestUser(
             tagline = null,
             avatar_type = "auto",
             timezone = timezone,
+        )
+        usersQueries.updatePermissionFlags(
+            can_edit = if (canEdit) 1L else 0L,
+            can_curate_library = if (canCurateLibrary) 1L else 0L,
+            id = userId,
         )
     }
 }

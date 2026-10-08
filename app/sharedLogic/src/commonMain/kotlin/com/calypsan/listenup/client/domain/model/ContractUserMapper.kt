@@ -14,7 +14,7 @@ import com.calypsan.listenup.api.dto.auth.User as ContractUser
  * [User] — it lives in the synced `public_profiles` row.
  *
  * [User.permissions] is carried across verbatim. It used not to be (#1270): this mapper reduced
- * the contract user to [User.isAdmin] alone, so `canEdit` never reached the domain
+ * the contract user to [User.isAdmin] alone, so the permission flags never reached the domain
  * model and no client could tell a member what they were allowed to do — while the server went on
  * enforcing it on every metadata mutation. Nothing looked broken from the outside, which is
  * exactly why it survived so long.
@@ -29,7 +29,8 @@ fun ContractUser.toDomain(): User =
         isAdmin = role == UserRole.ROOT || role == UserRole.ADMIN,
         permissions =
             UserPermissions(
-                canEdit = permissions.canEdit,
+                canEditMetadata = permissions.canEditMetadata,
+                canCurateLibrary = permissions.canCurateLibrary,
                 canContributeStoryWorld = permissions.canContributeStoryWorld,
                 canCurateStoryWorld = permissions.canCurateStoryWorld,
             ),

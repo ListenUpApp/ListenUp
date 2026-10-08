@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.api.sync.TargetedMatch
+import com.calypsan.listenup.server.auth.isAdmin
 
 /*
  * Shared read-side support for sync pulls: the per-domain access filters, the page-size bounds,
@@ -107,7 +108,7 @@ internal sealed interface AccessFilterSpec {
             userId: String,
             role: UserRole,
             policy: () -> BookAccessPolicy,
-        ): SqlFragment? = if (isAdmin(role)) null else hidden
+        ): SqlFragment? = if (role.isAdmin()) null else hidden
     }
 }
 

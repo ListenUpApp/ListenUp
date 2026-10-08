@@ -42,7 +42,7 @@ internal sealed interface ImageUploadOutcome {
  * 400 when no file part is present, 422 when the bytes fail the image magic-number check, and
  * [ImageUploadOutcome.Stored] with the relative path on success.
  *
- * The caller persists the path through the principal-scoped service so its internal `requireCanEdit`
+ * The caller persists the path through the principal-scoped service so its internal `requirePermission(Permission.EDIT_METADATA)`
  * gate + revision bump + sync-event publication fire — this helper does not gate permissions.
  */
 internal suspend fun ApplicationCall.storeMultipartImage(

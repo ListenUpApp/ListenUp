@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.scanner
 
 import com.calypsan.listenup.api.ScannerService
-import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
@@ -13,6 +12,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
@@ -96,7 +96,7 @@ internal class ScannerServiceImpl(
      * rather than silently run privileged; mirrors [com.calypsan.listenup.server.api.LibraryAdminServiceImpl]).
      */
     private fun requireAdmin(): AppError? {
-        val role = principal.current()?.role ?: return AuthError.PermissionDenied()
-        return if (role == UserRole.ROOT || role == UserRole.ADMIN) null else AuthError.PermissionDenied()
+        val caller = principal.current() ?: return AuthError.PermissionDenied()
+        return PermissionPolicy.requireAdmin(caller)
     }
 }

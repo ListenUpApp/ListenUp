@@ -101,7 +101,7 @@ internal fun SubSeriesPanel(
                     SubSeriesCard(child, coverFor(state, child)) { actions.onOpenSeries(child.id) }
                 }
             }
-            if (state.canEditHierarchy) {
+            if (state.canEditMetadata) {
                 DomButton(attrs = {
                     classes("sd-sub", "sd-sub-add")
                     attr("type", "button")

@@ -26,6 +26,8 @@ final class SeriesEditObserver {
 
     private(set) var bookCount: Int = 0
     private(set) var mergeInProgress: Bool = false
+    /// May merge this series and see and undo its merges (Curate library).
+    private(set) var canCurateLibrary: Bool = false
     private(set) var mergeQuery: String = ""
     /// Recomputed by the VM only while the merge picker is open, and capped there.
     private(set) var mergeCandidates: [MergeCandidate] = []
@@ -186,6 +188,7 @@ final class SeriesEditObserver {
         error = state.error
         bookCount = Int(state.bookCount)
         mergeInProgress = state.mergeInProgress
+        canCurateLibrary = state.canCurateLibrary
         mergeQuery = state.mergeQuery
     }
 

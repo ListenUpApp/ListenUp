@@ -2,12 +2,12 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.local.db.ContributorAliasDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
+import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.LibraryRepository
-import com.calypsan.listenup.client.domain.repository.MetadataRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.usecase.contributor.DeleteContributorUseCase
@@ -32,9 +32,9 @@ import org.koin.test.verify.verify
  *  - [ContributorEditRepository] — owned by `contributorModule`.
  *  - [ContributorAliasDao] — owned by `persistenceModule`.
  *  - [ContributorDao] — owned by `persistenceModule`.
- *  - [MetadataRepository] — owned by `metadataModule`.
  *  - [LibraryRepository] — owned by `libraryModule` (matching starts in the library's Audible store).
  *  - [ErrorBus] — owned by `appCoreModule`.
+ *  - [PermissionsRepository] — owned by `socialModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class ContributorPresentationModuleVerifyTest :
@@ -44,6 +44,7 @@ class ContributorPresentationModuleVerifyTest :
             contributorPresentationModule.verify(
                 extraTypes =
                     listOf(
+                        PermissionsRepository::class,
                         ContributorRepository::class,
                         PlaybackPositionRepository::class,
                         SeriesRepository::class,
@@ -54,7 +55,6 @@ class ContributorPresentationModuleVerifyTest :
                         ContributorEditRepository::class,
                         ContributorAliasDao::class,
                         ContributorDao::class,
-                        MetadataRepository::class,
                         LibraryRepository::class,
                         ErrorBus::class,
                     ),

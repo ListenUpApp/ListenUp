@@ -5,13 +5,13 @@ import com.calypsan.listenup.api.dto.admin.AdminServerSettings
 import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
 import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
-import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.api.sync.SyncControl
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.hardcover.HardcoverSourceSettings
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
@@ -206,8 +206,6 @@ internal class AdminSettingsServiceImpl(
     /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */
     private fun requireAdmin(): AppResult.Failure? {
         val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        return if (caller.role.isAdmin()) null else AppResult.Failure(AuthError.PermissionDenied())
+        return PermissionPolicy.requireAdmin(caller)?.let { AppResult.Failure(it) }
     }
-
-    private fun UserRole.isAdmin(): Boolean = this == UserRole.ROOT || this == UserRole.ADMIN
 }

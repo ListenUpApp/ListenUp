@@ -33,6 +33,7 @@ import com.calypsan.listenup.client.features.browsefacet.FacetBooksScreen
 import com.calypsan.listenup.client.features.admin.AdminScreen
 import com.calypsan.listenup.client.features.admin.CreateInviteScreen
 import com.calypsan.listenup.client.features.admin.UserDetailScreen
+import com.calypsan.listenup.client.features.admin.UserPermissionsScreen
 import com.calypsan.listenup.client.features.admin.collections.AdminCollectionDetailScreen
 import com.calypsan.listenup.client.features.admin.collections.AdminCollectionsScreen
 import com.calypsan.listenup.client.features.admin.inbox.AdminInboxScreen
@@ -46,6 +47,7 @@ import com.calypsan.listenup.client.presentation.admin.AdminSettingsViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
 import com.calypsan.listenup.client.presentation.admin.UserDetailViewModel
+import com.calypsan.listenup.client.presentation.admin.UserPermissionsViewModel
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.features.discover.DiscoverScreen
 import com.calypsan.listenup.client.features.notifications.NotificationsScreen
@@ -54,16 +56,13 @@ import com.calypsan.listenup.client.features.home.HomeScreen
 import com.calypsan.listenup.client.features.contributordetail.ContributorBooksScreen
 import com.calypsan.listenup.client.features.contributordetail.ContributorDetailScreen
 import com.calypsan.listenup.client.features.contributoredit.ContributorEditScreen
-import com.calypsan.listenup.client.features.contributormetadata.ContributorMetadataPreviewRoute
-import com.calypsan.listenup.client.features.contributormetadata.ContributorMetadataSearchRoute
 import com.calypsan.listenup.client.features.shelf.CreateEditShelfScreen
-import com.calypsan.listenup.api.metadata.MetadataLocale
-import com.calypsan.listenup.client.features.metadata.MatchPreviewRoute
 import com.calypsan.listenup.client.features.bulkedit.BulkEditScreen
 import com.calypsan.listenup.client.features.bulkedit.PendingSelectionExit
 import com.calypsan.listenup.client.features.bulkedit.bulkEditAppliedMessage
 import com.calypsan.listenup.client.features.chaptereditor.ChapterEditorScreen
-import com.calypsan.listenup.client.features.metadata.MetadataSearchRoute
+import com.calypsan.listenup.client.features.match.BookMatchRoute
+import com.calypsan.listenup.client.features.match.PersonMatchRoute
 import com.calypsan.listenup.client.features.shelf.ShelfDetailScreen
 import com.calypsan.listenup.client.features.library.LibraryScreen
 import com.calypsan.listenup.client.features.seriesdetail.SeriesDetailScreen
@@ -149,24 +148,12 @@ sealed interface DetailDestination {
 
     data object ShelfCreate : DetailDestination
 
-    data class MetadataSearch(
+    data class BookMatchDetails(
         val bookId: String,
     ) : DetailDestination
 
-    data class MatchPreview(
-        val bookId: String,
-        val asin: String,
-        val region: MetadataLocale,
-    ) : DetailDestination
-
-    data class ContributorMetadataSearch(
+    data class PersonMatchDetails(
         val contributorId: String,
-    ) : DetailDestination
-
-    data class ContributorMetadataPreview(
-        val contributorId: String,
-        val asin: String,
-        val region: MetadataLocale,
     ) : DetailDestination
 
     data object Settings : DetailDestination
@@ -186,6 +173,10 @@ sealed interface DetailDestination {
     data object CreateInvite : DetailDestination
 
     data class UserDetail(
+        val userId: String,
+    ) : DetailDestination
+
+    data class UserPermissions(
         val userId: String,
     ) : DetailDestination
 
@@ -391,7 +382,7 @@ private fun DetailScreen(
                 bookId = destination.bookId,
                 onBackClick = navigateBack,
                 onEditClick = { navigateTo(DetailDestination.BookEdit(it)) },
-                onMetadataSearchClick = { navigateTo(DetailDestination.MetadataSearch(it)) },
+                onMatchDetailsClick = { navigateTo(DetailDestination.BookMatchDetails(it)) },
                 onEditChaptersClick = { navigateTo(DetailDestination.ChapterEditor(it)) },
                 onSeriesClick = { navigateTo(DetailDestination.Series(it)) },
                 onContributorClick = { navigateTo(DetailDestination.Contributor(it)) },
@@ -454,7 +445,7 @@ private fun DetailScreen(
                 onBookClick = { navigateTo(DetailDestination.Book(it)) },
                 onEditClick = { navigateTo(DetailDestination.ContributorEdit(it)) },
                 onViewAllClick = { id, role -> navigateTo(DetailDestination.ContributorBooks(id, role)) },
-                onMetadataClick = { navigateTo(DetailDestination.ContributorMetadataSearch(it)) },
+                onMatchDetailsClick = { navigateTo(DetailDestination.PersonMatchDetails(it)) },
             )
         }
 
@@ -536,51 +527,20 @@ private fun DetailScreen(
             )
         }
 
-        is DetailDestination.ContributorMetadataSearch -> {
-            ContributorMetadataSearchRoute(
+        is DetailDestination.PersonMatchDetails -> {
+            PersonMatchRoute(
                 contributorId = destination.contributorId,
-                onCandidateSelected = { asin, region ->
-                    navigateTo(DetailDestination.ContributorMetadataPreview(destination.contributorId, asin, region))
-                },
                 onBack = navigateBack,
+                onApplied = navigateBack,
+                onEditByHand = { navigateTo(DetailDestination.ContributorEdit(destination.contributorId)) },
             )
         }
 
-        is DetailDestination.ContributorMetadataPreview -> {
-            ContributorMetadataPreviewRoute(
-                contributorId = destination.contributorId,
-                asin = destination.asin,
-                region = destination.region,
-                onApplySuccess = {
-                    navigateBack()
-                    navigateBack()
-                },
-                onChangeMatch = navigateBack,
-                onBack = navigateBack,
-            )
-        }
-
-        is DetailDestination.MetadataSearch -> {
-            MetadataSearchRoute(
+        is DetailDestination.BookMatchDetails -> {
+            BookMatchRoute(
                 bookId = destination.bookId,
-                onResultSelected = { asin, region ->
-                    navigateTo(DetailDestination.MatchPreview(destination.bookId, asin, region))
-                },
                 onBack = navigateBack,
-            )
-        }
-
-        is DetailDestination.MatchPreview -> {
-            MatchPreviewRoute(
-                bookId = destination.bookId,
-                asin = destination.asin,
-                region = destination.region,
-                onBack = navigateBack,
-                onApplySuccess = {
-                    // Pop both MatchPreview and MetadataSearch to go back to BookDetail
-                    navigateBack()
-                    navigateBack()
-                },
+                onApplied = navigateBack,
             )
         }
 
@@ -590,6 +550,7 @@ private fun DetailScreen(
                 showSleepTimer = false,
                 onNavigateToStorage = { navigateTo(DetailDestination.Storage) },
                 onNavigateToLicenses = { navigateTo(DetailDestination.Licenses) },
+                onNavigateToCategories = { navigateTo(DetailDestination.AdminCategories) },
             )
         }
 
@@ -701,7 +662,13 @@ private fun DetailScreen(
             UserDetailScreen(
                 viewModel = viewModel,
                 onBackClick = navigateBack,
+                onPermissionsClick = { navigateTo(DetailDestination.UserPermissions(destination.userId)) },
             )
+        }
+
+        is DetailDestination.UserPermissions -> {
+            val viewModel: UserPermissionsViewModel = koinInject { parametersOf(destination.userId) }
+            UserPermissionsScreen(viewModel = viewModel, onBackClick = navigateBack)
         }
 
         is DetailDestination.AdminCollections -> {
@@ -738,8 +705,8 @@ private fun DetailScreen(
                 onBookClick = { navigateTo(DetailDestination.Book(it)) },
                 // The row's edit button goes straight to book-edit to fix tags/collections.
                 onEditClick = { navigateTo(DetailDestination.BookEdit(it)) },
-                // Per-row "Match on Audible" — opens the metadata match wizard for that book (iOS parity).
-                onMatchClick = { navigateTo(DetailDestination.MetadataSearch(it)) },
+                // Per-row "Match details" — opens Match details for that book (iOS parity).
+                onMatchClick = { navigateTo(DetailDestination.BookMatchDetails(it)) },
             )
         }
 

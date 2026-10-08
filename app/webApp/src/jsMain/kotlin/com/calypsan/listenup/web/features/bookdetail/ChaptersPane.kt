@@ -40,7 +40,7 @@ internal fun ChaptersPane(
     chapters: List<WebChapter>,
     selection: Set<Int>,
     onSelectionChange: (Set<Int>) -> Unit,
-    onEditChapters: () -> Unit = {},
+    onEditChapters: (() -> Unit)? = null,
 ) {
     // ⛔ Offered on an unchaptered book too, and pointing at the editor's own empty state rather
     // than at nothing. A book with no marks is exactly the one that most needs the editor, and a
@@ -48,14 +48,15 @@ internal fun ChaptersPane(
     if (chapters.isEmpty()) {
         Panel(title = "Chapters") {
             InspectorHint("This book has no chapter marks.")
-            EditChaptersButton(onEditChapters)
+            onEditChapters?.let { EditChaptersButton(it) }
         }
         return
     }
 
     Div(attrs = { classes("bd-cols") }) {
         Div(attrs = { classes("bd-main") }) {
-            EditChaptersButton(onEditChapters)
+            // Absent for a reader who may not edit metadata — the editor's save would be refused.
+            onEditChapters?.let { EditChaptersButton(it) }
 
             ChapterMap(chapters, selection) { number ->
                 onSelectionChange(selection.toggled(number))

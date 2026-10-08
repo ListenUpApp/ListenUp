@@ -232,7 +232,7 @@ fun BookDetailPage(
                                 chapters = state.chapters.toWebChapters(),
                                 selection = selection,
                                 onSelectionChange = onSelectionChange,
-                                onEditChapters = onEditChapters,
+                                onEditChapters = onEditChapters.takeIf { state.canEditMetadata },
                             )
                         }
 
@@ -453,19 +453,23 @@ private fun HeroActions(
                 onDismiss = { askingFinishDates = false },
             )
         }
-        // Icon-only, so the accessible name is the attribute, not the content —
-        // BookDetailEditButtonTest pins both the label and that it matches Play's height.
-        Button(kind = ButtonKind.Icon, size = ButtonSize.Lg, onClick = {
-            onEdit()
-        }, label = "Edit book") { Icon(WebIcon.Pencil) }
-        // Beside Edit, not inside it: matching is a different act. Edit changes what
-        // the reader believes; matching asks a catalogue and offers its answer.
-        Button(
-            kind = ButtonKind.Icon,
-            size = ButtonSize.Lg,
-            onClick = { onMatchMetadata() },
-            label = "Match metadata",
-        ) { Icon(WebIcon.Sparkles) }
+        // Only for a reader who may edit metadata: offering Edit and then refusing the save is
+        // worse than not offering it.
+        if (ready.canEditMetadata) {
+            // Icon-only, so the accessible name is the attribute, not the content —
+            // BookDetailEditButtonTest pins both the label and that it matches Play's height.
+            Button(kind = ButtonKind.Icon, size = ButtonSize.Lg, onClick = {
+                onEdit()
+            }, label = "Edit book") { Icon(WebIcon.Pencil) }
+            // Beside Edit, not inside it: matching is a different act. Edit changes what
+            // the reader believes; matching asks a catalogue and offers its answer.
+            Button(
+                kind = ButtonKind.Icon,
+                size = ButtonSize.Lg,
+                onClick = { onMatchMetadata() },
+                label = "Match details",
+            ) { Icon(WebIcon.Sparkles) }
+        }
     }
 }
 

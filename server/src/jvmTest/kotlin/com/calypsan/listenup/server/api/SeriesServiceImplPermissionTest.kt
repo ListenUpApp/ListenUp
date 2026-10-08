@@ -4,7 +4,9 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.core.MergeReceiptId
+import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -19,6 +21,8 @@ import com.calypsan.listenup.server.testing.memberPrincipal
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.server.testing.shouldBeDeniedPermission
+import com.calypsan.listenup.server.testing.shouldPassThePermissionGate
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -27,10 +31,9 @@ import kotlinx.coroutines.test.runTest
 /**
  * canEdit-gate tests for [SeriesServiceImpl] (closes MA holistic-review finding I1).
  *
- * `updateSeries` is the representative mutation; every series mutation
- * (`updateSeries`/`deleteSeries`/`mergeSeries`) shares the identical first-statement
- * `requireCanEdit()` guard, so proving the gate fires on one proves the wiring. Reads stay
- * open and are covered by the existing [SeriesServiceImplTest].
+ * `updateSeries` is the representative edit, gated on `Permission.EDIT_METADATA`; merge, merge
+ * history, undo and delete are gated on `Permission.CURATE_LIBRARY`, and the matrix test covers
+ * each. Reads stay open and are covered by the existing [SeriesServiceImplTest].
  */
 class SeriesServiceImplPermissionTest :
     FunSpec({
@@ -82,6 +85,53 @@ class SeriesServiceImplPermissionTest :
                 }
             }
         }
+
+        test("series merge, merge history, undo and delete need Curate library, not Edit metadata") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("editor", UserRoleColumn.MEMBER, canEdit = true, canCurateLibrary = false)
+                sql.seedTestUser("curator", UserRoleColumn.MEMBER, canEdit = false, canCurateLibrary = true)
+                sql.seedTestUser("nobody", UserRoleColumn.MEMBER, canEdit = false, canCurateLibrary = false)
+                val deps = makeService(this)
+                runTest {
+                    val editor = deps.service.copyWith(memberPrincipal("editor"))
+                    val curator = deps.service.copyWith(memberPrincipal("curator"))
+                    val nobody = deps.service.copyWith(memberPrincipal("nobody"))
+                    val admin = deps.service.copyWith(rootPrincipal())
+                    val a = SeriesId("s-a")
+                    val b = SeriesId("s-b")
+                    val receipt = MergeReceiptId("r-1")
+
+                    for (refused in listOf(editor, nobody)) {
+                        refused.mergeSeries(a, b).shouldBeDeniedPermission()
+                        refused.listMergeReceipts(b).shouldBeDeniedPermission()
+                        refused.undoSeriesMerge(receipt).shouldBeDeniedPermission()
+                        refused.deleteSeries(a).shouldBeDeniedPermission()
+                    }
+                    for (allowed in listOf(curator, admin)) {
+                        allowed.mergeSeries(a, b).shouldPassThePermissionGate()
+                        allowed.listMergeReceipts(b).shouldPassThePermissionGate()
+                        allowed.undoSeriesMerge(receipt).shouldPassThePermissionGate()
+                        allowed.deleteSeries(a).shouldPassThePermissionGate()
+                    }
+                }
+            }
+        }
+
+        test("renaming a series still needs Edit metadata") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("curator", UserRoleColumn.MEMBER, canEdit = false, canCurateLibrary = true)
+                val deps = makeService(this)
+                runTest {
+                    val seriesId = deps.seriesRepo.resolveOrCreate("Mistborn")
+                    deps.service
+                        .copyWith(memberPrincipal("curator"))
+                        .updateSeries(seriesId, seriesNameUpdate("Renamed"))
+                        .shouldBeDeniedPermission()
+                }
+            }
+        }
     })
 
 private data class PermServiceDeps(
@@ -112,7 +162,7 @@ private fun makeService(dbs: SqlTestDatabases): PermServiceDeps {
             bookRepo = bookRepo,
             sqlDb = dbs.sql,
             accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
-            permissionPolicy = UserPermissionPolicy(dbs.sql),
+            permissionPolicy = PermissionPolicy(dbs.sql),
         )
     return PermServiceDeps(service, seriesRepo)
 }

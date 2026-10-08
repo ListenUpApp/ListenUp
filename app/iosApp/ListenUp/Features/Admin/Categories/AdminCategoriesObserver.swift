@@ -87,6 +87,10 @@ struct AdminCategoriesReadyModel {
     /// Every node that can expand is expanded — flips the toolbar button to "Collapse All".
     let allExpanded: Bool
     let error: String?
+    /// May add, rename and move genres (Edit metadata).
+    let canEditMetadata: Bool
+    /// May merge and delete genres, and see and undo their merges (Curate library).
+    let canCurateLibrary: Bool
 
     init(from ready: AdminCategoriesUiStateReady) {
         let roots = Array(ready.tree).map(GenreNodeModel.init(from:))
@@ -99,6 +103,8 @@ struct AdminCategoriesReadyModel {
         self.totalBookCount = Int(ready.totalBookCount)
         self.allExpanded = !expandable.isEmpty && expandable.isSubset(of: expanded)
         self.error = ready.error?.message
+        self.canEditMetadata = ready.canEditMetadata
+        self.canCurateLibrary = ready.canCurateLibrary
     }
 }
 

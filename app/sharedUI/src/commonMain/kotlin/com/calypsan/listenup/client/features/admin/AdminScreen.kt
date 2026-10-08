@@ -100,6 +100,7 @@ import com.calypsan.listenup.client.design.util.relativeTime
 import com.calypsan.listenup.client.util.formatDateLong
 import com.calypsan.listenup.client.design.util.rememberCopyToClipboard
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.domain.model.AccessLabel
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
@@ -1062,21 +1063,17 @@ private fun UsersGroup(
     }
 }
 
+/** One person in the user list, named by their access label: Owner, Admin, or a member's preset. */
 @Composable
-private fun UserRow(
+internal fun UserRow(
     user: AdminUserInfo,
     isDeleting: Boolean,
     onClick: () -> Unit,
     onDeleteClick: () -> Unit,
 ) {
     val haptics = LocalHaptics.current
-    val isRoot = user.isRoot || user.role == "admin"
-    val roleLabel =
-        if (user.isRoot) {
-            "Root"
-        } else {
-            user.role.replaceFirstChar { it.uppercase() }.ifEmpty { "Member" }
-        }
+    val isElevated = user.access == AccessLabel.OWNER || user.access == AccessLabel.ADMIN
+    val roleLabel = user.access.title()
     SettingRow(
         title = user.displayName ?: user.email,
         subtitle = user.email,
@@ -1087,7 +1084,7 @@ private fun UserRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            RoleChip(label = roleLabel, isRoot = isRoot)
+            RoleChip(label = roleLabel, isRoot = isElevated)
             if (!user.isProtected) {
                 if (isDeleting) {
                     ListenUpLoadingIndicatorSmall()

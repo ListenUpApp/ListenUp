@@ -24,8 +24,8 @@ import com.calypsan.listenup.client.navigation.ContributorDetail
 import com.calypsan.listenup.client.navigation.DocumentViewer
 import com.calypsan.listenup.client.navigation.GenreDestination
 import com.calypsan.listenup.client.navigation.ListDetailScene
-import com.calypsan.listenup.client.navigation.MatchPreview
-import com.calypsan.listenup.client.navigation.MetadataSearch
+import com.calypsan.listenup.client.navigation.MatchDetails
+import com.calypsan.listenup.client.navigation.MatchSubject
 import com.calypsan.listenup.client.navigation.SeriesDetail
 import com.calypsan.listenup.client.navigation.UserProfile
 import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetViewModel
@@ -58,8 +58,8 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
                 onEditClick = { bookId ->
                     backStack.add(BookEdit(bookId))
                 },
-                onMetadataSearchClick = { bookId ->
-                    backStack.add(MetadataSearch(bookId))
+                onMatchDetailsClick = { bookId ->
+                    backStack.add(MatchDetails(MatchSubject.Book(bookId)))
                 },
                 onSeriesClick = { seriesId ->
                     backStack.add(SeriesDetail(seriesId))
@@ -140,35 +140,6 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
     }
     chapterEditorEntry(backStack)
     bulkEditEntry(backStack, scope, snackbarHostState, pendingSelectionExit)
-    entry<MetadataSearch> { args ->
-        com.calypsan.listenup.client.features.metadata.MetadataSearchRoute(
-            bookId = args.bookId,
-            onResultSelected = { asin, region ->
-                backStack.add(MatchPreview(args.bookId, asin, region))
-            },
-            onBack = {
-                backStack.removeAt(backStack.lastIndex)
-            },
-        )
-    }
-    entry<MatchPreview> { args ->
-        com.calypsan.listenup.client.features.metadata.MatchPreviewRoute(
-            bookId = args.bookId,
-            asin = args.asin,
-            region = args.region,
-            onBack = {
-                backStack.removeAt(backStack.lastIndex)
-            },
-            onApplySuccess = {
-                // Navigate back to book detail after successful apply
-                // Pop both MatchPreview and MetadataSearch
-                backStack.removeAt(backStack.lastIndex)
-                if (backStack.lastOrNull() is MetadataSearch) {
-                    backStack.removeAt(backStack.lastIndex)
-                }
-            },
-        )
-    }
 }
 
 /** The chapter editor entry, split out to keep [bookEntries] within the method-length limit. */

@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.EntitySyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.server.api.BookAccessPolicy
+import com.calypsan.listenup.server.auth.isAdmin
 
 // The wire domain names the live firehose and the REST catch-up/digest agree on. Shared between
 // this file's live-tail gate chain and SyncRoutes' ACCESS_FILTERS catalog so the two surfaces can
@@ -63,8 +64,6 @@ internal const val LIBRARY_FOLDERS_DOMAIN = "library_folders"
 // through.
 internal const val ADMIN_USER_ROSTER_DOMAIN = "admin_user_roster"
 
-internal fun isAdmin(role: UserRole): Boolean = role == UserRole.ROOT || role == UserRole.ADMIN
-
 /**
  * The reason a live firehose [busEvent] must be withheld from `(userId, role)`, or `null` when it
  * may be delivered. The one gate chain the RPC firehose ([SyncStreamServiceImpl]) delivers through
@@ -109,7 +108,7 @@ private suspend fun isBookEventHidden(
     bookAccessPolicy: () -> BookAccessPolicy,
 ): Boolean {
     if (busEvent.repo.domainName != BOOKS_DOMAIN) return false
-    if (role == UserRole.ROOT || role == UserRole.ADMIN) return false
+    if (role.isAdmin()) return false
     if (busEvent.event is SyncEvent.Deleted) return false
     return !bookAccessPolicy().canAccess(userId, role, busEvent.event.id)
 }
@@ -130,7 +129,7 @@ private suspend fun isActivityEventHidden(
     bookAccessPolicy: () -> BookAccessPolicy,
 ): Boolean {
     if (busEvent.repo.domainName != ACTIVITIES_DOMAIN) return false
-    if (role == UserRole.ROOT || role == UserRole.ADMIN) return false
+    if (role.isAdmin()) return false
     if (busEvent.event is SyncEvent.Deleted) return false
     // Gate on the row's book_id (from the payload), not the event id (which is the activity id).
     val bookId = activityBookIdOf(busEvent.event) ?: return false
@@ -163,7 +162,7 @@ private suspend fun isBookJunctionEventHidden(
     ) {
         return false
     }
-    if (role == UserRole.ROOT || role == UserRole.ADMIN) return false
+    if (role.isAdmin()) return false
     if (busEvent.event is SyncEvent.Deleted) return false
     val bookId = junctionBookIdOf(busEvent.event) ?: return true
     return !bookAccessPolicy().canAccess(userId, role, bookId)
@@ -213,7 +212,7 @@ private suspend fun isEntityEventHidden(
     bookAccessPolicy: () -> BookAccessPolicy,
 ): Boolean {
     if (busEvent.repo.domainName != ENTITIES_DOMAIN) return false
-    if (isAdmin(role)) return false
+    if (role.isAdmin()) return false
     val payload =
         when (val event = busEvent.event) {
             is SyncEvent.Created<*> -> event.payload as EntitySyncPayload
@@ -236,7 +235,7 @@ private suspend fun isEntityEventHidden(
 private fun isLibraryFolderEventHidden(
     busEvent: BusEvent<*>,
     role: UserRole,
-): Boolean = busEvent.repo.domainName == LIBRARY_FOLDERS_DOMAIN && !isAdmin(role)
+): Boolean = busEvent.repo.domainName == LIBRARY_FOLDERS_DOMAIN && !role.isAdmin()
 
 /**
  * Whether a live firehose [busEvent] on the `admin_user_roster` domain must be withheld from
@@ -251,7 +250,7 @@ private fun isLibraryFolderEventHidden(
 private fun isAdminRosterEventHidden(
     busEvent: BusEvent<*>,
     role: UserRole,
-): Boolean = busEvent.repo.domainName == ADMIN_USER_ROSTER_DOMAIN && !isAdmin(role)
+): Boolean = busEvent.repo.domainName == ADMIN_USER_ROSTER_DOMAIN && !role.isAdmin()
 
 /**
  * Whether a live firehose [busEvent] on a collection domain
@@ -282,7 +281,7 @@ private suspend fun isCollectionEventHidden(
     if (domain != COLLECTIONS_DOMAIN && domain != COLLECTION_SHARES_DOMAIN && domain != COLLECTION_BOOKS_DOMAIN) {
         return false
     }
-    if (role == UserRole.ROOT || role == UserRole.ADMIN) return false
+    if (role.isAdmin()) return false
     if (busEvent.event is SyncEvent.Deleted) return false
 
     if (domain == COLLECTION_SHARES_DOMAIN) {

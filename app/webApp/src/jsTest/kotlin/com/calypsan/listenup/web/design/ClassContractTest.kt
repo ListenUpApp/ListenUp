@@ -76,6 +76,10 @@ import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
 import com.calypsan.listenup.client.presentation.admin.HardcoverTokenSave
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
+import com.calypsan.listenup.client.presentation.admin.UserPermissionsUiState
+import com.calypsan.listenup.client.domain.model.PermissionPreset
+import com.calypsan.listenup.client.domain.model.UserPermissions
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -177,14 +181,7 @@ import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiSt
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftPreview
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftProposal
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftRefusal
-import com.calypsan.listenup.api.metadata.BookField
-import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
-import com.calypsan.listenup.client.presentation.metadata.CoverEntry
-import com.calypsan.listenup.client.presentation.metadata.PreviewLoadState
-import com.calypsan.listenup.client.presentation.metadata.SearchLoadState
-import com.calypsan.listenup.api.dto.MetadataContributorHit
-import com.calypsan.listenup.client.presentation.contributormetadata.ContributorPreviewLoadState
-import com.calypsan.listenup.client.presentation.contributormetadata.ContributorSearchLoadState
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditPreviewRow
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
@@ -192,17 +189,38 @@ import com.calypsan.listenup.web.features.bulkedit.BulkEditActions
 import com.calypsan.listenup.web.features.bulkedit.BulkEditCatalog
 import com.calypsan.listenup.web.features.bulkedit.BulkEditPage
 import com.calypsan.listenup.web.features.bulkedit.editing
-import com.calypsan.listenup.web.features.contributormetadata.ContributorMetadataPage
-import com.calypsan.listenup.web.features.contributormetadata.contributorPreviewState
-import com.calypsan.listenup.web.features.contributormetadata.contributorProfile
-import com.calypsan.listenup.web.features.contributormetadata.contributorSearchState
-import com.calypsan.listenup.web.features.contributormetadata.localContributor
-import com.calypsan.listenup.web.features.metadata.MetadataPage
-import com.calypsan.listenup.web.features.metadata.availableChapters
-import com.calypsan.listenup.web.features.metadata.metadataBook
-import com.calypsan.listenup.web.features.metadata.previewState
-import com.calypsan.listenup.web.features.metadata.readyPreview
-import com.calypsan.listenup.web.features.metadata.searchState
+import com.calypsan.listenup.web.features.match.AUDIBLE
+import com.calypsan.listenup.web.features.match.BookMatchPage
+import com.calypsan.listenup.web.features.match.HARDCOVER
+import com.calypsan.listenup.web.features.match.MatchReceiptRegion
+import com.calypsan.listenup.web.features.match.PersonMatchPage
+import com.calypsan.listenup.web.features.match.ReceiptSubject
+import com.calypsan.listenup.web.features.match.biography
+import com.calypsan.listenup.web.features.match.fixedPersonMatch
+import com.calypsan.listenup.web.features.match.rayResults
+import com.calypsan.listenup.web.features.match.noProfiles
+import com.calypsan.listenup.web.features.match.person
+import com.calypsan.listenup.web.features.match.personFailed
+import com.calypsan.listenup.web.features.match.personReady
+import com.calypsan.listenup.web.features.match.personReceipt
+import com.calypsan.listenup.web.features.match.photo
+import com.calypsan.listenup.client.presentation.match.PersonReviewUiState
+import com.calypsan.listenup.api.dto.match.FieldState
+import com.calypsan.listenup.web.features.match.MatchView
+import com.calypsan.listenup.web.features.match.UK
+import com.calypsan.listenup.web.features.match.US
+import com.calypsan.listenup.web.features.match.candidate as matchCandidate
+import com.calypsan.listenup.web.features.match.failed
+import com.calypsan.listenup.web.features.match.fixedBookMatch
+import com.calypsan.listenup.web.features.match.ready
+import com.calypsan.listenup.web.features.match.receipt
+import com.calypsan.listenup.web.features.match.results
+import com.calypsan.listenup.web.features.match.searching
+import com.calypsan.listenup.api.error.MetadataError
+import com.calypsan.listenup.client.presentation.match.FindFailure
+import com.calypsan.listenup.client.presentation.match.MatchReceiptUiState
+import com.calypsan.listenup.client.presentation.match.PartialFailure
+import com.calypsan.listenup.client.presentation.match.ReviewUiState
 import com.calypsan.listenup.web.features.chaptereditor.ChapterEditorPage
 import com.calypsan.listenup.web.features.chaptereditor.editingChapters
 import com.calypsan.listenup.web.features.chaptereditor.threeChapters
@@ -283,7 +301,9 @@ import com.calypsan.listenup.client.presentation.admin.CreateInviteStatus
 import com.calypsan.listenup.client.presentation.admin.CreateInviteUiState
 import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
 import com.calypsan.listenup.web.features.admin.CreateInvitePage
+import com.calypsan.listenup.web.features.admin.PermissionsPanelActions
 import com.calypsan.listenup.web.features.admin.UserDetailPage
+import com.calypsan.listenup.web.features.admin.permissionsReady
 import com.calypsan.listenup.web.features.admin.adminUser
 import com.calypsan.listenup.web.features.admin.invite
 import com.calypsan.listenup.web.features.admin.readyUser
@@ -637,232 +657,129 @@ class ClassContractTest :
                             catalog = contractCatalog,
                             actions = contractBulkActions,
                         )
-                        // Match contributor: candidates, the ready compare (both sides drawn),
-                        // the empty-catalogue miss, and a failed apply.
-                        ContributorMetadataPage(
-                            state =
-                                contributorSearchState(
-                                    loadState =
-                                        ContributorSearchLoadState.Loaded(
-                                            listOf(MetadataContributorHit(asin = "B1", name = "Patrick Rothfuss")),
+                        // Match details: Find with results, a partial banner and Review open with
+                        // every section; Compare editions; each failure card; the receipt and its
+                        // settled states.
+                        BookMatchPage(
+                            session =
+                                fixedBookMatch(
+                                    findState =
+                                        MutableStateFlow(
+                                            results(partialFailure = PartialFailure(listOf(HARDCOVER), listOf(AUDIBLE))),
                                         ),
+                                    reviewState = MutableStateFlow(ready(applyError = MetadataError.CoverDownloadFailed())),
                                 ),
-                            onQuery = {},
-                            onRegion = {},
-                            onSearch = {},
-                            onSelectCandidate = {},
-                            onClearSelection = {},
-                            onApply = {},
-                            onLeave = {},
+                            bookId = "b-1",
+                            viewerId = "u-me",
+                            view = MatchView.Find,
+                            onOpenCompare = {},
+                            onCloseCompare = {},
+                            onOpenLibrary = {},
+                            onOpenBook = {},
+                            onApplied = {},
                         )
-                        ContributorMetadataPage(
-                            state =
-                                contributorPreviewState(
-                                    ContributorPreviewLoadState.Ready(
-                                        profile =
-                                            contributorProfile(
-                                                description = "Wrote Kvothe.",
-                                                imageUrl = "https://example.invalid/p.jpg",
-                                            ),
-                                        isApplying = false,
-                                        applyError = "The server refused that.",
-                                    ),
-                                    current = localContributor(description = "A writer.", imagePath = "contributors/c1.jpg"),
+                        BookMatchPage(
+                            session = fixedBookMatch(findState = MutableStateFlow(searching(previous = results()))),
+                            bookId = "b-1",
+                            viewerId = null,
+                            view = MatchView.Compare,
+                            onOpenCompare = {},
+                            onCloseCompare = {},
+                            onOpenLibrary = {},
+                            onOpenBook = {},
+                            onApplied = {},
+                        )
+                        BookMatchPage(
+                            session =
+                                fixedBookMatch(
+                                    findState = MutableStateFlow(failed(FindFailure.NotFoundInStore(AUDIBLE, UK, listOf(US)))),
+                                    reviewState = MutableStateFlow(ReviewUiState.Loading(matchCandidate())),
                                 ),
-                            onQuery = {},
-                            onRegion = {},
-                            onSearch = {},
-                            onSelectCandidate = {},
-                            onClearSelection = {},
-                            onApply = {},
-                            onLeave = {},
+                            bookId = "b-1",
+                            viewerId = null,
+                            view = MatchView.Find,
+                            onOpenCompare = {},
+                            onCloseCompare = {},
+                            onOpenLibrary = {},
+                            onOpenBook = {},
+                            onApplied = {},
                         )
-                        ContributorMetadataPage(
-                            state =
-                                contributorPreviewState(
-                                    ContributorPreviewLoadState.Ready(
-                                        profile = contributorProfile(description = null, imageUrl = null),
-                                        isApplying = false,
-                                        applyError = null,
-                                    ),
-                                    current = localContributor(description = null, imagePath = null),
+                        BookMatchPage(
+                            session =
+                                fixedBookMatch(
+                                    findState = MutableStateFlow(failed(FindFailure.RateLimited(HARDCOVER, 30))),
+                                    reviewState =
+                                        MutableStateFlow(ReviewUiState.Failed(matchCandidate(), MetadataError.Malformed())),
                                 ),
-                            onQuery = {},
-                            onRegion = {},
-                            onSearch = {},
-                            onSelectCandidate = {},
-                            onClearSelection = {},
-                            onApply = {},
-                            onLeave = {},
+                            bookId = "b-1",
+                            viewerId = null,
+                            view = MatchView.Find,
+                            onOpenCompare = {},
+                            onCloseCompare = {},
+                            onOpenLibrary = {},
+                            onOpenBook = {},
+                            onApplied = {},
                         )
-                        ContributorMetadataPage(
-                            state = contributorPreviewState(ContributorPreviewLoadState.Missing),
-                            onQuery = {},
-                            onRegion = {},
-                            onSearch = {},
-                            onSelectCandidate = {},
-                            onClearSelection = {},
-                            onApply = {},
-                            onLeave = {},
+                        MatchReceiptRegion(
+                            state = MatchReceiptUiState.Shown(receipt(), undoing = false, undoError = null),
+                            onUndo = {},
+                            onDismiss = {},
                         )
-                        // Match metadata: the search phase with results, the preview with every
-                        // field shape it can draw (provenance, cover options, contributor and
-                        // classification rows, a merged footer), the chapter-name sheet, and the
-                        // three states that draw no form at all.
-                        MetadataPage(
-                            state =
-                                searchState(
-                                    loadState =
-                                        SearchLoadState.Loaded(
-                                            listOf(
-                                                metadataBook(
-                                                    authors = listOf("Brandon Sanderson"),
-                                                    narrators = listOf("Kate Reading"),
-                                                    runtimeMinutes = 2735,
-                                                    releaseDate = "2010-08-31",
-                                                    coverUrl = "https://example.invalid/cover.jpg",
-                                                ),
-                                                metadataBook(asin = "B2", title = "Prime"),
+                        MatchReceiptRegion(state = MatchReceiptUiState.Undone, onUndo = {}, onDismiss = {})
+                        // Person Match details: Find with every role's evidence on the strip and the rows,
+                        // Review with a hand-edited biography; No profiles; a failure with Review loading;
+                        // the person receipt.
+                        PersonMatchPage(
+                            session =
+                                fixedPersonMatch(
+                                    findState = MutableStateFlow(rayResults()),
+                                    reviewState =
+                                        MutableStateFlow(
+                                            personReady(
+                                                photo = photo(currentPath = "p.jpg", setByHand = true),
+                                                biography = biography(state = FieldState.USER_EDITED),
+                                                applyError = MetadataError.CoverDownloadFailed(),
                                             ),
                                         ),
                                 ),
-                            onQuery = {},
-                            onRegion = {},
-                            onSearch = {},
-                            onSelectMatch = {},
-                            onClearSelection = {},
-                            onToggleField = {},
-                            onToggleAuthor = {},
-                            onToggleNarrator = {},
-                            onToggleSeries = {},
-                            onToggleGenre = {},
-                            onToggleMood = {},
-                            onToggleTag = {},
-                            onSelectCover = {},
-                            onKeepCurrentCover = {},
-                            onToggleChapter = {},
-                            onApplyChapterNames = {},
-                            onApply = {},
-                            onLeave = {},
+                            contributorId = "c-1",
+                            viewerId = "u-me",
+                            onOpenLibrary = {},
+                            onOpenContributor = {},
+                            onEditByHand = {},
+                            onApplied = {},
                         )
-                        MetadataPage(
-                            state = searchState(loadState = SearchLoadState.Loaded(emptyList())),
-                            onQuery = {},
-                            onRegion = {},
-                            onSearch = {},
-                            onSelectMatch = {},
-                            onClearSelection = {},
-                            onToggleField = {},
-                            onToggleAuthor = {},
-                            onToggleNarrator = {},
-                            onToggleSeries = {},
-                            onToggleGenre = {},
-                            onToggleMood = {},
-                            onToggleTag = {},
-                            onSelectCover = {},
-                            onKeepCurrentCover = {},
-                            onToggleChapter = {},
-                            onApplyChapterNames = {},
-                            onApply = {},
-                            onLeave = {},
-                        )
-                        MetadataPage(
-                            state =
-                                previewState(
-                                    readyPreview(
-                                        preview =
-                                            metadataBook(
-                                                subtitle = "Book One",
-                                                description = "Ash falls from the sky.",
-                                                publisher = "Macmillan Audio",
-                                                releaseDate = "2010-08-31",
-                                                language = "en-US",
-                                                authors = listOf("Brandon Sanderson"),
-                                                narrators = listOf("Kate Reading"),
-                                                series = listOf(Triple("s1", "The Stormlight Archive", "1")),
-                                                coverUrl = "https://example.invalid/cover.jpg",
-                                            ),
-                                        coverEntries =
-                                            listOf(
-                                                CoverEntry("https://example.invalid/1.jpg", "Audible", "500×500"),
-                                            ),
-                                        selectedCoverUrl = "https://example.invalid/1.jpg",
-                                        applyError = "The server refused that.",
-                                        chapterSuggestion = availableChapters(count = 3),
-                                        genreCandidates = listOf("Epic Fantasy"),
-                                        moodCandidates = listOf("Sweeping"),
-                                        tagCandidates = listOf("Found Family"),
-                                        fallbackSources = mapOf(BookField.TITLE to "iTunes"),
-                                        contributingSources = listOf("Audible", "iTunes"),
-                                    ),
+                        PersonMatchPage(
+                            session =
+                                fixedPersonMatch(
+                                    findState = MutableStateFlow(noProfiles()),
+                                    reviewState = MutableStateFlow(PersonReviewUiState.Loading(person())),
                                 ),
-                            onQuery = {},
-                            onRegion = {},
-                            onSearch = {},
-                            onSelectMatch = {},
-                            onClearSelection = {},
-                            onToggleField = {},
-                            onToggleAuthor = {},
-                            onToggleNarrator = {},
-                            onToggleSeries = {},
-                            onToggleGenre = {},
-                            onToggleMood = {},
-                            onToggleTag = {},
-                            onSelectCover = {},
-                            onKeepCurrentCover = {},
-                            onToggleChapter = {},
-                            onApplyChapterNames = {},
-                            onApply = {},
-                            onLeave = {},
-                            reviewingChapters = true,
+                            contributorId = "c-1",
+                            viewerId = null,
+                            onOpenLibrary = {},
+                            onOpenContributor = {},
+                            onEditByHand = {},
+                            onApplied = {},
                         )
-                        MetadataPage(
-                            state =
-                                previewState(
-                                    readyPreview(
-                                        chapterSuggestion =
-                                            ChapterSuggestion.CountMismatch(localCount = 31, audibleCount = 34),
-                                    ),
+                        PersonMatchPage(
+                            session =
+                                fixedPersonMatch(
+                                    findState = MutableStateFlow(personFailed(FindFailure.Offline)),
+                                    reviewState = MutableStateFlow(PersonReviewUiState.Failed(person(), MetadataError.Malformed())),
                                 ),
-                            onQuery = {},
-                            onRegion = {},
-                            onSearch = {},
-                            onSelectMatch = {},
-                            onClearSelection = {},
-                            onToggleField = {},
-                            onToggleAuthor = {},
-                            onToggleNarrator = {},
-                            onToggleSeries = {},
-                            onToggleGenre = {},
-                            onToggleMood = {},
-                            onToggleTag = {},
-                            onSelectCover = {},
-                            onKeepCurrentCover = {},
-                            onToggleChapter = {},
-                            onApplyChapterNames = {},
-                            onApply = {},
-                            onLeave = {},
+                            contributorId = "c-1",
+                            viewerId = null,
+                            onOpenLibrary = {},
+                            onOpenContributor = {},
+                            onEditByHand = {},
+                            onApplied = {},
                         )
-                        MetadataPage(
-                            state = previewState(PreviewLoadState.Failed("Loading the match timed out.")),
-                            onQuery = {},
-                            onRegion = {},
-                            onSearch = {},
-                            onSelectMatch = {},
-                            onClearSelection = {},
-                            onToggleField = {},
-                            onToggleAuthor = {},
-                            onToggleNarrator = {},
-                            onToggleSeries = {},
-                            onToggleGenre = {},
-                            onToggleMood = {},
-                            onToggleTag = {},
-                            onSelectCover = {},
-                            onKeepCurrentCover = {},
-                            onToggleChapter = {},
-                            onApplyChapterNames = {},
-                            onApply = {},
-                            onLeave = {},
+                        MatchReceiptRegion(
+                            state = MatchReceiptUiState.Shown(personReceipt(), undoing = false, undoError = null),
+                            onUndo = {},
+                            onDismiss = {},
+                            subject = ReceiptSubject.Person("Ray Porter"),
                         )
                         // Chapter Editor: the list with a locked row, an unsaved draft, a
                         // changed-elsewhere banner and a refused save; the drift panel in each of
@@ -1838,7 +1755,13 @@ private fun peopleShapes(): List<@Composable () -> Unit> {
             )
         }
 
-    fun member(state: UserDetailUiState): @Composable () -> Unit = { UserDetailPage(state = state, onToggleCanEdit = {}, onOpenAdmin = {}) }
+    fun member(
+        state: UserDetailUiState,
+        permissions: UserPermissionsUiState = permissionsReady(),
+    ): @Composable () -> Unit =
+        {
+            UserDetailPage(state = state, permissions = permissions, actions = PermissionsPanelActions(), onOpenAdmin = {})
+        }
 
     return listOf(
         form(CreateInviteUiState.Ready()),
@@ -1852,9 +1775,24 @@ private fun peopleShapes(): List<@Composable () -> Unit> {
         // The success half shares no markup at all with the form it replaces.
         form(CreateInviteUiState.Ready(CreateInviteStatus.Success(invite()))),
         member(readyUser()),
-        // The owner draws the note that explains the disabled switches.
-        member(readyUser(adminUser(isRoot = true))),
-        member(readyUser(error = InternalError(debugInfo = "boom"))),
+        // Custom, with the curate warning, the Unsaved tags and the save bar.
+        member(
+            readyUser(),
+            permissionsReady(
+                flags = UserPermissions(canEditMetadata = false, canCurateLibrary = true),
+                preset = PermissionPreset.CUSTOM,
+                curateWarning = true,
+                changeCount = 2,
+            ),
+        ),
+        member(readyUser(), permissionsReady(role = UserRole.ADMIN)),
+        member(readyUser(), permissionsReady(presetsShown = false)),
+        // The owner draws the note that explains why nothing here moves.
+        member(
+            readyUser(adminUser(isRoot = true)),
+            permissionsReady(role = UserRole.ROOT, user = adminUser(isRoot = true)),
+        ),
+        member(readyUser(), permissionsReady(error = InternalError(debugInfo = "boom"))),
         member(UserDetailUiState.Loading),
         member(UserDetailUiState.Error(InternalError(debugInfo = "boom"))),
     )

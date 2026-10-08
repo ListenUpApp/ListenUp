@@ -5,6 +5,8 @@ import com.calypsan.listenup.client.presentation.admin.CreateInviteUiState
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
 import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
 import com.calypsan.listenup.client.presentation.admin.UserDetailViewModel
+import com.calypsan.listenup.client.presentation.admin.UserPermissionsUiState
+import com.calypsan.listenup.client.presentation.admin.UserPermissionsViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
@@ -53,10 +55,11 @@ fun fixedCreateInvite(
         )
     }
 
-/** An open session over one member's permissions. */
+/** An open session over one member: their detail, and their permissions draft. */
 class UserDetailSession(
     val state: StateFlow<UserDetailUiState>,
-    val onToggleCanEdit: () -> Unit,
+    val permissions: StateFlow<UserPermissionsUiState>,
+    val actions: PermissionsPanelActions,
     val close: () -> Unit,
 )
 
@@ -64,33 +67,53 @@ class UserDetailSession(
 typealias OpenUserDetail = (userId: String) -> UserDetailSession
 
 /**
- * The production source: the shared [UserDetailViewModel], parametrized on the member.
+ * The production source: the shared [UserDetailViewModel] and [UserPermissionsViewModel], both
+ * parametrized on the member.
  *
- * ⛔ The user id is a *constructor* parameter, not a `load()` call — this ViewModel loads in its
- * own `init`, so resolving it bare would fetch whoever the graph happened to hand back.
+ * ⛔ The user id is a *constructor* parameter, not a `load()` call — each ViewModel is bound to its
+ * member when it is built, so resolving one bare would read whoever the graph happened to hand back. And every
+ * action is wired: a page that renders the draft but never reaches the ViewModel is a form that
+ * cannot be saved.
  */
 fun graphUserDetail(koin: Koin): OpenUserDetail =
     { userId ->
-        val viewModel = koin.get<UserDetailViewModel> { parametersOf(userId) }
-        val store = ViewModelStore().apply { put(userId, viewModel) }
+        val detail = koin.get<UserDetailViewModel> { parametersOf(userId) }
+        val permissions = koin.get<UserPermissionsViewModel> { parametersOf(userId) }
+        val store =
+            ViewModelStore().apply {
+                put("$userId:detail", detail)
+                put("$userId:permissions", permissions)
+            }
         UserDetailSession(
-            state = viewModel.state,
-            onToggleCanEdit = viewModel::toggleCanEdit,
+            state = detail.state,
+            permissions = permissions.state,
+            actions =
+                PermissionsPanelActions(
+                    onSelectPreset = permissions::selectPreset,
+                    onSetPermission = permissions::setPermission,
+                    onRequestRole = permissions::requestRole,
+                    onConfirmAdminPromotion = permissions::confirmAdminPromotion,
+                    onCancelAdminPromotion = permissions::cancelAdminPromotion,
+                    onDiscard = permissions::discard,
+                    onSave = permissions::save,
+                ),
             close = store::clear,
         )
     }
 
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
+/** A session over states that never change — the shape specs pass in place of the graph. */
 fun fixedUserDetail(
     state: UserDetailUiState,
-    onToggleCanEdit: () -> Unit = {},
+    permissions: UserPermissionsUiState = UserPermissionsUiState.Loading,
+    actions: PermissionsPanelActions = PermissionsPanelActions(),
     onOpen: (String) -> Unit = {},
 ): OpenUserDetail =
     { userId ->
         onOpen(userId)
         UserDetailSession(
             state = MutableStateFlow(state),
-            onToggleCanEdit = onToggleCanEdit,
+            permissions = MutableStateFlow(permissions),
+            actions = actions,
             close = {},
         )
     }

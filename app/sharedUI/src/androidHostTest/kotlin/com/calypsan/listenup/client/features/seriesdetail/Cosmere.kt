@@ -115,7 +115,7 @@ internal object Cosmere {
                 sequence = "3",
                 hasStarted = true,
             ),
-        canEditHierarchy = canEdit,
+        canEditMetadata = canEdit,
         isOnline = online,
     )
 

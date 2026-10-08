@@ -29,6 +29,8 @@ private val dlBuilder = HtmlElementBuilder("dl")
 private val strongBuilder = HtmlElementBuilder("strong")
 private val dtBuilder = HtmlElementBuilder("dt")
 private val ddBuilder = HtmlElementBuilder("dd")
+private val detailsBuilder = HtmlElementBuilder("details")
+private val summaryBuilder = HtmlElementBuilder("summary")
 
 /** A description list. */
 @Composable
@@ -75,3 +77,20 @@ fun Dialog(
     attrs: AttrBuilderContext<HTMLElement>? = null,
     content: ContentBuilder<HTMLElement>? = null,
 ) = TagElement(dialogBuilder, attrs, content)
+
+/**
+ * A disclosure the browser draws and the keyboard already knows: `<details>`, opened and closed by its
+ * [Summary] with Enter or Space, with no script. Match details' "6 fields already match" is one.
+ */
+@Composable
+fun Details(
+    attrs: AttrBuilderContext<HTMLElement>? = null,
+    content: ContentBuilder<HTMLElement>? = null,
+) = TagElement(detailsBuilder, attrs, content)
+
+/** The always-visible line of a [Details] — the control that opens it. */
+@Composable
+fun Summary(
+    attrs: AttrBuilderContext<HTMLElement>? = null,
+    content: ContentBuilder<HTMLElement>? = null,
+) = TagElement(summaryBuilder, attrs, content)

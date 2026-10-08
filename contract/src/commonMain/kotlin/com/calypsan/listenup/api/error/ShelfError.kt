@@ -41,6 +41,10 @@ sealed interface ShelfError : AppError {
     /**
      * The caller does not have sufficient permission to perform the requested operation
      * on this shelf. Raised when a non-owner attempts to mutate another user's shelf.
+     *
+     * **No longer emitted** (permissions foundation): the server now refuses with
+     * [com.calypsan.listenup.api.error.AuthError.PermissionDenied]. Kept so an older server's
+     * response still decodes; remove once no supported server emits it.
      */
     @Serializable
     @SerialName("ShelfError.Forbidden")

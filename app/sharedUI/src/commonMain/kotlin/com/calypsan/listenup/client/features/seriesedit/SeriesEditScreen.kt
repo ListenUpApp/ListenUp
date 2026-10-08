@@ -471,6 +471,7 @@ private fun SeriesEditForm(
             onNameChange = { onEvent(SeriesEditUiEvent.NameChanged(it)) },
             onCoverClick = onCoverClick,
             onMergeClick = onMergeClick,
+            canMerge = state.canCurateLibrary,
             onBackClick = onBackClick,
             saveAction = {
                 SaveAction(
@@ -495,7 +496,9 @@ private fun SeriesEditForm(
                     DescriptionCard(state = state, onEvent = onEvent)
                     PlaceInLibraryCard(state = state, onEvent = onEvent, onAddSubSeries = onAddSubSeries)
                 }
-                MergeHistoryCard(mergeHistory = mergeHistory, onEvent = onEvent, modifier = Modifier.weight(1f))
+                if (state.canCurateLibrary) {
+                    MergeHistoryCard(mergeHistory = mergeHistory, onEvent = onEvent, modifier = Modifier.weight(1f))
+                }
             }
         } else {
             Column(
@@ -504,7 +507,7 @@ private fun SeriesEditForm(
             ) {
                 DescriptionCard(state = state, onEvent = onEvent)
                 PlaceInLibraryCard(state = state, onEvent = onEvent, onAddSubSeries = onAddSubSeries)
-                MergeHistoryCard(mergeHistory = mergeHistory, onEvent = onEvent)
+                if (state.canCurateLibrary) MergeHistoryCard(mergeHistory = mergeHistory, onEvent = onEvent)
             }
         }
 
@@ -525,6 +528,7 @@ private fun SeriesIdentityHeader(
     onNameChange: (String) -> Unit,
     onCoverClick: () -> Unit,
     onMergeClick: () -> Unit,
+    canMerge: Boolean,
     onBackClick: () -> Unit,
     saveAction: @Composable () -> Unit,
 ) {
@@ -568,7 +572,8 @@ private fun SeriesIdentityHeader(
                     modifier = Modifier.weight(1f).semantics { heading() },
                 )
                 saveAction()
-                SeriesOverflowMenu(onMergeClick = onMergeClick)
+                // Merging is Curate library's, and it is the menu's only item.
+                if (canMerge) SeriesOverflowMenu(onMergeClick = onMergeClick)
             }
 
             Spacer(modifier = Modifier.height(12.dp))

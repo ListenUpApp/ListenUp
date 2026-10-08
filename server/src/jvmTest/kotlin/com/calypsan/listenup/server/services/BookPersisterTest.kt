@@ -25,7 +25,6 @@ import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.CollectionAccessPolicy
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.cover.PendingCover
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
@@ -944,7 +943,6 @@ internal fun SqlTestDatabases.inertCollectionService(): CollectionServiceImpl {
         grantRepo = grantRepo,
         accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
         bookAccessPolicy = BookAccessPolicy(sql, driver),
-        permissionPolicy = UserPermissionPolicy(sql),
         bus = bus,
         sql = sql,
         bookRevisionTouch = FakeBookRevisionTouch(),

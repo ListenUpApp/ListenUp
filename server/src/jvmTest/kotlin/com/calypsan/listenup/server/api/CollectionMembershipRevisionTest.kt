@@ -9,7 +9,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.services.BookRevisionTouch
@@ -90,7 +89,6 @@ class CollectionMembershipRevisionTest :
                 grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
                 bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
-                permissionPolicy = UserPermissionPolicy(db.sql),
                 bus = bus,
                 sql = db.sql,
                 clock = fixedClock,

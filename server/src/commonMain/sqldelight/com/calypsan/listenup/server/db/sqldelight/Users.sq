@@ -11,6 +11,7 @@
 --   V37__users_timezone.sql          (timezone DEFAULT 'UTC')
 --   V80__hardcover_want_to_read.sql  (starter_shelf_id, hardcover_shelf_id — where Hardcover's Want to Read lands)
 --   V82__drop_can_share.sql          (drops V26's can_share — the inert "Can share" permission)
+--   V92__curate_library_permission.sql (can_curate_library DEFAULT 0, backfilled from can_edit)
 --   V93__story_world_entities.sql    (can_contribute_story_world DEFAULT 1, can_curate_story_world DEFAULT 0)
 --
 -- SECURITY-RELEVANT CONSTRAINTS preserved verbatim:
@@ -47,6 +48,7 @@ CREATE TABLE users (
     avatar_updated_at INTEGER NOT NULL DEFAULT 0,
     starter_shelf_id TEXT,
     hardcover_shelf_id TEXT,
+    can_curate_library INTEGER NOT NULL DEFAULT 0,
     can_contribute_story_world INTEGER NOT NULL DEFAULT 1,
     can_curate_story_world     INTEGER NOT NULL DEFAULT 0
 );
@@ -93,17 +95,17 @@ SELECT role FROM users WHERE id = :id AND deleted_at IS NULL;
 selectFirstByRole:
 SELECT id FROM users WHERE role = :role LIMIT 1;
 
--- Permission flags for a LIVE (non-tombstoned) user — the per-operation canEdit gate
--- (UserPermissionPolicy). A tombstoned or absent user yields no row → denied.
-selectPermissionsLiveById:
-SELECT can_edit FROM users WHERE id = :id AND deleted_at IS NULL;
+-- Every permission flag of a LIVE (non-tombstoned) user — the per-operation gate (PermissionPolicy).
+-- A tombstoned or absent user yields no row → denied.
+selectPermissionFlagsLiveById:
+SELECT can_edit, can_curate_library, can_contribute_story_world, can_curate_story_world FROM users WHERE id = :id AND deleted_at IS NULL;
 
--- The two Story World flags of a LIVE user — the UserPermissionPolicy Story World gates.
-selectStoryWorldPermissionsLiveById:
-SELECT can_contribute_story_world, can_curate_story_world FROM users WHERE id = :id AND deleted_at IS NULL;
+-- Set both permission flags at once — test seeding.
+updatePermissionFlags:
+UPDATE users SET can_edit = :can_edit, can_curate_library = :can_curate_library WHERE id = :id;
 
--- Writes only the Story World flags; AdminUserServiceImpl.updateUser calls it after updateAdminFields.
-updateStoryWorldPermissions:
+-- Set both Story World flags at once — test seeding.
+updateStoryWorldPermissionFlags:
 UPDATE users
 SET can_contribute_story_world = :can_contribute_story_world, can_curate_story_world = :can_curate_story_world
 WHERE id = :id;
@@ -200,7 +202,7 @@ SELECT * FROM users WHERE deleted_at IS NULL AND status = 'PENDING_APPROVAL';
 -- any status, since the roster covers ACTIVE and PENDING_APPROVAL alike. A tombstoned or
 -- absent user yields no row and the projection refresh no-ops, matching selectIdentityLiveById.
 selectRosterRowById:
-SELECT email, display_name, role, status, can_edit, created_at FROM users WHERE id = :id AND deleted_at IS NULL;
+SELECT email, display_name, role, status, can_edit, can_curate_library, can_contribute_story_world, can_curate_story_world, created_at FROM users WHERE id = :id AND deleted_at IS NULL;
 
 -- Ids of every LIVE (non-tombstoned) ACTIVE or PENDING_APPROVAL user — drives the one-time
 -- admin_user_roster backfill (AdminUserRosterMaintainer.backfillAll).
@@ -224,7 +226,8 @@ WHERE deleted_at IS NULL AND status = 'ACTIVE' AND role IN ('ROOT', 'ADMIN');
 updateAdminFields:
 UPDATE users
 SET display_name = :display_name, role = :role, can_edit = :can_edit,
-    updated_at = :updated_at
+    can_curate_library = :can_curate_library, can_contribute_story_world = :can_contribute_story_world,
+    can_curate_story_world = :can_curate_story_world, updated_at = :updated_at
 WHERE id = :id;
 
 -- Admin decision on a pending registration: flips status, stamps approver + decision time.

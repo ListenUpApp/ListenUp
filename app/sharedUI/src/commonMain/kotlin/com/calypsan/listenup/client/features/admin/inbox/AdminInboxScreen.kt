@@ -85,7 +85,7 @@ import listenup.composeapp.generated.resources.admin_inbox_released_count
 import listenup.composeapp.generated.resources.admin_inbox_released_count_plural
 import listenup.composeapp.generated.resources.admin_inbox_released_partial
 import listenup.composeapp.generated.resources.admin_inbox_review_edit
-import listenup.composeapp.generated.resources.metadata_match_on_audible
+import listenup.composeapp.generated.resources.match_menu_item
 import listenup.composeapp.generated.resources.admin_inbox_select_all
 import listenup.composeapp.generated.resources.admin_newly_scanned_books_will_appear
 import listenup.composeapp.generated.resources.admin_selected_count
@@ -878,7 +878,7 @@ private fun MatchOnAudibleButton(
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 imageVector = Icons.Outlined.AutoAwesome,
-                contentDescription = stringResource(Res.string.metadata_match_on_audible),
+                contentDescription = stringResource(Res.string.match_menu_item),
                 modifier = Modifier.size(if (size > 46.dp) 23.dp else 21.dp),
             )
         }

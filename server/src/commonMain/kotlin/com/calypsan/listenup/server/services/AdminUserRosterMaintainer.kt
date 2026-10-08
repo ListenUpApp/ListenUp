@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.auth.UserPermissions
 import com.calypsan.listenup.api.sync.AdminUserRosterSyncPayload
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -40,6 +41,13 @@ class AdminUserRosterMaintainer(
                 role = row.role,
                 status = row.status,
                 canEdit = row.can_edit == 1L,
+                permissions =
+                    UserPermissions(
+                        canEditMetadata = row.can_edit == 1L,
+                        canCurateLibrary = row.can_curate_library == 1L,
+                        canContributeStoryWorld = row.can_contribute_story_world == 1L,
+                        canCurateStoryWorld = row.can_curate_story_world == 1L,
+                    ),
                 accountCreatedAt = row.created_at,
                 revision = 0,
                 updatedAt = 0,

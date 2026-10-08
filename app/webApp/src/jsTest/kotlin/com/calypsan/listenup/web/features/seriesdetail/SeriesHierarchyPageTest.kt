@@ -136,13 +136,13 @@ class SeriesHierarchyPageTest :
         }
 
         test("a reader who can't edit sees no Add sub-series tile") {
-            val root = page(groupedCosmere(canEditHierarchy = false))
+            val root = page(groupedCosmere(canEditMetadata = false))
 
             root.querySelector(".sd-sub-add") shouldBe null
         }
 
         test("an editor's Add sub-series tile opens the dialog") {
-            val root = page(groupedCosmere(canEditHierarchy = true))
+            val root = page(groupedCosmere(canEditMetadata = true))
 
             (root.querySelector(".sd-sub-add") as HTMLElement).click()
 
@@ -150,7 +150,7 @@ class SeriesHierarchyPageTest :
         }
 
         test("an editor can start a hierarchy from a flat series: the tile shows with no sub-series yet") {
-            val root = page(childEra1().copy(canEditHierarchy = true))
+            val root = page(childEra1().copy(canEditMetadata = true))
 
             (root.querySelector(".sd-sub-add") as HTMLElement).click()
 
@@ -164,7 +164,7 @@ class SeriesHierarchyPageTest :
         }
 
         test("offline, the Add sub-series tile is disabled — the change needs the server") {
-            val root = page(groupedCosmere(canEditHierarchy = true, isOnline = false))
+            val root = page(groupedCosmere(canEditMetadata = true, isOnline = false))
 
             (root.querySelector(".sd-sub-add") as HTMLButtonElement).disabled shouldBe true
         }
@@ -226,7 +226,7 @@ class SeriesHierarchyPageTest :
         test("the Add sub-series dialog opens over the page when the ViewModel says so") {
             val root =
                 page(
-                    groupedCosmere(canEditHierarchy = true),
+                    groupedCosmere(canEditMetadata = true),
                     addSubSeries =
                         AddSubSeriesUiState.Open(
                             parentName = "Cosmere",

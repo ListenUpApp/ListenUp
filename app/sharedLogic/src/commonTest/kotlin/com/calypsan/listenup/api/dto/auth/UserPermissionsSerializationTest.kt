@@ -6,29 +6,20 @@ import io.kotest.matchers.shouldBe
 
 class UserPermissionsSerializationTest :
     FunSpec({
-        test("defaults: canEdit and canContributeStoryWorld on, canCurateStoryWorld off") {
-            UserPermissions() shouldBe
-                UserPermissions(canEdit = true, canContributeStoryWorld = true, canCurateStoryWorld = false)
+        test("defaults follow the rule: edit metadata on, curate library off") {
+            UserPermissions() shouldBe UserPermissions(canEditMetadata = true, canCurateLibrary = false)
         }
 
-        test("a user from a server older than Story World decodes with the Story World defaults") {
-            val decoded = contractJson.decodeFromString<UserPermissions>("""{"canEdit":false}""")
-            decoded shouldBe UserPermissions(canEdit = false, canContributeStoryWorld = true, canCurateStoryWorld = false)
+        test("canEditMetadata keeps the wire name canEdit") {
+            contractJson.encodeToString(UserPermissions(canEditMetadata = false)) shouldBe """{"canEdit":false}"""
         }
 
-        test("UserPermissionsPatch carries the Story World flags independently") {
-            val patch = UserPermissionsPatch(canCurateStoryWorld = true)
-            val json = contractJson.encodeToString(patch)
-            json shouldBe """{"canCurateStoryWorld":true}"""
-            contractJson.decodeFromString<UserPermissionsPatch>(json) shouldBe patch
+        test("a user from a server older than the split decodes with curate library off") {
+            contractJson.decodeFromString<UserPermissions>("""{"canEdit":true}""") shouldBe
+                UserPermissions(canEditMetadata = true, canCurateLibrary = false)
         }
 
-        test("ServerInfo from an older server says it has no Story World") {
-            val legacy =
-                """{"name":"L","version":"1","apiVersion":"v1","setupRequired":false,"registrationPolicy":"OPEN","instanceId":"i"}"""
-            contractJson.decodeFromString<com.calypsan.listenup.api.dto.ServerInfo>(legacy).storyWorld shouldBe false
-        }
-        test("User round-trips with permissions") {
+        test("User round-trips with both flags") {
             val user =
                 User(
                     id = UserId("u1"),
@@ -37,10 +28,8 @@ class UserPermissionsSerializationTest :
                     role = UserRole.MEMBER,
                     status = UserStatus.ACTIVE,
                     createdAt = 0L,
-                    permissions = UserPermissions(canEdit = false),
+                    permissions = UserPermissions(canEditMetadata = false, canCurateLibrary = true),
                 )
-            val decoded = contractJson.decodeFromString<User>(contractJson.encodeToString(user))
-            decoded shouldBe user
-            decoded.permissions.canEdit shouldBe false
+            contractJson.decodeFromString<User>(contractJson.encodeToString(user)) shouldBe user
         }
     })

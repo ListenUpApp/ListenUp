@@ -56,3 +56,5 @@ CREATE TABLE series_merge_receipt_entities (
 
 ALTER TABLE users ADD COLUMN can_contribute_story_world INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE users ADD COLUMN can_curate_story_world INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE admin_user_roster ADD COLUMN can_contribute_story_world INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE admin_user_roster ADD COLUMN can_curate_story_world INTEGER NOT NULL DEFAULT 0;

@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.OrganizeService
-import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.organize.OrganizePreviewDto
 import com.calypsan.listenup.api.dto.organize.OrganizePreviewEntryDto
 import com.calypsan.listenup.api.dto.organize.OrganizeRunEvent
@@ -11,7 +10,9 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.LibraryWriteError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.isAdmin
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.librarywrite.LibraryWriteBroker
@@ -192,10 +193,8 @@ class OrganizeServiceImpl(
     /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */
     private fun requireAdmin(): AppResult.Failure? {
         val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        return if (caller.role.isAdmin()) null else AppResult.Failure(AuthError.PermissionDenied())
+        return PermissionPolicy.requireAdmin(caller)?.let { AppResult.Failure(it) }
     }
-
-    private fun UserRole.isAdmin(): Boolean = this == UserRole.ROOT || this == UserRole.ADMIN
 
     private fun MovePlan.toPreviewDto(): OrganizePreviewDto =
         OrganizePreviewDto(

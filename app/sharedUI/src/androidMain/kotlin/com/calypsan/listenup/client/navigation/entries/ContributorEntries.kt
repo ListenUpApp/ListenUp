@@ -9,9 +9,9 @@ import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.ContributorBooks
 import com.calypsan.listenup.client.navigation.ContributorDetail
 import com.calypsan.listenup.client.navigation.ContributorEdit
-import com.calypsan.listenup.client.navigation.ContributorMetadataPreview
-import com.calypsan.listenup.client.navigation.ContributorMetadataSearch
 import com.calypsan.listenup.client.navigation.ListDetailScene
+import com.calypsan.listenup.client.navigation.MatchDetails
+import com.calypsan.listenup.client.navigation.MatchSubject
 import com.calypsan.listenup.client.navigation.navigateFrom
 import com.calypsan.listenup.client.navigation.popFrom
 
@@ -35,8 +35,8 @@ internal fun EntryProviderScope<NavKey>.contributorEntries(backStack: NavBackSta
                 onViewAllClick = { contributorId, role ->
                     backStack.navigateFrom(args, ContributorBooks(contributorId, role))
                 },
-                onMetadataClick = { contributorId ->
-                    backStack.navigateFrom(args, ContributorMetadataSearch(contributorId))
+                onMatchDetailsClick = { contributorId ->
+                    backStack.navigateFrom(args, MatchDetails(MatchSubject.Person(contributorId)))
                 },
             )
         }
@@ -73,36 +73,6 @@ internal fun EntryProviderScope<NavKey>.contributorEntries(backStack: NavBackSta
             },
             onBookClick = { bookId ->
                 backStack.navigateFrom(args, BookDetail(bookId))
-            },
-        )
-    }
-    entry<ContributorMetadataSearch> { args ->
-        com.calypsan.listenup.client.features.contributormetadata.ContributorMetadataSearchRoute(
-            contributorId = args.contributorId,
-            onCandidateSelected = { asin, region ->
-                backStack.add(ContributorMetadataPreview(args.contributorId, asin, region))
-            },
-            onBack = {
-                backStack.removeAt(backStack.lastIndex)
-            },
-        )
-    }
-    entry<ContributorMetadataPreview> { args ->
-        com.calypsan.listenup.client.features.contributormetadata.ContributorMetadataPreviewRoute(
-            contributorId = args.contributorId,
-            asin = args.asin,
-            region = args.region,
-            onApplySuccess = {
-                // Pop both preview and search to go back to contributor detail
-                backStack.removeAt(backStack.lastIndex)
-                backStack.removeAt(backStack.lastIndex)
-            },
-            onChangeMatch = {
-                // Pop preview to go back to search
-                backStack.removeAt(backStack.lastIndex)
-            },
-            onBack = {
-                backStack.removeAt(backStack.lastIndex)
             },
         )
     }

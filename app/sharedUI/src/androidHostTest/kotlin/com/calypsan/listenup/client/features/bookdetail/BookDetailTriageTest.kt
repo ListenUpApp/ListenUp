@@ -71,7 +71,7 @@ class BookDetailTriageTest {
 
         composeRule.onNodeWithText("Release").performClick()
         composeRule.onNodeWithText("Edit").performClick()
-        composeRule.onNodeWithText("Match metadata").performClick()
+        composeRule.onNodeWithText("Match details").performClick()
         composeRule.onNodeWithText("Edit chapters").performClick()
         composeRule.runOnIdle {
             releases shouldBe 1
@@ -88,7 +88,7 @@ class BookDetailTriageTest {
 
         composeRule.onNodeWithText("Release").assertDoesNotExist()
         composeRule.onNodeWithText("Edit").assertIsNotEnabled()
-        composeRule.onNodeWithText("Match metadata").assertIsNotEnabled()
+        composeRule.onNodeWithText("Match details").assertIsNotEnabled()
         composeRule.onNodeWithText("Edit chapters").assertIsNotEnabled()
     }
 
@@ -99,7 +99,7 @@ class BookDetailTriageTest {
         // Present: the four triage actions (spec §8, §10).
         composeRule.onNodeWithText("Release").assertExists()
         composeRule.onNodeWithText("Edit").assertExists()
-        composeRule.onNodeWithText("Match metadata").assertExists()
+        composeRule.onNodeWithText("Match details").assertExists()
         composeRule.onNodeWithText("Edit chapters").assertExists()
         // Absent: play, download, and the overflow menu that carries shelf, collection and share.
         // Rating, readers and Hardcover are absent too: see the class KDoc (no Koin is started).
@@ -143,6 +143,7 @@ class BookDetailTriageTest {
                     isComplete = false,
                     hasProgress = false,
                     isAdmin = true,
+                    canEditMetadata = true,
                     isWaitingForWifi = false,
                     // True on purpose: the triage layout must hide Play even when playback exists.
                     showPlaybackActions = true,

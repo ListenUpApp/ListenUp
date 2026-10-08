@@ -4,6 +4,7 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.dto.ServerInfo
+import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.RootResetToken
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -49,7 +50,8 @@ class InstanceServiceImpl(
                 instanceId = instanceIdentity.instanceId(),
                 pushEnabled = settings.pushNotificationsEnabled() && pushConfig.configured,
                 rootResetArmed = rootResetToken.isLive(clock.now()),
-                storyWorld = true,
+                // Every known permission is enforced the moment it is declared, so the list is derived.
+                permissionFlags = Permission.known.map { it.wireKey }.toSet(),
             ),
         )
     }

@@ -45,12 +45,12 @@ import com.calypsan.listenup.web.features.bookedit.OpenBookEdit
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
 import com.calypsan.listenup.web.features.chaptereditor.ChapterEditorPage
-import com.calypsan.listenup.client.presentation.metadata.MetadataEvent
-import com.calypsan.listenup.web.features.metadata.MetadataPage
-import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataEvent
-import com.calypsan.listenup.web.features.contributormetadata.ContributorMetadataPage
-import com.calypsan.listenup.web.features.contributormetadata.OpenContributorMetadata
-import com.calypsan.listenup.web.features.metadata.OpenMetadata
+import com.calypsan.listenup.web.features.match.BookMatchReceipt
+import com.calypsan.listenup.web.features.match.PersonMatchReceipt
+import com.calypsan.listenup.web.features.match.PersonMatchRoute
+import com.calypsan.listenup.web.features.match.BookMatchRoute
+import com.calypsan.listenup.web.features.match.MatchView
+import com.calypsan.listenup.web.features.match.MatchDetailsGraph
 import com.calypsan.listenup.web.features.chaptereditor.OpenChapterEditor
 import com.calypsan.listenup.web.features.chaptereditor.chapterProblemText
 import com.calypsan.listenup.web.features.chaptereditor.DiscardChapterEditsDialog
@@ -263,11 +263,10 @@ fun WebAppRoot(
     openBookDetail: OpenBookDetail,
     openBookEdit: OpenBookEdit,
     openChapterEditor: OpenChapterEditor,
-    openMetadata: OpenMetadata,
+    matchDetails: MatchDetailsGraph,
     openContributorDetail: OpenContributorDetail,
     openContributorBooks: OpenContributorBooks,
     openContributorEdit: OpenContributorEdit,
-    openContributorMetadata: OpenContributorMetadata,
     openSeriesDetail: OpenSeriesDetail,
     openSeriesEdit: OpenSeriesEdit,
     openNotifications: OpenNotifications,
@@ -373,11 +372,10 @@ fun WebAppRoot(
                 openBookDetail = openBookDetail,
                 openBookEdit = openBookEdit,
                 openChapterEditor = openChapterEditor,
-                openMetadata = openMetadata,
+                matchDetails = matchDetails,
                 openContributorDetail = openContributorDetail,
                 openContributorBooks = openContributorBooks,
                 openContributorEdit = openContributorEdit,
-                openContributorMetadata = openContributorMetadata,
                 openSeriesDetail = openSeriesDetail,
                 openSeriesEdit = openSeriesEdit,
                 openNotifications = openNotifications,
@@ -468,7 +466,7 @@ private fun List<String>.isIdWith(vararg subs: String): Boolean = size == 2 || (
 
 /** `/settings`, `/settings/{section}`, and `/settings/hardcover/kept-off` — the one page under a section. */
 private fun List<String>.isSettingsShape(): Boolean =
-    isSection(DEVICES_KEY, NOTIFICATIONS_KEY, HARDCOVER_KEY, LICENCES_KEY) ||
+    isSection(DEVICES_KEY, NOTIFICATIONS_KEY, HARDCOVER_KEY, LICENCES_KEY, CATEGORIES_KEY) ||
         (size == 3 && this[1] == HARDCOVER_KEY && this[2] == KEPT_OFF_KEY)
 
 /**
@@ -753,11 +751,10 @@ private fun RouteContent(
     openBookDetail: OpenBookDetail,
     openBookEdit: OpenBookEdit,
     openChapterEditor: OpenChapterEditor,
-    openMetadata: OpenMetadata,
+    matchDetails: MatchDetailsGraph,
     openContributorDetail: OpenContributorDetail,
     openContributorBooks: OpenContributorBooks,
     openContributorEdit: OpenContributorEdit,
-    openContributorMetadata: OpenContributorMetadata,
     openSeriesDetail: OpenSeriesDetail,
     openSeriesEdit: OpenSeriesEdit,
     openNotifications: OpenNotifications,
@@ -834,7 +831,7 @@ private fun RouteContent(
             openBookDetail = openBookDetail,
             openBookEdit = openBookEdit,
             openChapterEditor = openChapterEditor,
-            openMetadata = openMetadata,
+            matchDetails = matchDetails,
             openBookReaders = openBookReaders,
             openBookRatings = openBookRatings,
             openHardcoverMatch = openHardcoverMatch,
@@ -842,6 +839,7 @@ private fun RouteContent(
             onToast = onToast,
             onActionToast = onActionToast,
             playback = playback,
+            currentUserId = currentUserId,
         )
     } else if (isContributors || contributorId != null) {
         ContributorRouteContent(
@@ -853,7 +851,8 @@ private fun RouteContent(
             openContributorDetail = openContributorDetail,
             openContributorBooks = openContributorBooks,
             openContributorEdit = openContributorEdit,
-            openContributorMetadata = openContributorMetadata,
+            matchDetails = matchDetails,
+            currentUserId = currentUserId,
         )
     } else if (profileId != null) {
         ProfileRouteContent(
@@ -1434,41 +1433,27 @@ private fun ContributorEditRoute(
 }
 
 /**
- * Opens a Contributor Metadata session for [contributorId] and collects it.
+ * `/contributor/{id}/match` — Match details for one person: Find as author or narrator, Review, one Apply.
  *
- * The ViewModel loads the person itself, seeds the query with their name and searches — so unlike
- * the book wizard this route needs nothing but the id.
- *
- * `MetadataApplied` navigates back to the person, which is where the change will be visible.
+ * After Apply, back to the person: their page's receipt says what changed and offers Undo. Edit by hand —
+ * the way on when no source has a profile — opens the person's own form.
  */
 @Composable
-private fun ContributorMetadataRoute(
+private fun PersonMatchDetailsRoute(
     router: Router,
-    openContributorMetadata: OpenContributorMetadata,
+    matchDetails: MatchDetailsGraph,
+    currentUserId: String?,
     contributorId: String,
 ) {
-    val session = remember(contributorId) { openContributorMetadata(contributorId) }
-    DisposableEffect(session) { onDispose { session.close() } }
-
-    val target = Route(listOf(CONTRIBUTOR_KEY, contributorId))
-
-    LaunchedEffect(session) {
-        session.events.collect { event ->
-            when (event) {
-                ContributorMetadataEvent.MetadataApplied -> router.navigate(target)
-            }
-        }
-    }
-
-    ContributorMetadataPage(
-        state = session.state.collectAsState().value,
-        onQuery = session.onQuery,
-        onRegion = session.onRegion,
-        onSearch = session.onSearch,
-        onSelectCandidate = session.onSelectCandidate,
-        onClearSelection = session.onClearSelection,
-        onApply = session.onApply,
-        onLeave = { router.navigate(target) },
+    val person = Route(listOf(CONTRIBUTOR_KEY, contributorId))
+    PersonMatchRoute(
+        contributorId = contributorId,
+        graph = matchDetails,
+        viewerId = currentUserId,
+        onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+        onOpenContributor = { router.navigate(person) },
+        onEditByHand = { router.navigate(Route(listOf(CONTRIBUTOR_KEY, contributorId, EDIT_KEY))) },
+        onApplied = { router.navigate(person) },
     )
 }
 
@@ -1489,14 +1474,15 @@ private fun ContributorRouteContent(
     openContributorDetail: OpenContributorDetail,
     openContributorBooks: OpenContributorBooks,
     openContributorEdit: OpenContributorEdit,
-    openContributorMetadata: OpenContributorMetadata,
+    matchDetails: MatchDetailsGraph,
+    currentUserId: String?,
 ) {
     // Derived here rather than in [RouteContent], the same way [BookRouteContent] owns its own
     // sub-routes: a value only this branch reads is this branch's business, and RouteContent's
     // length is a budget every route family spends from.
     val roleBooksContributorId = contributorId?.takeIf { route.segments.getOrNull(2) == BOOKS_KEY }
     val editingContributorId = route.editTargetOf(contributorId)
-    // `/contributor/{id}/match` — the Audible wizard over one person.
+    // `/contributor/{id}/match` — Match details over one person.
     val matchingContributorId =
         if (contributorId != null && route.segments.getOrNull(2) == MATCH_KEY) contributorId else null
     val roleBooksRole = parseAnyContributorRole(route.query[ROLE_QUERY_KEY])
@@ -1530,9 +1516,10 @@ private fun ContributorRouteContent(
         // ⛔ Both sub-routes before the detail branch, for the same reason: `/contributor/{id}` is
         // a prefix of each, and a branch order that tests it first makes them unreachable by link.
         matchingContributorId != null -> {
-            ContributorMetadataRoute(
+            PersonMatchDetailsRoute(
                 router = router,
-                openContributorMetadata = openContributorMetadata,
+                matchDetails = matchDetails,
+                currentUserId = currentUserId,
                 contributorId = matchingContributorId,
             )
         }
@@ -1574,8 +1561,9 @@ private fun ContributorRouteContent(
                 }
             }
 
+            val detail = session.state.collectAsState().value
             ContributorDetailPage(
-                state = session.state.collectAsState().value,
+                state = detail,
                 onConfirmDelete = session.onConfirmDelete,
                 onDismissDeleteError = session.onDismissDeleteError,
                 onEdit = { router.navigate(Route(listOf(CONTRIBUTOR_KEY, contributorId, EDIT_KEY))) },
@@ -1592,6 +1580,12 @@ private fun ContributorRouteContent(
                         ),
                     )
                 },
+            )
+            // After Match details' Apply: what changed and Undo, until dismissed.
+            PersonMatchReceipt(
+                contributorId = contributorId,
+                name = (detail as? ContributorDetailUiState.Ready)?.contributor?.name,
+                graph = matchDetails,
             )
         }
     }
@@ -1665,7 +1659,7 @@ private fun BookRouteContent(
     openBookDetail: OpenBookDetail,
     openBookEdit: OpenBookEdit,
     openChapterEditor: OpenChapterEditor,
-    openMetadata: OpenMetadata,
+    matchDetails: MatchDetailsGraph,
     openBookReaders: OpenBookReaders,
     openBookRatings: OpenBookRatings,
     openHardcoverMatch: OpenHardcoverMatch,
@@ -1673,12 +1667,14 @@ private fun BookRouteContent(
     playback: PlaybackSession,
     onToast: (String) -> Unit,
     onActionToast: ShowActionToast,
+    currentUserId: String?,
 ) {
     val editingBookId = route.editTargetOf(bookId)
     // `/book/{id}/chapters` — a route of its own, for the reason `/book/{id}/edit` is one, and one
     // more: the editor holds unsaved work, so it has to be somewhere Back can leave.
     val chapteringBookId = bookId.takeIf { route.segments.getOrNull(2) == CHAPTERS_KEY }
-    // `/book/{id}/match` — the Audible wizard over one book.
+    // `/book/{id}/match` — Match details: Find, Review and Apply for one book; `?view=compare` is its
+    // Compare editions page.
     val matchingBookId = bookId.takeIf { route.segments.getOrNull(2) == MATCH_KEY }
     // `/book/{id}/readers` — the whole readership, where the side panel's "See all" leads.
     val readersBookId = bookId.takeIf { route.segments.getOrNull(2) == READERS_KEY }
@@ -1708,11 +1704,20 @@ private fun BookRouteContent(
     }
 
     if (matchingBookId != null) {
-        MetadataRoute(
-            router = router,
-            openBookDetail = openBookDetail,
-            openMetadata = openMetadata,
+        val here = Route(listOf(BOOK_KEY, matchingBookId, MATCH_KEY))
+        BookMatchRoute(
             bookId = matchingBookId,
+            graph = matchDetails,
+            viewerId = currentUserId,
+            view = if (route.query[VIEW_QUERY_KEY] == COMPARE_VIEW) MatchView.Compare else MatchView.Find,
+            // Replace, both ways: Compare is a view of the same results, like a tab, and Back should
+            // leave Match details rather than walk between its two views.
+            onOpenCompare = { router.replace(Route(here.segments, mapOf(VIEW_QUERY_KEY to COMPARE_VIEW))) },
+            onCloseCompare = { router.replace(here) },
+            onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+            onOpenBook = { router.navigate(Route(listOf(BOOK_KEY, matchingBookId))) },
+            // After Apply, back to the book: its receipt says what changed and offers Undo.
+            onApplied = { router.navigate(Route(listOf(BOOK_KEY, matchingBookId))) },
         )
         return
     }
@@ -1748,6 +1753,7 @@ private fun BookRouteContent(
         router = router,
         route = route,
         openBookDetail = openBookDetail,
+        matchDetails = matchDetails,
         openBookReaders = openBookReaders,
         openBookRatings = openBookRatings,
         openBookHardcover = openBookHardcover,
@@ -1764,6 +1770,7 @@ private fun BookDetailRoute(
     router: Router,
     route: Route,
     openBookDetail: OpenBookDetail,
+    matchDetails: MatchDetailsGraph,
     openBookReaders: OpenBookReaders,
     openBookRatings: OpenBookRatings,
     openBookHardcover: OpenBookHardcover,
@@ -1885,6 +1892,8 @@ private fun BookDetailRoute(
         onRemoveHardcoverMatch = hardcoverSession.onRemoveMatch,
         onSetHardcoverSynced = hardcoverSession.onSetSynced,
     )
+    // After Match details' Apply: what changed, See what changed and Undo, until dismissed.
+    BookMatchReceipt(bookId = bookId, graph = matchDetails)
 }
 
 /** [BookPickers] over [detailSession]'s own shelf and collection picker state and actions. */
@@ -1956,88 +1965,6 @@ private fun bookTitleOf(state: BookDetailUiState): String = (state as? BookDetai
  * midnight boundary — one "today", one "yesterday", for finishes a millisecond apart.
  */
 private fun nowMs(): Long = Date.now().toLong()
-
-/**
- * Opens a Metadata Match session for [bookId] and collects it.
- *
- * ⛔ The book has to load FIRST. `initForBook` seeds the search query from the book's own title,
- * author and ASIN, and a session opened before those are known would seed an empty query and land
- * the reader on a search that finds nothing. So this waits for Book Detail's own state, then keys
- * the session on what it found.
- *
- * `MatchApplied` navigates back to the book — the reader came from there, and the whole point of
- * applying is to go and look at what changed.
- */
-@Composable
-private fun MetadataRoute(
-    router: Router,
-    openBookDetail: OpenBookDetail,
-    openMetadata: OpenMetadata,
-    bookId: String,
-) {
-    val detail = bookDetailSession(bookId, openBookDetail).state.collectAsState().value
-    val ready = detail as? BookDetailUiState.Ready
-    val book = ready?.book
-
-    if (book == null) {
-        Div(attrs = { classes("skel", "mdx-skel") })
-        return
-    }
-
-    val session =
-        remember(bookId, book.title) {
-            openMetadata(
-                bookId,
-                book.title,
-                book.authors
-                    .firstOrNull()
-                    ?.name
-                    .orEmpty(),
-                book.asin,
-            )
-        }
-    DisposableEffect(session) { onDispose { session.close() } }
-
-    var reviewingChapters by remember(bookId) { mutableStateOf(false) }
-    val target = Route(listOf(BOOK_KEY, bookId))
-
-    LaunchedEffect(session) {
-        session.events.collect { event ->
-            when (event) {
-                MetadataEvent.MatchApplied -> router.navigate(target)
-
-                // The sheet closes; the page stays. Naming chapters is a step inside the wizard,
-                // not the end of it — the reader may still be choosing fields.
-                MetadataEvent.ChapterNamesApplied -> reviewingChapters = false
-            }
-        }
-    }
-
-    MetadataPage(
-        state = session.state.collectAsState().value,
-        onQuery = session.onQuery,
-        onRegion = session.onRegion,
-        onSearch = session.onSearch,
-        onSelectMatch = session.onSelectMatch,
-        onClearSelection = session.onClearSelection,
-        onToggleField = session.onToggleField,
-        onToggleAuthor = session.onToggleAuthor,
-        onToggleNarrator = session.onToggleNarrator,
-        onToggleSeries = session.onToggleSeries,
-        onToggleGenre = session.onToggleGenre,
-        onToggleMood = session.onToggleMood,
-        onToggleTag = session.onToggleTag,
-        onSelectCover = session.onSelectCover,
-        onKeepCurrentCover = session.onKeepCurrentCover,
-        onToggleChapter = session.onToggleChapter,
-        onApplyChapterNames = session.onApplyChapterNames,
-        onApply = session.onApply,
-        onLeave = { router.navigate(target) },
-        currentCoverUrl = coverUrl(bookId, book.coverHash, width = MATCH_CURRENT_COVER_WIDTH),
-        reviewingChapters = reviewingChapters,
-        onReviewChapters = { reviewingChapters = it },
-    )
-}
 
 /**
  * Opens a Chapter Editor session for [bookId], collects it, and guards the way out.
@@ -2571,7 +2498,7 @@ private fun KeptOffRoute(
 private const val SYNC_NOW_FAILED_NOTICE = "Couldn't reach Hardcover. Nothing was lost."
 
 /**
- * `/book/{id}/hardcover` — Find on Hardcover over one book. Not `/match`: that is the Audible wizard's.
+ * `/book/{id}/hardcover` — Find on Hardcover over one book. Not `/match`: that is Match details'.
  *
  * A pick or a removed match goes to the book, replacing this page in history so Back leaves the way
  * the reader came in; a pick says what it matched in a toast with Undo, which the session keeps
@@ -2959,7 +2886,8 @@ private fun CollectionDetailRoute(
 }
 
 /**
- * `/admin/categories` — the genre tree, and the five things an admin does to it.
+ * `/admin/categories` and `/settings/categories` — the genre tree, and what an admin or a curator may
+ * do to it. [parentCrumb] and [parent] name the page it was opened from.
  *
  * Unkeyed and opened once for the route's life: the ViewModel observes the genre repository, so the
  * tree refreshes itself after every mutation rather than being re-fetched here.
@@ -2968,6 +2896,8 @@ private fun CollectionDetailRoute(
 private fun CategoriesRoute(
     router: Router,
     openCategories: OpenCategories,
+    parentCrumb: String = "Admin",
+    parent: Route = Route(listOf(ADMIN_KEY)),
 ) {
     val session = remember { openCategories() }
     DisposableEffect(session) { onDispose { session.close() } }
@@ -2983,9 +2913,10 @@ private fun CategoriesRoute(
         onMove = session.onMove,
         onMerge = session.onMerge,
         onClearError = session.onClearError,
-        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+        onOpenAdmin = { router.navigate(parent) },
         mergeHistory = session.mergeHistory.collectAsState().value,
         mergeHistoryActions = session.mergeHistoryActions,
+        parentCrumb = parentCrumb,
     )
 }
 
@@ -3299,9 +3230,6 @@ private const val NEW_KEY = "new"
 
 private const val BOOK_KEY = "book"
 
-/** The match page's "Current cover" tile is 88 px square; twice that keeps it sharp on a 2× screen. */
-private const val MATCH_CURRENT_COVER_WIDTH = 176
-
 /** The trailing segment that turns a book route into its edit form. */
 private const val EDIT_KEY = "edit"
 
@@ -3320,8 +3248,13 @@ private const val BOOKS_KEY = "books"
 /** The selection the bulk editor edits, comma-separated. */
 private const val IDS_QUERY_KEY = "ids"
 
-/** `/book/{id}/match` — the Audible metadata wizard over one book. */
+/** `/book/{id}/match` — Match details over one book; `/contributor/{id}/match`, over one person. */
 private const val MATCH_KEY = "match"
+
+/** `/book/{id}/match?view=compare` — Match details' Compare editions page. */
+private const val VIEW_QUERY_KEY = "view"
+
+private const val COMPARE_VIEW = "compare"
 
 /** The browser's own "you have unsaved work" prompt. */
 private const val BEFORE_UNLOAD = "beforeunload"
@@ -3619,6 +3552,8 @@ private fun SettingsRoute(
         onOpenLicences = { router.navigate(Route(listOf(SETTINGS_KEY, LICENCES_KEY))) },
         hardcoverRow = session.hardcoverRow.collectAsState().value,
         onOpenHardcover = { router.navigate(Route(listOf(SETTINGS_KEY, HARDCOVER_KEY))) },
+        canCurateLibrary = session.canCurateLibrary.collectAsState().value,
+        onOpenCategories = { router.navigate(Route(listOf(SETTINGS_KEY, CATEGORIES_KEY))) },
     )
 }
 
@@ -3952,7 +3887,8 @@ private fun UserDetailRoute(
 
     UserDetailPage(
         state = session.state.collectAsState().value,
-        onToggleCanEdit = session.onToggleCanEdit,
+        permissions = session.permissions.collectAsState().value,
+        actions = session.actions,
         onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
     )
 }
@@ -4004,6 +3940,16 @@ private fun AccountRouteContent(
 
         segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == LICENCES_KEY -> {
             LicencesRoute(router = router, openLicences = openLicences)
+        }
+
+        segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == CATEGORIES_KEY -> {
+            // `/settings/categories` — the same screen, reached by a curator who has no admin area.
+            CategoriesRoute(
+                router = router,
+                openCategories = admin.categories,
+                parentCrumb = "Settings",
+                parent = Route(listOf(SETTINGS_KEY)),
+            )
         }
 
         // `size <= 1` for the reason the Settings branch needs it: `active` is ADMIN_KEY for

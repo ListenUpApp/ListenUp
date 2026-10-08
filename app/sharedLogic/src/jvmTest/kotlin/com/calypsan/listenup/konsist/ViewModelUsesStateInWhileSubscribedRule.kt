@@ -30,13 +30,11 @@ class ViewModelUsesStateInWhileSubscribedRule :
         val legacyExclusions =
             setOf(
                 "SettingsViewModel",
-                "ContributorMetadataViewModel",
                 "SetupViewModel",
                 "LoginViewModel",
                 "PendingApprovalViewModel",
                 "RegisterViewModel",
                 "LibrarySetupViewModel",
-                "UserDetailViewModel",
                 "AdminBackupViewModel",
                 "AdminCollectionDetailViewModel",
                 "RestoreBackupViewModel",
@@ -55,7 +53,6 @@ class ViewModelUsesStateInWhileSubscribedRule :
                 "CreateEditShelfViewModel",
                 "BookEditViewModel",
                 "ServerConnectViewModel",
-                "MetadataViewModel",
                 // By-design (not migration debt): imperative command-pipeline VM
                 // (upload → analyze → apply, driven by user actions + progress events), same
                 // shape as the ABS*/AdminBackup admin VMs above. No upstream flow to project, so

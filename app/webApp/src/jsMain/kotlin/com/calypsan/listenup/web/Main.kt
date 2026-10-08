@@ -35,7 +35,6 @@ import com.calypsan.listenup.web.features.auth.graphConnectionHealth
 import com.calypsan.listenup.web.features.bookdetail.graphBookDetail
 import com.calypsan.listenup.web.features.bookedit.graphBookEdit
 import com.calypsan.listenup.web.features.chaptereditor.graphChapterEditor
-import com.calypsan.listenup.web.features.contributormetadata.graphContributorMetadata
 import com.calypsan.listenup.web.features.books.graphMultiSelect
 import com.calypsan.listenup.web.features.bulkedit.graphBulkEdit
 import com.calypsan.listenup.web.features.browse.graphBrowseFacet
@@ -48,7 +47,7 @@ import com.calypsan.listenup.web.features.readers.graphBookReaders
 import com.calypsan.listenup.web.features.ratings.graphBookRatings
 import com.calypsan.listenup.web.features.search.graphSeeAll
 import com.calypsan.listenup.web.features.sync.graphDeadLetters
-import com.calypsan.listenup.web.features.metadata.graphMetadata
+import com.calypsan.listenup.web.features.match.graphMatchDetails
 import com.calypsan.listenup.web.features.contributordetail.graphContributorBooks
 import com.calypsan.listenup.web.features.contributordetail.graphContributorDetail
 import com.calypsan.listenup.web.features.contributoredit.graphContributorEdit
@@ -194,11 +193,10 @@ fun main() {
                 openBookDetail = graphBookDetail(koin),
                 openBookEdit = graphBookEdit(koin),
                 openChapterEditor = graphChapterEditor(koin),
-                openMetadata = graphMetadata(koin),
+                matchDetails = graphMatchDetails(koin),
                 openContributorDetail = graphContributorDetail(koin),
                 openContributorBooks = graphContributorBooks(koin),
                 openContributorEdit = graphContributorEdit(koin),
-                openContributorMetadata = graphContributorMetadata(koin),
                 openSeriesDetail = graphSeriesDetail(koin),
                 openSeriesEdit = graphSeriesEdit(koin),
                 openNotifications = graphNotifications(koin),

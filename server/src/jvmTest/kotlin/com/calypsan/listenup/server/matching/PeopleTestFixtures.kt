@@ -17,21 +17,21 @@ import com.calypsan.listenup.server.metadata.spi.ContributorMeta
 import kotlinx.coroutines.delay
 import kotlin.time.Duration
 
-/** A library book crediting the subject; identified by ASIN unless [asin] is null. */
+/** A library book crediting the subject in [roles]; identified by ASIN unless [asin] is null. */
 internal fun libraryBook(
     id: String,
     title: String = id,
     asin: String? = "A-$id",
     refs: List<ExternalRef> = emptyList(),
-) = PersonLibraryBook(bookId = id, title = title, asin = asin, isbn = null, refs = refs)
+    roles: Set<ContributorRole> = setOf(ContributorRole.NARRATOR),
+) = PersonLibraryBook(bookId = id, title = title, asin = asin, isbn = null, refs = refs, roles = roles)
 
-/** Ray Porter, narrator, credited on [books] in this library. */
+/** Ray Porter, credited on [books] in this library — by default narrating two. */
 internal fun porterSubject(
-    role: ContributorRole = ContributorRole.NARRATOR,
     refs: List<ExternalRef> = emptyList(),
     books: List<PersonLibraryBook> =
         listOf(libraryBook("phm", "Project Hail Mary"), libraryBook("hr", "Heaven's River")),
-) = PeopleSubject(contributorId = "c-porter", name = "Ray Porter", role = role, refs = refs, books = books)
+) = PeopleSubject(contributorId = "c-porter", name = "Ray Porter", refs = refs, books = books)
 
 internal fun person(
     key: String,
@@ -56,7 +56,6 @@ internal fun person(
 /** A scripted people source with in-memory state: [answer] replies to each lookup, recorded in [asked]. */
 internal class FakePeopleSource(
     override val id: MetadataProviderId,
-    override val profileRoles: Set<ContributorRole>,
     var latency: Duration = Duration.ZERO,
     var availability: FindAvailability = FindAvailability.Available,
     var answer: (

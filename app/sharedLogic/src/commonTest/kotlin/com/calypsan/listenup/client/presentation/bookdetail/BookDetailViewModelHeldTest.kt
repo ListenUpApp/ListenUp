@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
+import com.calypsan.listenup.api.dto.auth.Permission
+import com.calypsan.listenup.client.test.fake.FakePermissionsRepository
 import app.cash.turbine.turbineScope
 import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.error.ValidationError
@@ -58,6 +60,7 @@ class BookDetailViewModelHeldTest :
             val tagRepository: TagRepository = mock()
             val playbackPositionRepository: PlaybackPositionRepository = mock()
             val userRepository: UserRepository = mock()
+            val permissionsRepository = FakePermissionsRepository(Permission.EDIT_METADATA)
             val shelfRepository: ShelfRepository = mock()
             val collectionRepository: CollectionRepository = mock()
             val documentRepository: DocumentRepository = mock()
@@ -84,6 +87,7 @@ class BookDetailViewModelHeldTest :
                     tagRepository = tagRepository,
                     playbackPositionRepository = playbackPositionRepository,
                     userRepository = userRepository,
+                    permissionsRepository = permissionsRepository,
                     shelfRepository = shelfRepository,
                     collectionRepository = collectionRepository,
                     addBooksToShelfUseCase = mock(),

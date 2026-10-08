@@ -5,15 +5,20 @@ import com.calypsan.listenup.api.error.MoodError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.MoodId
+import com.calypsan.listenup.server.db.UserRoleColumn
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.BookMoodRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.memberPrincipal
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.server.testing.shouldBeDeniedPermission
+import com.calypsan.listenup.server.testing.shouldPassThePermissionGate
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -435,6 +440,24 @@ class MoodServiceImplTest :
                     val result = service.listMoodsForBook(BookId("book1"))
                     require(result is AppResult.Success)
                     result.data.map { it.name } shouldContainExactlyInAnyOrder listOf("Feel-Good")
+                }
+            }
+        }
+
+        test("deleting a mood needs Curate library; renaming it needs Edit metadata") {
+            withSqlDatabase {
+                sql.seedTestUser("editor", UserRoleColumn.MEMBER, canEdit = true, canCurateLibrary = false)
+                sql.seedTestUser("curator", UserRoleColumn.MEMBER, canEdit = false, canCurateLibrary = true)
+                sql.seedTestUser("nobody", UserRoleColumn.MEMBER, canEdit = false, canCurateLibrary = false)
+                runTest {
+                    val service = makeService(sql, driver)
+                    val mood = MoodId("m-1")
+
+                    service.copyWith(memberPrincipal("editor")).deleteMood(mood).shouldBeDeniedPermission()
+                    service.copyWith(memberPrincipal("nobody")).deleteMood(mood).shouldBeDeniedPermission()
+                    service.copyWith(memberPrincipal("curator")).deleteMood(mood).shouldPassThePermissionGate()
+                    service.copyWith(rootPrincipal()).deleteMood(mood).shouldPassThePermissionGate()
+                    service.copyWith(memberPrincipal("curator")).renameMood(mood, "Renamed").shouldBeDeniedPermission()
                 }
             }
         }

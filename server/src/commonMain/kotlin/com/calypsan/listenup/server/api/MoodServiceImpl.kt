@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.dto.MoodSummary
+import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.MoodError
@@ -13,7 +14,7 @@ import com.calypsan.listenup.api.sync.Mood
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.MoodId
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.BookMoodRepository
@@ -37,8 +38,9 @@ private const val MIN_LIMIT = 1
  * Renames therefore cannot produce a slug conflict; the slug stays the same.
  *
  * Mood reads ([listMoods], [getMoodBySlug], [listBooksForMood], [listMoodsForBook]) are open
- * to any authenticated user. Mood mutations ([addMoodToBook], [removeMoodFromBook],
- * [renameMood], [deleteMood]) are gated on the per-user `canEdit` flag via [permissionPolicy]:
+ * to any authenticated user. Edits ([addMoodToBook], [removeMoodFromBook], [renameMood]) are
+ * gated on [Permission.EDIT_METADATA]; [deleteMood] on [Permission.CURATE_LIBRARY] — both via
+ * [permissionPolicy]:
  * ROOT/ADMIN pass implicitly, a MEMBER passes iff their flag is set (fresh DB lookup per call).
  * The authenticated caller is resolved from [principal] — route handlers call [copyWith] to
  * bind it per-request; the Koin singleton carries an unscoped placeholder that yields no
@@ -55,7 +57,7 @@ internal class MoodServiceImpl(
      */
     private val accessPolicy: BookAccessPolicy,
     private val clock: Clock = Clock.System,
-    private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sql),
+    private val permissionPolicy: PermissionPolicy = PermissionPolicy(sql),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : MoodService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
@@ -72,14 +74,13 @@ internal class MoodServiceImpl(
     }
 
     /**
-     * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
-     * implicitly; a MEMBER passes iff their flag is set (fresh DB lookup per call). An
-     * absent principal — a wiring bug, since route handlers always [copyWith] the
-     * authenticated caller — is denied. Returns null when permitted; the denial otherwise.
+     * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
+     * principal — a wiring bug, since route handlers always [copyWith] the authenticated caller — is
+     * denied. Returns null when permitted; the denial otherwise.
      */
-    private suspend fun requireCanEdit(): AppError? {
+    private suspend fun requirePermission(permission: Permission): AppError? {
         val p = principal.current() ?: return AuthError.PermissionDenied()
-        return permissionPolicy.requireCanEdit(p.userId, p.role)
+        return permissionPolicy.require(p, permission)
     }
 
     override suspend fun listMoods(): AppResult<List<MoodSummary>> {
@@ -152,7 +153,7 @@ internal class MoodServiceImpl(
         bookId: BookId,
         name: String,
     ): AppResult<Mood> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         // Validate name.
         val slug = MoodSlug.normalize(name).getOrElse { return AppResult.Failure(it) }
 
@@ -199,7 +200,7 @@ internal class MoodServiceImpl(
         bookId: BookId,
         moodId: MoodId,
     ): AppResult<Unit> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         if (!bookExists(bookId.value)) {
             return AppResult.Failure(MoodError.BookNotFound())
         }
@@ -217,7 +218,7 @@ internal class MoodServiceImpl(
         moodId: MoodId,
         newName: String,
     ): AppResult<Mood> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         // Validate new name (we call normalize just for validation — slug is not changed).
         when (val slugResult = MoodSlug.normalize(newName)) {
             is AppResult.Success -> Unit
@@ -232,7 +233,7 @@ internal class MoodServiceImpl(
     }
 
     override suspend fun deleteMood(moodId: MoodId): AppResult<Unit> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         if (moodRepository.findById(moodId.value) == null) {
             return AppResult.Failure(MoodError.NotFound())
         }

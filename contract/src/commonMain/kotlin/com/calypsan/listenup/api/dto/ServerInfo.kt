@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.dto
 
+import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -53,11 +54,18 @@ data class ServerInfo(
     @SerialName("instanceId")
     val instanceId: String,
     /**
-     * True when this server has Story World (entities, their history, and the two Story World
-     * permissions). Gates the admin's Story World permission toggles: against an older server a patch
-     * naming only a Story World flag would decode `canEdit` as its default and could grant metadata
-     * editing. Absent from older servers, which therefore read as `false`.
+     * The [Permission.wireKey]s this server enforces. Clients render a permission toggle only for an
+     * advertised key, because a patch naming a flag an older server does not know would be decoded there
+     * as a whole `UserPermissions` with every other flag at its default. Absent from servers older than
+     * the permission split, which therefore read as `{"canEdit"}`.
      */
-    @SerialName("storyWorld")
-    val storyWorld: Boolean = false,
+    @SerialName("permissionFlags")
+    val permissionFlags: Set<String> = setOf("canEdit"),
 )
+
+/** The known permissions this server advertises; keys this build has never heard of are dropped. */
+fun ServerInfo.advertisedPermissions(): Set<Permission> =
+    permissionFlags
+        .map(Permission::fromWireKey)
+        .filterNot { it == Permission.UNKNOWN }
+        .toSet()

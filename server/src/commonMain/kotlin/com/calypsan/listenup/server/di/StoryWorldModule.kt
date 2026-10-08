@@ -5,7 +5,7 @@ import com.calypsan.listenup.api.EntityService
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.EntityServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.EntityRepository
 import org.koin.core.module.Module
@@ -33,7 +33,7 @@ fun storyWorldModule(): Module =
         single {
             EntityServiceImpl(
                 entityRepo = get(),
-                permissionPolicy = get<UserPermissionPolicy>(),
+                permissionPolicy = get<PermissionPolicy>(),
                 accessPolicy = get<BookAccessPolicy>(),
                 principal =
                     PrincipalProvider {

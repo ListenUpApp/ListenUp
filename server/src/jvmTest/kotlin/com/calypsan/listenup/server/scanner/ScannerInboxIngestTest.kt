@@ -9,7 +9,6 @@ import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.CollectionAccessPolicy
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -205,7 +204,6 @@ private fun fixture(dbs: SqlTestDatabases): InboxFixture {
             grantRepo = grantRepo,
             accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
             bookAccessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
-            permissionPolicy = UserPermissionPolicy(dbs.sql),
             bus = bus,
             sql = dbs.sql,
             bookRevisionTouch = FakeBookRevisionTouch(),

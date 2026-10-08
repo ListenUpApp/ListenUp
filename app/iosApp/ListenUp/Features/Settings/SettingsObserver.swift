@@ -42,6 +42,11 @@ final class SettingsObserver {
     /// server with no Hardcover app.
     private(set) var hardcoverRow: HardcoverRowValue?
 
+    // MARK: - Curation
+
+    /// Whether Settings › Library offers Categories: members with Curate library, and admins.
+    private(set) var canCurateLibrary = false
+
     private let viewModel: SettingsViewModel
     private let bridge = FlowBridge()
 
@@ -58,6 +63,7 @@ final class SettingsObserver {
         self.stopPlayback = stopPlayback
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.hardcoverRow) { [weak self] in self?.hardcoverRow = HardcoverRowValue(from: $0) }
+        bridge.bind(viewModel.canCurateLibrary) { [weak self] value in self?.canCurateLibrary = value }
     }
 
     deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.

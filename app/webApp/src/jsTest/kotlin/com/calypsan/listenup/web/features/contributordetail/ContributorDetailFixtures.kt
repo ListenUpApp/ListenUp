@@ -38,6 +38,8 @@ internal fun readyContributor(
     totalDuration: Duration = DEFAULT_TOTAL_DURATION,
     isDeleting: Boolean = false,
     deleteError: String? = null,
+    canEditMetadata: Boolean = true,
+    canCurateLibrary: Boolean = true,
 ): ContributorDetailUiState.Ready =
     ContributorDetailUiState.Ready(
         contributor = Contributor(id = ContributorId("c-king"), name = name),
@@ -49,6 +51,8 @@ internal fun readyContributor(
         totalDuration = totalDuration,
         isDeleting = isDeleting,
         deleteError = deleteError,
+        canEditMetadata = canEditMetadata,
+        canCurateLibrary = canCurateLibrary,
     )
 
 /**

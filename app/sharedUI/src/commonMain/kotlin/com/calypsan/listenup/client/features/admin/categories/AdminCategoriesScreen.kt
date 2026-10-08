@@ -187,7 +187,7 @@ fun AdminCategoriesScreen(
             )
         },
         floatingActionButton = {
-            if (state is AdminCategoriesUiState.Ready) {
+            if ((state as? AdminCategoriesUiState.Ready)?.canEditMetadata == true) {
                 ListenUpFab(
                     onClick = {
                         createParentIdState.value = null
@@ -622,6 +622,8 @@ internal fun AdminCategoriesReadyContent(
         tree(Modifier.weight(1f))
         CategoryDetailPanel(
             genre = state.genres.firstOrNull { it.id == selectedGenreId },
+            canEdit = state.canEditMetadata,
+            canCurate = state.canCurateLibrary,
             onAddChild = onAddChild,
             onRename = onRename,
             onDelete = onDelete,
@@ -751,6 +753,8 @@ private fun CategoriesContent(
                                 expandedIds = state.expandedIds,
                                 onToggleExpanded = onToggleExpanded,
                                 isLast = index == state.tree.lastIndex,
+                                canEdit = state.canEditMetadata,
+                                canCurate = state.canCurateLibrary,
                                 dropTargetId = dropTargetId,
                                 onAddChild = onAddChild,
                                 onRename = onRename,
@@ -786,6 +790,8 @@ private fun CategoryTreeNode(
     expandedIds: Set<String>,
     onToggleExpanded: (String) -> Unit,
     isLast: Boolean,
+    canEdit: Boolean,
+    canCurate: Boolean,
     dropTargetId: String?,
     onAddChild: (String, String) -> Unit,
     onRename: (String, String) -> Unit,
@@ -811,6 +817,8 @@ private fun CategoryTreeNode(
             isExpanded = isExpanded,
             hasChildren = hasChildren,
             isDropTarget = isDropTarget,
+            canEdit = canEdit,
+            canCurate = canCurate,
             onToggleExpanded = { onToggleExpanded(node.genre.id) },
             onAddChild = { onAddChild(node.genre.id, node.genre.name) },
             onRename = { onRename(node.genre.id, node.genre.name) },
@@ -847,6 +855,8 @@ private fun CategoryTreeNode(
                         expandedIds = expandedIds,
                         onToggleExpanded = onToggleExpanded,
                         isLast = index == node.children.lastIndex,
+                        canEdit = canEdit,
+                        canCurate = canCurate,
                         dropTargetId = dropTargetId,
                         onAddChild = onAddChild,
                         onRename = onRename,
@@ -877,6 +887,8 @@ private fun CategoryRow(
     isExpanded: Boolean,
     hasChildren: Boolean,
     isDropTarget: Boolean,
+    canEdit: Boolean,
+    canCurate: Boolean,
     onToggleExpanded: () -> Unit,
     onAddChild: () -> Unit,
     onRename: () -> Unit,
@@ -898,6 +910,13 @@ private fun CategoryRow(
     )
 
     var showContextMenu by remember { mutableStateOf(false) }
+    // With neither permission there is nothing in the menu, so the long-press offers nothing either.
+    val openContextMenu: (() -> Unit)? =
+        if (canEdit || canCurate) {
+            { showContextMenu = true }
+        } else {
+            null
+        }
     var rowPosition by remember { mutableStateOf(Offset.Zero) }
     var rowHeight by remember { mutableStateOf(0) }
 
@@ -926,7 +945,7 @@ private fun CategoryRow(
                 hasChildren = hasChildren,
                 rotation = rotation,
                 onToggleExpanded = onToggleExpanded,
-                onLongClick = { showContextMenu = true },
+                onLongClick = openContextMenu,
             )
         } else {
             SelectableCategoryRowContent(
@@ -937,7 +956,7 @@ private fun CategoryRow(
                 isSelected = isSelected,
                 onSelect = onSelect,
                 onToggleExpanded = onToggleExpanded,
-                onLongClick = { showContextMenu = true },
+                onLongClick = openContextMenu,
             )
         }
 
@@ -945,6 +964,8 @@ private fun CategoryRow(
         CategoryContextMenu(
             expanded = showContextMenu,
             onDismiss = { showContextMenu = false },
+            canEdit = canEdit,
+            canCurate = canCurate,
             onAddChild = onAddChild,
             onRename = onRename,
             onMerge = onMerge,
@@ -962,7 +983,7 @@ private fun CategoryRowContent(
     hasChildren: Boolean,
     rotation: Float,
     onToggleExpanded: () -> Unit,
-    onLongClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
 ) {
     val haptics = LocalHaptics.current
     // The tap expands/collapses and the long-press opens the actions menu — both named for TalkBack,
@@ -979,17 +1000,20 @@ private fun CategoryRowContent(
                     // built-in long-press haptic so it doesn't double up (same as BookCard).
                     hapticFeedbackEnabled = false,
                     onClickLabel = if (hasChildren) expandLabel else null,
-                    onLongClickLabel = moreActionsLabel,
+                    onLongClickLabel = moreActionsLabel.takeIf { onLongClick != null },
                     onClick = {
                         if (hasChildren) {
                             haptics.press()
                             onToggleExpanded()
                         }
                     },
-                    onLongClick = {
-                        haptics.longPress()
-                        onLongClick()
-                    },
+                    onLongClick =
+                        onLongClick?.let { open ->
+                            {
+                                haptics.longPress()
+                                open()
+                            }
+                        },
                 ).then(
                     if (hasChildren) Modifier.semantics { stateDescription = expansionState } else Modifier,
                 ).padding(
@@ -1038,7 +1062,7 @@ private fun SelectableCategoryRowContent(
     isSelected: Boolean,
     onSelect: () -> Unit,
     onToggleExpanded: () -> Unit,
-    onLongClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
 ) {
     val haptics = LocalHaptics.current
     val expandLabel = stringResource(if (isExpanded) Res.string.common_collapse else Res.string.common_expand)
@@ -1051,15 +1075,18 @@ private fun SelectableCategoryRowContent(
                 .heightIn(min = 48.dp)
                 .combinedClickable(
                     hapticFeedbackEnabled = false,
-                    onLongClickLabel = moreActionsLabel,
+                    onLongClickLabel = moreActionsLabel.takeIf { onLongClick != null },
                     onClick = {
                         haptics.selectionTick()
                         onSelect()
                     },
-                    onLongClick = {
-                        haptics.longPress()
-                        onLongClick()
-                    },
+                    onLongClick =
+                        onLongClick?.let { open ->
+                            {
+                                haptics.longPress()
+                                open()
+                            }
+                        },
                 ).semantics { selected = isSelected }
                 // The chevron button's own 14dp inset takes the place of the phone row's padding.
                 .padding(start = (2 + node.depth * 24).dp, end = 16.dp),
@@ -1129,10 +1156,15 @@ private fun RowScope.CategoryRowLabel(node: GenreTreeNode) {
     }
 }
 
+// One callback per category action plus the two permissions that gate them; a parameter object
+// would only add an indirection layer Compose tooling discourages.
+@Suppress("LongParameterList")
 @Composable
 private fun CategoryContextMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
+    canEdit: Boolean,
+    canCurate: Boolean,
     onAddChild: () -> Unit,
     onRename: () -> Unit,
     onMerge: () -> Unit,
@@ -1145,66 +1177,70 @@ private fun CategoryContextMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
     ) {
-        DropdownMenuItem(
-            text = { Text(stringResource(Res.string.admin_add_subgenre)) },
-            onClick = {
-                haptics.press()
-                onDismiss()
-                onAddChild()
-            },
-            leadingIcon = { Icon(Icons.Outlined.Add, contentDescription = null) },
-        )
-        DropdownMenuItem(
-            text = { Text(stringResource(Res.string.common_rename)) },
-            onClick = {
-                haptics.press()
-                onDismiss()
-                onRename()
-            },
-            leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
-        )
-        DropdownMenuItem(
-            text = { Text(stringResource(Res.string.admin_merge_into)) },
-            onClick = {
-                haptics.press()
-                onDismiss()
-                onMerge()
-            },
-            leadingIcon = { Icon(Icons.AutoMirrored.Outlined.CallMerge, contentDescription = null) },
-        )
-        DropdownMenuItem(
-            text = { Text(stringResource(Res.string.merge_history_open)) },
-            onClick = {
-                haptics.press()
-                onDismiss()
-                onMergeHistory()
-            },
-            leadingIcon = { Icon(Icons.Outlined.History, contentDescription = null) },
-        )
-        DropdownMenuItem(
-            text = { Text(stringResource(Res.string.admin_move_to)) },
-            onClick = {
-                haptics.press()
-                onDismiss()
-                onMove()
-            },
-            leadingIcon = { Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null) },
-        )
-        DropdownMenuItem(
-            text = { Text(stringResource(Res.string.common_delete), color = MaterialTheme.colorScheme.error) },
-            onClick = {
-                haptics.press()
-                onDismiss()
-                onDelete()
-            },
-            leadingIcon = {
-                Icon(
-                    Icons.Outlined.Delete,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                )
-            },
-        )
+        if (canEdit) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.admin_add_subgenre)) },
+                onClick = {
+                    haptics.press()
+                    onDismiss()
+                    onAddChild()
+                },
+                leadingIcon = { Icon(Icons.Outlined.Add, contentDescription = null) },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.common_rename)) },
+                onClick = {
+                    haptics.press()
+                    onDismiss()
+                    onRename()
+                },
+                leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.admin_move_to)) },
+                onClick = {
+                    haptics.press()
+                    onDismiss()
+                    onMove()
+                },
+                leadingIcon = { Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null) },
+            )
+        }
+        if (canCurate) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.admin_merge_into)) },
+                onClick = {
+                    haptics.press()
+                    onDismiss()
+                    onMerge()
+                },
+                leadingIcon = { Icon(Icons.AutoMirrored.Outlined.CallMerge, contentDescription = null) },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.merge_history_open)) },
+                onClick = {
+                    haptics.press()
+                    onDismiss()
+                    onMergeHistory()
+                },
+                leadingIcon = { Icon(Icons.Outlined.History, contentDescription = null) },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.common_delete), color = MaterialTheme.colorScheme.error) },
+                onClick = {
+                    haptics.press()
+                    onDismiss()
+                    onDelete()
+                },
+                leadingIcon = {
+                    Icon(
+                        Icons.Outlined.Delete,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                },
+            )
+        }
     }
 }
 

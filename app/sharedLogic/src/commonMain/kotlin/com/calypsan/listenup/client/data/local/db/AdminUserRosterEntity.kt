@@ -32,6 +32,12 @@ internal data class AdminUserRosterEntity(
      * server column default, so a roster row synced before `V60` reads as it behaved.
      */
     val canEdit: Boolean = true,
+    /** Whether the user may curate the library (merge and delete catalogue entries). See `UserEntity.canCurateLibrary`. */
+    val canCurateLibrary: Boolean = false,
+    /** Whether the user may contribute to Story World. See `UserEntity.canContributeStoryWorld`. */
+    val canContributeStoryWorld: Boolean = true,
+    /** Whether the user may merge Story World entries. See `UserEntity.canCurateStoryWorld`. */
+    val canCurateStoryWorld: Boolean = false,
     /** Epoch-ms account creation timestamp. */
     val accountCreatedAt: Long,
     /** Monotonic server revision; 0 until the server has confirmed the row. */
@@ -56,6 +62,15 @@ internal interface AdminUserRosterDao {
      */
     @Query("SELECT * FROM admin_user_roster WHERE deletedAt IS NULL")
     fun observeAll(): Flow<List<AdminUserRosterEntity>>
+
+    /**
+     * Observe one live roster row; null while it has not synced, or once it is tombstoned.
+     *
+     * @param id The user ID.
+     * @return Flow emitting the row whenever it changes.
+     */
+    @Query("SELECT * FROM admin_user_roster WHERE id = :id AND deletedAt IS NULL")
+    fun observeById(id: String): Flow<AdminUserRosterEntity?>
 
     /**
      * Insert or update a roster row.

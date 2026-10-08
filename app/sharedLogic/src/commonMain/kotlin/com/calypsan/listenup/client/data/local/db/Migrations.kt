@@ -417,16 +417,33 @@ internal val MIGRATION_17_18 =
     }
 
 /**
- * v18 → v19: Story World. The `entities` mirror (the access-gated, outbox-backed `entities` sync domain) and
- * the signed-in user's `canContributeStoryWorld` / `canCurateStoryWorld`, defaulting to the server's own
- * column defaults (contribute on, curate off) until the next sign-in brings the real values. Also the outbox's
+ * v18 → v19: `users.canCurateLibrary` and `admin_user_roster.canCurateLibrary` — the Curate library
+ * permission split out of Edit metadata. Each is backfilled from `canEdit`, exactly as the server's V92
+ * backfills `can_curate_library` from `can_edit`, so a mirrored row already agrees with the server and
+ * no cursor needs rewinding. A row synced afterwards carries the real value.
+ */
+internal val MIGRATION_18_19 =
+    object : Migration(18, 19) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE `users` ADD COLUMN `canCurateLibrary` INTEGER NOT NULL DEFAULT 0")
+            connection.executeDdl("UPDATE `users` SET `canCurateLibrary` = `canEdit`")
+            connection.executeDdl("ALTER TABLE `admin_user_roster` ADD COLUMN `canCurateLibrary` INTEGER NOT NULL DEFAULT 0")
+            connection.executeDdl("UPDATE `admin_user_roster` SET `canCurateLibrary` = `canEdit`")
+        }
+    }
+
+/**
+ * v19 → v20: Story World. The `entities` mirror (the access-gated, outbox-backed `entities` sync domain); the
+ * Contribute and Curate Story World flags on `users` and `admin_user_roster`, at the server's own column
+ * defaults (contribute on, curate off) — which every user holds until an admin changes one, so a mirrored row
+ * already agrees with the server and no cursor needs rewinding; and the outbox's
  * `pending_operation.mayHaveLanded` flag, which lets an undo withdraw a Delete that a pre-send failure parked.
  * Pure CREATE / ADD COLUMN, per the migration policy in [ListenUpDatabase] — every queued op survives. Existing
  * ops start at `mayHaveLanded = 0`: only the new `entities` channel ever asks, and none of its ops can predate
  * this version. The new domain has no cursor yet, so its first catch-up starts from zero by itself.
  */
-internal val MIGRATION_18_19 =
-    object : Migration(18, 19) {
+internal val MIGRATION_19_20 =
+    object : Migration(19, 20) {
         override suspend fun migrate(connection: SQLiteConnection) {
             connection.executeDdl(
                 "CREATE TABLE IF NOT EXISTS `entities` (`id` TEXT NOT NULL, `kind` TEXT NOT NULL, `name` TEXT NOT NULL, " +
@@ -440,6 +457,10 @@ internal val MIGRATION_18_19 =
             connection.executeDdl("CREATE INDEX IF NOT EXISTS `index_entities_deletedAt` ON `entities` (`deletedAt`)")
             connection.executeDdl("ALTER TABLE `users` ADD COLUMN `canContributeStoryWorld` INTEGER NOT NULL DEFAULT 1")
             connection.executeDdl("ALTER TABLE `users` ADD COLUMN `canCurateStoryWorld` INTEGER NOT NULL DEFAULT 0")
+            connection.executeDdl(
+                "ALTER TABLE `admin_user_roster` ADD COLUMN `canContributeStoryWorld` INTEGER NOT NULL DEFAULT 1",
+            )
+            connection.executeDdl("ALTER TABLE `admin_user_roster` ADD COLUMN `canCurateStoryWorld` INTEGER NOT NULL DEFAULT 0")
             connection.executeDdl("ALTER TABLE `pending_operation` ADD COLUMN `mayHaveLanded` INTEGER NOT NULL DEFAULT 0")
         }
     }

@@ -31,7 +31,6 @@ import com.calypsan.listenup.web.design.toastText
 import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.features.bookedit.OpenBookEdit
 import com.calypsan.listenup.web.features.chaptereditor.OpenChapterEditor
-import com.calypsan.listenup.web.features.contributormetadata.OpenContributorMetadata
 import com.calypsan.listenup.web.features.books.OpenMultiSelect
 import com.calypsan.listenup.web.features.bulkedit.OpenBulkEdit
 import com.calypsan.listenup.web.features.browse.OpenBrowseFacet
@@ -40,7 +39,7 @@ import com.calypsan.listenup.web.features.readers.OpenBookReaders
 import com.calypsan.listenup.web.features.ratings.OpenBookRatings
 import com.calypsan.listenup.web.features.sync.OpenDeadLetters
 import com.calypsan.listenup.web.features.search.OpenSeeAll
-import com.calypsan.listenup.web.features.metadata.OpenMetadata
+import com.calypsan.listenup.web.features.match.MatchDetailsGraph
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorBooks
 import com.calypsan.listenup.web.features.licences.OpenLicences
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
@@ -95,11 +94,10 @@ fun AuthGate(
     openBookDetail: OpenBookDetail,
     openBookEdit: OpenBookEdit,
     openChapterEditor: OpenChapterEditor,
-    openMetadata: OpenMetadata,
+    matchDetails: MatchDetailsGraph,
     openContributorDetail: OpenContributorDetail,
     openContributorBooks: OpenContributorBooks,
     openContributorEdit: OpenContributorEdit,
-    openContributorMetadata: OpenContributorMetadata,
     openSeriesDetail: OpenSeriesDetail,
     openSeriesEdit: OpenSeriesEdit,
     openNotifications: OpenNotifications,
@@ -231,11 +229,10 @@ fun AuthGate(
                         openBookDetail = openBookDetail,
                         openBookEdit = openBookEdit,
                         openChapterEditor = openChapterEditor,
-                        openMetadata = openMetadata,
+                        matchDetails = matchDetails,
                         openContributorDetail = openContributorDetail,
                         openContributorBooks = openContributorBooks,
                         openContributorEdit = openContributorEdit,
-                        openContributorMetadata = openContributorMetadata,
                         openSeriesDetail = openSeriesDetail,
                         openSeriesEdit = openSeriesEdit,
                         openNotifications = openNotifications,

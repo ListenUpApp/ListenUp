@@ -12,7 +12,7 @@ import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.matching.BookFinder
 import com.calypsan.listenup.server.matching.FakeRegionalFindSource
@@ -53,10 +53,10 @@ private fun MatchRig.service(): MatchingServiceImpl {
         finder = BookFinder(MetadataProviderRegistry(listOf(audibleFind)), EnrichmentRoutes.DEFAULT),
         loadBook = { books.findById(it) },
         libraryRegion = { null },
-        permissionPolicy = UserPermissionPolicy(db.sql),
+        permissionPolicy = PermissionPolicy(db.sql),
         bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
         peopleFinder = PeopleFinder(MetadataProviderRegistry(emptyList()), EnrichmentRoutes.DEFAULT),
-        loadPeople = { _, _, _ -> null },
+        loadPeople = { _, _ -> null },
         peopleRegion = { com.calypsan.listenup.api.metadata.MetadataLocale.DEFAULT },
         details = details(),
     )

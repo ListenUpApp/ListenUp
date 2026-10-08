@@ -3,11 +3,9 @@ import Shared
 @testable import ListenUp
 
 /// Pins how the shared `UserDetailUiState.Ready` flattens into the native snapshot the SwiftUI screen
-/// binds to — in particular that the Can Edit toggle reads the ViewModel's `canEdit`, whichever way it
-/// is set. (The observer wraps a concrete Kotlin `UserDetailViewModel`, so there is no seam to pin that
-/// the toggle calls `toggleCanEdit`; the mapping is what this screen owns.)
+/// binds to.
 struct UserDetailReadyModelTests {
-    private func ready(canEdit: Bool, isProtected: Bool = false, isSaving: Bool = false) -> UserDetailUiStateReady {
+    private func ready(isRoot: Bool = false) -> UserDetailUiStateReady {
         UserDetailUiStateReady(
             user: AdminUserInfo(
                 id: "u1",
@@ -15,35 +13,35 @@ struct UserDetailReadyModelTests {
                 displayName: "Kaladin",
                 firstName: nil,
                 lastName: nil,
-                isRoot: false,
+                isRoot: isRoot,
                 role: "member",
                 status: "active",
-                permissions: UserPermissions(canEdit: canEdit),
-                createdAt: "2026-01-01"
-            ),
-            canEdit: canEdit,
-            isProtected: isProtected,
-            isSaving: isSaving,
-            error: nil
+                permissions: UserPermissions(
+                    canEditMetadata: true,
+                    canCurateLibrary: false,
+                    canContributeStoryWorld: true,
+                    canCurateStoryWorld: false
+                ),
+                createdAt: "2026-01-01",
+                access: isRoot ? .owner : .contributor
+            )
         )
     }
 
-    @Test func revokedCanEditMapsToAnOffToggle() {
-        let model = UserDetailReadyModel(from: ready(canEdit: false))
-        #expect(model.canEdit == false)
+    @Test func identityFieldsCarryAcross() {
+        let model = UserDetailReadyModel(from: ready())
         #expect(model.displayName == "Kaladin")
         #expect(model.email == "kaladin@example.com")
-        #expect(model.role == "member")
+        #expect(model.userId == "u1")
+        #expect(model.isProtected == false)
     }
 
-    @Test func grantedCanEditMapsToAnOnToggle() {
-        #expect(UserDetailReadyModel(from: ready(canEdit: true)).canEdit == true)
+    @Test func accessLabelCarriesAcross() {
+        #expect(UserDetailReadyModel(from: ready()).access == .contributor)
+        #expect(UserDetailReadyModel(from: ready(isRoot: true)).access == .owner)
     }
 
-    @Test func protectedAndSavingFlagsCarryAcross() {
-        let model = UserDetailReadyModel(from: ready(canEdit: true, isProtected: true, isSaving: true))
-        #expect(model.isProtected == true)
-        #expect(model.isSaving == true)
-        #expect(model.error == nil)
+    @Test func theOwnerIsProtected() {
+        #expect(UserDetailReadyModel(from: ready(isRoot: true)).isProtected == true)
     }
 }

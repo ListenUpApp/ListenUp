@@ -1,12 +1,16 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import app.cash.turbine.test
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.model.AccessLabel
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.UserPermissions
 import com.calypsan.listenup.client.domain.repository.AdminRepository
+import com.calypsan.listenup.client.test.fake.FakeInstanceRepository
+import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
-import dev.mokkery.answering.sequentiallyReturns
+import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode
@@ -16,265 +20,107 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import com.calypsan.listenup.core.error.ErrorBus
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class UserDetailViewModelTest :
     FunSpec({
-        val testDispatcher = StandardTestDispatcher()
+        beforeTest { Dispatchers.setMain(StandardTestDispatcher()) }
+        afterTest { Dispatchers.resetMain() }
 
-        fun createUser(
-            id: String = "user-1",
-            email: String = "test@example.com",
-            canEdit: Boolean = true,
-        ) = AdminUserInfo(
-            id = id,
-            email = email,
-            displayName = "Test User",
-            firstName = "Test",
-            lastName = "User",
-            isRoot = false,
-            role = "member",
-            status = "active",
-            permissions = UserPermissions(canEdit = canEdit),
-            createdAt = "2024-01-01T00:00:00Z",
+        fun createUser(permissions: UserPermissions = UserPermissions(canEditMetadata = true)) =
+            AdminUserInfo(
+                id = "user-1",
+                email = "test@example.com",
+                displayName = "Test User",
+                firstName = "Test",
+                lastName = "User",
+                isRoot = false,
+                role = "member",
+                status = "active",
+                permissions = permissions,
+                createdAt = "2024-01-01T00:00:00Z",
+            )
+
+        fun viewModel(
+            adminRepository: AdminRepository,
+            advertised: Set<String> = setOf("canEdit", "canCurateLibrary"),
+        ) = UserDetailViewModel(
+            userId = "user-1",
+            adminRepository = adminRepository,
+            instanceRepository = FakeInstanceRepository(advertised),
+            errorBus = ErrorBus(),
         )
 
-        fun networkFailure() = AppResult.Failure(TransportError.NetworkUnavailable())
-
-        beforeTest {
-            Dispatchers.setMain(testDispatcher)
-        }
-
-        afterTest {
-            Dispatchers.resetMain()
-        }
-
-        test("initial state is Loading") {
+        test("the label follows the mirrored user, so a permissions save shows on return") {
             runTest {
-                val adminRepository: AdminRepository = mock()
-                everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(createUser())
+                val mirrored = MutableStateFlow<AdminUserInfo?>(createUser())
+                val adminRepository: AdminRepository = mock { every { observeUser("user-1") } returns mirrored }
 
-                val viewModel =
-                    UserDetailViewModel(
-                        userId = "user-1",
-                        adminRepository = adminRepository,
-                        errorBus = ErrorBus(),
-                    )
+                viewModel(adminRepository).state.test {
+                    awaitItem().shouldBeInstanceOf<UserDetailUiState.Loading>()
+                    awaitItem()
+                        .shouldBeInstanceOf<UserDetailUiState.Ready>()
+                        .user.access shouldBe AccessLabel.CONTRIBUTOR
 
-                viewModel.state.value.shouldBeInstanceOf<UserDetailUiState.Loading>()
+                    // The permissions screen saves; the server's roster frame lands in Room.
+                    mirrored.value = createUser(UserPermissions(canEditMetadata = true, canCurateLibrary = true))
+
+                    awaitItem()
+                        .shouldBeInstanceOf<UserDetailUiState.Ready>()
+                        .user.access shouldBe AccessLabel.LIBRARIAN
+                }
+                verifySuspend(VerifyMode.not) { adminRepository.getUser("user-1") }
             }
         }
 
-        test("loadUser transitions to Ready with user details") {
+        test("a user the mirror has not synced yet is fetched from the server") {
             runTest {
-                val adminRepository: AdminRepository = mock()
-                val user = createUser(canEdit = false)
-                everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(user)
+                val user = createUser(UserPermissions(canEditMetadata = false))
+                val adminRepository: AdminRepository =
+                    mock {
+                        every { observeUser("user-1") } returns flowOf(null)
+                        everySuspend { getUser("user-1") } returns AppResult.Success(user)
+                    }
 
-                val viewModel =
-                    UserDetailViewModel(
-                        userId = "user-1",
-                        adminRepository = adminRepository,
-                        errorBus = ErrorBus(),
-                    )
-                advanceUntilIdle()
-
-                val ready = viewModel.state.value.shouldBeInstanceOf<UserDetailUiState.Ready>()
-                ready.user shouldBe user
-                ready.canEdit shouldBe false
-            }
-        }
-
-        test("loadUser initial failure transitions to Error") {
-            runTest {
-                val adminRepository: AdminRepository = mock()
-                everySuspend { adminRepository.getUser("user-1") } returns networkFailure()
-
-                val viewModel =
-                    UserDetailViewModel(
-                        userId = "user-1",
-                        adminRepository = adminRepository,
-                        errorBus = ErrorBus(),
-                    )
-                advanceUntilIdle()
-
-                viewModel.state.value.shouldBeInstanceOf<UserDetailUiState.Error>()
-            }
-        }
-
-        test("toggleCanEdit updates state and saves") {
-            // The permission that had no UI at all until #1270: UserPermissionPolicy has gated
-            // every metadata mutation on canEdit since V26, but ContractUserMapper dropped the flag
-            // and the admin screen only ever offered canShare — so no member could be granted it.
-            runTest {
-                val adminRepository: AdminRepository = mock()
-                val user = createUser(canEdit = false)
-                val updatedUser = user.copy(permissions = UserPermissions(canEdit = true))
-                everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(user)
-                everySuspend {
-                    adminRepository.updateUser(userId = "user-1", canEdit = true)
-                } returns AppResult.Success(updatedUser)
-
-                val viewModel =
-                    UserDetailViewModel(
-                        userId = "user-1",
-                        adminRepository = adminRepository,
-                        errorBus = ErrorBus(),
-                    )
-                advanceUntilIdle()
-
-                viewModel.state.value
-                    .shouldBeInstanceOf<UserDetailUiState.Ready>()
-                    .canEdit shouldBe false
-
-                viewModel.toggleCanEdit()
-                advanceUntilIdle()
-
-                viewModel.state.value
-                    .shouldBeInstanceOf<UserDetailUiState.Ready>()
-                    .canEdit shouldBe true
-                verifySuspend(VerifyMode.atLeast(1)) {
-                    adminRepository.updateUser(userId = "user-1", canEdit = true)
+                viewModel(adminRepository).state.test {
+                    awaitItem().shouldBeInstanceOf<UserDetailUiState.Loading>()
+                    awaitItem().shouldBeInstanceOf<UserDetailUiState.Ready>().user shouldBe
+                        user.copy(access = AccessLabel.LISTENER)
                 }
             }
         }
 
-        test("a failed toggleCanEdit reverts rather than leaving a grant the server never made") {
-            // The sharpest edge on an optimistic permission toggle: if the revert is missed, the
-            // admin is looking at "Can Edit: on" for a member the server still refuses to let edit.
+        test("an unsynced user whose fetch fails is the Error state") {
             runTest {
-                val adminRepository: AdminRepository = mock()
-                everySuspend { adminRepository.getUser("user-1") } returns
-                    AppResult.Success(createUser(canEdit = false))
-                everySuspend { adminRepository.updateUser(userId = "user-1", canEdit = true) } returns
-                    networkFailure()
+                val adminRepository: AdminRepository =
+                    mock {
+                        every { observeUser("user-1") } returns flowOf(null)
+                        everySuspend { getUser("user-1") } returns AppResult.Failure(TransportError.NetworkUnavailable())
+                    }
 
-                val viewModel =
-                    UserDetailViewModel(
-                        userId = "user-1",
-                        adminRepository = adminRepository,
-                        errorBus = ErrorBus(),
-                    )
-                advanceUntilIdle()
-
-                viewModel.toggleCanEdit()
-                advanceUntilIdle()
-
-                val ready = viewModel.state.value.shouldBeInstanceOf<UserDetailUiState.Ready>()
-                ready.canEdit shouldBe false
-                ready.isSaving shouldBe false
-                (ready.error != null) shouldBe true
+                viewModel(adminRepository).state.test {
+                    awaitItem().shouldBeInstanceOf<UserDetailUiState.Loading>()
+                    awaitItem().shouldBeInstanceOf<UserDetailUiState.Error>()
+                }
             }
         }
 
-        test("a successful save clears the error a failed one left behind") {
-            // Web shows Ready.error inline and has no snackbar to acknowledge it, so nothing ever
-            // called clearError: a failed toggle's alert stayed on screen after the next toggle
-            // saved. The error describes the last save; once a save succeeds it is no longer true.
+        test("against an older server the label is the role, not a preset") {
             runTest {
-                val adminRepository: AdminRepository = mock()
-                val user = createUser(canEdit = false)
-                everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(user)
-                everySuspend { adminRepository.updateUser(userId = "user-1", canEdit = true) } sequentiallyReturns
-                    listOf(
-                        networkFailure(),
-                        AppResult.Success(user.copy(permissions = UserPermissions(canEdit = true))),
-                    )
+                val adminRepository: AdminRepository = mock { every { observeUser("user-1") } returns flowOf(createUser()) }
 
-                val viewModel =
-                    UserDetailViewModel(
-                        userId = "user-1",
-                        adminRepository = adminRepository,
-                        errorBus = ErrorBus(),
-                    )
-                advanceUntilIdle()
-
-                viewModel.toggleCanEdit()
-                advanceUntilIdle()
-                (
-                    viewModel.state.value
+                viewModel(adminRepository, advertised = setOf("canEdit")).state.test {
+                    awaitItem().shouldBeInstanceOf<UserDetailUiState.Loading>()
+                    awaitItem()
                         .shouldBeInstanceOf<UserDetailUiState.Ready>()
-                        .error != null
-                ) shouldBe true
-
-                viewModel.toggleCanEdit()
-                advanceUntilIdle()
-
-                val ready = viewModel.state.value.shouldBeInstanceOf<UserDetailUiState.Ready>()
-                ready.canEdit shouldBe true
-                ready.error shouldBe null
-            }
-        }
-
-        test("clearError clears transient Ready error") {
-            runTest {
-                // Load succeeds so VM reaches Ready; then a toggle failure surfaces a
-                // transient error on Ready that clearError resets.
-                val adminRepository: AdminRepository = mock()
-                val user = createUser(canEdit = true)
-                everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(user)
-                everySuspend {
-                    adminRepository.updateUser(
-                        userId = "user-1",
-                        canEdit = false,
-                    )
-                } returns networkFailure()
-
-                val viewModel =
-                    UserDetailViewModel(
-                        userId = "user-1",
-                        adminRepository = adminRepository,
-                        errorBus = ErrorBus(),
-                    )
-                advanceUntilIdle()
-
-                viewModel.toggleCanEdit()
-                advanceUntilIdle()
-
-                val readyWithError = viewModel.state.value.shouldBeInstanceOf<UserDetailUiState.Ready>()
-                (readyWithError.error != null) shouldBe true
-
-                viewModel.clearError()
-
-                val readyCleared = viewModel.state.value.shouldBeInstanceOf<UserDetailUiState.Ready>()
-                readyCleared.error shouldBe null
-            }
-        }
-
-        test("protected users cannot have permissions toggled") {
-            runTest {
-                val adminRepository: AdminRepository = mock()
-                val rootUser =
-                    AdminUserInfo(
-                        id = "root-1",
-                        email = "root@example.com",
-                        displayName = "Root User",
-                        firstName = "Root",
-                        lastName = "User",
-                        isRoot = true,
-                        role = "admin",
-                        status = "active",
-                        permissions = UserPermissions(canEdit = true),
-                        createdAt = "2024-01-01T00:00:00Z",
-                    )
-                everySuspend { adminRepository.getUser("root-1") } returns AppResult.Success(rootUser)
-
-                val viewModel =
-                    UserDetailViewModel(
-                        userId = "root-1",
-                        adminRepository = adminRepository,
-                        errorBus = ErrorBus(),
-                    )
-                advanceUntilIdle()
-
-                val ready = viewModel.state.value.shouldBeInstanceOf<UserDetailUiState.Ready>()
-                ready.isProtected shouldBe true
+                        .user.access shouldBe AccessLabel.MEMBER
+                }
             }
         }
     })

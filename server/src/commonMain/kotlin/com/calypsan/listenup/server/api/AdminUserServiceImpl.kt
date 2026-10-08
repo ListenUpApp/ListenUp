@@ -12,7 +12,10 @@ import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserPermissions
+import com.calypsan.listenup.api.dto.auth.UserPermissionsPatch
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.auth.patchedBy
 import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.notifications.NotificationEvent
@@ -29,6 +32,8 @@ import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.auth.RegistrationDecision
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.auth.AuthUser
+import com.calypsan.listenup.server.auth.PermissionPolicy
+import com.calypsan.listenup.server.auth.isAdmin
 import com.calypsan.listenup.server.auth.toAuthUser
 import com.calypsan.listenup.server.auth.toColumn
 import com.calypsan.listenup.server.auth.toContract
@@ -233,20 +238,19 @@ class AdminUserServiceImpl(
                 val mergedDisplayName = patch.displayName ?: user.displayName
                 val mergedRole = patch.role?.toColumn() ?: user.role
                 demoted = user.role == UserRoleColumn.ADMIN && mergedRole == UserRoleColumn.MEMBER
-                val mergedCanEdit = patch.permissions?.canEdit ?: user.canEdit
-                val mergedContribute = patch.permissions?.canContributeStoryWorld ?: user.canContributeStoryWorld
-                val mergedCurate = patch.permissions?.canCurateStoryWorld ?: user.canCurateStoryWorld
+                // Each permission flag merges on its own: a patch that names one leaves the others as stored.
+                val mergedPermissions =
+                    user.permissions
+                        .patchedBy(patch.permissions?.withLegacyMeaning())
                 val now = clock.now().toEpochMilliseconds()
                 sql.usersQueries.updateAdminFields(
                     display_name = mergedDisplayName,
                     role = mergedRole.name,
-                    can_edit = mergedCanEdit.toDbLong(),
+                    can_edit = mergedPermissions.canEditMetadata.toDbLong(),
+                    can_curate_library = mergedPermissions.canCurateLibrary.toDbLong(),
+                    can_contribute_story_world = mergedPermissions.canContributeStoryWorld.toDbLong(),
+                    can_curate_story_world = mergedPermissions.canCurateStoryWorld.toDbLong(),
                     updated_at = now,
-                    id = id.value,
-                )
-                sql.usersQueries.updateStoryWorldPermissions(
-                    can_contribute_story_world = mergedContribute.toDbLong(),
-                    can_curate_story_world = mergedCurate.toDbLong(),
                     id = id.value,
                 )
                 AppResult.Success(
@@ -254,9 +258,10 @@ class AdminUserServiceImpl(
                         .copy(
                             displayName = mergedDisplayName,
                             role = mergedRole,
-                            canEdit = mergedCanEdit,
-                            canContributeStoryWorld = mergedContribute,
-                            canCurateStoryWorld = mergedCurate,
+                            canEdit = mergedPermissions.canEditMetadata,
+                            canCurateLibrary = mergedPermissions.canCurateLibrary,
+                            canContributeStoryWorld = mergedPermissions.canContributeStoryWorld,
+                            canCurateStoryWorld = mergedPermissions.canCurateStoryWorld,
                         ).toContract(),
                 )
             }
@@ -465,7 +470,7 @@ class AdminUserServiceImpl(
     /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */
     private fun requireAdmin(): AppResult.Failure? {
         val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        return if (caller.role.isAdmin()) null else AppResult.Failure(AuthError.PermissionDenied())
+        return PermissionPolicy.requireAdmin(caller)?.let { AppResult.Failure(it) }
     }
 
     /** The live (non-deleted) user with [id], or null. Must run inside a SQLDelight transaction. */
@@ -501,9 +506,32 @@ class AdminUserServiceImpl(
 
     /** Count of non-deleted ROOT+ADMIN users. Must run inside a SQLDelight transaction. */
     private fun countActiveAdmins(): Long = sql.usersQueries.countActiveAdmins().executeAsOne()
-
-    private fun UserRole.isAdmin(): Boolean = this == UserRole.ROOT || this == UserRole.ADMIN
 }
 
 /** Boolean → SQLite INTEGER (0/1) at the persistence boundary. */
 private fun Boolean.toDbLong(): Long = if (this) 1L else 0L
+
+/**
+ * A patch from an older admin app, read the way that app meant it.
+ *
+ * Before the split, the admin app sent a whole `UserPermissions(canEdit = …)`, and `canEdit` carried
+ * merge and delete as well as editing — V92 backfilled Curate library from it. Two shapes follow:
+ *
+ * - **An empty object grants Edit metadata.** `contractJson` does not encode defaults, and
+ *   `canEdit = true` was the default, so turning Edit back ON put `{"permissions":{}}` on the wire —
+ *   which decodes here as a patch naming no flag. Read literally, that would leave the flag off and
+ *   still report success. Curate library stays as stored: it defaults off.
+ * - **`canEditMetadata = false` with Curate library unnamed revokes both.** That is `{"canEdit":false}`,
+ *   an older app turning editing off; leaving the backfilled curate on would keep the member's merge
+ *   and delete without the admin ever seeing it.
+ *
+ * Current clients never send either shape: when no flag changed they send `permissions = null`, and
+ * whenever they change Edit metadata they name Curate library too, so a deliberate "edit off, curate
+ * on" survives.
+ */
+private fun UserPermissionsPatch.withLegacyMeaning(): UserPermissionsPatch =
+    when {
+        isEmpty -> UserPermissionsPatch(canEditMetadata = true)
+        canEditMetadata == false && canCurateLibrary == null -> copy(canCurateLibrary = false)
+        else -> this
+    }

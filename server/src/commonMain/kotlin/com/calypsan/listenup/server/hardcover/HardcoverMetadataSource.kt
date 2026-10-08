@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.hardcover
 
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
@@ -78,7 +77,6 @@ class HardcoverMetadataSource(
     private val people = HardcoverPeople(graphQl, catalogToken, rateLimiter)
 
     /** Hardcover has profiles for narrators as well as authors — the one source that does. */
-    override val profileRoles: Set<ContributorRole> = setOf(ContributorRole.AUTHOR, ContributorRole.NARRATOR)
 
     override suspend fun personAvailability(): FindAvailability = finder.availability()
 

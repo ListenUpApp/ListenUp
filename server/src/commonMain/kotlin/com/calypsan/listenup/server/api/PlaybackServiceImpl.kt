@@ -16,6 +16,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.audio.CoverUrlSigner
+import com.calypsan.listenup.server.auth.OpenToAllMembers
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -63,6 +64,7 @@ internal class PlaybackServiceImpl(
     private val transcoderAvailability: TranscoderAvailability,
     private val clock: Clock = Clock.System,
 ) : PlaybackService {
+    @OpenToAllMembers(reason = "the caller's own playback, on a book they can see")
     override suspend fun prepare(
         bookId: BookId,
         capabilities: Set<CodecCapability>?,
@@ -164,6 +166,7 @@ internal class PlaybackServiceImpl(
         return AppResult.Success(playbackPositionRepository.getPosition(p.userId.value, bookId.value))
     }
 
+    @OpenToAllMembers(reason = "the caller's own playback, on a book they can see")
     override suspend fun recordPosition(request: RecordPositionRequest): AppResult<RecordPositionResult> {
         val p =
             principal.current()
@@ -195,6 +198,7 @@ internal class PlaybackServiceImpl(
         return AppResult.Success(userStatsRepository.getForUser(userId))
     }
 
+    @OpenToAllMembers(reason = "the caller's own playback, on a book they can see")
     override suspend fun recordListeningEvent(
         request: RecordListeningEventRequest,
     ): AppResult<ListeningEventSyncPayload> {

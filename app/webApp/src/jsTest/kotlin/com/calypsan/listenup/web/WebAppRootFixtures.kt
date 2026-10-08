@@ -54,7 +54,6 @@ import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
-import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
 import com.calypsan.listenup.client.presentation.search.SearchNavAction
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.search.SearchUiState
@@ -67,9 +66,8 @@ import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent
 import com.calypsan.listenup.web.features.chaptereditor.ChapterEditorSession
 import com.calypsan.listenup.web.features.chaptereditor.OpenChapterEditor
-import com.calypsan.listenup.client.presentation.metadata.MetadataEvent
-import com.calypsan.listenup.web.features.metadata.OpenMetadata
-import com.calypsan.listenup.web.features.metadata.fixedMetadata
+import com.calypsan.listenup.web.features.match.MatchDetailsGraph
+import com.calypsan.listenup.web.features.match.fixedMatchDetails
 import com.calypsan.listenup.web.features.chaptereditor.fixedChapterEditor
 import com.calypsan.listenup.web.features.home.OpenHome
 import com.calypsan.listenup.web.features.home.fixedHome
@@ -129,7 +127,6 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
-import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksUiState
 import com.calypsan.listenup.web.features.contributordetail.ContributorBooksSession
@@ -139,8 +136,6 @@ import com.calypsan.listenup.web.features.contributordetail.fixedContributorDeta
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
 import com.calypsan.listenup.web.features.contributoredit.ContributorEditSession
 import com.calypsan.listenup.web.features.contributoredit.OpenContributorEdit
-import com.calypsan.listenup.web.features.contributormetadata.OpenContributorMetadata
-import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
 import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailSession
@@ -198,12 +193,10 @@ internal fun mountAt(
     openContributorDetail: OpenContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
     openContributorBooks: OpenContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
     openContributorEdit: OpenContributorEdit = fixedContributorEdit(ContributorEditUiState()),
-    openContributorMetadata: OpenContributorMetadata =
-        fixedContributorMetadata(ContributorMetadataUiState.Idle()),
     openSeriesDetail: OpenSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
     openSeriesEdit: OpenSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
     openChapterEditor: OpenChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
-    openMetadata: OpenMetadata = fixedMetadata(MetadataUiState.Idle()),
+    matchDetails: MatchDetailsGraph = fixedMatchDetails(),
     openNotifications: OpenNotifications = fixedNotifications(NotificationsUiState.Empty),
     openNotificationPrefs: OpenNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
     openProfile: OpenProfile = fixedProfile(UserProfileUiState.Loading),
@@ -272,11 +265,10 @@ internal fun mountAt(
                     openBookDetail = openBookDetail,
                     openBookEdit = openBookEdit,
                     openChapterEditor = openChapterEditor,
-                    openMetadata = openMetadata,
+                    matchDetails = matchDetails,
                     openContributorDetail = openContributorDetail,
                     openContributorBooks = openContributorBooks,
                     openContributorEdit = openContributorEdit,
-                    openContributorMetadata = openContributorMetadata,
                     openSeriesDetail = openSeriesDetail,
                     openSeriesEdit = openSeriesEdit,
                     openNotifications = openNotifications,
@@ -492,23 +484,6 @@ internal class RecordingSeriesDetail {
             onAddSubSeriesEvent = {},
             close = {},
         )
-    }
-}
-
-/**
- * A Metadata session that remembers which book it was opened for, with what seed.
- *
- * The seed is the point: `initForBook` builds the query from the book's own title and author, so a
- * route that opens the session before the book has loaded seeds an empty search.
- */
-internal class RecordingMetadata(
-    private val state: MetadataUiState = MetadataUiState.Idle(),
-    private val events: Flow<MetadataEvent> = emptyFlow(),
-) {
-    val seeds = mutableListOf<String>()
-    val open: OpenMetadata = { bookId, title, author, asin ->
-        seeds += "$bookId|$title|$author|${asin ?: "-"}"
-        fixedMetadata(state = state, events = events)(bookId, title, author, asin)
     }
 }
 
