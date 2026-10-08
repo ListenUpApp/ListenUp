@@ -83,7 +83,7 @@ class LibraryReadinessTest :
             hasLocalLibrary: Boolean = false,
         ): SyncRepository {
             val sync = mock<SyncRepository>()
-            every { sync.isBuildingInitialLibrary } returns scanning
+            every { sync.buildingInitialLibrary } returns scanning
             every { sync.scanProgress } returns progress
             // Local-first startup reads this before any server round-trip. Default false: a fresh admin
             // and an in-progress initial population have no complete local library yet, so the setup

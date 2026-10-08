@@ -187,7 +187,7 @@ class SeriesEditViewModel internal constructor(
 
     init {
         viewModelScope.launch {
-            networkMonitor.isOnlineFlow.collect { online -> state.update { it.copy(isOnline = online) } }
+            networkMonitor.onlineFlow.collect { online -> state.update { it.copy(isOnline = online) } }
         }
         permissionsRepository
             .observeCan(Permission.CURATE_LIBRARY)

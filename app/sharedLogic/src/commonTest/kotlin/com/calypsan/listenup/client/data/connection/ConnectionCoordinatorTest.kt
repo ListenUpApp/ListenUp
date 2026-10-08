@@ -74,7 +74,7 @@ class ConnectionCoordinatorTest :
                 }
             val networkMonitor =
                 mock<NetworkMonitor> {
-                    every { isOnlineFlow } returns online
+                    every { onlineFlow } returns online
                     every { isOnline() } returns online.value
                 }
             val coordinator =
@@ -102,7 +102,7 @@ class ConnectionCoordinatorTest :
                 }
             val networkMonitor =
                 mock<NetworkMonitor> {
-                    every { isOnlineFlow } returns MutableStateFlow(true)
+                    every { onlineFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns true
                 }
             val coordinator =
@@ -154,7 +154,7 @@ class ConnectionCoordinatorTest :
                 }
             val networkMonitor =
                 mock<NetworkMonitor> {
-                    every { isOnlineFlow } returns MutableStateFlow(true)
+                    every { onlineFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns true
                 }
             val coordinator =
@@ -214,7 +214,7 @@ class ConnectionCoordinatorTest :
                 }
             val networkMonitor =
                 mock<NetworkMonitor> {
-                    every { isOnlineFlow } returns MutableStateFlow(true)
+                    every { onlineFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns true
                 }
             val coordinator =
@@ -247,7 +247,7 @@ class ConnectionCoordinatorTest :
                 }
             val networkMonitor =
                 mock<NetworkMonitor> {
-                    every { isOnlineFlow } returns MutableStateFlow(true)
+                    every { onlineFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns true
                 }
             val coordinator =
@@ -277,7 +277,7 @@ class ConnectionCoordinatorTest :
                 }
             val networkMonitor =
                 mock<NetworkMonitor> {
-                    every { isOnlineFlow } returns online
+                    every { onlineFlow } returns online
                     every { isOnline() } returns online.value
                 }
             val coordinator =
@@ -306,7 +306,7 @@ class ConnectionCoordinatorTest :
                 }
             val networkMonitor =
                 mock<NetworkMonitor> {
-                    every { isOnlineFlow } returns online
+                    every { onlineFlow } returns online
                     every { isOnline() } returns online.value
                 }
             val coordinator =
@@ -341,7 +341,7 @@ class ConnectionCoordinatorTest :
                 }
             val networkMonitor =
                 mock<NetworkMonitor> {
-                    every { isOnlineFlow } returns online
+                    every { onlineFlow } returns online
                     every { isOnline() } returns online.value
                 }
             ConnectionCoordinator(
@@ -396,7 +396,7 @@ class ConnectionCoordinatorTest :
                 }
             val networkMonitor =
                 mock<NetworkMonitor> {
-                    every { isOnlineFlow } returns online
+                    every { onlineFlow } returns online
                     every { isOnline() } returns online.value
                 }
             ConnectionCoordinator(serverConfig, instance, idleDiscovery(), networkMonitor, invalidator, scope).start()

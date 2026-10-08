@@ -84,7 +84,7 @@ internal class ConnectionHealthStore(
 
     private val rawUnreachable: Flow<Boolean> =
         combine(
-            flow = networkMonitor.isOnlineFlow,
+            flow = networkMonitor.onlineFlow,
             flow2 = firehoseConnected,
             flow3 = evidence.lastUpAt,
             flow4 = evidence.lastDownAt,

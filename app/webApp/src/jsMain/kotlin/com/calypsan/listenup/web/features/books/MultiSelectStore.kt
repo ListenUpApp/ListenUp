@@ -22,11 +22,11 @@ import org.koin.core.Koin
 @Suppress("LongParameterList")
 class MultiSelectSession(
     val selectionMode: StateFlow<SelectionMode>,
-    val isAdmin: StateFlow<Boolean>,
+    val adminAccess: StateFlow<Boolean>,
     val collections: StateFlow<List<Collection>>,
     val myShelves: StateFlow<List<Shelf>>,
-    val isAddingToShelf: StateFlow<Boolean>,
-    val isAddingToCollection: StateFlow<Boolean>,
+    val addingToShelf: StateFlow<Boolean>,
+    val addingToCollection: StateFlow<Boolean>,
     val events: Flow<BookMultiSelectEvent>,
     val onEnter: () -> Unit,
     val onToggle: (String) -> Unit,
@@ -48,11 +48,11 @@ fun graphMultiSelect(koin: Koin): OpenMultiSelect =
         val store = ViewModelStore().apply { put("multiSelect", viewModel) }
         MultiSelectSession(
             selectionMode = viewModel.selectionMode,
-            isAdmin = viewModel.isAdmin,
+            adminAccess = viewModel.adminAccess,
             collections = viewModel.collections,
             myShelves = viewModel.myShelves,
-            isAddingToShelf = viewModel.isAddingToShelf,
-            isAddingToCollection = viewModel.isAddingToCollection,
+            addingToShelf = viewModel.addingToShelf,
+            addingToCollection = viewModel.addingToCollection,
             events = viewModel.events,
             onEnter = viewModel::enterSelectionMode,
             onToggle = viewModel::toggleSelection,
@@ -86,11 +86,11 @@ fun fixedMultiSelect(
     {
         MultiSelectSession(
             selectionMode = MutableStateFlow(selectionMode),
-            isAdmin = MutableStateFlow(isAdmin),
+            adminAccess = MutableStateFlow(isAdmin),
             collections = MutableStateFlow(collections),
             myShelves = MutableStateFlow(myShelves),
-            isAddingToShelf = MutableStateFlow(isAddingToShelf),
-            isAddingToCollection = MutableStateFlow(isAddingToCollection),
+            addingToShelf = MutableStateFlow(isAddingToShelf),
+            addingToCollection = MutableStateFlow(isAddingToCollection),
             events = events,
             onEnter = onEnter,
             onToggle = onToggle,

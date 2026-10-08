@@ -472,7 +472,7 @@ internal class LivePlayback(
         combine(
             playbackManager.currentBookId,
             title,
-            playbackManager.isPlaying,
+            playbackManager.playing,
             timeline,
             controls,
         ) { bookId, bookTitle, isPlaying, (positionMs, durationMs), (speed, backSec, forwardSec) ->
@@ -492,7 +492,7 @@ internal class LivePlayback(
             // ⛔ Folded on afterwards rather than passed as a sixth flow: `combine` only has typed
             // overloads to five, and a sixth silently selects the `vararg Array<Any?>` version —
             // which compiles against `Any?` and would take any of these fields in any order.
-        }.combine(playbackManager.isBuffering) { base, isBuffering ->
+        }.combine(playbackManager.buffering) { base, isBuffering ->
             base?.copy(isBuffering = isBuffering)
         }.stateIn(scope, SharingStarted.Eagerly, null)
 
@@ -641,7 +641,7 @@ internal class LivePlayback(
 
     /** Resume or pause what is loaded — synchronous, so the `play()` lands inside the click. */
     fun playPause() {
-        if (playbackManager.isPlaying.value) {
+        if (playbackManager.playing.value) {
             playbackController.pause()
         } else {
             playbackManager.clearError()
@@ -808,7 +808,7 @@ internal class LivePlayback(
      * tab must still work.
      */
     fun closeBook() {
-        if (playbackManager.isPlaying.value) playbackManager.setPlaybackState(PlaybackState.Paused)
+        if (playbackManager.playing.value) playbackManager.setPlaybackState(PlaybackState.Paused)
         audioPlayer.releasePlayer()
         playbackManager.clearPlayback()
         sleepTimerManager.cancelTimer()

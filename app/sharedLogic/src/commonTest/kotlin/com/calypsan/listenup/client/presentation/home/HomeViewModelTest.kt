@@ -70,7 +70,7 @@ class HomeViewModelTest :
             fun build(): HomeViewModel {
                 every { syncRepository.scanProgress } returns scanProgressFlow
                 every { syncRepository.syncState } returns syncStateFlow
-                every { syncRepository.isBuildingInitialLibrary } returns buildingInitialLibraryFlow
+                every { syncRepository.buildingInitialLibrary } returns buildingInitialLibraryFlow
                 return HomeViewModel(
                     homeRepository = homeRepository,
                     userRepository = userRepository,
@@ -689,7 +689,7 @@ class HomeViewModelTest :
                 // since we bypass build() to inject the failing currentHour.
                 every { fixture.syncRepository.scanProgress } returns fixture.scanProgressFlow
                 every { fixture.syncRepository.syncState } returns fixture.syncStateFlow
-                every { fixture.syncRepository.isBuildingInitialLibrary } returns fixture.buildingInitialLibraryFlow
+                every { fixture.syncRepository.buildingInitialLibrary } returns fixture.buildingInitialLibraryFlow
                 val viewModel =
                     HomeViewModel(
                         homeRepository = fixture.homeRepository,

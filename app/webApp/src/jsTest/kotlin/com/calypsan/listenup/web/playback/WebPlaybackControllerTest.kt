@@ -93,8 +93,8 @@ private val neverCalledPlaybackManager: PlaybackManager =
         ) = unexpected()
 
         override val currentTimeline: StateFlow<PlaybackTimeline?> = MutableStateFlow(null)
-        override val isPlaying: StateFlow<Boolean> = MutableStateFlow(false)
-        override val isBuffering: StateFlow<Boolean> = MutableStateFlow(false)
+        override val playing: StateFlow<Boolean> = MutableStateFlow(false)
+        override val buffering: StateFlow<Boolean> = MutableStateFlow(false)
         override val currentPositionMs: StateFlow<Long> = MutableStateFlow(0L)
         override val totalDurationMs: StateFlow<Long> = MutableStateFlow(0L)
         override val playbackSpeed: StateFlow<Float> = MutableStateFlow(1.0f)

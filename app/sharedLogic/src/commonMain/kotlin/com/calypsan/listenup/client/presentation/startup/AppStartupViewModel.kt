@@ -114,7 +114,7 @@ class AppStartupViewModel internal constructor(
      *
      * Precedence: an unresolved or failed setup check, or a needs-setup answer, always outranks
      * population — the population signal is only meaningful once the library exists. Population is
-     * driven by the server-authoritative [SyncRepository.isBuildingInitialLibrary] — true only while a
+     * driven by the server-authoritative [SyncRepository.buildingInitialLibrary] — true only while a
      * scan is actively building or the library is still empty and unstamped, false once the server
      * records `initial_scan_completed_at` (synced into Room) or any book lands. So a rescan of a
      * populated library, and a fresh device joining an existing library, both resolve straight to
@@ -129,7 +129,7 @@ class AppStartupViewModel internal constructor(
     val readiness: StateFlow<LibraryReadiness> =
         combine(
             state,
-            syncRepository.isBuildingInitialLibrary,
+            syncRepository.buildingInitialLibrary,
             syncRepository.scanProgress,
         ) { s, scanning, progress ->
             when {

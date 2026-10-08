@@ -27,7 +27,7 @@ class BrowserNetworkMonitor : NetworkMonitor {
 
     override fun isOnline(): Boolean = window.navigator.onLine
 
-    override val isOnlineFlow: StateFlow<Boolean> = online.asStateFlow()
+    override val onlineFlow: StateFlow<Boolean> = online.asStateFlow()
 
-    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean> = online.asStateFlow()
+    override val onUnmeteredNetworkFlow: StateFlow<Boolean> = online.asStateFlow()
 }

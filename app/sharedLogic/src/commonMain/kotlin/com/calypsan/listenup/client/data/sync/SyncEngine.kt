@@ -1217,11 +1217,9 @@ private sealed interface PendingAccessChange {
 private object AlwaysOnlineNetworkMonitor : NetworkMonitor {
     override fun isOnline(): Boolean = true
 
-    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
-    override val isOnlineFlow: StateFlow<Boolean> = MutableStateFlow(true)
+    override val onlineFlow: StateFlow<Boolean> = MutableStateFlow(true)
 
-    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
-    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
+    override val onUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
 }
 
 /**

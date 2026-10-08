@@ -47,11 +47,9 @@ private class FakeNetworkMonitor(
 
     override fun isOnline(): Boolean = online.value
 
-    @Suppress("NonBooleanPropertyPrefixedWithIs") // Overrides a published name the interface declares.
-    override val isOnlineFlow: StateFlow<Boolean> get() = online
+    override val onlineFlow: StateFlow<Boolean> get() = online
 
-    @Suppress("NonBooleanPropertyPrefixedWithIs") // Overrides a published name the interface declares.
-    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
+    override val onUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
 }
 
 private fun CoroutineScope.buildStore(

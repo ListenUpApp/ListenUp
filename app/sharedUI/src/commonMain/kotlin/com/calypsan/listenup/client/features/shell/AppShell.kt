@@ -173,7 +173,7 @@ fun AppShell(
     val searchState = searchViewModel.state.collectAsStateWithLifecycle()
     val searchQuery = remember(searchState) { derivedStateOf { searchState.value.query } }
     val syncIndicatorState by syncIndicatorViewModel.state.collectAsStateWithLifecycle()
-    val isSyncDetailsExpanded by syncIndicatorViewModel.isExpanded.collectAsStateWithLifecycle()
+    val isSyncDetailsExpanded by syncIndicatorViewModel.expanded.collectAsStateWithLifecycle()
     val unreadNotificationCount by notificationBellViewModel.unreadCount.collectAsStateWithLifecycle()
     val heldBookCount by inboxBadgeViewModel.heldCount.collectAsStateWithLifecycle()
 

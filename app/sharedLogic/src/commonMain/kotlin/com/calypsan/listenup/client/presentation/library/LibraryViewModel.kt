@@ -279,9 +279,9 @@ class LibraryViewModel(
     private val syncSnapshot: Flow<SyncSnapshot> =
         combine(
             flow = syncRepository.syncState,
-            flow2 = syncRepository.isServerScanning,
+            flow2 = syncRepository.serverScanning,
             flow3 = syncRepository.scanProgress,
-            flow4 = syncRepository.isBuildingInitialLibrary,
+            flow4 = syncRepository.buildingInitialLibrary,
             transform = ::SyncSnapshot,
             // SyncSnapshot is a data class — structural equality prevents re-sorting the library
             // on every firehose heartbeat or scan-progress tick when the values haven't actually changed.

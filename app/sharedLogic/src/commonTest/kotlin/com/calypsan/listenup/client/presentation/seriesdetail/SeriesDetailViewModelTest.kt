@@ -84,7 +84,7 @@ class SeriesDetailViewModelTest :
             every { fixture.seriesRepository.observeSeriesLineage(any()) } returns fixture.lineageFlow
             every { fixture.imageRepository.seriesCoverExists(any()) } returns false
             every { fixture.playbackPositionRepository.observeAll() } returns fixture.positionsFlow
-            every { fixture.networkMonitor.isOnlineFlow } returns fixture.online
+            every { fixture.networkMonitor.onlineFlow } returns fixture.online
             every { fixture.seriesRepository.observeHierarchy() } returns fixture.hierarchyFlow
             return fixture
         }

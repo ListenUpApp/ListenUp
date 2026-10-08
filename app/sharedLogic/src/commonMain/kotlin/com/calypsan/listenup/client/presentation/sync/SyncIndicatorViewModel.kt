@@ -102,8 +102,7 @@ class SyncIndicatorViewModel(
     private val pendingOperationRepository: PendingOperationRepository,
     syncRepository: SyncRepository,
 ) : ViewModel() {
-    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
-    val isExpanded: StateFlow<Boolean>
+    val expanded: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
     val state: StateFlow<SyncIndicatorUiState> =
@@ -173,7 +172,7 @@ class SyncIndicatorViewModel(
     }
 
     fun toggleExpanded() {
-        isExpanded.value = !isExpanded.value
+        expanded.value = !expanded.value
     }
 
     private fun retryOperation(id: String) {
