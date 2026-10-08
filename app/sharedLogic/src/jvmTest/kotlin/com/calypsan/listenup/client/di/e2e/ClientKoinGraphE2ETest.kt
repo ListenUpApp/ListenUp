@@ -163,7 +163,9 @@ class ClientKoinGraphE2ETest :
             // The Hardcover connection added rpcChannel<HardcoverService>() (connect, disconnect and
             // the live connection watch) — so 29 → 30.
             // Match details added rpcChannel<MatchingService>() (Find, then Review and Apply) — so 30 → 31.
-            defaultInvalidator.caches shouldHaveSize 31
+            // Person Match details retired the last MetadataLookupService consumer, and its
+            // rpcChannel<MetadataLookupService>() with it — so 31 → 30.
+            defaultInvalidator.caches shouldHaveSize 30
             defaultInvalidator.caches.any { it is ApiClientFactory } shouldBe true
         }
 
