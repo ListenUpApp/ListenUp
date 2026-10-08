@@ -2,30 +2,18 @@ import Testing
 import Shared
 @testable import ListenUp
 
-/// Pure-mapping coverage for the admin observers' seams: the role-label classification the
+/// Pure-mapping coverage for the admin observers' seams: the access-label badge the
 /// users list renders, the create-invite access-level → wire-role projection, and the
 /// failure-type → UI routing (which field to highlight, which banner to show).
 struct AdminObserverTests {
-    // MARK: - Role label mapping
+    // MARK: - Access labels
 
-    @Test func rootUserReadsAsRootWithElevatedBadge() {
-        #expect(AdminRoleFormat.label(isRoot: true, role: "admin") == "Root")
-        #expect(AdminRoleFormat.isRootBadge(isRoot: true, role: "member") == true)
-    }
-
-    @Test func adminRoleGetsElevatedBadgeButCapitalizedLabel() {
-        #expect(AdminRoleFormat.label(isRoot: false, role: "admin") == "Admin")
-        #expect(AdminRoleFormat.isRootBadge(isRoot: false, role: "admin") == true)
-    }
-
-    @Test func memberRoleIsNeutralAndCapitalized() {
-        #expect(AdminRoleFormat.label(isRoot: false, role: "member") == "Member")
-        #expect(AdminRoleFormat.isRootBadge(isRoot: false, role: "member") == false)
-    }
-
-    @Test func blankRoleFallsBackToMember() {
-        #expect(AdminRoleFormat.label(isRoot: false, role: "") == "Member")
-        #expect(AdminRoleFormat.label(isRoot: false, role: "   ") == "Member")
+    @Test func ownersAndAdminsGetTheElevatedBadge() {
+        #expect(AdminRoleFormat.isElevated(.owner) == true)
+        #expect(AdminRoleFormat.isElevated(.admin) == true)
+        #expect(AdminRoleFormat.isElevated(.contributor) == false)
+        #expect(AdminRoleFormat.isElevated(.librarian) == false)
+        #expect(AdminRoleFormat.isElevated(.member) == false)
     }
 
     @Test func capitalizedUppercasesOnlyFirstCharacter() {

@@ -466,7 +466,7 @@ private fun List<String>.isIdWith(vararg subs: String): Boolean = size == 2 || (
 
 /** `/settings`, `/settings/{section}`, and `/settings/hardcover/kept-off` — the one page under a section. */
 private fun List<String>.isSettingsShape(): Boolean =
-    isSection(DEVICES_KEY, NOTIFICATIONS_KEY, HARDCOVER_KEY, LICENCES_KEY) ||
+    isSection(DEVICES_KEY, NOTIFICATIONS_KEY, HARDCOVER_KEY, LICENCES_KEY, CATEGORIES_KEY) ||
         (size == 3 && this[1] == HARDCOVER_KEY && this[2] == KEPT_OFF_KEY)
 
 /**
@@ -2886,7 +2886,8 @@ private fun CollectionDetailRoute(
 }
 
 /**
- * `/admin/categories` — the genre tree, and the five things an admin does to it.
+ * `/admin/categories` and `/settings/categories` — the genre tree, and what an admin or a curator may
+ * do to it. [parentCrumb] and [parent] name the page it was opened from.
  *
  * Unkeyed and opened once for the route's life: the ViewModel observes the genre repository, so the
  * tree refreshes itself after every mutation rather than being re-fetched here.
@@ -2895,6 +2896,8 @@ private fun CollectionDetailRoute(
 private fun CategoriesRoute(
     router: Router,
     openCategories: OpenCategories,
+    parentCrumb: String = "Admin",
+    parent: Route = Route(listOf(ADMIN_KEY)),
 ) {
     val session = remember { openCategories() }
     DisposableEffect(session) { onDispose { session.close() } }
@@ -2910,9 +2913,10 @@ private fun CategoriesRoute(
         onMove = session.onMove,
         onMerge = session.onMerge,
         onClearError = session.onClearError,
-        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+        onOpenAdmin = { router.navigate(parent) },
         mergeHistory = session.mergeHistory.collectAsState().value,
         mergeHistoryActions = session.mergeHistoryActions,
+        parentCrumb = parentCrumb,
     )
 }
 
@@ -3548,6 +3552,8 @@ private fun SettingsRoute(
         onOpenLicences = { router.navigate(Route(listOf(SETTINGS_KEY, LICENCES_KEY))) },
         hardcoverRow = session.hardcoverRow.collectAsState().value,
         onOpenHardcover = { router.navigate(Route(listOf(SETTINGS_KEY, HARDCOVER_KEY))) },
+        canCurateLibrary = session.canCurateLibrary.collectAsState().value,
+        onOpenCategories = { router.navigate(Route(listOf(SETTINGS_KEY, CATEGORIES_KEY))) },
     )
 }
 
@@ -3881,7 +3887,8 @@ private fun UserDetailRoute(
 
     UserDetailPage(
         state = session.state.collectAsState().value,
-        onToggleCanEdit = session.onToggleCanEdit,
+        permissions = session.permissions.collectAsState().value,
+        actions = session.actions,
         onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
     )
 }
@@ -3933,6 +3940,16 @@ private fun AccountRouteContent(
 
         segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == LICENCES_KEY -> {
             LicencesRoute(router = router, openLicences = openLicences)
+        }
+
+        segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == CATEGORIES_KEY -> {
+            // `/settings/categories` — the same screen, reached by a curator who has no admin area.
+            CategoriesRoute(
+                router = router,
+                openCategories = admin.categories,
+                parentCrumb = "Settings",
+                parent = Route(listOf(SETTINGS_KEY)),
+            )
         }
 
         // `size <= 1` for the reason the Settings branch needs it: `active` is ADMIN_KEY for

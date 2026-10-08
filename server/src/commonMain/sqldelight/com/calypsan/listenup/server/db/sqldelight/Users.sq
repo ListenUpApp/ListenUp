@@ -11,6 +11,7 @@
 --   V37__users_timezone.sql          (timezone DEFAULT 'UTC')
 --   V80__hardcover_want_to_read.sql  (starter_shelf_id, hardcover_shelf_id — where Hardcover's Want to Read lands)
 --   V82__drop_can_share.sql          (drops V26's can_share — the inert "Can share" permission)
+--   V92__curate_library_permission.sql (can_curate_library DEFAULT 0, backfilled from can_edit)
 --
 -- SECURITY-RELEVANT CONSTRAINTS preserved verbatim:
 --   * email_normalized UNIQUE — the single structural guarantee that one email maps to one
@@ -45,7 +46,8 @@ CREATE TABLE users (
     timezone         TEXT    NOT NULL DEFAULT 'UTC',
     avatar_updated_at INTEGER NOT NULL DEFAULT 0,
     starter_shelf_id TEXT,
-    hardcover_shelf_id TEXT
+    hardcover_shelf_id TEXT,
+    can_curate_library INTEGER NOT NULL DEFAULT 0
 );
 
 -- Single-row lookup by normalized email — the login / registration uniqueness probe. Indexed
@@ -90,10 +92,14 @@ SELECT role FROM users WHERE id = :id AND deleted_at IS NULL;
 selectFirstByRole:
 SELECT id FROM users WHERE role = :role LIMIT 1;
 
--- Permission flags for a LIVE (non-tombstoned) user — the per-operation canEdit gate
--- (UserPermissionPolicy). A tombstoned or absent user yields no row → denied.
-selectPermissionsLiveById:
-SELECT can_edit FROM users WHERE id = :id AND deleted_at IS NULL;
+-- Both permission flags for a LIVE (non-tombstoned) user — the per-operation gate (PermissionPolicy).
+-- A tombstoned or absent user yields no row → denied.
+selectPermissionFlagsLiveById:
+SELECT can_edit, can_curate_library FROM users WHERE id = :id AND deleted_at IS NULL;
+
+-- Set both permission flags at once — test seeding.
+updatePermissionFlags:
+UPDATE users SET can_edit = :can_edit, can_curate_library = :can_curate_library WHERE id = :id;
 
 -- IANA timezone name for stats day-boundary math (homeTimeZone). Absent row → caller defaults UTC.
 selectTimezoneById:
@@ -187,7 +193,7 @@ SELECT * FROM users WHERE deleted_at IS NULL AND status = 'PENDING_APPROVAL';
 -- any status, since the roster covers ACTIVE and PENDING_APPROVAL alike. A tombstoned or
 -- absent user yields no row and the projection refresh no-ops, matching selectIdentityLiveById.
 selectRosterRowById:
-SELECT email, display_name, role, status, can_edit, created_at FROM users WHERE id = :id AND deleted_at IS NULL;
+SELECT email, display_name, role, status, can_edit, can_curate_library, created_at FROM users WHERE id = :id AND deleted_at IS NULL;
 
 -- Ids of every LIVE (non-tombstoned) ACTIVE or PENDING_APPROVAL user — drives the one-time
 -- admin_user_roster backfill (AdminUserRosterMaintainer.backfillAll).
@@ -211,7 +217,7 @@ WHERE deleted_at IS NULL AND status = 'ACTIVE' AND role IN ('ROOT', 'ADMIN');
 updateAdminFields:
 UPDATE users
 SET display_name = :display_name, role = :role, can_edit = :can_edit,
-    updated_at = :updated_at
+    can_curate_library = :can_curate_library, updated_at = :updated_at
 WHERE id = :id;
 
 -- Admin decision on a pending registration: flips status, stamps approver + decision time.

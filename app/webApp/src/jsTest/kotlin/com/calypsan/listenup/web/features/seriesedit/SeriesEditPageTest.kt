@@ -17,6 +17,7 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import kotlinx.browser.document
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.EventInit
@@ -49,6 +50,7 @@ internal fun editingSeries(
     mergeInProgress: Boolean = false,
     mergeDialogVisible: Boolean = false,
     mergeQuery: String = "",
+    canCurateLibrary: Boolean = true,
 ) = SeriesEditUiState(
     isLoading = isLoading,
     isSaving = isSaving,
@@ -64,6 +66,7 @@ internal fun editingSeries(
     mergeDialogVisible = mergeDialogVisible,
     mergeQuery = mergeQuery,
     hasChanges = hasChanges,
+    canCurateLibrary = canCurateLibrary,
 )
 
 private fun page(
@@ -427,6 +430,18 @@ class SeriesEditPageTest :
             seen shouldContainExactly listOf(SeriesEditUiEvent.MergeDialogDismissed)
         }
         // ---- Merged into this (#1061)
+
+        test("a reader who may not curate gets neither the merge nor its history") {
+            val host =
+                page(
+                    editingSeries(canCurateLibrary = false),
+                    mergeHistory = MergeHistoryState.Ready(listOf(mergeReceipt)),
+                )
+
+            host.querySelector(".sed-merge").shouldBeNull()
+            host.querySelector(".mh-undo").shouldBeNull()
+            host.textContent.orEmpty() shouldNotContain "Merged into this"
+        }
 
         test("the merges folded into this series are listed with who merged them") {
             val host = page(editingSeries(), mergeHistory = MergeHistoryState.Ready(listOf(mergeReceipt)))

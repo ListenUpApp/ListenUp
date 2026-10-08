@@ -1,12 +1,12 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.BackupRoutePaths
-import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.backup.BackupSummary
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BackupError
 import com.calypsan.listenup.core.BackupId
+import com.calypsan.listenup.server.auth.isAdmin
 import com.calypsan.listenup.server.backup.BackupArchive
 import com.calypsan.listenup.server.backup.BackupManifest
 import com.calypsan.listenup.server.backup.BackupPaths
@@ -181,5 +181,3 @@ private fun deriveSafeId(manifest: BackupManifest): String {
     // ':' is invalid in filenames on some filesystems; replace to match local backup id format.
     return "backup-${iso.replace(':', '-')}"
 }
-
-private fun UserRole.isAdmin(): Boolean = this == UserRole.ROOT || this == UserRole.ADMIN

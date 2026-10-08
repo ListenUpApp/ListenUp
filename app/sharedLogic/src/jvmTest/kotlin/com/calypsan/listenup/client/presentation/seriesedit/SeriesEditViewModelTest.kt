@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.presentation.seriesedit
 
+import com.calypsan.listenup.api.dto.auth.Permission
+import com.calypsan.listenup.client.test.fake.FakePermissionsRepository
 import io.kotest.matchers.types.shouldBeInstanceOf
 import dev.mokkery.answering.calls
 import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
@@ -77,6 +79,7 @@ class SeriesEditViewModelTest :
                     every { observeAll() } returns flowOf(emptyList())
                 }
             val errorBus: ErrorBus = ErrorBus()
+            val permissions = FakePermissionsRepository(Permission.EDIT_METADATA, Permission.CURATE_LIBRARY)
 
             fun build(): SeriesEditViewModel =
                 SeriesEditViewModel(
@@ -88,6 +91,7 @@ class SeriesEditViewModelTest :
                     seriesDao = seriesDao,
                     errorBus = errorBus,
                     networkMonitor = networkMonitor,
+                    permissionsRepository = permissions,
                 )
         }
 
@@ -1005,6 +1009,29 @@ class SeriesEditViewModelTest :
                     fixture.seriesEditRepository.reorderChildren(SeriesId("mistborn"), listOf(SeriesId("era2"), SeriesId("era1")))
                 }
                 viewModel.state.value.hierarchyBusy shouldBe false
+            }
+        }
+
+        test("without Curate library the merge history is never fetched and merging is refused") {
+            runTest {
+                val fixture = createFixture()
+                fixture.permissions.granted.value = setOf(Permission.EDIT_METADATA)
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns listOf("book-1")
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                everySuspend { fixture.seriesEditRepository.mergeSeries(any(), any()) } returns AppResult.Success(Unit)
+                val viewModel = fixture.build()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+
+                viewModel.state.value.canCurateLibrary shouldBe false
+                verifySuspend(VerifyMode.not) { fixture.seriesEditRepository.listMergeReceipts(any()) }
+                viewModel.mergeHistory.value
+                    .shouldBeInstanceOf<MergeHistoryState.Ready>()
+                    .receipts shouldBe emptyList()
+                viewModel.onEvent(SeriesEditUiEvent.MergeInto(SeriesId("other")))
+                advanceUntilIdle()
+                verifySuspend(VerifyMode.not) { fixture.seriesEditRepository.mergeSeries(any(), any()) }
             }
         }
     })

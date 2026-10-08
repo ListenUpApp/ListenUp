@@ -170,6 +170,9 @@ class AuthServiceImpl(
         ),
 ) : AuthServicePublic,
     AuthServiceAuthed {
+    @OpenToAllMembers(
+        reason = "public pre-auth surface; every method is rate-bucketed (PublicAuthMethodsAreBucketedRule)",
+    )
     override suspend fun login(request: LoginRequest): AppResult<AuthSession> {
         // Throttle BEFORE any Argon2 work so a brute-force burst can't turn into a CPU/memory DoS.
         enforceRate(AuthRateBucket.LOGIN)?.let { return AppResult.Failure(it) }
@@ -217,6 +220,9 @@ class AuthServiceImpl(
         )
     }
 
+    @OpenToAllMembers(
+        reason = "public pre-auth surface; every method is rate-bucketed (PublicAuthMethodsAreBucketedRule)",
+    )
     override suspend fun register(request: RegisterRequest): AppResult<RegisterResult> {
         enforceRate(AuthRateBucket.REGISTER)?.let { return AppResult.Failure(it) }
         if (!Email.isLikelyEmail(request.email)) return AppResult.Failure(AuthError.InvalidCredentials())
@@ -321,6 +327,9 @@ class AuthServiceImpl(
         )
     }
 
+    @OpenToAllMembers(
+        reason = "public pre-auth surface; every method is rate-bucketed (PublicAuthMethodsAreBucketedRule)",
+    )
     override suspend fun setupRoot(request: RegisterRequest): AppResult<AuthSession> {
         enforceRate(AuthRateBucket.SETUP)?.let { return AppResult.Failure(it) }
         if (!Email.isLikelyEmail(request.email)) return AppResult.Failure(AuthError.InvalidCredentials())
@@ -390,6 +399,7 @@ class AuthServiceImpl(
      * and a client legitimately mints one per reconnect — a bucket here would throttle recovery
      * from exactly the network conditions that cause reconnects.
      */
+    @OpenToAllMembers(reason = "mints a socket ticket only for the access token it verifies")
     override suspend fun issueSocketTicket(accessToken: String): AppResult<SocketTicket> {
         val store =
             socketTicketStore
@@ -402,6 +412,9 @@ class AuthServiceImpl(
         return AppResult.Success(SocketTicket(store.issue(accessToken)))
     }
 
+    @OpenToAllMembers(
+        reason = "public pre-auth surface; every method is rate-bucketed (PublicAuthMethodsAreBucketedRule)",
+    )
     override suspend fun refreshSession(request: RefreshRequest): AppResult<AuthSession> {
         enforceRate(AuthRateBucket.REFRESH)?.let { return AppResult.Failure(it) }
         val rotated =
@@ -503,6 +516,9 @@ class AuthServiceImpl(
      * send batch when any token in it is oversized, so an invalid token must never reach the
      * store.
      */
+    @OpenToAllMembers(
+        reason = "public pre-auth surface; every method is rate-bucketed (PublicAuthMethodsAreBucketedRule)",
+    )
     override suspend fun registerRegistrationWatchToken(
         userId: String,
         token: String,
@@ -532,6 +548,9 @@ class AuthServiceImpl(
     }
 
     /** Delegates to [PasswordResetService.request]. */
+    @OpenToAllMembers(
+        reason = "public pre-auth surface; every method is rate-bucketed (PublicAuthMethodsAreBucketedRule)",
+    )
     override suspend fun requestPasswordReset(
         email: String,
         deviceClaim: String,
@@ -554,6 +573,9 @@ class AuthServiceImpl(
         }
 
     /** Delegates to [PasswordResetService.complete]. */
+    @OpenToAllMembers(
+        reason = "public pre-auth surface; every method is rate-bucketed (PublicAuthMethodsAreBucketedRule)",
+    )
     override suspend fun completePasswordReset(
         ticketId: String,
         claimSecret: String,
@@ -565,6 +587,9 @@ class AuthServiceImpl(
     }
 
     /** Delegates to [RootPasswordResetService.resetRoot]. */
+    @OpenToAllMembers(
+        reason = "public pre-auth surface; every method is rate-bucketed (PublicAuthMethodsAreBucketedRule)",
+    )
     override suspend fun resetRootPassword(
         token: String,
         newPassword: String,
@@ -573,24 +598,28 @@ class AuthServiceImpl(
         return rootPasswordResetService.resetRoot(token, newPassword)
     }
 
+    @OpenToAllMembers(reason = "acts only on the caller's own sessions")
     override suspend fun logout(): AppResult<Unit> {
         val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         sessions.revoke(p.sessionId, p.userId)
         return AppResult.Success(Unit)
     }
 
+    @OpenToAllMembers(reason = "acts only on the caller's own sessions")
     override suspend fun logoutAll(): AppResult<Unit> {
         val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         sessions.revokeAll(p.userId)
         return AppResult.Success(Unit)
     }
 
+    @OpenToAllMembers(reason = "acts only on the caller's own sessions")
     override suspend fun revokeOtherSessions(): AppResult<Unit> {
         val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         sessions.revokeAllExcept(p.userId, p.sessionId)
         return AppResult.Success(Unit)
     }
 
+    @OpenToAllMembers(reason = "acts only on the caller's own sessions")
     override suspend fun revokeSession(sessionId: SessionId): AppResult<Unit> {
         val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         sessions.revoke(sessionId, p.userId)

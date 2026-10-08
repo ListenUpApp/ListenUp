@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.push.PushPlatform
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.AuthRateBucket
 import com.calypsan.listenup.server.auth.LoginRateLimiter
+import com.calypsan.listenup.server.auth.OpenToAllMembers
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.RateDecision
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -59,6 +60,7 @@ internal class PushServiceImpl(
      */
     private val rateLimiter: LoginRateLimiter? = null,
 ) : PushService {
+    @OpenToAllMembers(reason = "the caller's own devices")
     override suspend fun registerToken(
         token: String,
         platform: PushPlatform,
@@ -79,6 +81,7 @@ internal class PushServiceImpl(
         return AppResult.Success(Unit)
     }
 
+    @OpenToAllMembers(reason = "the caller's own devices")
     override suspend fun unregisterToken(token: String): AppResult<Unit> {
         val caller = principal.current() ?: return noPrincipal()
         suspendTransaction(db) {
@@ -87,6 +90,7 @@ internal class PushServiceImpl(
         return AppResult.Success(Unit)
     }
 
+    @OpenToAllMembers(reason = "the caller's own devices")
     override suspend fun sendTestNotification(): AppResult<Unit> {
         val caller = principal.current() ?: return noPrincipal()
         enforcePushTestRate(caller.userId.value)?.let { return AppResult.Failure(it) }

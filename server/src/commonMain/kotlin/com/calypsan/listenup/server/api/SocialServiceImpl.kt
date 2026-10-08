@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.social.CurrentlyListeningSession
 import com.calypsan.listenup.api.error.SocialError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.server.auth.OpenToAllMembers
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.ActiveSessionRepository
@@ -120,6 +121,7 @@ internal class SocialServiceImpl(
         )
     }
 
+    @OpenToAllMembers(reason = "a read: who has read a book the caller can see")
     override suspend fun bookReadership(bookId: BookId): AppResult<BookReadership> {
         val caller = resolveCaller() ?: return noPrincipal()
         // Inaccessible book → NotFound, never revealing the book exists (unchanged ACL).

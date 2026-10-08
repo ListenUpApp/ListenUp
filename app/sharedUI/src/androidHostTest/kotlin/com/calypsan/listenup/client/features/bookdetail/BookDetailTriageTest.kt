@@ -143,6 +143,7 @@ class BookDetailTriageTest {
                     isComplete = false,
                     hasProgress = false,
                     isAdmin = true,
+                    canEditMetadata = true,
                     isWaitingForWifi = false,
                     // True on purpose: the triage layout must hide Play even when playback exists.
                     showPlaybackActions = true,

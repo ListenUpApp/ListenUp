@@ -31,10 +31,8 @@ final class SeriesDetailObserver {
     private(set) var bookGroups: [SeriesBookGroup] = []
     /// The book Continue resumes on a grouped page, with the series it is listed under.
     private(set) var resume: SeriesResumeInfo?
-    /// Whether the reader may change the hierarchy (admin, or the edit permission).
-    private(set) var canEditHierarchy: Bool = false
-    /// Whether the server can be reached; adding a sub-series needs it.
-    private(set) var isOnline: Bool = true
+    /// What the reader may change here: Edit series and Add sub-series follow Edit metadata.
+    private(set) var editAccess: SeriesEditAccess = .none
     /// The "Add sub-series" sheet.
     private(set) var addSubSeries = AddSubSeriesSheetModel()
 
@@ -181,8 +179,7 @@ final class SeriesDetailObserver {
             childSeries = r.childSeries.map(ChildSeriesCard.init)
             bookGroups = r.bookSections.map(SeriesBookGroup.init)
             resume = r.resumeBook.map(SeriesResumeInfo.init)
-            canEditHierarchy = r.canEditHierarchy
-            isOnline = r.isOnline
+            editAccess = SeriesEditAccess(from: r)
             if let raw = r.resumeTarget {
                 resumeTarget = String(describing: raw)
             } else {

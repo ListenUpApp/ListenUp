@@ -1,14 +1,23 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.api.dto.auth.Permission
+import com.calypsan.listenup.api.dto.auth.PermissionGroup
+import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.client.domain.model.AccessLabel
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
+import com.calypsan.listenup.client.domain.model.PermissionPreset
 import com.calypsan.listenup.client.domain.model.UserPermissions
 import com.calypsan.listenup.client.presentation.admin.CreateInviteErrorType
 import com.calypsan.listenup.client.presentation.admin.CreateInviteField
 import com.calypsan.listenup.client.presentation.admin.CreateInviteStatus
 import com.calypsan.listenup.client.presentation.admin.CreateInviteUiState
+import com.calypsan.listenup.client.presentation.admin.PermissionRow
+import com.calypsan.listenup.client.presentation.admin.PermissionSection
 import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
+import com.calypsan.listenup.client.presentation.admin.UserPermissionsUiState
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
@@ -18,10 +27,10 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
-import io.kotest.matchers.string.shouldNotContain
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
+import org.w3c.dom.HTMLSelectElement
 import org.w3c.dom.asList
 import org.w3c.dom.events.Event
 
@@ -33,6 +42,7 @@ internal fun adminUser(
     role: String = "member",
     status: String = "active",
     canEdit: Boolean = true,
+    access: AccessLabel = AccessLabel.CONTRIBUTOR,
 ) = AdminUserInfo(
     id = id,
     email = email,
@@ -42,18 +52,45 @@ internal fun adminUser(
     isRoot = isRoot,
     role = role,
     status = status,
-    permissions = UserPermissions(canEdit = canEdit),
+    permissions = UserPermissions(canEditMetadata = canEdit),
     createdAt = "2026-01-01T00:00:00Z",
+    access = access,
 )
 
-internal fun readyUser(
-    user: AdminUserInfo = adminUser(),
+internal fun readyUser(user: AdminUserInfo = adminUser()) = UserDetailUiState.Ready(user = user)
+
+internal fun permissionsReady(
+    role: UserRole = UserRole.MEMBER,
+    flags: UserPermissions = UserPermissions(canEditMetadata = true),
+    preset: PermissionPreset = PermissionPreset.CONTRIBUTOR,
+    presetsShown: Boolean = true,
+    curateWarning: Boolean = false,
+    changeCount: Int = 0,
+    user: AdminUserInfo = adminUser(displayName = "Quinn"),
     isSaving: Boolean = false,
-    error: com.calypsan.listenup.api.error.AppError? = null,
-) = UserDetailUiState.Ready(
+    error: AppError? = null,
+) = UserPermissionsUiState.Ready(
     user = user,
-    canEdit = user.permissions.canEdit,
+    role = role,
+    flags = flags,
+    sections =
+        listOf(
+            PermissionSection(
+                PermissionGroup.LIBRARY,
+                buildList {
+                    add(PermissionRow(Permission.EDIT_METADATA, flags.canEditMetadata, isUnsaved = false))
+                    if (presetsShown) {
+                        add(PermissionRow(Permission.CURATE_LIBRARY, flags.canCurateLibrary, isUnsaved = curateWarning))
+                    }
+                },
+            ),
+        ),
+    preset = preset,
+    presetsShown = presetsShown,
+    curateWarningShown = curateWarning,
+    changeCount = changeCount,
     isProtected = user.isProtected,
+    isConfirmingAdminPromotion = false,
     isSaving = isSaving,
     error = error,
 )
@@ -128,16 +165,16 @@ class PeopleTest :
 
         fun userPage(
             state: UserDetailUiState,
-            onToggleCanEdit: () -> Unit = {},
+            permissions: UserPermissionsUiState = permissionsReady(),
+            actions: PermissionsPanelActions = PermissionsPanelActions(),
             onOpenAdmin: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
-                UserDetailPage(
-                    state = state,
-                    onToggleCanEdit = onToggleCanEdit,
-                    onOpenAdmin = onOpenAdmin,
-                )
+                UserDetailPage(state = state, permissions = permissions, actions = actions, onOpenAdmin = onOpenAdmin)
             }
+
+        fun switches(host: HTMLElement): List<HTMLInputElement> =
+            host.querySelectorAll("[role=switch]").asList().filterIsInstance<HTMLInputElement>()
 
         val idle = CreateInviteUiState.Ready(CreateInviteStatus.Idle)
 
@@ -295,61 +332,142 @@ class PeopleTest :
             host.textContent.orEmpty() shouldContain "Member"
         }
 
-        test("what the server calls a role is not always what the page does") {
-            roleLabel(adminUser(isRoot = true, role = "admin")) shouldBe "Owner"
-            roleLabel(adminUser(role = "admin")) shouldBe "Admin"
-            roleLabel(adminUser(role = "member")) shouldBe "Member"
+        test("a member's permissions show the three presets as radio cards and both Library switches") {
+            val host = userPage(readyUser(adminUser()))
+
+            host.querySelectorAll("input[type=radio]").length shouldBe 3
+            host.textContent.orEmpty() shouldContain "Listens and browses. Changes nothing."
+            host.textContent.orEmpty() shouldContain "Edit metadata"
+            host.textContent.orEmpty() shouldContain "Curate library"
+            switches(host).size shouldBe 2
+            // The preset the flags match is the checked card.
+            (host.querySelectorAll("input[type=radio]").item(1) as HTMLInputElement).checked shouldBe true
         }
 
-        test("editing book details is the one permission switch, and there is no sharing control") {
-            // ⛔ "Can share" gated nothing once only admins could write collections, so it was
-            // removed: a switch that changes nothing is a lie on an admin page.
-            var edits = 0
+        test("choosing a preset and flipping a switch reach the ViewModel") {
+            val presses = mutableListOf<String>()
             val host =
                 userPage(
-                    readyUser(adminUser(canEdit = false)),
-                    onToggleCanEdit = { edits++ },
+                    readyUser(adminUser()),
+                    actions =
+                        PermissionsPanelActions(
+                            onSelectPreset = { presses += "preset:$it" },
+                            onSetPermission = { p, g -> presses += "set:$p=$g" },
+                        ),
                 )
 
-            val switches = host.querySelectorAll(".sw-in").asList().filterIsInstance<HTMLInputElement>()
-            switches.size shouldBe 1
-            switches[0].hasAttribute("checked") shouldBe false
-            host.textContent.orEmpty() shouldContain "Can edit book details"
-            host.textContent.orEmpty() shouldNotContain "Can share"
-
-            switches[0].click()
+            (host.querySelectorAll("input[type=radio]").item(2) as HTMLInputElement).click()
+            awaitFrame()
+            switches(host)[1].click()
             awaitFrame()
 
-            edits shouldBe 1
-
-            // The switch reflects the member's actual grant, not a fixed position.
-            val granted = userPage(readyUser(adminUser(canEdit = true)))
-            val grantedSwitches = granted.querySelectorAll(".sw-in").asList().filterIsInstance<HTMLInputElement>()
-            grantedSwitches.size shouldBe 1
-            grantedSwitches[0].hasAttribute("checked") shouldBe true
+            presses shouldBe listOf("preset:LIBRARIAN", "set:CURATE_LIBRARY=true")
         }
 
-        test("the owner's switches are genuinely disabled, and the page says why") {
-            // ⛔ Not merely styled inert: the server refuses to change these, and a switch that
+        test("an unsaved curate grant warns, tags the row Unsaved, and the save bar counts the change") {
+            val host =
+                userPage(
+                    readyUser(adminUser()),
+                    permissions =
+                        permissionsReady(
+                            flags = UserPermissions(canEditMetadata = true, canCurateLibrary = true),
+                            preset = PermissionPreset.LIBRARIAN,
+                            curateWarning = true,
+                            changeCount = 1,
+                        ),
+                )
+
+            host.textContent.orEmpty() shouldContain
+                "Quinn will be able to merge and delete these for everyone on this server. Deletes can't be undone."
+            host.textContent.orEmpty() shouldContain "Unsaved"
+            host.textContent.orEmpty() shouldContain "1 unsaved change to Quinn's permissions"
+        }
+
+        test("Save and Discard reach the ViewModel, and nothing unsaved shows no bar") {
+            val presses = mutableListOf<String>()
+            val actions =
+                PermissionsPanelActions(onDiscard = { presses += "discard" }, onSave = { presses += "save" })
+            val host = userPage(readyUser(adminUser()), permissions = permissionsReady(changeCount = 2), actions = actions)
+
+            host.textContent.orEmpty() shouldContain "2 unsaved changes to Quinn's permissions"
+            button(host, "Discard").shouldNotBeNull().click()
+            button(host, "Save changes").shouldNotBeNull().click()
+            awaitFrame()
+            presses shouldBe listOf("discard", "save")
+
+            val clean = userPage(readyUser(adminUser()))
+            clean.querySelector(".perm-bar").shouldBeNull()
+        }
+
+        test("the role picker asks for Admin, and the promotion is confirmed in a dialog") {
+            val presses = mutableListOf<String>()
+            val actions =
+                PermissionsPanelActions(
+                    onRequestRole = { presses += "role:$it" },
+                    onConfirmAdminPromotion = { presses += "confirm" },
+                )
+            val host = userPage(readyUser(adminUser()), actions = actions)
+
+            val role = host.querySelector(".perm-role select") as HTMLSelectElement
+            role.value = "ADMIN"
+            role.dispatchEvent(Event("change", org.w3c.dom.EventInit(bubbles = true)))
+            awaitFrame()
+            presses shouldBe listOf("role:ADMIN")
+
+            val asking =
+                userPage(
+                    readyUser(adminUser()),
+                    permissions = permissionsReady().copy(isConfirmingAdminPromotion = true),
+                    actions = actions,
+                )
+            asking.textContent.orEmpty() shouldContain "Make Quinn an admin?"
+            button(asking, "Make admin").shouldNotBeNull().click()
+            awaitFrame()
+            presses shouldBe listOf("role:ADMIN", "confirm")
+        }
+
+        test("an admin's page says admins can do everything, with no presets or switches") {
+            val host = userPage(readyUser(adminUser()), permissions = permissionsReady(role = UserRole.ADMIN))
+
+            host.textContent.orEmpty() shouldContain "Admins can do everything"
+            switches(host).size shouldBe 0
+            host.querySelectorAll("input[type=radio]").length shouldBe 0
+        }
+
+        test("an older server gets one switch, no presets, and the reason") {
+            val host = userPage(readyUser(adminUser()), permissions = permissionsReady(presetsShown = false))
+
+            switches(host).size shouldBe 1
+            host.querySelectorAll("input[type=radio]").length shouldBe 0
+            host.textContent.orEmpty() shouldContain
+                "This server can only set this one permission. Update ListenUp on the server for the rest."
+        }
+
+        test("the owner's permissions can't be changed, and the page says why") {
+            // ⛔ Not merely styled inert: the server refuses to change these, and a control that
             // looks live and then reverts is worse than one that never moved.
-            val host = userPage(readyUser(adminUser(isRoot = true)))
+            val owner = adminUser(isRoot = true, role = "root")
+            val host =
+                userPage(readyUser(owner), permissions = permissionsReady(role = UserRole.ROOT, user = owner))
 
-            host.querySelectorAll(".sw-in").asList().filterIsInstance<HTMLInputElement>().forEach {
-                it.hasAttribute("disabled") shouldBe true
-            }
             text(host, ".usr-note") shouldContain "owner"
+            host.querySelector(".perm-role select").shouldBeNull()
+            switches(host).size shouldBe 0
         }
 
-        test("a save in flight holds both switches still") {
-            val host = userPage(readyUser(isSaving = true))
+        test("a save in flight holds the switches and the presets still") {
+            val host = userPage(readyUser(), permissions = permissionsReady(isSaving = true, changeCount = 1))
 
-            host.querySelectorAll(".sw-in").asList().filterIsInstance<HTMLInputElement>().forEach {
+            switches(host).forEach { it.hasAttribute("disabled") shouldBe true }
+            host.querySelectorAll("input[type=radio]").asList().filterIsInstance<HTMLInputElement>().forEach {
                 it.hasAttribute("disabled") shouldBe true
             }
+            button(host, "Saving…").shouldNotBeNull()
         }
 
-        test("a toggle the server refused says so without emptying the page") {
-            val host = userPage(readyUser(error = InternalError(debugInfo = "boom")))
+        test("a save the server refused says so without emptying the page") {
+            val host =
+                userPage(readyUser(), permissions = permissionsReady(error = InternalError(debugInfo = "boom")))
 
             text(host, ".usr-err").shouldNotBeNull()
             // Still a page about a person, not an error screen.
@@ -360,7 +478,7 @@ class PeopleTest :
             val host = userPage(UserDetailUiState.Error(InternalError(debugInfo = "boom")))
 
             text(host, ".empty").shouldNotBeNull()
-            host.querySelector(".sw-in").shouldBeNull()
+            host.querySelector("[role=switch]").shouldBeNull()
         }
 
         test("the trail names the member once known, and the page until then") {

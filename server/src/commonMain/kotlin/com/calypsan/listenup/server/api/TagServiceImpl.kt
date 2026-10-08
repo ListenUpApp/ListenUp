@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.dto.TagSummary
+import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TagError
@@ -13,7 +14,7 @@ import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.TagId
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.BookTagRepository
@@ -35,8 +36,9 @@ private const val MIN_LIMIT = 1
  * Renames therefore cannot produce a slug conflict; the slug stays the same.
  *
  * Tag reads ([listTags], [getTagBySlug], [listBooksForTag], [listTagsForBook]) are open to
- * any authenticated user. Tag mutations ([addTagToBook], [removeTagFromBook], [renameTag],
- * [deleteTag]) are gated on the per-user `canEdit` flag via [permissionPolicy]: ROOT/ADMIN
+ * any authenticated user. Edits ([addTagToBook], [removeTagFromBook], [renameTag]) are gated
+ * on [Permission.EDIT_METADATA]; [deleteTag] on [Permission.CURATE_LIBRARY] — both via
+ * [permissionPolicy]: ROOT/ADMIN
  * pass implicitly, a MEMBER passes iff their flag is set (fresh DB lookup per call). The
  * authenticated caller is resolved from [principal] — route handlers call [copyWith] to bind
  * it per-request; the Koin singleton carries an unscoped placeholder that yields no
@@ -57,7 +59,7 @@ internal class TagServiceImpl(
      */
     private val accessPolicy: BookAccessPolicy,
     private val clock: Clock = Clock.System,
-    private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sql),
+    private val permissionPolicy: PermissionPolicy = PermissionPolicy(sql),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : TagService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
@@ -77,14 +79,13 @@ internal class TagServiceImpl(
     }
 
     /**
-     * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
-     * implicitly; a MEMBER passes iff their flag is set (fresh DB lookup per call). An
-     * absent principal — a wiring bug, since route handlers always [copyWith] the
-     * authenticated caller — is denied. Returns null when permitted; the denial otherwise.
+     * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
+     * principal — a wiring bug, since route handlers always [copyWith] the authenticated caller — is
+     * denied. Returns null when permitted; the denial otherwise.
      */
-    private suspend fun requireCanEdit(): AppError? {
+    private suspend fun requirePermission(permission: Permission): AppError? {
         val p = principal.current() ?: return AuthError.PermissionDenied()
-        return permissionPolicy.requireCanEdit(p.userId, p.role)
+        return permissionPolicy.require(p, permission)
     }
 
     override suspend fun listTags(): AppResult<List<TagSummary>> {
@@ -161,7 +162,7 @@ internal class TagServiceImpl(
         bookId: BookId,
         name: String,
     ): AppResult<Tag> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         // Validate name.
         val slug = TagSlug.normalize(name).getOrElse { return AppResult.Failure(it) }
 
@@ -208,7 +209,7 @@ internal class TagServiceImpl(
         bookId: BookId,
         tagId: TagId,
     ): AppResult<Unit> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         if (!bookExists(bookId.value)) {
             return AppResult.Failure(TagError.BookNotFound())
         }
@@ -226,7 +227,7 @@ internal class TagServiceImpl(
         tagId: TagId,
         newName: String,
     ): AppResult<Tag> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         // Validate new name (we call normalize just for validation — slug is not changed).
         when (val slugResult = TagSlug.normalize(newName)) {
             is AppResult.Success -> Unit
@@ -241,7 +242,7 @@ internal class TagServiceImpl(
     }
 
     override suspend fun deleteTag(tagId: TagId): AppResult<Unit> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         if (tagRepository.findById(tagId.value) == null) {
             return AppResult.Failure(TagError.NotFound())
         }

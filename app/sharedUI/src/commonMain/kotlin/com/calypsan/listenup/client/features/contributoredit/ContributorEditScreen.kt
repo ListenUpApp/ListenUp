@@ -239,6 +239,7 @@ fun ContributorEditScreen(
             onMerge = { viewModel.onEvent(ContributorEditUiEvent.ConfirmMergeOnRename) },
             onKeepSeparate = { viewModel.onEvent(ContributorEditUiEvent.KeepSeparateOnRename) },
             onDismiss = { viewModel.onEvent(ContributorEditUiEvent.DismissRenameCollision) },
+            canMerge = state.canCurateLibrary,
         )
     }
 }
@@ -423,6 +424,7 @@ private fun SingleColumnCardsLayout(
                 onEvent(ContributorEditUiEvent.UnmergeAlias(aliasName))
             },
             onMergeClick = onMergeClick,
+            canCurate = state.canCurateLibrary,
         )
     }
 }
@@ -476,6 +478,7 @@ private fun TwoColumnCardsLayout(
                 onEvent(ContributorEditUiEvent.UnmergeAlias(aliasName))
             },
             onMergeClick = onMergeClick,
+            canCurate = state.canCurateLibrary,
         )
     }
 }

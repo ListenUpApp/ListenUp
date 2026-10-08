@@ -148,6 +148,7 @@ internal val adminPresentationModule =
                 setRegistrationPolicyUseCase = get(),
                 loadPasswordResetRequestsUseCase = get(),
                 decidePasswordResetUseCase = get(),
+                instanceRepository = get(),
                 adminRepository = get(),
             )
         }
@@ -200,6 +201,7 @@ internal val adminPresentationModule =
         factory {
             com.calypsan.listenup.client.presentation.admin.AdminCategoriesViewModel(
                 genreRepository = get(),
+                permissionsRepository = get(),
                 errorBus = get(),
             )
         }
@@ -222,6 +224,16 @@ internal val adminPresentationModule =
             com.calypsan.listenup.client.presentation.admin.UserDetailViewModel(
                 userId = params.get<String>(0),
                 adminRepository = get(),
+                instanceRepository = get(),
+                errorBus = get(),
+            )
+        }
+        // UserPermissionsViewModel - takes userId as parameter
+        factory { params ->
+            com.calypsan.listenup.client.presentation.admin.UserPermissionsViewModel(
+                userId = params.get<String>(0),
+                adminRepository = get(),
+                instanceRepository = get(),
                 errorBus = get(),
             )
         }
@@ -351,6 +363,7 @@ internal val bookPresentationModule =
                 tagRepository = get(),
                 playbackPositionRepository = get(),
                 userRepository = get(),
+                permissionsRepository = get(),
                 shelfRepository = get(),
                 collectionRepository = get(),
                 addBooksToShelfUseCase = get(),
@@ -479,7 +492,7 @@ internal val seriesPresentationModule =
                 seriesRepository = get<com.calypsan.listenup.client.domain.repository.SeriesRepository>(),
                 imageRepository = get(),
                 playbackPositionRepository = get(),
-                userRepository = get(),
+                permissionsRepository = get(),
                 networkMonitor = get(),
                 seriesEditRepository = get<com.calypsan.listenup.client.domain.repository.SeriesEditRepository>(),
                 errorBus = get(),
@@ -495,6 +508,7 @@ internal val seriesPresentationModule =
                 seriesDao = get(),
                 errorBus = get(),
                 networkMonitor = get(),
+                permissionsRepository = get(),
             )
         }
     }
@@ -510,6 +524,7 @@ internal val contributorPresentationModule =
                 playbackPositionRepository = get(),
                 seriesRepository = get<com.calypsan.listenup.client.domain.repository.SeriesRepository>(),
                 deleteContributorUseCase = get(),
+                permissionsRepository = get(),
             )
         }
         factory {
@@ -528,6 +543,7 @@ internal val contributorPresentationModule =
                 contributorAliasDao = get(),
                 contributorDao = get(),
                 errorBus = get(),
+                permissionsRepository = get(),
             )
         }
     }
@@ -677,6 +693,7 @@ internal val settingsPresentationModule =
                 logoutUseCase = get<com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase>(),
                 pushRepository = get(),
                 hardcoverRepository = get(),
+                permissionsRepository = get(),
                 appVersion = get(named("clientVersion")),
                 errorBus = get(),
             )

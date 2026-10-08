@@ -5,6 +5,7 @@ AbsItemId
 AbsItemRef
 AbsUserId
 AbsUserMatch
+AccessLabel
 AccessMode
 AccessToken
 ActiveSession
@@ -608,6 +609,12 @@ PendingOperationType
 PendingOperationUi
 PendingRegistration
 PendingSubSeriesMove
+Permission
+PermissionGroup
+PermissionPreset
+PermissionRow
+PermissionSection
+PermissionsRepository
 PersonApplySummary
 PersonCandidateKey
 PersonCandidateUi
@@ -889,6 +896,10 @@ UserDetailUiState_SealedType
 UserDetailViewModel
 UserId
 UserPermissions
+UserPermissionsPatch
+UserPermissionsUiState
+UserPermissionsUiState_SealedType
+UserPermissionsViewModel
 UserPreferences
 UserPreferencesRepository
 UserProfileRepository

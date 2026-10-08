@@ -110,6 +110,8 @@ final class BookDetailObserver {
     private(set) var shelfError: String?
     private(set) var myShelves: [ShelfRow] = []
     private(set) var isAdmin: Bool = false
+    /// May edit this book's metadata, chapters and match (Edit metadata; admins always may).
+    private(set) var canEditMetadata: Bool = false
     private(set) var showCollectionPicker: Bool = false
     private(set) var isAddingToCollection: Bool = false
     private(set) var collectionError: String?
@@ -403,6 +405,7 @@ final class BookDetailObserver {
             isAddingToShelf = r.isAddingToShelf
             shelfError = r.shelfError
             isAdmin = r.isAdmin
+            canEditMetadata = r.canEditMetadata
             showCollectionPicker = r.showCollectionPicker
             isAddingToCollection = r.isAddingToCollection
             collectionError = r.collectionError

@@ -13,6 +13,9 @@ import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.repository.GenreRepository
+import com.calypsan.listenup.client.domain.repository.PermissionsRepository
+import com.calypsan.listenup.api.dto.auth.Permission
+import kotlinx.coroutines.flow.combine
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,19 +26,37 @@ import kotlinx.coroutines.launch
 private val logger = KotlinLogging.logger {}
 
 /**
- * ViewModel for the admin categories (genres) tree screen.
+ * ViewModel for the categories (genres) tree screen — for admins and for members with Curate library;
+ * each control follows its permission.
  *
  * Manages the hierarchical display of system genres with expand/collapse state.
  * Genres form a tree structure based on their materialized path (e.g., /fiction/fantasy).
  */
 class AdminCategoriesViewModel(
     private val genreRepository: GenreRepository,
+    private val permissionsRepository: PermissionsRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<AdminCategoriesUiState>
         field = MutableStateFlow<AdminCategoriesUiState>(AdminCategoriesUiState.Loading)
 
+    private var latestCanEditMetadata = false
+    private var latestCanCurateLibrary = false
+
     init {
+        // The screen is open to curators as well as admins: each control follows the permission the
+        // server enforces for it (editing vs curating), not the role that used to be the only way in.
+        viewModelScope.launch {
+            combine(
+                permissionsRepository.observeCan(Permission.EDIT_METADATA),
+                permissionsRepository.observeCan(Permission.CURATE_LIBRARY),
+            ) { canEdit, canCurate -> canEdit to canCurate }
+                .collect { (canEdit, canCurate) ->
+                    latestCanEditMetadata = canEdit
+                    latestCanCurateLibrary = canCurate
+                    updateReady { it.copy(canEditMetadata = canEdit, canCurateLibrary = canCurate) }
+                }
+        }
         observeGenres()
     }
 
@@ -55,6 +76,8 @@ class AdminCategoriesViewModel(
                                 genres = genres,
                                 tree = tree,
                                 totalBookCount = genres.sumOf { it.bookCount },
+                                canEditMetadata = latestCanEditMetadata,
+                                canCurateLibrary = latestCanCurateLibrary,
                             )
                         } else {
                             // First emission (from Loading) or recovering from Error:
@@ -63,6 +86,8 @@ class AdminCategoriesViewModel(
                                 genres = genres,
                                 tree = tree,
                                 totalBookCount = genres.sumOf { it.bookCount },
+                                canEditMetadata = latestCanEditMetadata,
+                                canCurateLibrary = latestCanCurateLibrary,
                             )
                         }
                     }
@@ -115,6 +140,7 @@ class AdminCategoriesViewModel(
         name: String,
         parentId: String?,
     ) {
+        if (!latestCanEditMetadata) return
         viewModelScope.launch {
             updateReady { it.copy(isSaving = true, error = null) }
             when (val result = genreRepository.createGenre(name, parentId?.let(::GenreId))) {
@@ -146,6 +172,7 @@ class AdminCategoriesViewModel(
         id: String,
         name: String,
     ) {
+        if (!latestCanEditMetadata) return
         viewModelScope.launch {
             updateReady { it.copy(isSaving = true, error = null) }
             when (val result = genreRepository.updateGenre(GenreId(id), GenreUpdate(name = name))) {
@@ -165,6 +192,7 @@ class AdminCategoriesViewModel(
      * Delete a genre.
      */
     fun deleteGenre(id: String) {
+        if (!latestCanCurateLibrary) return
         viewModelScope.launch {
             updateReady { it.copy(isSaving = true, error = null) }
             when (val result = genreRepository.deleteGenre(GenreId(id))) {
@@ -187,6 +215,7 @@ class AdminCategoriesViewModel(
         id: String,
         newParentId: String?,
     ) {
+        if (!latestCanEditMetadata) return
         viewModelScope.launch {
             updateReady { it.copy(isSaving = true, error = null) }
             when (val result = genreRepository.moveGenre(GenreId(id), newParentId?.let(::GenreId))) {
@@ -220,6 +249,7 @@ class AdminCategoriesViewModel(
         source: String,
         target: String,
     ) {
+        if (!latestCanCurateLibrary) return
         viewModelScope.launch {
             updateReady { it.copy(isSaving = true, error = null) }
             when (val result = genreRepository.mergeGenres(GenreId(source), GenreId(target))) {
@@ -247,6 +277,8 @@ class AdminCategoriesViewModel(
 
     /** Opens the merge history for [genreId], replacing any other that was open. */
     fun openMergeHistory(genreId: String) {
+        // Merge history only feeds undo, a curate power — and the server refuses the read without it.
+        if (!latestCanCurateLibrary) return
         val name =
             (state.value as? AdminCategoriesUiState.Ready)
                 ?.genres
@@ -278,6 +310,7 @@ class AdminCategoriesViewModel(
 
     /** Undoes [receiptId] in the open merge history. */
     fun undoGenreMerge(receiptId: MergeReceiptId) {
+        if (!latestCanCurateLibrary) return
         openHistory?.undo(receiptId)
     }
 
@@ -378,6 +411,10 @@ sealed interface AdminCategoriesUiState {
         val expandedIds: Set<String> = emptySet(),
         val totalBookCount: Int = 0,
         val error: AppError? = null,
+        /** May add, rename and move genres (Edit metadata). */
+        val canEditMetadata: Boolean = false,
+        /** May merge and delete genres, and see and undo their merges (Curate library). */
+        val canCurateLibrary: Boolean = false,
     ) : AdminCategoriesUiState
 
     /** Terminal state when the observe pipeline fails. */

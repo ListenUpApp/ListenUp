@@ -216,6 +216,10 @@ final class Dependencies {
     func createUserDetailViewModel(userId: String) -> UserDetailViewModel {
         KoinHelper.shared.getUserDetailViewModel(userId: userId)
     }
+
+    func createUserPermissionsViewModel(userId: String) -> UserPermissionsViewModel {
+        KoinHelper.shared.getUserPermissionsViewModel(userId: userId)
+    }
 }
 
 // MARK: - Locked cache

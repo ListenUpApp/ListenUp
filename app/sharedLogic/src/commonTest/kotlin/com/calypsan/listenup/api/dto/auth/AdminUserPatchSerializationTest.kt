@@ -6,24 +6,29 @@ import io.kotest.matchers.shouldBe
 
 class AdminUserPatchSerializationTest :
     FunSpec({
-        test("AdminUserPatch round-trips with role and permissions set") {
+        test("AdminUserPatch round-trips with a role and a permissions patch") {
             val patch =
                 AdminUserPatch(
                     displayName = "New Name",
                     role = UserRole.ADMIN,
-                    permissions = UserPermissions(canEdit = false),
+                    permissions = UserPermissionsPatch(canEditMetadata = false),
                 )
-            val decoded =
-                contractJson.decodeFromString<AdminUserPatch>(contractJson.encodeToString(patch))
-            decoded shouldBe patch
+            contractJson.decodeFromString<AdminUserPatch>(contractJson.encodeToString(patch)) shouldBe patch
         }
+
         test("all-null AdminUserPatch round-trips") {
-            val patch = AdminUserPatch()
-            val decoded =
-                contractJson.decodeFromString<AdminUserPatch>(contractJson.encodeToString(patch))
-            decoded shouldBe patch
-            decoded.displayName shouldBe null
-            decoded.role shouldBe null
+            val decoded = contractJson.decodeFromString<AdminUserPatch>(contractJson.encodeToString(AdminUserPatch()))
+            decoded shouldBe AdminUserPatch()
             decoded.permissions shouldBe null
+        }
+
+        test("an older admin client's whole-flags patch reads as a patch of canEdit alone") {
+            contractJson.decodeFromString<AdminUserPatch>("""{"permissions":{"canEdit":false}}""").permissions shouldBe
+                UserPermissionsPatch(canEditMetadata = false)
+        }
+
+        test("toggling one flag sends only that flag, so an older server never sees the others") {
+            contractJson.encodeToString(AdminUserPatch(permissions = UserPermissionsPatch(canEditMetadata = true))) shouldBe
+                """{"permissions":{"canEdit":true}}"""
         }
     })

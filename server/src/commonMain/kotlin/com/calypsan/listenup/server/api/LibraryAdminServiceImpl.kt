@@ -7,7 +7,6 @@ import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.LibraryFolder
 import com.calypsan.listenup.api.dto.LibraryFolderRef
 import com.calypsan.listenup.api.dto.SetupStatus
-import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.LibraryError
@@ -16,7 +15,9 @@ import com.calypsan.listenup.api.sync.LibraryFolderSyncPayload
 import com.calypsan.listenup.api.sync.LibrarySyncPayload
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.isAdmin
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.LibraryFolderRepository
@@ -331,8 +332,8 @@ internal class LibraryAdminServiceImpl(
      * the authenticated caller — denied rather than run unauthenticated).
      */
     private fun requireAdmin(): AppError? {
-        val role = principal.current()?.role ?: return AuthError.PermissionDenied()
-        return if (role == UserRole.ROOT || role == UserRole.ADMIN) null else AuthError.PermissionDenied()
+        val caller = principal.current() ?: return AuthError.PermissionDenied()
+        return PermissionPolicy.requireAdmin(caller)
     }
 
     /**
@@ -367,7 +368,7 @@ internal class LibraryAdminServiceImpl(
         // member has them redacted. Route handlers always bind a principal via copyWith, so a null
         // principal here is always an internal/system caller — never a wire request.
         val role = principal.current()?.role
-        val exposePaths = role == null || role == UserRole.ROOT || role == UserRole.ADMIN
+        val exposePaths = role == null || role.isAdmin()
         val folderPage = libraryFolderRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
         val folderRefs =
             folderPage.items

@@ -1803,7 +1803,10 @@ class WebAppRootTest :
 
         test("the pencil on a series page opens the form over it") {
             val (host, router) =
-                mountAt("/series/s-cosmere", openSeriesDetail = fixedSeriesDetail(readySeries()))
+                mountAt(
+                    "/series/s-cosmere",
+                    openSeriesDetail = fixedSeriesDetail(readySeries(canEditMetadata = true)),
+                )
 
             try {
                 (host.querySelector(".sd-edit") as HTMLElement).click()

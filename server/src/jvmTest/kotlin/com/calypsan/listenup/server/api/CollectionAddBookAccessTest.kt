@@ -6,7 +6,7 @@ import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
-import com.calypsan.listenup.api.error.CollectionError
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
@@ -14,7 +14,6 @@ import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.services.BookRepository
@@ -41,7 +40,7 @@ import kotlinx.coroutines.test.runTest
  * Tests for who may add a book via [CollectionServiceImpl.addBookToCollection], and what they may add.
  *
  * Only admins write collections, so a member — even one owning a collection from before that rule —
- * is refused with `CollectionError.Forbidden` at the write gate, before any book-visibility check runs:
+ * is refused with `AuthError.PermissionDenied` at the write gate, before any book-visibility check runs:
  * whether or not they can see the book, the answer is the same, so the add can neither hand them an
  * unseen book nor reveal that one exists. An admin sees every live book, so the admin may add a book
  * no member can reach.
@@ -80,7 +79,6 @@ class CollectionAddBookAccessTest :
                     grantRepo = grantRepo,
                     accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
                     bookAccessPolicy = BookAccessPolicy(sql, driver),
-                    permissionPolicy = UserPermissionPolicy(sql),
                     bus = bus,
                     sql = sql,
                     bookRevisionTouch = FakeBookRevisionTouch(),
@@ -113,7 +111,7 @@ class CollectionAddBookAccessTest :
                     val result = scoped.addBookToCollection(CollectionId("mine"), BookId("hidden"))
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
-                    failure.error.shouldBeInstanceOf<CollectionError.Forbidden>()
+                    failure.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
                 }
             }
         }
@@ -138,7 +136,7 @@ class CollectionAddBookAccessTest :
                     val result = scoped.addBookToCollection(CollectionId("mine"), BookId("visible"))
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
-                    failure.error.shouldBeInstanceOf<CollectionError.Forbidden>()
+                    failure.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
                 }
             }
         }

@@ -14,7 +14,7 @@ import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.librarywrite.testBroker
@@ -75,7 +75,7 @@ class BookServiceImplGetBookAccessTest :
                     sql = sql,
                     genreRepo = genreRepo,
                     accessPolicy = BookAccessPolicy(sql, driver),
-                    permissionPolicy = UserPermissionPolicy(sql),
+                    permissionPolicy = PermissionPolicy(sql),
                     principal = PrincipalProvider { error("Unscoped — call copyWith") },
                 )
             return GetBookFixture(

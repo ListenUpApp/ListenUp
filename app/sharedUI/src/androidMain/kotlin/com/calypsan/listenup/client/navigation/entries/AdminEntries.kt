@@ -27,6 +27,7 @@ import com.calypsan.listenup.client.navigation.AdminCollections
 import com.calypsan.listenup.client.navigation.AdminLibrarySettings
 import com.calypsan.listenup.client.navigation.AdminOrganizeSettings
 import com.calypsan.listenup.client.navigation.AdminUserDetail
+import com.calypsan.listenup.client.navigation.AdminUserPermissions
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BookEdit
 import com.calypsan.listenup.client.navigation.CreateBackup
@@ -208,6 +209,19 @@ internal fun EntryProviderScope<NavKey>.adminDetailEntries(backStack: NavBackSta
             onBackClick = {
                 backStack.removeAt(backStack.lastIndex)
             },
+            onPermissionsClick = { backStack.add(AdminUserPermissions(args.userId)) },
+        )
+    }
+    entry<AdminUserPermissions> { args ->
+        val viewModel:
+            com.calypsan.listenup.client.presentation.admin.UserPermissionsViewModel =
+            koinViewModel {
+                org.koin.core.parameter
+                    .parametersOf(args.userId)
+            }
+        com.calypsan.listenup.client.features.admin.UserPermissionsScreen(
+            viewModel = viewModel,
+            onBackClick = { backStack.removeAt(backStack.lastIndex) },
         )
     }
     entry<AdminLibrarySettings> {

@@ -275,43 +275,49 @@ private fun Hero(
             }
         }
 
-        // Icon-only, so the accessible name is the attribute rather than the content — the same
-        // shape Book Detail's Edit uses, for the same reason: a hero has no room for a verb.
-        Button(
-            kind = ButtonKind.Icon,
-            size = ButtonSize.Lg,
-            onClick = { onEdit() },
-            label = "Edit contributor",
-            attrs = {
-                classes("cd-edit")
-            },
-        ) { Icon(WebIcon.Pencil) }
+        // Each control shows only to a reader who may use it: editing and matching follow Edit
+        // metadata, deleting follows Curate library — the same gates the server enforces.
+        if (state.canEditMetadata) {
+            // Icon-only, so the accessible name is the attribute rather than the content — the same
+            // shape Book Detail's Edit uses, for the same reason: a hero has no room for a verb.
+            Button(
+                kind = ButtonKind.Icon,
+                size = ButtonSize.Lg,
+                onClick = { onEdit() },
+                label = "Edit contributor",
+                attrs = {
+                    classes("cd-edit")
+                },
+            ) { Icon(WebIcon.Pencil) }
 
-        // Beside Edit, for the reason Book Detail's is: editing changes what the reader believes;
-        // matching asks a catalogue and offers its answer.
-        Button(
-            kind = ButtonKind.Icon,
-            size = ButtonSize.Lg,
-            onClick = { onMatchMetadata() },
-            label = "Match details",
-            attrs = {
-                classes("cd-match")
-            },
-        ) { Icon(WebIcon.Sparkles) }
+            // Beside Edit, for the reason Book Detail's is: editing changes what the reader believes;
+            // matching asks a catalogue and offers its answer.
+            Button(
+                kind = ButtonKind.Icon,
+                size = ButtonSize.Lg,
+                onClick = { onMatchMetadata() },
+                label = "Match details",
+                attrs = {
+                    classes("cd-match")
+                },
+            ) { Icon(WebIcon.Sparkles) }
+        }
 
-        // Last, and disabled while its own work is in flight — a second press would ask the server
-        // to delete someone already being deleted.
-        Button(
-            kind = ButtonKind.Icon,
-            size = ButtonSize.Lg,
-            onClick = { onDeleteClick() },
-            label = if (isDeleting) "Deleting contributor" else "Delete contributor",
-            attrs = {
-                classes("cd-delete")
-                if (isDeleting) attr("disabled", "")
-                attr("title", "Delete contributor")
-            },
-        ) { Icon(WebIcon.Trash) }
+        if (state.canCurateLibrary) {
+            // Last, and disabled while its own work is in flight — a second press would ask the server
+            // to delete someone already being deleted.
+            Button(
+                kind = ButtonKind.Icon,
+                size = ButtonSize.Lg,
+                onClick = { onDeleteClick() },
+                label = if (isDeleting) "Deleting contributor" else "Delete contributor",
+                attrs = {
+                    classes("cd-delete")
+                    if (isDeleting) attr("disabled", "")
+                    attr("title", "Delete contributor")
+                },
+            ) { Icon(WebIcon.Trash) }
+        }
     }
 }
 

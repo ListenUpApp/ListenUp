@@ -1,18 +1,41 @@
 package com.calypsan.listenup.client.domain.model
 
+import com.calypsan.listenup.api.dto.auth.Permission
+
 /**
- * User permission flags for action-level access control.
+ * The signed-in user's, or an administered user's, permission flags — the domain twin of the contract
+ * `UserPermissions`, one field per known `Permission`. ROOT and ADMIN hold every permission whatever
+ * these say; [com.calypsan.listenup.client.domain.repository.PermissionsRepository] is the one place a
+ * ViewModel asks "may I?".
  *
- * Both flags mirror the contract `UserPermissions` one-for-one. [canEdit] was absent here until
- * #1270, which is why no admin screen could ever grant it: the server has gated every metadata
- * mutation on it since `V26`, but the client's mappers collapsed the contract user down to an
- * admin bit and dropped the rest.
- *
- * @property canEdit Whether user can edit content metadata — tags, moods, genres, series, contributors
+ * @property canEditMetadata Edit metadata: book fields, covers, chapters, matching, and editing (not
+ *   merging or deleting) catalogue entries.
+ * @property canCurateLibrary Curate library: merge, unmerge and delete contributors, series, genres,
+ *   tags and moods, and undo those merges.
  */
 data class UserPermissions(
-    val canEdit: Boolean = true,
-)
+    val canEditMetadata: Boolean = true,
+    val canCurateLibrary: Boolean = false,
+) {
+    /** Whether these flags grant [permission]. [Permission.UNKNOWN] is never granted. */
+    fun allows(permission: Permission): Boolean =
+        when (permission) {
+            Permission.EDIT_METADATA -> canEditMetadata
+            Permission.CURATE_LIBRARY -> canCurateLibrary
+            Permission.UNKNOWN -> false
+        }
+
+    /** These flags with [permission] set to [granted]. [Permission.UNKNOWN] changes nothing. */
+    fun granting(
+        permission: Permission,
+        granted: Boolean,
+    ): UserPermissions =
+        when (permission) {
+            Permission.EDIT_METADATA -> copy(canEditMetadata = granted)
+            Permission.CURATE_LIBRARY -> copy(canCurateLibrary = granted)
+            Permission.UNKNOWN -> this
+        }
+}
 
 /**
  * Domain model representing a user in the admin context.
@@ -31,6 +54,8 @@ data class UserPermissions(
  * @property status User's current status (active, pending, etc.)
  * @property permissions User's permission flags
  * @property createdAt Creation timestamp as ISO string
+ * @property access How the admin lists name this user — their role, or a member's preset ([accessLabelFor]).
+ *   Filled in by the ViewModels that know what the server advertises.
  */
 data class AdminUserInfo(
     val id: String,
@@ -43,6 +68,7 @@ data class AdminUserInfo(
     val status: String,
     val permissions: UserPermissions = UserPermissions(),
     val createdAt: String,
+    val access: AccessLabel = AccessLabel.MEMBER,
 ) {
     /**
      * Returns a display-friendly name using the best available option:

@@ -13,7 +13,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Mutated
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.core.ContributorId
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.matching.BookFinder
 import com.calypsan.listenup.server.matching.PeopleFinder
@@ -40,7 +40,7 @@ private fun SqlTestDatabases.personService(people: PersonRig): MatchingServiceIm
         finder = BookFinder(MetadataProviderRegistry(emptyList()), EnrichmentRoutes.DEFAULT),
         loadBook = { null },
         libraryRegion = { null },
-        permissionPolicy = UserPermissionPolicy(sql),
+        permissionPolicy = PermissionPolicy(sql),
         bookAccessPolicy = BookAccessPolicy(sql, driver),
         peopleFinder = PeopleFinder(MetadataProviderRegistry(emptyList()), EnrichmentRoutes.DEFAULT),
         loadPeople = { _, _ -> null },

@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.RootResetToken
@@ -165,6 +166,17 @@ class InstanceServiceImplTest :
                             Clock.System,
                         )
                     (svcOnUnconfigured.getServerInfo() as AppResult.Success).data.pushEnabled shouldBe false
+                }
+            }
+        }
+
+        test("getServerInfo advertises every permission it enforces, by wire key") {
+            withSqlDatabase {
+                runTest {
+                    val settings = ServerSettingsRepository(sql, default = RegistrationPolicy.OPEN)
+                    val info = (instanceService(sql, settings).getServerInfo() as AppResult.Success).data
+                    info.permissionFlags shouldBe setOf("canEdit", "canCurateLibrary")
+                    info.permissionFlags shouldBe Permission.known.map { it.wireKey }.toSet()
                 }
             }
         }

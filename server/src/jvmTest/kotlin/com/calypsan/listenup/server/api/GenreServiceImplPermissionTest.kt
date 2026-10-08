@@ -5,7 +5,9 @@ package com.calypsan.listenup.server.api
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.core.GenreId
+import com.calypsan.listenup.core.MergeReceiptId
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.BookRepository
@@ -20,6 +22,8 @@ import com.calypsan.listenup.server.testing.memberPrincipal
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.server.testing.shouldBeDeniedPermission
+import com.calypsan.listenup.server.testing.shouldPassThePermissionGate
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -28,10 +32,9 @@ import kotlinx.coroutines.test.runTest
 /**
  * canEdit-gate tests for [GenreServiceImpl] (closes MA holistic-review finding I1).
  *
- * `createGenre` is the representative mutation; every genre mutation
- * (`createGenre`/`updateGenre`/`deleteGenre`/`moveGenre`/`mergeGenres`/`mapUnmappedToGenre`)
- * shares the identical first-statement `requireCanEdit()` guard. Reads stay open and are
- * covered by the existing genre read tests.
+ * `createGenre` is the representative edit, gated on `Permission.EDIT_METADATA`; merge, merge
+ * history, undo and delete are gated on `Permission.CURATE_LIBRARY`, and the matrix test covers
+ * each. Reads stay open and are covered by the existing genre read tests.
  */
 class GenreServiceImplPermissionTest :
     FunSpec({
@@ -74,6 +77,49 @@ class GenreServiceImplPermissionTest :
                 }
             }
         }
+
+        test("genre merge, merge history, undo and delete need Curate library, not Edit metadata") {
+            withSqlDatabase {
+                sql.seedTestUser("editor", UserRoleColumn.MEMBER, canEdit = true, canCurateLibrary = false)
+                sql.seedTestUser("curator", UserRoleColumn.MEMBER, canEdit = false, canCurateLibrary = true)
+                sql.seedTestUser("nobody", UserRoleColumn.MEMBER, canEdit = false, canCurateLibrary = false)
+                runTest {
+                    val service = makeGenrePermService(sql, driver)
+                    val editor = service.copyWith(memberPrincipal("editor"))
+                    val curator = service.copyWith(memberPrincipal("curator"))
+                    val nobody = service.copyWith(memberPrincipal("nobody"))
+                    val admin = service.copyWith(rootPrincipal())
+                    val a = GenreId("g-a")
+                    val b = GenreId("g-b")
+                    val receipt = MergeReceiptId("r-1")
+
+                    for (refused in listOf(editor, nobody)) {
+                        refused.mergeGenres(a, b).shouldBeDeniedPermission()
+                        refused.listMergeReceipts(b).shouldBeDeniedPermission()
+                        refused.undoGenreMerge(receipt).shouldBeDeniedPermission()
+                        refused.deleteGenre(a).shouldBeDeniedPermission()
+                    }
+                    for (allowed in listOf(curator, admin)) {
+                        allowed.mergeGenres(a, b).shouldPassThePermissionGate()
+                        allowed.listMergeReceipts(b).shouldPassThePermissionGate()
+                        allowed.undoGenreMerge(receipt).shouldPassThePermissionGate()
+                        allowed.deleteGenre(a).shouldPassThePermissionGate()
+                    }
+                }
+            }
+        }
+
+        test("creating a genre still needs Edit metadata, which Curate library alone does not grant") {
+            withSqlDatabase {
+                sql.seedTestUser("curator", UserRoleColumn.MEMBER, canEdit = false, canCurateLibrary = true)
+                runTest {
+                    makeGenrePermService(sql, driver)
+                        .copyWith(memberPrincipal("curator"))
+                        .createGenre(parentId = null, name = "Fiction")
+                        .shouldBeDeniedPermission()
+                }
+            }
+        }
     })
 
 private fun makeGenrePermService(
@@ -102,6 +148,6 @@ private fun makeGenrePermService(
         bookRepository = bookRepo,
         sqlDb = sql,
         accessPolicy = BookAccessPolicy(sql, driver),
-        permissionPolicy = UserPermissionPolicy(sql),
+        permissionPolicy = PermissionPolicy(sql),
     )
 }

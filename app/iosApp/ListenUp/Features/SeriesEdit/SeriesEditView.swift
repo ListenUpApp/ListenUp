@@ -63,16 +63,19 @@ struct SeriesEditView: View {
 
                     SeriesPlacementSection(observer: observer, editMode: $editMode)
 
-                    Section {
-                        mergeSection(observer)
-                    }
+                    // Merging, and undoing a merge, are Curate library's.
+                    if observer.canCurateLibrary {
+                        Section {
+                            mergeSection(observer)
+                        }
 
-                    Section(String(localized: "merge_history.section_title")) {
-                        MergeHistoryListView(
-                            model: observer.mergeHistory,
-                            onUndo: { observer.onUndoMerge($0) },
-                            onRetry: { observer.onRetryMergeHistory() }
-                        )
+                        Section(String(localized: "merge_history.section_title")) {
+                            MergeHistoryListView(
+                                model: observer.mergeHistory,
+                                onUndo: { observer.onUndoMerge($0) },
+                                onRetry: { observer.onRetryMergeHistory() }
+                            )
+                        }
                     }
                 }
                 .environment(\.editMode, $editMode)

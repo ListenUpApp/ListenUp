@@ -32,6 +32,7 @@ internal data class AuthUser(
     val approvedBy: String?,
     val approvedAt: Long?,
     val deletedAt: Long?,
+    val canCurateLibrary: Boolean = false,
 )
 
 /** Map a generated `users` row into the server-side [AuthUser] projection. */
@@ -48,6 +49,7 @@ internal fun Users.toAuthUser(): AuthUser =
         // can_edit is INTEGER 0/1 in SQLite; 0 ↔ false, anything else ↔ true,
         // matching the Exposed `bool` adapter that read non-zero as true.
         canEdit = can_edit != 0L,
+        canCurateLibrary = can_curate_library != 0L,
         approvedBy = approved_by,
         approvedAt = approved_at,
         deletedAt = deleted_at,
@@ -62,7 +64,7 @@ internal fun AuthUser.toContract(): User =
         role = role.toContract(),
         status = status.toContract(),
         createdAt = createdAt,
-        permissions = UserPermissions(canEdit = canEdit),
+        permissions = UserPermissions(canEditMetadata = canEdit, canCurateLibrary = canCurateLibrary),
         approvedBy = approvedBy,
         approvedAt = approvedAt,
     )

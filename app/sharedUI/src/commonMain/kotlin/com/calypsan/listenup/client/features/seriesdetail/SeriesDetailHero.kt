@@ -111,7 +111,8 @@ internal fun SeriesColorHero(
     onBackClick: () -> Unit,
     onContributorClick: (String) -> Unit,
     onShowAuthors: () -> Unit,
-    onEditClick: () -> Unit,
+    /** Null when the reader may not edit the series (no Edit metadata): no pencil is offered. */
+    onEditClick: (() -> Unit)?,
     onSeriesClick: (String) -> Unit,
 ) {
     val haptics = LocalHaptics.current
@@ -131,7 +132,7 @@ internal fun SeriesColorHero(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             HeroNavRow(onBack = onBackClick) {
-                if (!LocalDeviceContext.current.isLeanback) {
+                if (onEditClick != null && !LocalDeviceContext.current.isLeanback) {
                     IconButton(
                         onClick = {
                             haptics.press()
@@ -266,7 +267,8 @@ internal fun HeroBody(
 @Composable
 internal fun HeroActionRow(
     onBackClick: () -> Unit,
-    onEditClick: () -> Unit,
+    /** Null when the reader may not edit the series (no Edit metadata): no pencil is offered. */
+    onEditClick: (() -> Unit)?,
 ) {
     val tint = MaterialTheme.colorScheme.onPrimaryContainer
     val haptics = LocalHaptics.current
@@ -280,7 +282,7 @@ internal fun HeroActionRow(
             Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.common_back), tint = tint)
         }
         Spacer(Modifier.weight(1f))
-        if (!LocalDeviceContext.current.isLeanback) {
+        if (onEditClick != null && !LocalDeviceContext.current.isLeanback) {
             IconButton(
                 onClick = {
                     haptics.press()

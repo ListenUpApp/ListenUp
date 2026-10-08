@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.dto.ContributorUpdate
+import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.metadata.ContributorField
 import com.calypsan.listenup.api.metadata.FieldProvenance
@@ -14,7 +15,7 @@ import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction as sqlTransaction
 import com.calypsan.listenup.server.services.BookRepository
@@ -89,9 +90,9 @@ private val logger = loggerFor<ContributorServiceImpl>()
  * [listBooksByContributor] is access-filtered: a non-admin caller receives only the books
  * they can reach (via [BookAccessPolicy]), so a quarantined or private-collection-only book
  * by the contributor never leaks its metadata; ROOT/ADMIN see every book.
- * Contributor-metadata mutations ([updateContributor],
- * [deleteContributor], [mergeContributors], [unmergeContributor]) are gated on the
- * per-user `canEdit` flag via [permissionPolicy]: ROOT/ADMIN pass implicitly, a MEMBER
+ * Edits ([updateContributor]) are gated on [Permission.EDIT_METADATA]; merge, unmerge and
+ * delete ([mergeContributors], [unmergeContributor], [deleteContributor]) on
+ * [Permission.CURATE_LIBRARY] — both via [permissionPolicy]: ROOT/ADMIN pass implicitly, a MEMBER
  * passes iff their flag is set (fresh DB lookup per call). The authenticated caller is
  * resolved from [principal] — route handlers call [copyWith] to bind it per-request; the
  * Koin singleton carries an unscoped placeholder that yields no principal, so an absent
@@ -102,7 +103,7 @@ internal class ContributorServiceImpl(
     private val bookRepo: BookRepository,
     private val sqlDb: ListenUpDatabase,
     private val accessPolicy: BookAccessPolicy,
-    private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sqlDb),
+    private val permissionPolicy: PermissionPolicy = PermissionPolicy(sqlDb),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : ContributorService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
@@ -110,14 +111,13 @@ internal class ContributorServiceImpl(
         ContributorServiceImpl(contributorRepo, bookRepo, sqlDb, accessPolicy, permissionPolicy, principal)
 
     /**
-     * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
-     * implicitly; a MEMBER passes iff their flag is set (fresh DB lookup per call). An
-     * absent principal — a wiring bug, since route handlers always [copyWith] the
-     * authenticated caller — is denied. Returns null when permitted; the denial otherwise.
+     * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
+     * principal — a wiring bug, since route handlers always [copyWith] the authenticated caller — is
+     * denied. Returns null when permitted; the denial otherwise.
      */
-    private suspend fun requireCanEdit(): AppError? {
+    private suspend fun requirePermission(permission: Permission): AppError? {
         val p = principal.current() ?: return AuthError.PermissionDenied()
-        return permissionPolicy.requireCanEdit(p.userId, p.role)
+        return permissionPolicy.require(p, permission)
     }
 
     override suspend fun getContributor(id: ContributorId): AppResult<ContributorSyncPayload?> =
@@ -146,7 +146,7 @@ internal class ContributorServiceImpl(
         id: ContributorId,
         patch: ContributorUpdate,
     ): AppResult<Unit> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         val current =
             contributorRepo.findById(id.value)
                 ?: return contributorNotFound(id)
@@ -173,7 +173,7 @@ internal class ContributorServiceImpl(
         source: ContributorId,
         target: ContributorId,
     ): AppResult<Unit> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         if (source.value == target.value) {
             return AppResult.Failure(ContributorError.MergeSelfTarget())
         }
@@ -266,7 +266,7 @@ internal class ContributorServiceImpl(
         contributorId: ContributorId,
         aliasName: String,
     ): AppResult<ContributorId> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         val result = unmergeCore(contributorId, aliasName)
         return result
     }
@@ -341,7 +341,7 @@ internal class ContributorServiceImpl(
     }
 
     override suspend fun deleteContributor(id: ContributorId): AppResult<Unit> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         val result = deleteCore(id)
         return result
     }

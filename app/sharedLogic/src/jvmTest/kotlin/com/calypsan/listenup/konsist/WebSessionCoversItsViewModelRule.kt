@@ -252,11 +252,6 @@ private val EXCUSED =
         // panel — in-flight sync is chrome the reader has nothing to decide about — and wires only
         // the dead-letter half of this ViewModel (see DeadLetterStore).
         "SyncIndicatorViewModel.toggleExpanded",
-        // Snackbar acknowledgement. Android and iOS show a failed permission save as a snackbar and
-        // call this once it is dismissed; web shows `Ready.error` as an inline alert, which has no
-        // dismissal. The ViewModel clears `error` whenever a later save succeeds (2026-09-30, after
-        // per-receiver matching showed nothing on web ever cleared the alert), so web needs no call.
-        "UserDetailViewModel.clearError",
         // ── FALSE POSITIVE (capability present under another name) ────────────────────────────
         // Reached through the session's `close = store::clear`: clearing the ViewModelStore runs
         // `onCleared`, which calls `close()`. `close` exists for iOS, which has no store to clear.

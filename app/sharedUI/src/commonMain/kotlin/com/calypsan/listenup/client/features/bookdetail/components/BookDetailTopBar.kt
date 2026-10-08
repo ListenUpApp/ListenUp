@@ -40,6 +40,7 @@ fun BookDetailTopBar(
     isComplete: Boolean,
     hasProgress: Boolean,
     isAdmin: Boolean,
+    canEditMetadata: Boolean,
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
     onFindMetadataClick: () -> Unit,
@@ -85,6 +86,7 @@ fun BookDetailTopBar(
                         isComplete = isComplete,
                         hasProgress = hasProgress,
                         isAdmin = isAdmin,
+                        canEditMetadata = canEditMetadata,
                         actionsEnabled = actionsEnabled,
                         onEditClick = {
                             showMenu = false

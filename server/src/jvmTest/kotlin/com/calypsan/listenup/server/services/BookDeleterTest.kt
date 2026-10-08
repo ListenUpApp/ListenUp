@@ -14,7 +14,7 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.librarywrite.testBroker
@@ -496,7 +496,7 @@ private class DeleterRig(
             sql = dbs.sql,
             genreRepo = GenreRepository(dbs.sql, bus, registry),
             accessPolicy = BookAccessPolicy(db = dbs.sql, driver = dbs.driver),
-            permissionPolicy = UserPermissionPolicy(dbs.sql),
+            permissionPolicy = PermissionPolicy(dbs.sql),
             principal = PrincipalProvider { UserPrincipal(UserId("u1"), SessionId("s1"), role) },
             bookDeleter = deleter,
         )

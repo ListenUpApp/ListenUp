@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.ShelfError
 import com.calypsan.listenup.api.result.AppResult
@@ -15,6 +16,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.hardcover.HardcoverShelfEntryState
 import com.calypsan.listenup.server.hardcover.HardcoverShelfEntryStore
@@ -392,9 +394,9 @@ class ShelfServiceTest :
             }
         }
 
-        // ── ownership gating (Forbidden vs NotFound) ───────────────────────────
+        // ── ownership gating (PermissionDenied vs NotFound) ───────────────────────────
 
-        test("a non-owner MEMBER is Forbidden from mutating another user's shelf") {
+        test("a non-owner MEMBER is denied mutating another user's shelf") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestUser("u1")
@@ -405,11 +407,30 @@ class ShelfServiceTest :
                     val shelf = owner.createShelf(name = "Mine").value()
 
                     val intruder = makeService(sql, driver).actAs("u2")
-                    intruder.updateShelf(shelf.id, "Hijacked", "", false).expectForbidden()
-                    intruder.deleteShelf(shelf.id).expectForbidden()
-                    intruder.addBookToShelf(shelf.id, BookId("b1")).expectForbidden()
-                    intruder.removeBookFromShelf(shelf.id, BookId("b1")).expectForbidden()
-                    intruder.reorderShelfBooks(shelf.id, listOf(BookId("b1"))).expectForbidden()
+                    intruder.updateShelf(shelf.id, "Hijacked", "", false).expectDenied()
+                    intruder.deleteShelf(shelf.id).expectDenied()
+                    intruder.addBookToShelf(shelf.id, BookId("b1")).expectDenied()
+                    intruder.removeBookFromShelf(shelf.id, BookId("b1")).expectDenied()
+                    intruder.reorderShelfBooks(shelf.id, listOf(BookId("b1"))).expectDenied()
+                }
+            }
+        }
+
+        test("an ADMIN cannot change a member's personal shelf either") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("a1", UserRoleColumn.ADMIN)
+                sql.seedTestBook("b1")
+                runTest {
+                    val shelf = makeService(sql, driver).actAs("u1").createShelf(name = "Mine").value()
+
+                    val admin = makeService(sql, driver).actAs("a1", UserRole.ADMIN)
+                    admin.updateShelf(shelf.id, "Hijacked", "", false).expectDenied()
+                    admin.deleteShelf(shelf.id).expectDenied()
+                    admin.addBookToShelf(shelf.id, BookId("b1")).expectDenied()
+                    admin.removeBookFromShelf(shelf.id, BookId("b1")).expectDenied()
+                    admin.reorderShelfBooks(shelf.id, listOf(BookId("b1"))).expectDenied()
                 }
             }
         }
@@ -617,10 +638,10 @@ private suspend fun seedOwnedCollection(
     }
 }
 
-/** Asserts the result is a [ShelfError.Forbidden] failure. */
-private fun AppResult<*>.expectForbidden() {
+/** Asserts the result is the one denial shape, [AuthError.PermissionDenied]. */
+private fun AppResult<*>.expectDenied() {
     this.shouldBeInstanceOf<AppResult.Failure>()
-    error.shouldBeInstanceOf<ShelfError.Forbidden>()
+    error.shouldBeInstanceOf<AuthError.PermissionDenied>()
 }
 
 /** Seeds an `author`-role contributor credit linking [contributorId] ([name]) to [bookId]. */

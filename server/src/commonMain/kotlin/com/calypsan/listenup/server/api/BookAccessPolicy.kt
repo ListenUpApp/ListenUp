@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.api
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.server.auth.isAdmin
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.SqlFragment
@@ -79,7 +80,7 @@ class BookAccessPolicy(
         userId: String,
         role: UserRole,
     ): SqlFragment? {
-        if (role == UserRole.ROOT || role == UserRole.ADMIN) return null
+        if (role.isAdmin()) return null
         return SqlFragment(sql = accessibleBookIdsSubquery, args = listOf(userId, userId))
     }
 
@@ -154,7 +155,7 @@ class BookAccessPolicy(
         userId: String,
         role: UserRole,
     ): SqlFragment? {
-        if (role == UserRole.ROOT || role == UserRole.ADMIN) return null
+        if (role.isAdmin()) return null
         val sql =
             """
             SELECT j.id FROM $table j
@@ -227,7 +228,7 @@ class BookAccessPolicy(
         userId: String,
         role: UserRole,
     ): SqlFragment? {
-        if (role == UserRole.ROOT || role == UserRole.ADMIN) return null
+        if (role.isAdmin()) return null
         return SqlFragment(sql = accessibleCollectionIdsSubquery, args = listOf(userId, userId))
     }
 
@@ -254,7 +255,7 @@ class BookAccessPolicy(
         userId: String,
         role: UserRole,
     ): SqlFragment? {
-        if (role == UserRole.ROOT || role == UserRole.ADMIN) return null
+        if (role.isAdmin()) return null
         val sql =
             """
             SELECT g.id FROM collection_grants g
@@ -287,7 +288,7 @@ class BookAccessPolicy(
         userId: String,
         role: UserRole,
     ): SqlFragment? {
-        if (role == UserRole.ROOT || role == UserRole.ADMIN) return null
+        if (role.isAdmin()) return null
         val sql =
             """
             SELECT cb.id FROM collection_books cb

@@ -23,7 +23,7 @@ import com.calypsan.listenup.server.api.MoodServiceImpl
 import com.calypsan.listenup.server.api.SeriesServiceImpl
 import com.calypsan.listenup.server.api.TagServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.ratings.ExternalRatingsFetcher
 import com.calypsan.listenup.server.ratings.HardcoverRatingOnOpen
 import com.calypsan.listenup.server.sync.BookMoodRepository
@@ -156,7 +156,7 @@ fun booksModule(
         }
         single<BookIngestPort> { get<BookRepository>() }
         single { CoverStorage(broker = get<LibraryWriteBroker>()) }
-        single { UserPermissionPolicy(db = get<ListenUpDatabase>()) }
+        single { PermissionPolicy(db = get<ListenUpDatabase>()) }
         single {
             BookDeleter(
                 sql = get<ListenUpDatabase>(),
@@ -176,7 +176,7 @@ fun booksModule(
                 sql = get<ListenUpDatabase>(),
                 genreRepo = get<GenreRepository>(),
                 accessPolicy = get<BookAccessPolicy>(),
-                permissionPolicy = get<UserPermissionPolicy>(),
+                permissionPolicy = get<PermissionPolicy>(),
                 principal = unscopedPlaceholder("BookService"),
                 coverImageStore = get<CoverImageStore>(),
                 sidecarWriter = getOrNull<SidecarWriter>(),
@@ -191,7 +191,7 @@ fun booksModule(
                 bookRepo = get(),
                 sqlDb = get<ListenUpDatabase>(),
                 accessPolicy = get<BookAccessPolicy>(),
-                permissionPolicy = get<UserPermissionPolicy>(),
+                permissionPolicy = get<PermissionPolicy>(),
                 principal = unscopedPlaceholder("ContributorService"),
             )
         }
@@ -201,7 +201,7 @@ fun booksModule(
                 bookRepo = get(),
                 sqlDb = get<ListenUpDatabase>(),
                 accessPolicy = get<BookAccessPolicy>(),
-                permissionPolicy = get<UserPermissionPolicy>(),
+                permissionPolicy = get<PermissionPolicy>(),
                 principal = unscopedPlaceholder("SeriesService"),
             )
         }
@@ -211,7 +211,7 @@ fun booksModule(
                 bookTagRepository = get<BookTagRepository>(),
                 sql = get<ListenUpDatabase>(),
                 accessPolicy = get<BookAccessPolicy>(),
-                permissionPolicy = get<UserPermissionPolicy>(),
+                permissionPolicy = get<PermissionPolicy>(),
                 principal = unscopedPlaceholder("TagService"),
             )
         }
@@ -222,7 +222,7 @@ fun booksModule(
                 bookRepository = get<BookRepository>(),
                 sqlDb = get<ListenUpDatabase>(),
                 accessPolicy = get<BookAccessPolicy>(),
-                permissionPolicy = get<UserPermissionPolicy>(),
+                permissionPolicy = get<PermissionPolicy>(),
                 principal = unscopedPlaceholder("GenreService"),
             )
         }
@@ -234,7 +234,6 @@ fun booksModule(
                 grantRepo = get(),
                 accessPolicy = get(),
                 bookAccessPolicy = get<BookAccessPolicy>(),
-                permissionPolicy = get<UserPermissionPolicy>(),
                 bus = get(),
                 sql = get<ListenUpDatabase>(),
                 clock = get(),
@@ -273,7 +272,7 @@ private fun Module.moodBindings() {
             bookMoodRepository = get<BookMoodRepository>(),
             sql = get<ListenUpDatabase>(),
             accessPolicy = get<BookAccessPolicy>(),
-            permissionPolicy = get<UserPermissionPolicy>(),
+            permissionPolicy = get<PermissionPolicy>(),
             principal = unscopedPlaceholder("MoodService"),
         )
     }

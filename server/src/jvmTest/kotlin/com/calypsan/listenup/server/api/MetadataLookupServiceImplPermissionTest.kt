@@ -10,7 +10,7 @@ import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Mutated
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.media.ImageStore
@@ -58,7 +58,7 @@ import kotlinx.io.files.Path
  *
  * `applyBookMetadata` is the representative gated op; the privileged/state-changing ops
  * (`applyBookMetadata`/`applyContributorMetadata`/`refreshBookMetadata`) share the identical
- * first-statement `requireCanEdit()` guard. The search/fetch reads stay open. The MEMBER-deny
+ * first-statement `requirePermission(Permission.EDIT_METADATA)` guard. The search/fetch reads stay open. The MEMBER-deny
  * case short-circuits before any external fetch; the ADMIN case proves the gate passed (it
  * proceeds into the real applier and fails only because the book is absent — not a
  * PermissionDenied).
@@ -183,7 +183,7 @@ private fun makeMetadataPermService(dbs: SqlTestDatabases): MetadataLookupServic
                 imageHome = Path(tempDir.toString()),
             ),
         enrichmentDeps = testEnrichmentDeps(dbs.sql, dbs.driver, bus, registry),
-        permissionPolicy = UserPermissionPolicy(dbs.sql),
+        permissionPolicy = PermissionPolicy(dbs.sql),
         bookAccessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
         sqlDb = dbs.sql,
         genreRepository = genreRepo,

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.dto.SharePermission
+import com.calypsan.listenup.server.auth.isAdmin
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
@@ -50,7 +51,7 @@ internal class CollectionAccessPolicy(
             collectionRepo.findById(collectionId)
                 ?: return Decision(false, SharePermission.Read, false)
         if (coll.deletedAt != null) return Decision(false, SharePermission.Read, false)
-        val isAdmin = role == UserRoleColumn.ROOT || role == UserRoleColumn.ADMIN
+        val isAdmin = role.isAdmin()
         val permission = if (isAdmin) SharePermission.Write else SharePermission.Read
         if (coll.ownerId == userId) return Decision(true, permission, true)
         if (isAdmin) return Decision(true, permission, false)

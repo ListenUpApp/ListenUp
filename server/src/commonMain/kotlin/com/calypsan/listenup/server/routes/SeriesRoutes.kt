@@ -51,7 +51,7 @@ fun Route.seriesRoutes(
 ) {
     put<SeriesResources.Cover> { res ->
         // Store the bytes content-addressed, then persist the path through the scoped service so its
-        // internal requireCanEdit gate + revision bump + sync-event publication fire (series' canEdit
+        // internal requirePermission(Permission.EDIT_METADATA) gate + revision bump + sync-event publication fire (series' canEdit
         // check is not exposed for a pre-buffer gate; the 10 MiB cap bounds the exposure).
         when (val outcome = call.storeMultipartImage("series", imageHome, imageStorage)) {
             is ImageUploadOutcome.Rejected -> {

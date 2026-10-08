@@ -5,7 +5,8 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.core.TagId
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -17,6 +18,8 @@ import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.server.testing.shouldBeDeniedPermission
+import com.calypsan.listenup.server.testing.shouldPassThePermissionGate
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -25,9 +28,8 @@ import kotlinx.coroutines.test.runTest
 /**
  * canEdit-gate tests for [TagServiceImpl] (closes MA holistic-review finding I1).
  *
- * `addTagToBook` is the representative mutation; every tag mutation
- * (`addTagToBook`/`removeTagFromBook`/`renameTag`/`deleteTag`) shares the identical
- * first-statement `requireCanEdit()` guard. Reads stay open and are covered by the existing
+ * `addTagToBook` is the representative edit, gated on `Permission.EDIT_METADATA`; `deleteTag` is
+ * gated on `Permission.CURATE_LIBRARY`. Reads stay open and are covered by the existing
  * [TagServiceImplTest].
  */
 class TagServiceImplPermissionTest :
@@ -74,6 +76,24 @@ class TagServiceImplPermissionTest :
                 }
             }
         }
+
+        test("deleting a tag needs Curate library; renaming it needs Edit metadata") {
+            withSqlDatabase {
+                sql.seedTestUser("editor", UserRoleColumn.MEMBER, canEdit = true, canCurateLibrary = false)
+                sql.seedTestUser("curator", UserRoleColumn.MEMBER, canEdit = false, canCurateLibrary = true)
+                sql.seedTestUser("nobody", UserRoleColumn.MEMBER, canEdit = false, canCurateLibrary = false)
+                runTest {
+                    val service = makeTagPermService(this@withSqlDatabase)
+                    val tag = TagId("t-1")
+
+                    service.copyWith(memberPrincipal("editor")).deleteTag(tag).shouldBeDeniedPermission()
+                    service.copyWith(memberPrincipal("nobody")).deleteTag(tag).shouldBeDeniedPermission()
+                    service.copyWith(memberPrincipal("curator")).deleteTag(tag).shouldPassThePermissionGate()
+                    service.copyWith(rootPrincipal()).deleteTag(tag).shouldPassThePermissionGate()
+                    service.copyWith(memberPrincipal("curator")).renameTag(tag, "Renamed").shouldBeDeniedPermission()
+                }
+            }
+        }
     })
 
 private fun makeTagPermService(dbs: SqlTestDatabases): TagServiceImpl {
@@ -86,6 +106,6 @@ private fun makeTagPermService(dbs: SqlTestDatabases): TagServiceImpl {
         bookTagRepository = bookTagRepo,
         sql = dbs.sql,
         accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
-        permissionPolicy = UserPermissionPolicy(dbs.sql),
+        permissionPolicy = PermissionPolicy(dbs.sql),
     )
 }

@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.bookdetail
 import com.calypsan.listenup.client.core.formatSeriesSequence
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.core.error.ErrorBus
@@ -24,6 +25,7 @@ import com.calypsan.listenup.client.domain.repository.BookVisibilityRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.InboxRepository
+import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
@@ -73,6 +75,7 @@ class BookDetailViewModel(
     private val tagRepository: TagRepository,
     private val playbackPositionRepository: PlaybackPositionRepository,
     private val userRepository: UserRepository,
+    private val permissionsRepository: PermissionsRepository,
     private val shelfRepository: ShelfRepository,
     private val collectionRepository: CollectionRepository,
     private val addBooksToShelfUseCase: AddBooksToShelfUseCase,
@@ -109,6 +112,7 @@ class BookDetailViewModel(
     // Per-book genres/tags now flow through [BookDetail] directly via
     // [BookRepository.observeBookDetail], so no mirror is needed for them.
     private var latestIsAdmin: Boolean = false
+    private var latestCanEditMetadata: Boolean = false
     private var latestAllTags: List<Tag> = emptyList()
     private var latestHierarchy: SeriesHierarchy = SeriesHierarchy.Empty
 
@@ -118,6 +122,14 @@ class BookDetailViewModel(
             userRepository.observeIsAdmin().collect { isAdmin ->
                 latestIsAdmin = isAdmin
                 updateReady { it.copy(isAdmin = isAdmin) }
+            }
+        }
+
+        // Edit Book, Find Metadata and the chapter editor are Edit metadata's, not the admin's.
+        viewModelScope.launch {
+            permissionsRepository.observeCan(Permission.EDIT_METADATA).collect { can ->
+                latestCanEditMetadata = can
+                updateReady { it.copy(canEditMetadata = can) }
             }
         }
 
@@ -392,6 +404,7 @@ class BookDetailViewModel(
         return BookDetailUiState.Ready(
             book = detail,
             isAdmin = latestIsAdmin,
+            canEditMetadata = latestCanEditMetadata,
             allTags = latestAllTags,
             isComplete = isComplete,
             startedAtMs = position?.startedAtMs,
@@ -789,6 +802,12 @@ sealed interface BookDetailUiState {
     data class Ready(
         val book: BookDetail,
         val isAdmin: Boolean = false,
+        /**
+         * The signed-in user may edit this book's metadata (Edit Book, Find Metadata, the chapter editor).
+         * From [PermissionsRepository]; admins always may. `isAdmin` stays for the admin-only actions
+         * (collections, delete).
+         */
+        val canEditMetadata: Boolean = false,
         val isComplete: Boolean = false,
         val startedAtMs: Long? = null,
         val isMarkingComplete: Boolean = false,

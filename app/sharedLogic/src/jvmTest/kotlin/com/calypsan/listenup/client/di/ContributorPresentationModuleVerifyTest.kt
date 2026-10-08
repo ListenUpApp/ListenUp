@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.local.db.ContributorAliasDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
+import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
@@ -33,6 +34,7 @@ import org.koin.test.verify.verify
  *  - [ContributorDao] — owned by `persistenceModule`.
  *  - [LibraryRepository] — owned by `libraryModule` (matching starts in the library's Audible store).
  *  - [ErrorBus] — owned by `appCoreModule`.
+ *  - [PermissionsRepository] — owned by `socialModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class ContributorPresentationModuleVerifyTest :
@@ -42,6 +44,7 @@ class ContributorPresentationModuleVerifyTest :
             contributorPresentationModule.verify(
                 extraTypes =
                     listOf(
+                        PermissionsRepository::class,
                         ContributorRepository::class,
                         PlaybackPositionRepository::class,
                         SeriesRepository::class,

@@ -415,3 +415,19 @@ internal val MIGRATION_17_18 =
             connection.executeDdl("ALTER TABLE `books` ADD COLUMN `lastMatch` TEXT")
         }
     }
+
+/**
+ * v18 → v19: `users.canCurateLibrary` and `admin_user_roster.canCurateLibrary` — the Curate library
+ * permission split out of Edit metadata. Each is backfilled from `canEdit`, exactly as the server's V92
+ * backfills `can_curate_library` from `can_edit`, so a mirrored row already agrees with the server and
+ * no cursor needs rewinding. A row synced afterwards carries the real value.
+ */
+internal val MIGRATION_18_19 =
+    object : Migration(18, 19) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE `users` ADD COLUMN `canCurateLibrary` INTEGER NOT NULL DEFAULT 0")
+            connection.executeDdl("UPDATE `users` SET `canCurateLibrary` = `canEdit`")
+            connection.executeDdl("ALTER TABLE `admin_user_roster` ADD COLUMN `canCurateLibrary` INTEGER NOT NULL DEFAULT 0")
+            connection.executeDdl("UPDATE `admin_user_roster` SET `canCurateLibrary` = `canEdit`")
+        }
+    }

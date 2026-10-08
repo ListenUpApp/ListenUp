@@ -463,6 +463,9 @@ private extension View {
             .navigationDestination(for: UserDetailDestination.self) { destination in
                 UserDetailView(userId: destination.userId)
             }
+            .navigationDestination(for: UserPermissionsDestination.self) { destination in
+                UserPermissionsView(userId: destination.userId)
+            }
             .navigationDestination(for: LibrarySettingsDestination.self) { _ in
                 LibrarySettingsView()
             }

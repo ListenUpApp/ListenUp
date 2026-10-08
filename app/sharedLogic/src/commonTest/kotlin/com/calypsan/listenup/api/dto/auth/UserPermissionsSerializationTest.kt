@@ -6,10 +6,20 @@ import io.kotest.matchers.shouldBe
 
 class UserPermissionsSerializationTest :
     FunSpec({
-        test("UserPermissions defaults to all-true") {
-            UserPermissions() shouldBe UserPermissions(canEdit = true)
+        test("defaults follow the rule: edit metadata on, curate library off") {
+            UserPermissions() shouldBe UserPermissions(canEditMetadata = true, canCurateLibrary = false)
         }
-        test("User round-trips with permissions") {
+
+        test("canEditMetadata keeps the wire name canEdit") {
+            contractJson.encodeToString(UserPermissions(canEditMetadata = false)) shouldBe """{"canEdit":false}"""
+        }
+
+        test("a user from a server older than the split decodes with curate library off") {
+            contractJson.decodeFromString<UserPermissions>("""{"canEdit":true}""") shouldBe
+                UserPermissions(canEditMetadata = true, canCurateLibrary = false)
+        }
+
+        test("User round-trips with both flags") {
             val user =
                 User(
                     id = UserId("u1"),
@@ -18,10 +28,8 @@ class UserPermissionsSerializationTest :
                     role = UserRole.MEMBER,
                     status = UserStatus.ACTIVE,
                     createdAt = 0L,
-                    permissions = UserPermissions(canEdit = false),
+                    permissions = UserPermissions(canEditMetadata = false, canCurateLibrary = true),
                 )
-            val decoded = contractJson.decodeFromString<User>(contractJson.encodeToString(user))
-            decoded shouldBe user
-            decoded.permissions.canEdit shouldBe false
+            contractJson.decodeFromString<User>(contractJson.encodeToString(user)) shouldBe user
         }
     })

@@ -42,6 +42,7 @@ fun Route.profileRoutes(
     clock: Clock = Clock.System,
 ) {
     post("/api/v1/profile/avatar") {
+        // open-to-all: a caller replaces only their own avatar — the row written is the principal's own.
         val principal = call.userPrincipalOrNull() ?: return@post call.respond(HttpStatusCode.Unauthorized)
         val userId = principal.userId.value
 

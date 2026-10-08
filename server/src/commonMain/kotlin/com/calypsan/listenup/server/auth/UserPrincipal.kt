@@ -17,7 +17,3 @@ data class UserPrincipal(
     val sessionId: SessionId,
     val role: UserRole,
 )
-
-fun UserPrincipal.requireAdmin() {
-    require(role == UserRole.ROOT || role == UserRole.ADMIN) { "admin required" }
-}

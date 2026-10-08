@@ -29,7 +29,12 @@ import org.jetbrains.compose.web.dom.Text
 import com.calypsan.listenup.web.design.PageHeader
 
 /**
- * Categories — the genre tree, and the five things an admin does to it.
+ * Categories — the genre tree, and what an admin or a curator may do to it.
+ *
+ * Each control follows the permission the server enforces for it: add, rename and move are Edit
+ * metadata; merge, merge history and delete are Curate library. A control the reader may not use is
+ * absent rather than disabled, as everywhere else on web. [parentCrumb] names where the page was
+ * opened from — Admin, or Settings for a curator who has no admin area.
  *
  * Pure in [state]; the store wiring lives one level up. Which dialog is open is view-local, as a
  * single [CategoryDialog] rather than five flags: nothing has been asked of the server until one is
@@ -59,9 +64,10 @@ fun CategoriesPage(
     onOpenAdmin: () -> Unit,
     mergeHistory: GenreMergeHistory?,
     mergeHistoryActions: MergeHistoryActions,
+    parentCrumb: String = "Admin",
 ) {
     Div(attrs = { classes("cat") }) {
-        Breadcrumb(trail = listOf("Admin", "Categories"), onNavigate = { onOpenAdmin() })
+        Breadcrumb(trail = listOf(parentCrumb, "Categories"), onNavigate = { onOpenAdmin() })
 
         PageHeader(title = "Categories")
 
@@ -163,15 +169,17 @@ private fun ReadyContent(
                 classes("cat-bar-b")
             },
         ) { Text("Collapse all") }
-        Button(
-            kind = ButtonKind.Primary,
-            size = ButtonSize.Sm,
-            onClick = { dialog = CategoryDialog.Create(parent = null) },
-            attrs = {
-                classes("cat-bar-b")
-                disabledWhen(state.isSaving)
-            },
-        ) { Text("New genre") }
+        if (state.canEditMetadata) {
+            Button(
+                kind = ButtonKind.Primary,
+                size = ButtonSize.Sm,
+                onClick = { dialog = CategoryDialog.Create(parent = null) },
+                attrs = {
+                    classes("cat-bar-b")
+                    disabledWhen(state.isSaving)
+                },
+            ) { Text("New genre") }
+        }
     }
 
     if (state.tree.isEmpty()) {
@@ -190,6 +198,8 @@ private fun ReadyContent(
                         node = node,
                         expandedIds = state.expandedIds,
                         isSaving = state.isSaving,
+                        canEdit = state.canEditMetadata,
+                        canCurate = state.canCurateLibrary,
                         onToggleExpanded = onToggleExpanded,
                         onAct = { act ->
                             if (act is CategoryDialog.History) onOpenMergeHistory(act.genre.id) else dialog = act
@@ -289,6 +299,8 @@ private fun GenreRows(
     node: GenreTreeNode,
     expandedIds: Set<String>,
     isSaving: Boolean,
+    canEdit: Boolean,
+    canCurate: Boolean,
     onToggleExpanded: (String) -> Unit,
     onAct: (CategoryDialog) -> Unit,
 ) {
@@ -297,23 +309,28 @@ private fun GenreRows(
         node = node,
         expanded = expanded,
         isSaving = isSaving,
+        canEdit = canEdit,
+        canCurate = canCurate,
         onToggleExpanded = onToggleExpanded,
         onAct = onAct,
     )
     if (expanded) {
         node.children.forEach { child ->
             key(child.genre.id) {
-                GenreRows(child, expandedIds, isSaving, onToggleExpanded, onAct)
+                GenreRows(child, expandedIds, isSaving, canEdit, canCurate, onToggleExpanded, onAct)
             }
         }
     }
 }
 
+@Suppress("LongParameterList")
 @Composable
 private fun GenreRow(
     node: GenreTreeNode,
     expanded: Boolean,
     isSaving: Boolean,
+    canEdit: Boolean,
+    canCurate: Boolean,
     onToggleExpanded: (String) -> Unit,
     onAct: (CategoryDialog) -> Unit,
 ) {
@@ -348,23 +365,27 @@ private fun GenreRow(
         Span(attrs = { classes("cat-books") }) { Text(bookCountLabel(genre.bookCount)) }
 
         Div(attrs = { classes("cat-acts") }) {
-            RowAction("Add a genre under ${genre.name}", WebIcon.Plus, isSaving) {
-                onAct(CategoryDialog.Create(parent = genre))
+            if (canEdit) {
+                RowAction("Add a genre under ${genre.name}", WebIcon.Plus, isSaving) {
+                    onAct(CategoryDialog.Create(parent = genre))
+                }
+                RowAction("Rename ${genre.name}", WebIcon.Pencil, isSaving) {
+                    onAct(CategoryDialog.Rename(genre))
+                }
+                RowAction("Move ${genre.name}", WebIcon.ArrowRight, isSaving) {
+                    onAct(CategoryDialog.Move(genre))
+                }
             }
-            RowAction("Rename ${genre.name}", WebIcon.Pencil, isSaving) {
-                onAct(CategoryDialog.Rename(genre))
-            }
-            RowAction("Move ${genre.name}", WebIcon.ArrowRight, isSaving) {
-                onAct(CategoryDialog.Move(genre))
-            }
-            RowAction("Merge ${genre.name} into another genre", WebIcon.Merge, isSaving) {
-                onAct(CategoryDialog.Merge(genre))
-            }
-            RowAction("Merge history of ${genre.name}", WebIcon.Clock, isSaving) {
-                onAct(CategoryDialog.History(genre))
-            }
-            RowAction("Delete ${genre.name}", WebIcon.Trash, isSaving) {
-                onAct(CategoryDialog.Delete(genre))
+            if (canCurate) {
+                RowAction("Merge ${genre.name} into another genre", WebIcon.Merge, isSaving) {
+                    onAct(CategoryDialog.Merge(genre))
+                }
+                RowAction("Merge history of ${genre.name}", WebIcon.Clock, isSaving) {
+                    onAct(CategoryDialog.History(genre))
+                }
+                RowAction("Delete ${genre.name}", WebIcon.Trash, isSaving) {
+                    onAct(CategoryDialog.Delete(genre))
+                }
             }
         }
     }

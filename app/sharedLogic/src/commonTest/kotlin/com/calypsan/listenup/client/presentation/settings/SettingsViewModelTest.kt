@@ -1,9 +1,12 @@
 package com.calypsan.listenup.client.presentation.settings
 
 import app.cash.turbine.test
+import com.calypsan.listenup.api.dto.auth.Permission
+import com.calypsan.listenup.client.test.fake.FakePermissionsRepository
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import io.kotest.matchers.types.shouldBeInstanceOf
 import dev.mokkery.MockMode
 import com.calypsan.listenup.core.error.ErrorBus
@@ -63,6 +66,7 @@ class SettingsViewModelTest :
             val pushRepository: PushRepository = mock(MockMode.autoUnit)
             val errorBus = ErrorBus()
             val hardcoverRepository = FakeHardcoverRepository()
+            val permissions = FakePermissionsRepository()
 
             // StateFlows for local preferences (mocked as MutableStateFlow)
             val themeModeFlow = MutableStateFlow(ThemeMode.SYSTEM)
@@ -94,6 +98,7 @@ class SettingsViewModelTest :
                     logoutUseCase = logoutUseCase,
                     pushRepository = pushRepository,
                     hardcoverRepository = hardcoverRepository,
+                    permissionsRepository = permissions,
                     appVersion = BUILD_VERSION,
                     errorBus = errorBus,
                 )
@@ -473,6 +478,20 @@ class SettingsViewModelTest :
                     fixture.hardcoverRepository.connection.value = HardcoverConnection.NotOffered
                     awaitItem() shouldBe null
                 }
+            }
+        }
+
+        test("canCurateLibrary follows the permission, so the Categories row shows only for curators") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.canCurateLibrary.collect { } }
+                advanceUntilIdle()
+                viewModel.canCurateLibrary.value shouldBe false
+
+                fixture.permissions.granted.value = setOf(Permission.CURATE_LIBRARY)
+                advanceUntilIdle()
+                viewModel.canCurateLibrary.value shouldBe true
             }
         }
     })

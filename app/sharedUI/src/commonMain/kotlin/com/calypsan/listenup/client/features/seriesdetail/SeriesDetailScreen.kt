@@ -243,7 +243,7 @@ internal fun NarrowSeriesDetailContent(
                 onBackClick = onBackClick,
                 onContributorClick = onContributorClick,
                 onShowAuthors = onShowAuthors,
-                onEditClick = onEditClick,
+                onEditClick = onEditClick.takeIf { state.canEditMetadata },
                 onSeriesClick = hierarchy.onSeriesClick,
             )
         }
@@ -271,11 +271,11 @@ private fun LazyGridScope.subSeriesItem(
     hierarchy: SeriesPageHierarchyActions,
     modifier: Modifier,
 ) {
-    if (state.childSeries.isEmpty() && !state.canEditHierarchy) return
+    if (state.childSeries.isEmpty() && !state.canEditMetadata) return
     item(key = "sub-series", span = { GridItemSpan(maxLineSpan) }) {
         SubSeriesSection(
             childSeries = state.childSeries,
-            canAddSubSeries = state.canEditHierarchy,
+            canAddSubSeries = state.canEditMetadata,
             isOnline = state.isOnline,
             onSeriesClick = hierarchy.onSeriesClick,
             onAddSubSeries = hierarchy.onAddSubSeries,
@@ -322,7 +322,7 @@ internal fun WideSeriesDetailContent(
                         .padding(28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                HeroActionRow(onBackClick = onBackClick, onEditClick = onEditClick)
+                HeroActionRow(onBackClick = onBackClick, onEditClick = onEditClick.takeIf { state.canEditMetadata })
                 Spacer(Modifier.height(8.dp))
                 HeroBody(
                     state = state,

@@ -14,7 +14,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -103,7 +103,6 @@ class AccessChangedEmissionTest :
                     grantRepo = grantRepo,
                     accessPolicy = accessPolicy,
                     bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
-                    permissionPolicy = UserPermissionPolicy(db.sql),
                     bus = bus,
                     sql = db.sql,
                     clock = fixedClock,
@@ -382,7 +381,7 @@ class AccessChangedEmissionTest :
  * already in the `SharedFlow` buffer — but the `launchIn(backgroundScope)` collector that appends it
  * to the test's `frames` list runs on the `UnconfinedTestDispatcher` and has not necessarily been
  * scheduled yet. The permission read now hops to `Dispatchers.IO` (the SQLDelight
- * `UserPermissionPolicy`), which reorders that scheduling relative to the assertion. Yielding a few
+ * `PermissionPolicy`), which reorders that scheduling relative to the assertion. Yielding a few
  * times deterministically dispatches the pending unconfined continuations, so the collector observes
  * the already-emitted frame — no real-time sleep, no busy-wait.
  */

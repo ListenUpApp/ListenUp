@@ -2,175 +2,92 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.dto.advertisedPermissions
+import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
+import com.calypsan.listenup.client.domain.model.accessLabelFor
 import com.calypsan.listenup.client.domain.repository.AdminRepository
+import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.FlowCollector
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.transformLatest
 
 private val logger = KotlinLogging.logger {}
 
 /**
- * ViewModel for the user detail screen.
+ * ViewModel for the user detail screen: who one user is, and the access label the user lists show.
  *
- * Manages viewing and editing a single user's details and permissions.
- * Allows toggling the canEdit permission for non-protected users.
+ * Read-only. Their role and permissions are edited as a draft by [UserPermissionsViewModel]. The user
+ * is read from the Room-backed roster, so a save on that screen shows here once its roster frame lands;
+ * only a user the roster has not synced yet is fetched from the server.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class UserDetailViewModel(
     private val userId: String,
     private val adminRepository: AdminRepository,
+    private val instanceRepository: InstanceRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
-    val state: StateFlow<UserDetailUiState>
-        field = MutableStateFlow<UserDetailUiState>(UserDetailUiState.Loading)
+    val state: StateFlow<UserDetailUiState> =
+        flow {
+            // A failed probe reads as an older server, whose labels name members by role.
+            val advertised =
+                instanceRepository.getServerInfoOrNull()?.advertisedPermissions() ?: setOf(Permission.EDIT_METADATA)
+            emitAll(
+                adminRepository.observeUser(userId).transformLatest { mirrored ->
+                    emit(stateFor(mirrored ?: fetchUnsyncedUser() ?: return@transformLatest, advertised))
+                },
+            )
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UserDetailUiState.Loading)
 
-    init {
-        loadUser()
-    }
+    private fun stateFor(
+        user: AdminUserInfo,
+        advertised: Set<Permission>,
+    ): UserDetailUiState = UserDetailUiState.Ready(user = user.copy(access = accessLabelFor(user, advertised)))
 
-    /**
-     * Load the user details from the server.
-     *
-     * Initial load transitions Loading -> Ready or Loading -> Error. A subsequent
-     * re-load from Error transitions back to Ready on success, or stays in Error
-     * with the new message on failure.
-     */
-    private fun loadUser() {
-        viewModelScope.launch {
-            when (val result = adminRepository.getUser(userId)) {
-                is AppResult.Success -> {
-                    val user = result.data
-                    state.update {
-                        UserDetailUiState.Ready(
-                            user = user,
-                            canEdit = user.permissions.canEdit,
-                            isProtected = user.isProtected,
-                        )
-                    }
-                }
+    /** The server's copy of a user the roster has not synced, or null after emitting [UserDetailUiState.Error]. */
+    private suspend fun FlowCollector<UserDetailUiState>.fetchUnsyncedUser(): AdminUserInfo? =
+        when (val result = adminRepository.getUser(userId)) {
+            is AppResult.Success -> {
+                result.data
+            }
 
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Failed to load user: $userId — ${result.error}" }
-                    state.update {
-                        UserDetailUiState.Error(
-                            error = result.error,
-                        )
-                    }
-                }
+            is AppResult.Failure -> {
+                errorBus.emit(result.error)
+                logger.error { "Failed to load user: $userId — ${result.error}" }
+                emit(UserDetailUiState.Error(error = result.error))
+                null
             }
         }
-    }
-
-    /**
-     * Toggle the canEdit permission — whether this member may edit content metadata.
-     *
-     * Optimistically updates the UI state, then saves to server. Reverts on failure.
-     */
-    fun toggleCanEdit() {
-        val ready = state.value as? UserDetailUiState.Ready ?: return
-        togglePermission(
-            name = "canEdit",
-            previousValue = ready.canEdit,
-            optimistic = { current, value -> current.copy(canEdit = value) },
-            save = { value -> adminRepository.updateUser(userId = userId, canEdit = value) },
-            reconcile = { current, user -> current.copy(canEdit = user.permissions.canEdit) },
-        )
-    }
-
-    /**
-     * The optimistic-toggle cycle behind a permission switch.
-     *
-     * Flip locally, save, then either reconcile against what the server actually stored or
-     * revert — a permission toggle that fails to revert leaves the admin looking at a grant the
-     * server never made.
-     *
-     * [reconcile] deliberately re-reads the flag off the server's response rather than trusting
-     * the optimistic value: the server applies permissions wholesale, so its answer is the truth.
-     */
-    private fun togglePermission(
-        name: String,
-        previousValue: Boolean,
-        optimistic: (UserDetailUiState.Ready, Boolean) -> UserDetailUiState.Ready,
-        save: suspend (Boolean) -> AppResult<AdminUserInfo>,
-        reconcile: (UserDetailUiState.Ready, AdminUserInfo) -> UserDetailUiState.Ready,
-    ) {
-        val ready = state.value as? UserDetailUiState.Ready ?: return
-        if (ready.isProtected) return
-
-        val newValue = !previousValue
-        updateReady { optimistic(it, newValue).copy(isSaving = true) }
-
-        viewModelScope.launch {
-            when (val result = save(newValue)) {
-                is AppResult.Success -> {
-                    val updatedUser = result.data
-                    logger.info { "Updated $name for user $userId to $newValue" }
-                    // A save that lands makes any earlier failure's error stale; web shows it inline and
-                    // has no snackbar acknowledgement to clear it.
-                    updateReady { reconcile(it, updatedUser).copy(isSaving = false, user = updatedUser, error = null) }
-                }
-
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Failed to update $name for user: $userId — ${result.error}" }
-                    // Revert optimistic change and surface transient error in Ready.
-                    updateReady { optimistic(it, previousValue).copy(isSaving = false, error = result.error) }
-                }
-            }
-        }
-    }
-
-    /**
-     * Clear the transient Ready error (snackbar acknowledgement).
-     */
-    fun clearError() {
-        updateReady { it.copy(error = null) }
-    }
-
-    /**
-     * Apply [transform] to state only if it is currently [UserDetailUiState.Ready].
-     * No-ops when state is [UserDetailUiState.Loading] or [UserDetailUiState.Error].
-     */
-    private fun updateReady(transform: (UserDetailUiState.Ready) -> UserDetailUiState.Ready) {
-        state.update { current ->
-            if (current is UserDetailUiState.Ready) transform(current) else current
-        }
-    }
 }
 
 /**
  * UI state for the user detail screen.
  *
  * Sealed hierarchy:
- * - [Loading] before the first `getUser` response.
- * - [Ready] once the user has loaded; carries the user, edit buffer
- *   (`canEdit`), `isProtected` guard, the `isSaving` overlay for optimistic
- *   permission toggling, and a transient `error` surfaced as a snackbar when
- *   a toggle fails after the initial load.
- * - [Error] terminal state when the initial load fails.
+ * - [Loading] before the user is first read.
+ * - [Ready] once the user has loaded; it follows every roster change.
+ * - [Error] when a user the roster has not synced cannot be fetched.
  */
 sealed interface UserDetailUiState {
+    /** Before the user is first read. */
     data object Loading : UserDetailUiState
 
-    /**
-     * User has loaded; carries the canonical user, edit buffer (`canEdit`),
-     * the `isProtected` guard, save overlay, and a transient `error`.
-     */
+    /** The user has loaded, with the access label the user lists show. */
     data class Ready(
         val user: AdminUserInfo,
-        val canEdit: Boolean,
-        val isProtected: Boolean,
-        val isSaving: Boolean = false,
-        val error: AppError? = null,
     ) : UserDetailUiState
 
-    /** Terminal state when the initial user load fails. */
+    /** A user the roster has not synced could not be fetched. */
     data class Error(
         val error: AppError,
     ) : UserDetailUiState

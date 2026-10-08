@@ -51,7 +51,7 @@ fun Route.contributorRoutes(
 ) {
     put<ContributorResources.Image> { res ->
         // Store the bytes content-addressed, then persist the path through the scoped service so its
-        // internal requireCanEdit gate + revision bump + sync-event publication fire (contributor's
+        // internal requirePermission(Permission.EDIT_METADATA) gate + revision bump + sync-event publication fire (contributor's
         // canEdit check is not exposed for a pre-buffer gate; the 10 MiB cap bounds the exposure).
         when (val outcome = call.storeMultipartImage("contributors", imageHome, imageStorage)) {
             is ImageUploadOutcome.Rejected -> {

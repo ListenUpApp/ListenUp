@@ -1,12 +1,12 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.UploadRoutePaths
-import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.uploads.UploadSessionSummary
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.UploadError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.auth.isAdmin
 import com.calypsan.listenup.server.io.streamFirstFilePartTo
 import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.plugins.respondAppError
@@ -216,11 +216,9 @@ private suspend fun ApplicationCall.requireUploadAdmin(): Boolean {
         respond(HttpStatusCode.Unauthorized)
         return false
     }
-    if (!principal.role.isUploadAdmin()) {
+    if (!principal.role.isAdmin()) {
         respondAppError(AuthError.PermissionDenied())
         return false
     }
     return true
 }
-
-private fun UserRole.isUploadAdmin(): Boolean = this == UserRole.ROOT || this == UserRole.ADMIN

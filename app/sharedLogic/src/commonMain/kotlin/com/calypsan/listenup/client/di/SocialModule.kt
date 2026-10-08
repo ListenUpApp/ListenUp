@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.data.repository.BookReadersRepositoryImpl
 import com.calypsan.listenup.client.data.repository.LeaderboardRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ProfileEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.UserProfileRepositoryImpl
+import com.calypsan.listenup.client.data.repository.PermissionsRepositoryImpl
 import com.calypsan.listenup.client.data.repository.UserRepositoryImpl
 import com.calypsan.listenup.client.data.repository.avatarUploaderOf
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
@@ -17,6 +18,7 @@ import com.calypsan.listenup.client.domain.repository.BookReadersRepository
 import com.calypsan.listenup.client.domain.repository.LeaderboardRepository
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
+import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -68,6 +70,9 @@ internal val socialModule: Module =
         single<UserRepository> {
             UserRepositoryImpl(userDao = get(), authedChannel = rpcChannel())
         }
+
+        // The one "may I?" seam every editing ViewModel reads (offline, from the users row).
+        single<PermissionsRepository> { PermissionsRepositoryImpl(userDao = get()) }
 
         // UserProfileRepository resolves EVERY user's avatar profile (self + others) from the
         // synced public_profiles roster, so avatars render everywhere instead of only for self.

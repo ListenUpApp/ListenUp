@@ -11,7 +11,6 @@ import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
@@ -64,7 +63,6 @@ class CollectionServiceImplListCountsTest :
                 collectionBookRepo = CollectionBookRepository(db = db.sql, bus = bus, registry = registry, driver = db.driver),
                 grantRepo = grantRepo,
                 accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
-                permissionPolicy = UserPermissionPolicy(db.sql),
                 bus = bus,
                 sql = db.sql,
                 clock = fixedClock,

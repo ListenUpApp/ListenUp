@@ -20,6 +20,6 @@ internal fun AdminUserRosterEntity.toAdminUserInfo(): AdminUserInfo =
         isRoot = role == "ROOT",
         role = role,
         status = status,
-        permissions = UserPermissions(canEdit = canEdit),
+        permissions = UserPermissions(canEditMetadata = canEdit, canCurateLibrary = canCurateLibrary),
         createdAt = accountCreatedAt.toString(),
     )

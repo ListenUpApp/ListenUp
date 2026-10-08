@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.local.db.BookDao
+import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.BackupRepository
 import com.calypsan.listenup.client.domain.repository.BookVisibilityRepository
@@ -9,6 +10,7 @@ import com.calypsan.listenup.client.domain.repository.EventStreamRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.ImportRepository
+import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.UploadRepository
 import com.calypsan.listenup.client.domain.repository.OrganizeRepository
 import com.calypsan.listenup.client.domain.repository.InboxRepository
@@ -58,8 +60,10 @@ import org.koin.test.verify.verify
  *  - [ImageStorage] — owned by `mediaModule`.
  *  - [CollectionRepository] — owned by `collectionModule`.
  *  - [GenreRepository] — owned by `genreTagModule` (pulled in by `AdminCategoriesViewModel`).
+ *  - [PermissionsRepository] — owned by `socialModule` (pulled in by `AdminCategoriesViewModel`).
  *  - [AdminRepository] — owned by `adminModule`.
  *  - [UserRepository] — owned by `socialModule`.
+ *  - [InstanceRepository] — owned by `connectionModule`.
  *  - [SearchRepository] — owned by `searchModule`.
  *  - [BackupRepository] — owned by `adminModule`.
  *  - [SyncRepository] — owned by `clientSyncModule`.
@@ -95,6 +99,7 @@ class AdminPresentationModuleVerifyTest :
                         ImageStorage::class,
                         CollectionRepository::class,
                         GenreRepository::class,
+                        PermissionsRepository::class,
                         AdminRepository::class,
                         UserRepository::class,
                         SearchRepository::class,
@@ -104,6 +109,7 @@ class AdminPresentationModuleVerifyTest :
                         UploadRepository::class,
                         OrganizeRepository::class,
                         BookVisibilityRepository::class,
+                        InstanceRepository::class,
                     ),
             )
         }

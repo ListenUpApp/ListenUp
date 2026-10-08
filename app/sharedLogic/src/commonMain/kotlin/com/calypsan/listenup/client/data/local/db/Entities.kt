@@ -54,12 +54,18 @@ internal data class UserEntity(
     /**
      * Whether this user may edit content metadata (#1270).
      *
-     * Mirrors the contract `UserPermissions.canEdit` the auth session already carries — the server
+     * Mirrors the contract `UserPermissions.canEditMetadata` the auth session already carries — the server
      * has gated every metadata mutation on it since `V26`, but the client used to collapse the
      * contract user down to [isRoot]/admin and drop this on the floor. Defaults to `true`, matching
      * `UserPermissions`, so a row written before the flags existed reads as it always behaved.
      */
     val canEdit: Boolean = true,
+    /**
+     * Whether this user may curate the library: merge, unmerge and delete catalogue entries, and undo
+     * those merges. Mirrors the contract `UserPermissions.canCurateLibrary`. Defaults to `false`, the
+     * defaults rule's value for destructive work; MIGRATION_18_19 backfills existing rows from [canEdit].
+     */
+    val canCurateLibrary: Boolean = false,
 )
 
 /**

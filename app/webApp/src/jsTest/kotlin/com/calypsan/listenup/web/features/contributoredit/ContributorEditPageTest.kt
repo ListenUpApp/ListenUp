@@ -47,6 +47,7 @@ internal fun editingContributor(
     mergeDialogVisible: Boolean = false,
     mergeQuery: String = "",
     renameCollisionCandidate: ContributorCandidate? = null,
+    canCurateLibrary: Boolean = true,
 ) = ContributorEditUiState(
     isLoading = isLoading,
     isSaving = isSaving,
@@ -65,6 +66,7 @@ internal fun editingContributor(
     mergeQuery = mergeQuery,
     hasChanges = hasChanges,
     renameCollisionCandidate = renameCollisionCandidate,
+    canCurateLibrary = canCurateLibrary,
 )
 
 private fun page(
@@ -395,6 +397,23 @@ class ContributorEditPageTest :
             awaitFrame()
 
             seen shouldContainExactly listOf(ContributorEditUiEvent.MergeInto(ContributorId("c-bachman")))
+        }
+
+        test("a reader who may not curate gets no split, no fold-in, and no fold on a colliding rename") {
+            val host =
+                page(
+                    editingContributor(
+                        name = "Richard Bachman",
+                        aliases = listOf("Dick Bachman"),
+                        renameCollisionCandidate = candidate(),
+                        canCurateLibrary = false,
+                    ),
+                )
+
+            host.querySelector(".ced-split").shouldBeNull()
+            host.querySelector(".ced-merge").shouldBeNull()
+            dialogButton(host, "Fold into Richard Bachman").shouldBeNull()
+            dialogButton(host, "Keep separate").shouldNotBeNull()
         }
 
         // ⛔ Three answers, not two. Dismissing is the absence of an answer and must emit the event

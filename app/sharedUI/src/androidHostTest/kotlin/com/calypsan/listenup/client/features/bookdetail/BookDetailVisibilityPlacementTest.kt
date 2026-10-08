@@ -238,6 +238,7 @@ class BookDetailVisibilityPlacementTest {
                             isComplete = false,
                             hasProgress = false,
                             isAdmin = true,
+                            canEditMetadata = true,
                             isWaitingForWifi = false,
                             showPlaybackActions = !state.isHeld,
                             onBackClick = {},

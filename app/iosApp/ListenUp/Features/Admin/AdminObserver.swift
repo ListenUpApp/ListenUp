@@ -129,7 +129,8 @@ struct AdminResetRequestRowModel: Identifiable, Equatable {
 
 // MARK: - Row models
 
-/// One user (active or pending). `roleLabel` / `isRootBadge` drive the role badge; `isProtected`
+/// One user (active or pending). `roleLabel` (their role, or a member's preset) and `isRootBadge` drive
+/// the badge; `isProtected`
 /// gates the delete affordance (root users can't be deleted).
 struct AdminUserRowModel: Identifiable, Equatable {
     let id: String
@@ -143,8 +144,8 @@ struct AdminUserRowModel: Identifiable, Equatable {
         self.id = user.id
         self.name = user.displayableName
         self.email = user.email
-        self.roleLabel = AdminRoleFormat.label(isRoot: user.isRoot, role: user.role)
-        self.isRootBadge = AdminRoleFormat.isRootBadge(isRoot: user.isRoot, role: user.role)
+        self.roleLabel = PermissionLabels.title(user.access)
+        self.isRootBadge = AdminRoleFormat.isElevated(user.access)
         self.isProtected = user.isProtected
     }
 
@@ -195,22 +196,11 @@ struct AdminInviteRowModel: Identifiable, Equatable {
 
 // MARK: - Role formatting (pure, unit-tested)
 
-/// Pure role-label mapping shared by the row models and the tests. Mirrors the Android
-/// `UserRow` semantics: a root user reads "Root" with a tinted shield badge; an "admin" role
-/// also gets the tinted badge; everything else is a neutral capitalized role, defaulting to
-/// "Member" when the wire role is blank.
+/// Pure badge helpers shared by the row models and the tests. Owners and admins wear the tinted
+/// shield; a member's badge names their preset and stays neutral.
 enum AdminRoleFormat {
-    /// The badge text for a user with the given root flag and wire role.
-    static func label(isRoot: Bool, role: String) -> String {
-        if isRoot { return "Root" }
-        let trimmed = role.trimmingCharacters(in: .whitespaces)
-        return trimmed.isEmpty ? String(localized: "common.member") : capitalized(trimmed)
-    }
-
-    /// Whether the badge should read as elevated (tinted shield): root users and admins.
-    static func isRootBadge(isRoot: Bool, role: String) -> Bool {
-        isRoot || role.lowercased() == "admin"
-    }
+    /// Owners and admins wear the tinted shield.
+    static func isElevated(_ access: AccessLabel) -> Bool { access == .owner || access == .admin }
 
     /// Upper-cases the first character of a role string (e.g. "member" → "Member").
     static func capitalized(_ role: String) -> String {

@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.contributor_rename_collision_body
 import listenup.composeapp.generated.resources.contributor_rename_collision_keep_separate
 import listenup.composeapp.generated.resources.contributor_rename_collision_merge
@@ -26,6 +27,8 @@ import org.jetbrains.compose.resources.stringResource
  * @param onMerge Called when the user taps "Merge".
  * @param onKeepSeparate Called when the user taps "Keep Separate".
  * @param onDismiss Called when the dialog is dismissed without an explicit choice.
+ * @param canMerge Whether the user may merge (Curate library). Without it the dialog offers Keep separate
+ *   and Cancel — never a merge the server would refuse.
  */
 @Composable
 fun RenameCollisionDialog(
@@ -34,14 +37,16 @@ fun RenameCollisionDialog(
     onMerge: () -> Unit,
     onKeepSeparate: () -> Unit,
     onDismiss: () -> Unit,
+    canMerge: Boolean,
 ) {
+    val keepSeparate = stringResource(Res.string.contributor_rename_collision_keep_separate)
     ListenUpAlertDialog(
         onDismissRequest = onDismiss,
         title = stringResource(Res.string.contributor_rename_collision_title),
-        confirmText = stringResource(Res.string.contributor_rename_collision_merge),
-        onConfirm = onMerge,
-        dismissText = stringResource(Res.string.contributor_rename_collision_keep_separate),
-        onDismiss = onKeepSeparate,
+        confirmText = if (canMerge) stringResource(Res.string.contributor_rename_collision_merge) else keepSeparate,
+        onConfirm = if (canMerge) onMerge else onKeepSeparate,
+        dismissText = if (canMerge) keepSeparate else stringResource(Res.string.common_cancel),
+        onDismiss = if (canMerge) onKeepSeparate else onDismiss,
     ) {
         Text(
             text = stringResource(Res.string.contributor_rename_collision_body, newName, existingName),

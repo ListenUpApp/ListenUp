@@ -2,7 +2,6 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.ImportService
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.imports.ImportAnalysis
 import com.calypsan.listenup.api.dto.imports.ImportEvent
 import com.calypsan.listenup.api.dto.imports.ImportResult
@@ -20,7 +19,9 @@ import com.calypsan.listenup.server.absimport.ImportApplier
 import com.calypsan.listenup.server.absimport.ImportStore
 import com.calypsan.listenup.server.absimport.MappingValidator
 import com.calypsan.listenup.server.absimport.isSafeImportId
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.isAdmin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
@@ -127,8 +128,6 @@ class ImportServiceImpl(
     /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */
     private fun requireAdmin(): AppResult.Failure? {
         val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        return if (caller.role.isAdmin()) null else AppResult.Failure(AuthError.PermissionDenied())
+        return PermissionPolicy.requireAdmin(caller)?.let { AppResult.Failure(it) }
     }
-
-    private fun UserRole.isAdmin(): Boolean = this == UserRole.ROOT || this == UserRole.ADMIN
 }

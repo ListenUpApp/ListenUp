@@ -41,24 +41,30 @@ struct ContributorDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                // Edit/merge/delete make no sense on a row that no longer exists.
+                // Edit/merge/delete make no sense on a row that no longer exists, and each action shows
+                // only to those allowed it: edit and match need Edit metadata, delete needs Curate library.
                 // (`== false` keeps `observer` optional so the body's chaining stays valid.)
-                if observer?.notFound == false {
+                if observer?.notFound == false,
+                   observer?.canEditMetadata == true || observer?.canCurateLibrary == true {
                     Menu {
-                        Button {
-                            showEdit = true
-                        } label: {
-                            Label(String(localized: "common.edit"), systemImage: "pencil")
+                        if observer?.canEditMetadata == true {
+                            Button {
+                                showEdit = true
+                            } label: {
+                                Label(String(localized: "common.edit"), systemImage: "pencil")
+                            }
+                            Button {
+                                matchTarget = PersonMatchTarget(contributorId: activeContributorId)
+                            } label: {
+                                Label(String(localized: "match.menu_item"), systemImage: "sparkles")
+                            }
                         }
-                        Button {
-                            matchTarget = PersonMatchTarget(contributorId: activeContributorId)
-                        } label: {
-                            Label(String(localized: "match.menu_item"), systemImage: "sparkles")
-                        }
-                        Button(role: .destructive, action: {
-                            observer?.onDeleteContributor()
-                        }) {
-                            Label(String(localized: "common.delete"), systemImage: "trash")
+                        if observer?.canCurateLibrary == true {
+                            Button(role: .destructive, action: {
+                                observer?.onDeleteContributor()
+                            }) {
+                                Label(String(localized: "common.delete"), systemImage: "trash")
+                            }
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")

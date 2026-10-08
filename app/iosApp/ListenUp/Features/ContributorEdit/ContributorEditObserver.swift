@@ -30,6 +30,8 @@ final class ContributorEditObserver {
     private(set) var aliases: [String] = []
     private(set) var mergeQuery: String = ""
     private(set) var mergeCandidates: [MergeCandidate] = []
+    /// May merge and unmerge contributors (Curate library).
+    private(set) var canCurateLibrary: Bool = false
     /// Non-nil while Save is held back because the typed name matches an existing contributor
     /// (punctuation/spacing-insensitive). Drives the merge-or-keep-separate alert.
     private(set) var renameCollisionCandidate: MergeCandidate?
@@ -102,6 +104,7 @@ final class ContributorEditObserver {
         error = state.error
         aliases = Array(state.aliases)
         mergeQuery = state.mergeQuery
+        canCurateLibrary = state.canCurateLibrary
         renameCollisionCandidate = state.renameCollisionCandidate.map(MergeCandidate.init)
     }
 

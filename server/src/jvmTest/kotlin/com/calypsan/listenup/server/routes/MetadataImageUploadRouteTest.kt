@@ -9,7 +9,7 @@ import com.calypsan.listenup.api.dto.auth.AdminUserPatch
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
-import com.calypsan.listenup.api.dto.auth.UserPermissions
+import com.calypsan.listenup.api.dto.auth.UserPermissionsPatch
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.module
@@ -57,7 +57,7 @@ import com.calypsan.listenup.server.testing.authedService
  * routes write content-addressed images under `homeDir/contributors/` and `homeDir/series/`. Covers:
  *  - ROOT uploads a valid JPEG → 204; the row's imagePath/coverPath is set (content-addressed),
  *    the file lands under homeDir, and the sibling GET route serves the bytes back.
- *  - A MEMBER without canEdit → 403 (the service's internal requireCanEdit gate).
+ *  - A MEMBER without canEdit → 403 (the service's internal requirePermission(Permission.EDIT_METADATA) gate).
  *  - Missing file part → 400. Oversized declared part (> 10 MiB) → 413.
  */
 class MetadataImageUploadRouteTest :
@@ -162,7 +162,7 @@ class MetadataImageUploadRouteTest :
                     val rootToken = mintRootToken()
                     val (memberToken, memberId) = registerMember("member@x")
                     authedService<AdminUserService>(rootToken)
-                        .updateUser(UserId(memberId), AdminUserPatch(permissions = UserPermissions(canEdit = false)))
+                        .updateUser(UserId(memberId), AdminUserPatch(permissions = UserPermissionsPatch(canEditMetadata = false)))
 
                     val contributorRepo by application.inject<ContributorRepository>()
                     val id = contributorRepo.resolveOrCreate("Denied Author", sortName = null)
@@ -299,7 +299,7 @@ class MetadataImageUploadRouteTest :
                     val rootToken = mintRootToken()
                     val (memberToken, memberId) = registerMember("orphan-member@x")
                     authedService<AdminUserService>(rootToken)
-                        .updateUser(UserId(memberId), AdminUserPatch(permissions = UserPermissions(canEdit = false)))
+                        .updateUser(UserId(memberId), AdminUserPatch(permissions = UserPermissionsPatch(canEditMetadata = false)))
 
                     val contributorRepo by application.inject<ContributorRepository>()
                     val id = contributorRepo.resolveOrCreate("Orphan Author", sortName = null)
