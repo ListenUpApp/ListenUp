@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.domain.model.accessLabelFor
+import com.calypsan.listenup.api.dto.auth.Permission
+import com.calypsan.listenup.api.dto.advertisedPermissions
 import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
@@ -42,6 +46,7 @@ class AdminViewModel(
     private val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase,
     private val loadPasswordResetRequestsUseCase: LoadPasswordResetRequestsUseCase,
     private val decidePasswordResetUseCase: DecidePasswordResetUseCase,
+    private val instanceRepository: InstanceRepository,
     private val adminRepository: AdminRepository,
 ) : ViewModel() {
     val state: StateFlow<AdminUiState>
@@ -61,9 +66,13 @@ class AdminViewModel(
      */
     private fun observeRoster() {
         viewModelScope.launch {
+            // A failed probe reads as an older server, whose lists name members by role.
+            val advertised =
+                instanceRepository.getServerInfoOrNull()?.advertisedPermissions() ?: setOf(Permission.EDIT_METADATA)
             adminRepository.observeRoster().collect { roster ->
-                val active = sortUsers(roster.filter { it.status == "ACTIVE" })
-                val pending = roster.filter { it.status == "PENDING_APPROVAL" }
+                val labelled = roster.map { it.copy(access = accessLabelFor(it, advertised)) }
+                val active = sortUsers(labelled.filter { it.status == "ACTIVE" })
+                val pending = labelled.filter { it.status == "PENDING_APPROVAL" }
                 state.update { current ->
                     when (current) {
                         is AdminUiState.Ready -> current.copy(users = active, pendingUsers = pending)

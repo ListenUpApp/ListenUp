@@ -54,6 +54,8 @@ data class UserPermissions(
  * @property status User's current status (active, pending, etc.)
  * @property permissions User's permission flags
  * @property createdAt Creation timestamp as ISO string
+ * @property access How the admin lists name this user — their role, or a member's preset ([accessLabelFor]).
+ *   Filled in by the ViewModels that know what the server advertises.
  */
 data class AdminUserInfo(
     val id: String,
@@ -66,6 +68,7 @@ data class AdminUserInfo(
     val status: String,
     val permissions: UserPermissions = UserPermissions(),
     val createdAt: String,
+    val access: AccessLabel = AccessLabel.MEMBER,
 ) {
     /**
      * Returns a display-friendly name using the best available option:

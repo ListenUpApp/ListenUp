@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.client.domain.model.AccessLabel
+import com.calypsan.listenup.client.test.fake.FakeInstanceRepository
 import com.calypsan.listenup.api.dto.auth.UserPermissionsPatch
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
@@ -65,6 +67,7 @@ class UserDetailViewModelTest :
                     UserDetailViewModel(
                         userId = "user-1",
                         adminRepository = adminRepository,
+                        instanceRepository = FakeInstanceRepository(),
                         errorBus = ErrorBus(),
                     )
 
@@ -82,12 +85,13 @@ class UserDetailViewModelTest :
                     UserDetailViewModel(
                         userId = "user-1",
                         adminRepository = adminRepository,
+                        instanceRepository = FakeInstanceRepository(),
                         errorBus = ErrorBus(),
                     )
                 advanceUntilIdle()
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<UserDetailUiState.Ready>()
-                ready.user shouldBe user
+                ready.user shouldBe user.copy(access = AccessLabel.LISTENER)
                 ready.canEdit shouldBe false
             }
         }
@@ -101,6 +105,7 @@ class UserDetailViewModelTest :
                     UserDetailViewModel(
                         userId = "user-1",
                         adminRepository = adminRepository,
+                        instanceRepository = FakeInstanceRepository(),
                         errorBus = ErrorBus(),
                     )
                 advanceUntilIdle()
@@ -126,6 +131,7 @@ class UserDetailViewModelTest :
                     UserDetailViewModel(
                         userId = "user-1",
                         adminRepository = adminRepository,
+                        instanceRepository = FakeInstanceRepository(),
                         errorBus = ErrorBus(),
                     )
                 advanceUntilIdle()
@@ -165,6 +171,7 @@ class UserDetailViewModelTest :
                     UserDetailViewModel(
                         userId = "user-1",
                         adminRepository = adminRepository,
+                        instanceRepository = FakeInstanceRepository(),
                         errorBus = ErrorBus(),
                     )
                 advanceUntilIdle()
@@ -199,6 +206,7 @@ class UserDetailViewModelTest :
                     UserDetailViewModel(
                         userId = "user-1",
                         adminRepository = adminRepository,
+                        instanceRepository = FakeInstanceRepository(),
                         errorBus = ErrorBus(),
                     )
                 advanceUntilIdle()
@@ -238,6 +246,7 @@ class UserDetailViewModelTest :
                     UserDetailViewModel(
                         userId = "user-1",
                         adminRepository = adminRepository,
+                        instanceRepository = FakeInstanceRepository(),
                         errorBus = ErrorBus(),
                     )
                 advanceUntilIdle()
@@ -277,12 +286,50 @@ class UserDetailViewModelTest :
                     UserDetailViewModel(
                         userId = "root-1",
                         adminRepository = adminRepository,
+                        instanceRepository = FakeInstanceRepository(),
                         errorBus = ErrorBus(),
                     )
                 advanceUntilIdle()
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<UserDetailUiState.Ready>()
                 ready.isProtected shouldBe true
+            }
+        }
+
+        test("Ready names the member by the preset their flags match") {
+            runTest {
+                val adminRepository: AdminRepository = mock()
+                everySuspend { adminRepository.getUser("user-1") } returns
+                    AppResult.Success(createUser().copy(permissions = UserPermissions(canEditMetadata = true, canCurateLibrary = true)))
+                val viewModel =
+                    UserDetailViewModel(
+                        userId = "user-1",
+                        adminRepository = adminRepository,
+                        instanceRepository = FakeInstanceRepository(),
+                        errorBus = ErrorBus(),
+                    )
+                advanceUntilIdle()
+                viewModel.state.value
+                    .shouldBeInstanceOf<UserDetailUiState.Ready>()
+                    .user.access shouldBe AccessLabel.LIBRARIAN
+            }
+        }
+
+        test("against an older server the label is the role, not a preset") {
+            runTest {
+                val adminRepository: AdminRepository = mock()
+                everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(createUser())
+                val viewModel =
+                    UserDetailViewModel(
+                        userId = "user-1",
+                        adminRepository = adminRepository,
+                        instanceRepository = FakeInstanceRepository(setOf("canEdit")),
+                        errorBus = ErrorBus(),
+                    )
+                advanceUntilIdle()
+                viewModel.state.value
+                    .shouldBeInstanceOf<UserDetailUiState.Ready>()
+                    .user.access shouldBe AccessLabel.MEMBER
             }
         }
     })

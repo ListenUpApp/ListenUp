@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.client.domain.model.UserPermissions
+import com.calypsan.listenup.client.domain.model.AccessLabel
+import com.calypsan.listenup.client.test.fake.FakeInstanceRepository
 import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
@@ -147,6 +150,7 @@ class AdminViewModelTest :
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
                         loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
                         decidePasswordResetUseCase = mock(),
+                        instanceRepository = FakeInstanceRepository(),
                         adminRepository = createMockAdminRepository(),
                     )
 
@@ -174,6 +178,7 @@ class AdminViewModelTest :
                         setRegistrationPolicyUseCase = mock(),
                         loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
                         decidePasswordResetUseCase = mock(),
+                        instanceRepository = FakeInstanceRepository(),
                         adminRepository = createMockAdminRepository(rosterFlow),
                     )
                 advanceUntilIdle()
@@ -208,6 +213,7 @@ class AdminViewModelTest :
                         setRegistrationPolicyUseCase = mock(),
                         loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
                         decidePasswordResetUseCase = mock(),
+                        instanceRepository = FakeInstanceRepository(),
                         adminRepository = createMockAdminRepository(rosterFlow),
                     )
                 advanceUntilIdle()
@@ -235,6 +241,7 @@ class AdminViewModelTest :
                         setRegistrationPolicyUseCase = mock(),
                         loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
                         decidePasswordResetUseCase = mock(),
+                        instanceRepository = FakeInstanceRepository(),
                         adminRepository = createMockAdminRepository(rosterFlow),
                     )
                 advanceUntilIdle()
@@ -275,6 +282,7 @@ class AdminViewModelTest :
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
                         loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
                         decidePasswordResetUseCase = mock(),
+                        instanceRepository = FakeInstanceRepository(),
                         adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
@@ -315,6 +323,7 @@ class AdminViewModelTest :
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
                         loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
                         decidePasswordResetUseCase = mock(),
+                        instanceRepository = FakeInstanceRepository(),
                         adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
@@ -360,6 +369,7 @@ class AdminViewModelTest :
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
                         loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
                         decidePasswordResetUseCase = mock(),
+                        instanceRepository = FakeInstanceRepository(),
                         adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
@@ -394,6 +404,7 @@ class AdminViewModelTest :
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
                         loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
                         decidePasswordResetUseCase = mock(),
+                        instanceRepository = FakeInstanceRepository(),
                         adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
@@ -440,6 +451,7 @@ class AdminViewModelTest :
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
                         loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
                         decidePasswordResetUseCase = mock(),
+                        instanceRepository = FakeInstanceRepository(),
                         adminRepository = createMockAdminRepository(rosterFlow),
                     )
                 advanceUntilIdle()
@@ -480,6 +492,7 @@ class AdminViewModelTest :
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
                         loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
                         decidePasswordResetUseCase = mock(),
+                        instanceRepository = FakeInstanceRepository(),
                         adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
@@ -517,6 +530,7 @@ class AdminViewModelTest :
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
                         loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
                         decidePasswordResetUseCase = mock(),
+                        instanceRepository = FakeInstanceRepository(),
                         adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
@@ -561,6 +575,7 @@ class AdminViewModelTest :
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
                         loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
                         decidePasswordResetUseCase = mock(),
+                        instanceRepository = FakeInstanceRepository(),
                         adminRepository = createMockAdminRepository(),
                     )
 
@@ -594,6 +609,7 @@ class AdminViewModelTest :
                         setRegistrationPolicyUseCase = mock(),
                         loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(listOf(request)),
                         decidePasswordResetUseCase = decidePasswordResetUseCase,
+                        instanceRepository = FakeInstanceRepository(),
                         adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
@@ -629,6 +645,7 @@ class AdminViewModelTest :
                         setRegistrationPolicyUseCase = mock(),
                         loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(listOf(request)),
                         decidePasswordResetUseCase = decidePasswordResetUseCase,
+                        instanceRepository = FakeInstanceRepository(),
                         adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
@@ -666,6 +683,7 @@ class AdminViewModelTest :
                         setRegistrationPolicyUseCase = mock(),
                         loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(listOf(request)),
                         decidePasswordResetUseCase = decidePasswordResetUseCase,
+                        instanceRepository = FakeInstanceRepository(),
                         adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
@@ -677,6 +695,43 @@ class AdminViewModelTest :
                 ready.pendingPasswordResets.shouldBeEmpty()
                 ready.resetCodeToConvey shouldBe null
                 ready.decidingPasswordResetId shouldBe null
+            }
+        }
+
+        test("each roster row carries its access label") {
+            runTest {
+                val loadInvitesUseCase: LoadInvitesUseCase = mock()
+                everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
+                val rosterFlow =
+                    MutableStateFlow(
+                        listOf(
+                            createUser(id = "admin-1").copy(role = "ADMIN"),
+                            createUser(id = "member-1").copy(
+                                role = "MEMBER",
+                                permissions = UserPermissions(canEditMetadata = true, canCurateLibrary = true),
+                            ),
+                        ),
+                    )
+
+                val viewModel =
+                    AdminViewModel(
+                        getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase(),
+                        loadInvitesUseCase = loadInvitesUseCase,
+                        deleteUserUseCase = mock(),
+                        revokeInviteUseCase = mock(),
+                        approveUserUseCase = mock(),
+                        denyUserUseCase = mock(),
+                        setRegistrationPolicyUseCase = mock(),
+                        loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
+                        decidePasswordResetUseCase = mock(),
+                        instanceRepository = FakeInstanceRepository(),
+                        adminRepository = createMockAdminRepository(rosterFlow),
+                    )
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminUiState.Ready>()
+                ready.users.associate { it.id to it.access } shouldBe
+                    mapOf("admin-1" to AccessLabel.ADMIN, "member-1" to AccessLabel.LIBRARIAN)
             }
         }
     })

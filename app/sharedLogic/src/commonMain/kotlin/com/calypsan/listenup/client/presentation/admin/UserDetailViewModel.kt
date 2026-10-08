@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.domain.model.accessLabelFor
+import com.calypsan.listenup.api.dto.auth.Permission
+import com.calypsan.listenup.api.dto.advertisedPermissions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.auth.UserPermissionsPatch
@@ -25,6 +29,7 @@ private val logger = KotlinLogging.logger {}
 class UserDetailViewModel(
     private val userId: String,
     private val adminRepository: AdminRepository,
+    private val instanceRepository: InstanceRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<UserDetailUiState>
@@ -43,12 +48,15 @@ class UserDetailViewModel(
      */
     private fun loadUser() {
         viewModelScope.launch {
+            // A failed probe reads as an older server, whose labels name members by role.
+            val advertised =
+                instanceRepository.getServerInfoOrNull()?.advertisedPermissions() ?: setOf(Permission.EDIT_METADATA)
             when (val result = adminRepository.getUser(userId)) {
                 is AppResult.Success -> {
                     val user = result.data
                     state.update {
                         UserDetailUiState.Ready(
-                            user = user,
+                            user = user.copy(access = accessLabelFor(user, advertised)),
                             canEdit = user.permissions.canEditMetadata,
                             isProtected = user.isProtected,
                         )
@@ -82,7 +90,9 @@ class UserDetailViewModel(
             save = { value ->
                 adminRepository.updateUser(userId = userId, permissions = UserPermissionsPatch(canEditMetadata = value))
             },
-            reconcile = { current, user -> current.copy(canEdit = user.permissions.canEditMetadata) },
+            reconcile = { current, user ->
+                current.copy(canEdit = user.permissions.canEditMetadata, user = user.copy(access = current.user.access))
+            },
         )
     }
 
@@ -116,7 +126,10 @@ class UserDetailViewModel(
                     logger.info { "Updated $name for user $userId to $newValue" }
                     // A save that lands makes any earlier failure's error stale; web shows it inline and
                     // has no snackbar acknowledgement to clear it.
-                    updateReady { reconcile(it, updatedUser).copy(isSaving = false, user = updatedUser, error = null) }
+                    updateReady {
+                        reconcile(it, updatedUser)
+                            .copy(isSaving = false, user = updatedUser.copy(access = it.user.access), error = null)
+                    }
                 }
 
                 is AppResult.Failure -> {

@@ -148,6 +148,7 @@ internal val adminPresentationModule =
                 setRegistrationPolicyUseCase = get(),
                 loadPasswordResetRequestsUseCase = get(),
                 decidePasswordResetUseCase = get(),
+                instanceRepository = get(),
                 adminRepository = get(),
             )
         }
@@ -222,6 +223,7 @@ internal val adminPresentationModule =
             com.calypsan.listenup.client.presentation.admin.UserDetailViewModel(
                 userId = params.get<String>(0),
                 adminRepository = get(),
+                instanceRepository = get(),
                 errorBus = get(),
             )
         }
