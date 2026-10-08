@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.features.nowplaying
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import java.util.Locale
 
 /**
  * How this UI writes a speed. The rounding it draws from (`snapPlaybackSpeed`) is commonMain's and
@@ -25,5 +26,18 @@ class PlaybackSpeedLabelTest :
             formatPlaybackSpeed(1.25f) shouldBe "1.25x"
             formatPlaybackSpeed(1.5f) shouldBe "1.5x"
             formatPlaybackSpeed(0.75f) shouldBe "0.75x"
+        }
+
+        test("a fractional speed keeps its decimal point in a comma-decimal locale") {
+            // The whole-speed branch always writes a point; the fractional one must match it, or a
+            // German phone shows "1.0x" beside "1,25x" in the same column of pills.
+            val original = Locale.getDefault()
+            try {
+                Locale.setDefault(Locale.GERMANY)
+                formatPlaybackSpeed(1.25f) shouldBe "1.25x"
+                formatPlaybackSpeed(1.5f) shouldBe "1.5x"
+            } finally {
+                Locale.setDefault(original)
+            }
         }
     })

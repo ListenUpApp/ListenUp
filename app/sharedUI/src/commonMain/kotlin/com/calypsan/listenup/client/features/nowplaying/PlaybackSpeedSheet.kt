@@ -34,6 +34,7 @@ import com.calypsan.listenup.client.presentation.nowplaying.snapPlaybackSpeed
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
+import java.util.Locale
 import kotlin.math.absoluteValue
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_playback_speed
@@ -59,7 +60,7 @@ fun formatPlaybackSpeed(speed: Float): String =
     if (speed == speed.toInt().toFloat()) {
         "${speed.toInt()}.0x"
     } else {
-        val formatted = "%.2f".format(speed).trimEnd('0').trimEnd('.')
+        val formatted = "%.2f".format(Locale.ROOT, speed).trimEnd('0').trimEnd('.')
         "${formatted}x"
     }
 
