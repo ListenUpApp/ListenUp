@@ -51,9 +51,7 @@ internal class RegistrationPolicyStreamImpl(
                             logger.warn { "Registration-policy watch errored (${event.error.code}); resubscribing" }
                         }
 
-                        is RpcEvent.Complete -> {
-                            Unit
-                        }
+                        is RpcEvent.Complete -> {}
                     }
                 }
                 delay(backoffMs)

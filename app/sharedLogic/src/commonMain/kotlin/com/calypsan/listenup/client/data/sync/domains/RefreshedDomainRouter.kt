@@ -27,7 +27,9 @@ internal class RefreshedDomainRouter(
      */
     suspend fun dispatch(control: SyncControl): Boolean {
         val strategy = byTrigger[control::class] ?: return false
-        logger.debug { "Control $control claimed by a refreshed domain; running ${strategy::class.simpleName} refresh" }
+        logger.debug {
+            "Control $control claimed by a refreshed domain; running ${strategy::class.simpleName ?: "anonymous"} refresh"
+        }
         runStrategy(strategy)
         return true
     }

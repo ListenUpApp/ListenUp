@@ -194,14 +194,25 @@ class HardcoverSettingsViewModel(
     /** The screen's state: [HardcoverSettingsUiState.Loading] until the server first answers. */
     val uiState: StateFlow<HardcoverSettingsUiState> =
         combine(
-            connection,
-            starting,
-            combine(disconnecting, requestingSync, pendingShareMode, pendingHistory, ::InFlight),
-            booksToMatch,
+            flow = connection,
+            flow2 = starting,
+            flow3 =
+                combine(
+                    flow = disconnecting,
+                    flow2 = requestingSync,
+                    flow3 = pendingShareMode,
+                    flow4 = pendingHistory,
+                    transform = ::InFlight,
+                ),
+            flow4 = booksToMatch,
         ) { connection, isStarting, inFlight, books ->
             connection
-                .toUiState(isStarting, inFlight.isDisconnecting, inFlight.isRequestingSync, books)
-                .withShareModeSaving(inFlight.pendingShareMode)
+                .toUiState(
+                    isStarting = isStarting,
+                    isDisconnecting = inFlight.isDisconnecting,
+                    isRequestingSync = inFlight.isRequestingSync,
+                    booksToMatch = books,
+                ).withShareModeSaving(inFlight.pendingShareMode)
                 .withHistoryPending(inFlight.pendingHistory)
         }.stateIn(
             scope = viewModelScope,
@@ -223,9 +234,9 @@ class HardcoverSettingsViewModel(
                 when (val result = repository.syncNow()) {
                     is AppResult.Success -> {
                         withTimeoutOrNull(SYNC_HANDOFF_MS) {
-                            connection.first {
-                                it !is HardcoverConnection.Connected || it.isSyncing ||
-                                    it.syncProblem == HardcoverSyncProblem.SYNC_NOW_FAILED
+                            connection.first { latest ->
+                                latest !is HardcoverConnection.Connected || latest.isSyncing ||
+                                    latest.syncProblem == HardcoverSyncProblem.SYNC_NOW_FAILED
                             }
                         }
                     }

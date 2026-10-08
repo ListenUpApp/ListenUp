@@ -84,10 +84,10 @@ internal class ConnectionHealthStore(
 
     private val rawUnreachable: Flow<Boolean> =
         combine(
-            networkMonitor.isOnlineFlow,
-            firehoseConnected,
-            evidence.lastUpAt,
-            evidence.lastDownAt,
+            flow = networkMonitor.isOnlineFlow,
+            flow2 = firehoseConnected,
+            flow3 = evidence.lastUpAt,
+            flow4 = evidence.lastDownAt,
         ) { deviceOnline, firehoseUp, up, down ->
             !deviceOnline || (!firehoseUp && down != null && down > (up ?: Long.MIN_VALUE))
         }.distinctUntilChanged()
@@ -112,15 +112,20 @@ internal class ConnectionHealthStore(
 
     private val compat: Flow<ConnectionHealth.Outdated?> =
         combine(
-            compatDetail,
-            localPreferences.peerServerVersion,
-            localPreferences.peerServerApi,
-            localPreferences.outdatedDismissedFor,
+            flow = compatDetail,
+            flow2 = localPreferences.peerServerVersion,
+            flow3 = localPreferences.peerServerApi,
+            flow4 = localPreferences.outdatedDismissedFor,
         ) { detail, peerVersion, peerApi, dismissedFor ->
             val serverVersion =
                 peerVersion ?: return@combine detail?.let { unknownOutdated() }
             val gap =
-                evaluateVersionGap(clientIdentity, serverVersion, peerApi, behaviouralEvidence = detail != null)
+                evaluateVersionGap(
+                    identity = clientIdentity,
+                    serverVersion = serverVersion,
+                    serverApi = peerApi,
+                    behaviouralEvidence = detail != null,
+                )
                     ?: return@combine null
             if (dismissedFor == clientIdentity.version to serverVersion) null else gap
         }.distinctUntilChanged()
@@ -173,9 +178,9 @@ internal class ConnectionHealthStore(
      */
     fun report(error: AppError) {
         val compatEvidence =
-            when (error) {
-                is TransportError.ContractMismatch -> error.detail
-                is TransportError.DataMalformed -> error.detail
+            when {
+                error is TransportError.ContractMismatch -> error.detail
+                error is TransportError.DataMalformed -> error.detail
                 else -> null
             }
         if (compatEvidence != null) {

@@ -72,9 +72,7 @@ class NotificationPrefsViewModel(
             )
         viewModelScope.launch {
             when (val result = repo.updatePreference(type, preference)) {
-                is AppResult.Success -> {
-                    Unit
-                }
+                is AppResult.Success -> {}
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)

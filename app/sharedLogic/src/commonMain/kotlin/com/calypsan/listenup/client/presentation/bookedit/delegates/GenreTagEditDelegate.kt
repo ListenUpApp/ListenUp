@@ -181,8 +181,8 @@ class GenreTagEditDelegate(
 
         // Check if we already have this tag added
         if (state.value.tags.any { it.slug == slug }) {
-            state.update {
-                it.copy(
+            state.update { current ->
+                current.copy(
                     tagSearchQuery = "",
                     tagSearchResults = emptyList(),
                 )
@@ -288,8 +288,8 @@ class GenreTagEditDelegate(
 
         // Check if we already have this mood added
         if (state.value.moods.any { it.slug == slug }) {
-            state.update {
-                it.copy(
+            state.update { current ->
+                current.copy(
                     moodSearchQuery = "",
                     moodSearchResults = emptyList(),
                 )

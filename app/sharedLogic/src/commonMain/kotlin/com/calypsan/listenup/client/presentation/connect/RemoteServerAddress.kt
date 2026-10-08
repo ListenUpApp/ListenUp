@@ -30,7 +30,7 @@ private val PRIVATE_NAME_SUFFIXES =
 fun isClearlyRemoteServerAddress(typedUrl: String): Boolean {
     val typed = typedUrl.trim()
     if (typed.isEmpty()) return false
-    val host = connectTarget(typed)?.host?.trimEnd('.')?.lowercase() ?: return false
+    val host = connectTarget(typed)?.run { host.trimEnd('.').lowercase() } ?: return false
     if (host.isEmpty() || isLocalNetworkHost(host)) return false
     return when {
         // A complete IPv6 literal (it parsed) that isn't link- or unique-local.

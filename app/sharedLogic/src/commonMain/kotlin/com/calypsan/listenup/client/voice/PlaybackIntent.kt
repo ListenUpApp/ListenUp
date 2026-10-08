@@ -4,31 +4,31 @@ package com.calypsan.listenup.client.voice
  * Represents the resolved intent from a voice command.
  * Platform adapters convert this to native playback actions.
  */
-sealed class PlaybackIntent {
+sealed interface PlaybackIntent {
     /** Play a specific book by ID */
     data class PlayBook(
         val bookId: String,
-    ) : PlaybackIntent()
+    ) : PlaybackIntent
 
     /** Resume the most recent in-progress book */
-    data object Resume : PlaybackIntent()
+    data object Resume : PlaybackIntent
 
     /** Play from a specific point in a series */
     data class PlaySeriesFrom(
         val seriesId: String,
         val startBookId: String,
-    ) : PlaybackIntent()
+    ) : PlaybackIntent
 
     /** Multiple viable matches - platform decides how to handle */
     data class Ambiguous(
         val candidates: List<ResolvedMatch>,
         val bestGuess: ResolvedMatch?,
-    ) : PlaybackIntent()
+    ) : PlaybackIntent
 
     /** No matches found for the query */
     data class NotFound(
         val originalQuery: String,
-    ) : PlaybackIntent()
+    ) : PlaybackIntent
 }
 
 /**

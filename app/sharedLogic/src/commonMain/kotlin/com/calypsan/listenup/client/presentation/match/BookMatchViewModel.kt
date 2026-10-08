@@ -103,7 +103,7 @@ class BookMatchViewModel internal constructor(
     /** Re-runs the whole Find; sources that already answered come back from the server's cache. */
     fun retry() {
         val failed = session.value.find as? FindPhase.Failed
-        if ((failed?.failure as? FindFailure.RateLimited)?.secondsRemaining?.let { it > 0 } == true) return
+        if ((failed?.failure as? FindFailure.RateLimited)?.run { secondsRemaining > 0 } == true) return
         runFind()
     }
 
@@ -134,50 +134,76 @@ class BookMatchViewModel internal constructor(
     fun setFieldTicked(
         field: BookField,
         ticked: Boolean,
-    ) = updateChoices { choices, review ->
-        review.fields.firstOrNull { it.field == field }?.let { choices.setTicked(it, ticked) } ?: choices
+    ) {
+        updateChoices { choices, review ->
+            review.fields.firstOrNull { it.field == field }?.let { choices.setTicked(it, ticked) } ?: choices
+        }
     }
 
     /** Picks a field's source, or Keep yours. */
     fun chooseSource(
         field: BookField,
         choice: FieldChoice,
-    ) = updateChoices { choices, _ -> choices.choose(field, choice) }
+    ) {
+        updateChoices { choices, _ -> choices.choose(field, choice) }
+    }
 
     /** Picks the cover Apply writes: Keep current, or one candidate. */
-    fun chooseCover(choice: ImageChoice) = updateChoices { choices, _ -> choices.copy(cover = choice) }
+    fun chooseCover(choice: ImageChoice) {
+        updateChoices { choices, _ -> choices.copy(cover = choice) }
+    }
 
     /** Removes one of your genres or moods (an explicit ×). */
     fun removeYourLabel(
         kind: LabelKind,
         label: String,
-    ) = updateChoices { c, _ -> c.copy(removedYours = c.toggleLabel(c.removedYours, kind, label, on = true)) }
+    ) {
+        updateChoices { c, _ ->
+            c.copy(removedYours = c.toggleLabel(bucket = c.removedYours, kind = kind, label = label, on = true))
+        }
+    }
 
     /** Keeps a label you had removed. */
     fun restoreYourLabel(
         kind: LabelKind,
         label: String,
-    ) = updateChoices { c, _ -> c.copy(removedYours = c.toggleLabel(c.removedYours, kind, label, on = false)) }
+    ) {
+        updateChoices { c, _ ->
+            c.copy(removedYours = c.toggleLabel(bucket = c.removedYours, kind = kind, label = label, on = false))
+        }
+    }
 
     /** Selects or deselects a suggested label. */
     fun toggleSuggestion(
         kind: LabelKind,
         label: String,
-    ) = updateChoices { c, _ ->
-        val off = label in c.deselectedSuggestions[kind].orEmpty()
-        c.copy(deselectedSuggestions = c.toggleLabel(c.deselectedSuggestions, kind, label, on = !off))
+    ) {
+        updateChoices { c, _ ->
+            val off = label in c.deselectedSuggestions[kind].orEmpty()
+            c.copy(
+                deselectedSuggestions =
+                    c.toggleLabel(
+                        bucket = c.deselectedSuggestions,
+                        kind = kind,
+                        label = label,
+                        on = !off,
+                    ),
+            )
+        }
     }
 
     /** Includes or leaves out every chapter name. */
-    fun setChapterNamesIncluded(included: Boolean) =
+    fun setChapterNamesIncluded(included: Boolean) {
         updateChoices { choices, _ -> choices.copy(chapterNamesIncluded = included) }
+    }
 
     /** Includes or leaves out one chapter's name. */
-    fun toggleChapter(ordinal: Int) =
+    fun toggleChapter(ordinal: Int) {
         updateChoices { choices, _ ->
             val excluded = choices.deselectedChapters
             choices.copy(deselectedChapters = if (ordinal in excluded) excluded - ordinal else excluded + ordinal)
         }
+    }
 
     /**
      * Applies every decision in one request. On `ReviewOutdated` the Review reloads with the choices whose
@@ -211,7 +237,17 @@ class BookMatchViewModel internal constructor(
     private suspend fun reloadAfterOutdated(candidate: CandidateUi) {
         when (val reloaded = review(candidate)) {
             is AppResult.Success -> {
-                session.update { it.copy(review = ReviewPhase.Ready(candidate, reloaded.data, false, null)) }
+                session.update { s ->
+                    s.copy(
+                        review =
+                            ReviewPhase.Ready(
+                                candidate = candidate,
+                                review = reloaded.data,
+                                applying = false,
+                                applyError = null,
+                            ),
+                    )
+                }
                 eventChannel.send(BookMatchEvent.ReviewReloaded)
             }
 
@@ -289,7 +325,17 @@ class BookMatchViewModel internal constructor(
             viewModelScope.launch {
                 when (val result = review(candidate)) {
                     is AppResult.Success -> {
-                        session.update { it.copy(review = ReviewPhase.Ready(candidate, result.data, false, null)) }
+                        session.update { s ->
+                            s.copy(
+                                review =
+                                    ReviewPhase.Ready(
+                                        candidate = candidate,
+                                        review = result.data,
+                                        applying = false,
+                                        applyError = null,
+                                    ),
+                            )
+                        }
                     }
 
                     is AppResult.Failure -> {
@@ -390,7 +436,12 @@ class BookMatchViewModel internal constructor(
                 }
 
                 is FindPhase.Failed -> {
-                    FindUiState.Failed(copy, displayedQuery(copy), find.failure, find.region?.toUi())
+                    FindUiState.Failed(
+                        yourCopy = copy,
+                        query = displayedQuery(copy),
+                        failure = find.failure,
+                        region = find.region?.toUi(),
+                    )
                 }
             }
 
@@ -436,7 +487,8 @@ class BookMatchViewModel internal constructor(
     }
 }
 
-private fun RegionContext.toUi(): RegionUi = RegionUi(source, region, origin, choices)
+private fun RegionContext.toUi(): RegionUi =
+    RegionUi(source = source, region = region, origin = origin, choices = choices)
 
 private fun BookDetail.toYourCopy(chapterCount: Int): YourCopyUi =
     YourCopyUi(

@@ -61,11 +61,11 @@ internal val listeningModule: Module =
                     // would strand the op (see PendingOperationQueue.enqueue / OfflineEditor).
                     get<PendingOperationQueue>()
                         .enqueue(
-                            OutboxChannels.ListeningEvents,
-                            entityId,
-                            OpKind.Upsert,
-                            payload,
-                            ownerUserId,
+                            channel = OutboxChannels.ListeningEvents,
+                            entityId = entityId,
+                            op = OpKind.Upsert,
+                            payload = payload,
+                            ownerUserId = ownerUserId,
                             signal = false,
                         )
                 },

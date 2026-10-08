@@ -91,4 +91,6 @@ internal expect fun initializeKoin(additionalModules: List<Module> = emptyList()
  * Exposes no DI-framework types, so it is safe on the Swift Export surface. Swift's `ListenUpApp`
  * calls this in place of the now-internal [initializeKoin].
  */
-fun startDependencyInjection() = initializeKoin()
+fun startDependencyInjection() {
+    initializeKoin()
+}

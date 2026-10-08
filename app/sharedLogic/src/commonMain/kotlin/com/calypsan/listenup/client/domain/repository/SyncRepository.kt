@@ -39,6 +39,7 @@ interface SyncRepository {
      * UI can use this to show "Scanning your library..." instead of empty state
      * during initial library setup.
      */
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
     val isServerScanning: StateFlow<Boolean>
     val scanProgress: StateFlow<ScanProgressState?>
 
@@ -51,6 +52,7 @@ interface SyncRepository {
      * lands — so a rescan of an already-populated library, or a fresh device joining an existing
      * library via a sync pull, never re-shows it. This is the signal the startup readiness gate reads.
      */
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
     val isBuildingInitialLibrary: StateFlow<Boolean>
 
     /**

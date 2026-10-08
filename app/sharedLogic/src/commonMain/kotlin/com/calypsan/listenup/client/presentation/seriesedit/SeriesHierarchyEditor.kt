@@ -72,7 +72,7 @@ internal class SeriesHierarchyEditor(
                         hierarchy,
                     ) { (currentId, query), open, tree ->
                         latest = tree
-                        parentPickerRows(tree, currentId, query, open)
+                        parentPickerRows(hierarchy = tree, currentId = currentId, query = query, expanded = open)
                     }
                 }
             }.stateIn(scope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
@@ -87,9 +87,9 @@ internal class SeriesHierarchyEditor(
                 launch { hierarchy.collect { latest = it } }
                 observeLineage(seriesId).collect { lineage ->
                     val parent = lineage.ancestors.lastOrNull()
-                    state.update {
-                        it.copy(
-                            parentId = parent?.id?.value,
+                    state.update { current ->
+                        current.copy(
+                            parentId = parent?.run { id.value },
                             parentName = parent?.name,
                             childSeries =
                                 lineage.children.map { child ->

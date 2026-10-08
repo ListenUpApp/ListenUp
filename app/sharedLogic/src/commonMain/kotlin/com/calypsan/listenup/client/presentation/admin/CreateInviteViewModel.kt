@@ -85,9 +85,11 @@ class CreateInviteViewModel(
     private fun classifyError(error: AppError): CreateInviteErrorType {
         // debugInfo is per-instance technical detail (and, post-guard, null on the wire for guard
         // errors). It is for LOGS, never the UI — surface the user-facing `message` constant instead.
-        logger.warn { "Create-invite failed: [${error.code}] cid=${error.correlationId} debug=${error.debugInfo}" }
-        return when (error) {
-            is ValidationError -> {
+        logger.warn {
+            "Create-invite failed: [${error.code}] cid=${error.correlationId ?: "none"} debug=${error.debugInfo ?: "none"}"
+        }
+        return when {
+            error is ValidationError -> {
                 if (error.field == ValidationField.EMAIL) {
                     CreateInviteErrorType.ValidationError(CreateInviteField.EMAIL)
                 } else {
@@ -95,7 +97,7 @@ class CreateInviteViewModel(
                 }
             }
 
-            is TransportError.Server4xx -> {
+            error is TransportError.Server4xx -> {
                 if (error.statusCode == HTTP_CONFLICT) {
                     CreateInviteErrorType.EmailInUse
                 } else {
@@ -103,7 +105,7 @@ class CreateInviteViewModel(
                 }
             }
 
-            is TransportError.NetworkUnavailable, is TransportError.Timeout -> {
+            error is TransportError.NetworkUnavailable || error is TransportError.Timeout -> {
                 CreateInviteErrorType.NetworkError(error.message)
             }
 

@@ -148,12 +148,10 @@ class VoiceIntentResolver(
         }
 
         // Author hint match boost
-        hints.artist?.let { artistHint ->
-            hit.author?.let { author ->
-                if (author.lowercase().contains(artistHint.lowercase())) {
-                    confidence += AUTHOR_HINT_MATCH_BOOST
-                }
-            }
+        val artistHint = hints.artist
+        val author = hit.author
+        if (artistHint != null && author != null && author.lowercase().contains(artistHint.lowercase())) {
+            confidence += AUTHOR_HINT_MATCH_BOOST
         }
 
         return ResolvedMatch(
@@ -210,9 +208,7 @@ class VoiceIntentResolver(
                 is SeriesNavigation.First -> {
                     booksWithSequence
                         .firstOrNull()
-                        ?.first
-                        ?.id
-                        ?.value
+                        ?.run { first.id.value }
                 }
 
                 is SeriesNavigation.BySequence -> {
@@ -224,9 +220,7 @@ class VoiceIntentResolver(
                             // Compare as numbers so "2" matches 2.0 rather than missing it on
                             // spelling, which is what a string equality here used to do.
                             sequence != null && sequence == navigation.sequence.toDoubleOrNull()
-                        }?.first
-                        ?.id
-                        ?.value
+                        }?.run { first.id.value }
                 }
 
                 is SeriesNavigation.NotSeriesNavigation -> {
@@ -234,10 +228,10 @@ class VoiceIntentResolver(
                 }
             }
 
-        return targetBookId?.let {
+        return targetBookId?.let { startBookId ->
             PlaybackIntent.PlaySeriesFrom(
                 seriesId = context.seriesId,
-                startBookId = it,
+                startBookId = startBookId,
             )
         }
     }

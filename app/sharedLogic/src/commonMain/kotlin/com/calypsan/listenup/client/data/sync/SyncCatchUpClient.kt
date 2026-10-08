@@ -111,9 +111,9 @@ internal class SyncCatchUpClient(
                         "catchUp(${handler.domainName}): ${outcome.failures}/${page.rows.size} items failed to apply"
                     }
                 }
-                page.nextCursor?.let {
-                    advanceCursor(handler.domainName, it, resetCursor)
-                    since = it
+                page.nextCursor?.let { nextCursor ->
+                    advanceCursor(handler.domainName, nextCursor, resetCursor)
+                    since = nextCursor
                 }
                 if (!page.hasMore) break
                 // hasMore == true but no cursor to advance to: `since` did not move, so a naive
@@ -172,7 +172,7 @@ internal class SyncCatchUpClient(
                         if (handler.onCatchUpItem(item, isTomb) is AppResult.Failure) {
                             failures++
                         } else if (failures == 0) {
-                            (item as? SyncPayload)?.revision?.let { lastSafeRevision = it }
+                            (item as? SyncPayload)?.let { payload -> lastSafeRevision = payload.revision }
                         }
                     }
                 }

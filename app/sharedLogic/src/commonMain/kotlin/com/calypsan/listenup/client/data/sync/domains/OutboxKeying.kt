@@ -17,7 +17,7 @@ import com.calypsan.listenup.client.data.sync.TargetedFetch
  *
  * A domain whose ops are keyed by the wire id declares none; the framework then uses the id as-is.
  */
-internal class OutboxKeying<in T>(
+internal data class OutboxKeying<in T>(
     /** Every outbox key a queued local edit to the entity [T] describes could be filed under. */
     val keysOf: suspend (payload: T) -> Set<String>,
     /** The targeted fetch that re-reads the entity behind an op keyed `outboxKey`; null when none can. */

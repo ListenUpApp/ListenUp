@@ -9,6 +9,7 @@ import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.request.get
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -47,17 +48,21 @@ private fun createHealthCheckClient(): HttpClient =
  * - Desktop networks are always considered unmetered
  *
  * @param serverUrlProvider Function that returns the current server URL, or null if not configured
+ * @param ioDispatcher Dispatcher the health-check loop polls on
  */
 class JvmNetworkMonitor(
     private val serverUrlProvider: () -> String?,
     private val httpClient: HttpClient = createHealthCheckClient(),
+    ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : NetworkMonitor {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + appCoroutineExceptionHandler)
+    private val scope = CoroutineScope(SupervisorJob() + ioDispatcher + appCoroutineExceptionHandler)
 
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
     override val isOnlineFlow: StateFlow<Boolean>
         field = MutableStateFlow(true) // Optimistic default
 
     // Desktop networks are always considered unmetered (WiFi/Ethernet)
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
     override val isOnUnmeteredNetworkFlow: StateFlow<Boolean>
         field = MutableStateFlow(true)
 

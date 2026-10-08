@@ -69,13 +69,19 @@ class OrganizeSettingsViewModel(
     }
 
     /** Picks the structure preset in the edit buffer. */
-    fun setPreset(preset: OrganizePreset) = updateSettings { it.copy(preset = preset) }
+    fun setPreset(preset: OrganizePreset) {
+        updateSettings { it.copy(preset = preset) }
+    }
 
     /** Picks the series-prefix style in the edit buffer. */
-    fun setSeriesPrefix(prefix: OrganizeSeriesPrefix) = updateSettings { it.copy(seriesPrefix = prefix) }
+    fun setSeriesPrefix(prefix: OrganizeSeriesPrefix) {
+        updateSettings { it.copy(seriesPrefix = prefix) }
+    }
 
     /** Picks the author-name form in the edit buffer. */
-    fun setAuthorForm(form: OrganizeAuthorForm) = updateSettings { it.copy(authorForm = form) }
+    fun setAuthorForm(form: OrganizeAuthorForm) {
+        updateSettings { it.copy(authorForm = form) }
+    }
 
     /**
      * Save tapped — persist the rules and stop. They govern future arrivals from this moment; not
@@ -139,10 +145,14 @@ class OrganizeSettingsViewModel(
     }
 
     /** Consent dialog dismissed — no cost, nothing persisted. */
-    fun dismissPreview() = updateReady { it.copy(preview = null) }
+    fun dismissPreview() {
+        updateReady { it.copy(preview = null) }
+    }
 
     /** Dismisses the terminal run report. */
-    fun dismissRunReport() = updateReady { it.copy(run = null) }
+    fun dismissRunReport() {
+        updateReady { it.copy(run = null) }
+    }
 
     /** Partial-failure Resume: re-previews the remainder — the server re-plans what's left. */
     fun resumeAfterFailure() {
@@ -150,7 +160,9 @@ class OrganizeSettingsViewModel(
         organize()
     }
 
-    fun clearError() = updateReady { it.copy(error = null) }
+    fun clearError() {
+        updateReady { it.copy(error = null) }
+    }
 
     /** Re-attaches the progress view to a run already in flight (e.g. after re-entering the screen). */
     private suspend fun reattachActiveRun() {

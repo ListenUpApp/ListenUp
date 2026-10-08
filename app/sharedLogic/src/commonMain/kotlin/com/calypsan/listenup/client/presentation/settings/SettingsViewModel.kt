@@ -15,7 +15,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.onFailure
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.LibraryPreferences
@@ -102,7 +101,7 @@ class SettingsViewModel(
     private val pushRepository: PushRepository,
     hardcoverRepository: HardcoverRepository,
     permissionsRepository: PermissionsRepository,
-    private val appVersion: String,
+    appVersion: String,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     // Internal mutable state for settings that aren't reactive StateFlows
@@ -131,20 +130,26 @@ class SettingsViewModel(
      */
     val state: StateFlow<SettingsUiState> =
         combine(
-            internalState,
+            flow = internalState,
             // Combine first group of local settings (5-param overload)
-            combine(
-                localPreferences.themeMode,
-                localPreferences.dynamicColorsEnabled,
-                localPreferences.autoRewindEnabled,
-                localPreferences.wifiOnlyDownloads,
-            ) { theme, dynamicColors, autoRewind, wifiOnly ->
-                LocalDisplaySettings(theme, dynamicColors, autoRewind, wifiOnly)
-            },
-            localPreferences.hapticFeedbackEnabled,
+            flow2 =
+                combine(
+                    flow = localPreferences.themeMode,
+                    flow2 = localPreferences.dynamicColorsEnabled,
+                    flow3 = localPreferences.autoRewindEnabled,
+                    flow4 = localPreferences.wifiOnlyDownloads,
+                ) { theme, dynamicColors, autoRewind, wifiOnly ->
+                    LocalDisplaySettings(
+                        themeMode = theme,
+                        dynamicColorsEnabled = dynamicColors,
+                        autoRewindEnabled = autoRewind,
+                        wifiOnlyDownloads = wifiOnly,
+                    )
+                },
+            flow3 = localPreferences.hapticFeedbackEnabled,
             // Synced preferences from the Room-backed repository: a change made on another device
             // (or this one) lands here live, so the screen never needs a re-open to catch up.
-            userPreferencesRepository.observePreferences(),
+            flow4 = userPreferencesRepository.observePreferences(),
         ) { internal, localDisplay, haptics, synced ->
             internal.copy(
                 defaultPlaybackSpeed = synced.defaultPlaybackSpeed,
@@ -199,8 +204,8 @@ class SettingsViewModel(
             // Load server URL from local storage
             val serverUrl = serverConfig.getServerUrl()?.value
 
-            internalState.update {
-                it.copy(
+            internalState.update { current ->
+                current.copy(
                     ignoreTitleArticles = ignoreTitleArticles,
                     hideSingleBookSeries = hideSingleBookSeries,
                     serverUrl = serverUrl,

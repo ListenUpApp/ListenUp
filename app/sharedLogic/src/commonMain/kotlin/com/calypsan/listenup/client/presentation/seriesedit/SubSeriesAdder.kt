@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -188,7 +187,7 @@ private data class AdderInputs(
 internal class SubSeriesAdder(
     private val scope: CoroutineScope,
     private val errorBus: ErrorBus,
-    private val hierarchy: Flow<SeriesHierarchy>,
+    hierarchy: Flow<SeriesHierarchy>,
     private val parentId: () -> String?,
     private val createSeries: suspend (String, SeriesId?) -> AppResult<SeriesId>,
     private val setParent: suspend (SeriesId, SeriesId?) -> AppResult<Unit>,
@@ -204,10 +203,10 @@ internal class SubSeriesAdder(
             .distinctUntilChanged()
             .flatMapLatest { visible ->
                 if (!visible) {
-                    inputs.map<AdderInputs, AddSubSeriesUiState> {
+                    inputs.map<AdderInputs, AddSubSeriesUiState> { closedInputs ->
                         AddSubSeriesUiState.Closed(
-                            isBusy = it.isBusy,
-                            error = it.error,
+                            isBusy = closedInputs.isBusy,
+                            error = closedInputs.error,
                         )
                     }
                 } else {
@@ -250,8 +249,8 @@ internal class SubSeriesAdder(
             pendingMove =
                 pending?.currentParentName?.let { from ->
                     PendingSubSeriesMove(
-                        pending.id,
-                        pending.name,
+                        seriesId = pending.id,
+                        seriesName = pending.name,
                         fromParentName = from,
                         toParentName = parent?.name.orEmpty(),
                     )
@@ -260,14 +259,7 @@ internal class SubSeriesAdder(
                 input.newSeriesName?.let { name ->
                     NewSeriesDraft(
                         name = name,
-                        existing =
-                            tree.findByName(name)?.let { match ->
-                                ExistingSeriesMatch(
-                                    id = match.id.value,
-                                    name = match.name,
-                                    isSelectable = all.any { it.id == match.id.value && it.isSelectable },
-                                )
-                            },
+                        existing = existingMatch(tree, name, all),
                     )
                 },
             isBusy = input.isBusy,
@@ -275,12 +267,26 @@ internal class SubSeriesAdder(
         )
     }
 
+    /** The series already called [name], if any, and whether it is one of the [candidates] the sheet can offer. */
+    private fun existingMatch(
+        tree: SeriesHierarchy,
+        name: String,
+        candidates: List<SubSeriesCandidateUi>,
+    ): ExistingSeriesMatch? =
+        tree.findByName(name)?.let { match ->
+            ExistingSeriesMatch(
+                id = match.id.value,
+                name = match.name,
+                isSelectable = candidates.any { it.id == match.id.value && it.isSelectable },
+            )
+        }
+
     /** Every series but [parent] and the series above it (choosing those could only form a loop). */
     private fun candidates(
         tree: SeriesHierarchy,
         parent: Series?,
     ): List<SubSeriesCandidateUi> {
-        val parentId = parent?.id?.value ?: return emptyList()
+        val parentId = parent?.run { id.value } ?: return emptyList()
         val excluded = tree.ancestorsOf(parentId).mapTo(hashSetOf(parentId)) { it.id.value }
         return tree.series
             .filter { it.id.value !in excluded }
@@ -294,7 +300,7 @@ internal class SubSeriesAdder(
                     bookCount = tree.bookCount(id),
                     subSeriesCount = tree.childrenOf(id).size,
                     placement =
-                        when (currentParent?.id?.value) {
+                        when (currentParent?.run { this.id.value }) {
                             null -> SubSeriesPlacement.TOP_LEVEL
                             parentId -> SubSeriesPlacement.ALREADY_HERE
                             else -> SubSeriesPlacement.IN_OTHER_PARENT

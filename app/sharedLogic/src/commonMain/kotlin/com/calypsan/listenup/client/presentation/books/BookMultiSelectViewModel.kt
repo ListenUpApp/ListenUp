@@ -45,9 +45,9 @@ private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
  * event; failures keep the selection and surface the typed error on the global [errorBus].
  */
 class BookMultiSelectViewModel(
-    private val userRepository: UserRepository,
-    private val collectionRepository: CollectionRepository,
-    private val shelfRepository: ShelfRepository,
+    userRepository: UserRepository,
+    collectionRepository: CollectionRepository,
+    shelfRepository: ShelfRepository,
     private val addBooksToShelfUseCase: AddBooksToShelfUseCase,
     private val addBooksToCollectionUseCase: AddBooksToCollectionUseCase,
     private val createShelfUseCase: CreateShelfUseCase,
@@ -72,6 +72,7 @@ class BookMultiSelectViewModel(
     /**
      * Whether the current user is an admin. Only admins may add books to collections.
      */
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
     val isAdmin: StateFlow<Boolean> =
         userRepository
             .observeCurrentUser()
@@ -124,10 +125,12 @@ class BookMultiSelectViewModel(
     // ═══════════════════════════════════════════════════════════════════════
 
     /** Whether an add-to-collection operation is in progress. */
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
     val isAddingToCollection: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
     /** Whether an add-to-shelf operation is in progress. */
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
     val isAddingToShelf: StateFlow<Boolean>
         field = MutableStateFlow(false)
 

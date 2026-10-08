@@ -167,18 +167,25 @@ internal fun listenUpScore(
     calibration: SourceCalibration,
 ): CombinedScore? {
     val contributions =
-        outside.filter { it.count > 0 }.map {
-            contribution(ScoreSource.Outside(it.source), it.average, it.count, OUTSIDE_PSEUDO_COUNT, 1.0, calibration)
+        outside.filter { it.count > 0 }.map { rating ->
+            contribution(
+                source = ScoreSource.Outside(rating.source),
+                average = rating.average,
+                count = rating.count,
+                pseudoCount = OUTSIDE_PSEUDO_COUNT,
+                boost = 1.0,
+                calibration = calibration,
+            )
         } +
             listOfNotNull(
-                listeners?.takeIf { it.count > 0 }?.let {
+                listeners?.takeIf { it.count > 0 }?.let { listenerAverage ->
                     contribution(
-                        ScoreSource.Listeners,
-                        it.stars,
-                        it.count,
-                        LISTENER_PSEUDO_COUNT,
-                        LISTENER_BOOST,
-                        calibration,
+                        source = ScoreSource.Listeners,
+                        average = listenerAverage.stars,
+                        count = listenerAverage.count,
+                        pseudoCount = LISTENER_PSEUDO_COUNT,
+                        boost = LISTENER_BOOST,
+                        calibration = calibration,
                     )
                 },
             )
@@ -193,7 +200,7 @@ internal fun listenUpScore(
     )
 }
 
-private class Contribution(
+private data class Contribution(
     val source: ScoreSource,
     val count: Int,
     val z: Double,

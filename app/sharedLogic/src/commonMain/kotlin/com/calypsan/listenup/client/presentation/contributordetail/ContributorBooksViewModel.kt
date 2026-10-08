@@ -32,7 +32,7 @@ import kotlinx.coroutines.flow.stateIn
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ContributorBooksViewModel(
-    private val contributorRepository: ContributorRepository,
+    contributorRepository: ContributorRepository,
     private val playbackPositionRepository: PlaybackPositionRepository,
 ) : ViewModel() {
     private data class LoadRequest(

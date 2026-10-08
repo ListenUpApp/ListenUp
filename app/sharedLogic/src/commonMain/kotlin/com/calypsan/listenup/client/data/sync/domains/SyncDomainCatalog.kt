@@ -15,7 +15,7 @@ import com.calypsan.listenup.client.domain.repository.ImageStorage
  * are refresh-driven. The server's registrations are asserted 1:1 against [mirrored]
  * by the completeness spec; the four [refreshed] triggers are asserted there too.
  */
-internal class SyncDomainCatalog(
+internal data class SyncDomainCatalog(
     val mirrored: List<MirroredDomain<*>>,
     val refreshed: List<RefreshedDomain>,
 )

@@ -366,9 +366,9 @@ class AdminCategoriesViewModel(
         ): GenreTreeNode {
             val children =
                 childrenByParentPath[genre.path]
-                    ?.sortedBy { it.name }
-                    ?.map { buildNode(it, depth + 1) }
-                    ?: emptyList()
+                    .orEmpty()
+                    .sortedBy { it.name }
+                    .map { buildNode(it, depth + 1) }
 
             return GenreTreeNode(
                 genre = genre,

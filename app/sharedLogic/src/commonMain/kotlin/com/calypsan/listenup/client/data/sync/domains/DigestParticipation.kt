@@ -12,7 +12,7 @@ internal sealed interface DigestParticipation {
      * server's (now tombstone-excluding) digest covers, so a locally-tombstoned row leaves
      * both digests at once and the member converges (F1).
      */
-    class Full(
+    data class Full(
         val rows: suspend (maxRevision: Long) -> List<Pair<String, Long>>,
     ) : DigestParticipation
 

@@ -88,7 +88,15 @@ fun previewDrift(
     proposal: DriftProposal,
     bookDurationMs: Long,
 ): DriftPreview =
-    when (val result = correctDrift(chapters, proposal.anchors, bookDurationMs, proposal.lockedIds)) {
+    when (
+        val result =
+            correctDrift(
+                chapters = chapters,
+                anchors = proposal.anchors,
+                bookDurationMs = bookDurationMs,
+                lockedIds = proposal.lockedIds,
+            )
+    ) {
         is DriftResult.Corrected -> ready(chapters, result.chapters, proposal.lockedIds)
         DriftResult.Rejected.BadAnchors -> DriftPreview.Refused(DriftRefusal.UnusableAnchors)
         DriftResult.Rejected.InvertedAnchors -> DriftPreview.Refused(DriftRefusal.InvertedAnchors)

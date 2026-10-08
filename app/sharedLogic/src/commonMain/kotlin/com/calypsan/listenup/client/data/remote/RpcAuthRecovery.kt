@@ -74,18 +74,15 @@ internal class RpcAuthRecoveryImpl(
                 }
 
                 is AppResult.Failure -> {
-                    when (result.error) {
-                        // Server-confirmed dead refresh token → soft-clear so state lands in
-                        // SessionLapsed and the boundary surfaces SessionExpired.
-                        is AuthError.SessionExpired, is AuthError.InvalidRefreshToken -> {
-                            authSession.clearSessionCredentials()
-                            AuthRecoveryOutcome.SessionInvalid
-                        }
-
+                    val error = result.error
+                    // Server-confirmed dead refresh token → soft-clear so state lands in
+                    // SessionLapsed and the boundary surfaces SessionExpired.
+                    if (error is AuthError.SessionExpired || error is AuthError.InvalidRefreshToken) {
+                        authSession.clearSessionCredentials()
+                        AuthRecoveryOutcome.SessionInvalid
+                    } else {
                         // Network / timeout / 5xx / internal — NOT session death. Keep the session.
-                        else -> {
-                            AuthRecoveryOutcome.Transient
-                        }
+                        AuthRecoveryOutcome.Transient
                     }
                 }
             }

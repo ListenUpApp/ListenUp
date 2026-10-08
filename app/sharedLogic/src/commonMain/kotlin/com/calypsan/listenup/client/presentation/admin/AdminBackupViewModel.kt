@@ -122,8 +122,8 @@ class AdminBackupViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to create backup: ${result.error.message}" }
-                    updateReady {
-                        it.copy(
+                    updateReady { ready ->
+                        ready.copy(
                             isCreating = false,
                             error = result.error,
                         )
@@ -187,8 +187,8 @@ class AdminBackupViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to delete backup: ${result.error.message}" }
-                    updateReady {
-                        it.copy(
+                    updateReady { ready ->
+                        ready.copy(
                             isDeleting = false,
                             error = result.error,
                         )

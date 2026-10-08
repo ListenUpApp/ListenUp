@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.discovery
 
 import com.calypsan.listenup.core.appCoroutineExceptionHandler
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -30,8 +31,10 @@ private val logger = KotlinLogging.logger {}
  * - api: API version (required)
  * - remote: Remote URL (optional)
  */
-internal class JmDnsDiscoveryService : ServerDiscoveryService {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + appCoroutineExceptionHandler)
+internal class JmDnsDiscoveryService(
+    ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+) : ServerDiscoveryService {
+    private val scope = CoroutineScope(SupervisorJob() + ioDispatcher + appCoroutineExceptionHandler)
     private val serversState = MutableStateFlow<Map<String, DiscoveredServer>>(emptyMap())
 
     private var jmdns: JmDNS? = null
@@ -81,7 +84,10 @@ internal class JmDnsDiscoveryService : ServerDiscoveryService {
                         }
 
                         override fun serviceResolved(event: ServiceEvent) {
-                            logger.info { "Service resolved: ${event.name} at ${event.info?.hostAddresses?.firstOrNull()}:${event.info?.port}" }
+                            logger.info {
+                                val host = event.info?.hostAddresses?.firstOrNull() ?: "unknown host"
+                                "Service resolved: ${event.name} at $host:${event.info?.port ?: "unknown port"}"
+                            }
                             val server = parseDiscoveredServer(event)
                             if (server != null) {
                                 serversState.update { it + (server.id to server) }
@@ -133,8 +139,8 @@ internal class JmDnsDiscoveryService : ServerDiscoveryService {
         // All resolved addresses, best-first — a multi-homed server resolves to several and the first
         // can be unroutable (a docker-bridge / VPN address). Keep them all for fallback.
         val rawHosts =
-            (info.hostAddresses?.toList() ?: emptyList())
-                .ifEmpty { info.inet4Addresses?.mapNotNull { it?.hostAddress } ?: emptyList() }
+            info.hostAddresses?.toList().orEmpty()
+                .ifEmpty { info.inet4Addresses?.mapNotNull { it?.hostAddress }.orEmpty() }
         val hosts = rankHostAddresses(rawHosts)
         val host = hosts.firstOrNull()
         if (host == null) {

@@ -203,7 +203,7 @@ open class ProgressTracker(
             }
         }
         logger.info {
-            "🎧 PLAYBACK PAUSED: book=${bookId.value}, position=$positionMs, prior=${priorState::class.simpleName}"
+            "🎧 PLAYBACK PAUSED: book=${bookId.value}, position=$positionMs, prior=$priorState"
         }
     }
 
@@ -219,7 +219,7 @@ open class ProgressTracker(
         scope.launch {
             // Save position locally. Periodic (fires every 10-30s) — gated so a persistent
             // failure is surfaced once, not spammed every tick.
-            savePosition(bookId, positionMs, speed, isPeriodicTick = true)
+            savePosition(bookId = bookId, positionMs = positionMs, speed = speed, isPeriodicTick = true)
         }
     }
 
@@ -534,7 +534,7 @@ open class ProgressTracker(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                logger.warn { "Failed to clear download tombstones for ${bookId.value} (non-fatal): ${e.message}" }
+                logger.warn { "Failed to clear download tombstones for ${bookId.value} (non-fatal): $e" }
             }
 
             // Mark book as complete. Routes through BookFinished (not markComplete) so the

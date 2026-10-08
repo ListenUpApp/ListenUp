@@ -20,7 +20,7 @@ import com.calypsan.listenup.client.data.sync.TargetedFetch
  * without a decision — the delta path can never silently forget a domain the way a
  * hardcoded fetch list could.
  */
-internal class AccessGate(
+internal data class AccessGate(
     /** Ids of every live (non-tombstoned) local row, in wire-id form. */
     val liveIds: suspend () -> List<String>,
     /** Tombstone the given live local rows by wire id (called per bounded chunk). */
@@ -50,7 +50,7 @@ internal sealed interface AccessDeltaPolicy {
      * back. [order] fixes dependency order (a collection's membership reconciles before the books it
      * gates); a requested id that does not come back is tombstoned, one outside [candidatesFor] never.
      */
-    class Targeted(
+    data class Targeted(
         val order: Int,
         val axis: ScopeAxis,
         val fetchFor: (ids: List<String>) -> TargetedFetch,
@@ -61,7 +61,7 @@ internal sealed interface AccessDeltaPolicy {
      * The domain is NOT fetched in the delta pass: its rows are revision-cursored and converge via
      * the live firehose tail, with the coarse anchor as the frame-loss backstop. [rationale] records why.
      */
-    class LiveTailOnly(
+    data class LiveTailOnly(
         val rationale: String,
     ) : AccessDeltaPolicy
 }

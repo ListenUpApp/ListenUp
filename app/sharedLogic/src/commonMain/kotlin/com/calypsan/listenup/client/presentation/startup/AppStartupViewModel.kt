@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.SetupStatus
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.getOrDefault
-import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.client.core.suspendRunCatching
@@ -22,7 +21,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -232,7 +230,9 @@ class AppStartupViewModel internal constructor(
 
                         ShellPhase.LapsedCredentials -> {
                             if (state.value.checkResolved) {
-                                logger.debug { "AppStartupViewModel: session lapsed mid-use — keeping the resolved check" }
+                                logger.debug {
+                                    "AppStartupViewModel: session lapsed mid-use — keeping the resolved check"
+                                }
                             } else {
                                 logger.info { "AppStartupViewModel: lapsed cold start — running library-setup check" }
                                 runLibrarySetupCheck()
@@ -348,7 +348,9 @@ class AppStartupViewModel internal constructor(
                     val completed =
                         withTimeoutOrNull(SETUP_CHECK_TIMEOUT_MS) {
                             val user = userRepository.refreshCurrentUser() ?: localUser
-                            logger.info { "AppStartupViewModel: resolved user=${user?.displayName}, isAdmin=${user?.isAdmin}" }
+                            logger.info {
+                                "AppStartupViewModel: resolved user=${user?.displayName ?: "none"}, isAdmin=${user?.isAdmin == true}"
+                            }
 
                             if (user?.isAdmin == true) {
                                 applyAdminSetupCheckResult(
@@ -356,7 +358,8 @@ class AppStartupViewModel internal constructor(
                                 )
                             } else {
                                 logger.info {
-                                    "AppStartupViewModel: not an admin (user=${user?.displayName}, isAdmin=${user?.isAdmin}) — " +
+                                    "AppStartupViewModel: not an admin (user=${user?.displayName ?: "none"}, " +
+                                        "isAdmin=${user?.isAdmin == true}) — " +
                                         "skipping library-setup check"
                                 }
                                 markReady()
@@ -458,7 +461,9 @@ class AppStartupViewModel internal constructor(
             }
 
             authSession.authState.value is AuthState.SessionLapsed -> {
-                logger.info { "library check failed under a lapsed session — mounting the shell with the sign-in affordance" }
+                logger.info {
+                    "library check failed under a lapsed session — mounting the shell with the sign-in affordance"
+                }
                 markReady(provisional = true)
             }
 

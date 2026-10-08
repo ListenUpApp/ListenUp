@@ -113,5 +113,5 @@ internal suspend fun mintSocketTicket(
     val fresh = accessToken() ?: return null
     val retried =
         authChannel().call(timeout = TICKET_MINT_TIMEOUT, idempotent = false) { it.issueSocketTicket(fresh) }
-    return (retried as? AppResult.Success)?.data?.value
+    return (retried as? AppResult.Success)?.run { data.value }
 }

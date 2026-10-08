@@ -89,8 +89,8 @@ class LibrarySetupViewModel internal constructor(
                 is AppResult.Success -> {
                     val status = result.data
                     logger.info { "Setup status: needsSetup=${status.needsSetup}" }
-                    state.update {
-                        it.copy(
+                    state.update { current ->
+                        current.copy(
                             isCheckingStatus = false,
                             needsSetup = status.needsSetup,
                         )
@@ -103,8 +103,8 @@ class LibrarySetupViewModel internal constructor(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to check setup status: ${result.error.message}" }
-                    state.update {
-                        it.copy(
+                    state.update { current ->
+                        current.copy(
                             isCheckingStatus = false,
                             error = result.error.message,
                         )
@@ -139,8 +139,8 @@ class LibrarySetupViewModel internal constructor(
                             if (lastSlash <= 0) "/" else path.substring(0, lastSlash)
                         }
                     logger.debug { "Loaded directory: $path, entries=${entries.size}" }
-                    state.update {
-                        it.copy(
+                    state.update { current ->
+                        current.copy(
                             isLoadingDirectories = false,
                             currentPath = path,
                             parentPath = parentPath,
@@ -153,8 +153,8 @@ class LibrarySetupViewModel internal constructor(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to load directory: $path — ${result.error.message}" }
-                    state.update {
-                        it.copy(
+                    state.update { current ->
+                        current.copy(
                             isLoadingDirectories = false,
                             error = result.error.message,
                         )

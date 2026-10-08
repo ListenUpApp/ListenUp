@@ -39,15 +39,15 @@ data class PartGroup(
  */
 fun List<Chapter>.groupChapters(): List<BookGroup> {
     val books = mutableListOf<BookGroup>()
-    var parts = mutableListOf<PartGroup>()
-    var chapters = mutableListOf<Chapter>()
+    val parts = mutableListOf<PartGroup>()
+    val chapters = mutableListOf<Chapter>()
     var bookTitle: String? = null
     var partTitle: String? = null
 
     fun flushPart() {
         if (chapters.isNotEmpty()) {
-            parts.add(PartGroup(partTitle, chapters))
-            chapters = mutableListOf()
+            parts.add(PartGroup(partTitle, chapters.toList()))
+            chapters.clear()
         }
         partTitle = null
     }
@@ -55,8 +55,8 @@ fun List<Chapter>.groupChapters(): List<BookGroup> {
     fun flushBook() {
         flushPart()
         if (parts.isNotEmpty()) {
-            books.add(BookGroup(bookTitle, parts))
-            parts = mutableListOf()
+            books.add(BookGroup(bookTitle, parts.toList()))
+            parts.clear()
         }
         bookTitle = null
     }

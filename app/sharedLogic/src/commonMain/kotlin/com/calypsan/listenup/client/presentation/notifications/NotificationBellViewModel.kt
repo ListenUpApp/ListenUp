@@ -24,5 +24,7 @@ class NotificationBellViewModel(
      * Cancels this ViewModel's coroutines. Idempotent. Android clears it through its
      * `ViewModelStore`; iOS has none, so the observer calls this from its `isolated deinit` (#1192).
      */
-    fun close() = viewModelScope.cancel()
+    fun close() {
+        viewModelScope.cancel()
+    }
 }

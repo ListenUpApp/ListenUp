@@ -33,7 +33,7 @@ fun audioFormatSummary(files: List<AudioFile>): AudioFormat? {
             .eachCount()
             .maxByOrNull { it.value }
             ?.key
-            ?: ""
+            .orEmpty()
     val totalBytes = files.sumOf { it.size }
     val totalMs = files.sumOf { it.duration }
     val bitrate =
@@ -92,7 +92,7 @@ fun audioFormatIdentity(
     codecProfile: String?,
     spatial: String?,
 ): String? {
-    if (spatial?.trim()?.lowercase() == "atmos") return "Dolby Atmos"
+    if (spatial?.run { trim().lowercase() } == "atmos") return "Dolby Atmos"
     val c = codec.trim().lowercase()
     if (c.isBlank()) return null
     return when (c) {
@@ -110,7 +110,7 @@ fun audioFormatIdentity(
 
 /** AAC display name refined by its profile token (`xhe`/`hev2`/`he`); plain "AAC" otherwise. */
 private fun aacProfileLabel(codecProfile: String?): String =
-    when (codecProfile?.trim()?.lowercase()) {
+    when (codecProfile?.run { trim().lowercase() }) {
         "xhe" -> "xHE-AAC"
         "hev2" -> "HE-AAC v2"
         "he" -> "HE-AAC"

@@ -65,10 +65,10 @@ class ContributorEditDelegate(
             .filter { it.length >= MIN_SEARCH_QUERY_LENGTH || it.isEmpty() }
             .onEach { query ->
                 if (query.isBlank()) {
-                    state.update {
-                        it.copy(
-                            roleSearchResults = it.roleSearchResults - role,
-                            roleSearchLoading = it.roleSearchLoading - role,
+                    state.update { current ->
+                        current.copy(
+                            roleSearchResults = current.roleSearchResults - role,
+                            roleSearchLoading = current.roleSearchLoading - role,
                         )
                     }
                 } else {
@@ -276,7 +276,7 @@ class ContributorEditDelegate(
         }
 
         // Clean up the query flow
-        roleQueryFlows.remove(role)
+        val _ = roleQueryFlows.remove(role)
         roleSearchJobs[role]?.cancel()
         roleSearchJobs.remove(role)
 
@@ -304,11 +304,11 @@ class ContributorEditDelegate(
                         .toSet()
                 val filteredResults = response.contributors.filter { it.id !in currentContributorIds }
 
-                state.update {
-                    it.copy(
-                        roleSearchResults = it.roleSearchResults + (role to filteredResults),
-                        roleSearchLoading = it.roleSearchLoading + (role to false),
-                        roleOfflineResults = it.roleOfflineResults + (role to response.isOfflineResult),
+                state.update { current ->
+                    current.copy(
+                        roleSearchResults = current.roleSearchResults + (role to filteredResults),
+                        roleSearchLoading = current.roleSearchLoading + (role to false),
+                        roleOfflineResults = current.roleOfflineResults + (role to response.isOfflineResult),
                     )
                 }
 

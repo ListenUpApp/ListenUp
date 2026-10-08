@@ -11,7 +11,6 @@ import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
-import org.koin.dsl.binds
 import org.koin.dsl.module
 
 /**

@@ -24,6 +24,6 @@ package com.calypsan.listenup.client.data.sync.domains
  * revision INCLUDING tombstoned rows, or null when the row has never been seen
  * (first sight always applies). It runs inside the apply's write transaction.
  */
-internal class RevisionGuard(
+internal data class RevisionGuard(
     val localRevision: suspend (syncId: String) -> Long?,
 )

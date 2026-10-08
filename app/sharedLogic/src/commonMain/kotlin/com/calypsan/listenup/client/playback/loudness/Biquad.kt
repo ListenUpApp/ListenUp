@@ -69,7 +69,7 @@ internal class Biquad(
             val b2 = (vh - vb * k / SHELF_Q + k * k) / denom
             val a1 = 2.0 * (k * k - 1.0) / denom
             val a2 = (1.0 - k / SHELF_Q + k * k) / denom
-            return Biquad(b0, b1, b2, a1, a2)
+            return Biquad(b0 = b0, b1 = b1, b2 = b2, a1 = a1, a2 = a2)
         }
 
         /** Stage 2: the BS.1770-4 RLB high-pass filter. */
@@ -78,7 +78,7 @@ internal class Biquad(
             val denom = 1.0 + k / HP_Q + k * k
             val a1 = 2.0 * (k * k - 1.0) / denom
             val a2 = (1.0 - k / HP_Q + k * k) / denom
-            return Biquad(HP_B0, HP_B1, HP_B2, a1, a2)
+            return Biquad(b0 = HP_B0, b1 = HP_B1, b2 = HP_B2, a1 = a1, a2 = a2)
         }
     }
 }

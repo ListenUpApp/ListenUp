@@ -205,10 +205,10 @@ class ImportFlowViewModel(
         absUserId: AbsUserId,
         userId: UserId,
     ) {
-        updateReview {
-            it.copy(
-                userMappings = it.userMappings + (absUserId to userId),
-                skippedUsers = it.skippedUsers - absUserId,
+        updateReview { review ->
+            review.copy(
+                userMappings = review.userMappings + (absUserId to userId),
+                skippedUsers = review.skippedUsers - absUserId,
             )
         }
     }
@@ -221,10 +221,10 @@ class ImportFlowViewModel(
      * No-op when not in Review.
      */
     fun skipUser(absUserId: AbsUserId) {
-        updateReview {
-            it.copy(
-                skippedUsers = it.skippedUsers + absUserId,
-                userMappings = it.userMappings - absUserId,
+        updateReview { review ->
+            review.copy(
+                skippedUsers = review.skippedUsers + absUserId,
+                userMappings = review.userMappings - absUserId,
             )
         }
     }
@@ -249,8 +249,8 @@ class ImportFlowViewModel(
      * No-op when the flow is not in [ImportFlowUiState.Review].
      */
     fun openBookSearch(absItemId: AbsItemId) {
-        updateReview {
-            it.copy(
+        updateReview { review ->
+            review.copy(
                 bookSearch =
                     BookSearchState(
                         absItemId = absItemId,
@@ -323,7 +323,7 @@ class ImportFlowViewModel(
                             BookSearchHit(
                                 bookId = BookId(hit.id),
                                 title = hit.name,
-                                author = hit.author ?: "",
+                                author = hit.author.orEmpty(),
                             )
                         }
                     // Stale-result guard: only apply if still on the same item and query
@@ -353,9 +353,9 @@ class ImportFlowViewModel(
         bookId: BookId,
     ) {
         bookSearchJob?.cancel()
-        updateReview {
-            it.copy(
-                bookOverrides = it.bookOverrides + (absItemId to bookId),
+        updateReview { review ->
+            review.copy(
+                bookOverrides = review.bookOverrides + (absItemId to bookId),
                 bookSearch = null,
             )
         }

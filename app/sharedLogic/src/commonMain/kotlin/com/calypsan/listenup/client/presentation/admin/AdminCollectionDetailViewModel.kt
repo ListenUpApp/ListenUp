@@ -147,7 +147,8 @@ class AdminCollectionDetailViewModel internal constructor(
                     val byId = rows.associateBy { it.book.id.value }
                     val books =
                         ids.mapNotNull { id ->
-                            byId[id]?.toListItem(imageStorage)?.let { item ->
+                            byId[id]?.let { row ->
+                                val item = row.toListItem(imageStorage)
                                 CollectionBookItem(
                                     id = item.id.value,
                                     title = item.title,
@@ -227,8 +228,8 @@ class AdminCollectionDetailViewModel internal constructor(
     /** Close the "add books" search sheet and reset all search state. */
     fun closeAddBooks() {
         bookSearchJob?.cancel()
-        updateReady {
-            it.copy(
+        updateReady { ready ->
+            ready.copy(
                 showAddBooks = false,
                 bookQuery = "",
                 bookResults = emptyList(),
@@ -263,9 +264,7 @@ class AdminCollectionDetailViewModel internal constructor(
                 updateReady { it.copy(isSearchingBooks = true) }
                 val memberIds =
                     (state.value as? AdminCollectionDetailUiState.Ready)
-                        ?.books
-                        ?.map { it.id }
-                        ?.toSet()
+                        ?.run { books.map { it.id }.toSet() }
                         .orEmpty()
                 val hits =
                     try {
@@ -311,7 +310,7 @@ class AdminCollectionDetailViewModel internal constructor(
             when (val result = adminRepository.getUsers()) {
                 is AppResult.Success -> {
                     val sharedUserIds = ready.shares.map { it.userId }.toSet()
-                    val currentUserId = userRepository.getCurrentUser()?.id?.value
+                    val currentUserId = userRepository.getCurrentUser()?.run { id.value }
                     val available =
                         result.data.filter { it.id !in sharedUserIds && it.id != currentUserId }
                     updateReady { it.copy(isLoadingUsers = false, availableUsers = available) }
@@ -407,8 +406,7 @@ class AdminCollectionDetailViewModel internal constructor(
         userProfileRepository
             .observeProfile(userId)
             .first()
-            ?.displayName
-            ?.ifBlank { null } ?: userId
+            ?.run { displayName.ifBlank { null } } ?: userId
 }
 
 /**

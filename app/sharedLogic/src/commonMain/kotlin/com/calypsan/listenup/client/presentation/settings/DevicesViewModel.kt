@@ -92,7 +92,13 @@ class DevicesViewModel(
     private fun SessionSummary.toRow(): DeviceRow =
         DeviceRow(
             sessionId = id.value,
-            displayName = resolveName(label, deviceInfo?.deviceName, deviceInfo?.deviceModel, userAgent),
+            displayName =
+                resolveName(
+                    label = label,
+                    deviceName = deviceInfo?.deviceName,
+                    deviceModel = deviceInfo?.deviceModel,
+                    userAgent = userAgent,
+                ),
             secondary = secondaryOf(deviceInfo),
             lastUsedAt = lastUsedAt,
             isCurrent = current,

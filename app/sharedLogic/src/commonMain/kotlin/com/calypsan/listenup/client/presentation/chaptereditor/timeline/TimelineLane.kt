@@ -61,7 +61,15 @@ data class TimelineLane(
         shiftHeld: Boolean = false,
     ): TimelineLane {
         val current = drag ?: return this
-        return copy(drag = current.advanced(dxPx, pulledDp, geometry.msPerPixel, shiftHeld))
+        return copy(
+            drag =
+                current.advanced(
+                    dragPx = dxPx,
+                    verticalDistanceDp = pulledDp,
+                    msPerPixel = geometry.msPerPixel,
+                    shiftHeld = shiftHeld,
+                ),
+        )
     }
 
     /** Ends the drag. Read [committedStartMs] first. */

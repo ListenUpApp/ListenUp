@@ -18,7 +18,7 @@ internal sealed interface DeleteSemantics {
      * Only [SoftDelete] carries it, so a [CatchUpOnly] domain can no longer be handed
      * an id-only frame — the old `error("unreachable")` stubs are unrepresentable.
      */
-    class SoftDelete(
+    data class SoftDelete(
         val tombstoneById: suspend (id: String, deletedAt: Long, revision: Long) -> Unit,
     ) : DeleteSemantics
 

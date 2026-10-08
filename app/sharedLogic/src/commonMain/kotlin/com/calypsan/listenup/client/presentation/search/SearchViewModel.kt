@@ -240,7 +240,9 @@ class SearchViewModel(
         typesFlow.value = emptySet()
     }
 
-    fun onResultClicked(hit: SearchHit) = onResultSelected(hit.id, hit.type, hit.name)
+    fun onResultClicked(hit: SearchHit) {
+        onResultSelected(hit.id, hit.type, hit.name)
+    }
 
     /**
      * Navigate to the entity identified by [id] + [type] (+ [name], used only for the Tag

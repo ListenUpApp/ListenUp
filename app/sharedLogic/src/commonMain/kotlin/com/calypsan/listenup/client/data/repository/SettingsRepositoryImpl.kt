@@ -295,7 +295,7 @@ internal class SettingsRepositoryImpl(
     // Title sort article handling
 
     override suspend fun getIgnoreTitleArticles(): Boolean =
-        secureStorage.read(KEY_IGNORE_TITLE_ARTICLES)?.toBooleanStrictOrNull() ?: true
+        secureStorage.read(KEY_IGNORE_TITLE_ARTICLES)?.toBooleanStrictOrNull() != false
 
     override suspend fun setIgnoreTitleArticles(ignore: Boolean) {
         secureStorage.save(KEY_IGNORE_TITLE_ARTICLES, ignore.toString())
@@ -304,7 +304,7 @@ internal class SettingsRepositoryImpl(
     // Series display preferences
 
     override suspend fun getHideSingleBookSeries(): Boolean =
-        secureStorage.read(KEY_HIDE_SINGLE_BOOK_SERIES)?.toBooleanStrictOrNull() ?: true
+        secureStorage.read(KEY_HIDE_SINGLE_BOOK_SERIES)?.toBooleanStrictOrNull() != false
 
     override suspend fun setHideSingleBookSeries(hide: Boolean) {
         secureStorage.save(KEY_HIDE_SINGLE_BOOK_SERIES, hide.toString())
@@ -320,13 +320,13 @@ internal class SettingsRepositoryImpl(
         activeUrl.value = getActiveUrl()
         themeMode.value = ThemeMode.fromString(secureStorage.read(KEY_THEME_MODE))
         dynamicColorsEnabled.value =
-            secureStorage.read(KEY_DYNAMIC_COLORS)?.toBooleanStrictOrNull() ?: true
+            secureStorage.read(KEY_DYNAMIC_COLORS)?.toBooleanStrictOrNull() != false
         autoRewindEnabled.value =
-            secureStorage.read(KEY_AUTO_REWIND)?.toBooleanStrictOrNull() ?: true
+            secureStorage.read(KEY_AUTO_REWIND)?.toBooleanStrictOrNull() != false
         wifiOnlyDownloads.value =
-            secureStorage.read(KEY_WIFI_ONLY_DOWNLOADS)?.toBooleanStrictOrNull() ?: true
+            secureStorage.read(KEY_WIFI_ONLY_DOWNLOADS)?.toBooleanStrictOrNull() != false
         hapticFeedbackEnabled.value =
-            secureStorage.read(KEY_HAPTIC_FEEDBACK)?.toBooleanStrictOrNull() ?: true
+            secureStorage.read(KEY_HAPTIC_FEEDBACK)?.toBooleanStrictOrNull() != false
         peerServerVersion.value = secureStorage.read(KEY_PEER_SERVER_VERSION)
         peerServerApi.value = secureStorage.read(KEY_PEER_SERVER_API)
         outdatedDismissedFor.value =

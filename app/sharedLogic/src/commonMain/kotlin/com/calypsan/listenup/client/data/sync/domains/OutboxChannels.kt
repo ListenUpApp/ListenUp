@@ -37,15 +37,20 @@ internal object OutboxChannels {
     // chapters, collections, cover removal), each last-write-wins → inherently idempotent. One channel
     // so a book's edits share per-entity FIFO and the domain-keyed anti-flicker shield.
     val Books =
-        OutboxChannel(SyncDomains.BOOKS.name, BookMutation.serializer(), setOf(OpKind.Update), idempotent = true)
+        OutboxChannel(
+            name = SyncDomains.BOOKS.name,
+            serializer = BookMutation.serializer(),
+            ops = setOf(OpKind.Update),
+            idempotent = true,
+        )
 
     // Series lifecycle: update (Update) is last-write-wins; delete (Delete) cascades server-side. Both
     // are idempotent — a re-fire re-applies the same terminal state. Merging two series stays online.
     val Series =
         OutboxChannel(
-            SyncDomains.SERIES.name,
-            SeriesMutation.serializer(),
-            setOf(OpKind.Update, OpKind.Delete),
+            name = SyncDomains.SERIES.name,
+            serializer = SeriesMutation.serializer(),
+            ops = setOf(OpKind.Update, OpKind.Delete),
             idempotent = true,
         )
 
@@ -53,33 +58,43 @@ internal object OutboxChannels {
     // Both are idempotent. Merging/un-merging a contributor stays online (server relinks junctions).
     val Contributors =
         OutboxChannel(
-            SyncDomains.CONTRIBUTORS.name,
-            ContributorMutation.serializer(),
-            setOf(OpKind.Update, OpKind.Delete),
+            name = SyncDomains.CONTRIBUTORS.name,
+            serializer = ContributorMutation.serializer(),
+            ops = setOf(OpKind.Update, OpKind.Delete),
             idempotent = true,
         )
 
     // PlaybackService.recordPosition is documented "Idempotent and lastPlayedAt-wins server-side."
     val Positions =
         OutboxChannel(
-            SyncDomains.PLAYBACK_POSITIONS.name,
-            RecordPositionRequest.serializer(),
-            setOf(OpKind.Upsert),
+            name = SyncDomains.PLAYBACK_POSITIONS.name,
+            serializer = RecordPositionRequest.serializer(),
+            ops = setOf(OpKind.Upsert),
             idempotent = true,
         )
 
     // PlaybackService.recordListeningEvent is documented "Idempotent (re-recording the same id ...)."
     val ListeningEvents =
         OutboxChannel(
-            SyncDomains.LISTENING_EVENTS.name,
-            RecordListeningEventRequest.serializer(),
-            setOf(OpKind.Upsert),
+            name = SyncDomains.LISTENING_EVENTS.name,
+            serializer = RecordListeningEventRequest.serializer(),
+            ops = setOf(OpKind.Upsert),
             idempotent = true,
         )
     val Profile =
-        OutboxChannel("profile", UpdateProfileRequest.serializer(), setOf(OpKind.Update), idempotent = true)
+        OutboxChannel(
+            name = "profile",
+            serializer = UpdateProfileRequest.serializer(),
+            ops = setOf(OpKind.Update),
+            idempotent = true,
+        )
     val Preferences =
-        OutboxChannel("preferences", UpdateUserPreferencesRequest.serializer(), setOf(OpKind.Update), idempotent = true)
+        OutboxChannel(
+            name = "preferences",
+            serializer = UpdateUserPreferencesRequest.serializer(),
+            ops = setOf(OpKind.Update),
+            idempotent = true,
+        )
 
     // Genre lifecycle: update (Update) is last-write-wins; delete (Delete) cascades server-side. Both are
     // idempotent — a re-fire re-applies the same terminal state (a second delete finds the genre already
@@ -87,9 +102,9 @@ internal object OutboxChannels {
     // merge (server-side relink) all stay online.
     val Genres =
         OutboxChannel(
-            SyncDomains.GENRES.name,
-            GenreMutation.serializer(),
-            setOf(OpKind.Update, OpKind.Delete),
+            name = SyncDomains.GENRES.name,
+            serializer = GenreMutation.serializer(),
+            ops = setOf(OpKind.Update, OpKind.Delete),
             idempotent = true,
         )
 
@@ -98,9 +113,9 @@ internal object OutboxChannels {
     // tombstoned; the optimistic delete + echo have already converged, so at worst a spurious dead-letter).
     val Tags =
         OutboxChannel(
-            SyncDomains.TAGS.name,
-            TagMutation.serializer(),
-            setOf(OpKind.Update, OpKind.Delete),
+            name = SyncDomains.TAGS.name,
+            serializer = TagMutation.serializer(),
+            ops = setOf(OpKind.Update, OpKind.Delete),
             idempotent = true,
         )
 
@@ -110,16 +125,16 @@ internal object OutboxChannels {
     // genuinely-new tag/mood mints a server id and stays online (never enqueued as an Add).
     val BookTags =
         OutboxChannel(
-            SyncDomains.BOOK_TAGS.name,
-            BookTagMutation.serializer(),
-            setOf(OpKind.Create, OpKind.Delete),
+            name = SyncDomains.BOOK_TAGS.name,
+            serializer = BookTagMutation.serializer(),
+            ops = setOf(OpKind.Create, OpKind.Delete),
             idempotent = true,
         )
     val BookMoods =
         OutboxChannel(
-            SyncDomains.BOOK_MOODS.name,
-            BookMoodMutation.serializer(),
-            setOf(OpKind.Create, OpKind.Delete),
+            name = SyncDomains.BOOK_MOODS.name,
+            serializer = BookMoodMutation.serializer(),
+            ops = setOf(OpKind.Create, OpKind.Delete),
             idempotent = true,
         )
 
@@ -128,9 +143,9 @@ internal object OutboxChannels {
     // server-side (re-rating overwrites; clearing an absent rating succeeds).
     val BookRatings =
         OutboxChannel(
-            SyncDomains.BOOK_RATINGS.name,
-            BookRatingMutation.serializer(),
-            setOf(OpKind.Upsert),
+            name = SyncDomains.BOOK_RATINGS.name,
+            serializer = BookRatingMutation.serializer(),
+            ops = setOf(OpKind.Upsert),
             idempotent = true,
         )
 
@@ -138,9 +153,9 @@ internal object OutboxChannels {
     // idempotent — a re-fire re-applies the same terminal state. Creating a shelf stays online (server-minted id).
     val Shelves =
         OutboxChannel(
-            SyncDomains.SHELVES.name,
-            ShelfMutation.serializer(),
-            setOf(OpKind.Update, OpKind.Delete),
+            name = SyncDomains.SHELVES.name,
+            serializer = ShelfMutation.serializer(),
+            ops = setOf(OpKind.Update, OpKind.Delete),
             idempotent = true,
         )
 
@@ -151,9 +166,9 @@ internal object OutboxChannels {
     // junction, which is what lets it coalesce — see ShelfRepositoryImpl.reorderBooks.
     val ShelfBooks =
         OutboxChannel(
-            SyncDomains.SHELF_BOOKS.name,
-            ShelfBookMutation.serializer(),
-            setOf(OpKind.Create, OpKind.Delete, OpKind.Update),
+            name = SyncDomains.SHELF_BOOKS.name,
+            serializer = ShelfBookMutation.serializer(),
+            ops = setOf(OpKind.Create, OpKind.Delete, OpKind.Update),
             idempotent = true,
         )
 
@@ -193,9 +208,9 @@ internal object OutboxChannels {
     // idempotent. Creating a collection stays online (server-minted id).
     val Collections =
         OutboxChannel(
-            SyncDomains.COLLECTIONS.name,
-            CollectionMutation.serializer(),
-            setOf(OpKind.Update, OpKind.Delete),
+            name = SyncDomains.COLLECTIONS.name,
+            serializer = CollectionMutation.serializer(),
+            ops = setOf(OpKind.Update, OpKind.Delete),
             idempotent = true,
         )
 
@@ -203,18 +218,18 @@ internal object OutboxChannels {
     // offline-first too. The `collection_books` domain is access-gated; the outbox flip touches only its writes.
     val CollectionBooks =
         OutboxChannel(
-            SyncDomains.COLLECTION_BOOKS.name,
-            CollectionBookMutation.serializer(),
-            setOf(OpKind.Create, OpKind.Delete),
+            name = SyncDomains.COLLECTION_BOOKS.name,
+            serializer = CollectionBookMutation.serializer(),
+            ops = setOf(OpKind.Create, OpKind.Delete),
             idempotent = true,
         )
 
     /** markRead ops for the notifications inbox — per-row last-write-wins, safely re-fired. */
     val Notifications =
         OutboxChannel(
-            SyncDomains.NOTIFICATIONS.name,
-            NotificationMutation.serializer(),
-            setOf(OpKind.Update),
+            name = SyncDomains.NOTIFICATIONS.name,
+            serializer = NotificationMutation.serializer(),
+            ops = setOf(OpKind.Update),
             idempotent = true,
         )
 
@@ -224,9 +239,9 @@ internal object OutboxChannels {
     // success). Merge and revert stay online.
     val Entities =
         OutboxChannel(
-            SyncDomains.ENTITIES.name,
-            EntityMutation.serializer(),
-            setOf(OpKind.Upsert, OpKind.Delete),
+            name = SyncDomains.ENTITIES.name,
+            serializer = EntityMutation.serializer(),
+            ops = setOf(OpKind.Upsert, OpKind.Delete),
             idempotent = true,
         )
 
@@ -263,5 +278,5 @@ internal object OutboxChannels {
      * (TransportError.OutcomeUnknown) is safe. Unknown domain → false: quarantine conservatively
      * rather than risk double-applying a mutation whose idempotency was never declared.
      */
-    fun isIdempotent(domainName: String): Boolean = byName[domainName]?.idempotent ?: false
+    fun isIdempotent(domainName: String): Boolean = byName[domainName]?.idempotent == true
 }

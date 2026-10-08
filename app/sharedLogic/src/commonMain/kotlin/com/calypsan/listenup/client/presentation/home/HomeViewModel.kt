@@ -99,8 +99,8 @@ sealed interface HomeUiState {
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel(
     private val homeRepository: HomeRepository,
-    private val userRepository: UserRepository,
-    private val shelfRepository: ShelfRepository,
+    userRepository: UserRepository,
+    shelfRepository: ShelfRepository,
     private val syncRepository: SyncRepository,
     private val currentHour: () -> Int = { currentHourOfDay() },
 ) : ViewModel() {
@@ -129,7 +129,7 @@ class HomeViewModel(
 
     private val shelvesFlow: Flow<List<Shelf>> =
         userFlow.flatMapLatest { user ->
-            val userId = user?.id?.value ?: return@flatMapLatest flowOf(emptyList())
+            val userId = user?.run { id.value } ?: return@flatMapLatest flowOf(emptyList())
             shelfRepository.observeMyShelves(userId)
         }
 
@@ -177,11 +177,11 @@ class HomeViewModel(
 
     private fun homeStatePipeline(): Flow<HomeUiState> =
         combine(
-            userFlow,
-            continueListeningFlow(),
-            shelvesFlow,
-            syncFlow,
-            syncRepository.scanProgress,
+            flow = userFlow,
+            flow2 = continueListeningFlow(),
+            flow3 = shelvesFlow,
+            flow4 = syncFlow,
+            flow5 = syncRepository.scanProgress,
         ) { user, cl, shelves, (sync, building), scan ->
             val ready: HomeUiState =
                 HomeUiState.Ready(

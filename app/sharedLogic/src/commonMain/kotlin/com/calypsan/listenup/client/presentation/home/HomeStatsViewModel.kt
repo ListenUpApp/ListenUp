@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.domain.DayBucket
 import com.calypsan.listenup.client.domain.GenreShare
-import com.calypsan.listenup.client.domain.WeeklyStats
 import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.repository.StatsRepository
 import io.github.oshai.kotlinlogging.KotlinLogging

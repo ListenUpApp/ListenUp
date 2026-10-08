@@ -39,7 +39,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.client.core.DurationFormatter
-import com.calypsan.listenup.client.core.Failure
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -76,7 +75,7 @@ class BookDetailViewModel(
     private val playbackPositionRepository: PlaybackPositionRepository,
     private val userRepository: UserRepository,
     private val permissionsRepository: PermissionsRepository,
-    private val shelfRepository: ShelfRepository,
+    shelfRepository: ShelfRepository,
     private val collectionRepository: CollectionRepository,
     private val addBooksToShelfUseCase: AddBooksToShelfUseCase,
     private val createShelfUseCase: CreateShelfUseCase,
@@ -309,11 +308,11 @@ class BookDetailViewModel(
 
             emitAll(
                 combine(
-                    bookRepository.observeBookDetail(bookId),
-                    bookAvailability.observe(BookId(bookId)),
-                    inboxRepository.observeHeldBookIds(),
+                    flow = bookRepository.observeBookDetail(bookId),
+                    flow2 = bookAvailability.observe(BookId(bookId)),
+                    flow3 = inboxRepository.observeHeldBookIds(),
                     // Null on a member's device; live for an admin (share/membership/hold/roster changes).
-                    bookVisibilityRepository.observeBookVisibility(BookId(bookId)),
+                    flow4 = bookVisibilityRepository.observeBookVisibility(BookId(bookId)),
                 ) { detail, availability, heldIds, visibility ->
                     if (detail == null) {
                         BookDetailUiState.Error(BookError.NotFound())
@@ -367,7 +366,7 @@ class BookDetailViewModel(
             }
 
         // Authoritative completion flag from the saved position
-        val isComplete = position?.isFinished ?: false
+        val isComplete = position?.isFinished == true
 
         val hasMeaningfulProgress = progress != null && progress > 0f && !isComplete
 
@@ -410,7 +409,7 @@ class BookDetailViewModel(
             startedAtMs = position?.startedAtMs,
             subtitle = displaySubtitle,
             seriesPaths = bookSeriesPaths(detail.series, latestHierarchy),
-            descriptionText = detail.description ?: "",
+            descriptionText = detail.description.orEmpty(),
             narrators = detail.narratorNames,
             year = detail.publishYear,
             chapters = chapters,
@@ -434,7 +433,7 @@ class BookDetailViewModel(
         startedAt: Long? = null,
         finishedAt: Long? = null,
     ) {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.book?.id?.value ?: return
+        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
         viewModelScope.launch {
             updateReady { it.copy(isMarkingComplete = true) }
             when (playbackPositionRepository.markComplete(BookId(bookId), startedAt, finishedAt)) {
@@ -455,13 +454,13 @@ class BookDetailViewModel(
      * Discard progress for the current book (start over / DNF).
      */
     fun discardProgress() {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.book?.id?.value ?: return
+        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
         viewModelScope.launch {
             updateReady { it.copy(isDiscardingProgress = true) }
             when (playbackPositionRepository.discardProgress(BookId(bookId))) {
                 is AppResult.Success -> {
-                    updateReady {
-                        it.copy(
+                    updateReady { ready ->
+                        ready.copy(
                             isDiscardingProgress = false,
                             isComplete = false,
                             progress = null,
@@ -483,13 +482,13 @@ class BookDetailViewModel(
      * Restart the current book from the beginning.
      */
     fun restartBook() {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.book?.id?.value ?: return
+        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
         viewModelScope.launch {
             updateReady { it.copy(isRestarting = true) }
             when (playbackPositionRepository.restartBook(BookId(bookId))) {
                 is AppResult.Success -> {
-                    updateReady {
-                        it.copy(
+                    updateReady { ready ->
+                        ready.copy(
                             isRestarting = false,
                             isComplete = false,
                             progress = 0f,
@@ -521,7 +520,7 @@ class BookDetailViewModel(
      * Add the current book to an existing shelf.
      */
     fun addBookToShelf(shelfId: String) {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.book?.id?.value ?: return
+        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
         viewModelScope.launch {
             updateReady { it.copy(isAddingToShelf = true) }
             when (val result = addBooksToShelfUseCase(ShelfId(shelfId), listOf(BookId(bookId)))) {
@@ -542,7 +541,7 @@ class BookDetailViewModel(
      * Create a new shelf and add the current book to it.
      */
     fun createShelfAndAddBook(name: String) {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.book?.id?.value ?: return
+        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
         viewModelScope.launch {
             updateReady { it.copy(isAddingToShelf = true) }
             when (val result = createShelfUseCase(name, null)) {
@@ -595,7 +594,7 @@ class BookDetailViewModel(
 
     /** Add this book to [collectionId] (additive — never affects the book's All Books membership). */
     fun addBookToCollection(collectionId: String) {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.book?.id?.value ?: return
+        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
         viewModelScope.launch {
             updateReady { it.copy(isAddingToCollection = true) }
             when (val result = collectionRepository.addBook(collectionId, bookId)) {
@@ -660,7 +659,7 @@ class BookDetailViewModel(
      * confirm dialog so the reason is legible where the decision was made.
      */
     fun deleteBook() {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.book?.id ?: return
+        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id } ?: return
         viewModelScope.launch {
             updateReady { it.copy(isDeletingBook = true, deleteError = null) }
             when (val result = bookRepository.deleteBook(bookId)) {
@@ -760,7 +759,7 @@ class BookDetailViewModel(
      * @param docId [BookDocument.id] of the tapped document.
      */
     fun onOpenDocument(docId: String) {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.book?.id?.value ?: return
+        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
         val doc = documents.value.find { it.id == docId } ?: return
         if (doc.format != "pdf") {
             _navActions.trySend(BookDetailNavAction.ShowViewerComingSoon)
