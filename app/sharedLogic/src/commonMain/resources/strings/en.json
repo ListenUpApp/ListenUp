@@ -1260,8 +1260,6 @@
     "books_in_collection": "Books in collection",
     "can_access_the_library": "Can access the library",
     "can_manage_users_and_invites": "Can manage users and invites",
-    "can_edit": "Can edit metadata",
-    "allow_editing_content_metadata": "Allow editing tags, moods, genres, series and contributors",
     "role_and_permissions": "Role and permissions",
     "role_owner": "Owner",
     "preset": "Preset",

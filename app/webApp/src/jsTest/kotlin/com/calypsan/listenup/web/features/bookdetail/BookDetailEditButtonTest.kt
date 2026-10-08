@@ -7,6 +7,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.browser.window
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.asList
 
 /**
  * The Edit affordance in the book header.
@@ -21,10 +22,13 @@ class BookDetailEditButtonTest :
         val mounts = MountRegistry()
         afterTest { mounts.disposeAll() }
 
-        fun rendered(onEdit: () -> Unit = {}): HTMLElement =
+        fun rendered(
+            onEdit: () -> Unit = {},
+            canEditMetadata: Boolean = true,
+        ): HTMLElement =
             mounts.mount {
                 BookDetailPage(
-                    state = readyBook(),
+                    state = readyBook(canEditMetadata = canEditMetadata),
                     tab = "chapters",
                     onSelectTab = {},
                     onOpenLibrary = {},
@@ -40,6 +44,14 @@ class BookDetailEditButtonTest :
             val button = root.querySelector("button[aria-label='Edit book']") as? HTMLButtonElement
             button.shouldNotBeNull()
             (button.querySelector("svg") != null) shouldBe true
+        }
+
+        test("a reader who may not edit metadata gets no Edit book, Match details or Edit chapters") {
+            val root = rendered(canEditMetadata = false)
+
+            root.querySelector("button[aria-label='Edit book']") shouldBe null
+            root.querySelector("button[aria-label='Match details']") shouldBe null
+            root.querySelectorAll("button").asList().none { it.textContent?.trim() == "Edit chapters" } shouldBe true
         }
 
         test("edit stands exactly as tall as Play") {

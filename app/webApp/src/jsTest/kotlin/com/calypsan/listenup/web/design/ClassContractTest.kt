@@ -76,6 +76,10 @@ import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
 import com.calypsan.listenup.client.presentation.admin.HardcoverTokenSave
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
+import com.calypsan.listenup.client.presentation.admin.UserPermissionsUiState
+import com.calypsan.listenup.client.domain.model.PermissionPreset
+import com.calypsan.listenup.client.domain.model.UserPermissions
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -297,7 +301,9 @@ import com.calypsan.listenup.client.presentation.admin.CreateInviteStatus
 import com.calypsan.listenup.client.presentation.admin.CreateInviteUiState
 import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
 import com.calypsan.listenup.web.features.admin.CreateInvitePage
+import com.calypsan.listenup.web.features.admin.PermissionsPanelActions
 import com.calypsan.listenup.web.features.admin.UserDetailPage
+import com.calypsan.listenup.web.features.admin.permissionsReady
 import com.calypsan.listenup.web.features.admin.adminUser
 import com.calypsan.listenup.web.features.admin.invite
 import com.calypsan.listenup.web.features.admin.readyUser
@@ -1749,7 +1755,13 @@ private fun peopleShapes(): List<@Composable () -> Unit> {
             )
         }
 
-    fun member(state: UserDetailUiState): @Composable () -> Unit = { UserDetailPage(state = state, onToggleCanEdit = {}, onOpenAdmin = {}) }
+    fun member(
+        state: UserDetailUiState,
+        permissions: UserPermissionsUiState = permissionsReady(),
+    ): @Composable () -> Unit =
+        {
+            UserDetailPage(state = state, permissions = permissions, actions = PermissionsPanelActions(), onOpenAdmin = {})
+        }
 
     return listOf(
         form(CreateInviteUiState.Ready()),
@@ -1763,9 +1775,24 @@ private fun peopleShapes(): List<@Composable () -> Unit> {
         // The success half shares no markup at all with the form it replaces.
         form(CreateInviteUiState.Ready(CreateInviteStatus.Success(invite()))),
         member(readyUser()),
-        // The owner draws the note that explains the disabled switches.
-        member(readyUser(adminUser(isRoot = true))),
-        member(readyUser(error = InternalError(debugInfo = "boom"))),
+        // Custom, with the curate warning, the Unsaved tags and the save bar.
+        member(
+            readyUser(),
+            permissionsReady(
+                flags = UserPermissions(canEditMetadata = false, canCurateLibrary = true),
+                preset = PermissionPreset.CUSTOM,
+                curateWarning = true,
+                changeCount = 2,
+            ),
+        ),
+        member(readyUser(), permissionsReady(role = UserRole.ADMIN)),
+        member(readyUser(), permissionsReady(presetsShown = false)),
+        // The owner draws the note that explains why nothing here moves.
+        member(
+            readyUser(adminUser(isRoot = true)),
+            permissionsReady(role = UserRole.ROOT, user = adminUser(isRoot = true)),
+        ),
+        member(readyUser(), permissionsReady(error = InternalError(debugInfo = "boom"))),
         member(UserDetailUiState.Loading),
         member(UserDetailUiState.Error(InternalError(debugInfo = "boom"))),
     )

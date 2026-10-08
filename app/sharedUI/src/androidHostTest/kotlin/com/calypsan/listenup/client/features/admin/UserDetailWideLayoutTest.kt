@@ -92,8 +92,6 @@ class UserDetailWideLayoutTest {
                         createdAt = "2026-01-01",
                         access = AccessLabel.CONTRIBUTOR,
                     ),
-                canEdit = true,
-                isProtected = false,
             )
     }
 }

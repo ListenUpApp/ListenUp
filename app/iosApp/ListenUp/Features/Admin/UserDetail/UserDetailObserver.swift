@@ -18,11 +18,6 @@ final class UserDetailObserver {
 
     deinit { bridge.cancelAll() }
 
-    // MARK: - Actions
-
-    func toggleCanEdit() { viewModel.toggleCanEdit() }
-    func clearError() { viewModel.clearError() }
-
     // MARK: - State mapping
 
     private func apply(_ state: UserDetailUiState) {
@@ -46,24 +41,18 @@ enum UserDetailPhase {
     case error(String)
 }
 
-/// Native snapshot of the ready state — the user's display fields plus the editable Can Edit
-/// permission and the `isProtected` guard that disables it for protected users.
+/// Native snapshot of the ready state — the user's display fields, and whether they are the
+/// protected owner. Their role and permissions are edited on the permissions screen.
 struct UserDetailReadyModel {
     let displayName: String
     let email: String
     let role: String
-    let canEdit: Bool
     let isProtected: Bool
-    let isSaving: Bool
-    let error: String?
 
     init(from ready: UserDetailUiStateReady) {
         self.displayName = ready.user.displayName ?? ready.user.email
         self.email = ready.user.email
         self.role = ready.user.role
-        self.canEdit = ready.canEdit
-        self.isProtected = ready.isProtected
-        self.isSaving = ready.isSaving
-        self.error = ready.error?.message
+        self.isProtected = ready.user.isRoot
     }
 }

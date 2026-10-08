@@ -413,13 +413,13 @@ private fun PersonRow(
         // inside a link. Pending and reset rows pass no [onOpen] at all — there is no page for
         // somebody who has not joined yet.
         if (onOpen == null) {
-            Div(attrs = { classes(ROW_TEXT) }) { PersonText(user, subtitle) }
+            Div(attrs = { classes(ROW_TEXT) }) { PersonText(user, subtitle, showAccess = false) }
         } else {
             Button(attrs = {
                 classes(ROW_TEXT, "adm-row-open")
                 attr(ATTR_TYPE, VALUE_BUTTON)
                 onClick { onOpen() }
-            }) { PersonText(user, subtitle) }
+            }) { PersonText(user, subtitle, showAccess = true) }
         }
         Div(attrs = { classes("adm-row-actions") }) { actions() }
     }
@@ -429,11 +429,16 @@ private fun PersonRow(
 private fun PersonText(
     user: AdminUserInfo,
     subtitle: String,
+    showAccess: Boolean,
 ) {
     Span(attrs = { classes("adm-row-t") }) { Text(user.displayName ?: user.email) }
     Span(attrs = { classes("adm-row-sub") }) { Text(subtitle) }
-    if (user.isRoot) {
-        Span(attrs = { classes("adm-badge") }) { Text("Owner") }
+    // A member's access is their role, or the preset their flags match. Someone still waiting to be
+    // approved has no access yet, so their row names none.
+    if (showAccess) {
+        Span(attrs = { classes("adm-badge", "adm-badge-${user.access.name.lowercase()}") }) {
+            Text(accessTitle(user.access))
+        }
     }
 }
 

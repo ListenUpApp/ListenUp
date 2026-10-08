@@ -1,9 +1,7 @@
 import SwiftUI
 
-/// Admin → a user's detail: read-only identity plus the editable **Can Edit** permission — the
-/// counterpart to Android's `UserDetailScreen`, and the only place an admin can grant/revoke a
-/// user's right to edit book metadata. Protected (root/self) users show the toggle disabled with an
-/// explanation.
+/// Admin → a user's detail: read-only identity — the counterpart to Android's `UserDetailScreen`.
+/// A protected (root) user gets the note saying why their access is locked.
 struct UserDetailView: View {
     let userId: String
 
@@ -48,21 +46,9 @@ struct UserDetailView: View {
                 LabeledContent(String(localized: "common.role"), value: ready.role.capitalized)
             }
 
-            Section {
-                Toggle(
-                    isOn: Binding(
-                        get: { ready.canEdit },
-                        set: { _ in observer?.toggleCanEdit() }
-                    )
-                ) {
-                    Text(String(localized: "admin.can_edit"))
-                    Text(String(localized: "admin.allow_editing_content_metadata"))
-                }
-                .disabled(ready.isProtected || ready.isSaving)
-            } header: {
-                Text(String(localized: "common.permissions"))
-            } footer: {
-                if ready.isProtected {
+            if ready.isProtected {
+                Section {
+                } footer: {
                     Text(String(localized: "admin.this_users_permissions_cannot_be"))
                 }
             }

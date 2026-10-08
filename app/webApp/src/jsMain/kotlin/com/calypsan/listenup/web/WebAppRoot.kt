@@ -3887,7 +3887,8 @@ private fun UserDetailRoute(
 
     UserDetailPage(
         state = session.state.collectAsState().value,
-        onToggleCanEdit = session.onToggleCanEdit,
+        permissions = session.permissions.collectAsState().value,
+        actions = session.actions,
         onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
     )
 }

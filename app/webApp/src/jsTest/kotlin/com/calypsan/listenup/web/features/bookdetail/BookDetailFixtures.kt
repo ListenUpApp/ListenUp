@@ -35,6 +35,7 @@ internal fun readyBook(
     tags: List<Tag> = emptyList(),
     moods: List<Mood> = emptyList(),
     showServerWarning: Boolean = false,
+    canEditMetadata: Boolean = true,
 ): BookDetailUiState.Ready =
     BookDetailUiState.Ready(
         book =
@@ -65,6 +66,7 @@ internal fun readyBook(
         moods = moods,
         showServerWarning = showServerWarning,
         seriesPaths = seriesPaths,
+        canEditMetadata = canEditMetadata,
     )
 
 /**

@@ -141,16 +141,6 @@
         }
       }
     },
-    "admin.allow_editing_content_metadata": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Allow editing tags, moods, genres, series and contributors"
-          }
-        }
-      }
-    },
     "admin.approve_reset": {
       "localizations": {
         "en": {
@@ -317,16 +307,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Can access the library"
-          }
-        }
-      }
-    },
-    "admin.can_edit": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Can edit metadata"
           }
         }
       }

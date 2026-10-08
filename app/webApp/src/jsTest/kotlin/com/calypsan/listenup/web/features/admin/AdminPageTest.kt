@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.client.domain.model.AccessLabel
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
@@ -16,12 +17,14 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLSelectElement
+import org.w3c.dom.asList
 import org.w3c.dom.events.Event
 
 private fun user(
     id: String,
     name: String,
     isRoot: Boolean = false,
+    access: AccessLabel = AccessLabel.MEMBER,
 ) = AdminUserInfo(
     id = id,
     email = "$id@example.com",
@@ -32,6 +35,7 @@ private fun user(
     role = "MEMBER",
     status = "ACTIVE",
     createdAt = "2026-01-01",
+    access = access,
 )
 
 private fun invite(id: String) =
@@ -97,10 +101,30 @@ class AdminPageTest :
             // Removing the root account would leave nobody able to administer the server. Offering
             // it and refusing later would be a worse way to say so.
             val host =
-                mounts.mount { page(AdminUiState.Ready(users = listOf(user("u1", "Simon", isRoot = true)))) }
+                mounts.mount { page(AdminUiState.Ready(users = listOf(user("u1", "Simon", isRoot = true, access = AccessLabel.OWNER)))) }
 
             host.textContent.orEmpty() shouldContain "Owner"
             host.querySelectorAll(".adm-row-actions button").length shouldBe 0
+        }
+
+        test("the people list names each member by role or preset") {
+            val host =
+                mounts.mount {
+                    page(
+                        AdminUiState.Ready(
+                            users =
+                                listOf(
+                                    user("u1", "Darrow", isRoot = true, access = AccessLabel.OWNER),
+                                    user("u2", "Mustang", access = AccessLabel.ADMIN),
+                                    user("u3", "Sevro", access = AccessLabel.CONTRIBUTOR),
+                                    user("u4", "Roque", access = AccessLabel.CUSTOM),
+                                ),
+                        ),
+                    )
+                }
+
+            host.querySelectorAll(".adm-row .adm-badge").asList().map { it.textContent } shouldBe
+                listOf("Owner", "Admin", "Contributor", "Custom")
         }
 
         test("removing a member asks first, and says what happens to their history") {

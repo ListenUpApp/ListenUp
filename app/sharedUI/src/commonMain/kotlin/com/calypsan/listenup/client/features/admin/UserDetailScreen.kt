@@ -29,15 +29,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import com.calypsan.listenup.client.design.components.SegmentedGroup
 import com.calypsan.listenup.client.design.components.SettingRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -48,7 +44,6 @@ import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
 import com.calypsan.listenup.client.presentation.admin.UserDetailViewModel
 import com.calypsan.listenup.client.presentation.error.localized
-import com.calypsan.listenup.client.presentation.error.localizedString
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_role_and_permissions
 import listenup.composeapp.generated.resources.admin_role_owner
@@ -81,16 +76,6 @@ fun UserDetailScreen(
 ) {
     val haptics = LocalHaptics.current
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    // Transient mutation-failure error in snackbar (only meaningful in Ready).
-    val readyError = (state as? UserDetailUiState.Ready)?.error
-    LaunchedEffect(readyError) {
-        readyError?.let {
-            snackbarHostState.showSnackbar(it.localizedString())
-            viewModel.clearError()
-        }
-    }
 
     ListenUpScaffold(
         modifier = modifier,
@@ -100,7 +85,6 @@ fun UserDetailScreen(
                 onBack = onBackClick,
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
         UserDetailBody(
             state = state,
@@ -250,7 +234,7 @@ private fun AccessRow(
                 onClick = onClick,
             )
         }
-        if (state.isProtected) {
+        if (state.user.isProtected) {
             Spacer(modifier = Modifier.height(16.dp))
             ProtectedUserNotice()
         }

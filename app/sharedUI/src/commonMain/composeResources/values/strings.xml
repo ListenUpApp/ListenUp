@@ -14,7 +14,6 @@
     <string name="admin_admins_can_do_everything_body">%1$s can edit, merge and delete anything in the library, and manage people, collections and server settings.</string>
     <string name="admin_admins_change_role_hint">To choose what %1$s can do, change their role to Member.</string>
     <string name="admin_all_users_are_already_members">All users are already members of this collection</string>
-    <string name="admin_allow_editing_content_metadata">Allow editing tags, moods, genres, series and contributors</string>
     <string name="admin_approve_reset">Approve reset</string>
     <string name="admin_backup">Backup</string>
     <string name="admin_backup_created_at">Created: %1$s at %2$s</string>
@@ -32,7 +31,6 @@
     <string name="admin_books_can_be_added_from">Books can be added from the server</string>
     <string name="admin_books_in_collection">Books in collection</string>
     <string name="admin_can_access_the_library">Can access the library</string>
-    <string name="admin_can_edit">Can edit metadata</string>
     <string name="admin_can_manage_users_and_invites">Can manage users and invites</string>
     <string name="admin_categories_books_count">%1$d categories • %2$d books</string>
     <string name="admin_categories_curate_subtitle">Merge and delete genres for everyone</string>

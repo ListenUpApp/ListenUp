@@ -124,6 +124,7 @@ fun ContributorEditPage(
             RenameCollisionDialog(
                 typedName = state.name,
                 candidate = candidate,
+                canMerge = state.canCurateLibrary,
                 onMerge = { onEvent(ContributorEditUiEvent.ConfirmMergeOnRename) },
                 onKeepSeparate = { onEvent(ContributorEditUiEvent.KeepSeparateOnRename) },
                 onDismiss = { onEvent(ContributorEditUiEvent.DismissRenameCollision) },
@@ -287,31 +288,36 @@ private fun AliasList(
                 key(alias) {
                     Div(attrs = { classes("ced-alias") }) {
                         Span(attrs = { classes("ced-alias-n") }) { Text(alias) }
-                        Button(
-                            kind = ButtonKind.Secondary,
-                            size = ButtonSize.Sm,
-                            onClick = { splitting = alias },
-                            label = "Split $alias back out",
-                            attrs = {
-                                classes("ced-split")
-                                disabledWhen(state.mergeInProgress)
-                            },
-                        ) { Text("Split out") }
+                        // Splitting and folding are curating: only for a reader who may curate.
+                        if (state.canCurateLibrary) {
+                            Button(
+                                kind = ButtonKind.Secondary,
+                                size = ButtonSize.Sm,
+                                onClick = { splitting = alias },
+                                label = "Split $alias back out",
+                                attrs = {
+                                    classes("ced-split")
+                                    disabledWhen(state.mergeInProgress)
+                                },
+                            ) { Text("Split out") }
+                        }
                     }
                 }
             }
         }
     }
-    Div(attrs = { classes("ced-alias-act") }) {
-        Button(
-            kind = ButtonKind.Secondary,
-            size = ButtonSize.Sm,
-            onClick = { onEvent(ContributorEditUiEvent.MergeDialogOpened) },
-            attrs = {
-                classes("ced-merge")
-                disabledWhen(state.mergeInProgress)
-            },
-        ) { Text(if (state.mergeInProgress) "Merging…" else "Fold another contributor in") }
+    if (state.canCurateLibrary) {
+        Div(attrs = { classes("ced-alias-act") }) {
+            Button(
+                kind = ButtonKind.Secondary,
+                size = ButtonSize.Sm,
+                onClick = { onEvent(ContributorEditUiEvent.MergeDialogOpened) },
+                attrs = {
+                    classes("ced-merge")
+                    disabledWhen(state.mergeInProgress)
+                },
+            ) { Text(if (state.mergeInProgress) "Merging…" else "Fold another contributor in") }
+        }
     }
 
     val pending = splitting
@@ -404,6 +410,7 @@ private fun MergeDialog(
 private fun RenameCollisionDialog(
     typedName: String,
     candidate: ContributorCandidate,
+    canMerge: Boolean,
     onMerge: () -> Unit,
     onKeepSeparate: () -> Unit,
     onDismiss: () -> Unit,
@@ -417,7 +424,10 @@ private fun RenameCollisionDialog(
         }
         Div(attrs = { classes("dlg-actions") }) {
             Button(kind = ButtonKind.Secondary, onClick = { onKeepSeparate() }) { Text("Keep separate") }
-            Button(kind = ButtonKind.Primary, onClick = { onMerge() }) { Text("Fold into ${candidate.displayName}") }
+            // Folding them together is a merge, so it is offered only to a reader who may curate.
+            if (canMerge) {
+                Button(kind = ButtonKind.Primary, onClick = { onMerge() }) { Text("Fold into ${candidate.displayName}") }
+            }
         }
     }
 }

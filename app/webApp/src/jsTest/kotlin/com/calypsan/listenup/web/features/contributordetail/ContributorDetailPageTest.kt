@@ -50,6 +50,18 @@ class ContributorDetailPageTest :
                 )
             }
 
+        test("Edit and Match follow Edit metadata, and Delete follows Curate library") {
+            val reader = contributorDetailPage(readyContributor(canEditMetadata = false, canCurateLibrary = false))
+            reader.querySelector(".cd-edit") shouldBe null
+            reader.querySelector(".cd-match") shouldBe null
+            reader.querySelector(".cd-delete") shouldBe null
+
+            val editor = contributorDetailPage(readyContributor(canEditMetadata = true, canCurateLibrary = false))
+            editor.querySelector(".cd-edit").shouldNotBeNull()
+            editor.querySelector(".cd-match").shouldNotBeNull()
+            editor.querySelector(".cd-delete") shouldBe null
+        }
+
         test("Delete asks before it does anything") {
             // ⛔ The whole safety property. `confirmDelete()` is not a request — it IS the delete,
             // and it cannot be undone, so a page that called it straight off the button would
