@@ -33,6 +33,7 @@ import com.calypsan.listenup.client.features.browsefacet.FacetBooksScreen
 import com.calypsan.listenup.client.features.admin.AdminScreen
 import com.calypsan.listenup.client.features.admin.CreateInviteScreen
 import com.calypsan.listenup.client.features.admin.UserDetailScreen
+import com.calypsan.listenup.client.features.admin.UserPermissionsScreen
 import com.calypsan.listenup.client.features.admin.collections.AdminCollectionDetailScreen
 import com.calypsan.listenup.client.features.admin.collections.AdminCollectionsScreen
 import com.calypsan.listenup.client.features.admin.inbox.AdminInboxScreen
@@ -46,6 +47,7 @@ import com.calypsan.listenup.client.presentation.admin.AdminSettingsViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
 import com.calypsan.listenup.client.presentation.admin.UserDetailViewModel
+import com.calypsan.listenup.client.presentation.admin.UserPermissionsViewModel
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.features.discover.DiscoverScreen
 import com.calypsan.listenup.client.features.notifications.NotificationsScreen
@@ -171,6 +173,10 @@ sealed interface DetailDestination {
     data object CreateInvite : DetailDestination
 
     data class UserDetail(
+        val userId: String,
+    ) : DetailDestination
+
+    data class UserPermissions(
         val userId: String,
     ) : DetailDestination
 
@@ -655,7 +661,13 @@ private fun DetailScreen(
             UserDetailScreen(
                 viewModel = viewModel,
                 onBackClick = navigateBack,
+                onPermissionsClick = { navigateTo(DetailDestination.UserPermissions(destination.userId)) },
             )
+        }
+
+        is DetailDestination.UserPermissions -> {
+            val viewModel: UserPermissionsViewModel = koinInject { parametersOf(destination.userId) }
+            UserPermissionsScreen(viewModel = viewModel, onBackClick = navigateBack)
         }
 
         is DetailDestination.AdminCollections -> {

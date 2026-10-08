@@ -78,6 +78,7 @@ internal fun sampleRoutes(): List<Route> =
         add(AdminInbox)
         add(AdminCategories)
         add(AdminUserDetail(userId = "test-user-id"))
+        add(AdminUserPermissions(userId = "test-user-id"))
         add(AdminLibrarySettings)
         add(AdminOrganizeSettings)
 

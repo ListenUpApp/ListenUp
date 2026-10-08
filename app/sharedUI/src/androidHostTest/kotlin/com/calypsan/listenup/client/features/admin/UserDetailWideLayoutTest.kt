@@ -3,12 +3,17 @@ package com.calypsan.listenup.client.features.admin
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import com.calypsan.listenup.client.domain.model.AccessLabel
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
 import com.calypsan.listenup.client.testing.Windows
 import com.calypsan.listenup.client.testing.assertSideBySide
 import com.calypsan.listenup.client.testing.assertStacked
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -42,18 +47,31 @@ class UserDetailWideLayoutTest {
 
     @Test
     @Config(qualifiers = Windows.PHONE)
-    fun `the only permission an admin can set is Can edit, with no Can share control`() {
-        setContent()
+    fun `permissions are one row that names the preset and opens the permissions screen`() {
+        var opened = 0
+        composeRule.setContent { MaterialTheme { UserDetailContent(state = STATE, onPermissionsClick = { opened++ }) } }
 
-        composeRule.onNodeWithText("Can edit metadata").assertIsDisplayed()
-        composeRule.onNodeWithText("Can share").assertDoesNotExist()
-        composeRule.onNodeWithText("Allow sharing collections with other users").assertDoesNotExist()
+        composeRule.onNodeWithText("Role and permissions").assertIsDisplayed()
+        composeRule.onNodeWithText("Contributor").assertIsDisplayed()
+        composeRule.onNodeWithText("Can edit metadata").assertDoesNotExist()
+        composeRule.onNodeWithText("Role and permissions").performClick()
+        assertEquals(1, opened)
+    }
+
+    @Test
+    @Config(qualifiers = Windows.PHONE)
+    fun `an admin's role reads Admin whatever case the roster spells it in`() {
+        val admin = STATE.copy(user = STATE.user.copy(role = "ADMIN", access = AccessLabel.ADMIN))
+        composeRule.setContent { MaterialTheme { UserDetailContent(state = admin, onPermissionsClick = {}) } }
+
+        composeRule.onAllNodesWithText("Admin").assertCountEquals(2)
+        composeRule.onNodeWithText("ADMIN").assertDoesNotExist()
     }
 
     private fun setContent() {
         composeRule.setContent {
             MaterialTheme {
-                UserDetailContent(state = STATE, onToggleCanEdit = {})
+                UserDetailContent(state = STATE, onPermissionsClick = {})
             }
         }
     }
@@ -72,6 +90,7 @@ class UserDetailWideLayoutTest {
                         role = "member",
                         status = "active",
                         createdAt = "2026-01-01",
+                        access = AccessLabel.CONTRIBUTOR,
                     ),
                 canEdit = true,
                 isProtected = false,

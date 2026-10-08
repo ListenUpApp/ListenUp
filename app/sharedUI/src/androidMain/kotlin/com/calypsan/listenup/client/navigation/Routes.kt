@@ -270,14 +270,22 @@ data class GenreDestination(
 ) : Route
 
 /**
- * Admin user detail screen - view and edit a user's details and permissions.
- *
- * Shows user information and allows toggling the canEdit permission.
+ * Admin user detail screen - view a user's details, and open their role and permissions.
  *
  * @property userId The unique ID of the user to display.
  */
 @Serializable
 data class AdminUserDetail(
+    val userId: String,
+) : Route
+
+/**
+ * Admin → one user's role and permissions, edited as a draft and saved together.
+ *
+ * @property userId The user whose permissions to edit.
+ */
+@Serializable
+data class AdminUserPermissions(
     val userId: String,
 ) : Route
 

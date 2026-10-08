@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Shield
@@ -34,7 +33,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import com.calypsan.listenup.client.design.components.SegmentedGroup
 import com.calypsan.listenup.client.design.components.SettingRow
-import com.calypsan.listenup.client.design.components.SettingToggleRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,11 +40,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
@@ -54,30 +50,33 @@ import com.calypsan.listenup.client.presentation.admin.UserDetailViewModel
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.error.localizedString
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.admin_allow_editing_content_metadata
-import listenup.composeapp.generated.resources.admin_can_edit
+import listenup.composeapp.generated.resources.admin_role_and_permissions
+import listenup.composeapp.generated.resources.admin_role_owner
 import listenup.composeapp.generated.resources.admin_protected_user
 import listenup.composeapp.generated.resources.admin_this_users_permissions_cannot_be
+import listenup.composeapp.generated.resources.common_admin
 import listenup.composeapp.generated.resources.common_display_name
 import listenup.composeapp.generated.resources.common_email_address
 import listenup.composeapp.generated.resources.common_entity_information
+import listenup.composeapp.generated.resources.common_member
 import listenup.composeapp.generated.resources.common_permissions
 import listenup.composeapp.generated.resources.common_role
 import org.jetbrains.compose.resources.stringResource
 import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
- * Screen for viewing and editing a single user's details and permissions.
+ * Screen for viewing a single user's details, and the way into their role and permissions.
  *
  * Features:
  * - View user information (name, email, role)
- * - Toggle the canEdit permission
+ * - "Role and permissions · Contributor" opens the permissions screen
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserDetailScreen(
     viewModel: UserDetailViewModel,
     onBackClick: () -> Unit,
+    onPermissionsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
@@ -106,7 +105,7 @@ fun UserDetailScreen(
         UserDetailBody(
             state = state,
             innerPadding = innerPadding,
-            onToggleCanEdit = viewModel::toggleCanEdit,
+            onPermissionsClick = onPermissionsClick,
         )
     }
 }
@@ -115,7 +114,7 @@ fun UserDetailScreen(
 private fun UserDetailBody(
     state: UserDetailUiState,
     innerPadding: PaddingValues,
-    onToggleCanEdit: () -> Unit,
+    onPermissionsClick: () -> Unit,
 ) {
     when (state) {
         is UserDetailUiState.Loading -> {
@@ -141,7 +140,7 @@ private fun UserDetailBody(
         is UserDetailUiState.Ready -> {
             UserDetailContent(
                 state = state,
-                onToggleCanEdit = onToggleCanEdit,
+                onPermissionsClick = onPermissionsClick,
                 modifier = Modifier.padding(innerPadding),
             )
         }
@@ -156,7 +155,7 @@ private fun UserDetailBody(
 @Composable
 internal fun UserDetailContent(
     state: UserDetailUiState.Ready,
-    onToggleCanEdit: () -> Unit,
+    onPermissionsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val isWide =
@@ -180,10 +179,7 @@ internal fun UserDetailContent(
             section {
                 Column {
                     SectionHeading(stringResource(Res.string.common_permissions))
-                    PermissionsSection(
-                        state = state,
-                        onToggleCanEdit = onToggleCanEdit,
-                    )
+                    AccessRow(state = state, onClick = onPermissionsClick)
                 }
             }
         }
@@ -213,10 +209,7 @@ internal fun UserDetailContent(
             }
 
             item {
-                PermissionsSection(
-                    state = state,
-                    onToggleCanEdit = onToggleCanEdit,
-                )
+                AccessRow(state = state, onClick = onPermissionsClick)
             }
 
             item {
@@ -239,19 +232,24 @@ private fun SectionHeading(
     )
 }
 
-/** The permission switches, and — for a protected user — the notice saying why they are locked. */
+/**
+ * "Role and permissions · Contributor": what this user can do at a glance, and the way into changing it.
+ * A protected user also gets the notice saying why their role and flags are locked.
+ */
 @Composable
-private fun PermissionsSection(
+private fun AccessRow(
     state: UserDetailUiState.Ready,
-    onToggleCanEdit: () -> Unit,
+    onClick: () -> Unit,
 ) {
     Column {
-        PermissionsCard(
-            canEdit = state.canEdit,
-            isProtected = state.isProtected,
-            isSaving = state.isSaving,
-            onToggleCanEdit = onToggleCanEdit,
-        )
+        SegmentedGroup {
+            SettingRow(
+                icon = Icons.Outlined.Shield,
+                title = stringResource(Res.string.admin_role_and_permissions),
+                subtitle = state.user.access.title(),
+                onClick = onClick,
+            )
+        }
         if (state.isProtected) {
             Spacer(modifier = Modifier.height(16.dp))
             ProtectedUserNotice()
@@ -347,7 +345,7 @@ private fun UserInfoCard(
                     imageVector = Icons.Outlined.Shield,
                     contentDescription = null,
                     tint =
-                        if (user.isRoot || user.role == "admin") {
+                        if (user.isRoot || user.role.equals("admin", ignoreCase = true)) {
                             MaterialTheme.colorScheme.primary
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
@@ -356,10 +354,10 @@ private fun UserInfoCard(
                 Column {
                     Text(
                         text =
-                            if (user.isRoot) {
-                                "Root Administrator"
-                            } else {
-                                user.role.replaceFirstChar { it.uppercase() }.ifEmpty { "Member" }
+                            when {
+                                user.isRoot -> stringResource(Res.string.admin_role_owner)
+                                user.role.equals("admin", ignoreCase = true) -> stringResource(Res.string.common_admin)
+                                else -> stringResource(Res.string.common_member)
                             },
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -372,61 +370,6 @@ private fun UserInfoCard(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun PermissionsCard(
-    canEdit: Boolean,
-    isProtected: Boolean,
-    isSaving: Boolean,
-    onToggleCanEdit: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    SegmentedGroup(modifier = modifier) {
-        // Can Edit — the permission UserPermissionPolicy gates every metadata mutation on.
-        // It had no UI at all until #1270, so a member could never be granted edit rights.
-        PermissionRow(
-            icon = Icons.Outlined.Edit,
-            title = stringResource(Res.string.admin_can_edit),
-            subtitle = stringResource(Res.string.admin_allow_editing_content_metadata),
-            checked = canEdit,
-            isProtected = isProtected,
-            isSaving = isSaving,
-            onToggle = onToggleCanEdit,
-        )
-    }
-}
-
-/**
- * One permission switch: the protected-user guard and the saving overlay live here, not at the call
- * site.
- */
-@Composable
-private fun PermissionRow(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    checked: Boolean,
-    isProtected: Boolean,
-    isSaving: Boolean,
-    onToggle: () -> Unit,
-) {
-    if (isSaving) {
-        // While the change is in flight the row shows progress rather than a switch that could be
-        // flipped again mid-save.
-        SettingRow(icon = icon, title = title, subtitle = subtitle) {
-            ListenUpLoadingIndicatorSmall()
-        }
-    } else {
-        SettingToggleRow(
-            icon = icon,
-            title = title,
-            subtitle = subtitle,
-            checked = checked,
-            enabled = !isProtected,
-            onCheckedChange = { onToggle() },
-        )
     }
 }
 
