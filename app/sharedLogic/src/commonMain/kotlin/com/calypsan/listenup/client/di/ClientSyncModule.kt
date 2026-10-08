@@ -396,7 +396,6 @@ internal val clientSyncModule =
                             }
                         }
                     },
-                    *readingOrderOutboxBindings(readingOrderChannel).toTypedArray(),
                     // The op's entityId is the collectionId; the sender reconstructs the CollectionId from it.
                     outboxBinding(OutboxChannels.Collections) { id, mutation ->
                         when (mutation) {
@@ -450,7 +449,7 @@ internal val clientSyncModule =
                             }
                         }
                     },
-                ),
+                ) + readingOrderOutboxBindings(readingOrderChannel),
             )
         }
         single {

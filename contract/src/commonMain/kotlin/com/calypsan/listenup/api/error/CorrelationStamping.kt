@@ -417,8 +417,12 @@ private fun CollectionError.withCorrelationId(id: String?): CollectionError =
 
 /**
  * Re-dispatches the grouped `ShelfError`/`ReadingOrderError` branch of [withCorrelationId] to each
- * family's own exhaustive stamping. The `else` is unreachable (only called from that branch).
+ * family's own exhaustive stamping.
+ *
+ * The `else` is unreachable: Kotlin has no union receiver type, so the grouped caller cannot
+ * narrow `this` for it.
  */
+@Suppress("ElseCaseInsteadOfExhaustiveWhen")
 private fun AppError.bookListWithCorrelationId(id: String?): AppError =
     when (this) {
         is ShelfError -> withCorrelationId(id)

@@ -25,8 +25,8 @@ internal fun readingOrderOutboxBindings(
         outboxBinding(OutboxChannels.ReadingOrders) { id, mutation ->
             when (mutation) {
                 is ReadingOrderMutation.Create -> {
-                    channel.call {
-                        it.createReadingOrder(
+                    channel.call { service ->
+                        service.createReadingOrder(
                             ReadingOrderId(id),
                             SeriesId(mutation.seriesId),
                             mutation.name,
@@ -47,8 +47,8 @@ internal fun readingOrderOutboxBindings(
         outboxBinding(OutboxChannels.ReadingOrderBooks) { _, mutation ->
             when (mutation) {
                 is ReadingOrderBookMutation.Add -> {
-                    channel.call {
-                        it.addBookToReadingOrder(
+                    channel.call { service ->
+                        service.addBookToReadingOrder(
                             ReadingOrderId(mutation.readingOrderId),
                             BookId(mutation.bookId),
                             mutation.membershipId,
@@ -57,14 +57,17 @@ internal fun readingOrderOutboxBindings(
                 }
 
                 is ReadingOrderBookMutation.Remove -> {
-                    channel.call {
-                        it.removeBookFromReadingOrder(ReadingOrderId(mutation.readingOrderId), BookId(mutation.bookId))
+                    channel.call { service ->
+                        service.removeBookFromReadingOrder(
+                            ReadingOrderId(mutation.readingOrderId),
+                            BookId(mutation.bookId),
+                        )
                     }
                 }
 
                 is ReadingOrderBookMutation.Reorder -> {
-                    channel.call {
-                        it.reorderReadingOrder(
+                    channel.call { service ->
+                        service.reorderReadingOrder(
                             ReadingOrderId(mutation.readingOrderId),
                             mutation.orderedBookIds.map(::BookId),
                         )
@@ -76,8 +79,8 @@ internal fun readingOrderOutboxBindings(
         outboxBinding(OutboxChannels.ReadingOrderFollows) { _, mutation ->
             when (mutation) {
                 is ReadingOrderFollowMutation.Choose -> {
-                    channel.call {
-                        it.chooseReadingOrder(
+                    channel.call { service ->
+                        service.chooseReadingOrder(
                             SeriesId(mutation.seriesId),
                             ReadingOrderChoice.from(mutation.kind, mutation.readingOrderId?.let(::ReadingOrderId)),
                         )

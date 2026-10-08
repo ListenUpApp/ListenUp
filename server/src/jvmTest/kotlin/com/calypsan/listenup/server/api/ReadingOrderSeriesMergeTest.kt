@@ -35,13 +35,13 @@ class ReadingOrderSeriesMergeTest :
                         .mergeSeries(ids.mistborn, saga)
                         .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                    deps.orders.findLive("uro")!!.let {
-                        it.seriesId shouldBe saga.value
-                        it.name shouldBe "URO"
+                    deps.orders.findLive("uro")!!.let { order ->
+                        order.seriesId shouldBe saga.value
+                        order.name shouldBe "URO"
                     }
-                    deps.orders.findLive("era")!!.let {
-                        it.seriesId shouldBe saga.value
-                        it.name shouldBe "Era One (from Mistborn)"
+                    deps.orders.findLive("era")!!.let { order ->
+                        order.seriesId shouldBe saga.value
+                        order.name shouldBe "Era One (from Mistborn)"
                     }
                     deps.orders.findLive("saga-era")!!.name shouldBe "era one"
                     // Moved orders are live and editable on the target.
@@ -59,13 +59,13 @@ class ReadingOrderSeriesMergeTest :
                         .undoSeriesMerge(receipt.id)
                         .shouldBeInstanceOf<AppResult.Success<*>>()
 
-                    deps.orders.findLive("uro")!!.let {
-                        it.seriesId shouldBe ids.mistborn.value
-                        it.name shouldBe "URO"
+                    deps.orders.findLive("uro")!!.let { order ->
+                        order.seriesId shouldBe ids.mistborn.value
+                        order.name shouldBe "URO"
                     }
-                    deps.orders.findLive("era")!!.let {
-                        it.seriesId shouldBe ids.mistborn.value
-                        it.name shouldBe "Era One"
+                    deps.orders.findLive("era")!!.let { order ->
+                        order.seriesId shouldBe ids.mistborn.value
+                        order.name shouldBe "Era One"
                     }
                     deps.orders.findLive("saga-era")!!.seriesId shouldBe saga.value
                 }

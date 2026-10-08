@@ -37,11 +37,11 @@ class ReadingOrderServiceTest :
                     svc
                         .createReadingOrder(ReadingOrderId("ro"), ids.cosmere, "Something else")
                         .shouldBeInstanceOf<AppResult.Success<Unit>>()
-                    deps.orders.findLive("ro")!!.let {
-                        it.name shouldBe "Ultimate Read Order"
-                        it.createdBy shouldBe "simon"
-                        it.seriesId shouldBe ids.cosmere.value
-                        it.revision shouldBe revision
+                    deps.orders.findLive("ro")!!.let { order ->
+                        order.name shouldBe "Ultimate Read Order"
+                        order.createdBy shouldBe "simon"
+                        order.seriesId shouldBe ids.cosmere.value
+                        order.revision shouldBe revision
                     }
                 }
             }

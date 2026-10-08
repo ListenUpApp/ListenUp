@@ -33,12 +33,16 @@ class ReadingOrderFollowTest :
                         .serviceAs("jess")
                         .chooseReadingOrder(ids.cosmere, ReadingOrderChoice.PublicationOrder)
                         .shouldBeInstanceOf<AppResult.Success<Unit>>()
-                    deps.follows.pullSince(userId = "jess", cursor = 0, limit = 50).items.single().let {
-                        it.id shouldBe "jess:${ids.cosmere.value}"
-                        it.seriesId shouldBe ids.cosmere.value
-                        it.choice shouldBe ReadingOrderChoiceKind.PUBLICATION
-                        it.readingOrderId shouldBe null
-                    }
+                    deps.follows
+                        .pullSince(userId = "jess", cursor = 0, limit = 50)
+                        .items
+                        .single()
+                        .let { follow ->
+                            follow.id shouldBe "jess:${ids.cosmere.value}"
+                            follow.seriesId shouldBe ids.cosmere.value
+                            follow.choice shouldBe ReadingOrderChoiceKind.PUBLICATION
+                            follow.readingOrderId shouldBe null
+                        }
                     deps.follows
                         .pullSince(userId = "priya", cursor = 0, limit = 50)
                         .items

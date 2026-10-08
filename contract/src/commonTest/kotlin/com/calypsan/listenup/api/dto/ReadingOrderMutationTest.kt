@@ -22,10 +22,10 @@ class ReadingOrderMutationTest :
                 ReadingOrderBookMutation.Add("m1", "ro", "b1"),
                 ReadingOrderBookMutation.Remove("ro", "b1"),
                 ReadingOrderBookMutation.Reorder("ro", listOf("b2", "b1")),
-            ).forEach {
+            ).forEach { mutation ->
                 contractJson.decodeFromString<ReadingOrderBookMutation>(
-                    contractJson.encodeToString<ReadingOrderBookMutation>(it),
-                ) shouldBe it
+                    contractJson.encodeToString<ReadingOrderBookMutation>(mutation),
+                ) shouldBe mutation
             }
         }
 
@@ -34,10 +34,10 @@ class ReadingOrderMutationTest :
                 ReadingOrderFollowMutation.Choose("mistborn", ReadingOrderChoiceKind.ORDER, "ro"),
                 ReadingOrderFollowMutation.Choose("mistborn", ReadingOrderChoiceKind.PUBLICATION),
                 ReadingOrderFollowMutation.Clear("mistborn"),
-            ).forEach {
+            ).forEach { mutation ->
                 contractJson.decodeFromString<ReadingOrderFollowMutation>(
-                    contractJson.encodeToString<ReadingOrderFollowMutation>(it),
-                ) shouldBe it
+                    contractJson.encodeToString<ReadingOrderFollowMutation>(mutation),
+                ) shouldBe mutation
             }
             contractJson.decodeFromString<ReadingOrderFollowMutation>(
                 """{"type":"ReadingOrderFollowMutation.Choose","seriesId":"s","kind":"CHRONOLOGICAL"}""",

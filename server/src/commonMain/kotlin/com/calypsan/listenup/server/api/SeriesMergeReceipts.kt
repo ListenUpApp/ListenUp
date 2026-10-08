@@ -139,8 +139,12 @@ internal class SeriesMergeReceipts(
         }
         val targetName = seriesRepo.findById(claim.targetId.value)?.name.orEmpty()
         readingOrders
-            .handBack(receiptId.value, claim.sourceId, claim.targetId, targetName)
-            ?.let { if (firstFailure == null) firstFailure = it }
+            .handBack(
+                receiptId = receiptId.value,
+                source = claim.sourceId,
+                target = claim.targetId,
+                targetName = targetName,
+            )?.let { if (firstFailure == null) firstFailure = it }
         firstFailure?.let { return AppResult.Failure(it) }
         return AppResult.Success(
             MergeUndoResult(

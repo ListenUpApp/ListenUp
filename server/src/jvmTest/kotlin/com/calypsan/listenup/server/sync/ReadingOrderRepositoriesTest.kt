@@ -24,9 +24,9 @@ class ReadingOrderRepositoriesTest :
                     repo
                         .upsert(order("ro", "cosmere", "Ultimate Read Order", createdBy = "simon"))
                         .shouldBeInstanceOf<AppResult.Success<ReadingOrderSyncPayload>>()
-                    repo.findLive("ro")!!.let {
-                        it.name shouldBe "Ultimate Read Order"
-                        it.createdBy shouldBe "simon"
+                    repo.findLive("ro")!!.let { order ->
+                        order.name shouldBe "Ultimate Read Order"
+                        order.createdBy shouldBe "simon"
                     }
                     repo.liveIdForName("cosmere", "  ultimate  READ order ") shouldBe "ro"
                     repo.liveIdForName("mistborn", "Ultimate Read Order") shouldBe null
@@ -64,9 +64,9 @@ class ReadingOrderRepositoriesTest :
                         .upsert(member("m3", "ro", "b1", 0))
                         .shouldBeInstanceOf<AppResult.Success<ReadingOrderBookSyncPayload>>()
                         .data
-                        .let {
-                            it.id shouldBe "m1"
-                            it.deletedAt shouldBe null
+                        .let { member ->
+                            member.id shouldBe "m1"
+                            member.deletedAt shouldBe null
                         }
                 }
             }
@@ -79,10 +79,10 @@ class ReadingOrderRepositoriesTest :
                     ReadingOrderRepository(sql, ChangeBus(), SyncRegistry()).upsert(order("ro", "s", "A", "u"))
                     members.upsert(member("m1", "ro", "b1", 0))
                     members.softDelete(ReadingOrderBookKey("ro", "b1"))
-                    members.pullSince(userId = null, cursor = 0, limit = 50).items.single().let {
-                        it.id shouldBe "m1"
-                        it.readingOrderId shouldBe ""
-                        it.bookId shouldBe ""
+                    members.pullSince(userId = null, cursor = 0, limit = 50).items.single().let { member ->
+                        member.id shouldBe "m1"
+                        member.readingOrderId shouldBe ""
+                        member.bookId shouldBe ""
                     }
                 }
             }

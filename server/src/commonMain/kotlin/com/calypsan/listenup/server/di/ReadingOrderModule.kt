@@ -28,7 +28,12 @@ fun readingOrderModule(): Module =
     module {
         single(createdAtStart = true) { ReadingOrderRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) {
-            ReadingOrderBookRepository(get<ListenUpDatabase>(), get(), get(), driver = get<SqlDriver>())
+            ReadingOrderBookRepository(
+                db = get<ListenUpDatabase>(),
+                bus = get(),
+                registry = get(),
+                driver = get<SqlDriver>(),
+            )
         }
         single(createdAtStart = true) { ReadingOrderFollowRepository(get<ListenUpDatabase>(), get(), get()) }
         single {

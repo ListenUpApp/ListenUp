@@ -177,9 +177,9 @@ internal object OutboxChannels {
     // idempotent (NotFound drains as success).
     val ReadingOrders =
         OutboxChannel(
-            SyncDomains.READING_ORDERS.name,
-            ReadingOrderMutation.serializer(),
-            setOf(OpKind.Create, OpKind.Update, OpKind.Delete),
+            name = SyncDomains.READING_ORDERS.name,
+            serializer = ReadingOrderMutation.serializer(),
+            ops = setOf(OpKind.Create, OpKind.Update, OpKind.Delete),
             idempotent = true,
         )
 
@@ -188,9 +188,9 @@ internal object OutboxChannels {
     // tolerantly, so it may land either side of an add or a remove.
     val ReadingOrderBooks =
         OutboxChannel(
-            SyncDomains.READING_ORDER_BOOKS.name,
-            ReadingOrderBookMutation.serializer(),
-            setOf(OpKind.Create, OpKind.Delete, OpKind.Update),
+            name = SyncDomains.READING_ORDER_BOOKS.name,
+            serializer = ReadingOrderBookMutation.serializer(),
+            ops = setOf(OpKind.Create, OpKind.Delete, OpKind.Update),
             idempotent = true,
         )
 
@@ -198,9 +198,9 @@ internal object OutboxChannels {
     // (user, series), under one kind, so the queue coalesces them — the BookRatings precedent.
     val ReadingOrderFollows =
         OutboxChannel(
-            SyncDomains.READING_ORDER_FOLLOWS.name,
-            ReadingOrderFollowMutation.serializer(),
-            setOf(OpKind.Upsert),
+            name = SyncDomains.READING_ORDER_FOLLOWS.name,
+            serializer = ReadingOrderFollowMutation.serializer(),
+            ops = setOf(OpKind.Upsert),
             idempotent = true,
         )
 
