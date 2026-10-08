@@ -87,9 +87,21 @@ class PermissionPresetsTest :
         test("with reading orders advertised, Contributor makes them and Listener does not") {
             val all = Permission.known.toSet()
             PermissionPreset.LISTENER.applyTo(UserPermissions(), all) shouldBe
-                UserPermissions(canEditMetadata = false, canCurateLibrary = false, canMakeReadingOrders = false)
+                UserPermissions(
+                    canEditMetadata = false,
+                    canCurateLibrary = false,
+                    canContributeStoryWorld = false,
+                    canCurateStoryWorld = false,
+                    canMakeReadingOrders = false,
+                )
             PermissionPreset.CONTRIBUTOR.applyTo(UserPermissions(canMakeReadingOrders = false), all) shouldBe
-                UserPermissions(canEditMetadata = true, canCurateLibrary = false, canMakeReadingOrders = true)
+                UserPermissions(
+                    canEditMetadata = true,
+                    canCurateLibrary = false,
+                    canContributeStoryWorld = true,
+                    canCurateStoryWorld = false,
+                    canMakeReadingOrders = true,
+                )
             presetFor(UserPermissions(), all) shouldBe PermissionPreset.CONTRIBUTOR
             presetFor(UserPermissions(canMakeReadingOrders = false), all) shouldBe PermissionPreset.CUSTOM
         }

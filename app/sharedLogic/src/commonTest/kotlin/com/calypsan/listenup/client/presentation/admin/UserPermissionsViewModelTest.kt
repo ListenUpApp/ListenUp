@@ -297,9 +297,10 @@ class UserPermissionsViewModelTest :
             runTest {
                 val repo: AdminRepository = mock { everySuspend { getUser("u1") } returns AppResult.Success(member()) }
                 val ready = open(repo, flags = everyFlag).ready()
-                ready.sections.map { it.group } shouldContainExactly listOf(PermissionGroup.LIBRARY, PermissionGroup.STORY_WORLD)
+                ready.sections.map { it.group } shouldContainExactly
+                    listOf(PermissionGroup.LIBRARY, PermissionGroup.STORY_WORLD, PermissionGroup.READING_ORDERS)
                 ready.sections
-                    .last()
+                    .single { it.group == PermissionGroup.STORY_WORLD }
                     .rows
                     .map { it.permission } shouldContainExactly
                     listOf(Permission.CONTRIBUTE_STORY_WORLD, Permission.CURATE_STORY_WORLD)
@@ -310,8 +311,19 @@ class UserPermissionsViewModelTest :
         test("Listener turns Contribute Story World off, and save sends the flags that changed and nothing else") {
             runTest {
                 val listener =
-                    UserPermissions(canEditMetadata = false, canCurateLibrary = false, canContributeStoryWorld = false)
-                val patch = UserPermissionsPatch(canEditMetadata = false, canCurateLibrary = false, canContributeStoryWorld = false)
+                    UserPermissions(
+                        canEditMetadata = false,
+                        canCurateLibrary = false,
+                        canContributeStoryWorld = false,
+                        canMakeReadingOrders = false,
+                    )
+                val patch =
+                    UserPermissionsPatch(
+                        canEditMetadata = false,
+                        canCurateLibrary = false,
+                        canContributeStoryWorld = false,
+                        canMakeReadingOrders = false,
+                    )
                 val repo: AdminRepository =
                     mock {
                         everySuspend { getUser("u1") } returns AppResult.Success(member())

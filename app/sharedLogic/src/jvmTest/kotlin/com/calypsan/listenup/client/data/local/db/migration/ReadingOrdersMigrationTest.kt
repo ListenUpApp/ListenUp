@@ -24,12 +24,13 @@ class ReadingOrdersMigrationTest :
                         "createdAt, updatedAt) VALUES ('b1', 'lib', 'f', 'Book', 0, 0, 3, 0, 0, 0)",
                 )
                 v20.execSQL(
-                    "INSERT INTO users (id, email, displayName, isRoot, createdAt, updatedAt, canEdit, canCurateLibrary) " +
-                        "VALUES ('u1', 'a@b.c', 'A', 0, 0, 0, 1, 0)",
+                    "INSERT INTO users (id, email, displayName, isRoot, createdAt, updatedAt, canEdit, canCurateLibrary, " +
+                        "canContributeStoryWorld, canCurateStoryWorld) VALUES ('u1', 'a@b.c', 'A', 0, 0, 0, 1, 0, 1, 0)",
                 )
                 v20.execSQL(
                     "INSERT INTO admin_user_roster (id, email, displayName, role, status, canEdit, canCurateLibrary, " +
-                        "accountCreatedAt, revision) VALUES ('u1', 'a@b.c', 'A', 'MEMBER', 'ACTIVE', 1, 0, 0, 1)",
+                        "canContributeStoryWorld, canCurateStoryWorld, accountCreatedAt, revision) " +
+                        "VALUES ('u1', 'a@b.c', 'A', 'MEMBER', 'ACTIVE', 1, 0, 1, 0, 0, 1)",
                 )
                 v20.execSQL("INSERT INTO sync_cursor (domainName, revision) VALUES ('books', 700)")
                 v20.close()
