@@ -12,7 +12,10 @@ import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserPermissions
+import com.calypsan.listenup.api.dto.auth.UserPermissionsPatch
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.auth.patchedBy
 import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.notifications.NotificationEvent
@@ -235,12 +238,16 @@ class AdminUserServiceImpl(
                 val mergedDisplayName = patch.displayName ?: user.displayName
                 val mergedRole = patch.role?.toColumn() ?: user.role
                 demoted = user.role == UserRoleColumn.ADMIN && mergedRole == UserRoleColumn.MEMBER
-                val mergedCanEdit = patch.permissions?.canEditMetadata ?: user.canEdit
+                // Each permission flag merges on its own: a patch that names one leaves the others as stored.
+                val mergedPermissions =
+                    UserPermissions(canEditMetadata = user.canEdit, canCurateLibrary = user.canCurateLibrary)
+                        .patchedBy(patch.permissions?.withLegacyEmptyMeaning())
                 val now = clock.now().toEpochMilliseconds()
                 sql.usersQueries.updateAdminFields(
                     display_name = mergedDisplayName,
                     role = mergedRole.name,
-                    can_edit = mergedCanEdit.toDbLong(),
+                    can_edit = mergedPermissions.canEditMetadata.toDbLong(),
+                    can_curate_library = mergedPermissions.canCurateLibrary.toDbLong(),
                     updated_at = now,
                     id = id.value,
                 )
@@ -249,7 +256,8 @@ class AdminUserServiceImpl(
                         .copy(
                             displayName = mergedDisplayName,
                             role = mergedRole,
-                            canEdit = mergedCanEdit,
+                            canEdit = mergedPermissions.canEditMetadata,
+                            canCurateLibrary = mergedPermissions.canCurateLibrary,
                         ).toContract(),
                 )
             }
@@ -498,3 +506,19 @@ class AdminUserServiceImpl(
 
 /** Boolean → SQLite INTEGER (0/1) at the persistence boundary. */
 private fun Boolean.toDbLong(): Long = if (this) 1L else 0L
+
+/**
+ * An empty permissions object is an older admin app granting Edit metadata, not "change nothing".
+ *
+ * Before the split, the admin app sent a whole `UserPermissions(canEdit = …)`, and `contractJson`
+ * does not encode defaults. Since `canEdit = true` was the default, turning Edit back ON put
+ * `{"permissions":{}}` on the wire — which decodes here as a [UserPermissionsPatch] naming no flag.
+ * Read literally, that would leave the flag off and still report success. So a present-but-empty
+ * patch keeps its legacy meaning: `canEditMetadata = true`. Revoking was never affected, because
+ * `false` is not the default and is always encoded.
+ *
+ * Current clients never send an empty object: when no flag changed they send `permissions = null`,
+ * which leaves every flag as stored.
+ */
+private fun UserPermissionsPatch.withLegacyEmptyMeaning(): UserPermissionsPatch =
+    if (isEmpty) UserPermissionsPatch(canEditMetadata = true) else this

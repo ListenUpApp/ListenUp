@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.api.dto.auth.UserPermissions
 import com.calypsan.listenup.api.sync.AdminUserRosterSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.server.db.sqldelight.Admin_user_roster
@@ -16,8 +17,10 @@ import kotlin.time.Clock
  * Single-table; the maintainer assembles the full payload, so [writePayload] is a straight
  * INSERT/UPDATE of all columns — the [PublicProfileRepository] pattern.
  *
- * `can_edit` is `INTEGER` (0/1) in SQLite, which SQLDelight surfaces as `Long`
- * (see [Admin_user_roster.can_edit]); [writePayload] / [toSyncPayload] convert at the boundary.
+ * `can_edit` and `can_curate_library` are `INTEGER` (0/1) in SQLite, which SQLDelight surfaces as
+ * `Long` (see [Admin_user_roster.can_edit]); [writePayload] / [toSyncPayload] convert at the boundary.
+ * The payload's nested `permissions` is the truth for both; the flat `canEdit` rides along for older
+ * admin apps.
  *
  * `id` is a plain `String` (`id == userId`), so the default `idAsString` is correct.
  *
@@ -96,6 +99,7 @@ class AdminUserRosterRepository(
             role = "",
             status = "",
             canEdit = false,
+            permissions = null,
             accountCreatedAt = 0L,
         )
 
@@ -114,6 +118,7 @@ class AdminUserRosterRepository(
                 role = value.role,
                 status = value.status,
                 can_edit = value.canEdit.toDbLong(),
+                can_curate_library = (value.permissions?.canCurateLibrary ?: false).toDbLong(),
                 account_created_at = value.accountCreatedAt,
                 revision = rev,
                 updated_at = now,
@@ -129,6 +134,7 @@ class AdminUserRosterRepository(
                 role = value.role,
                 status = value.status,
                 can_edit = value.canEdit.toDbLong(),
+                can_curate_library = (value.permissions?.canCurateLibrary ?: false).toDbLong(),
                 account_created_at = value.accountCreatedAt,
                 created_at = now,
                 updated_at = now,
@@ -148,6 +154,7 @@ class AdminUserRosterRepository(
             role = role,
             status = status,
             canEdit = can_edit == 1L,
+            permissions = UserPermissions(canEditMetadata = can_edit == 1L, canCurateLibrary = can_curate_library == 1L),
             accountCreatedAt = account_created_at,
             revision = revision,
             updatedAt = updated_at,

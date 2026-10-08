@@ -16,6 +16,11 @@ import kotlinx.serialization.Serializable
  * ([com.calypsan.listenup.api.dto.ServerInfo.permissionFlags]). An older server, which decodes this
  * body as a whole [UserPermissions], therefore only ever receives `canEdit`.
  *
+ * **Never send an empty patch.** When no flag changed, send `permissions = null` on
+ * [AdminUserPatch]. A present-but-empty object is what an older admin app puts on the wire for
+ * `UserPermissions(canEdit = true)` (defaults are not encoded), so the server reads `{}` as "grant
+ * Edit metadata", not as "change nothing".
+ *
  * @property canEditMetadata see [UserPermissions.canEditMetadata]; null leaves it unchanged.
  * @property canCurateLibrary see [UserPermissions.canCurateLibrary]; null leaves it unchanged.
  */

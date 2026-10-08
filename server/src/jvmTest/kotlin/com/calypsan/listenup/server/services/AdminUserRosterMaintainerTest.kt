@@ -1,8 +1,11 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.auth.UserPermissions
+import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.AdminUserRosterRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -92,6 +95,22 @@ class AdminUserRosterMaintainerTest :
 
                     val saved = repo.pullSince(userId = null, cursor = 0, limit = 100).items.single()
                     saved.canEdit shouldBe false
+                }
+            }
+        }
+
+        test("the roster row carries every permission flag, nested, and the flat canEdit for older admin apps") {
+            withSqlDatabase {
+                sql.seedTestUser("user-3", UserRoleColumn.MEMBER, canEdit = false, canCurateLibrary = true)
+                val repo = AdminUserRosterRepository(sql, ChangeBus(), SyncRegistry(), driver = driver)
+                val maintainer = AdminUserRosterMaintainer(sql, repo)
+
+                runTest {
+                    maintainer.refresh("user-3")
+
+                    val saved = repo.pullSince(userId = null, cursor = 0, limit = 100).items.single()
+                    saved.canEdit shouldBe false
+                    saved.permissions shouldBe UserPermissions(canEditMetadata = false, canCurateLibrary = true)
                 }
             }
         }

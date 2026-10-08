@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
@@ -170,6 +171,81 @@ class AdminUserServiceImplTest :
                     user.displayName shouldBe "Renamed"
                     user.role shouldBe UserRole.MEMBER
                     user.permissions shouldBe UserPermissions(canEditMetadata = true)
+                }
+            }
+        }
+
+        test("a one-flag patch changes that flag and leaves the other exactly as stored") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER, canEdit = true, canCurateLibrary = true)
+                runTest {
+                    val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
+                    svc
+                        .updateUser(UserId("m1"), AdminUserPatch(permissions = UserPermissionsPatch(canEditMetadata = false)))
+                        .shouldSucceed()
+                        .permissions shouldBe UserPermissions(canEditMetadata = false, canCurateLibrary = true)
+                    svc
+                        .updateUser(UserId("m1"), AdminUserPatch(permissions = UserPermissionsPatch(canCurateLibrary = false)))
+                        .shouldSucceed()
+                        .permissions shouldBe UserPermissions(canEditMetadata = false, canCurateLibrary = false)
+                    svc.getUser(UserId("m1")).shouldSucceed().permissions shouldBe
+                        UserPermissions(canEditMetadata = false, canCurateLibrary = false)
+                }
+            }
+        }
+
+        test("a role change and a flag change land together, and a role-only patch keeps every flag") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER, canEdit = true, canCurateLibrary = false)
+                runTest {
+                    val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
+                    val promoted =
+                        svc
+                            .updateUser(
+                                UserId("m1"),
+                                AdminUserPatch(role = UserRole.ADMIN, permissions = UserPermissionsPatch(canCurateLibrary = true)),
+                            ).shouldSucceed()
+                    promoted.role shouldBe UserRole.ADMIN
+                    promoted.permissions shouldBe UserPermissions(canEditMetadata = true, canCurateLibrary = true)
+
+                    val demoted = svc.updateUser(UserId("m1"), AdminUserPatch(role = UserRole.MEMBER)).shouldSucceed()
+                    demoted.role shouldBe UserRole.MEMBER
+                    demoted.permissions shouldBe UserPermissions(canEditMetadata = true, canCurateLibrary = true)
+                }
+            }
+        }
+
+        test("an older admin app's empty permissions object turns Edit metadata back on") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER, canEdit = false, canCurateLibrary = false)
+                runTest {
+                    // A pre-split client sends UserPermissions(canEdit = true); contractJson omits
+                    // defaults, so the wire carries an empty object.
+                    val patch = contractJson.decodeFromString<AdminUserPatch>("""{"permissions":{}}""")
+                    val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
+                    svc.updateUser(UserId("m1"), patch).shouldSucceed().permissions shouldBe
+                        UserPermissions(canEditMetadata = true, canCurateLibrary = false)
+                    svc.getUser(UserId("m1")).shouldSucceed().permissions.canEditMetadata shouldBe true
+                }
+            }
+        }
+
+        test("an older admin app's canEdit false still revokes Edit metadata") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER, canEdit = true, canCurateLibrary = true)
+                runTest {
+                    val patch = contractJson.decodeFromString<AdminUserPatch>("""{"permissions":{"canEdit":false}}""")
+                    val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
+                    svc.updateUser(UserId("m1"), patch).shouldSucceed().permissions shouldBe
+                        UserPermissions(canEditMetadata = false, canCurateLibrary = true)
                 }
             }
         }

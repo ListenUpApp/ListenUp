@@ -2,11 +2,13 @@ package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.dto.advertisedPermissions
+import com.calypsan.listenup.api.dto.auth.AdminUserPatch
 import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.dto.auth.PermissionGroup
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.UserPermissions
 import com.calypsan.listenup.api.dto.auth.UserPermissionsPatch
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.allows
 import com.calypsan.listenup.api.dto.auth.granting
 import com.calypsan.listenup.api.dto.auth.patchedBy
@@ -96,6 +98,14 @@ class PermissionContractTest :
                 """{"canCurateLibrary":true}"""
             contractJson.decodeFromString(UserPermissionsPatch.serializer(), """{"canEdit":false}""") shouldBe
                 UserPermissionsPatch(canEditMetadata = false, canCurateLibrary = null)
+        }
+
+        test("an admin patch that changes no flag carries no permissions key — an empty object means grant Edit") {
+            contractJson.encodeToString(AdminUserPatch.serializer(), AdminUserPatch(role = UserRole.ADMIN)) shouldBe
+                """{"role":"ADMIN"}"""
+            // What a pre-split app sends for UserPermissions(canEdit = true): defaults are omitted.
+            contractJson.decodeFromString(AdminUserPatch.serializer(), """{"permissions":{}}""").permissions shouldBe
+                UserPermissionsPatch()
         }
 
         test("ServerInfo from an older server advertises only canEdit") {
