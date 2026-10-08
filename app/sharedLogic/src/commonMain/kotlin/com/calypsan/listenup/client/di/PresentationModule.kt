@@ -401,7 +401,7 @@ internal val bookPresentationModule =
                 errorBus = get(),
             )
         }
-        // Hands a fresh match receipt from Match details to Book Detail; one per process.
+        // Hands a fresh match receipt from Match details to Book Detail or the contributor page; one per process.
         single { com.calypsan.listenup.client.presentation.match.MatchReceiptStore() }
         factory { com.calypsan.listenup.client.presentation.match.UndoMatch(matchingRepository = get()) }
         // Match details for one book: Find, Review and Apply share one ViewModel per session.
@@ -414,10 +414,20 @@ internal val bookPresentationModule =
                 errorBus = get(),
             )
         }
-        // The receipt on Book Detail after Apply, with Undo.
+        // Match details for one person: As author | As narrator, Find, Review and Apply in one ViewModel.
+        factory { params ->
+            com.calypsan.listenup.client.presentation.match.PersonMatchViewModel(
+                contributorId = params.get(),
+                matchingRepository = get(),
+                contributorRepository = get(),
+                receiptStore = get(),
+                errorBus = get(),
+            )
+        }
+        // The receipt after Apply, with Undo: on Book Detail for a book, the contributor page for a person.
         factory { params ->
             com.calypsan.listenup.client.presentation.match.MatchReceiptViewModel(
-                bookId = params.get(),
+                subjectId = params.get(),
                 receiptStore = get(),
                 undoMatch = get(),
                 errorBus = get(),
@@ -518,14 +528,6 @@ internal val contributorPresentationModule =
                 contributorAliasDao = get(),
                 contributorDao = get(),
                 errorBus = get(),
-            )
-        }
-        factory {
-            com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataViewModel(
-                contributorRepository = get<com.calypsan.listenup.client.domain.repository.ContributorRepository>(),
-                metadataRepository = get(),
-                errorBus = get(),
-                libraryRepository = get(),
             )
         }
     }

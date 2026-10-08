@@ -31,7 +31,6 @@ import com.calypsan.listenup.web.design.toastText
 import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.features.bookedit.OpenBookEdit
 import com.calypsan.listenup.web.features.chaptereditor.OpenChapterEditor
-import com.calypsan.listenup.web.features.contributormetadata.OpenContributorMetadata
 import com.calypsan.listenup.web.features.books.OpenMultiSelect
 import com.calypsan.listenup.web.features.bulkedit.OpenBulkEdit
 import com.calypsan.listenup.web.features.browse.OpenBrowseFacet
@@ -99,7 +98,6 @@ fun AuthGate(
     openContributorDetail: OpenContributorDetail,
     openContributorBooks: OpenContributorBooks,
     openContributorEdit: OpenContributorEdit,
-    openContributorMetadata: OpenContributorMetadata,
     openSeriesDetail: OpenSeriesDetail,
     openSeriesEdit: OpenSeriesEdit,
     openNotifications: OpenNotifications,
@@ -235,7 +233,6 @@ fun AuthGate(
                         openContributorDetail = openContributorDetail,
                         openContributorBooks = openContributorBooks,
                         openContributorEdit = openContributorEdit,
-                        openContributorMetadata = openContributorMetadata,
                         openSeriesDetail = openSeriesDetail,
                         openSeriesEdit = openSeriesEdit,
                         openNotifications = openNotifications,

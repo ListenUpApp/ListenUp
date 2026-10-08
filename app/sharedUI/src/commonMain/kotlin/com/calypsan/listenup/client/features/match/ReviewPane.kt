@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
@@ -129,13 +130,23 @@ internal fun ReviewPane(
                 )
             }
         },
-        bottomBar = { if (state is ReviewUiState.Ready) ApplyArea(ready = state, onApply = actions::apply) },
+        bottomBar = {
+            if (state is ReviewUiState.Ready) {
+                ApplyArea(
+                    summary = applySummaryText(state.applyBar),
+                    canApply = state.applyBar.canApply,
+                    applying = state.applying,
+                    applyError = state.applyError,
+                    onApply = actions::apply,
+                )
+            }
+        },
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (state) {
                 ReviewUiState.NoneChosen -> CenteredMessage(stringResource(Res.string.match_none_chosen))
                 is ReviewUiState.Loading -> ReviewLoading()
-                is ReviewUiState.Failed -> ReviewFailed(state, onRetry = { actions.pick(state.candidate.key) })
+                is ReviewUiState.Failed -> ReviewFailed(state.error, onRetry = { actions.pick(state.candidate.key) })
                 is ReviewUiState.Ready -> ReviewContent(state, bookId, viewerId, actions)
             }
         }
@@ -314,7 +325,7 @@ private fun WhatWillChangeSummary(
 }
 
 @Composable
-private fun ReviewLoading() {
+internal fun ReviewLoading() {
     val loading = stringResource(Res.string.match_review_loading)
     Column(
         modifier =
@@ -328,8 +339,8 @@ private fun ReviewLoading() {
 }
 
 @Composable
-private fun ReviewFailed(
-    state: ReviewUiState.Failed,
+internal fun ReviewFailed(
+    error: AppError,
     onRetry: () -> Unit,
 ) {
     Column(
@@ -346,14 +357,14 @@ private fun ReviewFailed(
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.semantics { heading() },
             )
-            Text(state.error.localized(), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+            Text(error.localized(), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
         }
         ListenUpButton(text = stringResource(Res.string.match_retry), onClick = onRetry, fillMaxWidth = false)
     }
 }
 
 @Composable
-private fun CenteredMessage(text: String) {
+internal fun CenteredMessage(text: String) {
     Box(modifier = Modifier.fillMaxSize().padding(Spacing.screenMargin), contentAlignment = Alignment.Center) {
         Text(
             text = text,

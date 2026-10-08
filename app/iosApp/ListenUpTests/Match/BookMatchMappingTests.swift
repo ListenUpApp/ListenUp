@@ -247,6 +247,7 @@ struct BookMatchMappingTests {
     @Test func theReceiptPhaseCarriesItsSentenceAndChanges() {
         let receipt = MatchReceiptUi(
             receiptId: "r1", fieldCount: 1, coverSource: Fixture.shelfdata, chapterNameCount: 0,
+            photoSource: nil, biographySource: nil,
             changes: [AppliedChangeField(field: .publisher, source: Fixture.storefront), AppliedChangeCover(source: Fixture.shelfdata)],
             undoable: true
         )
@@ -259,7 +260,8 @@ struct BookMatchMappingTests {
         #expect(model.changes == ["Publisher · from Storefront", "Cover · from Shelfdata"])
         #expect(model.canUndo && !model.undoing)
         #expect(BookMatchMapping.receipt(from: MatchReceiptUiStateUndone.shared) == .undone)
-        #expect(BookMatchMapping.receipt(from: MatchReceiptUiStateExpired.shared) == .expired)
+        #expect(BookMatchMapping.receipt(from: MatchReceiptUiStateExpired.shared)
+            == .expired(message: "This book has changed since, so the match can't be undone."))
         #expect(BookMatchMapping.receipt(from: MatchReceiptUiStateNone.shared) == .none)
     }
 }

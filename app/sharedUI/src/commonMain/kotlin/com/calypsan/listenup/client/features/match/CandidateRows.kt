@@ -66,7 +66,16 @@ internal fun LazyListScope.candidateGroups(
     onCompare: (CandidateUi) -> Unit,
     onRetrySources: () -> Unit,
 ) {
-    item(key = "count") { ResultCount(count = results.all.size) }
+    item(key = "count") {
+        ResultCount(
+            text =
+                if (results.all.size == 1) {
+                    stringResource(Res.string.match_result_count_one)
+                } else {
+                    stringResource(Res.string.match_results_count, results.all.size)
+                },
+        )
+    }
     results.partialFailure?.let { partial -> item(key = "partial") { PartialBanner(partial, onRetrySources) } }
     listOf(
         "strong" to results.strong,
@@ -98,16 +107,11 @@ internal fun LazyListScope.candidateGroups(
     }
 }
 
-/** "4 results", read out politely when a search lands. */
+/** "4 results" or "3 people", read out politely when a search lands. */
 @Composable
-private fun ResultCount(count: Int) {
+internal fun ResultCount(text: String) {
     Text(
-        text =
-            if (count == 1) {
-                stringResource(Res.string.match_result_count_one)
-            } else {
-                stringResource(Res.string.match_results_count, count)
-            },
+        text = text,
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
@@ -116,7 +120,7 @@ private fun ResultCount(count: Int) {
 
 /** "Source C didn't answer, so these results are from A and B." with Retry Source C. */
 @Composable
-private fun PartialBanner(
+internal fun PartialBanner(
     partial: PartialFailure,
     onRetry: () -> Unit,
 ) {

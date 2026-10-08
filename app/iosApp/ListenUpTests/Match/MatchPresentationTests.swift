@@ -27,8 +27,8 @@ struct MatchPresentationTests {
         )
         #expect(MatchReceiptAnnouncement.text(for: .shown(receipt)) == "Changed 1 field")
         #expect(MatchReceiptAnnouncement.text(for: .undone) == "Match undone. Everything it changed is back.")
-        #expect(MatchReceiptAnnouncement.text(for: .expired)
-            == "This book has changed since, so the match can't be undone.")
+        let expired = "This book has changed since, so the match can't be undone."
+        #expect(MatchReceiptAnnouncement.text(for: .expired(message: expired)) == expired)
         #expect(MatchReceiptAnnouncement.text(for: .none) == nil)
     }
 }

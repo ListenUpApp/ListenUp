@@ -29,28 +29,20 @@ struct MatchFieldRowView: View {
     let onTick: (Bool) -> Void
     let onChooseSource: (MatchSourceSelection) -> Void
 
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @State private var expanded = false
-
     var body: some View {
         HStack(alignment: .top, spacing: Spacing.s) {
             MatchTick(isOn: row.isTicked, label: row.tickLabel, onChange: onTick)
             VStack(alignment: .leading, spacing: Spacing.xs) {
-                heading
+                MatchFieldHeading(name: row.name, proposedFrom: row.proposedFrom)
                 if row.isEdited { MatchEditedFlag() }
-                values
-                if row.isLongText {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) { expanded.toggle() }
-                    } label: {
-                        Text(expanded ? String(localized: "match.show_less") : String(localized: "match.read_all"))
-                            .fullTarget()
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .buttonStyle(.borderless)
-                    .accessibilityHint(row.name)
-                }
-                sourceSwitch
+                MatchValuesView(values: row.values)
+                MatchSourceSwitch(
+                    label: String(format: String(localized: "match.source_switch_a11y"), row.name),
+                    segments: row.segments,
+                    selected: row.selectedSegment,
+                    style: row.switchStyle,
+                    onChoose: onChooseSource
+                )
                 if let note = row.editedNote {
                     Text(note).font(.footnote).foregroundStyle(.secondary)
                 }
@@ -59,25 +51,54 @@ struct MatchFieldRowView: View {
         }
         .padding(.vertical, Spacing.xxs)
     }
+}
 
-    private var heading: some View {
-        // Wraps rather than truncating at large sizes.
+/// "Description  from Audible": a value's name and where the proposal comes from, wrapping rather than
+/// truncating at large sizes.
+struct MatchFieldHeading: View {
+    let name: String
+    let proposedFrom: String
+
+    var body: some View {
         FlowLayout(spacing: Spacing.xs) {
-            Text(row.name).font(.headline)
-            Text(row.proposedFrom).font(.subheadline).foregroundStyle(.secondary)
+            Text(name).font(.headline)
+            Text(proposedFrom).font(.subheadline).foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
     }
+}
 
-    private var values: some View {
-        VStack(alignment: .leading, spacing: Spacing.xxs) {
-            valueLine(
-                String(localized: "match.yours"), row.yours ?? String(localized: "match.empty_value"), isProposed: false
-            )
-            valueLine(String(localized: "match.proposed"), row.proposed, isProposed: true)
+/// Yours over Proposed, read as one stop in full; long text shows three lines and Read All. The lines
+/// stack label over value at the accessibility sizes.
+struct MatchValuesView: View {
+    let values: MatchValues
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var expanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                valueLine(
+                    String(localized: "match.yours"), values.yours ?? String(localized: "match.empty_value"),
+                    isProposed: false
+                )
+                valueLine(String(localized: "match.proposed"), values.proposed, isProposed: true)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(values.accessibilityLabel)
+            if values.isLongText {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { expanded.toggle() }
+                } label: {
+                    Text(expanded ? String(localized: "match.show_less") : String(localized: "match.read_all"))
+                        .fullTarget()
+                }
+                .font(.subheadline.weight(.semibold))
+                .buttonStyle(.borderless)
+                .accessibilityHint(values.name)
+            }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(row.valuesLabel)
     }
 
     @ViewBuilder
@@ -93,28 +114,37 @@ struct MatchFieldRowView: View {
             Text(value)
                 .font(.subheadline)
                 .foregroundStyle(isProposed ? .primary : .secondary)
-                .lineLimit(row.isLongText && !expanded ? 3 : nil)
+                .lineLimit(values.isLongText && !expanded ? 3 : nil)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
+}
 
-    @ViewBuilder
-    private var sourceSwitch: some View {
-        let selection = Binding(get: { row.selectedSegment }, set: { onChooseSource($0) })
-        let label = String(format: String(localized: "match.source_switch_a11y"), row.name)
-        switch row.switchStyle {
+/// Where a value comes from: a segmented control up to four sources, a menu beyond — or when large text
+/// would truncate the segments (HIG, Segmented controls). Nothing when there is no choice to make.
+struct MatchSourceSwitch: View {
+    let label: String
+    let segments: [MatchSourceSegment]
+    let selected: MatchSourceSelection
+    let style: MatchSourceSwitchStyle
+    let onChoose: (MatchSourceSelection) -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        let selection = Binding(get: { selected }, set: { onChoose($0) })
+        switch style {
         case .none:
             EmptyView()
         case .segmented where !dynamicTypeSize.isAccessibilitySize:
             Picker(label, selection: selection) {
-                ForEach(row.segments) { Text($0.title).tag($0.selection) }
+                ForEach(segments) { Text($0.title).tag($0.selection) }
             }
             .pickerStyle(.segmented)
             .frame(minHeight: TapTarget.minimum)
         case .segmented, .menu:
-            // Beyond four segments, or when large text would truncate them: a menu (HIG, Segmented controls).
             Picker(label, selection: selection) {
-                ForEach(row.segments) { Text($0.title).tag($0.selection) }
+                ForEach(segments) { Text($0.title).tag($0.selection) }
             }
             .pickerStyle(.menu)
             .frame(minHeight: TapTarget.minimum)

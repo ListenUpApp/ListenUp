@@ -19,22 +19,23 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * Hands a fresh receipt from Match details to Book Detail. Match details is its own screen with its own
- * ViewModel and returns to Book Detail after Apply on every layout, so the receipt crosses here: held in memory
- * per book until Book Detail's receipt is dismissed, undone or expires.
+ * Hands a fresh receipt from Match details to the page it returns to — Book Detail for a book, the contributor
+ * page for a person. Match details is its own screen with its own ViewModel and returns to that page after Apply
+ * on every layout, so the receipt crosses here: held in memory per subject (a book or contributor id; both are
+ * UUIDs) until the page's receipt is dismissed, undone or expires.
  */
 internal class MatchReceiptStore {
     private val receipts = MutableStateFlow<Map<String, MatchReceipt>>(emptyMap())
 
-    /** The receipt waiting for [bookId]'s Book Detail, if any. */
+    /** The receipt waiting for each subject's page, by subject id. */
     val all: StateFlow<Map<String, MatchReceipt>> = receipts.asStateFlow()
 
     fun put(
-        bookId: String,
+        subjectId: String,
         receipt: MatchReceipt,
-    ) = receipts.update { it + (bookId to receipt) }
+    ) = receipts.update { it + (subjectId to receipt) }
 
-    fun clear(bookId: String) = receipts.update { it - bookId }
+    fun clear(subjectId: String) = receipts.update { it - subjectId }
 }
 
 /**
@@ -47,7 +48,7 @@ internal class UndoMatch(
     suspend operator fun invoke(receiptId: String): AppResult<UndoResult> = matchingRepository.undoMatch(receiptId)
 }
 
-/** The receipt on Book Detail after Apply. */
+/** The receipt on Book Detail, or on the contributor page, after Apply. */
 sealed interface MatchReceiptUiState {
     /** No receipt to show. */
     data object None : MatchReceiptUiState
@@ -65,16 +66,17 @@ sealed interface MatchReceiptUiState {
     /** Undo restored everything the match changed. */
     data object Undone : MatchReceiptUiState
 
-    /** The book changed since, so the match can't be undone; the receipt is gone. */
+    /** The book or person changed since, so the match can't be undone; the receipt is gone. */
     data object Expired : MatchReceiptUiState
 }
 
 /**
- * Book Detail's receipt for [bookId]. Reads the receipt Match details left in [MatchReceiptStore]; Undo goes
- * through [UndoMatch]. [dismiss] clears the receipt (or the Undone / Expired confirmation that replaced it).
+ * The receipt for [subjectId] — a book on Book Detail, a person on the contributor page. Reads the receipt Match
+ * details left in [MatchReceiptStore]; Undo goes through [UndoMatch]. [dismiss] clears the receipt (or the
+ * Undone / Expired confirmation that replaced it).
  */
 class MatchReceiptViewModel internal constructor(
-    private val bookId: String,
+    private val subjectId: String,
     private val receiptStore: MatchReceiptStore,
     private val undoMatch: UndoMatch,
     private val errorBus: ErrorBus,
@@ -94,7 +96,7 @@ class MatchReceiptViewModel internal constructor(
                 }
 
                 is Outcome.Idle, is Outcome.Undoing, is Outcome.UndoFailed -> {
-                    receipts[bookId]?.let {
+                    receipts[subjectId]?.let {
                         MatchReceiptUiState.Shown(
                             receipt = it.toUi(),
                             undoing = outcome is Outcome.Undoing,
@@ -105,21 +107,21 @@ class MatchReceiptViewModel internal constructor(
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MatchReceiptUiState.None)
 
-    /** Undoes the receipt's match; the restored book reaches Room before the state moves to Undone. */
+    /** Undoes the receipt's match; the restored book or person reaches Room before the state moves to Undone. */
     fun undo() {
-        val receipt = receiptStore.all.value[bookId] ?: return
+        val receipt = receiptStore.all.value[subjectId] ?: return
         if (outcome.value is Outcome.Undoing) return
         outcome.value = Outcome.Undoing
         viewModelScope.launch {
             when (val result = undoMatch(receipt.receiptId)) {
                 is AppResult.Success -> {
-                    receiptStore.clear(bookId)
+                    receiptStore.clear(subjectId)
                     outcome.value = Outcome.Undone
                 }
 
                 is AppResult.Failure -> {
                     if (result.error is MetadataError.UndoExpired) {
-                        receiptStore.clear(bookId)
+                        receiptStore.clear(subjectId)
                         outcome.value = Outcome.Expired
                     } else {
                         errorBus.emit(result.error)
@@ -133,7 +135,7 @@ class MatchReceiptViewModel internal constructor(
     /** Clears the receipt, or the confirmation shown after Undo. */
     fun dismiss() {
         if (outcome.value is Outcome.Undoing) return
-        receiptStore.clear(bookId)
+        receiptStore.clear(subjectId)
         outcome.value = Outcome.Idle
     }
 

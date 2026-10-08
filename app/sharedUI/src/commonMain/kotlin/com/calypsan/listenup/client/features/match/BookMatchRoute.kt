@@ -1,23 +1,13 @@
 package com.calypsan.listenup.client.features.match
 
-import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
-import androidx.compose.material3.adaptive.currentWindowDpSize
-import androidx.compose.material3.adaptive.layout.AnimatedPane
-import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
-import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
-import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
-import com.calypsan.listenup.client.design.TwoPaneMinWidth
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.presentation.match.BookMatchEvent
 import com.calypsan.listenup.client.presentation.match.BookMatchViewModel
@@ -70,11 +60,9 @@ fun BookMatchRoute(
 }
 
 /**
- * The Match details layout from fixed state: one pane on compact and medium widths (Review pushes over the
- * results, with predictive back), results | review side by side from [TwoPaneMinWidth]. The mode is reported
- * through [BookMatchActions.useTwoPane] whenever it changes, so two panes open the best Strong match at once.
+ * Match details for a book from fixed state, laid out by [MatchPanes]: Find in the results pane, Review beside
+ * it or pushed over it.
  */
-@OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 fun BookMatchScreen(
     bookId: String,
@@ -85,65 +73,29 @@ fun BookMatchScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val adaptiveInfo = currentWindowAdaptiveInfo()
-    // The window's real width, not its size-class bucket: the default buckets stop at 840dp, so a
-    // 960dp breakpoint read through them would never be reached.
-    val isTwoPane = currentWindowDpSize().width >= TwoPaneMinWidth
-    val directive =
-        remember(adaptiveInfo, isTwoPane) {
-            calculatePaneScaffoldDirective(adaptiveInfo).copy(maxHorizontalPartitions = if (isTwoPane) 2 else 1)
-        }
-    val navigator = rememberListDetailPaneScaffoldNavigator<Nothing>(scaffoldDirective = directive)
-    val reviewOpen = reviewState !is ReviewUiState.NoneChosen
-    val currentReviewOpen by rememberUpdatedState(reviewOpen)
-    val currentTwoPane by rememberUpdatedState(isTwoPane)
-
-    LaunchedEffect(isTwoPane) { actions.useTwoPane(isTwoPane) }
-
-    // The ViewModel leads: a pick opens Review, Back to results closes it.
-    LaunchedEffect(reviewOpen) {
-        val onReview = navigator.currentDestination?.pane == ListDetailPaneScaffoldRole.Detail
-        if (reviewOpen && !onReview) navigator.navigateTo(ListDetailPaneScaffoldRole.Detail)
-        if (!reviewOpen && onReview && navigator.canNavigateBack()) navigator.navigateBack()
-    }
-    // A system back (predictive on Android) that took one pane back to the results tells the ViewModel.
-    val destination = navigator.currentDestination?.pane
-    LaunchedEffect(destination) {
-        if (destination == ListDetailPaneScaffoldRole.List && currentReviewOpen &&
-            !currentTwoPane
-        ) {
-            actions.backToResults()
-        }
-    }
-
-    MatchPaneScaffold(
-        navigator = navigator,
+    MatchPanes(
+        reviewOpen = reviewState !is ReviewUiState.NoneChosen,
+        onTwoPaneChanged = actions::useTwoPane,
+        onBackToResults = actions::backToResults,
         modifier = modifier,
-        listPane = {
-            AnimatedPane(modifier = Modifier.preferredWidth(LIST_PANE_WIDTH).testTag(FIND_PANE_TAG)) {
-                FindPane(
-                    state = findState,
-                    bookId = bookId,
-                    highlightPicked = isTwoPane,
-                    actions = actions,
-                    onBack = onBack,
-                )
-            }
+        listPane = { isTwoPane ->
+            FindPane(
+                state = findState,
+                bookId = bookId,
+                highlightPicked = isTwoPane,
+                actions = actions,
+                onBack = onBack,
+            )
         },
-        detailPane = {
-            AnimatedPane {
-                ReviewPane(
-                    state = reviewState,
-                    bookId = bookId,
-                    bookTitle = findState.yourCopy?.title,
-                    viewerId = viewerId,
-                    isTwoPane = isTwoPane,
-                    actions = actions,
-                )
-            }
+        detailPane = { isTwoPane ->
+            ReviewPane(
+                state = reviewState,
+                bookId = bookId,
+                bookTitle = findState.yourCopy?.title,
+                viewerId = viewerId,
+                isTwoPane = isTwoPane,
+                actions = actions,
+            )
         },
     )
 }
-
-/** The results pane's width beside Review: room for a cover, a title and three reasons. */
-private val LIST_PANE_WIDTH = 420.dp

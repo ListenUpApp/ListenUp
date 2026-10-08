@@ -9471,46 +9471,6 @@
         }
       }
     },
-    "contributor.apply_match": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apply"
-          }
-        }
-      }
-    },
-    "contributor.audible": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Audible"
-          }
-        }
-      }
-    },
-    "contributor.audible_region": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Audible region"
-          }
-        }
-      }
-    },
-    "contributor.author_or_narrator_name": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Author or narrator name..."
-          }
-        }
-      }
-    },
     "contributor.biography": {
       "localizations": {
         "en": {
@@ -9561,26 +9521,6 @@
         }
       }
     },
-    "contributor.born_year": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Born %1$@"
-          }
-        }
-      }
-    },
-    "contributor.change_match": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Change match"
-          }
-        }
-      }
-    },
     "contributor.change_photo": {
       "localizations": {
         "en": {
@@ -9591,42 +9531,12 @@
         }
       }
     },
-    "contributor.contributor_name": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Contributor name"
-          }
-        }
-      }
-    },
     "contributor.contributor_photo": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Contributor photo"
-          }
-        }
-      }
-    },
-    "contributor.current": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Current"
-          }
-        }
-      }
-    },
-    "contributor.current_image": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Current image"
           }
         }
       }
@@ -9737,26 +9647,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Enter a biography..."
-          }
-        }
-      }
-    },
-    "contributor.failed_to_load_profile": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Failed to load profile"
-          }
-        }
-      }
-    },
-    "contributor.find_on_audible": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Find on Audible"
           }
         }
       }
@@ -9881,32 +9771,12 @@
         }
       }
     },
-    "contributor.new_image": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "New image"
-          }
-        }
-      }
-    },
     "contributor.no_aliases_hint": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "No alternate names yet. Merge another author to add one."
-          }
-        }
-      }
-    },
-    "contributor.no_change": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No change"
           }
         }
       }
@@ -9931,32 +9801,12 @@
         }
       }
     },
-    "contributor.no_profile_in_region": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No profile data in the %1$@ catalog. Try a different region:"
-          }
-        }
-      }
-    },
     "contributor.other_books": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Other books"
-          }
-        }
-      }
-    },
-    "contributor.preview_changes": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Preview changes"
           }
         }
       }
@@ -15011,6 +14861,16 @@
         }
       }
     },
+    "match.apply_biography_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply biography"
+          }
+        }
+      }
+    },
     "match.apply_changes": {
       "localizations": {
         "en": {
@@ -15061,6 +14921,26 @@
         }
       }
     },
+    "match.as_author": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As author"
+          }
+        }
+      }
+    },
+    "match.as_narrator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As narrator"
+          }
+        }
+      }
+    },
     "match.back_to_results": {
       "localizations": {
         "en": {
@@ -15077,6 +14957,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Back to Results"
+          }
+        }
+      }
+    },
+    "match.bar_biography": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biography"
           }
         }
       }
@@ -15141,12 +15031,42 @@
         }
       }
     },
+    "match.bar_photo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo"
+          }
+        }
+      }
+    },
+    "match.bar_photo_and_biography": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo · biography"
+          }
+        }
+      }
+    },
     "match.best_match": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Best match"
+          }
+        }
+      }
+    },
+    "match.biography_already_same": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your biography already matches."
           }
         }
       }
@@ -15237,6 +15157,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Photo · from %1$@"
+          }
+        }
+      }
+    },
+    "match.change_photo_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change photo"
           }
         }
       }
@@ -15351,12 +15281,62 @@
         }
       }
     },
+    "match.coverage_note_author": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ has no author profiles, so this search uses %2$@."
+          }
+        }
+      }
+    },
+    "match.coverage_note_narrator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ has no narrator profiles, so this search uses %2$@."
+          }
+        }
+      }
+    },
+    "match.different_role": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Different role"
+          }
+        }
+      }
+    },
     "match.dismiss": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Dismiss"
+          }
+        }
+      }
+    },
+    "match.edit_by_hand": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit by hand"
+          }
+        }
+      }
+    },
+    "match.edit_by_hand_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit by Hand"
           }
         }
       }
@@ -15641,6 +15621,16 @@
         }
       }
     },
+    "match.in_library_titles": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: %2$@"
+          }
+        }
+      }
+    },
     "match.in_your_library": {
       "localizations": {
         "en": {
@@ -15677,6 +15667,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Keep current cover"
+          }
+        }
+      }
+    },
+    "match.keep_current_photo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep current photo"
           }
         }
       }
@@ -15721,6 +15721,16 @@
         }
       }
     },
+    "match.match_as": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Match as"
+          }
+        }
+      }
+    },
     "match.matches_announcement": {
       "localizations": {
         "en": {
@@ -15761,12 +15771,92 @@
         }
       }
     },
+    "match.narrated_in_library": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narrated %1$d books in your library"
+          }
+        }
+      }
+    },
+    "match.narrated_in_library_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narrated 1 book in your library"
+          }
+        }
+      }
+    },
+    "match.no_books_in_library": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No books in your library"
+          }
+        }
+      }
+    },
+    "match.no_profiles_author_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No source has a profile for this author"
+          }
+        }
+      }
+    },
+    "match.no_profiles_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can add their photo and biography yourself."
+          }
+        }
+      }
+    },
+    "match.no_profiles_narrator_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No source has a profile for this narrator"
+          }
+        }
+      }
+    },
     "match.none_chosen": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Pick a match to review it."
+          }
+        }
+      }
+    },
+    "match.not_a_narrator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not a narrator"
+          }
+        }
+      }
+    },
+    "match.not_an_author": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not an author"
           }
         }
       }
@@ -15867,6 +15957,86 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ didn't answer, so these results are from %2$@."
+          }
+        }
+      }
+    },
+    "match.people_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d people"
+          }
+        }
+      }
+    },
+    "match.people_count_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 person"
+          }
+        }
+      }
+    },
+    "match.person_header_from": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · from %2$@"
+          }
+        }
+      }
+    },
+    "match.person_row_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@. %2$@. %3$@. %4$@."
+          }
+        }
+      }
+    },
+    "match.photo_and_biography_apply_separately": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo and biography apply separately. Untick either to leave it as it is."
+          }
+        }
+      }
+    },
+    "match.photo_and_biography_separately": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo and biography, chosen separately."
+          }
+        }
+      }
+    },
+    "match.photo_from_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo from %1$@"
+          }
+        }
+      }
+    },
+    "match.photo_set_by_hand": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You set this photo by hand. Kept unless you choose another."
           }
         }
       }
@@ -16101,6 +16271,46 @@
         }
       }
     },
+    "match.receipt_person_biography": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changed biography for %1$@"
+          }
+        }
+      }
+    },
+    "match.receipt_person_nothing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matched %1$@. Nothing needed changing."
+          }
+        }
+      }
+    },
+    "match.receipt_person_photo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changed photo for %1$@"
+          }
+        }
+      }
+    },
+    "match.receipt_person_photo_and_biography": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changed photo and biography for %1$@"
+          }
+        }
+      }
+    },
     "match.remove_label": {
       "localizations": {
         "en": {
@@ -16221,6 +16431,16 @@
         }
       }
     },
+    "match.review_reloaded_person": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This person changed while you were reviewing. Check the changes again."
+          }
+        }
+      }
+    },
     "match.review_this_match": {
       "localizations": {
         "en": {
@@ -16247,6 +16467,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Review This Match"
+          }
+        }
+      }
+    },
+    "match.role_author": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Author"
+          }
+        }
+      }
+    },
+    "match.role_narrator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narrator"
           }
         }
       }
@@ -16361,6 +16601,26 @@
         }
       }
     },
+    "match.search_narrator_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search for a narrator"
+          }
+        }
+      }
+    },
+    "match.search_person_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search for a person"
+          }
+        }
+      }
+    },
     "match.searching": {
       "localizations": {
         "en": {
@@ -16377,6 +16637,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Already the same"
+          }
+        }
+      }
+    },
+    "match.section_biography": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biography"
           }
         }
       }
@@ -16427,6 +16697,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Genres & moods"
+          }
+        }
+      }
+    },
+    "match.section_photo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo"
           }
         }
       }
@@ -16551,6 +16831,16 @@
         }
       }
     },
+    "match.step_by_name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "a search for “%1$@”"
+          }
+        }
+      }
+    },
     "match.step_existing_link": {
       "localizations": {
         "en": {
@@ -16577,6 +16867,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "title, author and length"
+          }
+        }
+      }
+    },
+    "match.step_via_books_author": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the %1$d books %2$@ wrote in your library"
+          }
+        }
+      }
+    },
+    "match.step_via_books_author_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the book %1$@ wrote in your library"
+          }
+        }
+      }
+    },
+    "match.step_via_books_narrator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the %1$d books %2$@ narrates in your library"
+          }
+        }
+      }
+    },
+    "match.step_via_books_narrator_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the book %1$@ narrates in your library"
           }
         }
       }
@@ -16641,6 +16971,26 @@
         }
       }
     },
+    "match.subtitle_author": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · author"
+          }
+        }
+      }
+    },
+    "match.subtitle_narrator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · narrator"
+          }
+        }
+      }
+    },
     "match.subtitle_review": {
       "localizations": {
         "en": {
@@ -16677,6 +17027,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@, from %2$@"
+          }
+        }
+      }
+    },
+    "match.sum_biography": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biography"
           }
         }
       }
@@ -16771,6 +17131,26 @@
         }
       }
     },
+    "match.sum_photo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo"
+          }
+        }
+      }
+    },
+    "match.sum_photo_and_biography": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo and biography"
+          }
+        }
+      }
+    },
     "match.tags_note": {
       "localizations": {
         "en": {
@@ -16861,6 +17241,16 @@
         }
       }
     },
+    "match.undo_expired_person": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ has changed since, so the match can't be undone."
+          }
+        }
+      }
+    },
     "match.undoing": {
       "localizations": {
         "en": {
@@ -16921,12 +17311,52 @@
         }
       }
     },
+    "match.works_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books"
+          }
+        }
+      }
+    },
+    "match.works_count_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 book"
+          }
+        }
+      }
+    },
     "match.worldwide": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Worldwide"
+          }
+        }
+      }
+    },
+    "match.wrote_in_library": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wrote %1$d books in your library"
+          }
+        }
+      }
+    },
+    "match.wrote_in_library_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wrote 1 book in your library"
           }
         }
       }
@@ -16961,6 +17391,16 @@
         }
       }
     },
+    "match.your_photo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your photo"
+          }
+        }
+      }
+    },
     "match.yours": {
       "localizations": {
         "en": {
@@ -16977,6 +17417,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Yours, kept"
+          }
+        }
+      }
+    },
+    "match.yours_no_photo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yours · no photo"
           }
         }
       }
@@ -17181,52 +17631,12 @@
         }
       }
     },
-    "metadata.audible_region": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Region"
-          }
-        }
-      }
-    },
-    "metadata.audible_source": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Audible · %1$@"
-          }
-        }
-      }
-    },
-    "metadata.audible_source_region": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Audible · %1$@"
-          }
-        }
-      }
-    },
     "metadata.field_toggle_all_hint": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Turns every one on or off."
-          }
-        }
-      }
-    },
-    "metadata.searching_for": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Searching for: %1$@"
           }
         }
       }

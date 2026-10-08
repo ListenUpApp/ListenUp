@@ -70,7 +70,7 @@ internal fun ReviewSections(
 }
 
 @Composable
-private fun ReviewSection(
+internal fun ReviewSection(
     id: String,
     title: String,
     content: @Composable () -> Unit,
@@ -248,7 +248,7 @@ private fun SourceSwitch(
 }
 
 @Composable
-private fun Segment(
+internal fun Segment(
     group: String,
     checked: Boolean,
     text: String,
@@ -265,7 +265,7 @@ private fun Segment(
 
 /** One side of Yours → Proposed. Long text shows three lines and Read all. */
 @Composable
-private fun Value(
+internal fun Value(
     term: String,
     value: String,
     long: Boolean,

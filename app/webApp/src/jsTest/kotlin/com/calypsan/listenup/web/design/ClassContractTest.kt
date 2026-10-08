@@ -178,9 +178,6 @@ import com.calypsan.listenup.client.presentation.chaptereditor.DriftPreview
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftProposal
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftRefusal
 import kotlinx.coroutines.flow.MutableStateFlow
-import com.calypsan.listenup.api.dto.MetadataContributorHit
-import com.calypsan.listenup.client.presentation.contributormetadata.ContributorPreviewLoadState
-import com.calypsan.listenup.client.presentation.contributormetadata.ContributorSearchLoadState
 import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditPreviewRow
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
@@ -188,15 +185,23 @@ import com.calypsan.listenup.web.features.bulkedit.BulkEditActions
 import com.calypsan.listenup.web.features.bulkedit.BulkEditCatalog
 import com.calypsan.listenup.web.features.bulkedit.BulkEditPage
 import com.calypsan.listenup.web.features.bulkedit.editing
-import com.calypsan.listenup.web.features.contributormetadata.ContributorMetadataPage
-import com.calypsan.listenup.web.features.contributormetadata.contributorPreviewState
-import com.calypsan.listenup.web.features.contributormetadata.contributorProfile
-import com.calypsan.listenup.web.features.contributormetadata.contributorSearchState
-import com.calypsan.listenup.web.features.contributormetadata.localContributor
 import com.calypsan.listenup.web.features.match.AUDIBLE
 import com.calypsan.listenup.web.features.match.BookMatchPage
 import com.calypsan.listenup.web.features.match.HARDCOVER
 import com.calypsan.listenup.web.features.match.MatchReceiptRegion
+import com.calypsan.listenup.web.features.match.PersonMatchPage
+import com.calypsan.listenup.web.features.match.ReceiptSubject
+import com.calypsan.listenup.web.features.match.biography
+import com.calypsan.listenup.web.features.match.fixedPersonMatch
+import com.calypsan.listenup.web.features.match.narratorResults
+import com.calypsan.listenup.web.features.match.noProfiles
+import com.calypsan.listenup.web.features.match.person
+import com.calypsan.listenup.web.features.match.personFailed
+import com.calypsan.listenup.web.features.match.personReady
+import com.calypsan.listenup.web.features.match.personReceipt
+import com.calypsan.listenup.web.features.match.photo
+import com.calypsan.listenup.client.presentation.match.PersonReviewUiState
+import com.calypsan.listenup.api.dto.match.FieldState
 import com.calypsan.listenup.web.features.match.MatchView
 import com.calypsan.listenup.web.features.match.UK
 import com.calypsan.listenup.web.features.match.US
@@ -646,74 +651,6 @@ class ClassContractTest :
                             catalog = contractCatalog,
                             actions = contractBulkActions,
                         )
-                        // Match contributor: candidates, the ready compare (both sides drawn),
-                        // the empty-catalogue miss, and a failed apply.
-                        ContributorMetadataPage(
-                            state =
-                                contributorSearchState(
-                                    loadState =
-                                        ContributorSearchLoadState.Loaded(
-                                            listOf(MetadataContributorHit(asin = "B1", name = "Patrick Rothfuss")),
-                                        ),
-                                ),
-                            onQuery = {},
-                            onRegion = {},
-                            onSearch = {},
-                            onSelectCandidate = {},
-                            onClearSelection = {},
-                            onApply = {},
-                            onLeave = {},
-                        )
-                        ContributorMetadataPage(
-                            state =
-                                contributorPreviewState(
-                                    ContributorPreviewLoadState.Ready(
-                                        profile =
-                                            contributorProfile(
-                                                description = "Wrote Kvothe.",
-                                                imageUrl = "https://example.invalid/p.jpg",
-                                            ),
-                                        isApplying = false,
-                                        applyError = "The server refused that.",
-                                    ),
-                                    current = localContributor(description = "A writer.", imagePath = "contributors/c1.jpg"),
-                                ),
-                            onQuery = {},
-                            onRegion = {},
-                            onSearch = {},
-                            onSelectCandidate = {},
-                            onClearSelection = {},
-                            onApply = {},
-                            onLeave = {},
-                        )
-                        ContributorMetadataPage(
-                            state =
-                                contributorPreviewState(
-                                    ContributorPreviewLoadState.Ready(
-                                        profile = contributorProfile(description = null, imageUrl = null),
-                                        isApplying = false,
-                                        applyError = null,
-                                    ),
-                                    current = localContributor(description = null, imagePath = null),
-                                ),
-                            onQuery = {},
-                            onRegion = {},
-                            onSearch = {},
-                            onSelectCandidate = {},
-                            onClearSelection = {},
-                            onApply = {},
-                            onLeave = {},
-                        )
-                        ContributorMetadataPage(
-                            state = contributorPreviewState(ContributorPreviewLoadState.Missing),
-                            onQuery = {},
-                            onRegion = {},
-                            onSearch = {},
-                            onSelectCandidate = {},
-                            onClearSelection = {},
-                            onApply = {},
-                            onLeave = {},
-                        )
                         // Match details: Find with results, a partial banner and Review open with
                         // every section; Compare editions; each failure card; the receipt and its
                         // settled states.
@@ -783,6 +720,61 @@ class ClassContractTest :
                             onDismiss = {},
                         )
                         MatchReceiptRegion(state = MatchReceiptUiState.Undone, onUndo = {}, onDismiss = {})
+                        // Person Match details: narrator Find with the coverage note and a Different role
+                        // row, Review with a hand-edited biography; No profiles; a failure with Review
+                        // loading; the person receipt.
+                        PersonMatchPage(
+                            session =
+                                fixedPersonMatch(
+                                    findState = MutableStateFlow(narratorResults()),
+                                    reviewState =
+                                        MutableStateFlow(
+                                            personReady(
+                                                photo = photo(currentPath = "p.jpg", setByHand = true),
+                                                biography = biography(state = FieldState.USER_EDITED),
+                                                applyError = MetadataError.CoverDownloadFailed(),
+                                            ),
+                                        ),
+                                ),
+                            contributorId = "c-1",
+                            viewerId = "u-me",
+                            onOpenLibrary = {},
+                            onOpenContributor = {},
+                            onEditByHand = {},
+                            onApplied = {},
+                        )
+                        PersonMatchPage(
+                            session =
+                                fixedPersonMatch(
+                                    findState = MutableStateFlow(noProfiles()),
+                                    reviewState = MutableStateFlow(PersonReviewUiState.Loading(person())),
+                                ),
+                            contributorId = "c-1",
+                            viewerId = null,
+                            onOpenLibrary = {},
+                            onOpenContributor = {},
+                            onEditByHand = {},
+                            onApplied = {},
+                        )
+                        PersonMatchPage(
+                            session =
+                                fixedPersonMatch(
+                                    findState = MutableStateFlow(personFailed(FindFailure.Offline)),
+                                    reviewState = MutableStateFlow(PersonReviewUiState.Failed(person(), MetadataError.Malformed())),
+                                ),
+                            contributorId = "c-1",
+                            viewerId = null,
+                            onOpenLibrary = {},
+                            onOpenContributor = {},
+                            onEditByHand = {},
+                            onApplied = {},
+                        )
+                        MatchReceiptRegion(
+                            state = MatchReceiptUiState.Shown(personReceipt(), undoing = false, undoError = null),
+                            onUndo = {},
+                            onDismiss = {},
+                            subject = ReceiptSubject.Person("Ray Porter"),
+                        )
                         // Chapter Editor: the list with a locked row, an unsaved draft, a
                         // changed-elsewhere banner and a refused save; the drift panel in each of
                         // its three shapes (nothing pinned, ready, refused); and the two states

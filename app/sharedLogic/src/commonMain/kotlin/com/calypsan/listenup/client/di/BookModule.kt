@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.MatchingService
-import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.BookDetailJoinSources
 import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
@@ -10,14 +9,12 @@ import com.calypsan.listenup.client.data.repository.BookMutationLocalApply
 import com.calypsan.listenup.client.data.repository.BookIngestPort
 import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.data.repository.MatchingRepositoryImpl
-import com.calypsan.listenup.client.data.repository.MetadataRepositoryImpl
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.MatchingRepository
-import com.calypsan.listenup.client.domain.repository.MetadataRepository
 import com.calypsan.listenup.client.domain.usecase.book.LoadBookForEditUseCase
 import com.calypsan.listenup.client.domain.usecase.book.UpdateBookUseCase
 import org.koin.core.module.Module
@@ -51,14 +48,6 @@ internal val bookModule: Module =
         // book/cover edits, and the Books outbox). Authed (self-healing) by default; joins the
         // RpcCacheInvalidator sweep.
         rpcChannel<BookService>()
-
-        // MetadataLookupService RPC channel — kotlinx.rpc dispatch for external metadata lookups.
-        rpcChannel<MetadataLookupService>()
-
-        // MetadataRepository for metadata operations (SOLID: interface in domain, impl in data)
-        single<MetadataRepository> {
-            MetadataRepositoryImpl(channel = rpcChannel())
-        }
 
         // MatchingService RPC channel — Match details: Find, Review, Apply and Undo.
         rpcChannel<MatchingService>()

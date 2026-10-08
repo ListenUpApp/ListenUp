@@ -124,10 +124,11 @@ struct MatchCopyTests {
 
     @Test func theReceiptSaysWhatChangedAndFromWhere() {
         let receipt = MatchReceiptUi(
-            receiptId: "r1", fieldCount: 5, coverSource: Fixture.shelfdata, chapterNameCount: 16, changes: [], undoable: true
+            receiptId: "r1", fieldCount: 5, coverSource: Fixture.shelfdata, chapterNameCount: 16,
+            photoSource: nil, biographySource: nil, changes: [], undoable: true
         )
         #expect(MatchCopy.receipt(receipt) == "Changed 5 fields, cover from Shelfdata, 16 chapter names")
-        let none = MatchReceiptUi(receiptId: "r2", fieldCount: 0, coverSource: nil, chapterNameCount: 0, changes: [], undoable: true)
+        let none = MatchReceiptUi(receiptId: "r2", fieldCount: 0, coverSource: nil, chapterNameCount: 0, photoSource: nil, biographySource: nil, changes: [], undoable: true)
         #expect(MatchCopy.receipt(none) == "Matched. Nothing needed changing.")
     }
 

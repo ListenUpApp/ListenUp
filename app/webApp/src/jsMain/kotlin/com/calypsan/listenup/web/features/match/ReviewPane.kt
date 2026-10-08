@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.match
 
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.presentation.match.CandidateUi
 import com.calypsan.listenup.client.presentation.match.ChapterNamesUi
 import com.calypsan.listenup.client.presentation.match.ReviewUiState
@@ -75,17 +76,19 @@ internal fun ReviewPane(
         }
 
         is ReviewUiState.Ready -> {
-            // Straight after the heading: past a long review in one press.
-            DomButton(attrs = {
-                classes("lnk", "bmx-skip")
-                attr("type", "button")
-                onClick { event -> focusById(APPLY_ID, event.target) }
-            }) { Text("Skip to Apply") }
+            SkipToApply()
             ReviewHeader(review.candidate, onBack)
             if (reloaded) P(attrs = { classes("bmx-err") }) { Text(REVIEW_RELOADED) }
             Summary(review)
             ReviewSections(review, bookId, viewerId, session)
-            ApplyBar(review, session.apply)
+            ApplyBar(
+                summary = applyBarText(review.applyBar),
+                note = "Nothing changes until you apply. You can undo it afterwards.",
+                canApply = review.applyBar.canApply,
+                applying = review.applying,
+                applyError = review.applyError,
+                onApply = session.apply,
+            )
         }
     }
 }
@@ -102,7 +105,7 @@ private fun ReviewHeader(
             if (candidate.isBest) {
                 Span(
                     attrs = { classes("bmx-badges") },
-                ) { Span(attrs = { classes("bmx-badge", "is-best") }) { Text("Best match") } }
+                ) { Span(attrs = { classes("bmx-badge", "is-best") }) { Text(BEST_MATCH) } }
             }
             Span(attrs = { classes("bmx-head-t") }) { Text(candidate.title) }
             candidateMetaText(
@@ -188,30 +191,45 @@ private fun summaryItems(
 }
 
 /**
- * Pinned to the bottom of the review pane: what Apply will write, in words that update in place, and
- * Apply changes. While Apply runs the button says so and ignores a press — `aria-disabled`, so the
- * focus the press put on it stays there. A failure is said above it, with "Nothing was changed."
+ * Straight after the Review heading: past a long review in one press, for a book's or a person's.
  */
 @Composable
-private fun ApplyBar(
-    review: ReviewUiState.Ready,
+internal fun SkipToApply() {
+    DomButton(attrs = {
+        classes("lnk", "bmx-skip")
+        attr("type", "button")
+        onClick { event -> focusById(APPLY_ID, event.target) }
+    }) { Text("Skip to Apply") }
+}
+
+/**
+ * Pinned to the bottom of the review pane: what Apply will write ([summary], in words that update in
+ * place), and Apply changes. While Apply runs the button says so and ignores a press — `aria-disabled`,
+ * so the focus the press put on it stays there. A failure is said above it, with "Nothing was changed."
+ */
+@Suppress("LongParameterList")
+@Composable
+internal fun ApplyBar(
+    summary: String,
+    note: String,
+    canApply: Boolean,
+    applying: Boolean,
+    applyError: AppError?,
     onApply: () -> Unit,
 ) {
     Div(attrs = { classes("bmx-apply") }) {
-        review.applyError?.let { error -> P(attrs = { classes("bmx-err") }) { Text(nothingChanged(error.message)) } }
+        applyError?.let { error -> P(attrs = { classes("bmx-err") }) { Text(nothingChanged(error.message)) } }
         Div(attrs = { classes("bmx-bar") }) {
             Div(attrs = { classes("bmx-bar-text") }) {
-                Span(attrs = { classes("bmx-bar-sum") }) { Text(applyBarText(review.applyBar)) }
-                Span(
-                    attrs = { classes("bmx-note") },
-                ) { Text("Nothing changes until you apply. You can undo it afterwards.") }
+                Span(attrs = { classes("bmx-bar-sum") }) { Text(summary) }
+                Span(attrs = { classes("bmx-note") }) { Text(note) }
             }
             Button(
                 kind = ButtonKind.Primary,
                 onClick = onApply,
-                pressable = review.applyBar.canApply && !review.applying,
+                pressable = canApply && !applying,
                 attrs = { attr("id", APPLY_ID) },
-            ) { Text(if (review.applying) APPLYING else "Apply changes") }
+            ) { Text(if (applying) APPLYING else "Apply changes") }
         }
     }
 }

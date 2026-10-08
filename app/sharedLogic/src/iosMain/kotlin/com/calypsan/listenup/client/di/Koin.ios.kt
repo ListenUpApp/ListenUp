@@ -76,7 +76,6 @@ import com.calypsan.listenup.client.presentation.bulkedit.BulkEditViewModel
 import com.calypsan.listenup.client.presentation.connect.ServerConnectViewModel
 import com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditViewModel
-import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataViewModel
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
 import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
 import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
@@ -87,6 +86,7 @@ import com.calypsan.listenup.client.presentation.invite.ClaimInviteViewModel
 import com.calypsan.listenup.client.presentation.library.LibraryViewModel
 import com.calypsan.listenup.client.presentation.match.BookMatchViewModel
 import com.calypsan.listenup.client.presentation.match.MatchReceiptViewModel
+import com.calypsan.listenup.client.presentation.match.PersonMatchViewModel
 import com.calypsan.listenup.client.presentation.notifications.NotificationBellViewModel
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsViewModel
 import com.calypsan.listenup.client.presentation.notifications.NotificationsViewModel
@@ -431,10 +431,12 @@ object KoinHelper {
     fun getBookMatchViewModel(bookId: String): BookMatchViewModel =
         resolveWithParams(BookMatchViewModel::class, listOf(bookId))
 
-    fun getMatchReceiptViewModel(bookId: String): MatchReceiptViewModel =
-        resolveWithParams(MatchReceiptViewModel::class, listOf(bookId))
+    fun getPersonMatchViewModel(contributorId: String): PersonMatchViewModel =
+        resolveWithParams(PersonMatchViewModel::class, listOf(contributorId))
 
-    fun getContributorMetadataViewModel(): ContributorMetadataViewModel = resolve(ContributorMetadataViewModel::class)
+    /** The receipt for [subjectId]: a book id on Book Detail, a contributor id on the contributor page. */
+    fun getMatchReceiptViewModel(subjectId: String): MatchReceiptViewModel =
+        resolveWithParams(MatchReceiptViewModel::class, listOf(subjectId))
 
     fun getPlaybackProgressReporter(): PlaybackProgressReporter = resolve(PlaybackProgressReporter::class)
 

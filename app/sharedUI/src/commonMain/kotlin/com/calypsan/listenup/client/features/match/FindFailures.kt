@@ -24,6 +24,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.error.localized
@@ -50,11 +51,17 @@ import org.jetbrains.compose.resources.stringResource
 
 private const val SECONDS_PER_MINUTE = 60
 
-/** Why Find has nothing to show, in the canvas's words, with the way forward each failure has. */
+/**
+ * Why Find has nothing to show, in the canvas's words, with the way forward each failure has. A person's Find
+ * has no store and no title search, so it passes neither [onChooseStore] nor [onSearchByTitle] and those ways
+ * forward aren't offered.
+ */
 @Composable
 internal fun FindFailureContent(
     failure: FindFailure,
-    actions: BookMatchActions,
+    onRetry: () -> Unit,
+    onChooseStore: ((MetadataLocale) -> Unit)? = null,
+    onSearchByTitle: (() -> Unit)? = null,
 ) {
     when (failure) {
         FindFailure.Offline -> {
@@ -62,7 +69,7 @@ internal fun FindFailureContent(
                 icon = Icons.Outlined.CloudOff,
                 title = stringResource(Res.string.match_offline_title),
                 body = stringResource(Res.string.match_offline_body),
-            ) { RetryButton(actions::retry) }
+            ) { RetryButton(onRetry) }
         }
 
         is FindFailure.TimedOut -> {
@@ -70,7 +77,7 @@ internal fun FindFailureContent(
                 icon = Icons.Outlined.HourglassEmpty,
                 title = stringResource(Res.string.match_timeout_title, failure.source.label),
                 body = stringResource(Res.string.match_timeout_body),
-            ) { RetryButton(actions::retry) }
+            ) { RetryButton(onRetry) }
         }
 
         is FindFailure.RateLimited -> {
@@ -87,7 +94,7 @@ internal fun FindFailureContent(
                         } else {
                             stringResource(Res.string.match_retry)
                         },
-                    onClick = actions::retry,
+                    onClick = onRetry,
                     enabled = !waiting,
                     fillMaxWidth = false,
                 )
@@ -99,7 +106,7 @@ internal fun FindFailureContent(
                 icon = Icons.Outlined.ErrorOutline,
                 title = stringResource(Res.string.match_source_failed_title, failure.source.label),
                 body = stringResource(Res.string.match_source_failed_body),
-            ) { RetryButton(actions::retry) }
+            ) { RetryButton(onRetry) }
         }
 
         is FindFailure.NotFoundInStore -> {
@@ -108,19 +115,23 @@ internal fun FindFailureContent(
                 title = stringResource(Res.string.match_not_found_title, failure.region.displayName),
                 body = stringResource(Res.string.match_not_found_body),
             ) {
-                failure.suggestions.take(2).forEach { store ->
+                onChooseStore?.let { choose ->
+                    failure.suggestions.take(2).forEach { store ->
+                        ListenUpButton(
+                            text = stringResource(Res.string.match_try_store, store.displayName),
+                            onClick = { choose(store) },
+                            fillMaxWidth = false,
+                        )
+                    }
+                }
+                onSearchByTitle?.let { search ->
                     ListenUpButton(
-                        text = stringResource(Res.string.match_try_store, store.displayName),
-                        onClick = { actions.chooseStore(store) },
+                        text = stringResource(Res.string.match_search_by_title),
+                        onClick = search,
+                        filled = false,
                         fillMaxWidth = false,
                     )
                 }
-                ListenUpButton(
-                    text = stringResource(Res.string.match_search_by_title),
-                    onClick = actions::searchByTitle,
-                    filled = false,
-                    fillMaxWidth = false,
-                )
             }
         }
 
@@ -130,11 +141,13 @@ internal fun FindFailureContent(
                 title = stringResource(Res.string.match_nothing_found_title),
                 body = stringResource(Res.string.match_nothing_found_body),
             ) {
-                ListenUpButton(
-                    text = stringResource(Res.string.match_search_by_title),
-                    onClick = actions::searchByTitle,
-                    fillMaxWidth = false,
-                )
+                onSearchByTitle?.let { search ->
+                    ListenUpButton(
+                        text = stringResource(Res.string.match_search_by_title),
+                        onClick = search,
+                        fillMaxWidth = false,
+                    )
+                }
             }
         }
 
@@ -143,7 +156,7 @@ internal fun FindFailureContent(
                 icon = Icons.Outlined.ErrorOutline,
                 title = stringResource(Res.string.match_unexpected_title),
                 body = failure.error.localized(),
-            ) { RetryButton(actions::retry) }
+            ) { RetryButton(onRetry) }
         }
     }
 }
@@ -162,7 +175,7 @@ private fun RetryButton(onRetry: () -> Unit) {
 
 /** An icon, a heading, what happened (announced), then the ways forward. */
 @Composable
-private fun FailureMessage(
+internal fun FailureMessage(
     icon: ImageVector,
     title: String,
     body: String,

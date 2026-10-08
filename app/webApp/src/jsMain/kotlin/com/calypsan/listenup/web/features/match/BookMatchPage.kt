@@ -234,7 +234,7 @@ private fun FindAndReview(
  * off the element's own window, so a page rendered in a phone-sized frame answers for that frame.
  */
 @Composable
-private fun TwoPaneWatch(
+internal fun TwoPaneWatch(
     root: HTMLElement?,
     useTwoPane: (Boolean) -> Unit,
 ) {
@@ -297,13 +297,16 @@ internal fun findAnnouncement(find: FindUiState): String? =
         }
 
         is FindUiState.Failed -> {
-            val failure = find.failure
-            if (failure is FindFailure.RateLimited && failure.secondsRemaining <= 0) {
-                "You can retry ${failure.source.label} now."
-            } else {
-                "${failureTitle(failure)}. ${failureBody(failure)}"
-            }
+            failureAnnouncement(find.failure)
         }
+    }
+
+/** What the live region says about a failed Find — a book's or a person's. */
+internal fun failureAnnouncement(failure: FindFailure): String =
+    if (failure is FindFailure.RateLimited && failure.secondsRemaining <= 0) {
+        "You can retry ${failure.source.label} now."
+    } else {
+        "${failureTitle(failure)}. ${failureBody(failure)}"
     }
 
 private fun reviewAnnouncementKey(review: ReviewUiState): String =
@@ -322,7 +325,7 @@ internal fun reviewAnnouncement(review: ReviewUiState): String? =
         }
 
         is ReviewUiState.Loading -> {
-            "Loading this match…"
+            LOADING_MATCH
         }
 
         is ReviewUiState.Failed -> {
@@ -354,7 +357,10 @@ private fun reviewKey(review: ReviewUiState): String =
     }
 
 /** A candidate row's element id: stable across Finds, safe in a selector. */
-internal fun rowId(candidate: CandidateUi): String = "bmx-row-" + candidate.id.replace(UNSAFE_ID, "-")
+internal fun rowId(candidate: CandidateUi): String = rowIdOf(candidate.id)
+
+/** The row id for a candidate's stable [id] — a book's or a person's. */
+internal fun rowIdOf(id: String): String = "bmx-row-" + id.replace(UNSAFE_ID, "-")
 
 internal const val TITLE = "Match details"
 internal const val COMPARE = "Compare editions"
@@ -368,5 +374,5 @@ internal const val APPLYING = "Applying…"
 internal const val REVIEW_RELOADED = "This book changed while you were reviewing. Check the changes again."
 
 /** Two panes from the stylesheet's 1024px breakpoint (00-base.css lists the four). */
-private const val TWO_PANE_QUERY = "(min-width: 1024px)"
+internal const val TWO_PANE_QUERY = "(min-width: 1024px)"
 private val UNSAFE_ID = Regex("[^A-Za-z0-9_-]")

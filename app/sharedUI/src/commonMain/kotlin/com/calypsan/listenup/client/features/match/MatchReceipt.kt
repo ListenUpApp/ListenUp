@@ -70,6 +70,7 @@ import listenup.composeapp.generated.resources.match_receipt_nothing
 import listenup.composeapp.generated.resources.match_see_what_changed
 import listenup.composeapp.generated.resources.match_undo
 import listenup.composeapp.generated.resources.match_undo_expired
+import listenup.composeapp.generated.resources.match_undo_expired_person
 import listenup.composeapp.generated.resources.match_undoing
 import listenup.composeapp.generated.resources.match_undone
 import listenup.composeapp.generated.resources.match_what_changed_title
@@ -83,20 +84,33 @@ internal const val MATCH_RECEIPT_TAG = "match-receipt"
 /** How long the receipt stays without a screen reader: a long snackbar's time, then it dismisses itself. */
 private const val RECEIPT_VISIBLE_MS = 10_000L
 
+/** Whose receipt a [MatchReceiptBanner] shows: a book's, or a person's, named in the sentence. */
+sealed interface MatchReceiptSubject {
+    /** A book: "Changed 5 fields, cover from …", with See what changed. */
+    data object Book : MatchReceiptSubject
+
+    /** A person: "Changed photo and biography for [name]". */
+    data class Person(
+        val name: String,
+    ) : MatchReceiptSubject
+}
+
 /**
- * Book Detail's receipt for [bookId] after Match details applied: hosts the book's [MatchReceiptViewModel].
- * Renders nothing until a match lands.
+ * The receipt after Match details applied, for [subjectId] — a book on Book Detail, a person on the contributor
+ * page: hosts that subject's [MatchReceiptViewModel]. Renders nothing until a match lands.
  */
 @Composable
 fun MatchReceiptHost(
-    bookId: String,
+    subjectId: String,
     modifier: Modifier = Modifier,
+    subject: MatchReceiptSubject = MatchReceiptSubject.Book,
     viewModel: MatchReceiptViewModel =
-        koinViewModel(key = "match-receipt-$bookId", parameters = { parametersOf(bookId) }),
+        koinViewModel(key = "match-receipt-$subjectId", parameters = { parametersOf(subjectId) }),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     MatchReceiptBanner(
         state = state,
+        subject = subject,
         onUndo = viewModel::undo,
         onDismiss = viewModel::dismiss,
         modifier = modifier,
@@ -105,8 +119,9 @@ fun MatchReceiptHost(
 
 /**
  * The receipt as a snackbar: "Changed 5 fields, cover from <source>, 16 chapter names" with See what changed
- * and Undo, then "Match undone…" or "…can't be undone." It is announced, takes accessibility focus, and while
- * a screen reader runs it stays until dismissed; otherwise it dismisses itself after a long snackbar's time.
+ * and Undo for a book, "Changed photo and biography for Ray Porter" with Undo for a person; then "Match
+ * undone…" or "…can't be undone." It is announced, takes accessibility focus, and while a screen reader runs it
+ * stays until dismissed; otherwise it dismisses itself after a long snackbar's time.
  */
 @Composable
 fun MatchReceiptBanner(
@@ -114,6 +129,7 @@ fun MatchReceiptBanner(
     onUndo: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    subject: MatchReceiptSubject = MatchReceiptSubject.Book,
 ) {
     if (state is MatchReceiptUiState.None) return
     var seeingChanges by remember { mutableStateOf(false) }
@@ -130,24 +146,7 @@ fun MatchReceiptBanner(
         }
     }
 
-    val message =
-        when (state) {
-            is MatchReceiptUiState.Shown -> {
-                state.undoError?.localized() ?: receiptText(state.receipt)
-            }
-
-            MatchReceiptUiState.Undone -> {
-                stringResource(Res.string.match_undone)
-            }
-
-            MatchReceiptUiState.Expired -> {
-                stringResource(Res.string.match_undo_expired)
-            }
-
-            MatchReceiptUiState.None -> {
-                ""
-            }
-        }
+    val message = receiptMessage(state, subject)
 
     Snackbar(
         modifier =
@@ -161,10 +160,13 @@ fun MatchReceiptBanner(
             (state as? MatchReceiptUiState.Shown)?.let { shown ->
                 {
                     Row {
-                        TextButton(
-                            onClick = { seeingChanges = true },
-                            colors = ButtonDefaults.textButtonColors(contentColor = SnackbarDefaults.actionColor),
-                        ) { Text(stringResource(Res.string.match_see_what_changed)) }
+                        // A person's sentence already names both changes, so their receipt has no list to open.
+                        if (subject == MatchReceiptSubject.Book) {
+                            TextButton(
+                                onClick = { seeingChanges = true },
+                                colors = ButtonDefaults.textButtonColors(contentColor = SnackbarDefaults.actionColor),
+                            ) { Text(stringResource(Res.string.match_see_what_changed)) }
+                        }
                         if (shown.receipt.undoable) {
                             TextButton(
                                 onClick = onUndo,
@@ -186,7 +188,7 @@ fun MatchReceiptBanner(
                 Icon(Icons.Filled.Close, contentDescription = stringResource(Res.string.match_dismiss))
             }
         },
-        actionOnNewLine = state is MatchReceiptUiState.Shown,
+        actionOnNewLine = state is MatchReceiptUiState.Shown && subject == MatchReceiptSubject.Book,
     ) {
         Text(message)
     }
@@ -195,6 +197,36 @@ fun MatchReceiptBanner(
         WhatChangedSheet(receipt = state.receipt, onDismiss = { seeingChanges = false })
     }
 }
+
+/** What the receipt says: the change, the Undo error, "Match undone…", or why it can't be undone. */
+@Composable
+private fun receiptMessage(
+    state: MatchReceiptUiState,
+    subject: MatchReceiptSubject,
+): String =
+    when (state) {
+        is MatchReceiptUiState.Shown -> {
+            state.undoError?.localized() ?: when (subject) {
+                MatchReceiptSubject.Book -> receiptText(state.receipt)
+                is MatchReceiptSubject.Person -> personReceiptText(state.receipt, subject.name)
+            }
+        }
+
+        MatchReceiptUiState.Undone -> {
+            stringResource(Res.string.match_undone)
+        }
+
+        MatchReceiptUiState.Expired -> {
+            when (subject) {
+                MatchReceiptSubject.Book -> stringResource(Res.string.match_undo_expired)
+                is MatchReceiptSubject.Person -> stringResource(Res.string.match_undo_expired_person, subject.name)
+            }
+        }
+
+        MatchReceiptUiState.None -> {
+            ""
+        }
+    }
 
 /** "Changed 5 fields, cover from <source>, 16 chapter names", or "Matched. Nothing needed changing." */
 @Composable

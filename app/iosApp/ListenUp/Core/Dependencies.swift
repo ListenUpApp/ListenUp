@@ -140,12 +140,13 @@ final class Dependencies {
     func createBookMatchViewModel(bookId: String) -> BookMatchViewModel {
         KoinHelper.shared.getBookMatchViewModel(bookId: bookId)
     }
-    /// Book Detail's match receipt for exactly this book.
-    func createMatchReceiptViewModel(bookId: String) -> MatchReceiptViewModel {
-        KoinHelper.shared.getMatchReceiptViewModel(bookId: bookId)
+    /// Match details for exactly this person. Parametrized, so a fresh instance per contributor.
+    func createPersonMatchViewModel(contributorId: String) -> PersonMatchViewModel {
+        KoinHelper.shared.getPersonMatchViewModel(contributorId: contributorId)
     }
-    func createContributorMetadataViewModel() -> ContributorMetadataViewModel {
-        KoinHelper.shared.getContributorMetadataViewModel()
+    /// The match receipt for exactly this book or person, keyed by its id.
+    func createMatchReceiptViewModel(subjectId: String) -> MatchReceiptViewModel {
+        KoinHelper.shared.getMatchReceiptViewModel(subjectId: subjectId)
     }
 
     func createDiscoverViewModel() -> DiscoverViewModel { KoinHelper.shared.getDiscoverViewModel() }

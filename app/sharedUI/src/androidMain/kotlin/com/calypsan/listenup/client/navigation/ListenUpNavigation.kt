@@ -99,6 +99,7 @@ import com.calypsan.listenup.client.navigation.entries.adminEntries
 import com.calypsan.listenup.client.navigation.entries.bookEntries
 import com.calypsan.listenup.client.navigation.entries.contributorEntries
 import com.calypsan.listenup.client.navigation.entries.librarySetupEntry
+import com.calypsan.listenup.client.navigation.entries.matchEntries
 import com.calypsan.listenup.client.navigation.entries.notificationEntries
 import com.calypsan.listenup.client.navigation.entries.profileEntries
 import com.calypsan.listenup.client.navigation.entries.seriesEntries
@@ -986,6 +987,7 @@ internal fun EntryProviderScope<NavKey>.destinationEntries(
     bookEntries(backStack, scope, snackbarHostState, pendingSelectionExit)
     seriesEntries(backStack)
     contributorEntries(backStack)
+    matchEntries(backStack)
     adminEntries(backStack)
     profileEntries(
         backStack = backStack,

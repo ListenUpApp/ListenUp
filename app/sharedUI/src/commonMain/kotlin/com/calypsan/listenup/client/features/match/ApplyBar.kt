@@ -26,7 +26,6 @@ import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.match.ApplySummary
-import com.calypsan.listenup.client.presentation.match.ReviewUiState
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.match_applying
 import listenup.composeapp.generated.resources.match_apply_changes
@@ -45,15 +44,21 @@ internal const val APPLY_SUMMARY_TAG = "match-apply-summary"
 /** Test tag of the Apply changes button. */
 internal const val APPLY_BUTTON_TAG = "match-apply-button"
 
-/** The sticky foot of Review: an Apply error (when there is one) above the docked Apply bar. */
+/**
+ * The sticky foot of Review: an Apply error (when there is one) above the docked Apply bar. [summary] is what
+ * Apply would write ("5 fields · cover", "Photo · biography"); Apply is disabled unless [canApply].
+ */
 @Composable
 internal fun ApplyArea(
-    ready: ReviewUiState.Ready,
+    summary: String,
+    canApply: Boolean,
+    applying: Boolean,
+    applyError: AppError?,
     onApply: () -> Unit,
 ) {
     Column {
-        ready.applyError?.let { ApplyErrorLine(it) }
-        ApplyBar(summary = ready.applyBar, applying = ready.applying, onApply = onApply)
+        applyError?.let { ApplyErrorLine(it) }
+        ApplyBar(summary = summary, canApply = canApply, applying = applying, onApply = onApply)
     }
 }
 
@@ -91,12 +96,13 @@ internal fun applySummaryText(summary: ApplySummary): String {
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ApplyBar(
-    summary: ApplySummary,
+    summary: String,
+    canApply: Boolean,
     applying: Boolean,
     onApply: () -> Unit,
 ) {
     val stacked = LocalDensity.current.fontScale >= LARGE_TEXT_SCALE
-    val summaryText = if (applying) stringResource(Res.string.match_applying) else applySummaryText(summary)
+    val summaryText = if (applying) stringResource(Res.string.match_applying) else summary
     val summaryLine: @Composable (Modifier) -> Unit = { modifier ->
         Text(
             text = summaryText,
@@ -111,7 +117,7 @@ private fun ApplyBar(
         ListenUpButton(
             text = stringResource(Res.string.match_apply_changes),
             onClick = onApply,
-            enabled = summary.canApply,
+            enabled = canApply,
             isLoading = applying,
             fillMaxWidth = fill,
             leadingIcon = Icons.Filled.Check,

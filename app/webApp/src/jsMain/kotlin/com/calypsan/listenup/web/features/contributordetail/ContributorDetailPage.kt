@@ -293,7 +293,7 @@ private fun Hero(
             kind = ButtonKind.Icon,
             size = ButtonSize.Lg,
             onClick = { onMatchMetadata() },
-            label = "Match contributor",
+            label = "Match details",
             attrs = {
                 classes("cd-match")
             },

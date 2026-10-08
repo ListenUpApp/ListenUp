@@ -109,7 +109,14 @@ internal fun FindPane(
         CandidateGroup("Maybe", results.maybe, results, busy, onPick)
     }
 
-    if (find is FindUiState.Failed) FailureCard(find.failure, session)
+    if (find is FindUiState.Failed) {
+        FailureCard(
+            failure = find.failure,
+            onRetry = session.retry,
+            onChooseStore = session.chooseStoreForThisSearch,
+            onSearchByTitle = session.searchByTitle,
+        )
+    }
 }
 
 /** "Your copy": the cover, length · narrator · chapters — read from this device, never blank. */
@@ -198,7 +205,7 @@ internal fun StoreMenu(
 
 /** "Hardcover didn't answer, so these results are from Audible and iTunes." with Retry Hardcover. */
 @Composable
-private fun PartialBanner(
+internal fun PartialBanner(
     partial: PartialFailure,
     onRetry: () -> Unit,
 ) {
@@ -250,7 +257,7 @@ private fun CandidateRow(
     }) {
         Art(url = candidate.coverUrl)
         Span(attrs = { classes("bmx-row-m") }) {
-            RowBadges(candidate)
+            RowBadges(isBest = candidate.isBest, isCurrentLink = candidate.isCurrentLink)
             Span(attrs = { classes("bmx-row-t") }) { Text(candidate.title) }
             candidateMetaText(candidate).takeIf { it.isNotBlank() }?.let {
                 Span(attrs = { classes("bmx-row-meta") }) { Text(it) }
@@ -263,13 +270,16 @@ private fun CandidateRow(
     }
 }
 
-/** Best match and Your current link, when either applies. */
+/** Best match and Your current link, when either applies — a book's row or a person's. */
 @Composable
-private fun RowBadges(candidate: CandidateUi) {
-    if (!candidate.isBest && !candidate.isCurrentLink) return
+internal fun RowBadges(
+    isBest: Boolean,
+    isCurrentLink: Boolean,
+) {
+    if (!isBest && !isCurrentLink) return
     Span(attrs = { classes("bmx-badges") }) {
-        if (candidate.isBest) Span(attrs = { classes("bmx-badge", "is-best") }) { Text("Best match") }
-        if (candidate.isCurrentLink) Span(attrs = { classes("bmx-badge") }) { Text("Your current link") }
+        if (isBest) Span(attrs = { classes("bmx-badge", "is-best") }) { Text(BEST_MATCH) }
+        if (isCurrentLink) Span(attrs = { classes("bmx-badge") }) { Text(YOUR_CURRENT_LINK) }
     }
 }
 
@@ -291,11 +301,16 @@ private fun Reasons(candidate: CandidateUi) {
     }
 }
 
-/** Why there is nothing to show, and the way forward (W-05). */
+/**
+ * Why there is nothing to show, and the way forward (W-05) — for a book or a person. A person's Find has no
+ * store and no title, so it passes neither, and those failures fall back to Retry.
+ */
 @Composable
-private fun FailureCard(
+internal fun FailureCard(
     failure: FindFailure,
-    session: BookMatchSession,
+    onRetry: () -> Unit,
+    onChooseStore: ((MetadataLocale) -> Unit)? = null,
+    onSearchByTitle: (() -> Unit)? = null,
 ) {
     EmptyState(
         title = failureTitle(failure),
@@ -303,7 +318,9 @@ private fun FailureCard(
         look = EmptyLook.Inset,
         marker = "bmx-failure",
         action = {
-            Div(attrs = { classes("bmx-fail-acts") }) { FailureActions(failure, session) }
+            Div(
+                attrs = { classes("bmx-fail-acts") },
+            ) { FailureActions(failure, onRetry, onChooseStore, onSearchByTitle) }
             if (failure is FindFailure.RateLimited) P(attrs = { classes("bmx-note") }) { Text(NOTHING_WAS_CHANGED) }
         },
     )
@@ -312,32 +329,34 @@ private fun FailureCard(
 @Composable
 private fun FailureActions(
     failure: FindFailure,
-    session: BookMatchSession,
+    onRetry: () -> Unit,
+    onChooseStore: ((MetadataLocale) -> Unit)?,
+    onSearchByTitle: (() -> Unit)?,
 ) {
-    when (failure) {
-        is FindFailure.NotFoundInStore -> {
+    when {
+        failure is FindFailure.NotFoundInStore && onChooseStore != null && onSearchByTitle != null -> {
             failure.suggestions.take(MAX_STORE_SUGGESTIONS).forEach { store ->
-                Button(kind = ButtonKind.Secondary, onClick = { session.chooseStoreForThisSearch(store) }) {
+                Button(kind = ButtonKind.Secondary, onClick = { onChooseStore(store) }) {
                     Text("Try ${store.displayName}")
                 }
             }
-            Button(kind = ButtonKind.Ghost, onClick = session.searchByTitle) { Text("Search by title") }
+            Button(kind = ButtonKind.Ghost, onClick = onSearchByTitle) { Text("Search by title") }
         }
 
-        FindFailure.NothingFound -> {
-            Button(kind = ButtonKind.Secondary, onClick = session.searchByTitle) { Text("Search by title") }
+        failure == FindFailure.NothingFound && onSearchByTitle != null -> {
+            Button(kind = ButtonKind.Secondary, onClick = onSearchByTitle) { Text("Search by title") }
         }
 
-        is FindFailure.RateLimited -> {
+        failure is FindFailure.RateLimited -> {
             val waiting = failure.secondsRemaining > 0
             // aria-disabled, not disabled: the countdown ending must not have dropped focus on the way.
-            Button(kind = ButtonKind.Secondary, onClick = session.retry, pressable = !waiting) {
+            Button(kind = ButtonKind.Secondary, onClick = onRetry, pressable = !waiting) {
                 Text(if (waiting) "Retry in ${countdownText(failure.secondsRemaining)}" else "Retry")
             }
         }
 
         else -> {
-            Button(kind = ButtonKind.Secondary, onClick = session.retry) { Text("Retry") }
+            Button(kind = ButtonKind.Secondary, onClick = onRetry) { Text("Retry") }
         }
     }
 }
@@ -374,6 +393,8 @@ internal fun queryOf(find: FindUiState): String =
 private fun resultCountText(count: Int): String = if (count == 1) "1 result" else "$count results"
 
 internal const val SEARCH_ID = "bmx-search"
+internal const val BEST_MATCH = "Best match"
+private const val YOUR_CURRENT_LINK = "Your current link"
 private const val ART_WIDTH = 112
 internal const val SMALL_ICON = 16
 private const val MAX_STORE_SUGGESTIONS = 2

@@ -287,9 +287,6 @@ private val EXCUSED =
         "UserProfileViewModel.refresh",
         // Called by `showAddMemberSheet`, which web wires: opening the sheet is what loads the users.
         "AdminCollectionDetailViewModel.loadUsersForSharing",
-        // A deep-link wrapper — `selectCandidate` with a bare ASIN — used by the natives' match-preview
-        // route when it is opened from a link. Web reaches the same preview through selectCandidate.
-        "ContributorMetadataViewModel.selectAsin",
         // ── UNREVIEWED — an offender nobody has triaged yet. NOT a to-do list. ────────────────
         //
         // ⛔ Do not build from this section. Three times now a cluster here has turned out to be a

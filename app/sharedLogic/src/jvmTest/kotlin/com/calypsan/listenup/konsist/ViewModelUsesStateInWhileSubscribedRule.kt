@@ -30,7 +30,6 @@ class ViewModelUsesStateInWhileSubscribedRule :
         val legacyExclusions =
             setOf(
                 "SettingsViewModel",
-                "ContributorMetadataViewModel",
                 "SetupViewModel",
                 "LoginViewModel",
                 "PendingApprovalViewModel",
