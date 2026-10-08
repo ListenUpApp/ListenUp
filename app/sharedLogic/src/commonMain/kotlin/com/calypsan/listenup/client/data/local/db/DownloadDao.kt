@@ -135,7 +135,12 @@ internal interface DownloadDao {
         audioFileId: String,
         localPath: String,
         completedAt: Long,
-    ) = markCompletedWithState(audioFileId, localPath, completedAt, DownloadState.COMPLETED)
+    ) = markCompletedWithState(
+        audioFileId = audioFileId,
+        localPath = localPath,
+        completedAt = completedAt,
+        state = DownloadState.COMPLETED,
+    )
 
     // Mark error
     @Query(

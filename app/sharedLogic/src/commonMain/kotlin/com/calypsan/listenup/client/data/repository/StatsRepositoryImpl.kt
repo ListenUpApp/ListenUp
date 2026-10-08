@@ -80,7 +80,15 @@ internal class StatsRepositoryImpl(
             .map { state ->
                 when (state) {
                     is AuthState.Authenticated -> state.userId.value
-                    else -> null
+
+                    is AuthState.Initializing,
+                    is AuthState.NeedsServerUrl,
+                    is AuthState.CheckingServer,
+                    is AuthState.NeedsSetup,
+                    is AuthState.NeedsLogin,
+                    is AuthState.PendingApproval,
+                    is AuthState.SessionLapsed,
+                    -> null
                 }
             }.combine(ticker) { userId, _ -> userId }
             .flatMapLatest { userId ->
@@ -94,7 +102,9 @@ internal class StatsRepositoryImpl(
                     listeningEventDao.observeWithinWindow(userId, weekStartMs, now.toEpochMilliseconds()),
                     listeningEventDao.observeEndedAt(userId),
                     playbackPositionDao.observeListenedDayTimestamps(),
-                ) { events, allEndedAt, playbackDays -> aggregate(events, allEndedAt, playbackDays, tz) }
+                ) { events, allEndedAt, playbackDays ->
+                    aggregate(events = events, allEndedAt = allEndedAt, playbackDays = playbackDays, tz = tz)
+                }
             }
 
     private suspend fun aggregate(

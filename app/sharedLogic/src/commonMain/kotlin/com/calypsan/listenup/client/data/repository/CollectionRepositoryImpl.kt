@@ -23,7 +23,6 @@ import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.CollectionShare
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.api.result.map
@@ -116,7 +115,12 @@ internal class CollectionRepositoryImpl(
      */
     override suspend fun delete(id: String): AppResult<Unit> {
         val now = currentEpochMilliseconds()
-        return offlineEditor.edit(OutboxChannels.Collections, id, CollectionMutation.Delete, op = OpKind.Delete) {
+        return offlineEditor.edit(
+            channel = OutboxChannels.Collections,
+            entityId = id,
+            patch = CollectionMutation.Delete,
+            op = OpKind.Delete,
+        ) {
             collectionDao
                 .getById(
                     id,
@@ -149,9 +153,9 @@ internal class CollectionRepositoryImpl(
         if (existing != null && existing.deletedAt == null) return AppResult.Success(false)
         return offlineEditor
             .edit(
-                OutboxChannels.CollectionBooks,
-                junctionOutboxKey(collectionId, bookId),
-                CollectionBookMutation.Add(collectionId = collectionId, bookId = bookId),
+                channel = OutboxChannels.CollectionBooks,
+                entityId = junctionOutboxKey(collectionId, bookId),
+                patch = CollectionBookMutation.Add(collectionId = collectionId, bookId = bookId),
                 op = OpKind.Create,
             ) {
                 val now = currentEpochMilliseconds()
@@ -182,9 +186,9 @@ internal class CollectionRepositoryImpl(
         bookId: String,
     ): AppResult<Unit> =
         offlineEditor.edit(
-            OutboxChannels.CollectionBooks,
-            junctionOutboxKey(collectionId, bookId),
-            CollectionBookMutation.Remove(collectionId = collectionId, bookId = bookId),
+            channel = OutboxChannels.CollectionBooks,
+            entityId = junctionOutboxKey(collectionId, bookId),
+            patch = CollectionBookMutation.Remove(collectionId = collectionId, bookId = bookId),
             op = OpKind.Delete,
         ) {
             val now = currentEpochMilliseconds()

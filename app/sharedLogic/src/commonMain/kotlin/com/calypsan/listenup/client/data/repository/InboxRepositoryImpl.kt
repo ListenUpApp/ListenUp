@@ -59,8 +59,8 @@ internal class InboxRepositoryImpl(
         assignments: Map<String, List<String>>,
     ): AppResult<Unit> {
         val result =
-            channel.call {
-                it.releaseBooks(
+            channel.call { service ->
+                service.releaseBooks(
                     LibraryId(libraryId),
                     assignments.entries.associate { (bookId, targets) ->
                         BookId(bookId) to targets.map(::CollectionId)

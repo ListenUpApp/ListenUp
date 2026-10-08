@@ -6,7 +6,6 @@ import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.core.SecureStorageUnavailableException
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -383,7 +382,7 @@ internal class AuthSessionStore(
 
     private suspend fun getCachedOpenRegistration(): Boolean =
         try {
-            secureStorage.read(KEY_OPEN_REGISTRATION)?.toBooleanStrictOrNull() ?: false
+            secureStorage.read(KEY_OPEN_REGISTRATION)?.toBooleanStrictOrNull() == true
         } catch (_: SecureStorageUnavailableException) {
             false
         }

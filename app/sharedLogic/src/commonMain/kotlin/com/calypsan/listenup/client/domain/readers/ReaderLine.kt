@@ -52,7 +52,14 @@ fun flattenToLines(readers: List<Reader>): List<ReaderLine> {
     val reading =
         readers
             .filter { it.currentProgressPct != null }
-            .map { ReaderLine(it.userId, it.displayName, it.isYou, ReaderLineKind.Reading(it.currentProgressPct)) }
+            .map { reader ->
+                ReaderLine(
+                    userId = reader.userId,
+                    name = reader.displayName,
+                    isYou = reader.isYou,
+                    kind = ReaderLineKind.Reading(reader.currentProgressPct),
+                )
+            }
     val finished =
         readers
             .flatMap { it.finishedLines() }
@@ -60,10 +67,17 @@ fun flattenToLines(readers: List<Reader>): List<ReaderLine> {
             .map { (_, line) -> line }
     val ratedOnly =
         readers
-            .filter {
-                it.currentProgressPct == null && (it.finishes + it.hardcoverFinishes).isEmpty() &&
-                    it.rating != null
-            }.map { ReaderLine(it.userId, it.displayName, it.isYou, ReaderLineKind.Rated) }
+            .filter { reader ->
+                reader.currentProgressPct == null && (reader.finishes + reader.hardcoverFinishes).isEmpty() &&
+                    reader.rating != null
+            }.map { reader ->
+                ReaderLine(
+                    userId = reader.userId,
+                    name = reader.displayName,
+                    isYou = reader.isYou,
+                    kind = ReaderLineKind.Rated,
+                )
+            }
     val ratingsByUser = readers.mapNotNull { r -> r.rating?.let { r.userId to it } }.toMap()
     val seen = mutableSetOf<String>()
     return (reading + finished + ratedOnly).map { line ->
@@ -73,8 +87,16 @@ fun flattenToLines(readers: List<Reader>): List<ReaderLine> {
 
 /** One reader's finished lines — ListenUp's finishes and Hardcover's reads alike — each with the instant it sorts by. */
 private fun Reader.finishedLines(): List<Pair<Long, ReaderLine>> =
-    finishes.map { it to ReaderLine(userId, displayName, isYou, finishedKind(it)) } +
-        hardcoverFinishes.map { it to ReaderLine(userId, displayName, isYou, ReaderLineKind.FinishedOnHardcover(it)) }
+    finishes.map { it to ReaderLine(userId = userId, name = displayName, isYou = isYou, kind = finishedKind(it)) } +
+        hardcoverFinishes.map { finishedAtMs ->
+            finishedAtMs to
+                ReaderLine(
+                    userId = userId,
+                    name = displayName,
+                    isYou = isYou,
+                    kind = ReaderLineKind.FinishedOnHardcover(finishedAtMs),
+                )
+        }
 
 /** A ListenUp finish, saying so when the reader logged the same listen on Hardcover too. */
 private fun Reader.finishedKind(finishedAtMs: Long): ReaderLineKind.Finished =

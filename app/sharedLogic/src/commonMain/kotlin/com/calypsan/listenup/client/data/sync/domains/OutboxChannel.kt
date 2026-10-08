@@ -14,7 +14,7 @@ import kotlinx.serialization.KSerializer
  *   dedupes / last-write-wins, so a second send cannot double-apply. Idempotent → the outbox re-sends;
  *   non-idempotent → the op quarantines to the dead-letter queue for manual resolution.
  */
-internal class OutboxChannel<T : Any>(
+internal data class OutboxChannel<T : Any>(
     val name: String,
     val serializer: KSerializer<T>,
     val ops: Set<OpKind>,

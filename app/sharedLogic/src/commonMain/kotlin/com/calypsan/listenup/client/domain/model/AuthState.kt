@@ -117,7 +117,15 @@ internal fun Flow<AuthState>.signedInUserId(): Flow<String?> =
         .map { state ->
             when (state) {
                 is AuthState.Authenticated -> state.userId.value
+
                 is AuthState.SessionLapsed -> state.userId.value
-                else -> null
+
+                is AuthState.Initializing,
+                is AuthState.NeedsServerUrl,
+                is AuthState.CheckingServer,
+                is AuthState.NeedsSetup,
+                is AuthState.NeedsLogin,
+                is AuthState.PendingApproval,
+                -> null
             }
         }.distinctUntilChanged()

@@ -98,8 +98,8 @@ class LibrarySettingsViewModel(
                 is AppResult.Success -> {
                     val updatedLibrary = result.data
                     logger.info { "Removed folder $folderId" }
-                    updateReady {
-                        it.copy(
+                    updateReady { ready ->
+                        ready.copy(
                             isSaving = false,
                             library = updatedLibrary,
                         )
@@ -109,8 +109,8 @@ class LibrarySettingsViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to remove folder — ${result.error}" }
-                    updateReady {
-                        it.copy(
+                    updateReady { ready ->
+                        ready.copy(
                             isSaving = false,
                             error = result.error,
                         )
@@ -135,8 +135,8 @@ class LibrarySettingsViewModel(
                 is AppResult.Success -> {
                     val updatedLibrary = result.data
                     logger.info { "Saved scan folder and started per-folder scan: $path" }
-                    updateReady {
-                        it.copy(
+                    updateReady { ready ->
+                        ready.copy(
                             isSaving = false,
                             library = updatedLibrary,
                         )
@@ -147,8 +147,8 @@ class LibrarySettingsViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to add scan path — ${result.error}" }
-                    updateReady {
-                        it.copy(
+                    updateReady { ready ->
+                        ready.copy(
                             isSaving = false,
                             error = result.error,
                         )
@@ -175,8 +175,8 @@ class LibrarySettingsViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to trigger scan — ${result.error}" }
-                    updateReady {
-                        it.copy(
+                    updateReady { ready ->
+                        ready.copy(
                             isScanning = false,
                             error = result.error,
                         )
@@ -191,8 +191,8 @@ class LibrarySettingsViewModel(
      */
     fun setShowFolderBrowser(show: Boolean) {
         if (state.value !is LibrarySettingsUiState.Ready) return
-        updateReady {
-            it.copy(
+        updateReady { ready ->
+            ready.copy(
                 showFolderBrowser = show,
                 browserPath = "/",
                 browserEntries = emptyList(),
@@ -215,8 +215,8 @@ class LibrarySettingsViewModel(
             when (val result = adminRepository.browseFilesystem(path)) {
                 is AppResult.Success -> {
                     val response = result.data
-                    updateReady {
-                        it.copy(
+                    updateReady { ready ->
+                        ready.copy(
                             isBrowserLoading = false,
                             browserPath = response.path,
                             browserParent = response.parent,
@@ -229,8 +229,8 @@ class LibrarySettingsViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to browse directory: $path — ${result.error}" }
-                    updateReady {
-                        it.copy(
+                    updateReady { ready ->
+                        ready.copy(
                             isBrowserLoading = false,
                             error = result.error,
                         )

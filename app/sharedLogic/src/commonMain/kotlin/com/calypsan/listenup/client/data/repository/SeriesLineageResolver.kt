@@ -39,7 +39,14 @@ internal class SeriesLineageResolver(
             subtreeBooks.flatMap { book ->
                 book.series
                     .filter { it.seriesId in subtree }
-                    .map { SeriesMembership(book.id.value, it.seriesId, it.sequence, sortKey = book.title) }
+                    .map { entry ->
+                        SeriesMembership(
+                            bookId = book.id.value,
+                            seriesId = entry.seriesId,
+                            sequence = entry.sequence,
+                            sortKey = book.title,
+                        )
+                    }
             }
         val bookById = subtreeBooks.associateBy { it.id.value }
         // One walk decides where every book is listed; the nested children read it, so a heading can

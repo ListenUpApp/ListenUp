@@ -172,7 +172,7 @@ class PendingApprovalViewModel(
             }
     }
 
-    private suspend fun handleStatusUpdate(status: StreamedRegistrationStatus) {
+    private fun handleStatusUpdate(status: StreamedRegistrationStatus) {
         when (status) {
             is StreamedRegistrationStatus.Approved -> {
                 logger.info { "Registration approved" }

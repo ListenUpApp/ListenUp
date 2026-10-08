@@ -38,5 +38,7 @@ class RestrictedBooksViewModel(
      * Cancels this ViewModel's coroutines. Idempotent. Android and web clear it through their
      * `ViewModelStore`; iOS has none, so its observer calls this from its `isolated deinit` (#1192).
      */
-    fun close() = viewModelScope.cancel()
+    fun close() {
+        viewModelScope.cancel()
+    }
 }

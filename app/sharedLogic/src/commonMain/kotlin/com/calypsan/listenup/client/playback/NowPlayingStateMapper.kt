@@ -111,7 +111,15 @@ data class PlaybackProgress(
     val chapterDuration: Duration get() = chapterDurationMs.milliseconds
 
     companion object {
-        val Zero = PlaybackProgress(0f, 0L, 0L, 0f, 0L, 0L)
+        val Zero =
+            PlaybackProgress(
+                bookProgress = 0f,
+                bookPositionMs = 0L,
+                bookDurationMs = 0L,
+                chapterProgress = 0f,
+                chapterPositionMs = 0L,
+                chapterDurationMs = 0L,
+            )
     }
 }
 

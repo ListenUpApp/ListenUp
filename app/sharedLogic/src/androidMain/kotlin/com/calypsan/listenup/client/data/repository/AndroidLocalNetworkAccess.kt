@@ -7,6 +7,7 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import com.calypsan.listenup.client.domain.repository.LocalNetworkAccess
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withTimeoutOrNull
@@ -42,7 +43,7 @@ internal class AndroidLocalNetworkAccess internal constructor(
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_LOCAL_NETWORK) ==
                 PackageManager.PERMISSION_GRANTED
         },
-        resolveHost = ::resolveAddresses,
+        resolveHost = { host -> resolveAddresses(host) },
     )
 
     override suspend fun isDeniedFor(
@@ -53,7 +54,7 @@ internal class AndroidLocalNetworkAccess internal constructor(
         if (isLocalNetworkHost(host) || isAddressLiteral(host)) return isLocalNetworkHost(host)
         // A resolver that never answers must not hold the connect screen: past the bound, the host
         // is treated as unresolved, which never blames the permission.
-        val addresses = withTimeoutOrNull(RESOLVE_TIMEOUT) { resolveHost(host) } ?: emptyList()
+        val addresses = withTimeoutOrNull(RESOLVE_TIMEOUT) { resolveHost(host) }.orEmpty()
         return addresses.any(::isLocalNetworkHost)
     }
 
@@ -65,8 +66,11 @@ internal class AndroidLocalNetworkAccess internal constructor(
  * `getAllByName` blocks in the system resolver, so it runs interruptibly: the caller's timeout
  * interrupts the thread instead of waiting out the resolver's own.
  */
-private suspend fun resolveAddresses(host: String): List<String> =
-    runInterruptible(Dispatchers.IO) {
+private suspend fun resolveAddresses(
+    host: String,
+    ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+): List<String> =
+    runInterruptible(ioDispatcher) {
         try {
             InetAddress.getAllByName(host).mapNotNull { it.hostAddress }
         } catch (e: UnknownHostException) {

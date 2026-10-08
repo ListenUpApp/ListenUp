@@ -66,11 +66,11 @@ sealed interface BookRatingsUiState {
          * list, but reads an enum property off a class element cleanly (`NoBridgedEnumCollectionsInUiStateRule`).
          */
         val outsideRatingsInScore: List<ExternalRating>
-            get() = breakdown.filter { external?.shares?.containsKey(ScoreSource.Outside(it.source)) == true }
+            get() = breakdown.filter { external?.run { shares.containsKey(ScoreSource.Outside(it.source)) } == true }
 
         /** Whether your listeners are part of the score — "…, your listeners". */
         val listenersInScore: Boolean
-            get() = external?.shares?.containsKey(ScoreSource.Listeners) == true
+            get() = external?.run { shares.containsKey(ScoreSource.Listeners) } == true
     }
 }
 

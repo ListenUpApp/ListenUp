@@ -333,7 +333,14 @@ class ForgotPasswordViewModel internal constructor(
     private fun ForgotPasswordUiState.ticketIdOrNull(): String? =
         when (this) {
             is ForgotPasswordUiState.AwaitingApproval -> ticketId
+
             is ForgotPasswordUiState.EnterCode -> ticketId
-            else -> null
+
+            ForgotPasswordUiState.EnterEmail,
+            ForgotPasswordUiState.Submitting,
+            ForgotPasswordUiState.Denied,
+            ForgotPasswordUiState.Complete,
+            is ForgotPasswordUiState.Error,
+            -> null
         }
 }

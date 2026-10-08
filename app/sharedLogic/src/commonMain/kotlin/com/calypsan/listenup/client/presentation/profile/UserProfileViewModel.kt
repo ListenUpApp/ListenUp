@@ -126,7 +126,7 @@ class UserProfileViewModel internal constructor(
     private fun profileFlow(userId: String): Flow<UserProfileUiState> =
         flow {
             emit(UserProfileUiState.Loading)
-            val isOwn = userRepository.getCurrentUser()?.id?.value == userId
+            val isOwn = userRepository.getCurrentUser()?.run { id.value } == userId
             if (isOwn) {
                 emitAll(ownProfileFlow(userId))
             } else {
@@ -141,15 +141,34 @@ class UserProfileViewModel internal constructor(
      */
     private fun ownProfileFlow(userId: String): Flow<UserProfileUiState> =
         combine(
-            publicProfileDao.observeById(userId),
-            userRepository.observeCurrentUser(),
-            shelfRepository.observeMyShelves(userId),
-            recentBooksFlow(userId),
+            flow = publicProfileDao.observeById(userId),
+            flow2 = userRepository.observeCurrentUser(),
+            flow3 = shelfRepository.observeMyShelves(userId),
+            flow4 = recentBooksFlow(userId),
         ) { row, currentUser, shelves, recentBooks ->
             when {
-                row != null -> readyFromRow(userId, isOwn = true, row, shelves.toSummaries(), recentBooks)
-                currentUser != null -> readyFromUser(userId, currentUser, shelves.toSummaries(), recentBooks)
-                else -> UserProfileUiState.Error("No user data available")
+                row != null -> {
+                    readyFromRow(
+                        userId = userId,
+                        isOwn = true,
+                        row = row,
+                        shelves = shelves.toSummaries(),
+                        recentBooks = recentBooks,
+                    )
+                }
+
+                currentUser != null -> {
+                    readyFromUser(
+                        userId = userId,
+                        user = currentUser,
+                        shelves = shelves.toSummaries(),
+                        recentBooks = recentBooks,
+                    )
+                }
+
+                else -> {
+                    UserProfileUiState.Error("No user data available")
+                }
             }
         }
 
@@ -177,7 +196,13 @@ class UserProfileViewModel internal constructor(
                         logger.error { "No public profile row for user: $userId" }
                         UserProfileUiState.Error("Failed to load profile")
                     } else {
-                        readyFromRow(userId, isOwn = false, row, shelves, recentBooks)
+                        readyFromRow(
+                            userId = userId,
+                            isOwn = false,
+                            row = row,
+                            shelves = shelves,
+                            recentBooks = recentBooks,
+                        )
                     }
                 },
             )

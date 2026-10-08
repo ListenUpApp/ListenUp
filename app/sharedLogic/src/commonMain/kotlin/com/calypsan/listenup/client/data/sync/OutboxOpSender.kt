@@ -31,7 +31,7 @@ internal class OutboxOpSender<T : Any>(
                 throw e
             } catch (e: Throwable) {
                 return AppResult.Failure(
-                    SyncError.SyncFailed(debugInfo = "failed to decode '${channel.name}' payload: ${e.message}"),
+                    SyncError.SyncFailed(debugInfo = "failed to decode '${channel.name}' payload: $e"),
                 )
             }
         return when (val result = push(op.entityId, payload)) {

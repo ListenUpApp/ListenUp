@@ -55,7 +55,7 @@ internal fun bookRatingsDomain(
         outboxKeying =
             OutboxKeying(
                 keysOf = { payload ->
-                    val me = (authSession.authState.value as? AuthState.Authenticated)?.userId?.value
+                    val me = (authSession.authState.value as? AuthState.Authenticated)?.run { userId.value }
                     if (me != null && payload.userId == me) setOf(payload.bookId) else emptySet()
                 },
                 refetchFor = { bookId -> TargetedFetch.ByBookIds(listOf(bookId)) },

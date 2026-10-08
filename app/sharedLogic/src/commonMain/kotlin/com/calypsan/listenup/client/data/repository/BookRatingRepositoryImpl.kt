@@ -66,9 +66,9 @@ internal class BookRatingRepositoryImpl(
 
     override fun observeAverages(): Flow<Map<String, ListenerAverage>> =
         dao.observeAverages().map { rows ->
-            rows.associate {
-                it.bookId to
-                    ListenerAverage(averageHalfStars = it.averageHalfStars, count = it.ratingCount)
+            rows.associate { row ->
+                row.bookId to
+                    ListenerAverage(averageHalfStars = row.averageHalfStars, count = row.ratingCount)
             }
         }
 
@@ -105,7 +105,7 @@ internal class BookRatingRepositoryImpl(
         val candidateId = existing?.syncId ?: Uuid.random().toString()
         val now = currentEpochMilliseconds()
         return offlineEditor.edit(
-            OutboxChannels.BookRatings,
+            channel = OutboxChannels.BookRatings,
             entityId = bookId,
             patch =
                 BookRatingMutation.Set(
@@ -138,7 +138,7 @@ internal class BookRatingRepositoryImpl(
             authSession.getUserId()
                 ?: return AppResult.Failure(ErrorMapper.map(IllegalStateException("No signed-in user")))
         return offlineEditor.edit(
-            OutboxChannels.BookRatings,
+            channel = OutboxChannels.BookRatings,
             entityId = bookId,
             patch = BookRatingMutation.Clear(bookId = bookId),
             op = OpKind.Upsert,

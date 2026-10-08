@@ -216,6 +216,22 @@ internal fun <T : SyncPayload> MirroredDomain<T>.toHandler(
     inFlightOutbox: OutboxInFlightQuery = NoOutboxInFlight,
 ): SyncDomainHandler<T> =
     when (val gate = accessGate) {
-        null -> ComposedSyncDomainHandler(this, transactionRunner, registry, inFlightOutbox)
-        else -> AccessFilteredComposedSyncDomainHandler(this, gate, transactionRunner, registry, inFlightOutbox)
+        null -> {
+            ComposedSyncDomainHandler(
+                domain = this,
+                transactionRunner = transactionRunner,
+                registry = registry,
+                inFlightOutbox = inFlightOutbox,
+            )
+        }
+
+        else -> {
+            AccessFilteredComposedSyncDomainHandler(
+                domain = this,
+                gate = gate,
+                transactionRunner = transactionRunner,
+                registry = registry,
+                inFlightOutbox = inFlightOutbox,
+            )
+        }
     }

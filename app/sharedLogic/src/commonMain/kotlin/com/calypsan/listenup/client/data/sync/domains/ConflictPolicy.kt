@@ -16,7 +16,7 @@ internal sealed interface ConflictPolicy<T : Any> {
      * row. The guard lives on the policy because ServerWins is one of the two
      * policies that compare revisions. (tags, genres, …)
      */
-    class ServerWins<T : Any>(
+    data class ServerWins<T : Any>(
         val revisionGuard: RevisionGuard,
     ) : ConflictPolicy<T>
 
@@ -33,7 +33,7 @@ internal sealed interface ConflictPolicy<T : Any> {
      * reads the local row's, inside the apply transaction. The `>=` comparison also
      * absorbs own-echoes, so echo state is not consulted. (playback_positions)
      */
-    class NewerWins<T : Any>(
+    data class NewerWins<T : Any>(
         val incomingStamp: (T) -> Long,
         val existingStamp: suspend (payload: T) -> Long?,
     ) : ConflictPolicy<T>

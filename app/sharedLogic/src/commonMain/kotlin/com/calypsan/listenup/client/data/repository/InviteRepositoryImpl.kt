@@ -35,7 +35,14 @@ internal class InviteRepositoryImpl(
         displayName: String?,
     ): AppResult<AuthSession> {
         val result =
-            channel.call { it.claimInvite(code, password, displayName, deviceInfoProvider.current()) }
+            channel.call { service ->
+                service.claimInvite(
+                    code = code,
+                    password = password,
+                    displayName = displayName,
+                    deviceInfo = deviceInfoProvider.current(),
+                )
+            }
         if (result is AppResult.Success) {
             val session = result.data
             // Persist the user locally BEFORE flipping auth state. saveAuthTokens moves

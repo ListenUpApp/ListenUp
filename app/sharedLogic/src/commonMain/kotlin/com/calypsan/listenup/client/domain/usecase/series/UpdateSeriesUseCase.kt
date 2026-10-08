@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.series
 
 import com.calypsan.listenup.api.dto.SeriesUpdate
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.client.core.suspendRunCatching

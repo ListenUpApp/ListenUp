@@ -197,9 +197,9 @@ internal class LastMatchConverter {
 
     @ColumnTypeConverter
     fun toLastMatch(value: String?): LastMatch? =
-        value?.takeIf { it.isNotBlank() }?.let {
+        value?.takeIf { it.isNotBlank() }?.let { json ->
             try {
-                appJson.decodeFromString(LastMatch.serializer(), it)
+                appJson.decodeFromString(LastMatch.serializer(), json)
             } catch (_: kotlinx.serialization.SerializationException) {
                 null
             }

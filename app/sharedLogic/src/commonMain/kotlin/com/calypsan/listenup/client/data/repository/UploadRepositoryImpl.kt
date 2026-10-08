@@ -10,7 +10,7 @@ import com.calypsan.listenup.client.domain.repository.UploadStep
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.channels.ProducerScope
+import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.withContext
@@ -87,7 +87,7 @@ internal class UploadRepositoryImpl(
      * Streams every candidate, then finalizes. Returns true when the session reached a terminal
      * server-side state (finalize ran) and therefore needs no abandon.
      */
-    private suspend fun ProducerScope<UploadStep>.stageAndFinalize(
+    private suspend fun SendChannel<UploadStep>.stageAndFinalize(
         sessionId: String,
         candidates: List<UploadCandidate>,
     ): Boolean {
@@ -196,12 +196,12 @@ internal class UploadRepositoryImpl(
     private suspend fun abandonQuietly(sessionId: String) {
         when (val abandoned = api.abandon(sessionId)) {
             is AppResult.Failure -> {
-                logger.warn { "could not abandon upload session $sessionId: ${abandoned.error.debugInfo}" }
+                logger.warn {
+                    "could not abandon upload session $sessionId: ${abandoned.error.debugInfo ?: abandoned.error.code}"
+                }
             }
 
-            is AppResult.Success -> {
-                Unit
-            }
+            is AppResult.Success -> {}
         }
     }
 }

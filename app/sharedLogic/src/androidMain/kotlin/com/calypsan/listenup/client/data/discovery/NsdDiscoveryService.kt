@@ -181,7 +181,9 @@ internal class NsdDiscoveryService(
                 @Suppress("DEPRECATION")
                 override fun onServiceResolved(resolvedInfo: NsdServiceInfo) {
                     val hostAddress = resolvedInfo.host?.hostAddress
-                    logger.debug { "Resolved: ${resolvedInfo.serviceName} at $hostAddress:${resolvedInfo.port}" }
+                    logger.debug {
+                        "Resolved: ${resolvedInfo.serviceName} at ${hostAddress ?: "unknown host"}:${resolvedInfo.port}"
+                    }
                     val server = parseDiscoveredServer(resolvedInfo)
                     if (server != null) {
                         serversState.update { it + (server.id to server) }
@@ -212,7 +214,9 @@ internal class NsdDiscoveryService(
 
                 override fun onServiceUpdated(resolvedInfo: NsdServiceInfo) {
                     val hostAddress = resolvedInfo.hostAddresses.firstOrNull()?.hostAddress
-                    logger.debug { "Resolved: ${resolvedInfo.serviceName} at $hostAddress:${resolvedInfo.port}" }
+                    logger.debug {
+                        "Resolved: ${resolvedInfo.serviceName} at ${hostAddress ?: "unknown host"}:${resolvedInfo.port}"
+                    }
                     val server = parseDiscoveredServer(resolvedInfo)
                     if (server != null) {
                         serversState.update { it + (server.id to server) }

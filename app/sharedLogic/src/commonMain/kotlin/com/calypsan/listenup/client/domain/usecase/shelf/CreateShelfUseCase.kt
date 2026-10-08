@@ -44,7 +44,7 @@ open class CreateShelfUseCase(
             return validationError("Shelf name is required")
         }
 
-        val trimmedDescription = description?.trim()?.takeIf { it.isNotEmpty() }
+        val trimmedDescription = description?.run { trim().takeIf { it.isNotEmpty() } }
 
         logger.info { "Creating shelf: $trimmedName" }
 

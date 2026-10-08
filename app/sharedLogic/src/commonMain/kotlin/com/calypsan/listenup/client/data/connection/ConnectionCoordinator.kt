@@ -79,7 +79,9 @@ class ConnectionCoordinator internal constructor(
                 try {
                     val host = url?.let(::hostKey) ?: return@collect
                     if (host != lastHost) {
-                        logger.info { "Active URL host changed ($lastHost -> $host); invalidating connections" }
+                        logger.info {
+                            "Active URL host changed (${lastHost ?: "none"} -> $host); invalidating connections"
+                        }
                         lastHost = host
                         invalidator.invalidateAll()
                     }

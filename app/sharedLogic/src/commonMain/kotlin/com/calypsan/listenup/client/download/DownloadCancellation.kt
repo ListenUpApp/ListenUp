@@ -31,7 +31,13 @@ internal suspend fun persistDownloadCancellation(
     repository
         .markPaused(audioFileId)
         .onFailure { logger.warn { "Failed to persist paused state on cancel: $audioFileId" } }
-    deleteTempIfCancelled(repository, fileManager, audioFileId, bookId, filename)
+    deleteTempIfCancelled(
+        repository = repository,
+        fileManager = fileManager,
+        audioFileId = audioFileId,
+        bookId = bookId,
+        filename = filename,
+    )
 }
 
 // If the row was explicitly cancelled by the user (state = CANCELLED), delete the partial .tmp so it
@@ -47,7 +53,13 @@ private suspend fun deleteTempIfCancelled(
 ) {
     val rowState = repository.getStateForAudioFile(audioFileId)
     if (rowState != DownloadStatus.CANCELLED) return
-    val tempPath = fileManager.getAudioFilePath(bookId, audioFileId, filename, isTemp = true)
+    val tempPath =
+        fileManager.getAudioFilePath(
+            bookId = bookId,
+            audioFileId = audioFileId,
+            filename = filename,
+            isTemp = true,
+        )
     if (!SystemFileSystem.exists(tempPath)) return
     try {
         SystemFileSystem.delete(tempPath)

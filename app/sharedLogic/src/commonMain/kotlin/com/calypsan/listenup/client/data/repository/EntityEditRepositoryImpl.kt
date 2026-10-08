@@ -78,7 +78,7 @@ internal class EntityEditRepositoryImpl(
                     id = id.value,
                     kind = draft.kind,
                     name = draft.name.trim(),
-                    descriptor = draft.descriptor?.trim()?.ifEmpty { null },
+                    descriptor = draft.descriptor?.run { trim().ifEmpty { null } },
                     parentId = draft.parentId?.value,
                     homeSeriesId = draft.homeSeriesId?.value,
                     homeBookId = draft.homeBookId?.value,
@@ -100,7 +100,7 @@ internal class EntityEditRepositoryImpl(
             val changed =
                 existing.copy(
                     name = name.trim(),
-                    descriptor = descriptor?.trim()?.ifEmpty { null },
+                    descriptor = descriptor?.run { trim().ifEmpty { null } },
                     parentId = parentId?.value,
                     updatedAt = currentEpochMilliseconds(),
                 )
@@ -179,7 +179,9 @@ internal class EntityEditRepositoryImpl(
         if (newest?.op != StoryWorldOp.DELETE || me == null || newest.actorId != me) {
             return AppResult.Failure(
                 EntityError.HistoryNotFound(
-                    debugInfo = "newest change of entity=${id.value} is ${newest?.op} by ${newest?.actorId}, not this user's DELETE",
+                    debugInfo =
+                        "newest change of entity=${id.value} is ${newest?.op ?: "absent"} " +
+                            "by ${newest?.actorId ?: "nobody"}, not this user's DELETE",
                 ),
             )
         }
@@ -206,14 +208,24 @@ internal class EntityEditRepositoryImpl(
 
     /** Optimistic Room write (live) + the queued full snapshot, in one transaction. */
     private suspend fun write(row: EntityEntity): AppResult<Unit> =
-        offlineEditor.edit(OutboxChannels.Entities, row.id, EntityMutation.Upsert(row.toUpsert()), op = OpKind.Upsert) {
+        offlineEditor.edit(
+            channel = OutboxChannels.Entities,
+            entityId = row.id,
+            patch = EntityMutation.Upsert(row.toUpsert()),
+            op = OpKind.Upsert,
+        ) {
             entityDao.upsert(row.copy(deletedAt = null))
         }
 
     /** Optimistic tombstone + the queued delete. Revision kept so the server's tombstone echo still applies. */
     private suspend fun tombstone(row: EntityEntity): AppResult<Unit> {
         val now = currentEpochMilliseconds()
-        return offlineEditor.edit(OutboxChannels.Entities, row.id, EntityMutation.Delete, op = OpKind.Delete) {
+        return offlineEditor.edit(
+            channel = OutboxChannels.Entities,
+            entityId = row.id,
+            patch = EntityMutation.Delete,
+            op = OpKind.Delete,
+        ) {
             entityDao.softDelete(id = row.id, deletedAt = now, revision = row.revision)
         }
     }
@@ -251,7 +263,7 @@ private fun contentProblem(
             ValidationError(message = "Keep the name to $MAX_NAME characters.", field = "name")
         }
 
-        (descriptor?.trim()?.length ?: 0) > MAX_DESCRIPTOR -> {
+        (descriptor?.run { trim().length } ?: 0) > MAX_DESCRIPTOR -> {
             ValidationError(message = "Keep the description to $MAX_DESCRIPTOR characters.", field = "descriptor")
         }
 

@@ -43,10 +43,10 @@ fun uploadSelectionRefusal(candidates: List<UploadCandidate>): UploadSelectionRe
     if (candidates.size > UploadLimits.MAX_FILES) {
         return UploadSelectionRefusal.TooManyFiles(count = candidates.size, limit = UploadLimits.MAX_FILES)
     }
-    candidates.firstOrNull { (it.source.size ?: 0L) > UploadLimits.MAX_FILE_BYTES }?.let {
+    candidates.firstOrNull { (it.source.size ?: 0L) > UploadLimits.MAX_FILE_BYTES }?.let { oversized ->
         return UploadSelectionRefusal.FileTooLarge(
-            filename = it.source.filename,
-            bytes = it.source.size ?: 0L,
+            filename = oversized.source.filename,
+            bytes = oversized.source.size ?: 0L,
             limitBytes = UploadLimits.MAX_FILE_BYTES,
         )
     }

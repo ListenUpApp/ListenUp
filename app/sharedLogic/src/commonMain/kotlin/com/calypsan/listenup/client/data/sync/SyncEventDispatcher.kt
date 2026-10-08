@@ -64,7 +64,7 @@ internal class SyncEventDispatcher(
     suspend fun handle(frame: SyncFrame) {
         when {
             frame.domain == SyncFrame.CONTROL -> handleControl(frame)
-            frame.domain.isEmpty() -> logger.debug { "Sync frame with no domain, revision=${frame.revision}" }
+            frame.domain.isEmpty() -> logger.debug { "Sync frame with no domain, revision=${frame.revision ?: "none"}" }
             else -> handleData(frame)
         }
     }
@@ -77,7 +77,7 @@ internal class SyncEventDispatcher(
                 throw e
             } catch (e: Exception) {
                 logger.warn(e) { "Failed to decode SyncControl frame" }
-                reportCompat("Sync control frame undecodable: ${e.message}")
+                reportCompat("Sync control frame undecodable: $e")
                 return
             }
         // Refreshed tier: catalog-declared refresh strategies. Engine/lifecycle controls fall through.
@@ -157,7 +157,7 @@ internal class SyncEventDispatcher(
                 throw e
             } catch (e: Exception) {
                 logger.warn(e) { "Failed to decode SyncEvent for domain '$domainName'" }
-                reportCompat("Sync event undecodable for domain '$domainName': ${e.message}")
+                reportCompat("Sync event undecodable for domain '$domainName': $e")
                 // An undecodable frame is functionally "apply did not happen": for an OptOut domain
                 // the same freeze bookkeeping as a failed apply applies, else the un-decodable
                 // revision is permanently skipped once a later event's success would advance past it.
@@ -189,7 +189,7 @@ internal class SyncEventDispatcher(
                 } else {
                     logger.debug {
                         "[$domainName] cursor frozen (no digest backstop, prior apply failed); " +
-                            "not advancing to ${frame.revision} — catch-up will re-pull and heal"
+                            "not advancing to ${frame.revision ?: "none"} — catch-up will re-pull and heal"
                     }
                 }
             }
@@ -207,7 +207,7 @@ internal class SyncEventDispatcher(
                     freeze(domainName)
                 }
                 logger.warn {
-                    "Apply failed for domain '$domainName' (revision=${frame.revision}): " +
+                    "Apply failed for domain '$domainName' (revision=${frame.revision ?: "none"}): " +
                         "${result.error.code}; cursor not advanced" +
                         if (!typed.hasDigestBackstop) " (frozen: no digest backstop)" else ""
                 }

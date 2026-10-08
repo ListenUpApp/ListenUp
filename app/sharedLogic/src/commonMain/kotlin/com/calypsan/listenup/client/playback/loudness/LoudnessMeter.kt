@@ -57,7 +57,7 @@ class LoudnessMeter(
         frameCount: Int,
     ) {
         var idx = 0
-        for (f in 0 until frameCount) {
+        repeat(frameCount) {
             var channelSumSq = 0.0
             for (c in 0 until channelCount) {
                 val raw = interleaved[idx++]

@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.presentation.bookedit.delegates
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.core.error.ErrorBus
@@ -60,8 +59,8 @@ class CoverUploadDelegate(
                     logger.info { "Cover saved to staging for preview: $stagingPath" }
 
                     // Store pending data for upload when Save Changes is clicked
-                    state.update {
-                        it.copy(
+                    state.update { current ->
+                        current.copy(
                             isUploadingCover = false,
                             stagingCoverPath = stagingPath,
                             pendingCoverData = imageData,
@@ -74,8 +73,8 @@ class CoverUploadDelegate(
                 is AppResult.Failure -> {
                     errorBus.emit(saveResult.error)
                     logger.error { "Failed to save cover to staging: ${saveResult.message}" }
-                    state.update {
-                        it.copy(
+                    state.update { current ->
+                        current.copy(
                             isUploadingCover = false,
                             error = "Failed to save cover: ${saveResult.message}",
                         )

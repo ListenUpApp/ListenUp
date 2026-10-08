@@ -152,8 +152,8 @@ internal class AdminRepositoryImpl(
         val serverUrl = serverConfig.getActiveUrl()?.value.orEmpty()
         val remoteUrl = inviteRemoteUrl(serverUrl)
         return inviteAdminChannel
-            .call {
-                it.createInvite(
+            .call { service ->
+                service.createInvite(
                     email = email,
                     // The admin no longer names the invitee — they choose a display name when they
                     // claim. The email's local part is a non-blank placeholder that satisfies the
@@ -210,8 +210,8 @@ internal class AdminRepositoryImpl(
         metadataRegion: String?,
     ): AppResult<ServerSettings> =
         adminSettingsChannel
-            .call {
-                it.updateServerSettings(
+            .call { service ->
+                service.updateServerSettings(
                     AdminServerSettingsPatch(
                         serverName = serverName,
                         remoteUrl = remoteUrl,

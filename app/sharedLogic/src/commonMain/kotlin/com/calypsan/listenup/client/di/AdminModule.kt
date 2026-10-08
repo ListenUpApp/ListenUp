@@ -34,7 +34,6 @@ import com.calypsan.listenup.client.domain.usecase.admin.RevokeInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.SetRegistrationPolicyUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.UpdateServerSettingsUseCase
 import org.koin.core.module.Module
-import org.koin.dsl.binds
 import org.koin.dsl.module
 
 /**

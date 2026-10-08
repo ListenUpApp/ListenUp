@@ -206,8 +206,8 @@ class SeriesEditDelegate(
                     }
 
                     is SeriesSearchFlowResult.Success -> {
-                        state.update {
-                            it.copy(
+                        state.update { current ->
+                            current.copy(
                                 seriesSearchResults = result.results,
                                 seriesSearchLoading = false,
                                 seriesOfflineResult = result.isOffline,

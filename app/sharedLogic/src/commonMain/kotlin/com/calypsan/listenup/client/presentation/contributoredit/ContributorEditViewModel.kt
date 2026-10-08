@@ -15,7 +15,6 @@ import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.usecase.contributor.ContributorUpdateRequest
 import com.calypsan.listenup.client.domain.usecase.contributor.UpdateContributorUseCase
 import com.calypsan.listenup.core.ContributorId
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -333,20 +332,20 @@ class ContributorEditViewModel internal constructor(
 
             // Store original values
             originalName = contributor.name
-            originalDescription = contributor.description ?: ""
-            originalWebsite = contributor.website ?: ""
-            originalBirthDate = contributor.birthDate ?: ""
-            originalDeathDate = contributor.deathDate ?: ""
+            originalDescription = contributor.description.orEmpty()
+            originalWebsite = contributor.website.orEmpty()
+            originalBirthDate = contributor.birthDate.orEmpty()
+            originalDeathDate = contributor.deathDate.orEmpty()
 
-            state.update {
-                it.copy(
+            state.update { editState ->
+                editState.copy(
                     isLoading = false,
                     imagePath = contributor.imagePath,
                     name = contributor.name,
-                    description = contributor.description ?: "",
-                    website = contributor.website ?: "",
-                    birthDate = contributor.birthDate ?: "",
-                    deathDate = contributor.deathDate ?: "",
+                    description = contributor.description.orEmpty(),
+                    website = contributor.website.orEmpty(),
+                    birthDate = contributor.birthDate.orEmpty(),
+                    deathDate = contributor.deathDate.orEmpty(),
                     hasChanges = false,
                 )
             }
@@ -487,14 +486,14 @@ class ContributorEditViewModel internal constructor(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to merge contributor: ${result.message}" }
-                    state.update {
-                        it.copy(
+                    state.update { editState ->
+                        editState.copy(
                             mergeInProgress = false,
                             error =
-                                when (result.error) {
+                                when (result.error as? ContributorError) {
                                     is ContributorError.MergeSelfTarget -> "Can't merge a contributor with itself."
                                     is ContributorError.NotFound -> "One of these contributors no longer exists."
-                                    else -> result.error.message
+                                    is ContributorError.InvalidInput, is ContributorError.AliasNotFound, null -> result.error.message
                                 },
                         )
                     }
@@ -524,13 +523,13 @@ class ContributorEditViewModel internal constructor(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to unmerge alias '$aliasName': ${result.message}" }
-                    state.update {
-                        it.copy(
+                    state.update { editState ->
+                        editState.copy(
                             error =
-                                when (result.error) {
+                                when (result.error as? ContributorError) {
                                     is ContributorError.AliasNotFound -> "That alias is no longer on this contributor."
                                     is ContributorError.NotFound -> "This contributor no longer exists."
-                                    else -> result.error.message
+                                    is ContributorError.InvalidInput, is ContributorError.MergeSelfTarget, null -> result.error.message
                                 },
                         )
                     }
@@ -566,8 +565,8 @@ class ContributorEditViewModel internal constructor(
                     logger.info { "Contributor image saved to staging for preview: $stagingPath" }
 
                     // Store pending data for upload when Save is clicked
-                    state.update {
-                        it.copy(
+                    state.update { editState ->
+                        editState.copy(
                             isUploadingImage = false,
                             stagingImagePath = stagingPath,
                             pendingImageData = imageData,
@@ -580,8 +579,8 @@ class ContributorEditViewModel internal constructor(
                 is AppResult.Failure -> {
                     errorBus.emit(saveResult.error)
                     logger.error { "Failed to save contributor image to staging: ${saveResult.message}" }
-                    state.update {
-                        it.copy(
+                    state.update { editState ->
+                        editState.copy(
                             isUploadingImage = false,
                             error = "Failed to save image: ${saveResult.message}",
                         )
@@ -699,8 +698,8 @@ class ContributorEditViewModel internal constructor(
             is AppResult.Success -> {
                 // Metadata persisted — commit + upload the staged image if the user picked one.
                 commitAndUploadImageIfPending(current)
-                state.update {
-                    it.copy(
+                state.update { editState ->
+                    editState.copy(
                         isSaving = false,
                         hasChanges = false,
                         pendingImageData = null,
@@ -714,8 +713,8 @@ class ContributorEditViewModel internal constructor(
             is AppResult.Failure -> {
                 errorBus.emit(result.error)
                 logger.error { "Failed to save contributor: ${result.message}" }
-                state.update {
-                    it.copy(
+                state.update { editState ->
+                    editState.copy(
                         isSaving = false,
                         error = "Failed to save: ${result.message}",
                     )
@@ -759,14 +758,14 @@ class ContributorEditViewModel internal constructor(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to merge on rename: ${result.message}" }
-                    state.update {
-                        it.copy(
+                    state.update { editState ->
+                        editState.copy(
                             mergeInProgress = false,
                             error =
-                                when (result.error) {
+                                when (result.error as? ContributorError) {
                                     is ContributorError.MergeSelfTarget -> "Can't merge a contributor with itself."
                                     is ContributorError.NotFound -> "One of these contributors no longer exists."
-                                    else -> result.error.message
+                                    is ContributorError.InvalidInput, is ContributorError.AliasNotFound, null -> result.error.message
                                 },
                         )
                     }

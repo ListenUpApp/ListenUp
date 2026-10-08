@@ -51,7 +51,7 @@ class AdminSettingsViewModel(
             when (val result = loadServerSettingsUseCase()) {
                 is AppResult.Success -> {
                     savedServerName = result.data.serverName
-                    savedRemoteUrl = result.data.remoteUrl ?: ""
+                    savedRemoteUrl = result.data.remoteUrl.orEmpty()
                     savedHoldNewBooksForReview = result.data.holdNewBooksForReview
                     savedPushNotificationsEnabled = result.data.pushNotificationsEnabled
                     savedMetadataRegion = result.data.metadataRegion
@@ -59,7 +59,7 @@ class AdminSettingsViewModel(
                         if (current is AdminSettingsUiState.Ready) {
                             current.copy(
                                 serverName = result.data.serverName,
-                                remoteUrl = result.data.remoteUrl ?: "",
+                                remoteUrl = result.data.remoteUrl.orEmpty(),
                                 holdNewBooksForReview = result.data.holdNewBooksForReview,
                                 pushNotificationsEnabled = result.data.pushNotificationsEnabled,
                                 metadataRegion = result.data.metadataRegion,
@@ -68,7 +68,7 @@ class AdminSettingsViewModel(
                         } else {
                             AdminSettingsUiState.Ready(
                                 serverName = result.data.serverName,
-                                remoteUrl = result.data.remoteUrl ?: "",
+                                remoteUrl = result.data.remoteUrl.orEmpty(),
                                 holdNewBooksForReview = result.data.holdNewBooksForReview,
                                 pushNotificationsEnabled = result.data.pushNotificationsEnabled,
                                 metadataRegion = result.data.metadataRegion,
@@ -154,8 +154,8 @@ class AdminSettingsViewModel(
                     errorBus.emit(result.error)
                     logger.error { "Failed to save inbox setting: ${result.error}" }
                     // Revert the optimistic flip to the last server-confirmed value.
-                    updateReady {
-                        it
+                    updateReady { ready ->
+                        ready
                             .copy(
                                 holdNewBooksForReview = savedHoldNewBooksForReview,
                                 error = result.error,
@@ -185,8 +185,8 @@ class AdminSettingsViewModel(
                     errorBus.emit(result.error)
                     logger.error { "Failed to save push notifications setting: ${result.error}" }
                     // Revert the optimistic flip to the last server-confirmed value.
-                    updateReady {
-                        it
+                    updateReady { ready ->
+                        ready
                             .copy(
                                 pushNotificationsEnabled = savedPushNotificationsEnabled,
                                 error = result.error,
@@ -354,8 +354,8 @@ class AdminSettingsViewModel(
                     is AppResult.Failure -> {
                         errorBus.emit(result.error)
                         logger.error { "Failed to save server name: ${result.error}" }
-                        updateReady {
-                            it
+                        updateReady { latest ->
+                            latest
                                 .copy(
                                     isSaving = false,
                                     error = result.error,
@@ -377,8 +377,8 @@ class AdminSettingsViewModel(
                     is AppResult.Failure -> {
                         errorBus.emit(result.error)
                         logger.error { "Failed to save remote URL: ${result.error}" }
-                        updateReady {
-                            it
+                        updateReady { latest ->
+                            latest
                                 .copy(
                                     isSaving = false,
                                     error = result.error,

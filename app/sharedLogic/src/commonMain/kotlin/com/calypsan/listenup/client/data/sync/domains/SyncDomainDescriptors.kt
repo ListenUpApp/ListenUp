@@ -20,7 +20,7 @@ import kotlin.reflect.KClass
  * identity, apply seam, conflict policy, delete semantics, digest posture, write
  * tier, and access gating — declared in one value.
  */
-internal class MirroredDomain<T : SyncPayload>(
+internal data class MirroredDomain<T : SyncPayload>(
     val key: SyncDomainKey<T>,
     val apply: MirrorApply<T>,
     val conflict: ConflictPolicy<T>,
@@ -60,7 +60,7 @@ internal class MirroredDomain<T : SyncPayload>(
  * idempotent and concurrency-safe — presence's `Ping` is; a `Refetch` would need its own single-flight.
  * Defaults `false` — most refreshed domains (server info, preferences) are access-insensitive.
  */
-internal class RefreshedDomain(
+internal data class RefreshedDomain(
     val trigger: KClass<out SyncControl>,
     val refresh: RefreshStrategy,
     val refreshOnAccessChanged: Boolean = false,

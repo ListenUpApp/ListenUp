@@ -197,7 +197,12 @@ internal class SeriesRepositoryImpl(
                     entity.books.mapNotNull { bookEntity ->
                         val id = bookEntity.id.value
                         booksById[id]?.let { book ->
-                            SeriesMembership(id, entity.series.id.value, sequences[id], sortKey = book.book.title)
+                            SeriesMembership(
+                                bookId = id,
+                                seriesId = entity.series.id.value,
+                                sequence = sequences[id],
+                                sortKey = book.book.title,
+                            )
                         }
                     }
                 }

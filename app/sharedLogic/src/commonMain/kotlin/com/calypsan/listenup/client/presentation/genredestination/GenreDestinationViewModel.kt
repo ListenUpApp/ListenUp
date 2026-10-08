@@ -97,7 +97,7 @@ class GenreDestinationViewModel(
                     .filter { it.path.substringBeforeLast('/', "") == target.path }
                     .sortedBy { it.name }
             val hasSubs = children.isNotEmpty()
-            val includeSubGenres = hasSubs && req.includeOverride ?: true
+            val includeSubGenres = hasSubs && req.includeOverride != false
 
             val identity =
                 GenreIdentity(
