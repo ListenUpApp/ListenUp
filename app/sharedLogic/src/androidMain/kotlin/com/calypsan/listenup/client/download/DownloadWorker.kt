@@ -43,6 +43,8 @@ class DownloadWorker(
         private const val MAX_RETRIES = 3
     }
 
+    // The cancellation IS re-thrown — after the pause is persisted under NonCancellable, which must land first.
+    @Suppress("SuspendFunSwallowedCancellation")
     override suspend fun doWork(): Result {
         val audioFileId = inputData.getString(KEY_AUDIO_FILE_ID) ?: return Result.failure()
         val bookId = inputData.getString(KEY_BOOK_ID) ?: return Result.failure()
@@ -56,7 +58,15 @@ class DownloadWorker(
         val _ = downloadRepository.markDownloading(audioFileId, System.currentTimeMillis())
 
         return try {
-            when (val result = downloadFile(audioFileId, bookId, filename, expectedSize)) {
+            when (
+                val result =
+                    downloadFile(
+                        audioFileId = audioFileId,
+                        bookId = bookId,
+                        filename = filename,
+                        expectedSize = expectedSize,
+                    )
+            ) {
                 is AppResult.Success -> {
                     logger.info { "Download complete: $audioFileId" }
                     Result.success()
@@ -70,7 +80,13 @@ class DownloadWorker(
             logger.info { "Download cancelled: $audioFileId" }
             // Persist the pause + temp cleanup under NonCancellable (the scope is already being
             // cancelled here), then re-throw so the worker is recorded as cancelled, not failed.
-            persistDownloadCancellation(downloadRepository, fileManager, audioFileId, bookId, filename)
+            persistDownloadCancellation(
+                repository = downloadRepository,
+                fileManager = fileManager,
+                audioFileId = audioFileId,
+                bookId = bookId,
+                filename = filename,
+            )
             throw e
         }
     }
@@ -96,7 +112,7 @@ class DownloadWorker(
         // ErrorMapper's IOException branch; the user-actionable distinction lives in [debugInfo],
         // which carries the original exception message. Detect via keyword-match — imperfect but
         // matches the prior IOException string-match behavior.
-        val debugInfo = error.debugInfo?.lowercase() ?: ""
+        val debugInfo = error.debugInfo?.lowercase().orEmpty()
         val isStorageError =
             debugInfo.contains("no space") ||
                 debugInfo.contains("enospc") ||

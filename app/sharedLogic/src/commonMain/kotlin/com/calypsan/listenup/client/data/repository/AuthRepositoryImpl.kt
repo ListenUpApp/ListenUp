@@ -96,7 +96,7 @@ internal class AuthRepositoryImpl(
      */
     private var recentRefresh: RecentRefresh? = null
 
-    private class RecentRefresh(
+    private data class RecentRefresh(
         val at: TimeMark,
         val epoch: Long,
         val result: AppResult.Success<AuthSession>,
@@ -153,12 +153,11 @@ internal class AuthRepositoryImpl(
                 }
                 deferred.complete(result)
             } catch (e: CancellationException) {
-                // `scope` itself was cancelled (app shutdown/logout sweep) mid-refresh. Complete
-                // with a plain VALUE, not exceptionally — completing exceptionally would re-throw
-                // this CancellationException from every waiter's own `.await()`, incorrectly
-                // cancelling their independent callers. Still re-thrown so `scope`'s own job
-                // completes as cancelled, per kotlinx.coroutines convention.
-                deferred.complete(AppResult.Failure(InternalError()))
+                // `scope` itself was cancelled (app shutdown/logout sweep) mid-refresh. Re-thrown so
+                // `scope`'s own job completes as cancelled, per kotlinx.coroutines convention; the
+                // `finally` below completes the deferred with a plain VALUE, not exceptionally —
+                // completing exceptionally would re-throw this CancellationException from every
+                // waiter's own `.await()`, incorrectly cancelling their independent callers.
                 throw e
             } catch (e: Throwable) {
                 // The leader MUST complete its deferred on ANY throw (e.g. a getRefreshToken()
@@ -166,11 +165,13 @@ internal class AuthRepositoryImpl(
                 // and anyone who coalesced onto it) awaits forever. NOT re-thrown, deliberately: this
                 // runs on `scope`, independent of any caller, so re-throwing here would surface as an
                 // uncaught failure of THAT scope rather than reach whoever is actually waiting — who
-                // already receives the typed Failure via the deferred. Logged so the fault is still
-                // diagnosable.
+                // receives the typed Failure the `finally` below completes the deferred with. Logged
+                // so the fault is still diagnosable.
                 logger.warn(e) { "Token refresh failed" }
-                deferred.complete(AppResult.Failure(InternalError()))
             } finally {
+                // A no-op when the refresh completed the deferred itself; on a throw or a
+                // cancellation it hands every waiter a typed Failure instead of an endless await.
+                deferred.complete(AppResult.Failure(InternalError()))
                 // NonCancellable: this cleanup usually runs BECAUSE `scope` was cancelled — a bare
                 // `withLock` would then throw and leave `inFlightRefresh` wedged forever, permanently
                 // stranding every future refresh behind a dead entry (mirrors SyncEngine's identical
