@@ -426,7 +426,10 @@ private fun RenameCollisionDialog(
             Button(kind = ButtonKind.Secondary, onClick = { onKeepSeparate() }) { Text("Keep separate") }
             // Folding them together is a merge, so it is offered only to a reader who may curate.
             if (canMerge) {
-                Button(kind = ButtonKind.Primary, onClick = { onMerge() }) { Text("Fold into ${candidate.displayName}") }
+                Button(
+                    kind = ButtonKind.Primary,
+                    onClick = { onMerge() },
+                ) { Text("Fold into ${candidate.displayName}") }
             }
         }
     }

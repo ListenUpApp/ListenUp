@@ -24,6 +24,7 @@ import org.jetbrains.compose.web.dom.Label
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import org.w3c.dom.HTMLInputElement
 
 /** The permissions panel's callbacks; each defaults to nothing so specs pass only what they press. */
 class PermissionsPanelActions(
@@ -64,35 +65,7 @@ fun PermissionsPanel(
                 }
             }
 
-            if (ready.isAdminRole) {
-                AdminsCanDoEverything(name)
-            } else {
-                if (ready.presetsShown) PresetCards(ready, enabled = !locked, onSelect = actions.onSelectPreset)
-                ready.sections.forEach { section ->
-                    Div(attrs = { classes("perm-group") }) {
-                        H3(attrs = { classes("perm-group-h") }) { Text(groupTitle(section.group)) }
-                        section.rows.forEach { row ->
-                            PermissionRowView(
-                                row = row,
-                                enabled = !locked,
-                                warning =
-                                    if (row.permission == Permission.CURATE_LIBRARY && ready.curateWarningShown) {
-                                        "$name will be able to merge and delete these for everyone on this server. " +
-                                            "Deletes can't be undone."
-                                    } else {
-                                        null
-                                    },
-                                onSet = actions.onSetPermission,
-                            )
-                        }
-                    }
-                }
-                if (!ready.presetsShown) {
-                    P(attrs = { classes("usr-note", "perm-older") }) {
-                        Text("This server can only set this one permission. Update ListenUp on the server for the rest.")
-                    }
-                }
-            }
+            if (ready.isAdminRole) AdminsCanDoEverything(name) else MemberPermissions(ready, locked, name, actions)
 
             ready.error?.let { failure ->
                 P(attrs = {
@@ -116,6 +89,39 @@ fun PermissionsPanel(
         onDismiss = { actions.onCancelAdminPromotion() },
     )
 }
+
+/** A member's presets and switches, and the older-server note when presets cannot apply. */
+@Composable
+private fun MemberPermissions(
+    ready: UserPermissionsUiState.Ready,
+    locked: Boolean,
+    name: String,
+    actions: PermissionsPanelActions,
+) {
+    if (ready.presetsShown) PresetCards(ready, enabled = !locked, onSelect = actions.onSelectPreset)
+    ready.sections.forEach { section ->
+        Div(attrs = { classes("perm-group") }) {
+            H3(attrs = { classes("perm-group-h") }) { Text(groupTitle(section.group)) }
+            section.rows.forEach { row ->
+                val warned = row.permission == Permission.CURATE_LIBRARY && ready.curateWarningShown
+                PermissionRowView(
+                    row = row,
+                    enabled = !locked,
+                    warning = curateWarning(name).takeIf { warned },
+                    onSet = actions.onSetPermission,
+                )
+            }
+        }
+    }
+    if (!ready.presetsShown) {
+        P(attrs = { classes("usr-note", "perm-older") }) {
+            Text("This server can only set this one permission. Update ListenUp on the server for the rest.")
+        }
+    }
+}
+
+private fun curateWarning(name: String): String =
+    "$name will be able to merge and delete these for everyone on this server. Deletes can't be undone."
 
 /**
  * Member or Admin. Keyed on the drafted role and the confirmation, because a native select moves the
@@ -175,30 +181,40 @@ private fun PresetCards(
         }
         Div(attrs = { classes("perm-cards") }) {
             PermissionPreset.pickable.forEach { preset ->
-                val chosen = preset == ready.preset
-                Label(attrs = {
-                    classes("perm-card")
-                    if (chosen) classes("on")
-                    if (!enabled) classes("off")
-                }) {
-                    Input(type = InputType.Radio, attrs = {
-                        attr("name", "permission-preset")
-                        if (chosen) attr("checked", "")
-                        if (!enabled) attr("disabled", "")
-                        // The property, not just the attribute: once clicked, the attribute stops
-                        // governing the dot, and the draft is what decides which card is chosen.
-                        prop({ input: org.w3c.dom.HTMLInputElement, on: Boolean -> input.checked = on }, chosen)
-                        onClick { if (enabled) onSelect(preset) }
-                    })
-                    Span(attrs = { classes("perm-card-text") }) {
-                        Span(attrs = { classes("perm-card-t") }) { Text(presetTitle(preset)) }
-                        Span(attrs = { classes("perm-card-s") }) { Text(presetDescription(preset)) }
-                    }
-                }
+                PresetCard(preset, chosen = preset == ready.preset, enabled = enabled, onSelect = onSelect)
             }
         }
         if (ready.preset == PermissionPreset.CUSTOM) {
             P(attrs = { classes("perm-custom-note") }) { Text(presetDescription(PermissionPreset.CUSTOM)) }
+        }
+    }
+}
+
+/** One preset, drawn as a card around its radio, so the whole card is the click target. */
+@Composable
+private fun PresetCard(
+    preset: PermissionPreset,
+    chosen: Boolean,
+    enabled: Boolean,
+    onSelect: (PermissionPreset) -> Unit,
+) {
+    Label(attrs = {
+        classes("perm-card")
+        if (chosen) classes("on")
+        if (!enabled) classes("off")
+    }) {
+        Input(type = InputType.Radio, attrs = {
+            attr("name", "permission-preset")
+            if (chosen) attr("checked", "")
+            if (!enabled) attr("disabled", "")
+            // The property, not just the attribute: once clicked, the attribute stops governing the
+            // dot, and the draft is what decides which card is chosen.
+            prop({ input: HTMLInputElement, on: Boolean -> input.checked = on }, chosen)
+            onClick { if (enabled) onSelect(preset) }
+        })
+        Span(attrs = { classes("perm-card-text") }) {
+            Span(attrs = { classes("perm-card-t") }) { Text(presetTitle(preset)) }
+            Span(attrs = { classes("perm-card-s") }) { Text(presetDescription(preset)) }
         }
     }
 }

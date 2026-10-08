@@ -112,11 +112,13 @@ fun SettingsPage(
         // Categories is the server's, shared by everyone, so it leads the section — above the note
         // that says the sorting below it is kept on this browser. Only for those who may curate the
         // library: the server refuses merge and delete to anyone else.
-        Section(
-            "Library",
-            "Kept on this browser.",
-            lead = if (canCurateLibrary) ({ CategoriesEntry(onOpenCategories) }) else null,
-        ) {
+        val categories: (@Composable () -> Unit)? =
+            if (canCurateLibrary) {
+                { CategoriesEntry(onOpenCategories) }
+            } else {
+                null
+            }
+        Section("Library", "Kept on this browser.", lead = categories) {
             CheckboxField(
                 label = "Sort titles ignoring “A”, “An” and “The”",
                 checked = state.ignoreTitleArticles,
