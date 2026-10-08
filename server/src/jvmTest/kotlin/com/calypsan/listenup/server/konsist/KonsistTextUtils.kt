@@ -14,6 +14,14 @@ internal fun stripComments(source: String): String =
         .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
 
 /**
+ * [source] with every comment's characters replaced by spaces, so offsets and line numbers still line up
+ * — for rules that report a line or match braces, where [stripComments] would shift both.
+ */
+internal fun blankComments(source: String): String =
+    Regex("""//[^\n]*|/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL)
+        .replace(source) { match -> match.value.replace(Regex("""[^\n]"""), " ") }
+
+/**
  * An admin check that denies: `if (!….isAdmin()) return|throw …`, `if (….isAdmin() != true) return|throw …`,
  * or either guard opening a block that returns or throws. A bare `.isAdmin()` that only reads the role
  * denies nothing, so it is not a gate.

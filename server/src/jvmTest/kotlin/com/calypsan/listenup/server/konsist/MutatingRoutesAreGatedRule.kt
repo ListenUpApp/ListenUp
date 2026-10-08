@@ -104,10 +104,5 @@ class MutatingRoutesAreGatedRule :
             }
             error("Unbalanced braces after offset $open")
         }
-
-        /** [source] with every comment's characters replaced by spaces, so offsets and lines still line up. */
-        private fun blankComments(source: String): String =
-            Regex("""//[^\n]*|/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL)
-                .replace(source) { match -> match.value.replace(Regex("""[^\n]"""), " ") }
     }
 }
