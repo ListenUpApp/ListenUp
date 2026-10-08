@@ -79,7 +79,7 @@ class PushRegistrar internal constructor(
 
     /**
      * Re-registers [newToken] after the platform SDK rotates it (e.g. FCM's
-     * `onNewToken`). No-ops if the server has push disabled.
+     * `onRegistered`). No-ops if the server has push disabled.
      */
     suspend fun onTokenRotated(newToken: String) {
         val platform = platform ?: return

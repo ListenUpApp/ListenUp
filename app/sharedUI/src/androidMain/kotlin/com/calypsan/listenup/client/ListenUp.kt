@@ -68,6 +68,7 @@ import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.playback.cast.initializeCast
+import com.calypsan.listenup.client.push.FcmRegistrationHandoff
 import com.calypsan.listenup.client.push.FcmTokenProvider
 import com.calypsan.listenup.client.push.PushNotificationRenderer
 import com.calypsan.listenup.client.sync.AndroidBackgroundSyncScheduler
@@ -155,7 +156,8 @@ val androidModule =
         // platform-specific facts that don't belong in commonMain's pushClientModule —
         // see that module's KDoc for the full external-dependency contract.
         single<PushPlatform> { PushPlatform.ANDROID }
-        single<PushTokenProvider> { FcmTokenProvider() }
+        single { FcmRegistrationHandoff() }
+        single<PushTokenProvider> { FcmTokenProvider(get()) }
 
         // Receive-path renderer: enrichment lookups are best-effort local-first reads
         // (Room-backed repositories) resolved once at DI time, invoked per notification.
