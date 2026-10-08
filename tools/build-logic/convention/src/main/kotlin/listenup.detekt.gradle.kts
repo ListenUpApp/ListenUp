@@ -31,7 +31,10 @@ dependencies {
 // Generated sources (KSP, Room, SQLDelight, Compose resources) are not ours to fix. The spec captures a
 // plain File, never the script, so the configuration cache can store it.
 tasks.withType<Detekt>().configureEach {
-    val generatedSources: File = project.layout.buildDirectory.get().asFile
+    val generatedSources: File =
+        project.layout.buildDirectory
+            .get()
+            .asFile
     exclude { it.file.startsWith(generatedSources) }
 }
 
