@@ -79,7 +79,9 @@ class UserDetailViewModel(
             name = "canEdit",
             previousValue = ready.canEdit,
             optimistic = { current, value -> current.copy(canEdit = value) },
-            save = { value -> adminRepository.updateUser(userId = userId, permissions = UserPermissionsPatch(canEditMetadata = value)) },
+            save = { value ->
+                adminRepository.updateUser(userId = userId, permissions = UserPermissionsPatch(canEditMetadata = value))
+            },
             reconcile = { current, user -> current.copy(canEdit = user.permissions.canEditMetadata) },
         )
     }

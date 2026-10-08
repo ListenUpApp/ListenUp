@@ -97,14 +97,24 @@ fun accessLabelFor(
     advertised: Set<Permission>,
 ): AccessLabel =
     when {
-        user.isRoot -> AccessLabel.OWNER
-        user.role.equals("ADMIN", ignoreCase = true) -> AccessLabel.ADMIN
-        !presetsApply(advertised) -> AccessLabel.MEMBER
-        else ->
+        user.isRoot -> {
+            AccessLabel.OWNER
+        }
+
+        user.role.equals("ADMIN", ignoreCase = true) -> {
+            AccessLabel.ADMIN
+        }
+
+        !presetsApply(advertised) -> {
+            AccessLabel.MEMBER
+        }
+
+        else -> {
             when (presetFor(user.permissions, advertised)) {
                 PermissionPreset.LISTENER -> AccessLabel.LISTENER
                 PermissionPreset.CONTRIBUTOR -> AccessLabel.CONTRIBUTOR
                 PermissionPreset.LIBRARIAN -> AccessLabel.LIBRARIAN
                 PermissionPreset.CUSTOM -> AccessLabel.CUSTOM
             }
+        }
     }

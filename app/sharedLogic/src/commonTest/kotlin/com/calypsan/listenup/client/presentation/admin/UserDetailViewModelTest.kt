@@ -153,7 +153,12 @@ class UserDetailViewModelTest :
                 val adminRepository: AdminRepository = mock()
                 everySuspend { adminRepository.getUser("user-1") } returns
                     AppResult.Success(createUser(canEdit = false))
-                everySuspend { adminRepository.updateUser(userId = "user-1", permissions = UserPermissionsPatch(canEditMetadata = true)) } returns
+                everySuspend {
+                    adminRepository.updateUser(
+                        userId = "user-1",
+                        permissions = UserPermissionsPatch(canEditMetadata = true),
+                    )
+                } returns
                     networkFailure()
 
                 val viewModel =
@@ -182,7 +187,9 @@ class UserDetailViewModelTest :
                 val adminRepository: AdminRepository = mock()
                 val user = createUser(canEdit = false)
                 everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(user)
-                everySuspend { adminRepository.updateUser(userId = "user-1", permissions = UserPermissionsPatch(canEditMetadata = true)) } sequentiallyReturns
+                everySuspend {
+                    adminRepository.updateUser(userId = "user-1", permissions = UserPermissionsPatch(canEditMetadata = true))
+                } sequentiallyReturns
                     listOf(
                         networkFailure(),
                         AppResult.Success(user.copy(permissions = UserPermissions(canEditMetadata = true))),
