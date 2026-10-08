@@ -51,8 +51,18 @@ private val RESULT =
 /** The fields a client shipped before people matching went role-free requires on every candidate. */
 private val LEGACY_CANDIDATE_FIELDS =
     setOf(
-        "key", "name", "roles", "photoUrl", "knownWorks", "worksCount", "libraryCount", "foundIn", "tier", "isBest",
-        "isCurrentLink", "reasons",
+        "key",
+        "name",
+        "roles",
+        "photoUrl",
+        "knownWorks",
+        "worksCount",
+        "libraryCount",
+        "foundIn",
+        "tier",
+        "isBest",
+        "isCurrentLink",
+        "reasons",
     )
 
 /** Every people Find type crosses the wire intact, and older clients — which name a role — still decode. */
@@ -88,7 +98,10 @@ class PeopleFindContractTest :
         }
 
         test("a result for a new client names no role") {
-            contractJson.encodeToJsonElement(PersonFindResult.serializer(), RESULT).jsonObject.keys.contains("role") shouldBe
+            contractJson
+                .encodeToJsonElement(PersonFindResult.serializer(), RESULT)
+                .jsonObject.keys
+                .contains("role") shouldBe
                 false
         }
 

@@ -36,7 +36,7 @@ class PersonMatchLayoutTest {
 
     private fun setScreen(
         review: PersonReviewUiState,
-        find: PersonFindUiState = PersonMatchFixtures.narratorResults.copy(pickedKey = PersonMatchFixtures.rayPorter.key),
+        find: PersonFindUiState = PersonMatchFixtures.rayResults.copy(pickedKey = PersonMatchFixtures.rayPorter.key),
         dark: Boolean = false,
         largeText: Boolean = false,
     ) {
@@ -72,7 +72,7 @@ class PersonMatchLayoutTest {
     @Test
     @Config(qualifiers = Windows.PHONE)
     fun `on a phone Find stands alone until a person is picked`() {
-        setScreen(PersonReviewUiState.NoneChosen, find = PersonMatchFixtures.narratorResults)
+        setScreen(PersonReviewUiState.NoneChosen, find = PersonMatchFixtures.rayResults)
 
         composeRule.onNodeWithTag(FIND_PANE_TAG).assertIsDisplayed()
         composeRule.onAllNodes(hasTestTag(REVIEW_PANE_TAG)).fetchSemanticsNodes().size shouldBe 0
@@ -86,7 +86,7 @@ class PersonMatchLayoutTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag(REVIEW_PANE_TAG).assertIsDisplayed()
-        composeRule.onNodeWithText("Ray Porter · narrator · Review").assertIsDisplayed()
+        composeRule.onNodeWithText("Ray Porter · Review").assertIsDisplayed()
     }
 
     @Test
@@ -94,7 +94,7 @@ class PersonMatchLayoutTest {
     fun `the two panes render in the dark theme`() {
         setScreen(PersonMatchFixtures.ready, dark = true)
 
-        composeRule.onNodeWithText("Atlas has no narrator profiles, so this search uses Beacon.").assertIsDisplayed()
+        composeRule.onNodeWithText("Started from the 5 books crediting Ray Porter in your library.").assertIsDisplayed()
         composeRule.onNodeWithTag(APPLY_SUMMARY_TAG).assertIsDisplayed()
     }
 
@@ -112,10 +112,11 @@ class PersonMatchLayoutTest {
 
     @Test
     @Config(qualifiers = Windows.PHONE)
-    fun `at the largest text the role switch and the first person still show`() {
-        setScreen(PersonReviewUiState.NoneChosen, find = PersonMatchFixtures.narratorResults, largeText = true)
+    fun `at the largest text the evidence strip reads without mid-word breaks`() {
+        setScreen(PersonReviewUiState.NoneChosen, find = PersonMatchFixtures.rayResults, largeText = true)
 
-        composeRule.onNode(hasText("As narrator"), useUnmergedTree = true).assertNoMidWordBreaks()
-        composeRule.onNode(hasText("Ray Porter · narrator"), useUnmergedTree = true).assertIsDisplayed()
+        composeRule
+            .onNode(hasText("Narrated 5 of your books · Translated 1", substring = true), useUnmergedTree = true)
+            .assertNoMidWordBreaks()
     }
 }

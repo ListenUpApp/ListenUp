@@ -99,8 +99,9 @@ class PersonMatchViewModelTest :
                     )
                 subscribe(rig.vm)
                 advanceUntilIdle()
-                val strip = rig.vm.findState.value.inLibrary
-                    .shouldNotBeNull()
+                val strip =
+                    rig.vm.findState.value.inLibrary
+                        .shouldNotBeNull()
                 strip.credits.map { it.role } shouldBe
                     listOf(ContributorRole.TRANSLATOR, ContributorRole.AUTHOR, ContributorRole.NARRATOR)
                 strip.bookCount shouldBe 3

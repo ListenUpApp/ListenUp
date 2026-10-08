@@ -36,7 +36,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.FieldChoice
 import com.calypsan.listenup.api.dto.match.FieldState
 import com.calypsan.listenup.api.dto.match.ImageChoice
@@ -81,6 +80,7 @@ import listenup.composeapp.generated.resources.match_section_fills_gap
 import listenup.composeapp.generated.resources.match_section_photo
 import listenup.composeapp.generated.resources.match_source_switch_a11y
 import listenup.composeapp.generated.resources.match_strong_match
+import listenup.composeapp.generated.resources.match_person_header_found_in
 import listenup.composeapp.generated.resources.match_subtitle_review
 import listenup.composeapp.generated.resources.match_title
 import listenup.composeapp.generated.resources.match_what_will_change
@@ -105,7 +105,6 @@ internal fun PersonReviewPane(
     state: PersonReviewUiState,
     contributorId: String,
     header: PersonHeaderUi?,
-    role: ContributorRole,
     viewerId: String?,
     isTwoPane: Boolean,
     actions: PersonMatchActions,
@@ -119,7 +118,7 @@ internal fun PersonReviewPane(
             } else {
                 ListenUpTopAppBar(
                     title = stringResource(Res.string.match_title),
-                    subtitle = header?.let { stringResource(Res.string.match_subtitle_review, personSubtitle(it.name, role)) },
+                    subtitle = header?.let { stringResource(Res.string.match_subtitle_review, it.name) },
                     onBack = actions::backToResults,
                     navigationContentDescription = stringResource(Res.string.match_back_to_results),
                 )
@@ -161,7 +160,7 @@ private fun PersonReviewContent(
         contentPadding = PaddingValues(start = Spacing.screenMargin, end = Spacing.screenMargin, bottom = Spacing.xl),
         verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
     ) {
-        item(key = "header") { PersonReviewHeader(ready.candidate, ready.role) }
+        item(key = "header") { PersonReviewHeader(ready.candidate) }
         item(key = "summary") { WhatWillChangeNote() }
         ready.photo?.let { photo ->
             item(key = "photo") {
@@ -183,10 +182,7 @@ private fun PersonReviewContent(
 /** The candidate's photo, Strong match or Maybe, their name, "Narrator · from Beacon" and their books here. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun PersonReviewHeader(
-    candidate: PersonCandidateUi,
-    role: ContributorRole,
-) {
+private fun PersonReviewHeader(candidate: PersonCandidateUi) {
     val strong = candidate.tier == MatchTier.STRONG
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
@@ -209,11 +205,14 @@ private fun PersonReviewHeader(
                 modifier = Modifier.semantics { heading() },
             )
             Text(
-                text = stringResource(Res.string.match_person_header_from, roleName(role), sourcesPhrase(candidate.foundIn)),
+                text =
+                    candidate.shownRole?.let {
+                        stringResource(Res.string.match_person_header_from, roleName(it), sourcesPhrase(candidate.foundIn))
+                    } ?: stringResource(Res.string.match_person_header_found_in, sourcesPhrase(candidate.foundIn)),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            candidate.libraryLine(role)?.let {
+            candidate.libraryLine()?.let {
                 Text(
                     text = it,
                     style = MaterialTheme.typography.bodySmall,

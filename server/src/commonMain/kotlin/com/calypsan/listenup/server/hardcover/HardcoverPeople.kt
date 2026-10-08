@@ -73,7 +73,10 @@ internal class HardcoverPeople(
                 .flatMap { it.credits }
                 .forEach { credit ->
                     credited.getOrPut(credit.person.id) { mutableSetOf() } += book.bookId
-                    credit.role.toContributorRole()?.let { creditedAs.getOrPut(credit.person.id) { mutableSetOf() } += it }
+                    credit.role.toContributorRole()?.let {
+                        creditedAs.getOrPut(credit.person.id) { mutableSetOf() } +=
+                            it
+                    }
                     viaBooks.getOrPut(credit.person.id) { credit.person }
                 }
         }

@@ -69,7 +69,12 @@ class PersonMatchViewModel internal constructor(
                 flowOf(InLibraryUi(emptyList(), 0, emptyList(), emptyList()))
             } else {
                 combine(
-                    credits.map { contributorRepository.observeBooksForContributorRole(contributorId, it.role.apiValue) },
+                    credits.map {
+                        contributorRepository.observeBooksForContributorRole(
+                            contributorId,
+                            it.role.apiValue,
+                        )
+                    },
                 ) { byRole ->
                     val books = byRole.flatMap { it.toList() }.map { it.book }.distinctBy { it.id }
                     val shown = books.take(LIBRARY_STRIP_BOOKS)

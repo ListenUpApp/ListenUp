@@ -96,7 +96,6 @@ fun PersonMatchScreen(
                 state = reviewState,
                 contributorId = contributorId,
                 header = findState.header,
-                role = (reviewState as? PersonReviewUiState.Ready)?.role ?: findState.role,
                 viewerId = viewerId,
                 isTwoPane = isTwoPane,
                 actions = actions,

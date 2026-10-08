@@ -101,7 +101,8 @@ class AudnexusPeopleTest :
         test("your books' Audible credits name the author and count the books, whatever your credit says") {
             val api = PeopleAudnexus(books = mapOf(PHM.asin to PHM), profiles = mapOf(WEIR.asin to WEIR, TAYLOR.asin to TAYLOR))
             audnexusPeopleTest(api) { provider ->
-                val book = PersonLibraryBook(
+                val book =
+                    PersonLibraryBook(
                         "b-phm",
                         "Project Hail Mary",
                         asin = PHM.asin,

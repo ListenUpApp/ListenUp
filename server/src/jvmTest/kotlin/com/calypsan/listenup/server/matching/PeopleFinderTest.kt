@@ -44,8 +44,12 @@ class PeopleFinderTest :
 
                 val result = rig.finder.find(porterSubject(), PersonFindRequest(), US)
 
-                rig.audnexus.asked.single().name shouldBe "Ray Porter"
-                rig.hardcover.asked.single().name shouldBe "Ray Porter"
+                rig.audnexus.asked
+                    .single()
+                    .name shouldBe "Ray Porter"
+                rig.hardcover.asked
+                    .single()
+                    .name shouldBe "Ray Porter"
                 result.role shouldBe null
                 result.coverage shouldBe listOf(RoleCoverage(AUDIBLE, true), RoleCoverage(HARDCOVER, true))
                 result.sources shouldBe listOf(SourceStatus.Answered(AUDIBLE, 1), SourceStatus.Answered(HARDCOVER, 1))

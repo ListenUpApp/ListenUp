@@ -23,7 +23,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.FieldChoice
 import com.calypsan.listenup.api.dto.match.FieldState
 import com.calypsan.listenup.api.dto.match.ImageChoice
@@ -55,7 +54,6 @@ class PersonMatchReviewTest {
                     state = state,
                     contributorId = PersonMatchFixtures.CONTRIBUTOR_ID,
                     header = PersonMatchFixtures.ray,
-                    role = ContributorRole.NARRATOR,
                     viewerId = MatchFixtures.VIEWER_ID,
                     isTwoPane = false,
                     actions = actions,
@@ -76,11 +74,11 @@ class PersonMatchReviewTest {
     fun `Review opens on the person, says what will change, and has a heading for every section`() {
         setReview(PersonMatchFixtures.ready)
 
-        composeRule.onNodeWithText("Ray Porter · narrator · Review").assertIsDisplayed()
+        composeRule.onNodeWithText("Ray Porter · Review").assertIsDisplayed()
         composeRule.onNode(hasText("Ray Porter") and isHeading()).assertIsDisplayed()
         composeRule.onNodeWithText("Strong match").assertIsDisplayed()
         composeRule.onNodeWithText("Narrator · from Beacon").assertIsDisplayed()
-        composeRule.onNodeWithText("Narrated 5 books in your library").assertIsDisplayed()
+        composeRule.onNodeWithText("Narrated 4 of your books · Translated 1").assertIsDisplayed()
         composeRule.onNode(hasText("What will change") and isHeading()).assertIsDisplayed()
         composeRule.onNodeWithText("Photo and biography, chosen separately.").assertIsDisplayed()
         scrollTo("Photo")

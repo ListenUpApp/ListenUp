@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.match
 
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.FieldChoice
 import com.calypsan.listenup.api.dto.match.ImageChoice
 import com.calypsan.listenup.api.dto.match.PersonCandidateKey
@@ -13,9 +12,6 @@ import com.calypsan.listenup.client.presentation.match.PersonMatchViewModel
 interface PersonMatchActions {
     /** Searches for [query]; blank goes back to the automatic search. */
     fun search(query: String)
-
-    /** Matches the person as [role]: As author | As narrator. */
-    fun switchRole(role: ContributorRole)
 
     /** Runs Find again. */
     fun retry()
@@ -47,8 +43,6 @@ internal class ViewModelPersonMatchActions(
     private val viewModel: PersonMatchViewModel,
 ) : PersonMatchActions {
     override fun search(query: String) = viewModel.search(query)
-
-    override fun switchRole(role: ContributorRole) = viewModel.switchRole(role)
 
     override fun retry() = viewModel.retry()
 
