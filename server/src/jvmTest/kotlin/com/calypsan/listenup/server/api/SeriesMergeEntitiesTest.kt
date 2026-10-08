@@ -15,6 +15,7 @@ import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.EntityRepository
+import com.calypsan.listenup.server.sync.ReadingOrderRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.bookPayloadFixture
@@ -234,6 +235,7 @@ private fun SqlTestDatabases.mergeRig(): MergeRig {
             bookRepo = bookRepo,
             sqlDb = sql,
             accessPolicy = BookAccessPolicy(sql, driver),
+            readingOrders = ReadingOrderRepository(sql, bus, registry),
             principal = rootPrincipal(),
             entityRepo = entities,
         )
