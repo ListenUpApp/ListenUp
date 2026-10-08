@@ -101,6 +101,36 @@
         }
       }
     },
+    "admin.admins_can_do_everything": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Admins can do everything"
+          }
+        }
+      }
+    },
+    "admin.admins_can_do_everything_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ can edit, merge and delete anything in the library, and manage people, collections and server settings."
+          }
+        }
+      }
+    },
+    "admin.admins_change_role_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To choose what %1$@ can do, change their role to Member."
+          }
+        }
+      }
+    },
     "admin.all_users_are_already_members": {
       "localizations": {
         "en": {
@@ -577,6 +607,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Creating backup..."
+          }
+        }
+      }
+    },
+    "admin.curate_library_warning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ will be able to merge and delete these for everyone on this server. Deletes can't be undone."
           }
         }
       }
@@ -1341,6 +1381,36 @@
         }
       }
     },
+    "admin.make_admin_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Admins can do everything: edit, merge and delete anything in the library, and manage people, collections and server settings."
+          }
+        }
+      }
+    },
+    "admin.make_admin_confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Make admin"
+          }
+        }
+      }
+    },
+    "admin.make_admin_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Make %1$@ an admin?"
+          }
+        }
+      }
+    },
     "admin.management": {
       "localizations": {
         "en": {
@@ -1527,6 +1597,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No users available"
+          }
+        }
+      }
+    },
+    "admin.older_server_one_permission": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This server can only set this one permission. Update ListenUp on the server for the rest."
           }
         }
       }
@@ -1847,6 +1927,146 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pending registrations"
+          }
+        }
+      }
+    },
+    "admin.permission_curate_library": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Curate library"
+          }
+        }
+      }
+    },
+    "admin.permission_curate_library_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merge or delete series, authors, genres, tags and moods."
+          }
+        }
+      }
+    },
+    "admin.permission_edit_metadata": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit metadata"
+          }
+        }
+      }
+    },
+    "admin.permission_edit_metadata_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fix titles, covers, chapters and matches."
+          }
+        }
+      }
+    },
+    "admin.permission_group_library": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library"
+          }
+        }
+      }
+    },
+    "admin.preset": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preset"
+          }
+        }
+      }
+    },
+    "admin.preset_contributor": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contributor"
+          }
+        }
+      }
+    },
+    "admin.preset_contributor_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fixes books and their details. Can't merge or delete."
+          }
+        }
+      }
+    },
+    "admin.preset_custom": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Custom"
+          }
+        }
+      }
+    },
+    "admin.preset_custom_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These don't match a preset. Pick one to start again from it."
+          }
+        }
+      }
+    },
+    "admin.preset_librarian": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Librarian"
+          }
+        }
+      }
+    },
+    "admin.preset_librarian_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everything a member can do, including merging and deleting."
+          }
+        }
+      }
+    },
+    "admin.preset_listener": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listener"
+          }
+        }
+      }
+    },
+    "admin.preset_listener_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listens and browses. Changes nothing."
           }
         }
       }
@@ -2591,6 +2811,26 @@
         }
       }
     },
+    "admin.role_and_permissions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Role and permissions"
+          }
+        }
+      }
+    },
+    "admin.role_owner": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Owner"
+          }
+        }
+      }
+    },
     "admin.save_and_scan_folder": {
       "localizations": {
         "en": {
@@ -2807,6 +3047,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Top level"
+          }
+        }
+      }
+    },
+    "admin.unsaved_change_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 unsaved change"
+          }
+        }
+      }
+    },
+    "admin.unsaved_changes_many": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d unsaved changes"
           }
         }
       }
