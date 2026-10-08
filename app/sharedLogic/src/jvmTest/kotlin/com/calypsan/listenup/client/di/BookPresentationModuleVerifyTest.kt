@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.BookRatingRepository
@@ -73,6 +74,7 @@ import org.koin.test.verify.verify
  *  - [MoodRepository] — owned by `genreTagModule`.
  *  - [PlaybackManager] / [PlaybackController] — owned by the platform playback modules; the chapter
  *    editor's "Play from here" and its file boundaries read them.
+ *  - [PermissionsRepository] — owned by `socialModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class BookPresentationModuleVerifyTest :
@@ -82,6 +84,7 @@ class BookPresentationModuleVerifyTest :
             bookPresentationModule.verify(
                 extraTypes =
                     listOf(
+                        PermissionsRepository::class,
                         BookRepository::class,
                         PlaybackManager::class,
                         PlaybackController::class,

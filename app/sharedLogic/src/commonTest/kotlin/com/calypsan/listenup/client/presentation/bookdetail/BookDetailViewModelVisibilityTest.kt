@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
+import com.calypsan.listenup.api.dto.auth.Permission
+import com.calypsan.listenup.client.test.fake.FakePermissionsRepository
 import app.cash.turbine.test
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
@@ -66,6 +68,7 @@ class BookDetailViewModelVisibilityTest :
             val tagRepository: TagRepository = mock()
             val playbackPositionRepository: PlaybackPositionRepository = mock()
             val userRepository: UserRepository = mock()
+            val permissionsRepository = FakePermissionsRepository(Permission.EDIT_METADATA)
             val shelfRepository: ShelfRepository = mock()
             val collectionRepository: CollectionRepository = mock()
             val documentRepository: DocumentRepository = mock()
@@ -93,6 +96,7 @@ class BookDetailViewModelVisibilityTest :
                     tagRepository = tagRepository,
                     playbackPositionRepository = playbackPositionRepository,
                     userRepository = userRepository,
+                    permissionsRepository = permissionsRepository,
                     shelfRepository = shelfRepository,
                     collectionRepository = collectionRepository,
                     addBooksToShelfUseCase = mock(),

@@ -351,6 +351,7 @@ internal val bookPresentationModule =
                 tagRepository = get(),
                 playbackPositionRepository = get(),
                 userRepository = get(),
+                permissionsRepository = get(),
                 shelfRepository = get(),
                 collectionRepository = get(),
                 addBooksToShelfUseCase = get(),
