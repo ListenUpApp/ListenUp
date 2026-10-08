@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.domain.model
 
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.api.dto.entity.StoryWorldOp
 import com.calypsan.listenup.api.sync.EntityKind
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.EntityId
@@ -51,11 +50,26 @@ data class EntityEdit(
     val wasDelete: Boolean = false,
 )
 
-/** One entry of an entity's history, as read from the server (see `EntityService.listHistory`). */
+/** What one [WorldEntityChange] did to its entity. */
+enum class WorldEntityChangeOp {
+    CREATE,
+    UPDATE,
+    DELETE,
+    MERGE,
+
+    /** Restored an earlier change's `before`; itself revertible. */
+    REVERT,
+}
+
+/**
+ * One entry of an entity's history, as read from the server (see `EntityService.listHistory`).
+ *
+ * @property actorId who made the change; null when the server didn't record one.
+ */
 data class WorldEntityChange(
     val id: StoryWorldHistoryId,
     val entityId: EntityId,
-    val op: StoryWorldOp,
+    val op: WorldEntityChangeOp,
     val actorId: UserId?,
     val occurredAtMs: Long,
     val before: WorldEntity?,

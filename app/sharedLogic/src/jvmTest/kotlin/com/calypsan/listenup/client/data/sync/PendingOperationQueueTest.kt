@@ -5,6 +5,8 @@ import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.EntityKind
+import com.calypsan.listenup.client.data.local.db.EntityEntity
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
@@ -549,6 +551,243 @@ class PendingOperationQueueTest :
 
                     // The delete must have rolled back with the failed insert.
                     db.pendingOperationV2Dao().observePending().first() shouldHaveSize 1
+                } finally {
+                    db.close()
+                }
+            }
+        }
+        // ---- cancelUnsent: the queue-level contract an undo of a delete stands on ----
+
+        test("cancelUnsent withdraws a never-attempted op, runs alongside, and reports Cancelled") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val queue = PendingOperationQueue(db.pendingOperationV2Dao(), sender = { AppResult.Success(Unit) })
+                    queue.enqueue(updateDeleteChannel, "e1", OpKind.Delete, "{}", "u1")
+                    var ranAlongside = false
+
+                    queue.cancelUnsent(updateDeleteChannel, "e1", OpKind.Delete) { ranAlongside = true } shouldBe
+                        UnsentCancel.Cancelled
+
+                    ranAlongside shouldBe true
+                    db.pendingOperationV2Dao().observePending().first() shouldHaveSize 0
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        // A pre-send failure never reached the server, so the op is as unsent as one never attempted.
+        listOf(
+            "NetworkUnavailable" to TransportError.NetworkUnavailable(),
+            "Timeout" to TransportError.Timeout(),
+            "AuthError" to AuthError.SessionExpired(),
+        ).forEach { (name, error) ->
+            test("cancelUnsent withdraws an op parked by a pre-send $name, which never reached the server") {
+                runTest {
+                    val db = createInMemoryTestDatabase()
+                    try {
+                        val queue = PendingOperationQueue(db.pendingOperationV2Dao(), sender = { AppResult.Failure(error) })
+                        queue.enqueue(updateDeleteChannel, "e1", OpKind.Delete, "{}", "u1")
+                        queue.drain().parkedFailures shouldBe 1
+
+                        queue.cancelUnsent(updateDeleteChannel, "e1", OpKind.Delete) {} shouldBe UnsentCancel.Cancelled
+
+                        db.pendingOperationV2Dao().observePending().first() shouldHaveSize 0
+                    } finally {
+                        db.close()
+                    }
+                }
+            }
+        }
+
+        // Each of these handed the op to the server without a verdict that it didn't land. The real `entities`
+        // channel, because it is idempotent: an OutcomeUnknown parks there rather than dead-lettering.
+        listOf(
+            "an OutcomeUnknown park" to PendingOperationSender { AppResult.Failure(TransportError.OutcomeUnknown()) },
+            "a server-answered 5xx burn" to
+                PendingOperationSender { AppResult.Failure(TransportError.Server5xx(statusCode = 503)) },
+            "a sender that throws" to PendingOperationSender { error("socket died mid-send") },
+        ).forEach { (name, sender) ->
+            test("cancelUnsent leaves an op alone after $name, since it may have landed") {
+                runTest {
+                    val db = createInMemoryTestDatabase()
+                    try {
+                        val queue = PendingOperationQueue(db.pendingOperationV2Dao(), sender = sender)
+                        queue.enqueue(OutboxChannels.Entities, "e1", OpKind.Delete, "{}", "u1")
+                        queue.drain()
+                        var ranAlongside = false
+
+                        queue.cancelUnsent(OutboxChannels.Entities, "e1", OpKind.Delete) { ranAlongside = true } shouldBe
+                            UnsentCancel.Attempted
+
+                        ranAlongside shouldBe false
+                        db.pendingOperationV2Dao().observePending().first() shouldHaveSize 1
+                    } finally {
+                        db.close()
+                    }
+                }
+            }
+        }
+
+        test("a later pre-send park does not launder an earlier may-have-landed attempt") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val replies =
+                        ArrayDeque<AppResult<Unit>>(
+                            listOf(
+                                AppResult.Failure(TransportError.OutcomeUnknown()),
+                                AppResult.Failure(TransportError.NetworkUnavailable()),
+                            ),
+                        )
+                    val queue = PendingOperationQueue(db.pendingOperationV2Dao(), sender = { replies.removeFirst() })
+                    queue.enqueue(OutboxChannels.Entities, "e1", OpKind.Delete, "{}", "u1")
+                    queue.drain()
+                    queue.drain()
+
+                    queue.cancelUnsent(OutboxChannels.Entities, "e1", OpKind.Delete) {} shouldBe UnsentCancel.Attempted
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("cancelUnsent withdraws a dead letter the server refused, runs alongside, and reports DeadLettered") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val queue =
+                        PendingOperationQueue(
+                            db.pendingOperationV2Dao(),
+                            sender = { AppResult.Failure(TransportError.Server4xx(statusCode = 400)) },
+                        )
+                    queue.enqueue(updateDeleteChannel, "e1", OpKind.Delete, "{}", "u1")
+                    queue.drain().terminalFailures shouldBe 1
+                    var ranAlongside = false
+
+                    queue.cancelUnsent(updateDeleteChannel, "e1", OpKind.Delete) { ranAlongside = true } shouldBe
+                        UnsentCancel.DeadLettered
+
+                    ranAlongside shouldBe true
+                    db.pendingOperationV2Dao().observeFailed().first() shouldHaveSize 0
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("a dead letter that may have landed is Attempted, and stays for the failed-operations surface") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    // An undeclared channel is not idempotent, so a lost response dead-letters instead of parking.
+                    val queue =
+                        PendingOperationQueue(
+                            db.pendingOperationV2Dao(),
+                            sender = { AppResult.Failure(TransportError.OutcomeUnknown()) },
+                        )
+                    queue.enqueue(updateDeleteChannel, "e1", OpKind.Delete, "{}", "u1")
+                    queue.drain().terminalFailures shouldBe 1
+
+                    queue.cancelUnsent(updateDeleteChannel, "e1", OpKind.Delete) {} shouldBe UnsentCancel.Attempted
+
+                    db.pendingOperationV2Dao().observeFailed().first() shouldHaveSize 1
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("cancelUnsent waits for an in-flight send to resolve, then reports NotQueued") {
+            runBlocking {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val senderEntered = CompletableDeferred<Unit>()
+                    val releaseSend = CompletableDeferred<Unit>()
+                    val queue =
+                        PendingOperationQueue(
+                            db.pendingOperationV2Dao(),
+                            sender = {
+                                senderEntered.complete(Unit)
+                                releaseSend.await()
+                                AppResult.Success(Unit)
+                            },
+                        )
+                    queue.enqueue(updateDeleteChannel, "e1", OpKind.Delete, "{}", "u1")
+
+                    val drain = async { queue.drain() }
+                    senderEntered.await()
+                    val cancel = async { queue.cancelUnsent(updateDeleteChannel, "e1", OpKind.Delete) {} }
+                    // Without the drain lock, cancel would read the still-queued, never-attempted row right
+                    // now and withdraw a Delete that is already on the wire.
+                    delay(100)
+                    cancel.isCompleted shouldBe false
+
+                    releaseSend.complete(Unit)
+                    drain.await().sent shouldBe 1
+                    cancel.await() shouldBe UnsentCancel.NotQueued
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("cancelUnsent rolls back when alongside throws: the op stays queued and the local row is unchanged") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val tombstone =
+                        EntityEntity(
+                            id = "e1",
+                            kind = EntityKind.CHARACTER,
+                            name = "Darrow",
+                            deletedAt = 40,
+                            createdAt = 1,
+                            updatedAt = 40,
+                        )
+                    db.entityDao().upsert(tombstone)
+                    val queue =
+                        PendingOperationQueue(
+                            db.pendingOperationV2Dao(),
+                            sender = { AppResult.Success(Unit) },
+                            transactionRunner = RoomTransactionRunner(db),
+                        )
+                    queue.enqueue(updateDeleteChannel, "e1", OpKind.Delete, "{}", "u1")
+
+                    shouldThrow<IllegalStateException> {
+                        queue.cancelUnsent(updateDeleteChannel, "e1", OpKind.Delete) {
+                            db.entityDao().upsert(tombstone.copy(deletedAt = null))
+                            error("restore boom")
+                        }
+                    }
+
+                    db.pendingOperationV2Dao().observePending().first() shouldHaveSize 1
+                    db.entityDao().findById("e1") shouldBe tombstone
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("cancelUnsent touches only its own slot: other entities, op kinds and channels keep their rows") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val queue = PendingOperationQueue(db.pendingOperationV2Dao(), sender = { AppResult.Success(Unit) })
+                    queue.enqueue(updateDeleteChannel, "e1", OpKind.Delete, "{}", "u1")
+                    val sameEntityUpdate = queue.enqueue(updateDeleteChannel, "e1", OpKind.Update, "{}", "u1")
+                    val otherEntity = queue.enqueue(updateDeleteChannel, "e2", OpKind.Delete, "{}", "u1")
+                    val otherChannel = queue.enqueue(upsertOnlyChannel, "e1", OpKind.Upsert, "{}", "u1")
+
+                    queue.cancelUnsent(updateDeleteChannel, "e1", OpKind.Delete) {} shouldBe UnsentCancel.Cancelled
+
+                    db
+                        .pendingOperationV2Dao()
+                        .observePending()
+                        .first()
+                        .map { it.clientOpId }
+                        .toSet() shouldBe setOf(sameEntityUpdate, otherEntity, otherChannel)
                 } finally {
                     db.close()
                 }

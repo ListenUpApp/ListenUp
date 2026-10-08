@@ -117,6 +117,21 @@ private enum class FailureDisposition {
 }
 
 /**
+ * True for the failures [classifyFailure] parks as pre-send: the request never reached a responding server, so
+ * it cannot have landed — an unreachable or timed-out connect, or an auth rejection at the RPC handshake.
+ */
+private fun AppError.isPreSend(): Boolean =
+    this is TransportError.NetworkUnavailable || this is TransportError.Timeout || this is AuthError
+
+/**
+ * True when a terminal failure is the server's verdict that the op did NOT land: a 4xx, or a typed domain
+ * error the server returned. Every other transport failure that reaches Terminal is no such verdict — a lost
+ * response ([TransportError.OutcomeUnknown]) or an unparseable 2xx ([TransportError.ContractMismatch],
+ * [TransportError.DataMalformed]) may well have been applied.
+ */
+private fun AppError.isRefusal(): Boolean = this !is TransportError || this is TransportError.Server4xx
+
+/**
  * Classify a drain failure against the budget contract. Unreachable failures ([TransportError.NetworkUnavailable],
  * [TransportError.Timeout] — post-B1 these are connect/pre-send only) never got a server verdict, so they park.
  * An [AuthError] is op-independent (the channel isn't authorized right now) and pre-delivery (401 at the RPC
@@ -131,13 +146,10 @@ private fun classifyFailure(
     domainName: String,
 ): FailureDisposition =
     when {
-        error is TransportError.NetworkUnavailable || error is TransportError.Timeout -> {
-            FailureDisposition.Parked
-        }
-
-        // Op-independent + pre-delivery: the session lapsed/blipped, the op never reached the server.
-        // Park so it re-sends the instant the session recovers instead of dead-lettering the edit.
-        error is AuthError -> {
+        // Unreachable, or op-independent + pre-delivery (the session lapsed/blipped): the op never reached
+        // the server. Park so it re-sends the instant the server or session recovers instead of
+        // dead-lettering the edit.
+        error.isPreSend() -> {
             FailureDisposition.Parked
         }
 
@@ -352,14 +364,22 @@ internal class PendingOperationQueue(
     ): String? = dao.latestQueuedPayload(channel.name, entityId, op.wire)
 
     /**
-     * Takes back the queued [op] for ([channel], [entityId]) if it has never been sent, running [alongside]
+     * Takes back the [op] for ([channel], [entityId]) if the server never accepted it, running [alongside]
      * in the same transaction as the removal. Runs under the drain lock, so no send of that op can be in
      * flight while this decides: the answer is a fact about the queue, never a guess.
      *
-     * - [UnsentCancel.Cancelled]: every queued [op] was unattempted; they are gone and [alongside] ran.
-     * - [UnsentCancel.Attempted]: one was already handed to the server without a verdict (parked, or a
-     *   retryable failure) — it may have landed, so nothing is touched and [alongside] does not run.
-     * - [UnsentCancel.NotQueued]: none is queued — it was sent (or dead-lettered).
+     * "May have landed" is the row's sticky `mayHaveLanded` flag, not `lastAttemptAt`: a pre-send failure
+     * (unreachable, timeout, auth) stamps an attempt but never reached the server, so it stays withdrawable.
+     *
+     * - [UnsentCancel.Cancelled]: every such op was still dispatchable and none may have landed; they are
+     *   gone and [alongside] ran.
+     * - [UnsentCancel.DeadLettered]: the server refused it (a dead letter that can't have landed); the dead
+     *   letter is withdrawn and [alongside] ran.
+     * - [UnsentCancel.Attempted]: one may have reached the server without a verdict — it may have landed,
+     *   so nothing is touched and [alongside] does not run.
+     * - [UnsentCancel.NotQueued]: none is queued — it was sent and acknowledged.
+     *
+     * A throwing [alongside] rolls the removal back with it and propagates.
      */
     suspend fun cancelUnsent(
         channel: OutboxChannel<*>,
@@ -369,20 +389,24 @@ internal class PendingOperationQueue(
     ): UnsentCancel =
         drainMutex.withLock {
             transactionRunner.atomically {
-                val queued = dao.queuedOps(channel.name, entityId, op.wire)
+                val inSlot = dao.opsInSlot(channel.name, entityId, op.wire)
                 when {
-                    queued.isEmpty() -> {
+                    inSlot.isEmpty() -> {
                         UnsentCancel.NotQueued
                     }
 
-                    queued.any { it.lastAttemptAt != null } -> {
+                    inSlot.any { it.mayHaveLanded } -> {
                         UnsentCancel.Attempted
                     }
 
                     else -> {
-                        queued.forEach { dao.delete(it.clientOpId) }
+                        inSlot.forEach { dao.delete(it.clientOpId) }
                         alongside()
-                        UnsentCancel.Cancelled
+                        if (inSlot.any { it.failureCount > MAX_RETRYABLE_ATTEMPTS }) {
+                            UnsentCancel.DeadLettered
+                        } else {
+                            UnsentCancel.Cancelled
+                        }
                     }
                 }
             }
@@ -471,6 +495,8 @@ internal class PendingOperationQueue(
                                 failureCount = entity.failureCount + 1,
                                 lastAttemptAt = nowMillis(),
                                 lastError = e::class.simpleName ?: "SenderException",
+                                // A throw can come mid-send: nothing says the request didn't land.
+                                mayHaveLanded = true,
                             ),
                         )
                         retryableFailures++
@@ -491,7 +517,13 @@ internal class PendingOperationQueue(
                                 // attempt for diagnostics but KEEP failureCount, so an outage can never
                                 // silently exhaust an op's budget. It stays dispatchable and re-sends on the
                                 // next reachability edge.
-                                dao.update(entity.copy(lastAttemptAt = nowMillis(), lastError = error.code))
+                                dao.update(
+                                    entity.copy(
+                                        lastAttemptAt = nowMillis(),
+                                        lastError = error.code,
+                                        mayHaveLanded = entity.mayHaveLanded || !error.isPreSend(),
+                                    ),
+                                )
                                 parkedFailures++
                                 logger.warn {
                                     "Pending op ${op.clientOpId} parked (no server verdict): ${error.code} " +
@@ -508,6 +540,7 @@ internal class PendingOperationQueue(
                                         failureCount = newCount,
                                         lastAttemptAt = nowMillis(),
                                         lastError = error.code,
+                                        mayHaveLanded = true,
                                     ),
                                 )
                                 retryableFailures++
@@ -523,6 +556,7 @@ internal class PendingOperationQueue(
                                         failureCount = MAX_RETRYABLE_ATTEMPTS + 1,
                                         lastAttemptAt = nowMillis(),
                                         lastError = error.code,
+                                        mayHaveLanded = entity.mayHaveLanded || !error.isRefusal(),
                                     ),
                                 )
                                 terminalFailures++
@@ -636,12 +670,15 @@ internal class PendingOperationQueue(
 
 /** What [PendingOperationQueue.cancelUnsent] found. */
 internal enum class UnsentCancel {
-    /** The op was queued and never sent; it is withdrawn. */
+    /** The op was queued and never reached the server; it is withdrawn. */
     Cancelled,
 
-    /** The op was handed to the server without a verdict, so it may have landed; left queued. */
+    /** The server refused the op, so it never landed; the dead letter is withdrawn. */
+    DeadLettered,
+
+    /** The op may have reached the server without a verdict, so it may have landed; left queued. */
     Attempted,
 
-    /** No such op is queued: it was sent, or dead-lettered. */
+    /** No such op is queued: the server accepted it. */
     NotQueued,
 }

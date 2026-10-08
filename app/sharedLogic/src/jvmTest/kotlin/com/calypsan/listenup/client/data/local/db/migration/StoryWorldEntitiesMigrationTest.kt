@@ -9,12 +9,12 @@ import io.kotest.matchers.shouldBe
 
 /**
  * v18 → v19: the `entities` mirror (Story World) and the signed-in user's two Story World flags, with the
- * server's defaults (contribute on, curate off). Pure CREATE/ADD COLUMN — every existing row, the outbox
- * included, survives.
+ * server's defaults (contribute on, curate off), and the outbox's `mayHaveLanded` flag. Pure CREATE/ADD
+ * COLUMN — every existing row, the outbox included, survives.
  */
 class StoryWorldEntitiesMigrationTest :
     FunSpec({
-        test("MIGRATION_18_19 adds entities and the Story World flags, keeps users and the outbox, and validates against 19.json") {
+        test("MIGRATION_18_19 adds entities, the Story World flags and mayHaveLanded, keeping every row; matches 19.json") {
             val helper = createMigrationTestHelper()
             try {
                 val v18 = helper.createDatabase(version = 18)
@@ -40,9 +40,10 @@ class StoryWorldEntitiesMigrationTest :
                     row.step() shouldBe true
                     row.getLong(0) shouldBe 0
                 }
-                v19.withStatement("SELECT COUNT(*) FROM pending_operation") { row ->
+                v19.withStatement("SELECT COUNT(*), MAX(mayHaveLanded) FROM pending_operation") { row ->
                     row.step() shouldBe true
                     row.getLong(0) shouldBe 1
+                    row.getLong(1) shouldBe 0
                 }
             } finally {
                 helper.close()

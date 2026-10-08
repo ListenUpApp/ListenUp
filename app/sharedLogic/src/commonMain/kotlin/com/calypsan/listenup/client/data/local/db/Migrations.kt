@@ -419,9 +419,11 @@ internal val MIGRATION_17_18 =
 /**
  * v18 → v19: Story World. The `entities` mirror (the access-gated, outbox-backed `entities` sync domain) and
  * the signed-in user's `canContributeStoryWorld` / `canCurateStoryWorld`, defaulting to the server's own
- * column defaults (contribute on, curate off) until the next sign-in brings the real values. Pure
- * CREATE / ADD COLUMN, per the migration policy in [ListenUpDatabase] — the outbox is untouched. The new
- * domain has no cursor yet, so its first catch-up starts from zero by itself.
+ * column defaults (contribute on, curate off) until the next sign-in brings the real values. Also the outbox's
+ * `pending_operation.mayHaveLanded` flag, which lets an undo withdraw a Delete that a pre-send failure parked.
+ * Pure CREATE / ADD COLUMN, per the migration policy in [ListenUpDatabase] — every queued op survives. Existing
+ * ops start at `mayHaveLanded = 0`: only the new `entities` channel ever asks, and none of its ops can predate
+ * this version. The new domain has no cursor yet, so its first catch-up starts from zero by itself.
  */
 internal val MIGRATION_18_19 =
     object : Migration(18, 19) {
@@ -438,5 +440,6 @@ internal val MIGRATION_18_19 =
             connection.executeDdl("CREATE INDEX IF NOT EXISTS `index_entities_deletedAt` ON `entities` (`deletedAt`)")
             connection.executeDdl("ALTER TABLE `users` ADD COLUMN `canContributeStoryWorld` INTEGER NOT NULL DEFAULT 1")
             connection.executeDdl("ALTER TABLE `users` ADD COLUMN `canCurateStoryWorld` INTEGER NOT NULL DEFAULT 0")
+            connection.executeDdl("ALTER TABLE `pending_operation` ADD COLUMN `mayHaveLanded` INTEGER NOT NULL DEFAULT 0")
         }
     }

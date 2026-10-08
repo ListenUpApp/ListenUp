@@ -26,7 +26,9 @@ import com.calypsan.listenup.client.data.sync.domains.toEntityRow
 import com.calypsan.listenup.client.domain.model.EntityEdit
 import com.calypsan.listenup.client.domain.model.WorldEntity
 import com.calypsan.listenup.client.domain.model.WorldEntityChange
+import com.calypsan.listenup.client.domain.model.WorldEntityChangeOp
 import com.calypsan.listenup.client.domain.model.WorldEntityDraft
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.EntityEditRepository
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.EntityId
@@ -46,11 +48,14 @@ import kotlin.uuid.Uuid
  *
  * The server applies snapshots in arrival order and stamps its own clock, so an undo that is a forward
  * write wins simply by arriving after the edit it undoes. A delete is the exception — see [undo].
+ *
+ * [authSession] names the signed-in user, so an undo only ever reverts that user's own DELETE.
  */
 internal class EntityEditRepositoryImpl(
     private val entityDao: EntityDao,
     private val offlineEditor: OfflineEditor,
     private val channel: RpcChannel<EntityService>,
+    private val authSession: AuthSession,
 ) : EntityEditRepository {
     private val editMutex = Mutex()
 
@@ -108,47 +113,42 @@ internal class EntityEditRepositoryImpl(
             tombstone(existing).map { EntityEdit(id, before = existing.toDomain(), wasDelete = true) }
         }
 
-    override suspend fun undo(edit: EntityEdit): AppResult<Unit> =
-        editMutex.withLock {
-            val before = edit.before
-            when {
-                edit.wasDelete && before != null -> {
-                    undoDelete(edit.entityId, before)
-                }
-
+    override suspend fun undo(edit: EntityEdit): AppResult<Unit> {
+        val before = edit.before
+        if (edit.wasDelete && before != null) return undoDelete(edit.entityId, before)
+        return editMutex.withLock {
+            if (before == null) {
                 // Undo a create: delete what was created (nothing to do if it is already gone).
-                before == null -> {
-                    entityDao.getById(edit.entityId.value)?.let { tombstone(it) }
-                        ?: AppResult.Success(Unit)
-                }
-
+                entityDao.getById(edit.entityId.value)?.let { tombstone(it) } ?: AppResult.Success(Unit)
+            } else {
                 // Undo an edit: write the earlier content back over the live row, as a forward write.
-                else -> {
-                    val current = entityDao.getById(edit.entityId.value) ?: return@withLock notFound(edit.entityId)
-                    write(current.withContentOf(before, updatedAt = currentEpochMilliseconds()))
-                }
+                val current = entityDao.getById(edit.entityId.value) ?: return@withLock notFound(edit.entityId)
+                write(current.withContentOf(before, updatedAt = currentEpochMilliseconds()))
             }
         }
+    }
 
     /**
      * A delete is undone by what the outbox says about its Delete, never by a guess: withdrawn locally while
-     * unsent, refused while its outcome is unknown, and reverted on the server once sent.
+     * the server never accepted it (unsent, or refused), refused while its outcome is unknown, and reverted on
+     * the server once sent. Only the local withdrawal holds [editMutex]; the network revert runs after it is
+     * released, so a slow or unreachable server never stalls other edits.
      */
     private suspend fun undoDelete(
         id: EntityId,
         before: WorldEntity,
     ): AppResult<Unit> =
-        offlineEditor
-            .cancelUnsent(OutboxChannels.Entities, id.value, OpKind.Delete) {
-                val tombstone = entityDao.findById(id.value)
-                if (tombstone !=
-                    null
-                ) {
-                    entityDao.upsert(tombstone.withContentOf(before, updatedAt = tombstone.updatedAt))
+        editMutex
+            .withLock {
+                offlineEditor.cancelUnsent(OutboxChannels.Entities, id.value, OpKind.Delete) {
+                    val tombstone = entityDao.findById(id.value)
+                    if (tombstone != null) {
+                        entityDao.upsert(tombstone.withContentOf(before, updatedAt = tombstone.updatedAt))
+                    }
                 }
             }.flatMap { outcome ->
                 when (outcome) {
-                    UnsentCancel.Cancelled -> {
+                    UnsentCancel.Cancelled, UnsentCancel.DeadLettered -> {
                         AppResult.Success(Unit)
                     }
 
@@ -164,7 +164,10 @@ internal class EntityEditRepositoryImpl(
                 }
             }
 
-    /** Online: revert the entity's newest history entry if — and only if — it is the DELETE being undone. */
+    /**
+     * Online: revert the entity's newest history entry if — and only if — it is the DELETE being undone: a
+     * DELETE, made by the signed-in user. Someone else's later DELETE is never reverted through this undo.
+     */
     private suspend fun revertSentDelete(id: EntityId): AppResult<Unit> {
         val history = channel.call(idempotent = true) { it.listHistory(id) }
         val newest =
@@ -172,9 +175,12 @@ internal class EntityEditRepositoryImpl(
                 is AppResult.Failure -> return history
                 is AppResult.Success -> history.data.firstOrNull()
             }
-        if (newest?.op != StoryWorldOp.DELETE) {
+        val me = authSession.getUserId()
+        if (newest?.op != StoryWorldOp.DELETE || me == null || newest.actorId != me) {
             return AppResult.Failure(
-                EntityError.HistoryNotFound(debugInfo = "newest change of entity=${id.value} is ${newest?.op}"),
+                EntityError.HistoryNotFound(
+                    debugInfo = "newest change of entity=${id.value} is ${newest?.op} by ${newest?.actorId}, not this user's DELETE",
+                ),
             )
         }
         return channel.call { it.revert(newest.id) }.mapSuspend { change ->
@@ -312,9 +318,18 @@ private fun EntityChange.toDomain(): WorldEntityChange =
     WorldEntityChange(
         id = id,
         entityId = entityId,
-        op = op,
+        op = op.toDomain(),
         actorId = actorId?.let(::UserId),
         occurredAtMs = occurredAt,
         before = before?.toDomain(),
         after = after?.toDomain(),
     )
+
+private fun StoryWorldOp.toDomain(): WorldEntityChangeOp =
+    when (this) {
+        StoryWorldOp.CREATE -> WorldEntityChangeOp.CREATE
+        StoryWorldOp.UPDATE -> WorldEntityChangeOp.UPDATE
+        StoryWorldOp.DELETE -> WorldEntityChangeOp.DELETE
+        StoryWorldOp.MERGE -> WorldEntityChangeOp.MERGE
+        StoryWorldOp.REVERT -> WorldEntityChangeOp.REVERT
+    }

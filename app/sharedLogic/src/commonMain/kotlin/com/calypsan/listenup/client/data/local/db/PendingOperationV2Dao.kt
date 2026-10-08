@@ -48,7 +48,8 @@ internal interface PendingOperationV2Dao {
      */
     @Query(
         """
-        SELECT clientOpId, domainName, entityId, opType, payload, enqueuedAt, lastAttemptAt, failureCount, lastError, ownerUserId
+        SELECT clientOpId, domainName, entityId, opType, payload, enqueuedAt, lastAttemptAt, failureCount, lastError, ownerUserId,
+               mayHaveLanded
           FROM (
               SELECT *, ROW_NUMBER() OVER (
                   PARTITION BY domainName, entityId
@@ -203,7 +204,7 @@ internal interface PendingOperationV2Dao {
     suspend fun resetFailureCount(clientOpId: String)
 
     /**
-     * Still-queued (within retry budget) ops for one (domain, entity, opType) slot, attempted or not.
+     * Every op for one (domain, entity, opType) slot — dispatchable or dead-lettered, attempted or not.
      * Backs [com.calypsan.listenup.client.data.sync.PendingOperationQueue.cancelUnsent].
      */
     @Query(
@@ -212,14 +213,12 @@ internal interface PendingOperationV2Dao {
          WHERE domainName = :domainName
            AND entityId = :entityId
            AND opType = :opType
-           AND failureCount <= :maxAttempts
         """,
     )
-    suspend fun queuedOps(
+    suspend fun opsInSlot(
         domainName: String,
         entityId: String,
         opType: String,
-        maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS,
     ): List<PendingOperationV2Entity>
 
     /**

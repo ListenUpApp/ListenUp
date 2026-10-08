@@ -16,6 +16,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.sync.OfflineEditor] — `clientSyncModule`
  *  - [com.calypsan.listenup.client.data.remote.ApiClientFactory], the RPC auth recovery — `networkModule`
  *  - [com.calypsan.listenup.client.domain.repository.ServerConfig] — `settingsModule`
+ *  - [com.calypsan.listenup.client.domain.repository.AuthSession] — `authModule`
  */
 internal val entityModule: Module =
     module {
@@ -28,6 +29,7 @@ internal val entityModule: Module =
                 entityDao = get(),
                 offlineEditor = get(),
                 channel = rpcChannel(),
+                authSession = get(),
             )
         }
     }

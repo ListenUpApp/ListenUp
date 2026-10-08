@@ -18,7 +18,9 @@ import kotlinx.coroutines.flow.Flow
  * optimistic Room write plus a queued `entities` op in one transaction. Merge, history and [revert] of an
  * older change need the server; [undo] needs it only for a delete that has already been sent.
  *
- * Domain types only: no contract DTO crosses this surface.
+ * No contract DTO crosses this surface: history ops are the domain's [com.calypsan.listenup.client.domain.model.WorldEntityChangeOp].
+ * The shared value types every client already speaks — the `core` ids, `EntityKind`, and `UserId` (as on
+ * [com.calypsan.listenup.client.domain.model.User]) — appear as they are.
  */
 interface EntityEditRepository {
     /** Live entities homed on [seriesId], by name. */
@@ -54,14 +56,21 @@ interface EntityEditRepository {
      *   undo it:
      *   - still queued and never sent: the Delete is withdrawn and the row restored in one transaction;
      *     nothing reaches the server. Works offline.
-     *   - already sent: online, the entity's newest history entry must be that DELETE, and reverting it
-     *     revives the entity; the revived row is written to Room. If anything has happened to the entity
-     *     since, it is [com.calypsan.listenup.api.error.EntityError.HistoryNotFound] — history can still
-     *     revert it deliberately. Offline, the failure is the typed transport error and the row stays
-     *     deleted locally — no optimistic revival the server would contradict.
-     *   - handed to the server without a verdict: it may have landed, so
-     *     [com.calypsan.listenup.api.error.TransportError.OutcomeUnknown] and nothing changes; the Delete
-     *     stays queued.
+     *   - parked by a failure that never reached the server (unreachable, timeout, auth) counts as unsent.
+     *   - refused by the server (a dead letter): the server never accepted it, so local truth wins — the dead
+     *     letter is withdrawn and the row restored, offline, with no server call.
+     *   - already sent: online, the entity's newest history entry must be that DELETE, made by the signed-in
+     *     user, and reverting it revives the entity; the revived row is written to Room. If anything has
+     *     happened to the entity since, or the newest DELETE is someone else's, it is
+     *     [com.calypsan.listenup.api.error.EntityError.HistoryNotFound] — history can still revert it
+     *     deliberately. Offline, the failure is the typed transport error and the row stays deleted
+     *     locally — no optimistic revival the server would contradict.
+     *   - possibly landed without a verdict (a lost response, a server error, a send that threw): it may
+     *     have landed, so [com.calypsan.listenup.api.error.TransportError.OutcomeUnknown] and nothing
+     *     changes; the Delete stays queued.
+     *
+     * The network revert runs outside the lock that serializes edits, so a slow server never stalls other
+     * edits behind an undo.
      */
     suspend fun undo(edit: EntityEdit): AppResult<Unit>
 

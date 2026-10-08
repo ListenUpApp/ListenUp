@@ -22,6 +22,7 @@ import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.domain.model.EntityEdit
 import com.calypsan.listenup.client.domain.model.WorldEntityChange
+import com.calypsan.listenup.client.domain.model.WorldEntityChangeOp
 import com.calypsan.listenup.client.domain.model.WorldEntityDraft
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
@@ -40,6 +41,7 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.IOException
 
@@ -248,11 +250,38 @@ class EntityEditRepositoryOfflineTest :
             }
         }
 
-        test("a delete whose send was attempted without a verdict can't be undone yet, and stays queued") {
+        test("a delete parked by an unreachable server never left the device, so undo still withdraws it") {
+            runTest {
+                val service = mock<EntityService>()
+                val rig =
+                    Rig(service, sender = { op ->
+                        if (op.opType == "delete") AppResult.Failure(TransportError.NetworkUnavailable()) else AppResult.Success(Unit)
+                    })
+                val created = (rig.repo.createEntity(DRAFT) as AppResult.Success).data
+                val deleted = (rig.repo.deleteEntity(created.entityId) as AppResult.Success).data
+                rig.drain()
+
+                rig.repo.undo(deleted) shouldBe AppResult.Success(Unit)
+
+                rig.db
+                    .entityDao()
+                    .getById(created.entityId.value)
+                    .shouldNotBeNull()
+                    .name shouldBe "Darrow"
+                rig.db
+                    .pendingOperationV2Dao()
+                    .latestQueuedPayload("entities", created.entityId.value, "delete")
+                    .shouldBeNull()
+                verifySuspend(VerifyMode.not) { service.listHistory(any()) }
+                rig.db.close()
+            }
+        }
+
+        test("a delete whose send was lost without a verdict can't be undone yet, and stays queued") {
             runTest {
                 val rig =
                     Rig(sender = { op ->
-                        if (op.opType == "delete") AppResult.Failure(TransportError.NetworkUnavailable()) else AppResult.Success(Unit)
+                        if (op.opType == "delete") AppResult.Failure(TransportError.OutcomeUnknown()) else AppResult.Success(Unit)
                     })
                 val created = (rig.repo.createEntity(DRAFT) as AppResult.Success).data
                 val deleted = (rig.repo.deleteEntity(created.entityId) as AppResult.Success).data
@@ -271,6 +300,70 @@ class EntityEditRepositoryOfflineTest :
                     .pendingOperationV2Dao()
                     .latestQueuedPayload("entities", created.entityId.value, "delete")
                     .shouldNotBeNull()
+                rig.db.close()
+            }
+        }
+
+        test("undoing a delete the server refused withdraws the dead letter and restores the row locally") {
+            runTest {
+                val service = mock<EntityService>()
+                val rig =
+                    Rig(service, sender = { op ->
+                        if (op.opType == "delete") {
+                            AppResult.Failure(TransportError.Server4xx(statusCode = 403))
+                        } else {
+                            AppResult.Success(Unit)
+                        }
+                    })
+                val created = (rig.repo.createEntity(DRAFT) as AppResult.Success).data
+                val deleted = (rig.repo.deleteEntity(created.entityId) as AppResult.Success).data
+                rig.drain()
+                rig.db
+                    .pendingOperationV2Dao()
+                    .observeDeadLetterCount()
+                    .first() shouldBe 1
+
+                rig.repo.undo(deleted) shouldBe AppResult.Success(Unit)
+
+                rig.db
+                    .entityDao()
+                    .getById(created.entityId.value)
+                    .shouldNotBeNull()
+                    .name shouldBe "Darrow"
+                rig.db
+                    .pendingOperationV2Dao()
+                    .observeDeadLetterCount()
+                    .first() shouldBe 0
+                // The server never accepted the delete, so there is nothing to revert there.
+                verifySuspend(VerifyMode.not) { service.listHistory(any()) }
+                verifySuspend(VerifyMode.not) { service.revert(any()) }
+                rig.db.close()
+            }
+        }
+
+        test("a sent delete whose newest DELETE is someone else's is never reverted through your undo") {
+            runTest {
+                val service = mock<EntityService>()
+                val rig = Rig(service)
+                val created = (rig.repo.createEntity(DRAFT) as AppResult.Success).data
+                val id = created.entityId
+                val deleted = (rig.repo.deleteEntity(id) as AppResult.Success).data
+                rig.drain()
+                val live = payload(id, name = "Darrow", revision = 3)
+                everySuspend { service.listHistory(id) } returns
+                    AppResult.Success(
+                        listOf(
+                            change("h3", id, StoryWorldOp.DELETE, before = live, after = live.copy(deletedAt = 50), actorId = "u2"),
+                            change("h2", id, StoryWorldOp.DELETE, before = live, after = live.copy(deletedAt = 40)),
+                        ),
+                    )
+
+                rig.repo
+                    .undo(deleted)
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<EntityError.HistoryNotFound>()
+                verifySuspend(VerifyMode.not) { service.revert(any()) }
                 rig.db.close()
             }
         }
@@ -309,7 +402,7 @@ class EntityEditRepositoryOfflineTest :
                         .listHistory(EntityId("e1"))
                         .shouldBeInstanceOf<AppResult.Success<List<WorldEntityChange>>>()
                         .data
-                history.single().op shouldBe StoryWorldOp.CREATE
+                history.single().op shouldBe WorldEntityChangeOp.CREATE
                 history.single().actorId?.value shouldBe "u1"
                 rig.db.close()
             }
@@ -323,6 +416,7 @@ private class Rig(
     sender: PendingOperationSender = PendingOperationSender { AppResult.Success(Unit) },
 ) {
     val db: ListenUpDatabase = createInMemoryTestDatabase()
+    private val authSession = FakeAuthSession(userId = "u1")
     val sent = mutableListOf<PendingOperation>()
     private val queue =
         PendingOperationQueue(
@@ -339,9 +433,10 @@ private class Rig(
                         object : TransactionRunner {
                             override suspend fun <R> atomically(block: suspend () -> R): R = block()
                         },
-                    authSession = FakeAuthSession(userId = "u1"),
+                    authSession = authSession,
                 ),
             channel = channel,
+            authSession = authSession,
         )
 
     /** Drains until the queue is idle: per-entity FIFO sends one op per entity per wave. */
@@ -374,4 +469,5 @@ private fun change(
     op: StoryWorldOp,
     before: EntitySyncPayload?,
     after: EntitySyncPayload?,
-) = EntityChange(StoryWorldHistoryId(id), entityId, op, actorId = "u1", occurredAt = 1, before = before, after = after)
+    actorId: String = "u1",
+) = EntityChange(StoryWorldHistoryId(id), entityId, op, actorId = actorId, occurredAt = 1, before = before, after = after)

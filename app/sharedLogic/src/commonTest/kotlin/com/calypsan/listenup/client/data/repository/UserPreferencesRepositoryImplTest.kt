@@ -95,15 +95,11 @@ private class FakePendingOperationV2Dao : PendingOperationV2Dao {
             it.domainName == domainName && it.entityId == entityId && it.failureCount <= maxAttempts
         }
 
-    override suspend fun queuedOps(
+    override suspend fun opsInSlot(
         domainName: String,
         entityId: String,
         opType: String,
-        maxAttempts: Int,
-    ): List<PendingOperationV2Entity> =
-        inserted.filter {
-            it.domainName == domainName && it.entityId == entityId && it.opType == opType && it.failureCount <= maxAttempts
-        }
+    ): List<PendingOperationV2Entity> = inserted.filter { it.domainName == domainName && it.entityId == entityId && it.opType == opType }
 
     override suspend fun deleteQueuedOps(
         domainName: String,

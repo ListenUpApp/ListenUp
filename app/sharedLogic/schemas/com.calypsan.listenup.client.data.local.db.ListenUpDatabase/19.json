@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 19,
-    "identityHash": "18b76760810fc961471c2ee4b9762627",
+    "identityHash": "278df08f4a7149c2b76448a59ecbd46e",
     "entities": [
       {
         "tableName": "users",
@@ -2646,7 +2646,7 @@
       },
       {
         "tableName": "pending_operation",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`clientOpId` TEXT NOT NULL, `domainName` TEXT NOT NULL, `entityId` TEXT NOT NULL, `opType` TEXT NOT NULL, `payload` TEXT NOT NULL, `enqueuedAt` INTEGER NOT NULL, `lastAttemptAt` INTEGER, `failureCount` INTEGER NOT NULL, `lastError` TEXT, `ownerUserId` TEXT NOT NULL, PRIMARY KEY(`clientOpId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`clientOpId` TEXT NOT NULL, `domainName` TEXT NOT NULL, `entityId` TEXT NOT NULL, `opType` TEXT NOT NULL, `payload` TEXT NOT NULL, `enqueuedAt` INTEGER NOT NULL, `lastAttemptAt` INTEGER, `failureCount` INTEGER NOT NULL, `lastError` TEXT, `ownerUserId` TEXT NOT NULL, `mayHaveLanded` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`clientOpId`))",
         "fields": [
           {
             "fieldPath": "clientOpId",
@@ -2705,6 +2705,13 @@
             "columnName": "ownerUserId",
             "affinity": "TEXT",
             "notNull": true
+          },
+          {
+            "fieldPath": "mayHaveLanded",
+            "columnName": "mayHaveLanded",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           }
         ],
         "primaryKey": {
@@ -3298,7 +3305,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '18b76760810fc961471c2ee4b9762627')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '278df08f4a7149c2b76448a59ecbd46e')"
     ]
   }
 }
