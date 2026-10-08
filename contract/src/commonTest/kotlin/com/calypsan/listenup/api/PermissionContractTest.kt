@@ -47,7 +47,20 @@ class PermissionContractTest :
             Permission.known.filter { it.group == PermissionGroup.STORY_WORLD } shouldContainExactly
                 listOf(Permission.CONTRIBUTE_STORY_WORLD, Permission.CURATE_STORY_WORLD)
             Permission.known.map { it.group }.distinct() shouldContainExactly
-                listOf(PermissionGroup.LIBRARY, PermissionGroup.STORY_WORLD)
+                listOf(PermissionGroup.LIBRARY, PermissionGroup.STORY_WORLD, PermissionGroup.READING_ORDERS)
+        }
+
+        test("the Reading orders group holds Make reading orders alone, after the Story World group") {
+            Permission.known.filter { it.group == PermissionGroup.READING_ORDERS } shouldContainExactly
+                listOf(Permission.MAKE_READING_ORDERS)
+            Permission.known shouldContainExactly
+                listOf(
+                    Permission.EDIT_METADATA,
+                    Permission.CURATE_LIBRARY,
+                    Permission.CONTRIBUTE_STORY_WORLD,
+                    Permission.CURATE_STORY_WORLD,
+                    Permission.MAKE_READING_ORDERS,
+                )
         }
 
         test("each permission's wire key is the UserPermissions field it reads, and the default follows the rule") {
@@ -59,6 +72,8 @@ class PermissionContractTest :
             Permission.CURATE_STORY_WORLD.wireKey shouldBe "canCurateStoryWorld"
             Permission.CONTRIBUTE_STORY_WORLD.defaultGranted shouldBe true
             Permission.CURATE_STORY_WORLD.defaultGranted shouldBe false
+            Permission.MAKE_READING_ORDERS.wireKey shouldBe "canMakeReadingOrders"
+            Permission.MAKE_READING_ORDERS.defaultGranted shouldBe true
             // Flip each flag away from its default: contractJson skips defaults, so the key that
             // appears is exactly the field's SerialName — and it must be the permission's wire key.
             Permission.known.forEach { permission ->
@@ -68,6 +83,7 @@ class PermissionContractTest :
                         Permission.CURATE_LIBRARY -> UserPermissions(canCurateLibrary = true)
                         Permission.CONTRIBUTE_STORY_WORLD -> UserPermissions(canContributeStoryWorld = false)
                         Permission.CURATE_STORY_WORLD -> UserPermissions(canCurateStoryWorld = true)
+                        Permission.MAKE_READING_ORDERS -> UserPermissions(canMakeReadingOrders = false)
                         Permission.UNKNOWN -> error("not listed")
                     }
                 contractJson.encodeToString(UserPermissions.serializer(), flipped) shouldContain
@@ -78,6 +94,7 @@ class PermissionContractTest :
         test("fromWireKey resolves known keys and nothing else") {
             Permission.fromWireKey("canEdit") shouldBe Permission.EDIT_METADATA
             Permission.fromWireKey("canCurateLibrary") shouldBe Permission.CURATE_LIBRARY
+            Permission.fromWireKey("canMakeReadingOrders") shouldBe Permission.MAKE_READING_ORDERS
             Permission.fromWireKey("canDoAnything") shouldBe Permission.UNKNOWN
             Permission.fromWireKey("") shouldBe Permission.UNKNOWN
         }
@@ -92,6 +109,8 @@ class PermissionContractTest :
             UserPermissions(canContributeStoryWorld = false).allows(Permission.CONTRIBUTE_STORY_WORLD) shouldBe false
             UserPermissions(canCurateStoryWorld = true).allows(Permission.CURATE_STORY_WORLD) shouldBe true
             UserPermissions(canEditMetadata = false).allows(Permission.EDIT_METADATA) shouldBe false
+            UserPermissions().allows(Permission.MAKE_READING_ORDERS) shouldBe true
+            UserPermissions(canMakeReadingOrders = false).allows(Permission.MAKE_READING_ORDERS) shouldBe false
         }
 
         test("a patch changes only the flags it names") {
@@ -113,6 +132,8 @@ class PermissionContractTest :
             UserPermissionsPatch().granting(Permission.CURATE_STORY_WORLD, true) shouldBe
                 UserPermissionsPatch(canCurateStoryWorld = true)
             UserPermissionsPatch(canCurateStoryWorld = false).isEmpty shouldBe false
+            UserPermissionsPatch().granting(Permission.MAKE_READING_ORDERS, false) shouldBe
+                UserPermissionsPatch(canMakeReadingOrders = false)
             UserPermissionsPatch(canEditMetadata = false).granting(Permission.UNKNOWN, true) shouldBe
                 UserPermissionsPatch(canEditMetadata = false)
         }

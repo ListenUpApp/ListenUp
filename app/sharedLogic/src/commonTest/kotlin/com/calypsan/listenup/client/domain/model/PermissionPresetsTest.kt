@@ -83,4 +83,14 @@ class PermissionPresetsTest :
                 AccessLabel.CUSTOM
             accessLabelFor(user("MEMBER"), legacy) shouldBe AccessLabel.MEMBER
         }
+
+        test("with reading orders advertised, Contributor makes them and Listener does not") {
+            val all = Permission.known.toSet()
+            PermissionPreset.LISTENER.applyTo(UserPermissions(), all) shouldBe
+                UserPermissions(canEditMetadata = false, canCurateLibrary = false, canMakeReadingOrders = false)
+            PermissionPreset.CONTRIBUTOR.applyTo(UserPermissions(canMakeReadingOrders = false), all) shouldBe
+                UserPermissions(canEditMetadata = true, canCurateLibrary = false, canMakeReadingOrders = true)
+            presetFor(UserPermissions(), all) shouldBe PermissionPreset.CONTRIBUTOR
+            presetFor(UserPermissions(canMakeReadingOrders = false), all) shouldBe PermissionPreset.CUSTOM
+        }
     })
