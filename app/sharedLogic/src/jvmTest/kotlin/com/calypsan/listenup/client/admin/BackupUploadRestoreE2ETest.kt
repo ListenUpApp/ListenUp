@@ -109,7 +109,6 @@ class BackupUploadRestoreE2ETest :
                     }
                     application { module() }
 
-                    val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val accessToken = setupRootForBackup()
 
                     val authedRestClient =
@@ -198,7 +197,7 @@ class BackupUploadRestoreE2ETest :
  * by the server's `AuthServicePublic.setupRoot` RPC (the full [module] is booted), so the bearer-gated
  * RPC surface authenticates correctly.
  */
-private suspend fun HttpClient.backupServiceProxy(accessToken: String): BackupService =
+private fun HttpClient.backupServiceProxy(accessToken: String): BackupService =
     rpc("ws://localhost/api/rpc/authed") {
         rpcConfig { serialization { krpcJson(contractJson) } }
         bearerAuth(accessToken)

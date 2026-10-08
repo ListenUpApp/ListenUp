@@ -690,7 +690,7 @@ private class FakeReconcileCatchUp : CatchUp {
     override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>> {
         coarseCalls += handler.domainName
         if (consumeFailure(handler.domainName)) return AppResult.Failure(SyncError.SyncFailed())
-        val ids = accessibleByDomain[handler.domainName] ?: emptySet()
+        val ids = accessibleByDomain[handler.domainName].orEmpty()
         return AppResult.Success(ids)
     }
 
@@ -699,9 +699,9 @@ private class FakeReconcileCatchUp : CatchUp {
         fetch: TargetedFetch,
     ): AppResult<Set<String>> {
         fetches += RecordedFetch(handler.domainName, fetch)
-        gate?.let {
+        gate?.let { pendingGate ->
             gate = null
-            it.await()
+            pendingGate.await()
         }
         if (consumeFailure(handler.domainName)) return AppResult.Failure(SyncError.SyncFailed())
         fetchPayloadsByDomain[handler.domainName]?.let { payloads ->
@@ -717,7 +717,7 @@ private class FakeReconcileCatchUp : CatchUp {
             }
             return AppResult.Success(returnedIds)
         }
-        val returned = returnedByDomain[handler.domainName] ?: accessibleByDomain[handler.domainName] ?: emptySet()
+        val returned = returnedByDomain[handler.domainName] ?: accessibleByDomain[handler.domainName].orEmpty()
         return AppResult.Success(returned)
     }
 

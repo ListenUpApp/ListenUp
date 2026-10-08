@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.api.sync.Tag
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
@@ -82,9 +83,9 @@ class CursorStaleWaiterReleaseTest :
 
                     withContext(confined) {
                         // Leading caller: enters handleCursorStale, runs catch-up pass #1, parks on the gate.
-                        // runCatching so pass #2's throw does not surface as an unhandled exception on the
+                        // suspendRunCatching so pass #2's throw does not surface as an unhandled exception on the
                         // scope — the leading caller is EXPECTED to fail here.
-                        scope.launch { runCatching { engine.handleCursorStale() } }
+                        scope.launch { suspendRunCatching { engine.handleCursorStale() } }
                         withTimeout(5_000) { leadingPassStarted.await() }
 
                         // Coalesced caller: a recovery is already running, so it registers a waiter and

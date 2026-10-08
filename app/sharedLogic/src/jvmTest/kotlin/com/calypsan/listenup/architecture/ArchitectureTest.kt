@@ -68,7 +68,7 @@ class ArchitectureTest :
         test("client domain code has no transport-layer imports") {
             projectScope
                 .files
-                .filter { it.packagee?.name?.startsWith("com.calypsan.listenup.client.domain") == true }
+                .filter { it.packagee?.run { name.startsWith("com.calypsan.listenup.client.domain") } == true }
                 .assertFalse { file ->
                     file.imports.any { import ->
                         val name = import.name
@@ -80,6 +80,7 @@ class ArchitectureTest :
         test("no :server symbols are imported outside the :server module") {
             projectScope
                 .files
+                .asSequence()
                 // Exempt the ENTIRE :server module (all source sets). :server is now multiplatform
                 // (commonMain + linuxX64Main, since the Kotlin/Native port) — server code legitimately
                 // imports other server symbols across packages. The rule's intent is preserved: code in
@@ -149,6 +150,7 @@ class ArchitectureTest :
                 // equals the Leaderboard's Week. Both real ends are the whole point. Same exemption class —
                 // confined to jvmTest.
                 .filter { "data/repository/HomeAndLeaderboardWeekParityTest" !in it.path }
+                .toList()
                 .assertFalse { file ->
                     file.imports.any { it.name.startsWith("com.calypsan.listenup.server.") }
                 }
@@ -171,7 +173,7 @@ class ArchitectureTest :
             projectScope
                 .files
                 .filter { "/server/src/jvmMain/" in it.path }
-                .filter { it.packagee?.name?.startsWith("com.calypsan.listenup.server.scanner") == true }
+                .filter { it.packagee?.run { name.startsWith("com.calypsan.listenup.server.scanner") } == true }
                 .assertFalse { file ->
                     file.imports.any { it.name.startsWith("io.ktor.") }
                 }

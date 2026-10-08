@@ -42,10 +42,10 @@ internal open class FakeDownloadRepository(
     // --- Reads ---
 
     override fun observeForBook(bookId: BookId): Flow<List<Download>> =
-        state.asStateFlow().map { it.values.filter { e -> e.bookId == bookId.value }.map { it.toDomain() } }
+        state.asStateFlow().map { it.values.filter { e -> e.bookId == bookId.value }.map { entry -> entry.toDomain() } }
 
     override fun observeAll(): Flow<List<Download>> =
-        state.asStateFlow().map { it.values.toList().map { it.toDomain() } }
+        state.asStateFlow().map { it.values.toList().map { entry -> entry.toDomain() } }
 
     override fun observeBookStatus(bookId: BookId): Flow<BookDownloadStatus> =
         state.asStateFlow().map { entities ->
@@ -74,7 +74,7 @@ internal open class FakeDownloadRepository(
             }.toMap()
 
     override suspend fun getStateForAudioFile(audioFileId: String): DownloadStatus? =
-        state.value[audioFileId]?.state?.toDomain()
+        state.value[audioFileId]?.run { state.toDomain() }
 
     // --- State-transition writes ---
 
@@ -101,12 +101,12 @@ internal open class FakeDownloadRepository(
         completedAt: Long,
     ): AppResult<Unit> {
         markCompletedFailure?.let { return AppResult.Failure(it) }
-        update(audioFileId) {
-            it.copy(
+        update(audioFileId) { entry ->
+            entry.copy(
                 state = DownloadState.COMPLETED,
                 localPath = localPath,
                 completedAt = completedAt,
-                downloadedBytes = it.totalBytes,
+                downloadedBytes = entry.totalBytes,
             )
         }
         return AppResult.Success(Unit)

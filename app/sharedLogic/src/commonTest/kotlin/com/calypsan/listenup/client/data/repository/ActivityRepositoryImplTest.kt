@@ -90,10 +90,10 @@ class ActivityRepositoryImplTest :
                 activity.user.avatarValue.shouldBeNull()
                 // Book card built from the joined columns
                 activity.book.shouldNotBeNull()
-                activity.book?.id shouldBe "book-1"
-                activity.book?.title shouldBe "The Way of Kings"
-                activity.book?.authorName shouldBe "Brandon Sanderson"
-                activity.book?.coverPath shouldBe "LKO2?U%2Tw=w]~RBVZRi};RPxuwH"
+                activity.book.id shouldBe "book-1"
+                activity.book.title shouldBe "The Way of Kings"
+                activity.book.authorName shouldBe "Brandon Sanderson"
+                activity.book.coverPath shouldBe "LKO2?U%2Tw=w]~RBVZRi};RPxuwH"
                 // Raw activity fields carried through
                 activity.isReread shouldBe true
                 activity.durationMs shouldBe 3_600_000L

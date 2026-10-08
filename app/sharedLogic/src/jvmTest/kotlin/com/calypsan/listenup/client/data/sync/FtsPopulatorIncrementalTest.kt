@@ -18,6 +18,7 @@ import com.calypsan.listenup.client.data.local.db.SeriesEntity
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import java.util.Locale
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -277,13 +278,13 @@ class FtsPopulatorIncrementalTest :
                 runTest {
                     val bookCount = 1_200
                     for (i in 1..bookCount) {
-                        seedBook(db, id = "book%04d".format(i), title = "Book%04d".format(i), revision = 1)
+                        seedBook(db, id = "book%04d".format(Locale.ROOT, i), title = "Book%04d".format(Locale.ROOT, i), revision = 1)
                     }
 
                     val populator = buildPopulator(db)
                     populator.rebuildAll()
 
-                    val allIds = (1..bookCount).map { "book%04d".format(it) }.toSet()
+                    val allIds = (1..bookCount).map { "book%04d".format(Locale.ROOT, it) }.toSet()
                     populator.reindexBooks(allIds)
 
                     db.searchDao().countBooksFts() shouldBe bookCount

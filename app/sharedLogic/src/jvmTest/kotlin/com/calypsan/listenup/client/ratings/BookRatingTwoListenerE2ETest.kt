@@ -158,13 +158,19 @@ class BookRatingTwoListenerE2ETest :
         }
     })
 
-/** One listener's client: its own Room, outbox and sync engine. */
+/**
+ * One listener's client: its own Room, outbox and sync engine. A handle on live, mutable resources,
+ * not a value — equality over a database and an engine would mean nothing.
+ */
+@Suppress("UseDataClass")
 private class ListenerClient(
     val database: ListenUpDatabase,
     val queue: PendingOperationQueue,
     val engine: SyncEngine,
 )
 
+// A handle on two live clients and their repositories, not a value.
+@Suppress("UseDataClass")
 private class TwoListenerScope(
     val alice: ListenerClient,
     val bob: ListenerClient,
@@ -225,8 +231,8 @@ private fun withTwoListenersAgainstServer(block: suspend TwoListenerScope.() -> 
                                     OutboxOpSender(OutboxChannels.BookRatings) { _, mutation ->
                                         when (mutation) {
                                             is BookRatingMutation.Set -> {
-                                                ratingChannel.call {
-                                                    it.rate(
+                                                ratingChannel.call { service ->
+                                                    service.rate(
                                                         BookId(mutation.bookId),
                                                         RateBookRequest(
                                                             candidateId = mutation.candidateId,

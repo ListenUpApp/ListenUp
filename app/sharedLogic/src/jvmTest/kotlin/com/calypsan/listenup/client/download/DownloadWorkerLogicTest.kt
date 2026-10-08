@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.data.local.images.StoragePaths
 import com.calypsan.listenup.client.data.remote.installListenUpErrorHandling
 import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -348,7 +349,7 @@ class DownloadWorkerLogicTest :
                         )
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
-                    withClue("Expected AuthError.SessionExpired but got ${failure.error::class.simpleName}") {
+                    withClue("Expected AuthError.SessionExpired but got ${failure.error.code}") {
                         failure.error.shouldBeInstanceOf<AuthError.SessionExpired>()
                     }
                     // Replicate worker's auth-failure path: markPaused (not markFailed).
@@ -530,7 +531,7 @@ class DownloadWorkerLogicTest :
                     // against debugInfo to detect ENOSPC-class failures.
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                     failure.error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
-                    withClue("Expected 'Failed to move' in debugInfo: ${failure.error.debugInfo}") {
+                    withClue("Expected 'Failed to move' in debugInfo: ${failure.error.debugInfo ?: "none"}") {
                         (failure.error.debugInfo?.contains("Failed to move") == true) shouldBe true
                     }
                 } finally {
@@ -561,7 +562,7 @@ class DownloadWorkerLogicTest :
                         }
 
                     // Replicate the worker's CancellationException catch: markPaused on isStopped.
-                    try {
+                    shouldThrow<CancellationException> {
                         downloadAudioFile(
                             audioFileId = "file-1",
                             bookId = "book-1",
@@ -573,10 +574,9 @@ class DownloadWorkerLogicTest :
                             prepareRepository = readyRpcFactory(),
                             isStopped = { true },
                         )
-                    } catch (e: CancellationException) {
-                        // Replicate worker's cancellation catch: markPaused (not markFailed).
-                        fakeRepo.markPaused("file-1")
                     }
+                    // Replicate worker's cancellation catch: markPaused (not markFailed).
+                    fakeRepo.markPaused("file-1")
 
                     fakeRepo.entities.single().state shouldBe DownloadState.PAUSED
                 } finally {
@@ -702,7 +702,7 @@ class DownloadWorkerLogicTest :
                     var resolvedPathHit = false
                     val resolvedEngine =
                         MockEngine { request ->
-                            val fullPath = request.url.encodedPath + "?" + (request.url.encodedQuery ?: "")
+                            val fullPath = request.url.encodedPath + "?" + request.url.encodedQuery
                             if (request.url.encodedPath == signedPath) {
                                 resolvedPathHit = true
                                 respond(
@@ -760,7 +760,7 @@ class DownloadWorkerLogicTest :
                     val fileManager = fileManagerFor(tmpRoot)
 
                     // Run the download but stop it immediately — simulates a mid-download cancellation.
-                    try {
+                    shouldThrow<CancellationException> {
                         downloadAudioFile(
                             audioFileId = "file-1",
                             bookId = "book-1",
@@ -772,10 +772,9 @@ class DownloadWorkerLogicTest :
                             prepareRepository = readyRpcFactory(),
                             isStopped = { true },
                         )
-                    } catch (_: CancellationException) {
-                        // Replicate the user-cancel path: DownloadManager.cancelDownload writes CANCELLED.
-                        fakeRepo.markCancelled("file-1")
                     }
+                    // Replicate the user-cancel path: DownloadManager.cancelDownload writes CANCELLED.
+                    fakeRepo.markCancelled("file-1")
 
                     val tempPath = fileManager.getAudioFilePath("book-1", "file-1", "file-1.mp3", isTemp = true)
                     // The .tmp may or may not exist depending on how many bytes were written before

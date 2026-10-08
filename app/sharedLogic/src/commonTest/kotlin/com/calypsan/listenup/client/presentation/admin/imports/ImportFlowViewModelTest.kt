@@ -61,6 +61,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
@@ -693,14 +694,15 @@ class ImportFlowViewModelTest :
         // ─── book search ──────────────────────────────────────────────────────
 
         /** Helper to drive the VM into Review state. Must be called inside [runTest]. */
-        suspend fun kotlinx.coroutines.test.TestScope.driveToReview(
+        suspend fun driveToReview(
             vm: ImportFlowViewModel,
             repo: FakeImportRepository,
+            scheduler: TestCoroutineScheduler,
         ) {
             vm.start(StubFileSource("backup.audiobookshelf"))
-            advanceUntilIdle()
+            scheduler.advanceUntilIdle()
             repo.progressFlow.emit(ImportEvent.Analyzed(summary = importSummary()))
-            advanceUntilIdle()
+            scheduler.advanceUntilIdle()
         }
 
         test("openBookSearch sets non-null bookSearch with correct absItemId, empty query and results") {
@@ -711,7 +713,7 @@ class ImportFlowViewModelTest :
                         analyzeResult = AppResult.Success(importAnalysis()),
                     )
                 val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository(), FakeSearchRepository())
-                driveToReview(vm, repo)
+                driveToReview(vm, repo, testScheduler)
 
                 val absItem = AbsItemId("abs-item-99")
                 vm.openBookSearch(absItem)
@@ -733,7 +735,7 @@ class ImportFlowViewModelTest :
                         analyzeResult = AppResult.Success(importAnalysis()),
                     )
                 val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository(), FakeSearchRepository())
-                driveToReview(vm, repo)
+                driveToReview(vm, repo, testScheduler)
                 vm.openBookSearch(AbsItemId("abs-item-99"))
                 vm.uiState.value
                     .shouldBeInstanceOf<ImportFlowUiState.Review>()
@@ -757,7 +759,7 @@ class ImportFlowViewModelTest :
                         analyzeResult = AppResult.Success(importAnalysis()),
                     )
                 val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository(), searchRepo)
-                driveToReview(vm, repo)
+                driveToReview(vm, repo, testScheduler)
                 vm.openBookSearch(AbsItemId("abs-item-99"))
 
                 vm.updateBookSearchQuery("dune")
@@ -788,7 +790,7 @@ class ImportFlowViewModelTest :
                         analyzeResult = AppResult.Success(importAnalysis()),
                     )
                 val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository(), searchRepo)
-                driveToReview(vm, repo)
+                driveToReview(vm, repo, testScheduler)
                 vm.openBookSearch(AbsItemId("abs-item-99"))
 
                 // First set a non-blank query so results are populated
@@ -827,7 +829,7 @@ class ImportFlowViewModelTest :
                         analyzeResult = AppResult.Success(importAnalysis()),
                     )
                 val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository(), searchRepo)
-                driveToReview(vm, repo)
+                driveToReview(vm, repo, testScheduler)
                 vm.openBookSearch(AbsItemId("abs-item-99"))
 
                 // An at-floor query populates real hits...
@@ -867,7 +869,7 @@ class ImportFlowViewModelTest :
                         analyzeResult = AppResult.Success(importAnalysis()),
                     )
                 val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository(), searchRepo)
-                driveToReview(vm, repo)
+                driveToReview(vm, repo, testScheduler)
                 vm.openBookSearch(AbsItemId("abs-item-99"))
 
                 vm.updateBookSearchQuery(floorQuery)
@@ -893,7 +895,7 @@ class ImportFlowViewModelTest :
                         analyzeResult = AppResult.Success(importAnalysis()),
                     )
                 val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository(), searchRepo)
-                driveToReview(vm, repo)
+                driveToReview(vm, repo, testScheduler)
                 vm.openBookSearch(AbsItemId("abs-item-99"))
 
                 // Issue first query
@@ -921,7 +923,7 @@ class ImportFlowViewModelTest :
                         analyzeResult = AppResult.Success(importAnalysis()),
                     )
                 val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository(), FakeSearchRepository())
-                driveToReview(vm, repo)
+                driveToReview(vm, repo, testScheduler)
 
                 val absItem = AbsItemId("abs-item-99")
                 val bookId = BookId("book-dune")
@@ -942,7 +944,7 @@ class ImportFlowViewModelTest :
                         analyzeResult = AppResult.Success(importAnalysis()),
                     )
                 val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository(), FakeSearchRepository())
-                driveToReview(vm, repo)
+                driveToReview(vm, repo, testScheduler)
 
                 val absItem = AbsItemId("abs-item-99")
                 vm.skipBook(absItem)
@@ -963,7 +965,7 @@ class ImportFlowViewModelTest :
                         applyResult = AppResult.Success(importResult()),
                     )
                 val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository(), FakeSearchRepository())
-                driveToReview(vm, repo)
+                driveToReview(vm, repo, testScheduler)
 
                 val absItem = AbsItemId("abs-item-99")
                 val bookId = BookId("book-42")
@@ -1063,7 +1065,11 @@ private class FakeSyncRepository(
         private set
 
     override val syncState: StateFlow<SyncState> = MutableStateFlow(SyncState.Idle)
+
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // Overrides a published name the interface declares.
     override val isServerScanning: StateFlow<Boolean> = MutableStateFlow(false)
+
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // Overrides a published name the interface declares.
     override val isBuildingInitialLibrary: StateFlow<Boolean> = MutableStateFlow(false)
     override val scanProgress: StateFlow<ScanProgressState?> = MutableStateFlow(null)
 

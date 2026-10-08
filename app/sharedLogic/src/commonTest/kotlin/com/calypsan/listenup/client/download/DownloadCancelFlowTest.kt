@@ -53,9 +53,9 @@ class DownloadCancelFlowTest :
                     )
                 fake.cancelForBook(BookId("book-1"))
                 val final = fake.entities.associateBy { it.audioFileId }
-                final["file-1"]!!.state shouldBe DownloadState.CANCELLED
-                final["file-2"]!!.state shouldBe DownloadState.CANCELLED
-                final["file-3"]!!.state shouldBe DownloadState.CANCELLED
+                final.getValue("file-1").state shouldBe DownloadState.CANCELLED
+                final.getValue("file-2").state shouldBe DownloadState.CANCELLED
+                final.getValue("file-3").state shouldBe DownloadState.CANCELLED
             }
         }
 
@@ -71,8 +71,8 @@ class DownloadCancelFlowTest :
                     )
                 fake.cancelForBook(BookId("book-1"))
                 val final = fake.entities.associateBy { it.audioFileId }
-                final["file-1"]!!.state shouldBe DownloadState.CANCELLED
-                final["file-2"]!!.state shouldBe DownloadState.COMPLETED
+                final.getValue("file-1").state shouldBe DownloadState.CANCELLED
+                final.getValue("file-2").state shouldBe DownloadState.COMPLETED
             }
         }
 
@@ -88,8 +88,8 @@ class DownloadCancelFlowTest :
                     )
                 fake.cancelForBook(BookId("book-1"))
                 val final = fake.entities.associateBy { it.audioFileId }
-                final["file-1"]!!.state shouldBe DownloadState.CANCELLED
-                final["file-2"]!!.state shouldBe DownloadState.DOWNLOADING
+                final.getValue("file-1").state shouldBe DownloadState.CANCELLED
+                final.getValue("file-2").state shouldBe DownloadState.DOWNLOADING
             }
         }
     })

@@ -113,8 +113,8 @@ class ContributorDeleteCascadeE2ETest :
                                 clientDatabase.contributorDao().getByBookId(BOOK_TWO_ID).isEmpty() &&
                                 clientDatabase.contributorDao().getById(contributorId.value)?.deletedAt != null
                         val serverDone =
-                            serverBookRepository.findById(BookId(BOOK_ONE_ID))?.contributors?.isEmpty() == true &&
-                                serverBookRepository.findById(BookId(BOOK_TWO_ID))?.contributors?.isEmpty() == true &&
+                            serverBookRepository.findById(BookId(BOOK_ONE_ID))?.run { contributors.isEmpty() } == true &&
+                                serverBookRepository.findById(BookId(BOOK_TWO_ID))?.run { contributors.isEmpty() } == true &&
                                 serverContributorRepository.findById(contributorId.value)?.deletedAt != null
                         if (clientDone && serverDone) break
                     }

@@ -79,9 +79,9 @@ class ActivityProjectionsTest :
         }
 
         test("milestones and joins carry no highlight, because there is nothing to link to") {
-            activityParts(activity("streak_milestone", milestoneValue = 7)).let {
-                it.predicate shouldBe "reached a 7-day listening streak"
-                it.highlight shouldBe null
+            activityParts(activity("streak_milestone", milestoneValue = 7)).let { parts ->
+                parts.predicate shouldBe "reached a 7-day listening streak"
+                parts.highlight shouldBe null
             }
             activityParts(activity("listening_milestone", milestoneValue = 100)).predicate shouldBe
                 "listened for 100 hours total"
@@ -92,9 +92,9 @@ class ActivityProjectionsTest :
         }
 
         test("a created shelf highlights the shelf, not the book") {
-            activityParts(activity("shelf_created", shelfName = "Comfort reads")).let {
-                it.predicate shouldBe "created the shelf"
-                it.highlight shouldBe "Comfort reads"
+            activityParts(activity("shelf_created", shelfName = "Comfort reads")).let { parts ->
+                parts.predicate shouldBe "created the shelf"
+                parts.highlight shouldBe "Comfort reads"
             }
             activityParts(activity("shelf_created", shelfName = null)).highlight shouldBe "a shelf"
         }
@@ -102,9 +102,9 @@ class ActivityProjectionsTest :
         test("an activity type this client has never heard of still renders as a row") {
             // The server may ship a type before the client learns it. A blank row, or a crash, is
             // worse than a cheerful placeholder that still names who did it.
-            activityParts(activity("teleported")).let {
-                it.predicate shouldBe "did something awesome"
-                it.highlight shouldBe null
+            activityParts(activity("teleported")).let { parts ->
+                parts.predicate shouldBe "did something awesome"
+                parts.highlight shouldBe null
             }
         }
     })

@@ -34,7 +34,7 @@ class SeriesSequenceTest :
                     11.0 to false, // was "11"
                 )
             for ((input, expected) in cases) {
-                withClue("isFirstInSeries($input) should be $expected") {
+                withClue("isFirstInSeries(${input ?: "null"}) should be $expected") {
                     isFirstInSeries(input) shouldBe expected
                 }
             }

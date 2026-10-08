@@ -227,7 +227,7 @@ private class RecordingCatchUp(
         handler: SyncDomainHandler<T>,
         fetch: TargetedFetch,
     ): AppResult<Set<String>> {
-        val ids = (fetch as? TargetedFetch.ByIds)?.ids ?: emptyList()
+        val ids = (fetch as? TargetedFetch.ByIds)?.ids.orEmpty()
         fetches.tryEmit(handler.domainName to ids)
         return AppResult.Success(ids.toSet())
     }

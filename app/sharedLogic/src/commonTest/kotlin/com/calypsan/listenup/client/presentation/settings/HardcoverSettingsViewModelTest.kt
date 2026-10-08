@@ -447,17 +447,17 @@ class HardcoverSettingsViewModelTest :
                     awaitSettled()
                     vm.setShareMode(HardcoverShareMode.FINISHED_ONLY)
                     advanceUntilIdle()
-                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).let {
-                        it.shareMode shouldBe HardcoverShareMode.FINISHED_ONLY
-                        it.isSavingShareMode shouldBe true
+                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).let { state ->
+                        state.shareMode shouldBe HardcoverShareMode.FINISHED_ONLY
+                        state.isSavingShareMode shouldBe true
                     }
 
                     repo.setShareModeGate!!.complete(Unit)
                     repo.connection.value = HardcoverConnection.Connected("reader", SINCE, shareMode = HardcoverShareMode.FINISHED_ONLY)
                     advanceUntilIdle()
-                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).let {
-                        it.shareMode shouldBe HardcoverShareMode.FINISHED_ONLY
-                        it.isSavingShareMode shouldBe false
+                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).let { state ->
+                        state.shareMode shouldBe HardcoverShareMode.FINISHED_ONLY
+                        state.isSavingShareMode shouldBe false
                     }
                 }
                 repo.shareModes shouldBe listOf(HardcoverShareMode.FINISHED_ONLY)
@@ -472,9 +472,9 @@ class HardcoverSettingsViewModelTest :
                     awaitSettled()
                     vm.setShareMode(HardcoverShareMode.FINISHED_ONLY)
                     advanceUntilIdle()
-                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).let {
-                        it.shareMode shouldBe HardcoverShareMode.AS_I_LISTEN
-                        it.isSavingShareMode shouldBe false
+                    (expectMostRecentItem() as HardcoverSettingsUiState.Connected).let { state ->
+                        state.shareMode shouldBe HardcoverShareMode.AS_I_LISTEN
+                        state.isSavingShareMode shouldBe false
                     }
                 }
             }
@@ -492,9 +492,9 @@ class HardcoverSettingsViewModelTest :
                     vm.setShareMode(HardcoverShareMode.FINISHED_ONLY)
                     events.awaitItem() shouldBe HardcoverSettingsEvent.ShowError(HardcoverError.Unavailable())
                     advanceUntilIdle()
-                    (states.expectMostRecentItem() as HardcoverSettingsUiState.Connected).let {
-                        it.shareMode shouldBe HardcoverShareMode.AS_I_LISTEN
-                        it.isSavingShareMode shouldBe false
+                    (states.expectMostRecentItem() as HardcoverSettingsUiState.Connected).let { state ->
+                        state.shareMode shouldBe HardcoverShareMode.AS_I_LISTEN
+                        state.isSavingShareMode shouldBe false
                     }
                 }
             }

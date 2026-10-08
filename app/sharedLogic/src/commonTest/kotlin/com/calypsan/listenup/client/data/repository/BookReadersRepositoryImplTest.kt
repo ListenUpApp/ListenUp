@@ -86,7 +86,7 @@ class BookReadersRepositoryImplTest :
             object : UserRepository {
                 override fun observeCurrentUser(): Flow<User?> = flowOf(current)
 
-                override fun observeIsAdmin(): Flow<Boolean> = flowOf(current?.isAdmin ?: false)
+                override fun observeIsAdmin(): Flow<Boolean> = flowOf(current?.isAdmin == true)
 
                 override suspend fun getCurrentUser(): User? = current
 
@@ -164,15 +164,15 @@ class BookReadersRepositoryImplTest :
                     .test {
                         // First emission is the empty cache; the refresh then fills it.
                         val readers = awaitNonEmpty()
-                        readers.first { it.userId == "me" }.let {
-                            it.isYou shouldBe true
-                            it.finishes shouldBe listOf(300L, 100L)
-                            it.currentProgressPct shouldBe null
+                        readers.first { it.userId == "me" }.let { reader ->
+                            reader.isYou shouldBe true
+                            reader.finishes shouldBe listOf(300L, 100L)
+                            reader.currentProgressPct shouldBe null
                         }
-                        readers.first { it.userId == "u2" }.let {
-                            it.isYou shouldBe false
-                            it.currentProgressPct shouldBe 43
-                            it.finishes.shouldBeEmpty()
+                        readers.first { it.userId == "u2" }.let { reader ->
+                            reader.isYou shouldBe false
+                            reader.currentProgressPct shouldBe 43
+                            reader.finishes.shouldBeEmpty()
                         }
                         cancelAndIgnoreRemainingEvents()
                     }
@@ -460,8 +460,8 @@ class BookReadersRepositoryImplTest :
                     .test {
                         val jake = awaitNonEmpty().first { it.userId == "u2" }
                         jake.rating.shouldNotBeNull()
-                        jake.rating?.halfStars shouldBe 8
-                        jake.rating?.note shouldBe "Superb."
+                        jake.rating.halfStars shouldBe 8
+                        jake.rating.note shouldBe "Superb."
                         cancelAndIgnoreRemainingEvents()
                     }
             }
@@ -553,7 +553,7 @@ private class ThrowOnceBookReadershipDao(
 }
 
 /** Await the first non-empty readers emission (skips the initial empty cache emission). */
-private suspend fun app.cash.turbine.TurbineTestContext<com.calypsan.listenup.client.domain.readers.BookReaders>.awaitNonEmpty() =
+private suspend fun app.cash.turbine.ReceiveTurbine<com.calypsan.listenup.client.domain.readers.BookReaders>.awaitNonEmpty() =
     run {
         var readers = awaitItem().readers
         while (readers.isEmpty()) readers = awaitItem().readers

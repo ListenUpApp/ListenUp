@@ -92,7 +92,7 @@ class PlaybackProgressReporterAutoRewindTest :
         }
 
         test("resuming without ever pausing does not seek") {
-            var now = 0L
+            val now = 0L
             val (reporter, _) = buildReporter(nowMillis = { now })
             var seeks = 0
             reporter.onAutoRewindSeek = { seeks++ }

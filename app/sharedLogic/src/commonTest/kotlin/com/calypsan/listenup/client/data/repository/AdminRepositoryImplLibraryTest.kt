@@ -42,12 +42,12 @@ private fun contractLibrary(
  */
 private class FakeLibraryAdminService : LibraryAdminService {
     val libraries = mutableMapOf<String, Library>()
-    var addFolderCalls = mutableListOf<String>()
-    var removedFolderIds = mutableListOf<String>()
-    var scannedFolderIds = mutableListOf<String>()
+    val addFolderCalls = mutableListOf<String>()
+    val removedFolderIds = mutableListOf<String>()
+    val scannedFolderIds = mutableListOf<String>()
     var scanFolderResult: AppResult<Unit> = AppResult.Success(Unit)
     var scanLibraryCount = 0
-    var browsePaths = mutableListOf<String>()
+    val browsePaths = mutableListOf<String>()
     var browseResult: List<DirectoryEntry> = emptyList()
     private var folderSeq = 0
 

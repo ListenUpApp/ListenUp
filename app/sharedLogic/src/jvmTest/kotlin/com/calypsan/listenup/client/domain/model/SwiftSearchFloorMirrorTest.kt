@@ -34,13 +34,11 @@ class SwiftSearchFloorMirrorTest :
             val mirrored =
                 MIRROR_DECLARATION
                     .find(searchModels.readText())
-                    ?.groupValues
-                    ?.get(1)
-                    ?.toInt()
+                    ?.run { groupValues[1].toInt() }
 
             // A null here means the declaration was renamed or reshaped, which would make a plain
             // equality check pass vacuously against nothing at all.
-            check(mirrored != null) {
+            checkNotNull(mirrored) {
                 "No `let minSearchQueryLength = <int>` declaration found in ${searchModels.name}. " +
                     "The mirror was renamed or removed; this gate cannot verify what it cannot find."
             }

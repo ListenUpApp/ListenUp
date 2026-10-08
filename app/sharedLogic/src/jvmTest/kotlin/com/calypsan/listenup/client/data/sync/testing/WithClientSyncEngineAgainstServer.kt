@@ -514,8 +514,8 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                             }
 
                                             is BookMutation.SetContributors -> {
-                                                bookChannel.call {
-                                                    it.setBookContributors(
+                                                bookChannel.call { service ->
+                                                    service.setBookContributors(
                                                         bookId,
                                                         mutation.contributors,
                                                     )
@@ -535,8 +535,8 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                             }
 
                                             is BookMutation.SetTierLabels -> {
-                                                bookChannel.call {
-                                                    it.setBookTierLabels(
+                                                bookChannel.call { service ->
+                                                    service.setBookTierLabels(
                                                         bookId,
                                                         mutation.bookTierLabel,
                                                         mutation.partTierLabel,
@@ -545,8 +545,8 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                             }
 
                                             is BookMutation.SetCollections -> {
-                                                collectionChannel.call {
-                                                    it.setBookCollections(
+                                                collectionChannel.call { service ->
+                                                    service.setBookCollections(
                                                         bookId,
                                                         mutation.collectionIds.map(::CollectionId),
                                                     )

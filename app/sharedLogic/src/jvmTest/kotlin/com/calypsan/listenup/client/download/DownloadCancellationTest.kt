@@ -83,6 +83,8 @@ class DownloadCancellationTest :
 
                     val job =
                         launch {
+                            // Models DownloadWorker's handler: persist the cancellation, then rethrow it.
+                            @Suppress("SuspendFunSwallowedCancellation")
                             try {
                                 awaitCancellation()
                             } catch (e: CancellationException) {

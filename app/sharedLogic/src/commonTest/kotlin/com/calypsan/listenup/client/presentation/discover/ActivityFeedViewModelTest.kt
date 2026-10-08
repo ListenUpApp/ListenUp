@@ -256,7 +256,11 @@ private class RecordingSyncRepository : SyncRepository {
         private set
 
     override val syncState: StateFlow<SyncState> = MutableStateFlow(SyncState.Idle)
+
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // Overrides a published name the interface declares.
     override val isServerScanning: StateFlow<Boolean> = MutableStateFlow(false)
+
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // Overrides a published name the interface declares.
     override val isBuildingInitialLibrary: StateFlow<Boolean> = MutableStateFlow(false)
     override val scanProgress: StateFlow<ScanProgressState?> = MutableStateFlow(null)
 

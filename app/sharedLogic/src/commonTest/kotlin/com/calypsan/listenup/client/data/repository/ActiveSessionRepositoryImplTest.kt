@@ -411,7 +411,7 @@ private class FakeCachedActiveSessionDao : CachedActiveSessionDao {
 }
 
 /** Await the first non-empty sessions emission (skips the initial empty cache emission). */
-private suspend fun app.cash.turbine.TurbineTestContext<List<ActiveSession>>.awaitNonEmpty(): List<ActiveSession> {
+private suspend fun app.cash.turbine.ReceiveTurbine<List<ActiveSession>>.awaitNonEmpty(): List<ActiveSession> {
     var sessions = awaitItem()
     while (sessions.isEmpty()) sessions = awaitItem()
     return sessions

@@ -27,6 +27,7 @@ class SyncDomainHandlersUseAppResultRule :
 
             val offenders =
                 handlers
+                    .asSequence()
                     .flatMap { it.functions() }
                     .filter { it.name == "onEvent" || it.name == "onCatchUpItem" }
                     .filter { fn ->
@@ -38,6 +39,7 @@ class SyncDomainHandlersUseAppResultRule :
                                     !line.contains("throw cause")
                             }
                     }.map { "${it.name} in ${it.path}" }
+                    .toList()
 
             offenders.shouldBeEmpty()
         }

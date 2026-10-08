@@ -19,8 +19,7 @@ class SyncWritesGoThroughRepositoryRuleSelfTest :
         fun detect(source: String): String? =
             SyncWritesGoThroughRepositoryRule.WRITE_CALL
                 .find(source)
-                ?.groupValues
-                ?.get(1)
+                ?.run { groupValues[1] }
 
         test("catches every write verb that bypasses the revision bump") {
             val writes =

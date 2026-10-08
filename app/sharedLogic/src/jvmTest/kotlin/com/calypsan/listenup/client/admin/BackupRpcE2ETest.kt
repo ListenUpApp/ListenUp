@@ -273,7 +273,7 @@ private fun com.calypsan.listenup.api.error.AppError.shouldNotBeTransport() {
  * `ws://localhost/api/rpc/authed`, wrapped by [RpcChannel.forTest] so the repository drives the
  * real fold semantics over a real socket. No reconnect layer — these tests don't exercise it.
  */
-private suspend fun HttpClient.backupServiceProxy(): BackupService =
+private fun HttpClient.backupServiceProxy(): BackupService =
     rpc("ws://localhost/api/rpc/authed") {
         rpcConfig { serialization { krpcJson(contractJson) } }
     }.withService<BackupService>()

@@ -159,7 +159,7 @@ class TokenRefreshSingleFlightTest :
                 val refreshRpcCalls = MutableStateFlow(0)
 
                 val public = mock<AuthServicePublic>()
-                everySuspend { public.refreshSession(any()) } calls {
+                everySuspend { public.refreshSession(any()) } calls { _ ->
                     refreshRpcCalls.update { it + 1 }
                     // Release after the FIRST 401 (not all PARALLEL_CALLERS): gating on the full count
                     // deadlocks when a late caller blocks awaiting this same refresh deferred before it

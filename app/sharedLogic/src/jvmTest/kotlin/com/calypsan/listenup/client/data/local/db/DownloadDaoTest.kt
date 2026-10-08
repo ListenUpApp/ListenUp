@@ -81,10 +81,10 @@ class DownloadDaoTest :
                     dao.markPausedIfNotTerminal("file-active")
 
                     val byId = dao.observeAll().first().associateBy { it.audioFileId }
-                    byId["file-cancelled"]!!.state shouldBe DownloadState.CANCELLED
-                    byId["file-deleted"]!!.state shouldBe DownloadState.DELETED
-                    byId["file-completed"]!!.state shouldBe DownloadState.COMPLETED
-                    byId["file-active"]!!.state shouldBe DownloadState.PAUSED
+                    byId.getValue("file-cancelled").state shouldBe DownloadState.CANCELLED
+                    byId.getValue("file-deleted").state shouldBe DownloadState.DELETED
+                    byId.getValue("file-completed").state shouldBe DownloadState.COMPLETED
+                    byId.getValue("file-active").state shouldBe DownloadState.PAUSED
                 }
             } finally {
                 db.close()
@@ -151,10 +151,10 @@ class DownloadDaoTest :
                     dao.markDeletedForBook("book-1")
                     val all = dao.observeAll().first()
                     val byId = all.associateBy { it.audioFileId }
-                    byId["file-1"]!!.state shouldBe DownloadState.DELETED
-                    byId["file-2"]!!.state shouldBe DownloadState.DELETED
-                    byId["file-1"]!!.localPath shouldBe null // should be cleared
-                    byId["file-3"]!!.state shouldBe DownloadState.QUEUED // book-2 unaffected
+                    byId.getValue("file-1").state shouldBe DownloadState.DELETED
+                    byId.getValue("file-2").state shouldBe DownloadState.DELETED
+                    byId.getValue("file-1").localPath shouldBe null // should be cleared
+                    byId.getValue("file-3").state shouldBe DownloadState.QUEUED // book-2 unaffected
                 }
             } finally {
                 db.close()
@@ -182,11 +182,11 @@ class DownloadDaoTest :
                     // Only book-1's DELETED tombstone is gone.
                     remaining.keys shouldBe setOf("file-1", "file-3", "file-4")
                     // The COMPLETED download and its local file path survive (offline copy stays playable).
-                    remaining["file-1"]!!.state shouldBe DownloadState.COMPLETED
-                    remaining["file-1"]!!.localPath shouldBe "/path/to/file-1"
+                    remaining.getValue("file-1").state shouldBe DownloadState.COMPLETED
+                    remaining.getValue("file-1").localPath shouldBe "/path/to/file-1"
                     dao.getLocalPath("file-1") shouldBe "/path/to/file-1"
                     // Other book's tombstone is untouched.
-                    remaining["file-4"]!!.state shouldBe DownloadState.DELETED
+                    remaining.getValue("file-4").state shouldBe DownloadState.DELETED
                 }
             } finally {
                 db.close()

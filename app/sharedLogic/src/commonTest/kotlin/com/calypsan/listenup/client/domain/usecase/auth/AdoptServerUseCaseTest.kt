@@ -32,7 +32,7 @@ class AdoptServerUseCaseTest :
                     everySuspend { setServerUrl(any()) } calls { (url: ServerUrl) -> events += "url:${url.value}" }
                     everySuspend { setConnectedServerId(any()) } calls { (id: String?) ->
                         connectedId = id
-                        events += "id:$id"
+                        events += "id:${id ?: "null"}"
                     }
                     everySuspend { setLibraryServerId(any()) } calls { (id: String) -> libraryServerId = id }
                 }

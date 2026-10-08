@@ -30,12 +30,12 @@ class InboxBadgeViewModelTest :
             isAdmin: Boolean,
             vararg heldIds: String,
         ) {
-            val isAdminFlow = MutableStateFlow(isAdmin)
+            val adminFlow = MutableStateFlow(isAdmin)
             val inbox = FakeInboxRepository().apply { hold(*heldIds) }
             val held get() = inbox.held
             val viewModel =
                 InboxBadgeViewModel(
-                    userRepository = mock<UserRepository> { every { observeIsAdmin() } returns isAdminFlow },
+                    userRepository = mock<UserRepository> { every { observeIsAdmin() } returns adminFlow },
                     inboxRepository = inbox,
                 )
         }
@@ -83,7 +83,7 @@ class InboxBadgeViewModelTest :
                 advanceUntilIdle()
                 f.viewModel.heldCount.value shouldBe 2
 
-                f.isAdminFlow.value = false
+                f.adminFlow.value = false
                 advanceUntilIdle()
 
                 f.viewModel.heldCount.value shouldBe 0
@@ -98,7 +98,7 @@ class InboxBadgeViewModelTest :
                 advanceUntilIdle()
 
                 f.held.subscriptionCount.value shouldBe 1
-                f.isAdminFlow.subscriptionCount.value shouldBe 1
+                f.adminFlow.subscriptionCount.value shouldBe 1
                 f.viewModel.heldCount.value shouldBe 2
                 f.viewModel.previewBookIds.value shouldBe listOf("b2", "b1")
             }

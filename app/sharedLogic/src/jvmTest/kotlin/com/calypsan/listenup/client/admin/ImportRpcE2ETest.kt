@@ -105,11 +105,6 @@ class ImportRpcE2ETest :
                     }
                     application { module() }
 
-                    val restClient =
-                        createClient {
-                            install(ContentNegotiation) { json(contractJson) }
-                        }
-
                     // Mint a ROOT account so the import admin gate passes.
                     val accessToken = setupRoot()
 
@@ -198,7 +193,7 @@ class ImportRpcE2ETest :
  * semantics over a real socket. The [accessToken] is a real JWT minted by the server's
  * `AuthServicePublic.setupRoot` RPC so the bearer-gated RPC surface authenticates.
  */
-private suspend fun HttpClient.importServiceProxy(accessToken: String): ImportService =
+private fun HttpClient.importServiceProxy(accessToken: String): ImportService =
     rpc("ws://localhost/api/rpc/authed") {
         rpcConfig { serialization { krpcJson(contractJson) } }
         bearerAuth(accessToken)

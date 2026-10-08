@@ -167,13 +167,10 @@ class RefreshAuthTokensTest :
         test("CancellationException is re-thrown") {
             runTest {
                 val authSession = mock<AuthSession>()
-                var caught: CancellationException? = null
-                try {
-                    refreshAuthTokens(authSession) { throw CancellationException("test cancel") }
-                } catch (e: CancellationException) {
-                    caught = e
-                }
-                caught.shouldNotBeNull()
+                val caught =
+                    shouldThrow<CancellationException> {
+                        refreshAuthTokens(authSession) { throw CancellationException("test cancel") }
+                    }
                 caught.message shouldBe "test cancel"
             }
         }

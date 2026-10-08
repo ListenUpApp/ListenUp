@@ -39,6 +39,7 @@ import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldNotContain
@@ -405,14 +406,9 @@ class BooksDomainTest :
                         booksDomain(database = db, mapper = BookEntityMapper(), imageStorage = stubImageStorage())
                             .toHandler(transactionRunner = cancellingRunner, registry = ClientSyncDomainRegistry())
 
-                    var threw: Throwable? = null
-                    try {
+                    shouldThrow<CancellationException> {
                         handler.onEvent(created(bookPayload(id = "b1")))
-                    } catch (e: CancellationException) {
-                        threw = e
                     }
-
-                    threw.shouldBeInstanceOf<CancellationException>()
                 } finally {
                     db.close()
                 }

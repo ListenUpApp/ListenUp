@@ -130,7 +130,7 @@ class CollectionRepositoryImplTest :
                     WireAppResult.Success(summary("c-new", "New"))
                 val result = repo(service = service).create("lib1", "New")
                 val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
-                (success.data as com.calypsan.listenup.client.domain.model.Collection).id shouldBe "c-new"
+                success.data.shouldBeInstanceOf<com.calypsan.listenup.client.domain.model.Collection>().id shouldBe "c-new"
             }
         }
 

@@ -419,7 +419,7 @@ class SyncDomainCompletenessSpec :
     })
 
 /** The authed [SyncStreamService] over a real kotlinx.rpc proxy, as [accessToken]'s caller. */
-private suspend fun ApplicationTestBuilder.authedSyncService(accessToken: String): SyncStreamService =
+private fun ApplicationTestBuilder.authedSyncService(accessToken: String): SyncStreamService =
     createClient {
         install(WebSockets)
         installKrpc()

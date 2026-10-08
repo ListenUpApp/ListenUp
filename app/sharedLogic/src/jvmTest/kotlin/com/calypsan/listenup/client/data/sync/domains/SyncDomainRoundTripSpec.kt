@@ -99,7 +99,7 @@ class SyncDomainRoundTripSpec :
                         for (encoded in page.items) {
                             runCatching {
                                 contractJson.decodeFromString(serializer, encoded)
-                            }.onFailure { undecodable += "$domain: ${it.message}" }
+                            }.onFailure { undecodable += "$domain: ${it.message ?: "no message"}" }
                         }
                     }
 
@@ -148,7 +148,7 @@ private fun roundTripConfig(
     )
 
 /** The authed [SyncStreamService] over a real kotlinx.rpc proxy, as [accessToken]'s caller. */
-private suspend fun ApplicationTestBuilder.authedSyncService(accessToken: String): SyncStreamService =
+private fun ApplicationTestBuilder.authedSyncService(accessToken: String): SyncStreamService =
     createClient {
         install(WebSockets)
         installKrpc()

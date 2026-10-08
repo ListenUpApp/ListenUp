@@ -36,9 +36,9 @@ class ControlChannelIsNotADataPathRule :
             productionScope()
                 .files
                 .filter { it.path.contains("/server/") && it.path.contains("/commonMain/") }
-                .also {
+                .also { files ->
                     assertScopeNotEmpty(
-                        it,
+                        files,
                         expectedMin = 250,
                         why = "server commonMain files — where every control emission and suppressed bulk write lives",
                     )
@@ -79,8 +79,8 @@ class ControlChannelIsNotADataPathRule :
             val offenders =
                 serverCommonMainFiles()
                     .filter { ControlChannelDetector.firehoseSuppressedPairingViolation(it.text) }
-                    .map {
-                        "${it.name} enters withContext(FirehoseSuppressed) but never references " +
+                    .map { file ->
+                        "${file.name} enters withContext(FirehoseSuppressed) but never references " +
                             "SyncControl.LibraryDataChanged — a suppressed bulk write must broadcast the " +
                             "accelerator (docs/sync-core-centralization-plan.md §5)"
                     }
@@ -105,8 +105,8 @@ class ControlChannelIsNotADataPathRule :
             val offenders =
                 bannedLayerFiles
                     .filter { ControlChannelDetector.isBannedRefreshSignal(it.path, it.text) }
-                    .map {
-                        "${it.name} declares a MutableSharedFlow<Unit> refresh signal — the retired lossy-nudge " +
+                    .map { declaration ->
+                        "${declaration.name} declares a MutableSharedFlow<Unit> refresh signal — the retired lossy-nudge " +
                             "pattern. Use a catalog RefreshedDomain (docs/sync-core-centralization-plan.md §6c)."
                     }
 
@@ -119,6 +119,11 @@ class ControlChannelIsNotADataPathRule :
  * feed it synthetic violations and assert it reports them.
  */
 internal object ControlChannelDetector {
+    // A control emission: `broadcastControl(` or `publishControl(` whose first argument is a
+    // `SyncControl.<Frame>` (whitespace/newline tolerant — some call sites break the line after `(`).
+    private val CONTROL_CALL_REGEX =
+        Regex("""(?:broadcastControl|publishControl)\s*\(\s*SyncControl\.(\w+)""")
+
     /**
      * The complete census of control-frame emission sites, keyed by source-file name to the set of
      * `SyncControl` frames that file is allowed to emit. Adding a control emission means adding its
@@ -209,11 +214,6 @@ internal object ControlChannelDetector {
             path.contains("/data/repository/") || path.contains("/presentation/")
         return inBannedLayer && stripComments(source).contains("MutableSharedFlow<Unit>")
     }
-
-    // A control emission: `broadcastControl(` or `publishControl(` whose first argument is a
-    // `SyncControl.<Frame>` (whitespace/newline tolerant — some call sites break the line after `(`).
-    private val CONTROL_CALL_REGEX =
-        Regex("""(?:broadcastControl|publishControl)\s*\(\s*SyncControl\.(\w+)""")
 }
 
 private fun stripComments(source: String): String =

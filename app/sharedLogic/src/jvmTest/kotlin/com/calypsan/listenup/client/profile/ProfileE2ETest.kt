@@ -238,7 +238,7 @@ private class TestProfileRpcFactory(
             cachedService ?: connect().also { cachedService = it }
         }
 
-    private suspend fun connect(): ProfileService =
+    private fun connect(): ProfileService =
         httpClient
             .rpc("ws://localhost/api/rpc/authed") {
                 rpcConfig { serialization { krpcJson(contractJson) } }

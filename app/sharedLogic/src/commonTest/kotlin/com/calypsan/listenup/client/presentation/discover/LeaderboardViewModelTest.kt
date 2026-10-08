@@ -159,7 +159,7 @@ class LeaderboardViewModelTest :
                         when (period) {
                             LeaderboardPeriod.Week -> weekFlow
                             LeaderboardPeriod.Month -> monthFlow
-                            else -> MutableSharedFlow()
+                            LeaderboardPeriod.Year, LeaderboardPeriod.AllTime -> MutableSharedFlow()
                         }
                     }
                 val vm = LeaderboardViewModel(repo)

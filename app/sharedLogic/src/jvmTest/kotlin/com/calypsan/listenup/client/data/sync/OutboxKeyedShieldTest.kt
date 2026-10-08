@@ -238,7 +238,8 @@ private fun withShield(
 }
 
 @Suppress("UNCHECKED_CAST")
-private fun <T : Any> ClientSyncDomainRegistry.handler(name: String): SyncDomainHandler<T> = lookup(name) as SyncDomainHandler<T>
+private fun <T : Any> ClientSyncDomainRegistry.handler(name: String): SyncDomainHandler<T> =
+    checkNotNull(lookup(name)) { "no sync domain handler registered for '$name'" } as SyncDomainHandler<T>
 
 private fun <T : SyncPayload> created(payload: T) =
     SyncEvent.Created(id = payload.id, revision = payload.revision, occurredAt = 1L, payload = payload)

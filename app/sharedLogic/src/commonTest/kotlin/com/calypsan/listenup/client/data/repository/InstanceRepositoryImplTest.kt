@@ -60,7 +60,7 @@ class InstanceRepositoryImplTest :
             val result = repository.verifyServer("https://library.example.com")
 
             val verified = result.shouldBeInstanceOf<AppResult.Success<*>>()
-            val data = verified.data as com.calypsan.listenup.client.domain.repository.VerifiedServer
+            val data = verified.data.shouldBeInstanceOf<com.calypsan.listenup.client.domain.repository.VerifiedServer>()
             data.serverInfo shouldBe serverInfo
             data.verifiedUrl shouldBe "https://library.example.com"
             // The factory is connected over the ws-scheme equivalent.
@@ -99,7 +99,8 @@ class InstanceRepositoryImplTest :
             val result = repository.verifyServer("library.example.com")
 
             val verified = result.shouldBeInstanceOf<AppResult.Success<*>>()
-            (verified.data as com.calypsan.listenup.client.domain.repository.VerifiedServer)
+            verified.data
+                .shouldBeInstanceOf<com.calypsan.listenup.client.domain.repository.VerifiedServer>()
                 .verifiedUrl shouldBe "http://library.example.com"
             factory.attempted shouldBe listOf("wss://library.example.com", "ws://library.example.com")
         }
@@ -161,6 +162,9 @@ class InstanceRepositoryImplTest :
         test("getServerInfo persists the remote URL from the fetched ServerInfo") {
             val infoWithRemote = serverInfo.copy(remoteUrl = "https://library.example.com")
             val factory = FakeInstanceRpcFactory(RpcResult.Success(infoWithRemote))
+
+            // Explicit: persistRemoteUrl takes a String?, and that lambda is where null arrives.
+            @Suppress("RedundantExplicitType")
             var persisted: String? = "UNSET"
             val repository =
                 InstanceRepositoryImpl(
@@ -176,6 +180,9 @@ class InstanceRepositoryImplTest :
 
         test("getServerInfo persists a null remote URL when the server has none") {
             val factory = FakeInstanceRpcFactory(RpcResult.Success(serverInfo.copy(remoteUrl = null)))
+
+            // Explicit: persistRemoteUrl takes a String?, and that lambda is where null arrives.
+            @Suppress("RedundantExplicitType")
             var persisted: String? = "UNSET"
             val repository =
                 InstanceRepositoryImpl(

@@ -42,6 +42,7 @@ class RpcReturnShapesRule :
 
             val offenders =
                 rpcInterfaces
+                    .asSequence()
                     .flatMap { it.functions() }
                     .filter { fn -> fn.hasModifier(KoModifier.SUSPEND) }
                     .filter { fn ->
@@ -49,7 +50,7 @@ class RpcReturnShapesRule :
                         !rt.startsWith("AppResult<")
                     }.map { fn ->
                         "${fn.name} @ ${fn.path}"
-                    }
+                    }.toList()
 
             offenders.shouldBeEmpty()
         }
@@ -67,6 +68,7 @@ class RpcReturnShapesRule :
 
             val offenders =
                 rpcInterfaces
+                    .asSequence()
                     .flatMap { it.functions() }
                     .filter { fn -> !fn.hasModifier(KoModifier.SUSPEND) }
                     .filter { fn ->
@@ -74,7 +76,7 @@ class RpcReturnShapesRule :
                         !rt.startsWith("Flow<RpcEvent<")
                     }.map { fn ->
                         "${fn.name} @ ${fn.path}"
-                    }
+                    }.toList()
 
             offenders.shouldBeEmpty()
         }

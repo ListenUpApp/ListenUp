@@ -25,7 +25,7 @@ private class RecordingApply : MirrorApply<Tag> {
     }
 
     /** Wired into [DeleteSemantics.SoftDelete]; records the id-only tombstone args. */
-    suspend fun tombstoneById(
+    fun tombstoneById(
         id: String,
         deletedAt: Long,
         revision: Long,
@@ -95,7 +95,7 @@ class ComposedSyncDomainHandlerTest :
 
         test("NewerWins skips a stale snapshot and applies a fresher one") {
             val apply = RecordingApply()
-            var localStamp: Long? = 200L
+            var localStamp = 200L
             val handler =
                 domain(
                     apply,

@@ -248,9 +248,11 @@ class SyncEngineLifecycleTest :
 
                         override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> {
                             dispatchStarted.complete(Unit)
-                            kotlinx.coroutines.awaitCancellation()
-                            dispatchFinished.complete(Unit)
-                            return AppResult.Success(Unit)
+                            try {
+                                kotlinx.coroutines.awaitCancellation()
+                            } finally {
+                                dispatchFinished.complete(Unit)
+                            }
                         }
 
                         override suspend fun onCatchUpItem(
@@ -315,7 +317,7 @@ class SyncEngineLifecycleTest :
                 dispatchStarted.await()
 
                 withTimeout(1.seconds) { engine.stopAndJoin() }
-                dispatchFinished.isCompleted shouldBe false
+                dispatchFinished.isCompleted shouldBe true
                 emitJob.cancel()
                 emitJob.join()
                 db.close()

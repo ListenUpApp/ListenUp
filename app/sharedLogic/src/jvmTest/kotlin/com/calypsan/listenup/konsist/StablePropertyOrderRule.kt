@@ -40,10 +40,9 @@ class StablePropertyOrderRule :
                         val classTagged = klass.annotations.any { it.name == "SerialName" }
                         val anyPropertyTagged =
                             klass.primaryConstructor
-                                ?.parameters
-                                ?.any { p -> p.annotations.any { it.name == "SerialName" } } == true
+                                ?.run { parameters.any { p -> p.annotations.any { it.name == "SerialName" } } } == true
                         !classTagged && !anyPropertyTagged
-                    }.map { "${it.fullyQualifiedName} @ ${it.path}" }
+                    }.map { "${it.fullyQualifiedName ?: it.name} @ ${it.path}" }
 
             offenders.shouldBeEmpty()
         }

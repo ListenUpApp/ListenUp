@@ -32,10 +32,12 @@ class PendingQueueAccessRule :
 
             val offenders =
                 importers
+                    .asSequence()
                     .filterNot { "/data/sync/" in it.path }
                     .filterNot { "/di/" in it.path }
                     .filterNot { file -> allowedPaths.any { it in file.path } }
                     .map { it.path }
+                    .toList()
             offenders.shouldBeEmpty()
         }
     })

@@ -82,7 +82,7 @@ class RegistrationStreamRpcTest :
                 every { service.observeRegistrationStatus("user-1") } returns
                     flow {
                         emit(RpcEvent.Data(RegistrationStatusEvent(status = "pending")))
-                        throw IllegalStateException("socket dropped")
+                        error("socket dropped")
                     }
                 val impl = RegistrationStatusStreamImpl(channelFor(service))
 

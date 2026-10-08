@@ -13,6 +13,8 @@ import io.kotest.matchers.shouldNotBe
  */
 class JvmStoragePathsTest :
     FunSpec({
+        val osName = System.getProperty("os.name", "").lowercase()
+
         val storagePaths = JvmStoragePaths()
 
         test("filesDir returns non-null path") {
@@ -34,13 +36,7 @@ class JvmStoragePathsTest :
             }
         }
 
-        test("filesDir uses appropriate base on Linux") {
-            val os = System.getProperty("os.name", "").lowercase()
-            if (!os.contains("linux")) {
-                println("Skipping Linux-specific test on $os")
-                return@test
-            }
-
+        test("filesDir uses appropriate base on Linux").config(enabled = osName.contains("linux")) {
             // When
             val filesDir = storagePaths.filesDir.toString()
 
@@ -53,13 +49,7 @@ class JvmStoragePathsTest :
             }
         }
 
-        test("filesDir uses appropriate base on Windows") {
-            val os = System.getProperty("os.name", "").lowercase()
-            if (!os.contains("windows")) {
-                println("Skipping Windows-specific test on $os")
-                return@test
-            }
-
+        test("filesDir uses appropriate base on Windows").config(enabled = osName.contains("windows")) {
             // When
             val filesDir = storagePaths.filesDir.toString()
 
@@ -113,13 +103,7 @@ class JvmStoragePathsTest :
             cacheDir.absolutePath.isNotEmpty() shouldBe true
         }
 
-        test("getCacheDirectory uses appropriate base on Linux") {
-            val os = System.getProperty("os.name", "").lowercase()
-            if (!os.contains("linux")) {
-                println("Skipping Linux-specific test on $os")
-                return@test
-            }
-
+        test("getCacheDirectory uses appropriate base on Linux").config(enabled = osName.contains("linux")) {
             // When
             val cacheDir = storagePaths.getCacheDirectory().absolutePath
 

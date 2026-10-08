@@ -36,17 +36,18 @@ class PublicCommonMainTypesHaveKDocRule :
                     // path containing "/commonMain/" (e.g. Koin's InstanceRegistry extracted
                     // from a sources jar into <worktree-root>/commonMain/org/koin/…).
                     // First-party types always live under the com.calypsan.listenup namespace.
-                    .filter { it.packagee?.name?.startsWith("com.calypsan.listenup") == true }
+                    .filter { it.packagee?.run { name.startsWith("com.calypsan.listenup") } == true }
                     .withPublicOrDefaultModifier()
             val interfaces =
                 scope
                     .interfaces()
                     .filter { it.path.contains("/commonMain/") }
-                    .filter { it.packagee?.name?.startsWith("com.calypsan.listenup") == true }
+                    .filter { it.packagee?.run { name.startsWith("com.calypsan.listenup") } == true }
                     .withPublicOrDefaultModifier()
             val objects =
                 scope
                     .objects()
+                    .asSequence()
                     // A `companion object` is an implementation detail of its enclosing type —
                     // that type carries the KDoc, and demanding a second block on every companion
                     // is noise, not documentation. (e.g. BookId.Companion in ValueClasses.kt.)
@@ -59,7 +60,8 @@ class PublicCommonMainTypesHaveKDocRule :
                     // are `data class`, so `.classes()` above still holds them to the rule.
                     .filter { it.isTopLevel }
                     .filter { it.path.contains("/commonMain/") }
-                    .filter { it.packagee?.name?.startsWith("com.calypsan.listenup") == true }
+                    .filter { it.packagee?.run { name.startsWith("com.calypsan.listenup") } == true }
+                    .toList()
                     .withPublicOrDefaultModifier()
 
             // Vacuity guards: prove each kind is actually being discovered. Without these, a
@@ -70,9 +72,9 @@ class PublicCommonMainTypesHaveKDocRule :
             objects.shouldNotBeEmpty()
 
             val offenders =
-                classes.filter { !it.hasKDoc }.map { "${it.fullyQualifiedName} @ ${it.path}" } +
-                    interfaces.filter { !it.hasKDoc }.map { "${it.fullyQualifiedName} @ ${it.path}" } +
-                    objects.filter { !it.hasKDoc }.map { "${it.fullyQualifiedName} @ ${it.path}" }
+                classes.filter { !it.hasKDoc }.map { "${it.fullyQualifiedName ?: it.name} @ ${it.path}" } +
+                    interfaces.filter { !it.hasKDoc }.map { "${it.fullyQualifiedName ?: it.name} @ ${it.path}" } +
+                    objects.filter { !it.hasKDoc }.map { "${it.fullyQualifiedName ?: it.name} @ ${it.path}" }
 
             offenders.shouldBeEmpty()
         }

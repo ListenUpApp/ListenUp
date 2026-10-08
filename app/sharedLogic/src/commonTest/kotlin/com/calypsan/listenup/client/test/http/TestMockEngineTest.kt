@@ -59,7 +59,7 @@ class TestMockEngineTest :
 
                 val response: HttpResponse = client.get("http://unit.test/whoami")
                 val contentType = response.headers["Content-Type"]
-                withClue("respondJson must set Content-Type: application/json (was $contentType)") {
+                withClue("respondJson must set Content-Type: application/json (was ${contentType ?: "absent"})") {
                     (contentType?.startsWith("application/json") == true) shouldBe true
                 }
             }

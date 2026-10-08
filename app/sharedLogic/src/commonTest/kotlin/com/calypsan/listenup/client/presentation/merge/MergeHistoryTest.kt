@@ -49,7 +49,7 @@ class MergeHistoryTest :
             }
             var undoGate: CompletableDeferred<Unit>? = null
 
-            suspend fun load(): AppResult<List<MergeReceipt>> = loadResult ?: AppResult.Success(receipts.toList())
+            fun load(): AppResult<List<MergeReceipt>> = loadResult ?: AppResult.Success(receipts.toList())
 
             suspend fun undo(id: MergeReceiptId): AppResult<MergeUndoResult> {
                 undoGate?.await()

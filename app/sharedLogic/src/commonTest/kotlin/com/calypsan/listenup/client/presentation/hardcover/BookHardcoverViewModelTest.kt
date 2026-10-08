@@ -55,8 +55,11 @@ class BookHardcoverViewModelTest :
 
         test("not connected, or broken, shows nothing and asks nothing") {
             runTest {
-                listOf(HardcoverConnection.NotConnected(), HardcoverConnection.Broken(HardcoverBrokenReason.REVOKED)).forEach {
-                    val repo = FakeHardcoverRepository(it)
+                listOf(
+                    HardcoverConnection.NotConnected(),
+                    HardcoverConnection.Broken(HardcoverBrokenReason.REVOKED),
+                ).forEach { connection ->
+                    val repo = FakeHardcoverRepository(connection)
                     val vm = bookViewModel(repo)
                     vm.uiState.test {
                         advanceUntilIdle()

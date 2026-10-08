@@ -158,6 +158,8 @@ class UserProfileViewModelTest :
                             shelf("s2", ownerId = ownId),
                         ),
                     )
+                // Installs the stub; only tests that push later updates need the flow back.
+                @Suppress("IgnoredReturnValue")
                 fixture.recentlyListened(ownId, wayOfKings, elantris)
 
                 val viewModel = fixture.build()
@@ -201,6 +203,8 @@ class UserProfileViewModelTest :
                             shelf("s2", ownerId = otherId),
                         ),
                     )
+                // Installs the stub; only tests that push later updates need the flow back.
+                @Suppress("IgnoredReturnValue")
                 fixture.recentlyListened(otherId, elantris)
 
                 val viewModel = fixture.build()
@@ -282,6 +286,8 @@ class UserProfileViewModelTest :
                 every { fixture.publicProfileDao.observeById(otherId) } returns MutableStateFlow(row)
                 everySuspend { fixture.shelfRepository.getUserShelves(otherId) } returns
                     AppResult.Failure(InternalError(debugInfo = "boom"))
+                // Installs the stub; only tests that push later updates need the flow back.
+                @Suppress("IgnoredReturnValue")
                 fixture.recentlyListened(otherId)
 
                 val viewModel = fixture.build()
