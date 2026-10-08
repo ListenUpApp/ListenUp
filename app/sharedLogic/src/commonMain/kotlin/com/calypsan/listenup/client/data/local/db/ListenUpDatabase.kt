@@ -200,6 +200,7 @@ internal abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun bookExternalRatingDao(): BookExternalRatingDao
 
     abstract fun entityDao(): EntityDao
+
     abstract fun readingOrderDao(): ReadingOrderDao
 
     abstract fun readingOrderBookDao(): ReadingOrderBookDao
