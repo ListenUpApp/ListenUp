@@ -747,7 +747,7 @@ class SeriesDetailViewModelTest :
             isAdmin = isAdmin,
             permissions =
                 com.calypsan.listenup.client.domain.model
-                    .UserPermissions(canEdit = canEdit),
+                    .UserPermissions(canEditMetadata = canEdit),
             createdAtMs = 0L,
             updatedAtMs = 0L,
         )

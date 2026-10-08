@@ -30,13 +30,13 @@ class ContractUserMapperTest :
             role = role,
             status = UserStatus.ACTIVE,
             createdAt = 1_000L,
-            permissions = ContractUserPermissions(canEdit = canEdit),
+            permissions = ContractUserPermissions(canEditMetadata = canEdit),
         )
 
         test("carries the canEdit flag across") {
             val domain = contractUser(canEdit = false).toDomain()
 
-            domain.permissions.canEdit shouldBe false
+            domain.permissions.canEditMetadata shouldBe false
         }
 
         test("permissions are independent of the admin bit") {
@@ -45,11 +45,11 @@ class ContractUserMapperTest :
             // neither expressible.
             val editingMember = contractUser(role = UserRole.MEMBER, canEdit = true).toDomain()
             editingMember.isAdmin shouldBe false
-            editingMember.permissions.canEdit shouldBe true
+            editingMember.permissions.canEditMetadata shouldBe true
 
             val restrictedAdmin = contractUser(role = UserRole.ADMIN, canEdit = false).toDomain()
             restrictedAdmin.isAdmin shouldBe true
-            restrictedAdmin.permissions.canEdit shouldBe false
+            restrictedAdmin.permissions.canEditMetadata shouldBe false
         }
 
         test("ROOT and ADMIN both map to isAdmin") {

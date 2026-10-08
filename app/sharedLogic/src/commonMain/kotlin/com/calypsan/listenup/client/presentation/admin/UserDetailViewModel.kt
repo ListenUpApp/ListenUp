@@ -48,7 +48,7 @@ class UserDetailViewModel(
                     state.update {
                         UserDetailUiState.Ready(
                             user = user,
-                            canEdit = user.permissions.canEdit,
+                            canEdit = user.permissions.canEditMetadata,
                             isProtected = user.isProtected,
                         )
                     }
@@ -79,7 +79,7 @@ class UserDetailViewModel(
             previousValue = ready.canEdit,
             optimistic = { current, value -> current.copy(canEdit = value) },
             save = { value -> adminRepository.updateUser(userId = userId, canEdit = value) },
-            reconcile = { current, user -> current.copy(canEdit = user.permissions.canEdit) },
+            reconcile = { current, user -> current.copy(canEdit = user.permissions.canEditMetadata) },
         )
     }
 

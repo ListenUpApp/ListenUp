@@ -1,17 +1,19 @@
 package com.calypsan.listenup.client.domain.model
 
 /**
- * User permission flags for action-level access control.
+ * The signed-in user's, or an administered user's, permission flags — the domain twin of the contract
+ * `UserPermissions`, one field per known `Permission`. ROOT and ADMIN hold every permission whatever
+ * these say; [com.calypsan.listenup.client.domain.repository.PermissionsRepository] is the one place a
+ * ViewModel asks "may I?".
  *
- * Both flags mirror the contract `UserPermissions` one-for-one. [canEdit] was absent here until
- * #1270, which is why no admin screen could ever grant it: the server has gated every metadata
- * mutation on it since `V26`, but the client's mappers collapsed the contract user down to an
- * admin bit and dropped the rest.
- *
- * @property canEdit Whether user can edit content metadata — tags, moods, genres, series, contributors
+ * @property canEditMetadata Edit metadata: book fields, covers, chapters, matching, and editing (not
+ *   merging or deleting) catalogue entries.
+ * @property canCurateLibrary Curate library: merge, unmerge and delete contributors, series, genres,
+ *   tags and moods, and undo those merges.
  */
 data class UserPermissions(
-    val canEdit: Boolean = true,
+    val canEditMetadata: Boolean = true,
+    val canCurateLibrary: Boolean = false,
 )
 
 /**

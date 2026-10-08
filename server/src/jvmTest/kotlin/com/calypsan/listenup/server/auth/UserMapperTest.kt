@@ -39,7 +39,7 @@ class UserMapperTest :
                         .executeAsOne()
                         .toAuthUser()
                         .toContract()
-                user.permissions shouldBe UserPermissions(canEdit = false)
+                user.permissions shouldBe UserPermissions(canEditMetadata = false)
                 user.approvedBy shouldBe "admin1"
                 user.approvedAt shouldBe 123L
             }

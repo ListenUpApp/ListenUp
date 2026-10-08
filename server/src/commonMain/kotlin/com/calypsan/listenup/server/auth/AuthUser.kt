@@ -62,7 +62,7 @@ internal fun AuthUser.toContract(): User =
         role = role.toContract(),
         status = status.toContract(),
         createdAt = createdAt,
-        permissions = UserPermissions(canEdit = canEdit),
+        permissions = UserPermissions(canEditMetadata = canEdit),
         approvedBy = approvedBy,
         approvedAt = approvedAt,
     )

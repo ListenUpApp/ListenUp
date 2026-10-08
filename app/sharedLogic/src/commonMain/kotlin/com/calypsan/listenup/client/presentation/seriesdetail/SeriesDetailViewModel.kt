@@ -64,7 +64,7 @@ class SeriesDetailViewModel(
     private val hierarchyAccess: Flow<Pair<Boolean, Boolean>> =
         combine(
             userRepository.observeCurrentUser().map { user ->
-                user != null && (user.isAdmin || user.permissions.canEdit)
+                user != null && (user.isAdmin || user.permissions.canEditMetadata)
             },
             networkMonitor.isOnlineFlow,
         ) { canEdit, online -> canEdit to online }

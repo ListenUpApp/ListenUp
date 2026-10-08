@@ -42,7 +42,7 @@ internal fun adminUser(
     isRoot = isRoot,
     role = role,
     status = status,
-    permissions = UserPermissions(canEdit = canEdit),
+    permissions = UserPermissions(canEditMetadata = canEdit),
     createdAt = "2026-01-01T00:00:00Z",
 )
 
@@ -52,7 +52,7 @@ internal fun readyUser(
     error: com.calypsan.listenup.api.error.AppError? = null,
 ) = UserDetailUiState.Ready(
     user = user,
-    canEdit = user.permissions.canEdit,
+    canEdit = user.permissions.canEditMetadata,
     isProtected = user.isProtected,
     isSaving = isSaving,
     error = error,

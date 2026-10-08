@@ -131,7 +131,7 @@ class BookCoverUploadRouteTest :
                     val (memberToken, memberId) = registerMember("member@x")
                     // Revoke canEdit via the admin PATCH endpoint — MEMBERs default to canEdit=true.
                     authedService<AdminUserService>(rootToken)
-                        .updateUser(UserId(memberId), AdminUserPatch(permissions = UserPermissions(canEdit = false)))
+                        .updateUser(UserId(memberId), AdminUserPatch(permissions = UserPermissions(canEditMetadata = false)))
                     seedTestLibraryAndFolder()
 
                     val repo by application.inject<BookRepository>()

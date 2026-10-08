@@ -233,7 +233,7 @@ class AdminUserServiceImpl(
                 val mergedDisplayName = patch.displayName ?: user.displayName
                 val mergedRole = patch.role?.toColumn() ?: user.role
                 demoted = user.role == UserRoleColumn.ADMIN && mergedRole == UserRoleColumn.MEMBER
-                val mergedCanEdit = patch.permissions?.canEdit ?: user.canEdit
+                val mergedCanEdit = patch.permissions?.canEditMetadata ?: user.canEdit
                 val now = clock.now().toEpochMilliseconds()
                 sql.usersQueries.updateAdminFields(
                     display_name = mergedDisplayName,

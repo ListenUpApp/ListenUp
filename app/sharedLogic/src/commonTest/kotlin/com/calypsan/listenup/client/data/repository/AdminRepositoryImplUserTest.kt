@@ -37,7 +37,7 @@ private fun testUser(
     role = role,
     status = status,
     createdAt = 1_000_000L,
-    permissions = UserPermissions(canEdit = true),
+    permissions = UserPermissions(canEditMetadata = true),
 )
 
 private class FakeAdminUserService : AdminUserService {
@@ -226,7 +226,7 @@ class AdminRepositoryImplUserTest :
             val service = FakeAdminUserService()
             service.seedUser(
                 testUser("u4", role = UserRole.MEMBER).copy(
-                    permissions = UserPermissions(canEdit = true),
+                    permissions = UserPermissions(canEditMetadata = true),
                 ),
             )
             val repo = buildRepo(service)
@@ -245,11 +245,11 @@ class AdminRepositoryImplUserTest :
             // displayName must NOT be sent — no contract field for first/last name
             patch?.displayName shouldBe null
             patch?.role shouldBe UserRole.ADMIN
-            patch?.permissions?.canEdit shouldBe false
+            patch?.permissions?.canEditMetadata shouldBe false
 
             val info = (result as AppResult.Success).data
             info.role shouldBe "ADMIN"
-            info.permissions.canEdit shouldBe false
+            info.permissions.canEditMetadata shouldBe false
         }
 
         test("updateUser without canEdit sends no permissions, so the server keeps canEdit as it is") {
@@ -257,7 +257,7 @@ class AdminRepositoryImplUserTest :
             // Seed canEdit = false to prove a role-only update never resets it to the default true.
             service.seedUser(
                 testUser("u5", role = UserRole.MEMBER).copy(
-                    permissions = UserPermissions(canEdit = false),
+                    permissions = UserPermissions(canEditMetadata = false),
                 ),
             )
             val repo = buildRepo(service)
@@ -266,7 +266,7 @@ class AdminRepositoryImplUserTest :
 
             (result is AppResult.Success) shouldBe true
             service.lastPatch?.permissions shouldBe null
-            (result as AppResult.Success).data.permissions.canEdit shouldBe false
+            (result as AppResult.Success).data.permissions.canEditMetadata shouldBe false
         }
 
         test("getRegistrationPolicy returns the full policy from the service") {

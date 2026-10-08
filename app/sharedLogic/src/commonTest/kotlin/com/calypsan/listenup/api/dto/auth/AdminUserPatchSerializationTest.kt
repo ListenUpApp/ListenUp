@@ -11,7 +11,7 @@ class AdminUserPatchSerializationTest :
                 AdminUserPatch(
                     displayName = "New Name",
                     role = UserRole.ADMIN,
-                    permissions = UserPermissions(canEdit = false),
+                    permissions = UserPermissions(canEditMetadata = false),
                 )
             val decoded =
                 contractJson.decodeFromString<AdminUserPatch>(contractJson.encodeToString(patch))

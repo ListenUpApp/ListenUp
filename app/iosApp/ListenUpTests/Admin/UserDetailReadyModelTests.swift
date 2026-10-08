@@ -18,7 +18,7 @@ struct UserDetailReadyModelTests {
                 isRoot: false,
                 role: "member",
                 status: "active",
-                permissions: UserPermissions(canEdit: canEdit),
+                permissions: UserPermissions(canEditMetadata: canEdit, canCurateLibrary: false),
                 createdAt: "2026-01-01"
             ),
             canEdit: canEdit,

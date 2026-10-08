@@ -76,7 +76,7 @@ class AdminRepositoryRosterTest :
                             isRoot = false,
                             role = "MEMBER",
                             status = "ACTIVE",
-                            permissions = UserPermissions(canEdit = true),
+                            permissions = UserPermissions(canEditMetadata = true),
                             createdAt = "1000",
                         ),
                         AdminUserInfo(
@@ -88,7 +88,7 @@ class AdminRepositoryRosterTest :
                             isRoot = true,
                             role = "ROOT",
                             status = "ACTIVE",
-                            permissions = UserPermissions(canEdit = false),
+                            permissions = UserPermissions(canEditMetadata = false),
                             createdAt = "2000",
                         ),
                     )

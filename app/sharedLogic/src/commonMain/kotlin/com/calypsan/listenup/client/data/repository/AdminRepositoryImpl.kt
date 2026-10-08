@@ -114,7 +114,7 @@ internal class AdminRepositoryImpl(
         val patch =
             AdminUserPatch(
                 role = role?.let { UserRole.valueOf(it) },
-                permissions = canEdit?.let { UserPermissions(canEdit = it) },
+                permissions = canEdit?.let { UserPermissions(canEditMetadata = it) },
             )
         return adminUserChannel.call { it.updateUser(UserId(userId), patch) }.map { it.toAdminUserInfo() }
     }

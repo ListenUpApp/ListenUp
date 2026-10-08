@@ -148,12 +148,12 @@ class AdminUserServiceImplTest :
                             UserId("m1"),
                             AdminUserPatch(
                                 role = UserRole.ADMIN,
-                                permissions = UserPermissions(canEdit = false),
+                                permissions = UserPermissions(canEditMetadata = false),
                             ),
                         )
                     val user = res.shouldSucceed()
                     user.role shouldBe UserRole.ADMIN
-                    user.permissions shouldBe UserPermissions(canEdit = false)
+                    user.permissions shouldBe UserPermissions(canEditMetadata = false)
                 }
             }
         }
@@ -168,7 +168,7 @@ class AdminUserServiceImplTest :
                     val user = svc.updateUser(UserId("m1"), AdminUserPatch(displayName = "Renamed")).shouldSucceed()
                     user.displayName shouldBe "Renamed"
                     user.role shouldBe UserRole.MEMBER
-                    user.permissions shouldBe UserPermissions(canEdit = true)
+                    user.permissions shouldBe UserPermissions(canEditMetadata = true)
                 }
             }
         }
