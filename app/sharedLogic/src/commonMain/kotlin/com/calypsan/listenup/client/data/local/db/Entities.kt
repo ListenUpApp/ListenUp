@@ -54,7 +54,7 @@ internal data class UserEntity(
     /**
      * Whether this user may edit content metadata (#1270).
      *
-     * Mirrors the contract `UserPermissions.canEdit` the auth session already carries — the server
+     * Mirrors the contract `UserPermissions.canEditMetadata` the auth session already carries — the server
      * has gated every metadata mutation on it since `V26`, but the client used to collapse the
      * contract user down to [isRoot]/admin and drop this on the floor. Defaults to `true`, matching
      * `UserPermissions`, so a row written before the flags existed reads as it always behaved.
