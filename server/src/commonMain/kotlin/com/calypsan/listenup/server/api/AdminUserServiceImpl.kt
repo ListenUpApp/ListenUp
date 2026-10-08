@@ -240,7 +240,7 @@ class AdminUserServiceImpl(
                 demoted = user.role == UserRoleColumn.ADMIN && mergedRole == UserRoleColumn.MEMBER
                 // Each permission flag merges on its own: a patch that names one leaves the others as stored.
                 val mergedPermissions =
-                    UserPermissions(canEditMetadata = user.canEdit, canCurateLibrary = user.canCurateLibrary)
+                    user.permissions
                         .patchedBy(patch.permissions?.withLegacyMeaning())
                 val now = clock.now().toEpochMilliseconds()
                 sql.usersQueries.updateAdminFields(
@@ -248,6 +248,8 @@ class AdminUserServiceImpl(
                     role = mergedRole.name,
                     can_edit = mergedPermissions.canEditMetadata.toDbLong(),
                     can_curate_library = mergedPermissions.canCurateLibrary.toDbLong(),
+                    can_contribute_story_world = mergedPermissions.canContributeStoryWorld.toDbLong(),
+                    can_curate_story_world = mergedPermissions.canCurateStoryWorld.toDbLong(),
                     updated_at = now,
                     id = id.value,
                 )
@@ -258,6 +260,8 @@ class AdminUserServiceImpl(
                             role = mergedRole,
                             canEdit = mergedPermissions.canEditMetadata,
                             canCurateLibrary = mergedPermissions.canCurateLibrary,
+                            canContributeStoryWorld = mergedPermissions.canContributeStoryWorld,
+                            canCurateStoryWorld = mergedPermissions.canCurateStoryWorld,
                         ).toContract(),
                 )
             }

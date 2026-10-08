@@ -148,6 +148,9 @@ private val SQ_TABLES =
         "hardcover_api_token",
         "external_refs",
         "match_receipts",
+        "entities",
+        "story_world_history",
+        "series_merge_receipt_entities",
     )
 
 /** A table's comparable shape: column → storage-class category, and the set of its indexes. */

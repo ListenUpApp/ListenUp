@@ -66,6 +66,13 @@ internal data class UserEntity(
      * defaults rule's value for destructive work; MIGRATION_18_19 backfills existing rows from [canEdit].
      */
     val canCurateLibrary: Boolean = false,
+    /**
+     * Whether this user may create, edit, delete and revert Story World entries. Mirrors the contract
+     * `UserPermissions.canContributeStoryWorld`; additive and undoable, so on by default.
+     */
+    val canContributeStoryWorld: Boolean = true,
+    /** Whether this user may merge Story World entries and revert a merge (`UserPermissions.canCurateStoryWorld`). */
+    val canCurateStoryWorld: Boolean = false,
 )
 
 /**

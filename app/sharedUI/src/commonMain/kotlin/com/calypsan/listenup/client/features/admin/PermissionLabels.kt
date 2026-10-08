@@ -6,11 +6,16 @@ import com.calypsan.listenup.api.dto.auth.PermissionGroup
 import com.calypsan.listenup.client.domain.model.AccessLabel
 import com.calypsan.listenup.client.domain.model.PermissionPreset
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.admin_permission_contribute_story_world
+import listenup.composeapp.generated.resources.admin_permission_contribute_story_world_description
 import listenup.composeapp.generated.resources.admin_permission_curate_library
 import listenup.composeapp.generated.resources.admin_permission_curate_library_description
+import listenup.composeapp.generated.resources.admin_permission_curate_story_world
+import listenup.composeapp.generated.resources.admin_permission_curate_story_world_description
 import listenup.composeapp.generated.resources.admin_permission_edit_metadata
 import listenup.composeapp.generated.resources.admin_permission_edit_metadata_description
 import listenup.composeapp.generated.resources.admin_permission_group_library
+import listenup.composeapp.generated.resources.admin_permission_group_story_world
 import listenup.composeapp.generated.resources.admin_preset_contributor
 import listenup.composeapp.generated.resources.admin_preset_contributor_description
 import listenup.composeapp.generated.resources.admin_preset_custom
@@ -30,6 +35,8 @@ internal fun Permission.title(): String =
     when (this) {
         Permission.EDIT_METADATA -> stringResource(Res.string.admin_permission_edit_metadata)
         Permission.CURATE_LIBRARY -> stringResource(Res.string.admin_permission_curate_library)
+        Permission.CONTRIBUTE_STORY_WORLD -> stringResource(Res.string.admin_permission_contribute_story_world)
+        Permission.CURATE_STORY_WORLD -> stringResource(Res.string.admin_permission_curate_story_world)
         Permission.UNKNOWN -> ""
     }
 
@@ -37,9 +44,27 @@ internal fun Permission.title(): String =
 @Composable
 internal fun Permission.description(): String =
     when (this) {
-        Permission.EDIT_METADATA -> stringResource(Res.string.admin_permission_edit_metadata_description)
-        Permission.CURATE_LIBRARY -> stringResource(Res.string.admin_permission_curate_library_description)
-        Permission.UNKNOWN -> ""
+        Permission.EDIT_METADATA -> {
+            stringResource(Res.string.admin_permission_edit_metadata_description)
+        }
+
+        Permission.CURATE_LIBRARY -> {
+            stringResource(Res.string.admin_permission_curate_library_description)
+        }
+
+        Permission.CONTRIBUTE_STORY_WORLD -> {
+            stringResource(
+                Res.string.admin_permission_contribute_story_world_description,
+            )
+        }
+
+        Permission.CURATE_STORY_WORLD -> {
+            stringResource(Res.string.admin_permission_curate_story_world_description)
+        }
+
+        Permission.UNKNOWN -> {
+            ""
+        }
     }
 
 /** The group heading. */
@@ -47,6 +72,7 @@ internal fun Permission.description(): String =
 internal fun PermissionGroup.title(): String =
     when (this) {
         PermissionGroup.LIBRARY -> stringResource(Res.string.admin_permission_group_library)
+        PermissionGroup.STORY_WORLD -> stringResource(Res.string.admin_permission_group_story_world)
         PermissionGroup.UNKNOWN -> ""
     }
 

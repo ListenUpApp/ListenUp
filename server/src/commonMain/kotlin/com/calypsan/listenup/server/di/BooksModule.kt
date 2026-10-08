@@ -27,6 +27,7 @@ import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.ratings.ExternalRatingsFetcher
 import com.calypsan.listenup.server.ratings.HardcoverRatingOnOpen
 import com.calypsan.listenup.server.sync.BookMoodRepository
+import com.calypsan.listenup.server.sync.EntityRepository
 import com.calypsan.listenup.server.sync.BookRatingRepository
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.MoodRepository
@@ -149,6 +150,7 @@ fun booksModule(
                 tagRepository = getOrNull<TagRepository>(),
                 bookTagRepository = getOrNull<BookTagRepository>(),
                 bookMoodRepository = getOrNull<BookMoodRepository>(),
+                entityRepository = getOrNull<EntityRepository>(),
                 orphanParentPurger = get<OrphanParentPurger>(),
                 homeDir = homeDir,
                 coverImageStore = get<CoverImageStore>(),
@@ -195,16 +197,7 @@ fun booksModule(
                 principal = unscopedPlaceholder("ContributorService"),
             )
         }
-        single<SeriesService> {
-            SeriesServiceImpl(
-                seriesRepo = get(),
-                bookRepo = get(),
-                sqlDb = get<ListenUpDatabase>(),
-                accessPolicy = get<BookAccessPolicy>(),
-                permissionPolicy = get<PermissionPolicy>(),
-                principal = unscopedPlaceholder("SeriesService"),
-            )
-        }
+        seriesServiceBinding()
         single<TagService> {
             TagServiceImpl(
                 tagRepository = get<TagRepository>(),
@@ -246,6 +239,21 @@ fun booksModule(
         genreBootstrapBindings()
         coverAndPersisterBindings(embeddedCoverCacheSize, homeDir)
     }
+
+/** [SeriesService], whose series merge carries Story World entities when that domain is wired. */
+private fun Module.seriesServiceBinding() {
+    single<SeriesService> {
+        SeriesServiceImpl(
+            seriesRepo = get(),
+            bookRepo = get(),
+            sqlDb = get<ListenUpDatabase>(),
+            accessPolicy = get<BookAccessPolicy>(),
+            permissionPolicy = get<PermissionPolicy>(),
+            principal = unscopedPlaceholder("SeriesService"),
+            entityRepo = getOrNull<EntityRepository>(),
+        )
+    }
+}
 
 /**
  * Moods slice bindings — the affective axis, mirroring tags (flat, syncable, soft-delete):

@@ -33,7 +33,19 @@ internal data class AuthUser(
     val approvedAt: Long?,
     val deletedAt: Long?,
     val canCurateLibrary: Boolean = false,
-)
+    val canContributeStoryWorld: Boolean = true,
+    val canCurateStoryWorld: Boolean = false,
+) {
+    /** Every permission flag on this row, as the contract carries them. */
+    val permissions: UserPermissions
+        get() =
+            UserPermissions(
+                canEditMetadata = canEdit,
+                canCurateLibrary = canCurateLibrary,
+                canContributeStoryWorld = canContributeStoryWorld,
+                canCurateStoryWorld = canCurateStoryWorld,
+            )
+}
 
 /** Map a generated `users` row into the server-side [AuthUser] projection. */
 internal fun Users.toAuthUser(): AuthUser =
@@ -50,6 +62,8 @@ internal fun Users.toAuthUser(): AuthUser =
         // matching the Exposed `bool` adapter that read non-zero as true.
         canEdit = can_edit != 0L,
         canCurateLibrary = can_curate_library != 0L,
+        canContributeStoryWorld = can_contribute_story_world != 0L,
+        canCurateStoryWorld = can_curate_story_world != 0L,
         approvedBy = approved_by,
         approvedAt = approved_at,
         deletedAt = deleted_at,
@@ -64,7 +78,7 @@ internal fun AuthUser.toContract(): User =
         role = role.toContract(),
         status = status.toContract(),
         createdAt = createdAt,
-        permissions = UserPermissions(canEditMetadata = canEdit, canCurateLibrary = canCurateLibrary),
+        permissions = permissions,
         approvedBy = approvedBy,
         approvedAt = approvedAt,
     )

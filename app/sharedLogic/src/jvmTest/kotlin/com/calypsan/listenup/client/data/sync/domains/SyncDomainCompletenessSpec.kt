@@ -121,6 +121,8 @@ class SyncDomainCompletenessSpec :
                 // notifications joined with the inbox — markRead is its one (idempotent) write.
                 // book_ratings is outbox-backed from the start — rate/clear is offline-first terminal
                 // state, coalesced under one op kind (see OutboxChannels.BookRatings).
+                // entities is outbox-backed from the start — create and edit are one Upsert snapshot
+                // (client-minted id), delete is Delete; merge and revert stay online.
                 outboxDomains.map { it.key.name }.toSet() shouldBe
                     setOf(
                         "books",
@@ -138,6 +140,7 @@ class SyncDomainCompletenessSpec :
                         "collections",
                         "collection_books",
                         "notifications",
+                        "entities",
                     )
             } finally {
                 db.close()
@@ -334,6 +337,7 @@ class SyncDomainCompletenessSpec :
                         "book_moods",
                         "book_ratings",
                         "book_external_ratings",
+                        "entities",
                     )
 
                 // The Targeted domains, in their declared dependency order. Changing an order or moving a
@@ -354,6 +358,7 @@ class SyncDomainCompletenessSpec :
                         "book_moods",
                         "book_ratings",
                         "book_external_ratings",
+                        "entities",
                     )
 
                 // The one LiveTailOnly domain — deliberately NOT fetched in the delta.

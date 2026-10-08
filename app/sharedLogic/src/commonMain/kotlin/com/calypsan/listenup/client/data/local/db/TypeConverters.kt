@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.dto.match.LastMatch
 import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.metadata.FieldProvenanceMapSerializer
+import com.calypsan.listenup.api.sync.EntityKind
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
@@ -228,4 +229,17 @@ internal class StringListJsonConverter {
         } else {
             appJson.decodeFromString(ListSerializer(String.serializer()), value)
         }
+}
+
+/**
+ * Stores [EntityKind] by name and reads it back through [EntityKind.fromName], so a kind written by a newer
+ * build (or a newer server's row) reads as [EntityKind.UNKNOWN] rather than throwing — unlike [Converters],
+ * whose `valueOf` deliberately refuses unknown sync states. An entity is content, not engine state.
+ */
+internal class EntityKindConverter {
+    @ColumnTypeConverter
+    fun fromEntityKind(kind: EntityKind): String = kind.name
+
+    @ColumnTypeConverter
+    fun toEntityKind(value: String): EntityKind = EntityKind.fromName(value)
 }

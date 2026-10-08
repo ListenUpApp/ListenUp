@@ -22,8 +22,12 @@ internal class PermissionsRepositoryImpl(
                 user != null &&
                     (
                         user.isRoot ||
-                            UserPermissions(canEditMetadata = user.canEdit, canCurateLibrary = user.canCurateLibrary)
-                                .allows(permission)
+                            UserPermissions(
+                                canEditMetadata = user.canEdit,
+                                canCurateLibrary = user.canCurateLibrary,
+                                canContributeStoryWorld = user.canContributeStoryWorld,
+                                canCurateStoryWorld = user.canCurateStoryWorld,
+                            ).allows(permission)
                     )
             }.distinctUntilChanged()
 }

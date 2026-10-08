@@ -27,14 +27,23 @@ import kotlinx.serialization.Serializable
  *
  * @property canEditMetadata see [UserPermissions.canEditMetadata]; null leaves it unchanged.
  * @property canCurateLibrary see [UserPermissions.canCurateLibrary]; null leaves it unchanged.
+ * @property canContributeStoryWorld see [UserPermissions.canContributeStoryWorld]; null leaves it unchanged.
+ * @property canCurateStoryWorld see [UserPermissions.canCurateStoryWorld]; null leaves it unchanged.
  */
 @Serializable
 data class UserPermissionsPatch(
     @SerialName("canEdit") val canEditMetadata: Boolean? = null,
     @SerialName("canCurateLibrary") val canCurateLibrary: Boolean? = null,
+    @SerialName("canContributeStoryWorld") val canContributeStoryWorld: Boolean? = null,
+    @SerialName("canCurateStoryWorld") val canCurateStoryWorld: Boolean? = null,
 ) {
     /** True when the patch names no flag at all. */
-    val isEmpty: Boolean get() = canEditMetadata == null && canCurateLibrary == null
+    val isEmpty: Boolean
+        get() =
+            canEditMetadata == null &&
+                canCurateLibrary == null &&
+                canContributeStoryWorld == null &&
+                canCurateStoryWorld == null
 }
 
 /** This patch, also naming [permission] as [granted]. [Permission.UNKNOWN] is never sent, so it changes nothing. */
@@ -45,6 +54,8 @@ fun UserPermissionsPatch.granting(
     when (permission) {
         Permission.EDIT_METADATA -> copy(canEditMetadata = granted)
         Permission.CURATE_LIBRARY -> copy(canCurateLibrary = granted)
+        Permission.CONTRIBUTE_STORY_WORLD -> copy(canContributeStoryWorld = granted)
+        Permission.CURATE_STORY_WORLD -> copy(canCurateStoryWorld = granted)
         Permission.UNKNOWN -> this
     }
 
@@ -56,5 +67,7 @@ fun UserPermissions.patchedBy(patch: UserPermissionsPatch?): UserPermissions =
         UserPermissions(
             canEditMetadata = patch.canEditMetadata ?: canEditMetadata,
             canCurateLibrary = patch.canCurateLibrary ?: canCurateLibrary,
+            canContributeStoryWorld = patch.canContributeStoryWorld ?: canContributeStoryWorld,
+            canCurateStoryWorld = patch.canCurateStoryWorld ?: canCurateStoryWorld,
         )
     }

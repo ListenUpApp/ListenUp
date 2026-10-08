@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.api
 
+import app.cash.sqldelight.TransactionWithReturn
 import com.calypsan.listenup.api.dto.MergeReceipt
 import com.calypsan.listenup.api.dto.MergeUndoResult
 import com.calypsan.listenup.api.error.AppError
@@ -11,6 +12,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.sync.EntityRepository
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
@@ -26,6 +28,7 @@ internal class SeriesMergeReceipts(
     private val seriesRepo: SeriesRepository,
     private val bookRepo: BookRepository,
     private val hierarchy: SeriesHierarchyWrites,
+    private val entityRepo: EntityRepository?,
     private val clock: Clock,
 ) {
     private val receipts get() = sqlDb.seriesMergeReceiptsQueries
@@ -33,13 +36,14 @@ internal class SeriesMergeReceipts(
     /**
      * Records [source] → [target] by [mergedBy]. Must be called inside the merge's transaction and
      * BEFORE its membership relink — the snapshot reads the memberships the relink rewrites — and
-     * BEFORE the merge re-parents the source's sub-series.
+     * BEFORE the merge re-parents the source's sub-series. Returns the receipt id, which the Story World
+     * re-home snapshots its entities against.
      */
     fun record(
         source: SeriesId,
         target: SeriesId,
         mergedBy: String,
-    ) {
+    ): String {
         val receiptId = Uuid.random().toString()
         receipts.insertReceipt(
             id = receiptId,
@@ -50,6 +54,7 @@ internal class SeriesMergeReceipts(
         )
         receipts.snapshotSourceMemberships(receipt_id = receiptId, target_id = target.value, source_id = source.value)
         receipts.snapshotSourceChildren(receipt_id = receiptId, source_id = source.value)
+        return receiptId
     }
 
     /** Open receipts naming [target] as the survivor, newest first. */
@@ -76,8 +81,11 @@ internal class SeriesMergeReceipts(
      *     nothing else has changed and the receipt stays open for a retry, instead of leaving books
      *     pointed at a tombstoned series with no way back.
      *  3. A write [claim] transaction re-validates exactly as [decide] did, then restores every
-     *     still-as-merged membership and marks the receipt undone — see [claim] for why marking it
-     *     is the transaction's first write.
+     *     still-as-merged membership, carries back every Story World entity the merge moved that is
+     *     still live under the target, in its current state
+     *     ([EntityRepository.prepareSeriesMergeUndo]), and marks the receipt undone — see [claim] for
+     *     why marking it is the transaction's first write. The entities move inside the claim because
+     *     the mark makes any retry `MergeAlreadyUndone`: anything left for after it could be stranded.
      *  4. Every restored book is re-upserted (bumps revision, publishes `Updated`). One bad book
      *     doesn't stop the rest — the loop keeps going and the first failure is reported at the end.
      *  5. Every sub-series the merge moved, and that is still under the target, goes back to the
@@ -93,8 +101,9 @@ internal class SeriesMergeReceipts(
             is AppResult.Success -> Unit
             is AppResult.Failure -> return AppResult.Failure(revived.error)
         }
+        val entityUndo = entityRepo?.prepareSeriesMergeUndo()
         val claim =
-            when (val decided = suspendTransaction(sqlDb) { claim(receiptId) }) {
+            when (val decided = suspendTransaction(sqlDb) { claim(receiptId, entityUndo) }) {
                 is SeriesUndoClaim.Refused -> return AppResult.Failure(decided.error)
                 is SeriesUndoClaim.Granted -> decided
             }
@@ -161,7 +170,10 @@ internal class SeriesMergeReceipts(
      * a membership write would still commit that write, so every read-only check that can refuse
      * (receipt exists, target live) runs before the transaction's first write.
      */
-    private fun claim(receiptId: MergeReceiptId): SeriesUndoClaim {
+    private fun TransactionWithReturn<SeriesUndoClaim>.claim(
+        receiptId: MergeReceiptId,
+        entityUndo: EntityRepository.SeriesMergeUndo?,
+    ): SeriesUndoClaim {
         val receipt =
             receipts.selectReceipt(receiptId.value).executeAsOneOrNull()
                 ?: return SeriesUndoClaim.Refused(
@@ -231,6 +243,7 @@ internal class SeriesMergeReceipts(
                 .selectRestorableChildren(receipt_id = receipt.id, target_id = receipt.target_id)
                 .executeAsList()
                 .map { RestorableChild(SeriesId(it.child_id), it.position?.toInt()) }
+        entityUndo?.restore(this, receipt.id, SeriesId(receipt.source_id), SeriesId(receipt.target_id))
         return SeriesUndoClaim.Granted(
             sourceId = SeriesId(receipt.source_id),
             restoredBookIds = restorable.map { it.book_id },

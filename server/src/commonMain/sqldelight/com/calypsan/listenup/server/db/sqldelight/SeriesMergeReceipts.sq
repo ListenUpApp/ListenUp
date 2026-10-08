@@ -39,6 +39,15 @@ CREATE TABLE series_merge_receipt_children (
     PRIMARY KEY (receipt_id, child_id)
 );
 
+-- series_merge_receipt_entities: the live Story World entities the source series held at merge time,
+-- re-homed to the target by EntityRepository and moved back on undo. entity_id cascades in the
+-- migration DDL: a hard-deleted entity has nothing left to move back.
+CREATE TABLE series_merge_receipt_entities (
+    receipt_id TEXT NOT NULL REFERENCES series_merge_receipts(id) ON DELETE CASCADE,
+    entity_id  TEXT NOT NULL,
+    PRIMARY KEY (receipt_id, entity_id)
+);
+
 -- ── writes ───────────────────────────────────────────────────────────────────
 
 insertReceipt:
@@ -110,3 +119,11 @@ SELECT rc.child_id, rc.position
 FROM series_merge_receipt_children rc
 JOIN book_series s ON s.id = rc.child_id
 WHERE rc.receipt_id = :receipt_id AND s.deleted_at IS NULL AND s.parent_id = :target_id;
+
+-- The source series' live entities, recorded before a merge re-homes them (EntityRepository).
+snapshotSourceEntities:
+INSERT INTO series_merge_receipt_entities (receipt_id, entity_id)
+SELECT :receipt_id, e.id FROM entities e WHERE e.home_series_id = :source_id AND e.deleted_at IS NULL;
+
+selectReceiptEntityIds:
+SELECT entity_id FROM series_merge_receipt_entities WHERE receipt_id = :receipt_id ORDER BY entity_id;

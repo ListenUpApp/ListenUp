@@ -48,7 +48,8 @@ internal interface PendingOperationV2Dao {
      */
     @Query(
         """
-        SELECT clientOpId, domainName, entityId, opType, payload, enqueuedAt, lastAttemptAt, failureCount, lastError, ownerUserId
+        SELECT clientOpId, domainName, entityId, opType, payload, enqueuedAt, lastAttemptAt, failureCount, lastError, ownerUserId,
+               mayHaveLanded
           FROM (
               SELECT *, ROW_NUMBER() OVER (
                   PARTITION BY domainName, entityId
@@ -201,6 +202,24 @@ internal interface PendingOperationV2Dao {
     /** Re-arm an op for dispatch: zero its retry budget and clear the stored error. */
     @Query("UPDATE pending_operation SET failureCount = 0, lastError = NULL WHERE clientOpId = :clientOpId")
     suspend fun resetFailureCount(clientOpId: String)
+
+    /**
+     * Every op for one (domain, entity, opType) slot — dispatchable or dead-lettered, attempted or not.
+     * Backs [com.calypsan.listenup.client.data.sync.PendingOperationQueue.cancelUnsent].
+     */
+    @Query(
+        """
+        SELECT * FROM pending_operation
+         WHERE domainName = :domainName
+           AND entityId = :entityId
+           AND opType = :opType
+        """,
+    )
+    suspend fun opsInSlot(
+        domainName: String,
+        entityId: String,
+        opType: String,
+    ): List<PendingOperationV2Entity>
 
     /**
      * Delete still-queued (within retry budget) ops for one (domain, entity, opType) slot.

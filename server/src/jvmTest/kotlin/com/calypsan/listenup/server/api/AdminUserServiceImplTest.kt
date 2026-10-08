@@ -815,6 +815,55 @@ class AdminUserServiceImplTest :
             }
         }
 
+        test("an Edit-metadata-only patch leaves the Story World flags exactly as they were") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
+                sql.usersQueries.updateStoryWorldPermissionFlags(
+                    can_contribute_story_world = 0L,
+                    can_curate_story_world = 1L,
+                    id = "m1",
+                )
+                runTest {
+                    val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
+                    val user =
+                        svc
+                            .updateUser(UserId("m1"), AdminUserPatch(permissions = UserPermissionsPatch(canEditMetadata = false)))
+                            .shouldSucceed()
+                    user.permissions.canContributeStoryWorld shouldBe false
+                    user.permissions.canCurateStoryWorld shouldBe true
+                }
+            }
+        }
+
+        test("each Story World flag is granted and revoked on its own, and the users row stores it") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
+                runTest {
+                    val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
+                    val before = svc.getUser(UserId("m1")).shouldSucceed().permissions
+                    svc
+                        .updateUser(UserId("m1"), AdminUserPatch(permissions = UserPermissionsPatch(canCurateStoryWorld = true)))
+                        .shouldSucceed()
+                        .permissions shouldBe before.copy(canCurateStoryWorld = true)
+                    svc
+                        .updateUser(
+                            UserId("m1"),
+                            AdminUserPatch(permissions = UserPermissionsPatch(canContributeStoryWorld = false)),
+                        ).shouldSucceed()
+                        .permissions shouldBe before.copy(canContributeStoryWorld = false, canCurateStoryWorld = true)
+                    svc.getUser(UserId("m1")).shouldSucceed().permissions shouldBe
+                        before.copy(canContributeStoryWorld = false, canCurateStoryWorld = true)
+                    val stored = sql.usersQueries.selectRosterRowById(id = "m1").executeAsOne()
+                    stored.can_contribute_story_world shouldBe 0L
+                    stored.can_curate_story_world shouldBe 1L
+                }
+            }
+        }
+
         test("decidePendingRegistration failure does NOT notify") {
             withSqlDatabase {
                 val db = this

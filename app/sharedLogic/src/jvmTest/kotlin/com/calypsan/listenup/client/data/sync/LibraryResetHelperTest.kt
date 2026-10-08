@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.sync.EntityKind
 import com.calypsan.listenup.client.data.local.db.ActivityEntity
 import com.calypsan.listenup.client.data.local.db.AdminUserRosterEntity
 import com.calypsan.listenup.client.data.local.db.BookEntity
@@ -12,6 +13,7 @@ import com.calypsan.listenup.client.data.local.db.CollectionBookEntity
 import com.calypsan.listenup.client.data.local.db.CollectionEntity
 import com.calypsan.listenup.client.data.local.db.CollectionShareEntity
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
+import com.calypsan.listenup.client.data.local.db.EntityEntity
 import com.calypsan.listenup.client.data.local.db.GenreEntity
 import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
 import com.calypsan.listenup.client.data.local.db.MoodEntity
@@ -457,6 +459,22 @@ class LibraryResetHelperTest :
                                 )
                             },
                             isGone = { db.notificationDao().revisionOf("seed-notification") == null },
+                        ),
+                        DomainProbe(
+                            domainName = "entities",
+                            seed = {
+                                db.entityDao().upsert(
+                                    EntityEntity(
+                                        id = "seed-entity",
+                                        kind = EntityKind.CHARACTER,
+                                        name = "n",
+                                        homeBookId = "b1",
+                                        createdAt = 0L,
+                                        updatedAt = 0L,
+                                    ),
+                                )
+                            },
+                            isGone = { db.entityDao().findById("seed-entity") == null },
                         ),
                         DomainProbe(
                             domainName = "admin_user_roster",

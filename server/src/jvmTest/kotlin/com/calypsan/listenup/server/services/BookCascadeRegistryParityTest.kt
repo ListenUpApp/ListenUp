@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.services
 
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.sync.BookMoodSyncPayload
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
@@ -12,10 +13,12 @@ import com.calypsan.listenup.server.sync.BookMoodRepository
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.EntityRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.entityPayload
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withSqlDatabase
@@ -38,7 +41,7 @@ class BookCascadeRegistryParityTest :
         // ── Assertion 1: the declared registry matches the live schema, both directions ──
         test("every book_id table is declared in the disposition registry (and vice versa)") {
             withSqlDatabase {
-                val introspected = driver.tablesWithBookIdColumn()
+                val introspected = driver.tablesKeyedByBook()
                 val declared = bookIdTableDispositions.keys
 
                 val undeclared = introspected - declared
@@ -85,6 +88,7 @@ class BookCascadeRegistryParityTest :
                     val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
                     val collectionBookRepo =
                         CollectionBookRepository(db = sql, bus = bus, registry = registry, driver = driver)
+                    val entityRepo = EntityRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                     val bookRepo =
                         BookRepository(
@@ -98,6 +102,7 @@ class BookCascadeRegistryParityTest :
                             collectionBookRepository = collectionBookRepo,
                             bookTagRepository = bookTagRepo,
                             bookMoodRepository = bookMoodRepo,
+                            entityRepository = entityRepo,
                         )
 
                     // A live row per CASCADE_TOMBSTONED table, keyed to a book-liveness lambda so a new
@@ -114,6 +119,7 @@ class BookCascadeRegistryParityTest :
                     collectionBookRepo.upsert(
                         CollectionBookSyncPayload(id = "c1:book1", collectionId = "c1", bookId = "book1", createdAt = 1000L, revision = 0L),
                     )
+                    entityRepo.upsertEntity(entityPayload("ent1", homeBookId = "book1"), UserId("u1"))
 
                     // live-row count for "book1" per CASCADE_TOMBSTONED table.
                     val liveCount: Map<String, suspend () -> Int> =
@@ -121,6 +127,7 @@ class BookCascadeRegistryParityTest :
                             "book_tags" to { bookTagRepo.findAllForBook("book1").size },
                             "book_moods" to { bookMoodRepo.findAllForBook("book1").size },
                             "collection_books" to { collectionBookRepo.findCollectionIdsForBook("book1").size },
+                            "entities" to { entityRepo.listLiveForBook(BookId("book1")).size },
                         )
 
                     val cascadeTables =
@@ -152,12 +159,15 @@ class BookCascadeRegistryParityTest :
         }
     })
 
-/** The set of tables that carry a `book_id` column, by live schema introspection (excludes `sqlite_%`). */
-private fun SqlDriver.tablesWithBookIdColumn(): Set<String> =
+/**
+ * The set of tables that carry a `book_id` or `home_book_id` column, by live schema introspection
+ * (excludes `sqlite_%`).
+ */
+private fun SqlDriver.tablesKeyedByBook(): Set<String> =
     queryStrings(
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
         column = 0,
-    ).filter { table -> "book_id" in columnNames(table) }
+    ).filter { table -> columnNames(table).any { it == "book_id" || it == "home_book_id" } }
         .toSet()
 
 /** Column names of [table] via `PRAGMA table_info` (name is column index 1). Table name is schema-sourced, not user input. */

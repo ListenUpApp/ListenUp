@@ -171,7 +171,13 @@ class AdminUserRosterDomainTest :
                         payload(
                             "u-new",
                             canEdit = true,
-                            permissions = UserPermissions(canEditMetadata = false, canCurateLibrary = true),
+                            permissions =
+                                UserPermissions(
+                                    canEditMetadata = false,
+                                    canCurateLibrary = true,
+                                    canContributeStoryWorld = false,
+                                    canCurateStoryWorld = true,
+                                ),
                         ),
                     ),
                 )
@@ -187,6 +193,10 @@ class AdminUserRosterDomainTest :
                 rows.getValue("u-new").canCurateLibrary shouldBe true
                 rows.getValue("u-old").canEdit shouldBe true
                 rows.getValue("u-old").canCurateLibrary shouldBe false
+                rows.getValue("u-new").canContributeStoryWorld shouldBe false
+                rows.getValue("u-new").canCurateStoryWorld shouldBe true
+                rows.getValue("u-old").canContributeStoryWorld shouldBe true
+                rows.getValue("u-old").canCurateStoryWorld shouldBe false
             }
         }
 

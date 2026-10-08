@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.local.db
 
+import androidx.room3.ColumnInfo
 import androidx.room3.Entity
 import androidx.room3.Index
 import androidx.room3.PrimaryKey
@@ -37,4 +38,13 @@ internal data class PendingOperationV2Entity(
     val lastError: String?,
     /** User id this op belongs to. On sign-in mismatch, the queue is cleared. */
     val ownerUserId: String,
+    /**
+     * True once a send may have reached the server without a verdict that it didn't land: a lost response
+     * (`OutcomeUnknown`), a server-answered retryable failure, or a sender that threw mid-send. Sticky —
+     * a later pre-send failure (unreachable, timeout, auth) never clears it. Distinct from [lastAttemptAt],
+     * which a pre-send failure also stamps although the op never left the device. Read by
+     * `PendingOperationQueue.cancelUnsent`: an op that may have landed can't be withdrawn as unsent.
+     */
+    @ColumnInfo(defaultValue = "0")
+    val mayHaveLanded: Boolean = false,
 )

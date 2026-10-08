@@ -31,6 +31,8 @@ fun ContractUser.toDomain(): User =
             UserPermissions(
                 canEditMetadata = permissions.canEditMetadata,
                 canCurateLibrary = permissions.canCurateLibrary,
+                canContributeStoryWorld = permissions.canContributeStoryWorld,
+                canCurateStoryWorld = permissions.canCurateStoryWorld,
             ),
         tagline = null,
         createdAtMs = createdAt,

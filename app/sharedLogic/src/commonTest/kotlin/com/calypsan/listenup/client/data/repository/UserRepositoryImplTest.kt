@@ -259,6 +259,20 @@ class UserRepositoryImplTest :
             }
         }
 
+        test("getCurrentUser carries the stored Story World flags") {
+            runTest {
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity().copy(canContributeStoryWorld = false, canCurateStoryWorld = true)
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val repository = UserRepositoryImpl(userDao, createMockAuthedChannel())
+
+                val user = repository.getCurrentUser().shouldNotBeNull()
+
+                user.permissions.canContributeStoryWorld shouldBe false
+                user.permissions.canCurateStoryWorld shouldBe true
+            }
+        }
+
         test("getCurrentUser returns null when no user exists") {
             runTest {
                 // Given

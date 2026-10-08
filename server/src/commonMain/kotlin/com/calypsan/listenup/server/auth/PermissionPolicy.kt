@@ -33,8 +33,15 @@ class PermissionPolicy(
         val granted =
             suspendTransaction(db) {
                 db.usersQueries
-                    .selectPermissionFlagsLiveById(id = principal.userId.value) { canEdit, canCurateLibrary ->
-                        UserPermissions(canEditMetadata = canEdit != 0L, canCurateLibrary = canCurateLibrary != 0L)
+                    .selectPermissionFlagsLiveById(
+                        id = principal.userId.value,
+                    ) { canEdit, canCurateLibrary, canContributeStoryWorld, canCurateStoryWorld ->
+                        UserPermissions(
+                            canEditMetadata = canEdit != 0L,
+                            canCurateLibrary = canCurateLibrary != 0L,
+                            canContributeStoryWorld = canContributeStoryWorld != 0L,
+                            canCurateStoryWorld = canCurateStoryWorld != 0L,
+                        )
                     }.executeAsOneOrNull()
                     ?.allows(permission) ?: false
             }

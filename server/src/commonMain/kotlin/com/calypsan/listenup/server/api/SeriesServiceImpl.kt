@@ -19,6 +19,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction as sqlTransaction
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.sync.EntityRepository
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.time.Clock
@@ -54,6 +55,9 @@ private val logger = loggerFor<SeriesServiceImpl>()
  * lock, so the SQLDelight writes serialize on the lone SQLDelight connection without the
  * cross-engine `SQLITE_BUSY` the prior Exposed-junction-write split exhibited.
  *
+ * [mergeSeries] moves the source's books, sub-series and Story World entities into the target, and
+ * [undoSeriesMerge] moves back whatever of them still sits where the merge put it.
+ *
  * Hierarchy edits ([createSeries], [setSeriesParent], [reorderChildSeries]) are gated here and
  * carried out by [SeriesHierarchyWrites], which validates against the live
  * [com.calypsan.listenup.domain.series.SeriesTree] and writes through the same substrate upsert
@@ -80,13 +84,14 @@ internal class SeriesServiceImpl(
     private val permissionPolicy: PermissionPolicy = PermissionPolicy(sqlDb),
     private val principal: PrincipalProvider = PrincipalProvider.None,
     private val clock: Clock = Clock.System,
+    private val entityRepo: EntityRepository? = null,
 ) : SeriesService {
     private val hierarchy = SeriesHierarchyWrites(seriesRepo)
-    private val mergeReceipts = SeriesMergeReceipts(sqlDb, seriesRepo, bookRepo, hierarchy, clock)
+    private val mergeReceipts = SeriesMergeReceipts(sqlDb, seriesRepo, bookRepo, hierarchy, entityRepo, clock)
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): SeriesServiceImpl =
-        SeriesServiceImpl(seriesRepo, bookRepo, sqlDb, accessPolicy, permissionPolicy, principal, clock)
+        SeriesServiceImpl(seriesRepo, bookRepo, sqlDb, accessPolicy, permissionPolicy, principal, clock, entityRepo)
 
     /**
      * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
@@ -181,17 +186,22 @@ internal class SeriesServiceImpl(
         // composite (book_id, series_id) PK when the relink re-points the source row onto the
         // target's — so the colliding source rows are dropped first; the target's existing
         // membership row survives untouched.
-        val affectedBookIds =
+        val (receiptId, affectedBookIds) =
             sqlTransaction(sqlDb) {
-                mergeReceipts.record(source, target, mergedBy)
+                val receiptId = mergeReceipts.record(source, target, mergedBy)
                 val ids = sqlDb.bookSeriesMembershipsQueries.bookIdsForSeries(source.value).executeAsList()
                 sqlDb.bookSeriesMembershipsQueries.deleteCollidingSourceSeriesMemberships(
                     to_id = target.value,
                     from_id = source.value,
                 )
                 sqlDb.bookSeriesMembershipsQueries.relinkSeries(to_id = target.value, from_id = source.value)
-                ids
+                receiptId to ids
             }
+
+        // The source's Story World entities follow its books into the target, snapshotted on the receipt
+        // so undo can carry them back. Right after the relink, so a failure further down never leaves
+        // them under a source that no longer holds the books that make them visible.
+        entityRepo?.rehomeForSeriesMerge(receiptId, source, target)
 
         // Re-upsert each affected book — bumps revision + emits book.Updated per book.
         // One batched read replaces the per-book N+1 lookup.

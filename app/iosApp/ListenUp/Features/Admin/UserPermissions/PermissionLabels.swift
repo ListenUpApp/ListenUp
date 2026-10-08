@@ -6,6 +6,8 @@ enum PermissionLabels {
         switch permission {
         case .editMetadata: String(localized: "admin.permission_edit_metadata")
         case .curateLibrary: String(localized: "admin.permission_curate_library")
+        case .contributeStoryWorld: String(localized: "admin.permission_contribute_story_world")
+        case .curateStoryWorld: String(localized: "admin.permission_curate_story_world")
         case .unknown: ""
         }
     }
@@ -14,6 +16,8 @@ enum PermissionLabels {
         switch permission {
         case .editMetadata: String(localized: "admin.permission_edit_metadata_description")
         case .curateLibrary: String(localized: "admin.permission_curate_library_description")
+        case .contributeStoryWorld: String(localized: "admin.permission_contribute_story_world_description")
+        case .curateStoryWorld: String(localized: "admin.permission_curate_story_world_description")
         case .unknown: ""
         }
     }
@@ -21,6 +25,7 @@ enum PermissionLabels {
     static func title(_ group: PermissionGroup) -> String {
         switch group {
         case .library: String(localized: "admin.permission_group_library")
+        case .storyWorld: String(localized: "admin.permission_group_story_world")
         case .unknown: ""
         }
     }

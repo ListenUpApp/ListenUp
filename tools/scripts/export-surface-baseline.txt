@@ -314,6 +314,12 @@ EditableMood
 EditableSeries
 EditableTag
 EditionFormat
+EntityEdit
+EntityEditRepository
+EntityError
+EntityError_SealedType
+EntityId
+EntityKind
 ErrorBus
 EventStreamRepository
 ExistingSeriesMatch
@@ -838,6 +844,7 @@ StoragePaths
 StorageSpaceProvider
 StorageUiState
 StorageViewModel
+StoryWorldHistoryId
 StreamedRegistrationStatus
 StreamedRegistrationStatus_SealedType
 SubGenre
@@ -919,5 +926,9 @@ WeakPasswordReason
 WeekChartColumn
 WeeklyStats
 WhatWillChange
+WorldEntity
+WorldEntityChange
+WorldEntityChangeOp
+WorldEntityDraft
 YourCopyUi
 YourLabelUi

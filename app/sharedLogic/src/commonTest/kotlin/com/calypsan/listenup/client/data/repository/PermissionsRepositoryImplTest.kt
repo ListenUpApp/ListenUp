@@ -55,6 +55,24 @@ class PermissionsRepositoryImplTest :
             }
         }
 
+        test("a member contributes to Story World by default; each Story World flag reads from its own column") {
+            runTest {
+                val row = MutableStateFlow<UserEntity?>(entity())
+                val dao: UserDao = mock { every { observeCurrentUser() } returns row }
+                val repo = PermissionsRepositoryImpl(dao)
+                repo.observeCan(Permission.CONTRIBUTE_STORY_WORLD).test {
+                    awaitItem() shouldBe true
+                    row.value = entity().copy(canContributeStoryWorld = false)
+                    awaitItem() shouldBe false
+                }
+                repo.observeCan(Permission.CURATE_STORY_WORLD).test {
+                    awaitItem() shouldBe false
+                    row.value = entity().copy(canCurateStoryWorld = true)
+                    awaitItem() shouldBe true
+                }
+            }
+        }
+
         test("nobody signed in can do nothing, and UNKNOWN is never granted") {
             runTest {
                 val signedOut: UserDao = mock { every { observeCurrentUser() } returns MutableStateFlow(null) }

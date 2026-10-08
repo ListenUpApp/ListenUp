@@ -12,16 +12,23 @@ import com.calypsan.listenup.api.dto.auth.Permission
  *   merging or deleting) catalogue entries.
  * @property canCurateLibrary Curate library: merge, unmerge and delete contributors, series, genres,
  *   tags and moods, and undo those merges.
+ * @property canContributeStoryWorld Contribute to Story World: create, edit and delete entries, and revert
+ *   any change but a merge.
+ * @property canCurateStoryWorld Curate Story World: merge entries, and revert a merge.
  */
 data class UserPermissions(
     val canEditMetadata: Boolean = true,
     val canCurateLibrary: Boolean = false,
+    val canContributeStoryWorld: Boolean = true,
+    val canCurateStoryWorld: Boolean = false,
 ) {
     /** Whether these flags grant [permission]. [Permission.UNKNOWN] is never granted. */
     fun allows(permission: Permission): Boolean =
         when (permission) {
             Permission.EDIT_METADATA -> canEditMetadata
             Permission.CURATE_LIBRARY -> canCurateLibrary
+            Permission.CONTRIBUTE_STORY_WORLD -> canContributeStoryWorld
+            Permission.CURATE_STORY_WORLD -> canCurateStoryWorld
             Permission.UNKNOWN -> false
         }
 
@@ -33,6 +40,8 @@ data class UserPermissions(
         when (permission) {
             Permission.EDIT_METADATA -> copy(canEditMetadata = granted)
             Permission.CURATE_LIBRARY -> copy(canCurateLibrary = granted)
+            Permission.CONTRIBUTE_STORY_WORLD -> copy(canContributeStoryWorld = granted)
+            Permission.CURATE_STORY_WORLD -> copy(canCurateStoryWorld = granted)
             Permission.UNKNOWN -> this
         }
 }

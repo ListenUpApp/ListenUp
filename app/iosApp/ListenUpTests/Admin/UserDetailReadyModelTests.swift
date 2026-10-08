@@ -16,7 +16,12 @@ struct UserDetailReadyModelTests {
                 isRoot: isRoot,
                 role: "member",
                 status: "active",
-                permissions: UserPermissions(canEditMetadata: true, canCurateLibrary: false),
+                permissions: UserPermissions(
+                    canEditMetadata: true,
+                    canCurateLibrary: false,
+                    canContributeStoryWorld: true,
+                    canCurateStoryWorld: false
+                ),
                 createdAt: "2026-01-01",
                 access: isRoot ? .owner : .contributor
             )

@@ -7,12 +7,18 @@ import Shared
 struct UserPermissionsReadyModelTests {
     private func ready(
         role: UserRole = .member,
-        flags: UserPermissions = UserPermissions(canEditMetadata: true, canCurateLibrary: false),
+        flags: UserPermissions = UserPermissions(
+            canEditMetadata: true,
+            canCurateLibrary: false,
+            canContributeStoryWorld: true,
+            canCurateStoryWorld: false
+        ),
         preset: PermissionPreset = .contributor,
         presetsShown: Bool = true,
         curateWarning: Bool = false,
         changeCount: Int32 = 0,
-        isRoot: Bool = false
+        isRoot: Bool = false,
+        extraSections: [PermissionSection] = []
     ) -> UserPermissionsUiStateReady {
         UserPermissionsUiStateReady(
             user: AdminUserInfo(
@@ -42,7 +48,7 @@ struct UserPermissionsReadyModelTests {
                         )
                     ]
                 )
-            ],
+            ] + extraSections,
             preset: preset,
             presetsShown: presetsShown,
             curateWarningShown: curateWarning,
@@ -67,10 +73,31 @@ struct UserPermissionsReadyModelTests {
         #expect(model.hasChanges == false)
     }
 
+    @Test func aStoryWorldSectionKeepsItsGroupAndRowOrder() {
+        let storyWorld = PermissionSection(
+            group: .storyWorld,
+            rows: [
+                PermissionRow(permission: .contributeStoryWorld, granted: true, isUnsaved: false),
+                PermissionRow(permission: .curateStoryWorld, granted: false, isUnsaved: false)
+            ]
+        )
+        let model = UserPermissionsReadyModel(from: ready(extraSections: [storyWorld]))
+        #expect(model.sections.map(\.group) == [.library, .storyWorld])
+        #expect(model.sections[1].rows.map(\.permission) == [.contributeStoryWorld, .curateStoryWorld])
+        #expect(PermissionLabels.title(PermissionGroup.storyWorld) == "Story World")
+        #expect(PermissionLabels.title(Permission.contributeStoryWorld) == "Contribute")
+        #expect(PermissionLabels.title(Permission.curateStoryWorld) == "Curate")
+    }
+
     @Test func anUnsavedCurateGrantCarriesTheWarningAndTheCount() {
         let model = UserPermissionsReadyModel(
             from: ready(
-                flags: UserPermissions(canEditMetadata: true, canCurateLibrary: true),
+                flags: UserPermissions(
+                    canEditMetadata: true,
+                    canCurateLibrary: true,
+                    canContributeStoryWorld: true,
+                    canCurateStoryWorld: false
+                ),
                 preset: .librarian,
                 curateWarning: true,
                 changeCount: 1

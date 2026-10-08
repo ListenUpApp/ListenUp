@@ -1,0 +1,110 @@
+-- entities: Story World world data, dual-homed (series XOR book). See V93__story_world_entities.sql.
+-- updated_at is the server's clock at the last write; writes apply in arrival order.
+CREATE TABLE entities (
+    id              TEXT    NOT NULL PRIMARY KEY,
+    kind            TEXT    NOT NULL,
+    name            TEXT    NOT NULL,
+    descriptor      TEXT,
+    parent_id       TEXT,
+    home_series_id  TEXT,
+    home_book_id    TEXT,
+    image_ref       TEXT,
+    created_by      TEXT,
+    updated_by      TEXT,
+    created_at      INTEGER NOT NULL,
+    updated_at      INTEGER NOT NULL,
+    revision        INTEGER NOT NULL,
+    deleted_at      INTEGER,
+    client_op_id    TEXT,
+    CHECK ((home_series_id IS NULL) != (home_book_id IS NULL))
+);
+
+CREATE INDEX idx_entities_home_series ON entities(home_series_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_entities_home_book ON entities(home_book_id);
+CREATE INDEX idx_entities_parent ON entities(parent_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_entities_revision ON entities(revision);
+
+-- ── Substrate (SyncableSubstrateQueries) ──
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM entities WHERE id = :id);
+
+softDeleteById:
+UPDATE entities
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at, client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM entities WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM entities WHERE deleted_at IS NULL AND revision <= :cursor;
+
+-- ── Reads (tombstone-inclusive unless named Live) ──
+
+selectById:
+SELECT * FROM entities WHERE id = :id;
+
+selectByIds:
+SELECT * FROM entities WHERE id IN :ids;
+
+selectLiveBySeries:
+SELECT * FROM entities WHERE home_series_id = :home_series_id AND deleted_at IS NULL ORDER BY name;
+
+selectLiveByBook:
+SELECT * FROM entities WHERE home_book_id = :home_book_id AND deleted_at IS NULL ORDER BY name;
+
+selectParentId:
+SELECT parent_id FROM entities WHERE id = :id;
+
+selectLiveChildIds:
+SELECT id FROM entities WHERE parent_id = :parent_id AND deleted_at IS NULL ORDER BY id;
+
+-- Book removal cascade: the live book-homed entities of one book.
+selectLiveIdsForBook:
+SELECT id FROM entities WHERE home_book_id = :home_book_id AND deleted_at IS NULL ORDER BY id;
+
+-- Does this book home any live entity? The cascade skips its transaction (and revision) when not.
+hasLiveForBook:
+SELECT EXISTS(SELECT 1 FROM entities WHERE home_book_id = :home_book_id AND deleted_at IS NULL);
+
+-- Book re-add: the entities a book removal tombstoned — those whose newest history row is a DELETE with
+-- no actor (the cascade's). Keyed on history, not on deleted_at: a re-delete of a removed book re-stamps
+-- the book's deleted_at, and a curator's later delete or revert is newer than the cascade's row.
+selectCascadeDeletedForBooks:
+SELECT e.id FROM entities e
+WHERE e.home_book_id IN :book_ids AND e.deleted_at IS NOT NULL
+  AND EXISTS (
+    SELECT 1 FROM story_world_history h
+    WHERE h.target_type = 'entity' AND h.target_id = e.id AND h.op = 'DELETE' AND h.actor_id IS NULL
+      AND h.revision = (
+        SELECT MAX(h2.revision) FROM story_world_history h2
+        WHERE h2.target_type = 'entity' AND h2.target_id = e.id
+      )
+  )
+ORDER BY e.id;
+
+-- The scoped AccessChanged delta asks by book id: every entity homed on one of these books, plus every
+-- entity homed on a series that contains one of them. Tombstones included (the delta must deliver them).
+selectIdsTouchingBooks:
+SELECT e.id FROM entities e WHERE e.home_book_id IN :home_book_ids
+UNION
+SELECT e.id FROM entities e
+JOIN book_series_memberships m ON m.series_id = e.home_series_id
+WHERE m.book_id IN :member_book_ids;
+
+-- ── Writes ──
+
+insert:
+INSERT INTO entities (id, kind, name, descriptor, parent_id, home_series_id, home_book_id, image_ref,
+    created_by, updated_by, created_at, updated_at, revision, deleted_at, client_op_id)
+VALUES (:id, :kind, :name, :descriptor, :parent_id, :home_series_id, :home_book_id, :image_ref,
+    :created_by, :updated_by, :created_at, :updated_at, :revision, NULL, :client_op_id);
+
+update:
+UPDATE entities
+SET kind = :kind, name = :name, descriptor = :descriptor, parent_id = :parent_id,
+    home_series_id = :home_series_id, home_book_id = :home_book_id, image_ref = :image_ref,
+    updated_by = :updated_by, updated_at = :updated_at, revision = :revision, deleted_at = NULL,
+    client_op_id = :client_op_id
+WHERE id = :id;

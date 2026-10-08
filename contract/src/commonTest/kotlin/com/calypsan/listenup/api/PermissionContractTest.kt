@@ -43,11 +43,22 @@ class PermissionContractTest :
             Permission.known shouldNotContain Permission.UNKNOWN
         }
 
+        test("the Story World group holds Contribute then Curate, after the Library group") {
+            Permission.known.filter { it.group == PermissionGroup.STORY_WORLD } shouldContainExactly
+                listOf(Permission.CONTRIBUTE_STORY_WORLD, Permission.CURATE_STORY_WORLD)
+            Permission.known.map { it.group }.distinct() shouldContainExactly
+                listOf(PermissionGroup.LIBRARY, PermissionGroup.STORY_WORLD)
+        }
+
         test("each permission's wire key is the UserPermissions field it reads, and the default follows the rule") {
             Permission.EDIT_METADATA.wireKey shouldBe "canEdit"
             Permission.CURATE_LIBRARY.wireKey shouldBe "canCurateLibrary"
             Permission.EDIT_METADATA.defaultGranted shouldBe true
             Permission.CURATE_LIBRARY.defaultGranted shouldBe false
+            Permission.CONTRIBUTE_STORY_WORLD.wireKey shouldBe "canContributeStoryWorld"
+            Permission.CURATE_STORY_WORLD.wireKey shouldBe "canCurateStoryWorld"
+            Permission.CONTRIBUTE_STORY_WORLD.defaultGranted shouldBe true
+            Permission.CURATE_STORY_WORLD.defaultGranted shouldBe false
             // Flip each flag away from its default: contractJson skips defaults, so the key that
             // appears is exactly the field's SerialName — and it must be the permission's wire key.
             Permission.known.forEach { permission ->
@@ -55,6 +66,8 @@ class PermissionContractTest :
                     when (permission) {
                         Permission.EDIT_METADATA -> UserPermissions(canEditMetadata = false)
                         Permission.CURATE_LIBRARY -> UserPermissions(canCurateLibrary = true)
+                        Permission.CONTRIBUTE_STORY_WORLD -> UserPermissions(canContributeStoryWorld = false)
+                        Permission.CURATE_STORY_WORLD -> UserPermissions(canCurateStoryWorld = true)
                         Permission.UNKNOWN -> error("not listed")
                     }
                 contractJson.encodeToString(UserPermissions.serializer(), flipped) shouldContain
@@ -74,6 +87,10 @@ class PermissionContractTest :
             librarian.allows(Permission.EDIT_METADATA) shouldBe true
             librarian.allows(Permission.CURATE_LIBRARY) shouldBe true
             librarian.allows(Permission.UNKNOWN) shouldBe false
+            UserPermissions().allows(Permission.CONTRIBUTE_STORY_WORLD) shouldBe true
+            UserPermissions().allows(Permission.CURATE_STORY_WORLD) shouldBe false
+            UserPermissions(canContributeStoryWorld = false).allows(Permission.CONTRIBUTE_STORY_WORLD) shouldBe false
+            UserPermissions(canCurateStoryWorld = true).allows(Permission.CURATE_STORY_WORLD) shouldBe true
             UserPermissions(canEditMetadata = false).allows(Permission.EDIT_METADATA) shouldBe false
         }
 
@@ -83,12 +100,19 @@ class PermissionContractTest :
                 UserPermissions(canEditMetadata = true, canCurateLibrary = true)
             stored.patchedBy(UserPermissionsPatch(canCurateLibrary = false)) shouldBe
                 UserPermissions(canEditMetadata = false, canCurateLibrary = false)
+            stored.patchedBy(UserPermissionsPatch(canCurateStoryWorld = true)) shouldBe
+                stored.copy(canCurateStoryWorld = true)
             stored.patchedBy(UserPermissionsPatch()) shouldBe stored
             stored.patchedBy(null) shouldBe stored
         }
 
         test("granting names one permission in a patch, and UNKNOWN names nothing") {
             UserPermissionsPatch().granting(Permission.CURATE_LIBRARY, true) shouldBe UserPermissionsPatch(canCurateLibrary = true)
+            UserPermissionsPatch().granting(Permission.CONTRIBUTE_STORY_WORLD, false) shouldBe
+                UserPermissionsPatch(canContributeStoryWorld = false)
+            UserPermissionsPatch().granting(Permission.CURATE_STORY_WORLD, true) shouldBe
+                UserPermissionsPatch(canCurateStoryWorld = true)
+            UserPermissionsPatch(canCurateStoryWorld = false).isEmpty shouldBe false
             UserPermissionsPatch(canEditMetadata = false).granting(Permission.UNKNOWN, true) shouldBe
                 UserPermissionsPatch(canEditMetadata = false)
         }

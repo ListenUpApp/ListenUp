@@ -102,6 +102,11 @@ class AdminUserRosterMaintainerTest :
         test("the roster row carries every permission flag, nested, and the flat canEdit for older admin apps") {
             withSqlDatabase {
                 sql.seedTestUser("user-3", UserRoleColumn.MEMBER, canEdit = false, canCurateLibrary = true)
+                sql.usersQueries.updateStoryWorldPermissionFlags(
+                    can_contribute_story_world = 0L,
+                    can_curate_story_world = 1L,
+                    id = "user-3",
+                )
                 val repo = AdminUserRosterRepository(sql, ChangeBus(), SyncRegistry(), driver = driver)
                 val maintainer = AdminUserRosterMaintainer(sql, repo)
 
@@ -110,7 +115,13 @@ class AdminUserRosterMaintainerTest :
 
                     val saved = repo.pullSince(userId = null, cursor = 0, limit = 100).items.single()
                     saved.canEdit shouldBe false
-                    saved.permissions shouldBe UserPermissions(canEditMetadata = false, canCurateLibrary = true)
+                    saved.permissions shouldBe
+                        UserPermissions(
+                            canEditMetadata = false,
+                            canCurateLibrary = true,
+                            canContributeStoryWorld = false,
+                            canCurateStoryWorld = true,
+                        )
                 }
             }
         }

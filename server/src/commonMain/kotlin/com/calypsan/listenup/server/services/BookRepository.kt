@@ -150,6 +150,8 @@ internal data class MatchCoverColumns(
  * @param bookTagRepository the syncable `book_tags` junction; the [BookTagWriter]
  *   links the book to each scanned tag through it (add-only on rescan), and the
  *   book soft-delete cascades through it.
+ * @param entityRepository the Story World `entities` repository; the book soft-delete tombstones the
+ *   book-homed entities through it, and a re-add revives them.
  */
 class BookRepository(
     db: ListenUpDatabase,
@@ -165,6 +167,7 @@ class BookRepository(
     private val tagRepository: com.calypsan.listenup.server.sync.TagRepository? = null,
     private val bookTagRepository: com.calypsan.listenup.server.sync.BookTagRepository? = null,
     private val bookMoodRepository: com.calypsan.listenup.server.sync.BookMoodRepository? = null,
+    private val entityRepository: com.calypsan.listenup.server.sync.EntityRepository? = null,
     private val orphanParentPurger: OrphanParentPurger? = null,
     private val homeDir: Path? = null,
     private val coverImageStore: CoverImageStore? = null,
@@ -1095,7 +1098,7 @@ class BookRepository(
 
     /**
      * Tombstones this book and cascade-soft-deletes all of its junction rows — `book_tags`,
-     * `book_moods`, and `collection_books` — so clients receive per-row tombstones for the orphaned
+     * `book_moods`, and `collection_books` — and its book-homed Story World entities, so clients receive per-row tombstones for the orphaned
      * junctions. Tombstoning the `collection_books` rows is what makes a removed book leave every
      * collection it was in (Continue-Listening/search/collection-visibility all key off live
      * memberships): a dead book no longer surfaces via any collection's list, count, or the
@@ -1129,6 +1132,7 @@ class BookRepository(
             bookTagRepository?.softDeleteAllForBook(id.value)
             bookMoodRepository?.softDeleteAllForBook(id.value)
             collectionBookRepository?.softDeleteAllForBook(id.value)
+            entityRepository?.softDeleteAllForBook(id.value)
             if (linkedParents != null) orphanParentPurger.purgeOrphaned(linkedParents)
         }
         return result
@@ -1136,8 +1140,10 @@ class BookRepository(
 
     /**
      * Revives the junction rows (`book_tags` / `book_moods` / `collection_books`) for [bookIds] that
-     * were tombstoned at or after [cascadeFloor] — the same cascade [reviveByIds] runs for a folder
-     * re-add, reused by the scan revival paths.
+     * were tombstoned at or after [cascadeFloor], and the book-homed Story World entities the removal
+     * tombstoned (decided by their history, not the floor — see
+     * [com.calypsan.listenup.server.sync.EntityRepository.reviveAllForBooks]) —
+     * the same cascade [reviveByIds] runs for a folder re-add, reused by the scan revival paths.
      *
      * A scan re-ingest of a removed book revives the book ROW ([updateContent] clears `deleted_at`) but
      * would otherwise leave its cascade-tombstoned junctions dead — so the book returned uncollected
@@ -1155,6 +1161,7 @@ class BookRepository(
         bookTagRepository?.reviveAllForBooks(bookIds, cascadeFloor)
         bookMoodRepository?.reviveAllForBooks(bookIds, cascadeFloor)
         collectionBookRepository?.reviveAllForBooks(bookIds, cascadeFloor)
+        entityRepository?.reviveAllForBooks(bookIds)
     }
 
     /**
@@ -1283,8 +1290,9 @@ class BookRepository(
      * Batch-revives every book in [ids] (clears `deleted_at`, bumps a per-book revision, emits a
      * per-book [SyncEvent.Updated]) in ONE transaction — the batched counterpart to [reviveById] for
      * folder-id-reuse revival, where a re-added folder can carry thousands of books. Cascades to the
-     * books' user tags via [bookTagRepository] (a second transaction), symmetric with [softDelete]'s
-     * tag tombstone cascade, so a remove+re-add never loses a book's tags. Missing ids are skipped.
+     * books' user tags, moods, collection memberships and book-homed Story World entities via
+     * [reviveBookJunctions] (separate transactions), symmetric with [softDelete]'s tombstone cascade, so
+     * a remove+re-add never loses them. Missing ids are skipped.
      *
      * [cascadeFloor] is the removed folder's own `deleted_at`, threaded down to the tag cascade so it
      * floors the tag revival exactly as it floors this book set (see [idsByFolderDeletedSince]): only
@@ -1307,14 +1315,11 @@ class BookRepository(
                 }
             }
         }
-        // Symmetric with softDelete's junction tombstone cascade: restore each book's user tags,
-        // moods, and collection memberships (each its own transaction, exactly as the tombstone
-        // cascade is a separate call after the book write), floored on the folder-removal instant so
-        // a remove-then-rescan keeps a book's memberships instead of losing them.
-        val idValues = ids.map { it.value }
-        bookTagRepository?.reviveAllForBooks(idValues, cascadeFloor)
-        bookMoodRepository?.reviveAllForBooks(idValues, cascadeFloor)
-        collectionBookRepository?.reviveAllForBooks(idValues, cascadeFloor)
+        // Symmetric with softDelete's tombstone cascade: restore each book's user tags, moods,
+        // collection memberships and Story World entities (each its own transaction, exactly as the
+        // tombstone cascade is a separate call after the book write), floored on the folder-removal
+        // instant so a remove-then-rescan keeps a book's memberships instead of losing them.
+        reviveBookJunctions(ids.map { it.value }, cascadeFloor)
     }
 
     /**

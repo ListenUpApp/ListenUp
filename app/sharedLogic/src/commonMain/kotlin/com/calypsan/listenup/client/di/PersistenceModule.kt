@@ -35,6 +35,7 @@ internal val persistenceModule: Module =
         single { get<ListenUpDatabase>().bookMoodDao() }
         single { get<ListenUpDatabase>().bookRatingDao() }
         single { get<ListenUpDatabase>().bookExternalRatingDao() }
+        single { get<ListenUpDatabase>().entityDao() }
         single { get<ListenUpDatabase>().genreDao() }
         single { get<ListenUpDatabase>().audioFileDao() }
         single { get<ListenUpDatabase>().listeningEventDao() }

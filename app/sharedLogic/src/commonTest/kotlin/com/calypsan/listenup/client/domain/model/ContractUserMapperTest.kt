@@ -66,4 +66,13 @@ class ContractUserMapperTest :
             domain.permissions.canEditMetadata shouldBe false
             domain.permissions.canCurateLibrary shouldBe true
         }
+
+        test("carries the Story World flags across") {
+            val domain =
+                contractUser()
+                    .copy(permissions = ContractUserPermissions(canContributeStoryWorld = false, canCurateStoryWorld = true))
+                    .toDomain()
+            domain.permissions.canContributeStoryWorld shouldBe false
+            domain.permissions.canCurateStoryWorld shouldBe true
+        }
     })

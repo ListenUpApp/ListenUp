@@ -34,6 +34,8 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  * [MIGRATION_16_17] adds `libraries.metadataRegion`, the library's Audible store.
  * [MIGRATION_17_18] adds `books.lastMatch`, the book's live metadata match for "Undo last match".
  * [MIGRATION_18_19] adds `users.canCurateLibrary` and `admin_user_roster.canCurateLibrary`, backfilled from `canEdit`.
+ * [MIGRATION_19_20] adds the Story World `entities` mirror, the two Story World flags on `users` and
+ * `admin_user_roster`, and `pending_operation.mayHaveLanded`.
  * **v1** was the squashed starting point: the pre-1.0 chain (old v1 → v2 → v3) was squashed to a
  * single starting point alongside the Room 2.8.4 → Room 3 migration, while the app was still
  * pre-production and no install base held a database worth preserving. Everything those migrations
@@ -97,8 +99,9 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         NotificationEntity::class,
         BookRatingEntity::class,
         BookExternalRatingEntity::class,
+        EntityEntity::class,
     ],
-    version = 19,
+    version = 20,
     exportSchema = true,
 )
 @ColumnTypeConverters(
@@ -107,6 +110,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
     StringListJsonConverter::class,
     FieldProvenanceConverter::class,
     LastMatchConverter::class,
+    EntityKindConverter::class,
 )
 @ConstructedBy(ListenUpDatabaseConstructor::class)
 @Suppress("TooManyFunctions")
@@ -188,6 +192,8 @@ internal abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun bookRatingDao(): BookRatingDao
 
     abstract fun bookExternalRatingDao(): BookExternalRatingDao
+
+    abstract fun entityDao(): EntityDao
 }
 
 /**

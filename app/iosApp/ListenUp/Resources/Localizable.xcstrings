@@ -1921,6 +1921,26 @@
         }
       }
     },
+    "admin.permission_contribute_story_world": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contribute"
+          }
+        }
+      }
+    },
+    "admin.permission_contribute_story_world_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add, edit and delete characters, places and events."
+          }
+        }
+      }
+    },
     "admin.permission_curate_library": {
       "localizations": {
         "en": {
@@ -1937,6 +1957,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Merge or delete series, authors, genres, tags and moods."
+          }
+        }
+      }
+    },
+    "admin.permission_curate_story_world": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Curate"
+          }
+        }
+      }
+    },
+    "admin.permission_curate_story_world_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merge duplicate characters, places and events."
           }
         }
       }
@@ -1971,6 +2011,16 @@
         }
       }
     },
+    "admin.permission_group_story_world": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Story World"
+          }
+        }
+      }
+    },
     "admin.preset": {
       "localizations": {
         "en": {
@@ -1996,7 +2046,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fixes books and their details. Can't merge or delete."
+            "value": "Fixes books and adds to Story World. Can't merge or delete."
           }
         }
       }

@@ -16,11 +16,15 @@ import kotlinx.serialization.Serializable
  * @property canEditMetadata [Permission.EDIT_METADATA]. Serialized as `canEdit`, the name every older
  *   client and server already speaks.
  * @property canCurateLibrary [Permission.CURATE_LIBRARY]. Off by default.
+ * @property canContributeStoryWorld [Permission.CONTRIBUTE_STORY_WORLD]. On by default.
+ * @property canCurateStoryWorld [Permission.CURATE_STORY_WORLD]. Off by default.
  */
 @Serializable
 data class UserPermissions(
     @SerialName("canEdit") val canEditMetadata: Boolean = true,
     @SerialName("canCurateLibrary") val canCurateLibrary: Boolean = false,
+    @SerialName("canContributeStoryWorld") val canContributeStoryWorld: Boolean = true,
+    @SerialName("canCurateStoryWorld") val canCurateStoryWorld: Boolean = false,
 )
 
 /** Whether these flags grant [permission]. [Permission.UNKNOWN] is never granted. */
@@ -28,5 +32,7 @@ fun UserPermissions.allows(permission: Permission): Boolean =
     when (permission) {
         Permission.EDIT_METADATA -> canEditMetadata
         Permission.CURATE_LIBRARY -> canCurateLibrary
+        Permission.CONTRIBUTE_STORY_WORLD -> canContributeStoryWorld
+        Permission.CURATE_STORY_WORLD -> canCurateStoryWorld
         Permission.UNKNOWN -> false
     }

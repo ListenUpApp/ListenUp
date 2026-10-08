@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AudioMetadataError
+import com.calypsan.listenup.api.error.EntityError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.InviteError
 import com.calypsan.listenup.api.error.MetadataError
@@ -67,6 +68,14 @@ class AppErrorStatusPagesTest :
         test("TransportError maps to InternalServerError as a server-local bug guard") {
             val err: AppError = TransportError.NetworkUnavailable()
             err.toHttpStatus() shouldBe HttpStatusCode.InternalServerError
+        }
+
+        test("EntityError maps NotFound to 404, InvalidParent to 400 and merge conflicts to 409") {
+            (EntityError.NotFound() as AppError).toHttpStatus() shouldBe HttpStatusCode.NotFound
+            (EntityError.HistoryNotFound() as AppError).toHttpStatus() shouldBe HttpStatusCode.NotFound
+            (EntityError.InvalidParent() as AppError).toHttpStatus() shouldBe HttpStatusCode.BadRequest
+            (EntityError.CycleDetected() as AppError).toHttpStatus() shouldBe HttpStatusCode.Conflict
+            (EntityError.KindMismatchOnMerge() as AppError).toHttpStatus() shouldBe HttpStatusCode.Conflict
         }
 
         test("AudioMetadataError.UnsupportedFormat maps to 415 UnsupportedMediaType") {

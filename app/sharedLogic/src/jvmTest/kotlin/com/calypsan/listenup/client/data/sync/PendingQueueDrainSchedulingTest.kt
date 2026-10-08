@@ -631,6 +631,12 @@ private class CountingDao(
         maxAttempts: Int,
     ) = delegate.hasQueuedOp(domainName, entityId, ownerUserId, maxAttempts)
 
+    override suspend fun opsInSlot(
+        domainName: String,
+        entityId: String,
+        opType: String,
+    ) = delegate.opsInSlot(domainName, entityId, opType)
+
     override suspend fun deleteQueuedOps(
         domainName: String,
         entityId: String,

@@ -344,6 +344,39 @@ class PeopleTest :
             (host.querySelectorAll("input[type=radio]").item(1) as HTMLInputElement).checked shouldBe true
         }
 
+        test("a server enforcing Story World adds its group, with Contribute and Curate switches that reach the ViewModel") {
+            val presses = mutableListOf<String>()
+            val withStoryWorld =
+                permissionsReady().let { ready ->
+                    ready.copy(
+                        sections =
+                            ready.sections +
+                                PermissionSection(
+                                    PermissionGroup.STORY_WORLD,
+                                    listOf(
+                                        PermissionRow(Permission.CONTRIBUTE_STORY_WORLD, granted = true, isUnsaved = false),
+                                        PermissionRow(Permission.CURATE_STORY_WORLD, granted = false, isUnsaved = false),
+                                    ),
+                                ),
+                    )
+                }
+            val host =
+                userPage(
+                    readyUser(adminUser()),
+                    permissions = withStoryWorld,
+                    actions = PermissionsPanelActions(onSetPermission = { p, g -> presses += "set:$p=$g" }),
+                )
+
+            host.textContent.orEmpty() shouldContain "Story World"
+            host.textContent.orEmpty() shouldContain "Add, edit and delete characters, places and events."
+            host.textContent.orEmpty() shouldContain "Merge duplicate characters, places and events."
+            switches(host).size shouldBe 4
+            switches(host)[3].click()
+            awaitFrame()
+
+            presses shouldBe listOf("set:CURATE_STORY_WORLD=true")
+        }
+
         test("choosing a preset and flipping a switch reach the ViewModel") {
             val presses = mutableListOf<String>()
             val host =

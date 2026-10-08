@@ -66,6 +66,8 @@ class UserPermissionsViewModelTest :
             return viewModel
         }
 
+        val everyFlag = Permission.known.map { it.wireKey }.toSet()
+
         fun UserPermissionsViewModel.ready() = state.value.shouldBeInstanceOf<UserPermissionsUiState.Ready>()
 
         test("a default member opens on Contributor, with the Library toggles and nothing unsaved") {
@@ -259,6 +261,65 @@ class UserPermissionsViewModelTest :
                 viewModel.requestRole(UserRole.MEMBER)
                 advanceUntilIdle()
                 viewModel.ready().changeCount shouldBe 0
+            }
+        }
+
+        test("a server enforcing Story World shows its group after Library, Contribute then Curate") {
+            runTest {
+                val repo: AdminRepository = mock { everySuspend { getUser("u1") } returns AppResult.Success(member()) }
+                val ready = open(repo, flags = everyFlag).ready()
+                ready.sections.map { it.group } shouldContainExactly listOf(PermissionGroup.LIBRARY, PermissionGroup.STORY_WORLD)
+                ready.sections
+                    .last()
+                    .rows
+                    .map { it.permission } shouldContainExactly
+                    listOf(Permission.CONTRIBUTE_STORY_WORLD, Permission.CURATE_STORY_WORLD)
+                ready.preset shouldBe PermissionPreset.CONTRIBUTOR
+            }
+        }
+
+        test("Listener turns Contribute Story World off, and save sends the flags that changed and nothing else") {
+            runTest {
+                val listener =
+                    UserPermissions(canEditMetadata = false, canCurateLibrary = false, canContributeStoryWorld = false)
+                val patch = UserPermissionsPatch(canEditMetadata = false, canCurateLibrary = false, canContributeStoryWorld = false)
+                val repo: AdminRepository =
+                    mock {
+                        everySuspend { getUser("u1") } returns AppResult.Success(member())
+                        everySuspend { updateUser(userId = "u1", role = null, permissions = patch) } returns
+                            AppResult.Success(member(listener))
+                    }
+                val viewModel = open(repo, flags = everyFlag)
+                viewModel.selectPreset(PermissionPreset.LISTENER)
+                advanceUntilIdle()
+                viewModel.ready().flags shouldBe listener
+                viewModel.save()
+                advanceUntilIdle()
+                verifySuspend(VerifyMode.exactly(1)) { repo.updateUser(userId = "u1", role = null, permissions = patch) }
+                viewModel.ready().preset shouldBe PermissionPreset.LISTENER
+            }
+        }
+
+        test("Curate Story World on its own is Custom, and saves as that one flag") {
+            runTest {
+                val curator = UserPermissions(canCurateStoryWorld = true)
+                val repo: AdminRepository =
+                    mock {
+                        everySuspend { getUser("u1") } returns AppResult.Success(member())
+                        everySuspend {
+                            updateUser(userId = "u1", role = null, permissions = UserPermissionsPatch(canCurateStoryWorld = true))
+                        } returns AppResult.Success(member(curator))
+                    }
+                val viewModel = open(repo, flags = everyFlag)
+                viewModel.setPermission(Permission.CURATE_STORY_WORLD, true)
+                advanceUntilIdle()
+                viewModel.ready().preset shouldBe PermissionPreset.CUSTOM
+                viewModel.ready().curateWarningShown shouldBe false
+                viewModel.save()
+                advanceUntilIdle()
+                verifySuspend(VerifyMode.exactly(1)) {
+                    repo.updateUser(userId = "u1", role = null, permissions = UserPermissionsPatch(canCurateStoryWorld = true))
+                }
             }
         }
 

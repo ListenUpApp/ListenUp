@@ -13,6 +13,9 @@ enum class PermissionGroup {
     /** Book and catalogue metadata: editing it, and merging or deleting catalogue entries. */
     LIBRARY,
 
+    /** Story World, the encyclopedia of a series or book: adding to it, and merging its entries. */
+    STORY_WORLD,
+
     /** The group of [Permission.UNKNOWN]. Never rendered. */
     UNKNOWN,
 }
@@ -58,6 +61,15 @@ enum class Permission(
      * Library-wide, and deletes cannot be undone, so off by default.
      */
     CURATE_LIBRARY(PermissionGroup.LIBRARY, wireKey = "canCurateLibrary", defaultGranted = false),
+
+    /**
+     * Create, edit and delete Story World entries, and revert any change but a merge. History keeps every
+     * change and any of them can be undone, so on by default.
+     */
+    CONTRIBUTE_STORY_WORLD(PermissionGroup.STORY_WORLD, wireKey = "canContributeStoryWorld", defaultGranted = true),
+
+    /** Merge Story World entries, and revert a merge. Merging rewrites a whole world, so off by default. */
+    CURATE_STORY_WORLD(PermissionGroup.STORY_WORLD, wireKey = "canCurateStoryWorld", defaultGranted = false),
 
     /** A permission this build does not know (a newer server's). Grants nothing and never renders. */
     UNKNOWN(PermissionGroup.UNKNOWN, wireKey = "", defaultGranted = false),

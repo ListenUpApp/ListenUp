@@ -1,0 +1,28 @@
+-- story_world_history: one row per Story World write, written in the same transaction as the write.
+-- See V93__story_world_entities.sql.
+CREATE TABLE story_world_history (
+    id           TEXT    NOT NULL PRIMARY KEY,
+    target_type  TEXT    NOT NULL,
+    target_id    TEXT    NOT NULL,
+    actor_id     TEXT,
+    occurred_at  INTEGER NOT NULL,
+    revision     INTEGER NOT NULL,
+    op           TEXT    NOT NULL,
+    before_json  TEXT,
+    after_json   TEXT
+);
+
+CREATE INDEX idx_story_world_history_target ON story_world_history(target_type, target_id, revision);
+
+insert:
+INSERT INTO story_world_history (id, target_type, target_id, actor_id, occurred_at, revision, op, before_json, after_json)
+VALUES (:id, :target_type, :target_id, :actor_id, :occurred_at, :revision, :op, :before_json, :after_json);
+
+-- Newest first; revision breaks ties inside one millisecond.
+selectForTarget:
+SELECT * FROM story_world_history
+WHERE target_type = :target_type AND target_id = :target_id
+ORDER BY revision DESC;
+
+selectByIdAndType:
+SELECT * FROM story_world_history WHERE id = :id AND target_type = :target_type;

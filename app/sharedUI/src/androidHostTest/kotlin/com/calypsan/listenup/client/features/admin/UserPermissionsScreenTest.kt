@@ -48,7 +48,7 @@ class UserPermissionsScreenTest {
         composeRule.onNodeWithText("Listener").assertIsDisplayed()
         composeRule.onNodeWithText("Contributor").assertIsDisplayed()
         composeRule.onNodeWithText("Librarian").assertIsDisplayed()
-        composeRule.onNodeWithText("Fixes books and their details. Can't merge or delete.").assertIsDisplayed()
+        composeRule.onNodeWithText("Fixes books and adds to Story World. Can't merge or delete.").assertIsDisplayed()
         composeRule.onNodeWithText("Library").assertIsDisplayed()
         composeRule.onNodeWithText("Edit metadata").assertIsDisplayed()
         composeRule.onNodeWithText("Curate library").assertIsDisplayed()
@@ -75,6 +75,35 @@ class UserPermissionsScreenTest {
         composeRule
             .onNodeWithText("Quinn will be able to merge and delete these for everyone on this server. Deletes can't be undone.")
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun `the Story World group shows Contribute and Curate, and a Curate grant needs no warning`() {
+        val flags = UserPermissions(canCurateStoryWorld = true)
+        show(
+            ready(
+                flags = flags,
+                preset = PermissionPreset.CUSTOM,
+                sections =
+                    listOf(
+                        PermissionSection(
+                            PermissionGroup.STORY_WORLD,
+                            listOf(
+                                PermissionRow(Permission.CONTRIBUTE_STORY_WORLD, flags.canContributeStoryWorld, isUnsaved = false),
+                                PermissionRow(Permission.CURATE_STORY_WORLD, flags.canCurateStoryWorld, isUnsaved = true),
+                            ),
+                        ),
+                    ),
+            ),
+        )
+        composeRule.onNodeWithText("Story World").assertIsDisplayed()
+        composeRule.onNodeWithText("Contribute").assertIsDisplayed()
+        composeRule.onNodeWithText("Add, edit and delete characters, places and events.").assertIsDisplayed()
+        composeRule.onNodeWithText("Curate").assertIsDisplayed()
+        composeRule.onNodeWithText("Merge duplicate characters, places and events.").assertIsDisplayed()
+        composeRule.onNodeWithText("Deletes can't be undone.", substring = true).assertDoesNotExist()
+        composeRule.onNodeWithText("Contribute").performClick()
+        assertEquals(listOf("set:CONTRIBUTE_STORY_WORLD=false"), presses)
     }
 
     @Test

@@ -175,7 +175,8 @@ class InstanceServiceImplTest :
                 runTest {
                     val settings = ServerSettingsRepository(sql, default = RegistrationPolicy.OPEN)
                     val info = (instanceService(sql, settings).getServerInfo() as AppResult.Success).data
-                    info.permissionFlags shouldBe setOf("canEdit", "canCurateLibrary")
+                    info.permissionFlags shouldBe
+                        setOf("canEdit", "canCurateLibrary", "canContributeStoryWorld", "canCurateStoryWorld")
                     info.permissionFlags shouldBe Permission.known.map { it.wireKey }.toSet()
                 }
             }

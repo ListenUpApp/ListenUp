@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.BookRatingService
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.EntityService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.HardcoverService
 import com.calypsan.listenup.api.ImportService
@@ -41,6 +42,7 @@ import com.calypsan.listenup.server.api.BookRatingServiceImpl
 import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.ContributorServiceImpl
+import com.calypsan.listenup.server.api.EntityServiceImpl
 import com.calypsan.listenup.server.api.GenreServiceImpl
 import com.calypsan.listenup.server.api.HardcoverServiceImpl
 import com.calypsan.listenup.server.api.ImportServiceImpl
@@ -124,6 +126,7 @@ private fun Route.authedRpc(services: RpcServices) {
             )
         }
         registerScoped<SeriesService> { guard((services.seriesService as SeriesServiceImpl).copyWith(it)) }
+        registerScoped<EntityService> { guard((services.entityService as EntityServiceImpl).copyWith(it)) }
         registerScoped<PlaybackService> { guard((services.playbackService as PlaybackServiceImpl).copyWith(it)) }
         registerScoped<PlaybackProgressService> {
             guard((services.playbackProgressService as PlaybackProgressServiceImpl).copyWith(it))

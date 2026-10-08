@@ -58,6 +58,29 @@ class PermissionPolicyTest :
             }
         }
 
+        test("a MEMBER holds Contribute Story World by default, and each Story World flag reads on its own") {
+            withSqlDatabase {
+                val policy = PermissionPolicy(sql)
+                sql.seedTestUser("newcomer", UserRoleColumn.MEMBER)
+                sql.seedTestUser("curator", UserRoleColumn.MEMBER)
+                sql.usersQueries.updateStoryWorldPermissionFlags(
+                    can_contribute_story_world = 0L,
+                    can_curate_story_world = 1L,
+                    id = "curator",
+                )
+                runTest {
+                    policy.require(caller("newcomer", UserRole.MEMBER), Permission.CONTRIBUTE_STORY_WORLD) shouldBe null
+                    policy
+                        .require(caller("newcomer", UserRole.MEMBER), Permission.CURATE_STORY_WORLD)
+                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                    policy
+                        .require(caller("curator", UserRole.MEMBER), Permission.CONTRIBUTE_STORY_WORLD)
+                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                    policy.require(caller("curator", UserRole.MEMBER), Permission.CURATE_STORY_WORLD) shouldBe null
+                }
+            }
+        }
+
         test("UNKNOWN is never granted to a MEMBER") {
             withSqlDatabase {
                 val policy = PermissionPolicy(sql)
