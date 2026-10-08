@@ -69,9 +69,9 @@ class SchemaBaselineDriftTest :
                 )
 
             try {
-                // Create the schema in `databasePath` FROM the committed 19.json (this also
+                // Create the schema in `databasePath` FROM the committed 20.json (this also
                 // writes the JSON's identity hash into room_master_table), then release it.
-                helper.createDatabase(version = 19).close()
+                helper.createDatabase(version = 20).close()
 
                 // Reopen the SAME file with the real compiled database — deliberately WITHOUT
                 // fallbackToDestructiveMigration, so Room's identity-hash validation runs
@@ -84,7 +84,7 @@ class SchemaBaselineDriftTest :
 
                 try {
                     withClue(
-                        "committed 19.json no longer matches the compiled @Entity schema — " +
+                        "committed 20.json no longer matches the compiled @Entity schema — " +
                             "regenerate app/sharedLogic/schemas/…/ListenUpDatabase/20.json " +
                             "(the build re-exports it) and commit the diff",
                     ) {
