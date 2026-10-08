@@ -33,7 +33,14 @@ internal data class FindSubject(
         BookIdentity(title = title, primaryAuthor = primaryAuthor, durationMs = durationMs, narrators = narrators)
 
     /** The strip every candidate is ranked against. */
-    fun yourCopy(): YourCopy = YourCopy(durationMs, narrators, chapterCount, year, format)
+    fun yourCopy(): YourCopy =
+        YourCopy(
+            durationMs = durationMs,
+            narrators = narrators,
+            chapterCount = chapterCount,
+            year = year,
+            format = format,
+        )
 
     /** What [provider] is asked: its own refs (unless [identify] is off), the book's identifiers, and [text]. */
     fun lookupFor(

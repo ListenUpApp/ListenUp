@@ -94,9 +94,23 @@ private fun decodeScan(
             sinceRestart++
 
             if (singleComponent) {
-                decodeBlock(reader, segments, scan, components[0], row, column) ?: return null
+                decodeBlock(
+                    reader = reader,
+                    segments = segments,
+                    scan = scan,
+                    component = components[0],
+                    blockRow = row,
+                    blockColumn = column,
+                ) ?: return null
             } else {
-                decodeMcu(reader, segments, scan, components, row, column) ?: return null
+                decodeMcu(
+                    reader = reader,
+                    segments = segments,
+                    scan = scan,
+                    components = components,
+                    mcuRow = row,
+                    mcuColumn = column,
+                ) ?: return null
             }
         }
     }
@@ -121,7 +135,14 @@ private fun decodeMcu(
             for (h in 0 until component.horizontalSampling) {
                 val blockRow = mcuRow * component.verticalSampling + v
                 val blockColumn = mcuColumn * component.horizontalSampling + h
-                decodeBlock(reader, segments, scan, component, blockRow, blockColumn) ?: return null
+                decodeBlock(
+                    reader = reader,
+                    segments = segments,
+                    scan = scan,
+                    component = component,
+                    blockRow = blockRow,
+                    blockColumn = blockColumn,
+                ) ?: return null
             }
         }
     }
@@ -188,7 +209,7 @@ private fun decodeBlock(
         return Unit
     }
 
-    return decodeProgressiveBlock(reader, scan, component, base)
+    return decodeProgressiveBlock(reader = reader, scan = scan, component = component, base = base)
 }
 
 /**
@@ -223,7 +244,7 @@ private fun decodeProgressiveBlock(
     // AC scans. We only need the handful of low-frequency coefficients the reduced transforms read;
     // anything beyond them cannot change the output, so the scan is skipped rather than walked.
     if (scan.spectralStart >= AC_BANDS_WE_NEED) return Unit
-    return decodeProgressiveAc(reader, scan, component, base)
+    return decodeProgressiveAc(reader = reader, scan = scan, component = component, base = base)
 }
 
 @Suppress("ReturnCount")

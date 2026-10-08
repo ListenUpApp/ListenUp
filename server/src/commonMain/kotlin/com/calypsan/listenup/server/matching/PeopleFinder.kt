@@ -40,19 +40,19 @@ internal class PeopleFinder(
         request: PersonFindRequest,
         locale: MetadataLocale,
     ): PersonFindResult {
-        val query = request.query?.trim()?.takeIf { it.isNotEmpty() }
+        val query = request.query?.run { trim().takeIf { it.isNotEmpty() } }
         val sources = routed()
         val asked =
             coroutineScope {
                 sources
-                    .map { source -> async { source to ask(source, subject, query, locale) } }
-                    .awaitAll()
+                    .map { source ->
+                        async { source to ask(source = source, subject = subject, query = query, locale = locale) }
+                    }.awaitAll()
             }
         val found =
             asked.flatMap { (source, outcome) ->
                 (outcome as? SourceOutcome.Answered)
-                    ?.answer
-                    ?.people
+                    ?.run { answer.people }
                     .orEmpty()
                     .map { SourcedPerson(source.id.presentedAs(), it) }
             }
@@ -66,7 +66,7 @@ internal class PeopleFinder(
                 asked.map { (source, outcome) ->
                     outcome.toStatus(
                         source.id.toMetadataSource(),
-                        (outcome as? SourceOutcome.Answered)?.answer?.people?.size ?: 0,
+                        (outcome as? SourceOutcome.Answered)?.run { answer.people.size } ?: 0,
                     )
                 },
         )

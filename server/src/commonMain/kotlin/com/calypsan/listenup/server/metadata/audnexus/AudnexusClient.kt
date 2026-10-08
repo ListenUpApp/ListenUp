@@ -62,7 +62,7 @@ internal class AudnexusClient(
     ): AppResult<List<AudnexusAuthor>> =
         apiGet("/authors", region, extraParams = mapOf("name" to name)) { body ->
             json.decodeFromString<List<AudnexusAuthor>>(body)
-        }.map { it ?: emptyList() }
+        }.map { it.orEmpty() }
 
     override suspend fun getAuthor(
         asin: String,

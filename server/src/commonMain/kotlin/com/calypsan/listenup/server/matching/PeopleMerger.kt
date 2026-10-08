@@ -56,7 +56,7 @@ internal object PeopleMerger {
             name = first.name,
             roles = flatMapTo(mutableSetOf()) { it.person.roles },
             photoUrl = firstNotNullOfOrNull { it.person.photoUrl },
-            knownWorks = firstOrNull { it.person.knownWorks.isNotEmpty() }?.person?.knownWorks.orEmpty(),
+            knownWorks = firstOrNull { it.person.knownWorks.isNotEmpty() }?.run { person.knownWorks }.orEmpty(),
             worksCount = firstNotNullOfOrNull { it.person.worksCount },
             creditedBookIds = flatMapTo(mutableSetOf()) { it.person.creditedBookIds },
             viaLink = any { it.person.viaLink },

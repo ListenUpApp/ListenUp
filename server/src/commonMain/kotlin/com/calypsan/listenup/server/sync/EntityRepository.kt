@@ -262,7 +262,7 @@ class EntityRepository(
                     ?: return@suspendTransaction AppResult.Failure(
                         EntityError.NotFound(debugInfo = "entity=${id.value}"),
                     )
-            tombstone(before, StoryWorldOp.DELETE, actor, ctx, revision = rev)
+            tombstone(before = before, op = StoryWorldOp.DELETE, actor = actor, ctx = ctx, revision = rev)
             AppResult.Success(Unit)
         }
     }
@@ -290,15 +290,15 @@ class EntityRepository(
             for (childId in db.entitiesQueries.selectLiveChildIds(from.id).executeAsList()) {
                 val child = checkNotNull(readPayload(childId))
                 rewrite(
-                    child,
-                    child.copy(parentId = into.id, updatedBy = actor?.value),
-                    StoryWorldOp.UPDATE,
-                    actor,
-                    ctx,
+                    before = child,
+                    after = child.copy(parentId = into.id, updatedBy = actor?.value),
+                    op = StoryWorldOp.UPDATE,
+                    actor = actor,
+                    ctx = ctx,
                     revision = lease.take(),
                 )
             }
-            tombstone(from, StoryWorldOp.MERGE, actor, ctx, revision = lease.take())
+            tombstone(before = from, op = StoryWorldOp.MERGE, actor = actor, ctx = ctx, revision = lease.take())
             AppResult.Success(into)
         }
     }
@@ -340,7 +340,7 @@ class EntityRepository(
             val restore =
                 change.before
                     ?: return@suspendTransaction AppResult.Success(
-                        tombstone(current, StoryWorldOp.REVERT, actor, ctx, revision = rev),
+                        tombstone(before = current, op = StoryWorldOp.REVERT, actor = actor, ctx = ctx, revision = rev),
                     )
             val restored =
                 restore.copy(
@@ -351,7 +351,16 @@ class EntityRepository(
                     deletedAt = null,
                 )
             parentProblem(restored)?.let { return@suspendTransaction AppResult.Failure(it) }
-            AppResult.Success(rewrite(current, restored, StoryWorldOp.REVERT, actor, ctx, revision = rev))
+            AppResult.Success(
+                rewrite(
+                    before = current,
+                    after = restored,
+                    op = StoryWorldOp.REVERT,
+                    actor = actor,
+                    ctx = ctx,
+                    revision = rev,
+                ),
+            )
         }
     }
 
@@ -368,7 +377,13 @@ class EntityRepository(
             val lease = RevisionLease(nextRevision())
             val live = db.entitiesQueries.selectLiveIdsForBook(bookId).executeAsList()
             live.forEach { id ->
-                tombstone(checkNotNull(readPayload(id)), StoryWorldOp.DELETE, null, ctx, revision = lease.take())
+                tombstone(
+                    before = checkNotNull(readPayload(id)),
+                    op = StoryWorldOp.DELETE,
+                    actor = null,
+                    ctx = ctx,
+                    revision = lease.take(),
+                )
             }
             live.size
         }
@@ -389,7 +404,14 @@ class EntityRepository(
             val dead = cascadeDeletedFor(bookIds)
             dead.forEach { id ->
                 val before = checkNotNull(readPayload(id))
-                rewrite(before, before.copy(deletedAt = null), StoryWorldOp.REVERT, null, ctx, revision = lease.take())
+                rewrite(
+                    before = before,
+                    after = before.copy(deletedAt = null),
+                    op = StoryWorldOp.REVERT,
+                    actor = null,
+                    ctx = ctx,
+                    revision = lease.take(),
+                )
             }
             dead.size
         }
@@ -420,7 +442,14 @@ class EntityRepository(
             moving.forEach { id ->
                 val before = checkNotNull(readPayload(id))
                 val after = before.copy(homeSeriesId = target.value)
-                rewrite(before, after, StoryWorldOp.UPDATE, actor = null, ctx = ctx, revision = lease.take())
+                rewrite(
+                    before = before,
+                    after = after,
+                    op = StoryWorldOp.UPDATE,
+                    actor = null,
+                    ctx = ctx,
+                    revision = lease.take(),
+                )
             }
             moving.size
         }
@@ -468,7 +497,14 @@ class EntityRepository(
                         .filterNot { it in returningIds }
                 strandedChildren.forEach { id ->
                     val before = checkNotNull(readPayload(id))
-                    rewrite(before, before.copy(parentId = null), StoryWorldOp.UPDATE, null, ctx, lease.take())
+                    rewrite(
+                        before = before,
+                        after = before.copy(parentId = null),
+                        op = StoryWorldOp.UPDATE,
+                        actor = null,
+                        ctx = ctx,
+                        revision = lease.take(),
+                    )
                 }
                 returning.forEach { before ->
                     val after =
@@ -476,7 +512,14 @@ class EntityRepository(
                             homeSeriesId = source.value,
                             parentId = before.parentId?.takeIf { it in returningIds },
                         )
-                    rewrite(before, after, StoryWorldOp.UPDATE, actor = null, ctx = ctx, revision = lease.take())
+                    rewrite(
+                        before = before,
+                        after = after,
+                        op = StoryWorldOp.UPDATE,
+                        actor = null,
+                        ctx = ctx,
+                        revision = lease.take(),
+                    )
                 }
                 returning.size
             }
@@ -497,7 +540,14 @@ class EntityRepository(
         matchValues: List<String>,
         extraWhere: SqlFragment?,
     ): Page<EntitySyncPayload> {
-        if (matchColumn != BOOK_ID_COLUMN) return super.pullByIds(userId, matchColumn, matchValues, extraWhere)
+        if (matchColumn != BOOK_ID_COLUMN) {
+            return super.pullByIds(
+                userId = userId,
+                matchColumn = matchColumn,
+                matchValues = matchValues,
+                extraWhere = extraWhere,
+            )
+        }
         val entityIds =
             suspendTransaction(db) {
                 matchValues
@@ -510,7 +560,10 @@ class EntityRepository(
         // chunked to keep each IN list well inside SQLite's bound-variable limit.
         val items = mutableListOf<EntitySyncPayload>()
         for (chunk in entityIds.chunked(PULL_BY_ID_CHUNK)) {
-            items += super.pullByIds(userId, "id", chunk, extraWhere).items
+            items +=
+                super
+                    .pullByIds(userId = userId, matchColumn = "id", matchValues = chunk, extraWhere = extraWhere)
+                    .items
         }
         return Page(items = items, nextCursor = null, hasMore = false)
     }
@@ -594,7 +647,15 @@ class EntityRepository(
     ): EntityChange {
         val (saved, event) = upsertEventInOpenTransaction(after, ctx.suppressed, revision = revision)
         if (!ctx.suppressed) captureAfterCommit(ctx.capture, event)
-        return history.record(saved.id, op, actor, event.occurredAt, event.revision, before, saved)
+        return history.record(
+            entityId = saved.id,
+            op = op,
+            actor = actor,
+            occurredAt = event.occurredAt,
+            revision = event.revision,
+            before = before,
+            after = saved,
+        )
     }
 
     /**
@@ -613,7 +674,15 @@ class EntityRepository(
                 "entity ${before.id} vanished mid-transaction"
             }
         if (!ctx.suppressed) captureAfterCommit(ctx.capture, event)
-        return history.record(before.id, op, actor, event.occurredAt, event.revision, before, readPayload(before.id))
+        return history.record(
+            entityId = before.id,
+            op = op,
+            actor = actor,
+            occurredAt = event.occurredAt,
+            revision = event.revision,
+            before = before,
+            after = readPayload(before.id),
+        )
     }
 
     /**
@@ -627,7 +696,7 @@ class EntityRepository(
     }
 
     /** The firehose suppression marker and the frame capture, read once in the suspend scope. */
-    internal class WriteContext(
+    internal data class WriteContext(
         val suppressed: Boolean,
         val capture: FrameCapture?,
     )

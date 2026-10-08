@@ -171,7 +171,7 @@ internal class EnrichmentCoordinator(
             return if (allFailed) {
                 AppResult.Failure(
                     MetadataError.ExternalUnavailable(
-                        debugInfo = "all core metadata providers failed for asin=${identity.asin}",
+                        debugInfo = "all core metadata providers failed for asin=${identity.asin ?: "none"}",
                     ),
                 )
             } else {
@@ -200,10 +200,10 @@ internal class EnrichmentCoordinator(
         coroutineScope {
             val coreOutcomes =
                 fanOutOutcomes(
-                    registry.capable<BookCoreSource>(),
-                    MetadataDomain.BOOK_CORE,
-                    "book-core",
-                    deadline,
+                    providers = registry.capable<BookCoreSource>(),
+                    domain = MetadataDomain.BOOK_CORE,
+                    label = "book-core",
+                    deadline = deadline,
                 ) { it.getBookCore(identity, locale, refresh) }
             val cores = coreOutcomes.succeededValues()
             val coreFailures =
@@ -225,25 +225,45 @@ internal class EnrichmentCoordinator(
                 )
             val covers =
                 async {
-                    fanOut(registry.capable<CoverSource>(), MetadataDomain.COVER, "cover", deadline) {
+                    fanOut(
+                        providers = registry.capable<CoverSource>(),
+                        domain = MetadataDomain.COVER,
+                        label = "cover",
+                        deadline = deadline,
+                    ) {
                         it.searchCovers(coverIdentity, locale)
                     }
                 }
             val genres =
                 async {
-                    fanOut(registry.capable<GenreSource>(), MetadataDomain.GENRES, "genres", deadline) {
+                    fanOut(
+                        providers = registry.capable<GenreSource>(),
+                        domain = MetadataDomain.GENRES,
+                        label = "genres",
+                        deadline = deadline,
+                    ) {
                         it.getGenres(identity, locale)
                     }
                 }
             val series =
                 async {
-                    fanOut(registry.capable<SeriesSource>(), MetadataDomain.SERIES, "series", deadline) {
+                    fanOut(
+                        providers = registry.capable<SeriesSource>(),
+                        domain = MetadataDomain.SERIES,
+                        label = "series",
+                        deadline = deadline,
+                    ) {
                         it.getSeries(identity, locale)
                     }
                 }
             val moods =
                 async {
-                    fanOut(registry.capable<MoodSource>(), MetadataDomain.GENRES, "moods", deadline) {
+                    fanOut(
+                        providers = registry.capable<MoodSource>(),
+                        domain = MetadataDomain.GENRES,
+                        label = "moods",
+                        deadline = deadline,
+                    ) {
                         it.getMoods(identity, locale)
                     }
                 }
@@ -311,7 +331,7 @@ internal class EnrichmentCoordinator(
         val order = routes.orderFor(BookField.CHAPTERS)
         val winner =
             order.firstOrNull { byProvider[it]?.accurate == true }
-                ?: order.firstOrNull { byProvider[it]?.chapters?.isNotEmpty() == true }
+                ?: order.firstOrNull { byProvider[it]?.run { chapters.isNotEmpty() } == true }
                 ?: return null
         return winner to byProvider.getValue(winner)
     }
@@ -353,7 +373,7 @@ internal class EnrichmentCoordinator(
                 it.getCharacters(identity, locale)
             }
         val order = routes.domainOrder.getValue(MetadataDomain.CHARACTERS)
-        return order.firstNotNullOfOrNull { byProvider[it]?.takeIf { list -> list.isNotEmpty() } } ?: emptyList()
+        return order.firstNotNullOfOrNull { byProvider[it]?.takeIf { list -> list.isNotEmpty() } }.orEmpty()
     }
 
     /**
@@ -369,7 +389,7 @@ internal class EnrichmentCoordinator(
             fanOut(registry.capable<ContributorSource>(), MetadataDomain.CONTRIBUTORS, "contributor-search") {
                 it.searchContributors(name, locale).map { hits -> hits.ifEmpty { null } }
             }
-        return contributorOrder().firstNotNullOfOrNull { byProvider[it] } ?: emptyList()
+        return contributorOrder().firstNotNullOfOrNull { byProvider[it] }.orEmpty()
     }
 
     /**
@@ -404,7 +424,12 @@ internal class EnrichmentCoordinator(
         val keys = refs.groupBy { it.provider }.mapValues { (_, same) -> same.first().id }
         val sources = registry.capable<ContributorSource>().filter { it.id.presentedAs().value in keys }
         val outcomes =
-            fanOutOutcomes(sources, MetadataDomain.CONTRIBUTORS, "person-profile", deadline) {
+            fanOutOutcomes(
+                providers = sources,
+                domain = MetadataDomain.CONTRIBUTORS,
+                label = "person-profile",
+                deadline = deadline,
+            ) {
                 it.getContributor(keys.getValue(it.id.presentedAs().value), locale)
             }
         return ComposedProfiles(
@@ -427,9 +452,8 @@ internal class EnrichmentCoordinator(
     ): ContributorMeta {
         val routed = contributorOrder()
         val fillers =
-            registry.capable<ContributorSource>().filter {
-                it.id in MetadataProviderId.gapFillers &&
-                    it.id in routed
+            registry.capable<ContributorSource>().filter { source ->
+                source.id in MetadataProviderId.gapFillers && source.id in routed
             }
         for (filler in fillers) {
             val hit =
@@ -500,16 +524,16 @@ internal class EnrichmentCoordinator(
         ): String? {
             val id = routes.orderFor(field).firstOrNull { cores[it]?.let(select)?.isNotBlank() == true }
             id?.let { winners[field] = it }
-            return id?.let { cores.getValue(it).let(select) }
+            return id?.let { select(cores.getValue(it)) }
         }
 
         fun credits(
             field: BookField,
             select: (BookCoreMeta) -> List<BookContributorMeta>,
         ): List<BookContributorMeta> {
-            val id = routes.orderFor(field).firstOrNull { cores[it]?.let(select)?.isNotEmpty() == true }
+            val id = routes.orderFor(field).firstOrNull { cores[it]?.let { core -> select(core).isNotEmpty() } == true }
             id?.let { winners[field] = it }
-            return id?.let { cores.getValue(it).let(select) } ?: emptyList()
+            return id?.let { select(cores.getValue(it)) }.orEmpty()
         }
 
         val coreOrder = routes.domainOrder.getValue(MetadataDomain.BOOK_CORE)
@@ -551,8 +575,7 @@ internal class EnrichmentCoordinator(
         field: BookField,
         byProvider: Map<MetadataProviderId, List<T>>,
     ): List<T> =
-        routes.orderFor(field).firstNotNullOfOrNull { byProvider[it]?.takeIf { list -> list.isNotEmpty() } }
-            ?: emptyList()
+        routes.orderFor(field).firstNotNullOfOrNull { byProvider[it]?.takeIf { list -> list.isNotEmpty() } }.orEmpty()
 
     /** The provider whose list wins [field] (first non-empty walking the chain), or `null`. */
     private fun <T> listWinner(
@@ -606,7 +629,14 @@ internal class EnrichmentCoordinator(
         label: String,
         deadline: Duration? = null,
         block: suspend (C) -> AppResult<T?>,
-    ): Map<MetadataProviderId, T> = fanOutOutcomes(providers, domain, label, deadline, block).succeededValues()
+    ): Map<MetadataProviderId, T> =
+        fanOutOutcomes(
+            providers = providers,
+            domain = domain,
+            label = label,
+            deadline = deadline,
+            block = block,
+        ).succeededValues()
 
     /**
      * Like [fanOut] but preserves each routed provider's [ProviderOutcome] so a caller can tell a

@@ -92,8 +92,8 @@ internal class PersonMatchApplier(
                 }
             }
         val photoPath =
-            photo?.let {
-                photoFiles.store(it.candidate.url)
+            photo?.let { chosen ->
+                photoFiles.store(chosen.candidate.url)
                     ?: return AppResult.Failure(
                         MetadataError.CoverDownloadFailed(debugInfo = "person photo fetch failed"),
                     )
@@ -110,7 +110,7 @@ internal class PersonMatchApplier(
                         ?.let { PlannedBiography(it.text, it.providers.first()) },
                 refs = request.candidate.refs,
             )
-        return writer.write(plan, basedOnRevision = request.basedOnRevision, appliedBy = appliedBy, at = now())
+        return writer.write(plan = plan, basedOnRevision = request.basedOnRevision, appliedBy = appliedBy, at = now())
     }
 
     private fun ReviewedBiography.sameAs(current: String?): Boolean =

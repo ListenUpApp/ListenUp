@@ -105,7 +105,7 @@ class BoundedImageFetch(
     ): AppResult<ByteArray> {
         var target = url
         repeat(maxRedirects + 1) {
-            SafeCoverUrl.validate(target)?.let { return AppResult.Failure(it) }
+            SafeCoverUrl.validate(target)?.let { unsafe -> return AppResult.Failure(unsafe) }
             when (val hop = requestHop(target, leadingBytes)) {
                 is Hop.Finished -> return hop.result
                 is Hop.Follow -> target = hop.location

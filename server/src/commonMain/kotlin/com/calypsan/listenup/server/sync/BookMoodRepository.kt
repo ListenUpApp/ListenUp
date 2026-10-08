@@ -351,7 +351,8 @@ class BookMoodRepository(
                 .toSet()
         val id = db.bookMoodsQueries.selectIdByNaturalPair(bookId, moodId).executeAsOneOrNull() ?: return@with
         if (id !in live) return@with
-        softDeleteInOpenTransaction(BookMoodId(bookId, moodId), suppressed)?.let { captureAfterCommit(capture, it) }
+        val event = softDeleteInOpenTransaction(BookMoodId(bookId, moodId), suppressed) ?: return@with
+        captureAfterCommit(capture, event)
     }
 
     /**

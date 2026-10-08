@@ -111,7 +111,7 @@ internal class AudibleProvider(
         locale: MetadataLocale,
     ): AppResult<List<SeriesMeta>?> {
         val asin = book.asin ?: return AppResult.Success(null)
-        return metadataService.getBook(regionFor(locale), asin).map { it?.series?.map { s -> s.toSeriesMeta() } }
+        return metadataService.getBook(regionFor(locale), asin).map { it?.run { series.map { s -> s.toSeriesMeta() } } }
     }
 
     override suspend fun getGenres(
@@ -119,7 +119,7 @@ internal class AudibleProvider(
         locale: MetadataLocale,
     ): AppResult<List<GenreMeta>?> {
         val asin = book.asin ?: return AppResult.Success(null)
-        return metadataService.getBook(regionFor(locale), asin).map { it?.genres?.toGenreMetas() }
+        return metadataService.getBook(regionFor(locale), asin).map { it?.run { genres.toGenreMetas() } }
     }
 
     override suspend fun getGenreLadders(

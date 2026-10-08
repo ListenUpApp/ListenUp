@@ -151,7 +151,7 @@ class AudibleClient(
         rateLimiter.await(region)
         return webGet(region, "/pd/$asin", failOnGeoRedirect = true) { body ->
             parseProductTags(body)
-        }.map { it ?: emptyList() }
+        }.map { it.orEmpty() }
     }
 
     // ─── Private infrastructure ───────────────────────────────────────────────
@@ -351,12 +351,8 @@ private fun RawProduct.toSearchResult(): AudibleSearchResult {
 
 private fun RawProduct.toBook(): AudibleBook {
     val (authors, narrators) = separateContributors(this.authors, this.narrators)
-    val rating =
-        this.rating
-            ?.overallDistribution
-            ?.displayAverageRating
-            ?.value ?: 0f
-    val ratingCount = this.rating?.overallDistribution?.numRatings ?: 0
+    val rating = this.rating?.run { overallDistribution.displayAverageRating.value } ?: 0f
+    val ratingCount = this.rating?.run { overallDistribution.numRatings } ?: 0
     return AudibleBook(
         asin = asin,
         title = title,
@@ -415,10 +411,11 @@ private fun separateContributors(
 
 /** Picks the best cover URL from the product_images map; prefers 1024px. */
 private fun selectCoverUrl(images: Map<String, String>): String =
-    images["1024"]?.ifBlank { null }
-        ?: images["500"]?.ifBlank { null }
-        ?: images.values.firstOrNull()
-        ?: ""
+    (
+        images["1024"]?.ifBlank { null }
+            ?: images["500"]?.ifBlank { null }
+            ?: images.values.firstOrNull()
+    ).orEmpty()
 
 /** Extracts genre names from Audible's nested category-ladder structure. */
 private fun extractGenres(ladders: List<RawCategoryLadder>): List<String> {

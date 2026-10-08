@@ -10,7 +10,10 @@ package com.calypsan.listenup.server.imaging
  * Packing is `0xAARRGGBB`, matching the byte order the encoders and decoders in this package agree
  * on. Nothing outside this package should need to know that — read the channels through [red],
  * [green], [blue] and [alpha] rather than shifting by hand.
+ *
+ * Holds an IntArray: data-class equality would compare the pixels by identity, which is misleading.
  */
+@Suppress("UseDataClass")
 class PixelBuffer(
     val width: Int,
     val height: Int,

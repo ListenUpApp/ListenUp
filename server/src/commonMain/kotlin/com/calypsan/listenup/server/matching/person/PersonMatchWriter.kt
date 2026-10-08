@@ -52,12 +52,18 @@ internal class PersonMatchWriter(
             if (before == null || before.revision != basedOnRevision) {
                 return@suspendTransaction AppResult.Failure(
                     MetadataError.ReviewOutdated(
-                        debugInfo = "person $id is at ${before?.revision}, not $basedOnRevision",
+                        debugInfo = "person $id is at ${before?.revision ?: "no revision"}, not $basedOnRevision",
                     ),
                 )
             }
             val revisionAfter = contributors.allocateRevision()
-            val receipt = MatchReceipt(Uuid.random().toString(), now(), plan.changes, undoable = true)
+            val receipt =
+                MatchReceipt(
+                    receiptId = Uuid.random().toString(),
+                    appliedAt = now(),
+                    changes = plan.changes,
+                    undoable = true,
+                )
             receipts.replaceLiveInTransaction(
                 MatchReceiptRow(
                     id = receipt.receiptId,
@@ -103,7 +109,7 @@ private fun ContributorSyncPayload.matchedBy(
                 audible.id
             }
 
-            hardcover != null && asin?.trim()?.startsWith(HARDCOVER_AUTHOR_KEY_PREFIX) == true -> {
+            hardcover != null && asin?.run { trim().startsWith(HARDCOVER_AUTHOR_KEY_PREFIX) } == true -> {
                 HARDCOVER_AUTHOR_KEY_PREFIX + hardcover.id
             }
 
@@ -113,9 +119,9 @@ private fun ContributorSyncPayload.matchedBy(
         }
     val stamps =
         listOfNotNull(
-            plan.photo?.let {
+            plan.photo?.let { photo ->
                 ContributorField.PHOTO to
-                    FieldProvenance(FieldSourceKind.ENRICHMENT, it.provider.value, at)
+                    FieldProvenance(FieldSourceKind.ENRICHMENT, photo.provider.value, at)
             },
             plan.biography?.let {
                 ContributorField.BIOGRAPHY to FieldProvenance(FieldSourceKind.ENRICHMENT, it.provider.value, at)

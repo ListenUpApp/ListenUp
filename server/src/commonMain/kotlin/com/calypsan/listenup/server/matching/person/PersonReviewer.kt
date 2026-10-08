@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.match.FieldOption
 import com.calypsan.listenup.api.dto.match.FieldState
 import com.calypsan.listenup.api.dto.match.FieldValue
 import com.calypsan.listenup.api.dto.match.HandEdit
+import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.dto.match.ImageChoice
 import com.calypsan.listenup.api.dto.match.PersonCandidateKey
 import com.calypsan.listenup.api.dto.match.PersonMatchReview
@@ -109,10 +110,10 @@ internal class PersonReviewer(
     private fun photos(profiles: List<Pair<MetadataProviderId, ContributorMeta>>) =
         profiles
             .mapNotNull { (provider, profile) ->
-                profile.imageUrl?.trim()?.takeIf { it.isNotEmpty() }?.let {
-                    provider to
-                        it
-                }
+                profile.imageUrl
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.let { url -> provider to url }
             }.distinctBy { (_, url) -> url }
             .map { (provider, url) ->
                 ReviewedPhoto(
@@ -175,16 +176,17 @@ internal class PersonReviewer(
             options = biographies.map { it.option },
             defaultChoice = choice,
             state = state,
-            handEdit =
-                edit?.let {
-                    HandEdit(
-                        byUserId = it.by,
-                        byName = it.by?.let { id -> displayName(id)?.takeIf(String::isNotBlank) },
-                        at = it.at.takeIf { at -> at > 0 },
-                    )
-                },
+            handEdit = edit?.let { userEdit -> handEditOf(userEdit) },
         )
     }
+
+    /** Who hand-edited the biography, and when — named for display when the editor still has a name. */
+    private suspend fun handEditOf(edit: FieldProvenance): HandEdit =
+        HandEdit(
+            byUserId = edit.by,
+            byName = edit.by?.let { id -> displayName(id)?.takeIf(String::isNotBlank) },
+            at = edit.at.takeIf { at -> at > 0 },
+        )
 
     /** No key source answered with a profile: a rate limit, else a timeout, else unavailable, else not found. */
     private fun failureFor(composed: ComposedProfiles): AppError {

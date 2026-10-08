@@ -31,6 +31,7 @@ internal object ReviewKeys {
             is FieldValue.People -> {
                 "p:" +
                     value.names
+                        .asSequence()
                         .map(::text)
                         .filter { it.isNotEmpty() }
                         .distinct()

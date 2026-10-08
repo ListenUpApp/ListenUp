@@ -36,7 +36,9 @@ class ImageStorage(
     fun writeBytes(
         bytes: ByteArray,
         destination: Path,
-    ) = destination.writeBytesAtomically(bytes)
+    ) {
+        destination.writeBytesAtomically(bytes)
+    }
 
     companion object {
         /**

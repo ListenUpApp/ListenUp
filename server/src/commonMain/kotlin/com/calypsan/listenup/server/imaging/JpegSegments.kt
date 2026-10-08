@@ -1,6 +1,11 @@
 package com.calypsan.listenup.server.imaging
 
-/** One colour component of a JPEG frame. */
+/**
+ * One colour component of a JPEG frame.
+ *
+ * Carries mutable per-scan decoding state; it is an object with identity, not a value.
+ */
+@Suppress("UseDataClass")
 internal class JpegComponent(
     val id: Int,
     val horizontalSampling: Int,
@@ -21,7 +26,7 @@ internal class JpegComponent(
 }
 
 /** The frame header: SOF0 (baseline) or SOF2 (progressive). */
-internal class JpegFrame(
+internal data class JpegFrame(
     val progressive: Boolean,
     val width: Int,
     val height: Int,
@@ -98,11 +103,18 @@ internal fun parseJpegSegments(bytes: ByteArray): JpegSegments? {
 
         when (marker) {
             MARKER_DQT -> {
-                readQuantTables(bytes, segmentStart, segmentEnd, quantTables) ?: return null
+                readQuantTables(bytes = bytes, start = segmentStart, end = segmentEnd, into = quantTables)
+                    ?: return null
             }
 
             MARKER_DHT -> {
-                readHuffmanTables(bytes, segmentStart, segmentEnd, dcTables, acTables) ?: return null
+                readHuffmanTables(
+                    bytes = bytes,
+                    start = segmentStart,
+                    end = segmentEnd,
+                    dcTables = dcTables,
+                    acTables = acTables,
+                ) ?: return null
             }
 
             MARKER_DRI -> {
@@ -117,7 +129,15 @@ internal fun parseJpegSegments(bytes: ByteArray): JpegSegments? {
 
             MARKER_SOS -> {
                 val current = frame ?: return null
-                val scan = parseScanHeader(bytes, segmentStart, segmentEnd, current, dcTables, acTables) ?: return null
+                val scan =
+                    parseScanHeader(
+                        bytes = bytes,
+                        start = segmentStart,
+                        end = segmentEnd,
+                        frame = current,
+                        dcTables = dcTables,
+                        acTables = acTables,
+                    ) ?: return null
                 // Entropy data runs from the end of the SOS header to the next marker that is not a
                 // stuffed 0xFF00 or a restart marker.
                 val dataStart = segmentEnd
@@ -140,7 +160,7 @@ internal fun parseJpegSegments(bytes: ByteArray): JpegSegments? {
 
     val decoded = frame ?: return null
     if (scans.isEmpty()) return null
-    return JpegSegments(decoded, quantTables, restartInterval, scans)
+    return JpegSegments(frame = decoded, quantTables = quantTables, restartInterval = restartInterval, scans = scans)
 }
 
 /** Reads one DQT segment, which may carry several tables back to back. */
@@ -225,10 +245,15 @@ private fun readFrameHeader(
         }
     // A zero sampling factor would divide the block grid by zero.
     if (components.any { it.horizontalSampling == 0 || it.verticalSampling == 0 }) return null
-    return JpegFrame(progressive, width, height, components)
+    return JpegFrame(progressive = progressive, width = width, height = height, components = components)
 }
 
-/** Everything the entropy stage needs, gathered from the marker segments. */
+/**
+ * Everything the entropy stage needs, gathered from the marker segments.
+ *
+ * Holds an Array<IntArray?>: data-class equality would compare the arrays by identity, which is misleading.
+ */
+@Suppress("UseDataClass")
 internal class JpegSegments(
     val frame: JpegFrame,
     val quantTables: Array<IntArray?>,

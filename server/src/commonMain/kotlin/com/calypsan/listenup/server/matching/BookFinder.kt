@@ -51,7 +51,7 @@ internal class BookFinder(
         request: BookFindRequest,
         region: ResolvedRegion,
     ): BookFindResult {
-        val query = request.query?.trim()?.takeIf { it.isNotEmpty() }
+        val query = request.query?.run { trim().takeIf { it.isNotEmpty() } }
         val identify = request.strategy == FindStrategy.AUTOMATIC
         val text = query ?: subject.searchText()
         val identifying = routed(FindRole.IDENTIFIES, MetadataDomain.BOOK_CORE)
@@ -152,7 +152,7 @@ internal class BookFinder(
         return if (answer != null && answer.books.isEmpty() && source is RegionalSource) {
             SourceStatus.NotFoundInStore(shown, locale, suggestStores(locale, subject, source.id.value))
         } else {
-            outcome.toStatus(shown, answer?.books?.size ?: 0)
+            outcome.toStatus(shown, answer?.run { books.size } ?: 0)
         }
     }
 
@@ -163,9 +163,7 @@ internal class BookFinder(
     ) {
         fun hits(): List<SourcedHit> =
             (outcome as? SourceOutcome.Answered)
-                ?.answer
-                ?.books
-                ?.map { SourcedHit(source.id, it) }
+                ?.run { this.answer.books.map { SourcedHit(source.id, it) } }
                 .orEmpty()
     }
 }
