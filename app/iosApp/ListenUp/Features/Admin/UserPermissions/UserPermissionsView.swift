@@ -190,7 +190,7 @@ struct UserPermissionsView: View {
             }
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
+            .padding(.vertical, Spacing.xs)
             .accessibilityElement(children: .combine)
         } footer: {
             if !ready.isOwner {

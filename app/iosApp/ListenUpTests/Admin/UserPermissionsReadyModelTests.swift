@@ -35,9 +35,13 @@ struct UserPermissionsReadyModelTests {
                     group: .library,
                     rows: [
                         PermissionRow(permission: .editMetadata, granted: flags.canEditMetadata, isUnsaved: false),
-                        PermissionRow(permission: .curateLibrary, granted: flags.canCurateLibrary, isUnsaved: curateWarning),
+                        PermissionRow(
+                            permission: .curateLibrary,
+                            granted: flags.canCurateLibrary,
+                            isUnsaved: curateWarning
+                        )
                     ]
-                ),
+                )
             ],
             preset: preset,
             presetsShown: presetsShown,
