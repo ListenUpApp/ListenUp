@@ -23,7 +23,8 @@ class SessionIssuer(
     ): AuthSession {
         val userId = UserId(user.id)
         val role = user.role.toContract()
-        val issued = sessions.createSession(userId, label = label, deviceInfo = deviceInfo, userAgent = userAgent)
+        val issued =
+            sessions.createSession(userId = userId, label = label, deviceInfo = deviceInfo, userAgent = userAgent)
         val accessJwt = jwt.issue(userId = userId, sessionId = issued.sessionId, role = role)
         val expiresAt = (clock.now() + jwt.accessTokenTtl).toEpochMilliseconds()
         return AuthSession(

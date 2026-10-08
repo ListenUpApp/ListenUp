@@ -262,12 +262,12 @@ private const val REFRESH_TOKEN_TTL_DAYS = 30L
  * a lie.
  */
 internal fun ApplicationConfig.refreshReuseGracePeriod(): Duration =
-    propertyOrNull("auth.refreshReuseGraceSeconds")?.getString()?.toLong()?.seconds
+    propertyOrNull("auth.refreshReuseGraceSeconds")?.run { getString().toLong().seconds }
         ?: SessionService.DEFAULT_REUSE_GRACE
 
 /** Concurrent-Argon2 ceiling (C3): `auth.argon2Parallelism` if set, else [DEFAULT_ARGON2_PARALLELISM]. */
 private fun ApplicationConfig.argon2Parallelism(): Int =
-    propertyOrNull("auth.argon2Parallelism")?.getString()?.toIntOrNull() ?: DEFAULT_ARGON2_PARALLELISM
+    propertyOrNull("auth.argon2Parallelism")?.run { getString().toIntOrNull() } ?: DEFAULT_ARGON2_PARALLELISM
 
 /**
  * The top-level auth service, composed from the primitives bound above. Extracted from [authModule]
@@ -339,7 +339,7 @@ private fun ApplicationConfig.registrationPolicy(): RegistrationPolicy {
 
 /** The instance's display name, shown on the invite landing page. Defaults to [DEFAULT_SERVER_NAME]. */
 private fun ApplicationConfig.serverName(): String =
-    propertyOrNull("app.serverName")?.getString()?.takeIf { it.isNotBlank() } ?: DEFAULT_SERVER_NAME
+    propertyOrNull("app.serverName")?.run { getString().takeIf { it.isNotBlank() } } ?: DEFAULT_SERVER_NAME
 
 /**
  * The effective JDBC URL: an explicit `database.jdbcUrl` (tests inject this) wins;

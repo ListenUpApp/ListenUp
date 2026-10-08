@@ -92,7 +92,10 @@ data class ControlFrame(
  * The slot is resolved exactly once, after the transaction ends: [ChangeBus.release] on commit,
  * [ChangeBus.discard] on rollback. Until then it holds its place, and any later slot that resolves
  * first waits behind it.
+ *
+ * Carries mutable `resolved` state and is tracked as a unique slot; it has identity, not value semantics.
  */
+@Suppress("UseDataClass")
 class PublishSlot internal constructor(
     internal val sequence: Long,
     internal val entry: BusEvent<*>,
@@ -173,12 +176,14 @@ class ChangeBus(
      * statically prevents publishing an event whose payload type doesn't match
      * the repo's element type.
      */
-    suspend fun <T : Any> publish(
+    fun <T : Any> publish(
         repo: SyncableRepo<T>,
         event: SyncEvent<T>,
         userId: String? = null,
     ) {
-        log.debug { "change published: domain=${repo.domainName} event=${event::class.simpleName} id=${event.id}" }
+        log.debug {
+            "change published: domain=${repo.domainName} event=${event::class.simpleName.orEmpty()} id=${event.id}"
+        }
         emitOrDefer { flow.tryEmit(BusEvent(repo, event, userId)) }
     }
 
@@ -225,7 +230,7 @@ class ChangeBus(
         log.debug {
             val event = slot.entry.event
             "change emitted post-commit: domain=${slot.entry.repo.domainName} " +
-                "event=${event::class.simpleName} id=${event.id}"
+                "event=${event::class.simpleName.orEmpty()} id=${event.id}"
         }
         resolveOnce(slot, slot.entry)
     }
@@ -262,7 +267,7 @@ class ChangeBus(
      * enclosing transaction: no other writer can have taken a slot in between, so everything at or
      * after [mark] belongs to the caller.
      */
-    fun discardReservedSince(mark: Long) =
+    fun discardReservedSince(mark: Long): Unit =
         synchronized(orderLock) {
             outstanding.values
                 .filter { it.sequence >= mark && !it.resolved }
@@ -354,11 +359,11 @@ class ChangeBus(
      * Publishes a per-user [control] frame onto the control channel, addressed to
      * [userId]. The firehose delivers it only to that user's subscriber(s).
      */
-    suspend fun publishControl(
+    fun publishControl(
         control: SyncControl,
         userId: String,
     ) {
-        log.debug { "control published: type=${control::class.simpleName} userId=$userId" }
+        log.debug { "control published: type=${control::class.simpleName.orEmpty()} userId=$userId" }
         emitOrDefer { controlFlow.tryEmit(ControlFrame(control, userId)) }
     }
 
@@ -368,8 +373,8 @@ class ChangeBus(
      * regardless of their own userId. Use for content-free nudges only — a
      * broadcast frame carries no per-user or per-resource data, so it cannot leak.
      */
-    suspend fun broadcastControl(control: SyncControl) {
-        log.debug { "control broadcast: type=${control::class.simpleName}" }
+    fun broadcastControl(control: SyncControl) {
+        log.debug { "control broadcast: type=${control::class.simpleName.orEmpty()}" }
         emitOrDefer { controlFlow.tryEmit(ControlFrame(control, BROADCAST)) }
     }
 
@@ -410,6 +415,5 @@ class ChangeBus(
     fun oldestRetainedRevision(): Long? =
         flow.replayCache
             .firstOrNull()
-            ?.event
-            ?.revision
+            ?.run { event.revision }
 }

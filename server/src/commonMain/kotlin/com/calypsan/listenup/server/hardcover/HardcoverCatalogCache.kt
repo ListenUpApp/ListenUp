@@ -22,7 +22,7 @@ class HardcoverCatalogCache(
     private val books = LinkedHashMap<Long, HardcoverCatalogBook>()
 
     /** Keeps [found] (newest last), dropping the oldest entries past [capacity]. */
-    fun remember(found: Collection<HardcoverCatalogBook>) =
+    fun remember(found: Collection<HardcoverCatalogBook>) {
         synchronized(lock) {
             found.forEach { book ->
                 books.remove(book.id)
@@ -30,6 +30,7 @@ class HardcoverCatalogCache(
             }
             while (books.size > capacity) books.remove(books.keys.first())
         }
+    }
 
     /** [hcBookId]'s entry if it's already known. Never asks Hardcover. */
     fun cached(hcBookId: Long): HardcoverCatalogBook? = synchronized(lock) { books[hcBookId] }

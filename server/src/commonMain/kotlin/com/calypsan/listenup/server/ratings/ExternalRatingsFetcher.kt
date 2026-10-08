@@ -71,7 +71,9 @@ open class ExternalRatingsFetcher(
         for (source in registry.capable<RatingSource>()) {
             if (source.ratingSource !in sources || !canRun(source)) continue
             tried++
-            if (runOne(source, bookId, identity, locale, refresh)) answered++
+            if (runOne(source = source, bookId = bookId, identity = identity, locale = locale, refresh = refresh)) {
+                answered++
+            }
             // Remembered per source, regardless of outcome — a book a source fails (or confidently
             // has no rating for) never earns a book_external_ratings row, so without this the nightly
             // sweep would put it right back at the front of the queue, and the backfill would offer
@@ -134,7 +136,7 @@ open class ExternalRatingsFetcher(
                     is AppResult.Failure -> {
                         logger.warn {
                             "external rating: ${source.ratingSource} failed for ${bookId.value} " +
-                                "(${result.error.code}): ${result.error.debugInfo}"
+                                "(${result.error.code}): ${result.error.debugInfo.orEmpty()}"
                         }
                         sourceSettings.recordFailure(source.ratingSource, result.error.message, now)
                         false

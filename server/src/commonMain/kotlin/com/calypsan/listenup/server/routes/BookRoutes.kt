@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.BookService
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.server.routes.resources.BookResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -12,9 +11,7 @@ import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.document.DocumentFileLocator
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.plugins.respondAppError
-import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
-import com.calypsan.listenup.server.plugins.withCorrelationId
 import io.ktor.http.ContentType
 import io.ktor.http.defaultForFilePath
 import io.ktor.http.HttpHeaders
@@ -23,12 +20,9 @@ import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
-import io.ktor.server.plugins.callid.callId
-import io.ktor.server.request.receive
 import io.ktor.server.request.receiveMultipart
 import io.ktor.server.resources.delete
 import io.ktor.server.resources.get
-import io.ktor.server.resources.patch
 import io.ktor.server.resources.put
 import com.calypsan.listenup.server.io.respondSeekable
 import io.ktor.server.response.respond
@@ -69,7 +63,12 @@ internal fun Route.bookBlobReadRoutes(
     documentFileLocator: DocumentFileLocator,
 ) {
     get<BookResources.Cover> { res ->
-        call.respondGatedCover(res.id, accessPolicy, coverResponder)
+        respondGatedCover(
+            call = call,
+            bookId = res.id,
+            accessPolicy = accessPolicy,
+            coverResponder = coverResponder,
+        )
     }
 
     // The KMP/mobile client downloads covers from /api/v1/covers/{bookId}.
@@ -77,11 +76,22 @@ internal fun Route.bookBlobReadRoutes(
     // cover request 404'ing, so covers never rendered.
     routingGet("/api/v1/covers/{id}") {
         val id = call.parameters["id"] ?: return@routingGet call.respond(HttpStatusCode.BadRequest)
-        call.respondGatedCover(BookId(id), accessPolicy, coverResponder)
+        respondGatedCover(
+            call = call,
+            bookId = BookId(id),
+            accessPolicy = accessPolicy,
+            coverResponder = coverResponder,
+        )
     }
 
     get<BookResources.Document> { res ->
-        call.respondGatedDocument(res.id, res.docId, accessPolicy, documentFileLocator)
+        respondGatedDocument(
+            call = call,
+            bookId = res.id,
+            docId = res.docId,
+            accessPolicy = accessPolicy,
+            locator = documentFileLocator,
+        )
     }
 }
 
@@ -106,13 +116,13 @@ internal fun Route.bookBlobReadRoutes(
  */
 internal fun Route.bookBlobWriteRoutes(bookService: BookService) {
     put<BookResources.Cover> { res ->
-        call.handleCoverUpload(res.id, call.scoped(bookService))
+        handleCoverUpload(call, res.id, call.scoped(bookService))
     }
 
     delete<BookResources.Cover> { res ->
         when (val result = call.scoped(bookService).deleteBookCover(res.id)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
-            is AppResult.Failure -> call.respondAppError(result.error)
+            is AppResult.Failure -> respondAppError(call, result.error)
         }
     }
 }
@@ -143,18 +153,19 @@ private fun ApplicationCall.scoped(service: BookService): BookServiceImpl {
  * Extracted from the [bookBlobWriteRoutes] function body to keep cyclomatic complexity within the project
  * threshold.
  */
-private suspend fun ApplicationCall.handleCoverUpload(
+private suspend fun handleCoverUpload(
+    call: ApplicationCall,
     bookId: BookId,
     service: BookServiceImpl,
 ) {
     // Gate canEdit BEFORE buffering — an unauthorized caller must not force the server to
     // buffer up to 10 MiB of multipart body before receiving a 403.
-    service.checkCanEdit()?.let { return respondAppError(it) }
+    service.checkCanEdit()?.let { return respondAppError(call, it) }
 
     var bytes: ByteArray? = null
     var declared = ContentType.Application.OctetStream.toString()
     var oversized = false
-    receiveMultipart().forEachPart { part ->
+    call.receiveMultipart().forEachPart { part ->
         if (part is PartData.FileItem && bytes == null) {
             val declaredLength = part.headers[HttpHeaders.ContentLength]?.toLongOrNull()
             if (declaredLength != null && declaredLength > COVER_MAX_BYTES) {
@@ -167,15 +178,15 @@ private suspend fun ApplicationCall.handleCoverUpload(
         }
         part.release()
     }
-    if (oversized) return respond(HttpStatusCode.PayloadTooLarge)
-    val data = bytes ?: return respond(HttpStatusCode.BadRequest, "missing file part")
+    if (oversized) return call.respond(HttpStatusCode.PayloadTooLarge)
+    val data = bytes ?: return call.respond(HttpStatusCode.BadRequest, "missing file part")
     try {
         when (val result = service.setBookCover(bookId, data, declared)) {
-            is AppResult.Success -> respond(HttpStatusCode.NoContent)
-            is AppResult.Failure -> respondAppError(result.error)
+            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
+            is AppResult.Failure -> respondAppError(call, result.error)
         }
     } catch (e: ImageStore.InvalidImageException) {
-        respond(HttpStatusCode.UnprocessableEntity, e.message ?: "invalid image")
+        call.respond(HttpStatusCode.UnprocessableEntity, e.message ?: "invalid image")
     }
 }
 
@@ -184,17 +195,18 @@ private suspend fun ApplicationCall.handleCoverUpload(
  * shape [CoverResponder] gives for an absent or cover-less book — so it never leaks a private book's
  * existence. Shared by `GET /api/v1/books/{id}/cover` and the `GET /api/v1/covers/{id}` client alias.
  */
-private suspend fun ApplicationCall.respondGatedCover(
+private suspend fun respondGatedCover(
+    call: ApplicationCall,
     bookId: BookId,
     accessPolicy: BookAccessPolicy,
     coverResponder: CoverResponder,
 ) {
-    val p = userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
+    val p = call.userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
     if (!accessPolicy.canAccess(p.userId.value, p.role, bookId.value)) {
-        respond(HttpStatusCode.NotFound)
+        call.respond(HttpStatusCode.NotFound)
         return
     }
-    coverResponder.respondCover(this, bookId)
+    coverResponder.respondCover(call, bookId)
 }
 
 /**
@@ -206,23 +218,24 @@ private suspend fun ApplicationCall.respondGatedCover(
  * cooperating with the `PartialContent` plugin (installed at the application level) for
  * byte-range/resume.
  */
-private suspend fun ApplicationCall.respondGatedDocument(
+private suspend fun respondGatedDocument(
+    call: ApplicationCall,
     bookId: BookId,
     docId: String,
     accessPolicy: BookAccessPolicy,
     locator: DocumentFileLocator,
 ) {
-    val p = userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
+    val p = call.userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
     if (!accessPolicy.canAccess(p.userId.value, p.role, bookId.value)) {
-        respond(HttpStatusCode.NotFound)
+        call.respond(HttpStatusCode.NotFound)
         return
     }
-    val location = locator.locate(bookId.value, docId) ?: return respond(HttpStatusCode.NotFound)
+    val location = locator.locate(bookId.value, docId) ?: return call.respond(HttpStatusCode.NotFound)
     val etag = "\"${location.hash}\""
-    if (request.headers[HttpHeaders.IfNoneMatch] == etag) {
-        respond(HttpStatusCode.NotModified)
+    if (call.request.headers[HttpHeaders.IfNoneMatch] == etag) {
+        call.respond(HttpStatusCode.NotModified)
         return
     }
-    response.headers.append(HttpHeaders.ETag, etag)
-    respondSeekable(location.path, ContentType.defaultForFilePath(location.path.name))
+    call.response.headers.append(HttpHeaders.ETag, etag)
+    respondSeekable(call, location.path, ContentType.defaultForFilePath(location.path.name))
 }

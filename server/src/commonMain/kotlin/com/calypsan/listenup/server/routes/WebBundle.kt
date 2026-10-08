@@ -30,6 +30,7 @@ internal object SystemWebBundleFiles : WebBundleFiles {
 }
 
 /** One way of sending a bundle file: its bytes on disk, and the ETag that names them. */
+@Suppress("UseDataClass") // a data class would compare inMemory by array reference, so its equality would lie
 internal class Representation(
     val encoding: BundleEncoding,
     val path: Path,
@@ -39,7 +40,7 @@ internal class Representation(
 )
 
 /** A bundle file and every representation of it the build produced. */
-internal class BundleFile(
+internal data class BundleFile(
     val contentType: ContentType,
     val representations: Map<BundleEncoding, Representation>,
 )
@@ -93,11 +94,22 @@ internal class WebBundle(
         val hash = hashBytesSha256(raw)
         val representations =
             buildMap {
-                put(BundleEncoding.IDENTITY, representation(BundleEncoding.IDENTITY, path, hash, raw))
+                put(
+                    BundleEncoding.IDENTITY,
+                    representation(encoding = BundleEncoding.IDENTITY, path = path, rawHash = hash, bytes = raw),
+                )
                 for (encoding in BundleEncoding.compressed) {
                     val variant = Path(path.parent ?: root, path.name + encoding.fileSuffix)
                     if (!files.isRegularFile(variant)) continue
-                    put(encoding, representation(encoding, variant, hash, files.readBytes(variant)))
+                    put(
+                        encoding,
+                        representation(
+                            encoding = encoding,
+                            path = variant,
+                            rawHash = hash,
+                            bytes = files.readBytes(variant),
+                        ),
+                    )
                 }
             }
         return BundleFile(contentTypeFor(path.name), representations)

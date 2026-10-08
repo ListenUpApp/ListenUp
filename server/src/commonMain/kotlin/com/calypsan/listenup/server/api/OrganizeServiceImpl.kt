@@ -64,15 +64,15 @@ class OrganizeServiceImpl(
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): OrganizeServiceImpl =
         OrganizeServiceImpl(
-            settingsStore,
-            planBuilder,
-            executor,
-            broker,
-            libraryRegistry,
-            sql,
-            runState,
-            runScope,
-            provider,
+            settingsStore = settingsStore,
+            planBuilder = planBuilder,
+            executor = executor,
+            broker = broker,
+            libraryRegistry = libraryRegistry,
+            sql = sql,
+            runState = runState,
+            runScope = runScope,
+            principal = provider,
         )
 
     override suspend fun getSettings(): AppResult<OrganizeSettingsDto> {
@@ -114,7 +114,7 @@ class OrganizeServiceImpl(
     }
 
     override fun observeRun(runId: OrganizeRunId): Flow<RpcEvent<OrganizeRunEvent>> =
-        if (principal.current()?.role?.isAdmin() == true) {
+        if (principal.current()?.run { role.isAdmin() } == true) {
             flow {
                 runState.eventsFor(runId).collect { event -> emit(RpcEvent.Data(event)) }
             }
@@ -155,7 +155,9 @@ class OrganizeServiceImpl(
 
                 is AppResult.Failure -> {
                     failed++
-                    logger.warn { "organize move failed for ${entry.bookId}: ${result.error.debugInfo}" }
+                    logger.warn {
+                        "organize move failed for ${entry.bookId}: ${result.error.debugInfo ?: result.error.code}"
+                    }
                     runState.emit(
                         runId,
                         OrganizeRunEvent.BookFailed(
@@ -211,8 +213,8 @@ class OrganizeServiceImpl(
                         collisionResolved = entry.collisionResolved,
                         // Only an in-place rename carries the filenames: on a relocation the folder
                         // row is the headline, and a second pair would just be noise.
-                        renamedFrom = entry.audioRename?.from?.takeUnless { entry.isRelocation },
-                        renamedTo = entry.audioRename?.to?.takeUnless { entry.isRelocation },
+                        renamedFrom = entry.audioRename?.run { from.takeUnless { entry.isRelocation } },
+                        renamedTo = entry.audioRename?.run { to.takeUnless { entry.isRelocation } },
                     )
                 },
             truncated = entries.size > PREVIEW_ENTRY_LIMIT,

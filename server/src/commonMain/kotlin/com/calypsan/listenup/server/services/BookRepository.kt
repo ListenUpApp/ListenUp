@@ -70,7 +70,7 @@ private const val SQLITE_IN_CHUNK = 900
  * `writePayload` reads via the transaction-local; [skip] marks an idempotent re-scan whose content +
  * cover are unchanged (no write, no revision bump, no emit).
  */
-private class PreparedBook(
+private data class PreparedBook(
     val bookId: BookId,
     val payload: BookSyncPayload,
     val skip: Boolean,
@@ -160,17 +160,17 @@ class BookRepository(
     override val driver: SqlDriver,
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,
-    private val genreRepository: GenreRepository,
+    genreRepository: GenreRepository,
     private val analyzedBookMapper: AnalyzedBookMapper = AnalyzedBookMapper(),
     clock: Clock = Clock.System,
     private val collectionBookRepository: com.calypsan.listenup.server.sync.CollectionBookRepository? = null,
-    private val tagRepository: com.calypsan.listenup.server.sync.TagRepository? = null,
+    tagRepository: com.calypsan.listenup.server.sync.TagRepository? = null,
     private val bookTagRepository: com.calypsan.listenup.server.sync.BookTagRepository? = null,
     private val bookMoodRepository: com.calypsan.listenup.server.sync.BookMoodRepository? = null,
     private val entityRepository: com.calypsan.listenup.server.sync.EntityRepository? = null,
     private val orphanParentPurger: OrphanParentPurger? = null,
-    private val homeDir: Path? = null,
-    private val coverImageStore: CoverImageStore? = null,
+    homeDir: Path? = null,
+    coverImageStore: CoverImageStore? = null,
 ) : SqlSyncableRepository<BookSyncPayload, BookId>(
         db = db,
         bus = bus,
@@ -314,7 +314,7 @@ class BookRepository(
         existed: Boolean,
     ) {
         val reconciled = value.withReconciledIdentity()
-        writeReconciledPayload(reconciled, rev, now, clientOpId, existed)
+        writeReconciledPayload(value = reconciled, rev = rev, now = now, clientOpId = clientOpId, existed = existed)
         writeIdentityColumns(reconciled)
     }
 
@@ -386,29 +386,12 @@ class BookRepository(
             val isUploadedLocked = existingCover?.source == CoverSource.UPLOADED.name.lowercase()
 
             if (isUploadedLocked) {
-                db.booksQueries.updateContentPreserveCover(
-                    title = value.title,
-                    sort_title = value.sortTitle,
-                    subtitle = value.subtitle,
-                    description = value.description,
-                    publish_year = value.publishYear?.toLong(),
-                    normalization_gain_db = value.normalizationGainDb?.toDouble(),
-                    publisher = value.publisher,
-                    language = value.language,
-                    isbn = value.isbn,
-                    asin = value.asin,
-                    abridged = value.abridged.toDbLong(),
-                    explicit = value.explicit.toDbLong(),
-                    has_scan_warning = value.hasScanWarning.toDbLong(),
-                    total_duration = value.totalDuration,
-                    field_provenance = fieldProvenanceColumn,
-                    root_rel_path = value.rootRelPath,
-                    inode = value.inode,
-                    scanned_at = value.scannedAt,
-                    revision = rev,
-                    updated_at = now,
-                    client_op_id = clientOpId,
-                    id = value.id,
+                updateContentKeepingCover(
+                    value = value,
+                    rev = rev,
+                    now = now,
+                    clientOpId = clientOpId,
+                    fieldProvenanceColumn = fieldProvenanceColumn,
                 )
             } else {
                 val cover = resolveCoverColumns(value, managedCover, existingCover)
@@ -492,11 +475,50 @@ class BookRepository(
             extras?.systemCollectionId?.let { sysId -> writeSystemMembership(sysId, value.id, now) }
         }
 
-        replaceBookChildren(value, preserveContributors, preserveSeries, preserveChapters)
+        replaceBookChildren(
+            value = value,
+            preserveContributors = preserveContributors,
+            preserveSeries = preserveSeries,
+            preserveChapters = preserveChapters,
+        )
 
         // Scan paths only: genre junctions ride INSIDE this transaction from the pre-resolved ids, so
         // a genre change is atomic with the row and carried by its revision bump. Null leaves them be.
         extras?.genreIds?.let { genreIds -> bookGenreWriter.writeJunctions(value.id, genreIds) }
+    }
+
+    /** The rescan UPDATE for a row whose user-uploaded cover is sticky: every content column except the cover. */
+    private fun updateContentKeepingCover(
+        value: BookSyncPayload,
+        rev: Long,
+        now: Long,
+        clientOpId: String?,
+        fieldProvenanceColumn: String,
+    ) {
+        db.booksQueries.updateContentPreserveCover(
+            title = value.title,
+            sort_title = value.sortTitle,
+            subtitle = value.subtitle,
+            description = value.description,
+            publish_year = value.publishYear?.toLong(),
+            normalization_gain_db = value.normalizationGainDb?.toDouble(),
+            publisher = value.publisher,
+            language = value.language,
+            isbn = value.isbn,
+            asin = value.asin,
+            abridged = value.abridged.toDbLong(),
+            explicit = value.explicit.toDbLong(),
+            has_scan_warning = value.hasScanWarning.toDbLong(),
+            total_duration = value.totalDuration,
+            field_provenance = fieldProvenanceColumn,
+            root_rel_path = value.rootRelPath,
+            inode = value.inode,
+            scanned_at = value.scannedAt,
+            revision = rev,
+            updated_at = now,
+            client_op_id = clientOpId,
+            id = value.id,
+        )
     }
 
     /**
@@ -562,7 +584,7 @@ class BookRepository(
             )
         } else {
             val incoming = value.cover
-            val incomingSource = incoming?.source?.name?.lowercase()
+            val incomingSource = incoming?.source?.run { name.lowercase() }
             val coverUnchangedFromStored =
                 incoming != null &&
                     existing != null &&
@@ -665,34 +687,31 @@ class BookRepository(
         // aggregate write (and its threaded pre-resolved id maps) is identical, so close over it once.
         suspend fun write(bookId: BookId): AppResult<BookSyncPayload> =
             upsertFromAnalyzed(
-                bookId,
-                libraryId,
-                folderId,
-                analyzed,
-                pendingCover,
-                systemCollectionId,
-                contributorIds,
-                seriesIds,
+                bookId = bookId,
+                libraryId = libraryId,
+                folderId = folderId,
+                analyzed = analyzed,
+                pendingCover = pendingCover,
+                systemCollectionId = systemCollectionId,
+                contributorIds = contributorIds,
+                seriesIds = seriesIds,
             )
 
         bookFinder.findByPath(folderId, rootRelPath)?.let { existing ->
             return write(existing).map { IngestOutcome(existing, wasNew = false) }
         }
 
-        analyzed.candidate
-            .identityInode()
-            ?.let { inode ->
-                // The move hint is folder-scoped `(folder_id, inode)` — identity is anchored to the
-                // owning folder. Tradeoff: moving a book directory BETWEEN two folders of the same
-                // library re-mints its id (the new folder's inode lookup misses); an intra-folder move
-                // preserves it. Accepted — cross-folder moves are rare, and folder-scoping is what keeps
-                // two folders sharing a relative path (or an inode) from aliasing each other.
-                bookFinder.findByInode(folderId, inode)?.let { existing ->
-                    val previousPath = findById(existing)?.rootRelPath
-                    log.info { "Book moved: $previousPath → $rootRelPath" }
-                    return write(existing).map { IngestOutcome(existing, wasNew = false) }
-                }
-            }
+        // The move hint is folder-scoped `(folder_id, inode)` — identity is anchored to the
+        // owning folder. Tradeoff: moving a book directory BETWEEN two folders of the same
+        // library re-mints its id (the new folder's inode lookup misses); an intra-folder move
+        // preserves it. Accepted — cross-folder moves are rare, and folder-scoping is what keeps
+        // two folders sharing a relative path (or an inode) from aliasing each other.
+        val movedBookId = analyzed.candidate.identityInode()?.let { inode -> bookFinder.findByInode(folderId, inode) }
+        if (movedBookId != null) {
+            val previousPath = findById(movedBookId)?.rootRelPath
+            log.info { "Book moved: ${previousPath ?: "(unknown)"} → $rootRelPath" }
+            return write(movedBookId).map { IngestOutcome(movedBookId, wasNew = false) }
+        }
 
         val newId = BookId(Uuid.random().toString())
         return write(newId).map { IngestOutcome(newId, wasNew = true) }
@@ -746,10 +765,12 @@ class BookRepository(
         genres: Map<String, List<String>>,
     ): List<String> =
         analyzed.genres
+            .asSequence()
             .filter { it.isNotBlank() }
             .distinctBy { it.trim().lowercase() }
             .flatMap { raw -> genres[raw.trim().lowercase()].orEmpty() }
             .distinct()
+            .toList()
 
     /**
      * Each of [bookIds]' currently-linked genre ids, read from the raw junction (tombstoned genres
@@ -804,7 +825,14 @@ class BookRepository(
         onProgress: suspend (processed: Int, failed: Int) -> Unit,
     ): PersistResult {
         val (prepared, prepareFailed) =
-            prepareBooks(libraryId, folderId, books, coversByBook, systemCollectionId, identityMaps)
+            prepareBooks(
+                libraryId = libraryId,
+                folderId = folderId,
+                books = books,
+                coversByBook = coversByBook,
+                systemCollectionId = systemCollectionId,
+                identityMaps = identityMaps,
+            )
 
         // Suppression is read ONCE in the suspend context and threaded into every write — the
         // synchronous chunk body cannot read the coroutine context (see upsertInOpenTransaction).
@@ -845,8 +873,8 @@ class BookRepository(
             // at each book's own deleted_at. Grouped by floor so books removed together share one call.
             // Post-commit, exactly like the tag pass above and the per-book path's cascade.
             succeeded
-                .filter { it.revivedFromDeletedAt != null }
-                .groupBy({ it.revivedFromDeletedAt!! }, { it.bookId.value })
+                .mapNotNull { book -> book.revivedFromDeletedAt?.let { floor -> floor to book.bookId.value } }
+                .groupBy({ it.first }, { it.second })
                 .forEach { (floor, ids) -> reviveBookJunctions(ids, floor) }
 
             onProgress(persisted + failed, failed)
@@ -984,12 +1012,12 @@ class BookRepository(
                 val pendingCover = coversByBook[analyzed.candidate.rootRelPath]
                 val payload =
                     buildPayloadFromAnalyzed(
-                        bookId,
-                        libraryId,
-                        folderId,
-                        analyzed,
-                        identityMaps.contributors,
-                        identityMaps.series,
+                        bookId = bookId,
+                        libraryId = libraryId,
+                        folderId = folderId,
+                        analyzed = analyzed,
+                        contributorIds = identityMaps.contributors,
+                        seriesIds = identityMaps.series,
                     )
 
                 val existing = existingById[bookId.value]
@@ -1004,7 +1032,7 @@ class BookRepository(
                     if (merge?.preserveGenres == true) null else resolveBookGenreIds(analyzed, identityMaps.genres)
                 val genresUnchanged =
                     genreIds == null || genreIds.toSet() == storedGenreIdsById[bookId.value].orEmpty()
-                val pendingCoverHash = pendingCover?.bytes?.sha256Hex()
+                val pendingCoverHash = pendingCover?.run { bytes.sha256Hex() }
                 // The scan found cover art in the files but hasn't managed to store it yet (no
                 // configured store, or a file that couldn't be read — see [scanCoverForWrite]):
                 // pendingCoverHash is null in that situation, so it would never equal the stored
@@ -1350,7 +1378,14 @@ class BookRepository(
         seriesIds: Map<String, SeriesId>? = null,
     ): AppResult<BookSyncPayload> {
         val payload =
-            buildPayloadFromAnalyzed(bookId, libraryId, folderId, analyzed, contributorIds, seriesIds)
+            buildPayloadFromAnalyzed(
+                bookId = bookId,
+                libraryId = libraryId,
+                folderId = folderId,
+                analyzed = analyzed,
+                contributorIds = contributorIds,
+                seriesIds = seriesIds,
+            )
         // Read the existing aggregate ONCE — drives the idempotency check, the cover-source
         // sticky-UPLOADED skip, and the only-on-create system-collection membership gate.
         val existing = findById(bookId)
@@ -1369,15 +1404,13 @@ class BookRepository(
             if (merge?.preserveGenres == true) {
                 null
             } else {
-                analyzed.genres
-                    .filter { it.isNotBlank() }
-                    .distinctBy { it.trim().lowercase() }
-                    .flatMap { raw -> bookGenreWriter.resolveGenreIds(raw) }
-                    .distinct()
+                // Two steps, not one chain: resolveGenreIds suspends, so the resolve can't run in a Sequence.
+                val distinctRaws = analyzed.genres.filter { it.isNotBlank() }.distinctBy { it.trim().lowercase() }
+                distinctRaws.flatMap { raw -> bookGenreWriter.resolveGenreIds(raw) }.distinct()
             }
         val genresUnchanged =
             genreIds == null || genreIds.toSet() == storedGenreIds(listOf(bookId.value))[bookId.value].orEmpty()
-        val pendingCoverHash = pendingCover?.bytes?.sha256Hex()
+        val pendingCoverHash = pendingCover?.run { bytes.sha256Hex() }
         // The scan found cover art in the files but hasn't managed to store it yet (no configured
         // store, or a file that couldn't be read — see [scanCoverForWrite]): pendingCoverHash is
         // null in that situation, so it would never equal the stored hash and would force an
@@ -1448,7 +1481,7 @@ class BookRepository(
      * [BookSyncPayload.fieldProvenance] carrying the per-field max-tier union) plus the
      * contributor/series preserve flags [writePayload] honours via the [BookWriteExtras].
      */
-    private class ProvenanceMerge(
+    private data class ProvenanceMerge(
         val payload: BookSyncPayload,
         val preserveContributors: Boolean,
         val preserveSeries: Boolean,
@@ -1654,25 +1687,24 @@ class BookRepository(
         revision: Long,
         suppressed: Boolean,
         capture: FrameCapture?,
-    ): BookSyncPayload =
-        with(tx) {
-            cover?.let {
-                db.booksQueries.setCoverColumns(
-                    cover_source = it.source?.name?.lowercase(),
-                    cover_path = it.path,
-                    cover_hash = it.hash,
-                    id = value.id,
-                )
-            }
-            genreIds?.let { bookGenreWriter.writeJunctions(value.id, it) }
-            ladderRungIds.forEach { db.bookGenresQueries.insertIfAbsent(book_id = value.id, genre_id = it) }
-            // The payload's chapter source is the one to keep: set it first, so the sticky-user-chapters guard
-            // in writePayload lets an undo restore chapters a match had renamed.
-            db.booksQueries.updateChapterSource(value.chapterSource.name.lowercase(), value.id)
-            val (saved, event) = upsertEventInOpenTransaction(value, suppressed, revision = revision)
-            captureAfterCommit(capture, event)
-            saved
+    ): BookSyncPayload {
+        if (cover != null) {
+            db.booksQueries.setCoverColumns(
+                cover_source = cover.source?.run { name.lowercase() },
+                cover_path = cover.path,
+                cover_hash = cover.hash,
+                id = value.id,
+            )
         }
+        genreIds?.let { bookGenreWriter.writeJunctions(value.id, it) }
+        ladderRungIds.forEach { db.bookGenresQueries.insertIfAbsent(book_id = value.id, genre_id = it) }
+        // The payload's chapter source is the one to keep: set it first, so the sticky-user-chapters guard
+        // in writePayload lets an undo restore chapters a match had renamed.
+        db.booksQueries.updateChapterSource(value.chapterSource.name.lowercase(), value.id)
+        val (saved, event) = tx.upsertEventInOpenTransaction(value, suppressed, revision = revision)
+        tx.captureAfterCommit(capture, event)
+        return saved
+    }
 
     /**
      * Reads the full book aggregate for [id], or null when absent. Opens its own
@@ -1728,7 +1760,7 @@ class BookRepository(
                 AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idStr))
             } else {
                 provenance?.let { stamp -> rewriteFieldProvenance(idStr) { it + (BookField.COVER to stamp) } }
-                publishUpdatedAfterCommit(idStr, rev, now, capture)
+                publishUpdatedAfterCommit(idStr = idStr, rev = rev, now = now, capture = capture)
                 AppResult.Success(Unit)
             }
         }
@@ -1780,7 +1812,7 @@ class BookRepository(
             if (db.booksQueries.changes().executeAsOne() == 0L) {
                 AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idStr))
             } else {
-                publishUpdatedAfterCommit(idStr, rev, now, capture)
+                publishUpdatedAfterCommit(idStr = idStr, rev = rev, now = now, capture = capture)
                 AppResult.Success(Unit)
             }
         }
@@ -1912,7 +1944,7 @@ class BookRepository(
             db.booksQueries
                 .selectLiveCoverHashes()
                 .executeAsList()
-                .mapNotNull { row -> row.cover_hash?.let { LiveCover(BookId(row.id), it) } }
+                .map { row -> LiveCover(BookId(row.id), row.cover_hash) }
         }
 
     /**
@@ -2031,14 +2063,7 @@ class BookRepository(
         val saved =
             readPayload(idStr)
                 ?: error("readPayload returned null immediately after a cover/touch write for $idStr")
-        val event =
-            SyncEvent.Updated(
-                id = idStr,
-                revision = rev,
-                occurredAt = now,
-                clientOpId = null,
-                payload = saved,
-            )
+        val event = SyncEvent.Updated(id = idStr, revision = rev, occurredAt = now, clientOpId = null, payload = saved)
         emitAfterCommit(event = event, userId = null)
         // Ambient frame capture: this write emits inline (not via upsert), so mirror the emit on commit
         // when a mutation wraps the call in a [FrameCapture] scope — read-your-writes for covers/touches.

@@ -34,5 +34,7 @@ class ProcessTranscodeSpawner(
         runner.awaitStarted()
     }
 
-    override fun stop() = runner.kill()
+    override fun stop() {
+        runner.kill()
+    }
 }

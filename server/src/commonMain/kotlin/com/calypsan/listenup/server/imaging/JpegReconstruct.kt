@@ -26,14 +26,23 @@ internal fun reconstruct(
     val out = IntArray(width * height)
     for (y in 0 until height) {
         for (x in 0 until width) {
+            fun sample(component: Int): Int =
+                planes[component].sampleFor(
+                    frame = frame,
+                    component = frame.components[component],
+                    x = x,
+                    y = y,
+                    outWidth = width,
+                    outHeight = height,
+                )
             out[y * width + x] =
                 if (frame.components.size == 1) {
-                    val grey = planes[0].sampleFor(frame, frame.components[0], x, y, width, height)
-                    packPixel(OPAQUE, grey, grey, grey)
+                    val grey = sample(0)
+                    packPixel(alpha = OPAQUE, red = grey, green = grey, blue = grey)
                 } else {
-                    val luma = planes[0].sampleFor(frame, frame.components[0], x, y, width, height)
-                    val blueDiff = planes[1].sampleFor(frame, frame.components[1], x, y, width, height)
-                    val redDiff = planes[2].sampleFor(frame, frame.components[2], x, y, width, height)
+                    val luma = sample(0)
+                    val blueDiff = sample(1)
+                    val redDiff = sample(2)
                     yCbCrToRgb(luma, blueDiff, redDiff)
                 }
         }
@@ -41,7 +50,12 @@ internal fun reconstruct(
     return PixelBuffer(width, height, out)
 }
 
-/** One component's samples at the reduced scale. */
+/**
+ * One component's samples at the reduced scale.
+ *
+ * Holds an IntArray: data-class equality would compare the array by identity, which is misleading.
+ */
+@Suppress("UseDataClass")
 private class Plane(
     val width: Int,
     val height: Int,
@@ -95,7 +109,15 @@ private fun renderPlane(
             if (pixelsPerBlock == 1) {
                 samples[blockRow * width + blockColumn] = blockAverage(component, quant, base)
             } else {
-                writeBlockQuadrants(component, quant, base, samples, width, blockRow, blockColumn)
+                writeBlockQuadrants(
+                    component = component,
+                    quant = quant,
+                    base = base,
+                    samples = samples,
+                    width = width,
+                    blockRow = blockRow,
+                    blockColumn = blockColumn,
+                )
             }
         }
     }
@@ -164,7 +186,7 @@ private fun yCbCrToRgb(
     val red = (luma + RED_CR * cr / FIXED_POINT).coerceIn(0, MAX_CHANNEL)
     val green = (luma - (GREEN_CB * cb + GREEN_CR * cr) / FIXED_POINT).coerceIn(0, MAX_CHANNEL)
     val blue = (luma + BLUE_CB * cb / FIXED_POINT).coerceIn(0, MAX_CHANNEL)
-    return packPixel(OPAQUE, red, green, blue)
+    return packPixel(alpha = OPAQUE, red = red, green = green, blue = blue)
 }
 
 private const val QUADRANTS = 4

@@ -87,14 +87,18 @@ internal fun SqlDriver.selectIdRevAccessFiltered(
             if (limit != null) append(" LIMIT ?")
         }
     // Placeholder count: predicate args + access-subquery args + (1 if limited).
-    val parameterCount = predicate.args.size + (extraWhere?.args?.size ?: 0) + if (limit != null) 1 else 0
+    val parameterCount = predicate.args.size + (extraWhere?.run { args.size } ?: 0) + if (limit != null) 1 else 0
     return executeQuery(
         identifier = null,
         sql = sql,
         mapper = { cursor ->
             val rows = mutableListOf<IdRev>()
             while (cursor.next().value) {
-                rows += IdRev(id = cursor.getString(0)!!, revision = cursor.getLong(1)!!)
+                rows +=
+                    IdRev(
+                        id = checkNotNull(cursor.getString(0)) { "id column is NOT NULL" },
+                        revision = checkNotNull(cursor.getLong(1)) { "revision column is NOT NULL" },
+                    )
             }
             QueryResult.Value(rows.toList())
         },
@@ -103,7 +107,7 @@ internal fun SqlDriver.selectIdRevAccessFiltered(
             // Bind in the exact placeholder order — the load-bearing invariant.
             var index = 0
             predicate.args.forEach { arg -> bindRaw(index++, arg) }
-            extraWhere?.args?.forEach { arg -> bindRaw(index++, arg) }
+            extraWhere?.run { args.forEach { arg -> bindRaw(index++, arg) } }
             if (limit != null) bindLong(index, limit.toLong())
         },
     ).value
@@ -150,6 +154,6 @@ internal fun SqlPreparedStatement.bindRaw(
         is Int -> bindLong(index, value.toLong())
         is Boolean -> bindBoolean(index, value)
         is Double -> bindDouble(index, value)
-        else -> error("Unsupported bind arg type ${value::class.simpleName} at index $index")
+        else -> error("Unsupported bind arg type ${value::class.simpleName.orEmpty()} at index $index")
     }
 }

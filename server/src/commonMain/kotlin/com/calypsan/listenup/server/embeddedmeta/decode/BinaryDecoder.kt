@@ -63,7 +63,7 @@ internal fun Buffer.readUtf16WithBom(byteCount: Int): String {
 
             else -> 0 to true
         }
-    return TextDecoding.decodeUtf16(raw, offset, raw.size - offset, bigEndian = bigEndian)
+    return TextDecoding.decodeUtf16(bytes = raw, offset = offset, length = raw.size - offset, bigEndian = bigEndian)
 }
 
 /**

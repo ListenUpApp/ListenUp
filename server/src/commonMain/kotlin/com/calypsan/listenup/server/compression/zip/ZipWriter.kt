@@ -182,7 +182,16 @@ public class ZipWriter(
         localOffset: Long,
     ) {
         val needsZip64 = compSize > ZIP64_U32_MAX || uncompSize > ZIP64_U32_MAX || localOffset > ZIP64_U32_MAX
-        centralEntries += CentralEntry(nameBytes, method, crc, compSize, uncompSize, localOffset, needsZip64)
+        centralEntries +=
+            CentralEntry(
+                nameBytes = nameBytes,
+                method = method,
+                crc = crc,
+                compSize = compSize,
+                uncompSize = uncompSize,
+                localOffset = localOffset,
+                needsZip64 = needsZip64,
+            )
         entryOpen = false
     }
 
@@ -193,7 +202,7 @@ public class ZipWriter(
      */
     private inner class DeflateEntry(
         private val nameBytes: ByteArray,
-        private val localOffset: Long,
+        localOffset: Long,
     ) {
         private val crc = Crc32()
         private var uncompSize = 0L
@@ -272,7 +281,14 @@ public class ZipWriter(
                             writeU32LE(uncompSize)
                         }
                     }
-                    appendCentral(nameBytes, ZipMethod.DEFLATE, crc.value, compSize, uncompSize, localOffset)
+                    appendCentral(
+                        nameBytes = nameBytes,
+                        method = ZipMethod.DEFLATE,
+                        crc = crc.value,
+                        compSize = compSize,
+                        uncompSize = uncompSize,
+                        localOffset = localOffset,
+                    )
                 }
             }
     }
@@ -283,8 +299,8 @@ public class ZipWriter(
      * complete local header (real CRC/sizes, no descriptor) is written followed by the raw bytes.
      */
     private inner class StoredEntry(
-        private val nameBytes: ByteArray,
-        private val localOffset: Long,
+        nameBytes: ByteArray,
+        localOffset: Long,
     ) {
         private val crc = Crc32()
         private val content = Buffer()
@@ -336,13 +352,25 @@ public class ZipWriter(
                     }
                     out.write(content, size)
                     written += size
-                    appendCentral(nameBytes, ZipMethod.STORED, crc.value, size, size, localOffset)
+                    appendCentral(
+                        nameBytes = nameBytes,
+                        method = ZipMethod.STORED,
+                        crc = crc.value,
+                        compSize = size,
+                        uncompSize = size,
+                        localOffset = localOffset,
+                    )
                 }
             }
     }
 }
 
-/** A finished entry's authoritative metadata, replayed into the central directory by [ZipWriter.finish]. */
+/**
+ * A finished entry's authoritative metadata, replayed into the central directory by [ZipWriter.finish].
+ *
+ * Holds a ByteArray: data-class equality would compare it by identity (and trips ArrayInDataClass).
+ */
+@Suppress("UseDataClass")
 private class CentralEntry(
     val nameBytes: ByteArray,
     val method: ZipMethod,

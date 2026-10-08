@@ -87,7 +87,7 @@ class AnalyzedBookMapper(
             libraryId = libraryId,
             folderId = folderId,
             title = analyzed.title,
-            sortTitle = SortKeys.titleSort(analyzed.title, analyzed.embedded?.tags?.titleSort),
+            sortTitle = SortKeys.titleSort(analyzed.title, analyzed.embedded?.run { tags.titleSort }),
             subtitle = analyzed.subtitle,
             description = analyzed.description,
             publishYear = analyzed.publishedYear,
@@ -95,8 +95,8 @@ class AnalyzedBookMapper(
             language = analyzed.language,
             isbn = analyzed.isbn,
             asin = analyzed.asin,
-            abridged = analyzed.abridged ?: false,
-            explicit = analyzed.explicit ?: false,
+            abridged = analyzed.abridged == true,
+            explicit = analyzed.explicit == true,
             hasScanWarning = analyzed.hasScanWarning,
             totalDuration = totalDuration,
             cover = null,
@@ -142,10 +142,8 @@ class AnalyzedBookMapper(
         // derive "Surname, Given" from the display name.
         val authorSorts =
             analyzed.embedded
-                ?.tags
-                ?.authorsSort
-                ?.let { ContributorParser.personNames(it) }
-                ?.takeIf { it.size == authors.size }
+                ?.run { tags.authorsSort }
+                ?.let { sort -> ContributorParser.personNames(sort).takeIf { it.size == authors.size } }
 
         val authorPayloads =
             authors.mapIndexed { i, parsed ->
@@ -192,7 +190,7 @@ class AnalyzedBookMapper(
                 index = index,
                 filename = track.file.name,
                 format = track.file.ext,
-                codec = stream?.codec ?: "",
+                codec = stream?.codec.orEmpty(),
                 duration = track.durationMs ?: if (index == 0) primaryDuration else 0L,
                 size = track.file.size,
                 codecProfile = stream?.codecProfile,

@@ -40,12 +40,14 @@ fun pushModule(): Module =
 
         single<PushNotifier> {
             val config = get<PushConfig>()
-            if (config.configured) {
+            // Same test as PushConfig.configured, kept as a smart-castable local.
+            val relayUrl = config.relayUrl?.takeIf { url -> url.isNotBlank() }
+            if (relayUrl != null) {
                 RelayPushNotifier(
                     db = get<ListenUpDatabase>(),
                     relay =
                         PushRelayClient(
-                            relayUrl = config.relayUrl!!.removeSuffix("/"),
+                            relayUrl = relayUrl.removeSuffix("/"),
                             http = pushHttpClient(),
                             senderToken = config.senderToken,
                         ),

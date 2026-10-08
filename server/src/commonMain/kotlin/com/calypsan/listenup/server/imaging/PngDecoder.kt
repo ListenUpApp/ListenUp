@@ -54,7 +54,7 @@ internal fun decodePng(bytes: ByteArray): PixelBuffer? {
 }
 
 /** IHDR fields this decoder acts on. */
-private class PngHeader(
+private data class PngHeader(
     val width: Int,
     val height: Int,
     val channels: Int,
@@ -146,7 +146,7 @@ private fun unfilter(
     var read = 0
     for (y in 0 until header.height) {
         val filter = readUByte(raw, read++)
-        raw.copyInto(current, 0, read, read + stride)
+        raw.copyInto(destination = current, destinationOffset = 0, startIndex = read, endIndex = read + stride)
         read += stride
 
         for (i in 0 until stride) {

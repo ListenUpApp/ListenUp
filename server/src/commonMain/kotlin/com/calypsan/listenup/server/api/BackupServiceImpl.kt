@@ -42,7 +42,13 @@ class BackupServiceImpl(
 ) : BackupService {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): BackupServiceImpl =
-        BackupServiceImpl(paths, archive, restoreOrchestrator, eventBus, provider)
+        BackupServiceImpl(
+            paths = paths,
+            archive = archive,
+            restoreOrchestrator = restoreOrchestrator,
+            eventBus = eventBus,
+            principal = provider,
+        )
 
     override suspend fun createBackup(includeImages: Boolean): AppResult<BackupSummary> {
         requireAdmin()?.let { return it }
@@ -121,7 +127,7 @@ class BackupServiceImpl(
     }
 
     override fun observeProgress(): Flow<RpcEvent<BackupEvent>> =
-        if (principal.current()?.role?.isAdmin() == true) {
+        if (principal.current()?.run { role.isAdmin() } == true) {
             eventBus.map { RpcEvent.Data(it) }
         } else {
             emptyFlow()

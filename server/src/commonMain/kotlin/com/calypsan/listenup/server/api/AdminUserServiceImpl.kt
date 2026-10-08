@@ -12,7 +12,6 @@ import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.api.dto.auth.UserPermissions
 import com.calypsan.listenup.api.dto.auth.UserPermissionsPatch
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.patchedBy
@@ -207,9 +206,9 @@ class AdminUserServiceImpl(
                     .selectActiveLive()
                     .executeAsList()
                     .map { it.toAuthUser() }
-                    .filter {
-                        it.displayName.contains(needle, ignoreCase = true) ||
-                            it.email.contains(needle, ignoreCase = true)
+                    .filter { user ->
+                        user.displayName.contains(needle, ignoreCase = true) ||
+                            user.email.contains(needle, ignoreCase = true)
                     }.map { it.toContract() },
             )
         }
@@ -464,7 +463,7 @@ class AdminUserServiceImpl(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
-                log.warn { "decision push failed: ${e::class.simpleName}" }
+                log.warn { "decision push failed: ${e::class.simpleName.orEmpty()}" }
             }
         }
     }
@@ -480,8 +479,7 @@ class AdminUserServiceImpl(
         sql.usersQueries
             .selectById(id.value)
             .executeAsOneOrNull()
-            ?.toAuthUser()
-            ?.takeIf { it.deletedAt == null }
+            ?.run { toAuthUser().takeIf { it.deletedAt == null } }
 
     /**
      * Validates a role change against the safety rails. Returns null when the

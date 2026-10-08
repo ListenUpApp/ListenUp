@@ -26,7 +26,9 @@ class SwappableSqlDriver(
     private var delegate: SqlDriver = initial
 
     /** Hard-closes the live driver ahead of an [installUnderlying] — the recoverable pre-swap close. */
-    fun closeUnderlying() = delegate.close()
+    fun closeUnderlying() {
+        delegate.close()
+    }
 
     /** Installs a freshly-built driver as the live delegate (after a file swap). */
     fun installUnderlying(new: SqlDriver) {
@@ -39,14 +41,22 @@ class SwappableSqlDriver(
         mapper: (SqlCursor) -> QueryResult<R>,
         parameters: Int,
         binders: (SqlPreparedStatement.() -> Unit)?,
-    ): QueryResult<R> = delegate.executeQuery(identifier, sql, mapper, parameters, binders)
+    ): QueryResult<R> =
+        delegate.executeQuery(
+            identifier = identifier,
+            sql = sql,
+            mapper = mapper,
+            parameters = parameters,
+            binders = binders,
+        )
 
     override fun execute(
         identifier: Int?,
         sql: String,
         parameters: Int,
         binders: (SqlPreparedStatement.() -> Unit)?,
-    ): QueryResult<Long> = delegate.execute(identifier, sql, parameters, binders)
+    ): QueryResult<Long> =
+        delegate.execute(identifier = identifier, sql = sql, parameters = parameters, binders = binders)
 
     override fun newTransaction(): QueryResult<Transacter.Transaction> = delegate.newTransaction()
 
@@ -55,15 +65,23 @@ class SwappableSqlDriver(
     override fun addListener(
         vararg queryKeys: String,
         listener: Query.Listener,
-    ) = delegate.addListener(queryKeys = queryKeys, listener = listener)
+    ) {
+        delegate.addListener(queryKeys = queryKeys, listener = listener)
+    }
 
     override fun removeListener(
         vararg queryKeys: String,
         listener: Query.Listener,
-    ) = delegate.removeListener(queryKeys = queryKeys, listener = listener)
+    ) {
+        delegate.removeListener(queryKeys = queryKeys, listener = listener)
+    }
 
-    override fun notifyListeners(vararg queryKeys: String) = delegate.notifyListeners(queryKeys = queryKeys)
+    override fun notifyListeners(vararg queryKeys: String) {
+        delegate.notifyListeners(queryKeys = queryKeys)
+    }
 
     /** Terminal close (app/test teardown). */
-    override fun close() = delegate.close()
+    override fun close() {
+        delegate.close()
+    }
 }

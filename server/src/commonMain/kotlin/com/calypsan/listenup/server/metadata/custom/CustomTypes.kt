@@ -140,10 +140,12 @@ internal fun List<CustomCoverJson>.toCoverMetas(): List<CoverMeta> =
 internal fun List<CustomGenreJson>.toGenreMetas(): List<GenreMeta> =
     mapNotNull { json ->
         json.name.orNullIfBlank()?.let { name ->
-            val isTag = json.kind?.trim()?.equals(TAG_KIND, ignoreCase = true) == true
-            GenreMeta(name = name, kind = if (isTag) GenreKind.TAG else GenreKind.GENRE)
+            GenreMeta(name = name, kind = if (isTagKind(json.kind)) GenreKind.TAG else GenreKind.GENRE)
         }
     }
+
+/** Whether a custom genre's `kind` marks it a free-form tag. */
+private fun isTagKind(kind: String?): Boolean = kind?.run { trim().equals(TAG_KIND, ignoreCase = true) } == true
 
 /** Drops untitled placements; keeps a blank key/sequence as `null`. */
 internal fun List<CustomSeriesJson>.toSeriesMetas(): List<SeriesMeta> =

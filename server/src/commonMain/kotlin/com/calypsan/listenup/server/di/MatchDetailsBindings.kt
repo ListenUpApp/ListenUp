@@ -76,28 +76,43 @@ internal fun Module.matchDetailsBindings(imageHome: Path) {
                         MatchPreparer(
                             catalogs =
                                 MatchCatalogs(
-                                    contributorId = { contributors.resolveOrCreate(it, sortName = null).value },
-                                    seriesId = { series.resolveOrCreate(it).value },
-                                    genreIds = { books.resolveGenreIds(it) },
-                                    ladderRungs = { ladders.ensureLadder(it) },
-                                    moodId = { moodWriter.resolveMoodId(it) },
+                                    contributorId = { name ->
+                                        contributors.resolveOrCreate(name, sortName = null).value
+                                    },
+                                    seriesId = { name -> series.resolveOrCreate(name).value },
+                                    genreIds = { genre -> books.resolveGenreIds(genre) },
+                                    ladderRungs = { ladder -> ladders.ensureLadder(ladder) },
+                                    moodId = { mood -> moodWriter.resolveMoodId(mood) },
                                 ),
                             covers = MatchCoverFiles(get<ImageStorage>(), get<CoverImageStore>()),
                             now = ::currentEpochMilliseconds,
                         ),
                     writer =
                         BookMatchWriter(
-                            db,
-                            books,
-                            moodWriter.bookMoodRepository,
-                            receipts,
-                            ::currentEpochMilliseconds,
+                            db = db,
+                            books = books,
+                            moods = moodWriter.bookMoodRepository,
+                            receipts = receipts,
+                            now = ::currentEpochMilliseconds,
                         ),
                     ratingsRefresh = { id, locale -> ratings.fetch(id, locale, refresh = true) },
                 ),
-            undoer = MatchUndoer(db, books, moodWriter.bookMoodRepository, receipts, ::currentEpochMilliseconds),
+            undoer =
+                MatchUndoer(
+                    db = db,
+                    books = books,
+                    moods = moodWriter.bookMoodRepository,
+                    receipts = receipts,
+                    now = ::currentEpochMilliseconds,
+                ),
             receipts = receipts,
-            people = personMatchDetails(db, contributors, receipts, imageHome),
+            people =
+                personMatchDetails(
+                    db = db,
+                    contributors = contributors,
+                    receipts = receipts,
+                    imageHome = imageHome,
+                ),
         )
     }
 }
@@ -122,10 +137,22 @@ private fun Scope.personMatchDetails(
             PersonMatchApplier(
                 reviewer = reviewer,
                 photoFiles = ContributorPhotoFiles(get<ImageStorage>(), imageHome),
-                writer = PersonMatchWriter(db, contributors, receipts, ::currentEpochMilliseconds),
+                writer =
+                    PersonMatchWriter(
+                        db = db,
+                        contributors = contributors,
+                        receipts = receipts,
+                        now = ::currentEpochMilliseconds,
+                    ),
                 now = ::currentEpochMilliseconds,
             ),
-        undoer = PersonMatchUndoer(db, contributors, receipts, ::currentEpochMilliseconds),
+        undoer =
+            PersonMatchUndoer(
+                db = db,
+                contributors = contributors,
+                receipts = receipts,
+                now = ::currentEpochMilliseconds,
+            ),
         loadPerson = { id -> contributors.findById(id.value)?.takeIf { it.deletedAt == null } },
     )
 }

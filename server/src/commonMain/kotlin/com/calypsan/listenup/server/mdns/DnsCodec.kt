@@ -85,14 +85,21 @@ object DnsCodec {
         val hostFqdn = "${service.hostLabel}.${MdnsServiceInfo.LOCAL}"
 
         val records = Buffer()
-        record(records, MdnsServiceInfo.SERVICE_TYPE, TYPE_PTR, CLASS_IN, ttlSeconds, encodeName(instanceFqdn))
         record(
-            records,
-            MdnsServiceInfo.META_QUERY,
-            TYPE_PTR,
-            CLASS_IN,
-            ttlSeconds,
-            encodeName(MdnsServiceInfo.SERVICE_TYPE),
+            out = records,
+            name = MdnsServiceInfo.SERVICE_TYPE,
+            type = TYPE_PTR,
+            klass = CLASS_IN,
+            ttlSeconds = ttlSeconds,
+            rdata = encodeName(instanceFqdn),
+        )
+        record(
+            out = records,
+            name = MdnsServiceInfo.META_QUERY,
+            type = TYPE_PTR,
+            klass = CLASS_IN,
+            ttlSeconds = ttlSeconds,
+            rdata = encodeName(MdnsServiceInfo.SERVICE_TYPE),
         )
         val srv =
             Buffer()
@@ -103,7 +110,14 @@ object DnsCodec {
                     val hostName = encodeName(hostFqdn)
                     write(hostName, 0, hostName.size)
                 }.readByteArray()
-        record(records, instanceFqdn, TYPE_SRV, CLASS_IN or FLUSH, ttlSeconds, srv)
+        record(
+            out = records,
+            name = instanceFqdn,
+            type = TYPE_SRV,
+            klass = CLASS_IN or FLUSH,
+            ttlSeconds = ttlSeconds,
+            rdata = srv,
+        )
         val txt =
             Buffer()
                 .apply {
@@ -118,8 +132,22 @@ object DnsCodec {
                         }
                     }
                 }.readByteArray()
-        record(records, instanceFqdn, TYPE_TXT, CLASS_IN or FLUSH, ttlSeconds, txt)
-        record(records, hostFqdn, TYPE_A, CLASS_IN or FLUSH, ttlSeconds, ipv4)
+        record(
+            out = records,
+            name = instanceFqdn,
+            type = TYPE_TXT,
+            klass = CLASS_IN or FLUSH,
+            ttlSeconds = ttlSeconds,
+            rdata = txt,
+        )
+        record(
+            out = records,
+            name = hostFqdn,
+            type = TYPE_A,
+            klass = CLASS_IN or FLUSH,
+            ttlSeconds = ttlSeconds,
+            rdata = ipv4,
+        )
 
         val out = Buffer()
         writeU16(out, 0) // ID (0 for mDNS)

@@ -28,8 +28,8 @@ internal suspend fun readRegistrationStatus(
 ): RegistrationStatusEvent? =
     suspendTransaction(db) {
         db.usersQueries.selectById(userId).executeAsOneOrNull()
-    }?.status?.let { status ->
-        when (status) {
+    }?.let { user ->
+        when (user.status) {
             "ACTIVE" -> RegistrationStatusEvent(status = "approved")
             "DENIED" -> RegistrationStatusEvent(status = "denied")
             else -> RegistrationStatusEvent(status = STATUS_PENDING)

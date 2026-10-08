@@ -126,7 +126,14 @@ class ManagedCoverFiles(
                         .selectPrimaryFilenameForBook(id.value)
                         .executeAsOneOrNull()
                 val coverPath = bookRow.cover_path
-                ResolvedCover(source, folderRoot, rootRelPath, primaryFilename, hash, coverPath)
+                ResolvedCover(
+                    source = source,
+                    libraryRoot = folderRoot,
+                    rootRelPath = rootRelPath,
+                    primaryFilename = primaryFilename,
+                    hash = hash,
+                    coverPath = coverPath,
+                )
             } ?: return null
 
         val bookDir = Path(resolved.libraryRoot, resolved.rootRelPath)
@@ -152,9 +159,9 @@ class ManagedCoverFiles(
             CoverSource.EMBEDDED -> {
                 resolved.primaryFilename
                     ?.let { Path(bookDir, it) }
-                    ?.takeIf {
+                    ?.takeIf { audioPath ->
                         withContext(fileIoDispatcher) {
-                            SystemFileSystem.metadataOrNull(it)?.isRegularFile ==
+                            SystemFileSystem.metadataOrNull(audioPath)?.isRegularFile ==
                                 true
                         }
                     }?.let { CoverInfo.Embedded(it, resolved.hash) }
@@ -200,13 +207,13 @@ class ManagedCoverFiles(
                 SystemFileSystem
                     .list(bookDir)
                     .filter { SystemFileSystem.metadataOrNull(it)?.isRegularFile == true }
-                    .filter {
-                        it.name
+                    .filter { image ->
+                        image.name
                             .substringAfterLast('.', "")
                             .lowercase() in IMAGE_EXTENSIONS
                     }.sortedBy { it.name }
-            images.firstOrNull {
-                it.name
+            images.firstOrNull { image ->
+                image.name
                     .substringBeforeLast('.')
                     .equals("cover", ignoreCase = true)
             }

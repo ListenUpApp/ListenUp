@@ -110,8 +110,8 @@ internal class ShelfServiceImpl(
             is AppResult.Success -> {
                 if (!isPrivate) {
                     activityRecorder?.record(
-                        caller.userId,
-                        ActivityType.SHELF_CREATED,
+                        userId = caller.userId,
+                        type = ActivityType.SHELF_CREATED,
                         shelfId = payload.id,
                         shelfName = trimmed,
                     )

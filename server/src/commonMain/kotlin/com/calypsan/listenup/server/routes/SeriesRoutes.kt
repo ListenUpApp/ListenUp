@@ -2,7 +2,6 @@ package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.dto.SeriesUpdate
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.server.routes.resources.SeriesResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.SeriesId
@@ -10,13 +9,10 @@ import com.calypsan.listenup.server.api.SeriesServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.plugins.respondAppError
-import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
-import com.calypsan.listenup.server.plugins.withCorrelationId
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
-import io.ktor.server.plugins.callid.callId
 import io.ktor.server.resources.put
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
@@ -53,7 +49,14 @@ fun Route.seriesRoutes(
         // Store the bytes content-addressed, then persist the path through the scoped service so its
         // internal requirePermission(Permission.EDIT_METADATA) gate + revision bump + sync-event publication fire (series' canEdit
         // check is not exposed for a pre-buffer gate; the 10 MiB cap bounds the exposure).
-        when (val outcome = call.storeMultipartImage("series", imageHome, imageStorage)) {
+        val outcome =
+            storeMultipartImage(
+                call = call,
+                subdir = "series",
+                imageHome = imageHome,
+                imageStorage = imageStorage,
+            )
+        when (outcome) {
             is ImageUploadOutcome.Rejected -> {
                 call.respond(outcome.status, outcome.message)
             }
@@ -73,7 +76,7 @@ fun Route.seriesRoutes(
                         // The scoped update rejected (no canEdit / unknown id) — remove the file this
                         // request just wrote so rejected uploads can't accumulate on disk.
                         SystemFileSystem.delete(Path(imageHome.toString(), outcome.relPath), mustExist = false)
-                        call.respondAppError(result.error)
+                        respondAppError(call, result.error)
                     }
                 }
             }

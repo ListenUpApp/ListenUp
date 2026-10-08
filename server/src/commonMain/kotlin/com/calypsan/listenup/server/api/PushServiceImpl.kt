@@ -18,7 +18,6 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.push.PushConfig
 import com.calypsan.listenup.server.push.PushNotifier
-import com.calypsan.listenup.server.push.isValidPushToken
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import kotlin.time.Clock
 

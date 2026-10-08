@@ -20,14 +20,7 @@ internal actual fun statFile(path: Path): FileAttributes? =
         )
     }.getOrNull()
 
-private fun inodeOf(attrs: BasicFileAttributes): Long? =
-    attrs
-        .fileKey()
-        ?.toString()
-        ?.let {
-            INODE_PATTERN
-                .find(it)
-                ?.groupValues
-                ?.get(1)
-                ?.toLongOrNull()
-        }
+private fun inodeOf(attrs: BasicFileAttributes): Long? = attrs.fileKey()?.let { fileKey -> inodeIn(fileKey.toString()) }
+
+/** The `ino=` number a Unix file key's `toString()` carries, if it carries one. */
+private fun inodeIn(fileKey: String): Long? = INODE_PATTERN.find(fileKey)?.run { groupValues[1].toLongOrNull() }

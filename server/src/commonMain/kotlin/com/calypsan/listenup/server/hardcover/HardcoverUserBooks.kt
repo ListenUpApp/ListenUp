@@ -92,10 +92,10 @@ class HardcoverUserBooks(
         hcBookId: Long,
     ): HardcoverCall<HardcoverUserBook?> =
         graphQl.fetch(
-            accessToken,
-            USER_BOOK_QUERY,
-            buildJsonObject { put("bookId", hcBookId) },
-            "userBookFor",
+            accessToken = accessToken,
+            query = USER_BOOK_QUERY,
+            variables = buildJsonObject { put("bookId", hcBookId) },
+            label = "userBookFor",
         ) { body ->
             hardcoverJson
                 .decodeFromString<UserBooksResponse>(body)
@@ -109,13 +109,13 @@ class HardcoverUserBooks(
                         id = shelf.id,
                         statusId = shelf.statusId,
                         reads =
-                            shelf.reads.map {
+                            shelf.reads.map { read ->
                                 HardcoverRead(
-                                    it.id,
-                                    it.startedAt,
-                                    it.finishedAt,
-                                    it.progressSeconds,
-                                    it.editionId,
+                                    id = read.id,
+                                    startedAt = read.startedAt,
+                                    finishedAt = read.finishedAt,
+                                    progressSeconds = read.progressSeconds,
+                                    editionId = read.editionId,
                                 )
                             },
                     )
@@ -135,14 +135,15 @@ class HardcoverUserBooks(
         limit: Int,
     ): HardcoverCall<List<HardcoverShelfEntry>> =
         graphQl.fetch(
-            accessToken,
-            CHANGED_SINCE_QUERY,
-            buildJsonObject {
-                put("after", after)
-                put("afterId", afterId)
-                put("limit", limit)
-            },
-            "changedSince",
+            accessToken = accessToken,
+            query = CHANGED_SINCE_QUERY,
+            variables =
+                buildJsonObject {
+                    put("after", after)
+                    put("afterId", afterId)
+                    put("limit", limit)
+                },
+            label = "changedSince",
         ) { body ->
             hardcoverJson
                 .decodeFromString<ChangedUserBooksResponse>(body)
@@ -162,16 +163,17 @@ class HardcoverUserBooks(
         statusId: Int,
     ): HardcoverCall<Long> =
         mutate(
-            accessToken,
-            INSERT_USER_BOOK,
-            "insert_user_book",
-            buildJsonObject {
-                putJsonObject("object") {
-                    put("book_id", hcBookId)
-                    put("status_id", statusId)
-                    hcEditionId?.let { put("edition_id", it) }
-                }
-            },
+            accessToken = accessToken,
+            mutation = INSERT_USER_BOOK,
+            field = "insert_user_book",
+            variables =
+                buildJsonObject {
+                    putJsonObject("object") {
+                        put("book_id", hcBookId)
+                        put("status_id", statusId)
+                        hcEditionId?.let { put("edition_id", it) }
+                    }
+                },
         )
 
     /** Moves shelf entry [userBookId] to [statusId]. */
@@ -181,13 +183,14 @@ class HardcoverUserBooks(
         statusId: Int,
     ): HardcoverCall<Unit> =
         mutate(
-            accessToken,
-            UPDATE_USER_BOOK,
-            "update_user_book",
-            buildJsonObject {
-                put("id", userBookId)
-                putJsonObject("object") { put("status_id", statusId) }
-            },
+            accessToken = accessToken,
+            mutation = UPDATE_USER_BOOK,
+            field = "update_user_book",
+            variables =
+                buildJsonObject {
+                    put("id", userBookId)
+                    putJsonObject("object") { put("status_id", statusId) }
+                },
         ).map { }
 
     /**
@@ -202,17 +205,18 @@ class HardcoverUserBooks(
         finishedAt: LocalDate? = null,
     ): HardcoverCall<Long> =
         mutate(
-            accessToken,
-            INSERT_READ,
-            "insert_user_book_read",
-            buildJsonObject {
-                put("userBookId", userBookId)
-                putJsonObject("read") {
-                    startedAt?.let { put("started_at", it.toString()) }
-                    finishedAt?.let { put("finished_at", it.toString()) }
-                    hcEditionId?.let { put("edition_id", it) }
-                }
-            },
+            accessToken = accessToken,
+            mutation = INSERT_READ,
+            field = "insert_user_book_read",
+            variables =
+                buildJsonObject {
+                    put("userBookId", userBookId)
+                    putJsonObject("read") {
+                        startedAt?.let { put("started_at", it.toString()) }
+                        finishedAt?.let { put("finished_at", it.toString()) }
+                        hcEditionId?.let { put("edition_id", it) }
+                    }
+                },
         )
 
     /**
@@ -226,18 +230,19 @@ class HardcoverUserBooks(
         read: HardcoverRead,
     ): HardcoverCall<Unit> =
         mutate(
-            accessToken,
-            UPDATE_READ,
-            "update_user_book_read",
-            buildJsonObject {
-                put("id", read.id)
-                putJsonObject("read") {
-                    read.startedAt?.let { put("started_at", it) }
-                    read.finishedAt?.let { put("finished_at", it) }
-                    read.progressSeconds?.let { put("progress_seconds", it) }
-                    read.editionId?.let { put("edition_id", it) }
-                }
-            },
+            accessToken = accessToken,
+            mutation = UPDATE_READ,
+            field = "update_user_book_read",
+            variables =
+                buildJsonObject {
+                    put("id", read.id)
+                    putJsonObject("read") {
+                        read.startedAt?.let { put("started_at", it) }
+                        read.finishedAt?.let { put("finished_at", it) }
+                        read.progressSeconds?.let { put("progress_seconds", it) }
+                        read.editionId?.let { put("edition_id", it) }
+                    }
+                },
         ).map { }
 
     /**
@@ -249,10 +254,10 @@ class HardcoverUserBooks(
         readId: Long,
     ): HardcoverCall<Unit> =
         mutate(
-            accessToken,
-            DELETE_READ,
-            "delete_user_book_read",
-            buildJsonObject { put("id", readId) },
+            accessToken = accessToken,
+            mutation = DELETE_READ,
+            field = "delete_user_book_read",
+            variables = buildJsonObject { put("id", readId) },
         ).map { }
 
     /** Runs one of Hardcover's `{ id error }` mutations; an `error`, or no id, is [HardcoverCall.Failed]. */
@@ -262,7 +267,10 @@ class HardcoverUserBooks(
         field: String,
         variables: JsonObject,
     ): HardcoverCall<Long> {
-        val body = graphQl.call(accessToken, mutation, variables, field).valueOr { return it }
+        val body =
+            graphQl
+                .call(accessToken = accessToken, query = mutation, variables = variables, label = field)
+                .valueOr { return it }
         val result = mutationResult(body, field)
         val id = result?.id
         return when {

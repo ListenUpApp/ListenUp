@@ -70,11 +70,11 @@ class HardcoverShelfResolver(
                     linked.isEmpty() &&
                         (entry.finishedReads.isNotEmpty() || entry.statusId == HardcoverStatus.WANT_TO_READ) -> {
                         reverseMatch(
-                            userId,
-                            role,
-                            entry,
-                            titles,
-                            claimed,
+                            userId = userId,
+                            role = role,
+                            entry = entry,
+                            titles = titles,
+                            claimed = claimed,
                         )
                     }
 
@@ -168,7 +168,7 @@ class HardcoverShelfResolver(
         entry: HardcoverShelfEntry,
         titles: TitleIndex,
     ): List<String> {
-        val title = entry.title?.let(::normalizeText)?.takeIf { it.isNotEmpty() } ?: return emptyList()
+        val title = entry.title?.let { raw -> normalizeText(raw).takeIf { it.isNotEmpty() } } ?: return emptyList()
         val contributors =
             entry.authors
                 .map(::normalizeText)

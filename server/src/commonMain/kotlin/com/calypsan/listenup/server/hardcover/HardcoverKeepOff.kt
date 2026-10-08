@@ -111,7 +111,11 @@ class HardcoverKeepOff(
                 suspendTransaction<Int?>(sql) {
                     sql.hardcoverBookExclusionsQueries.selectExclusion(userId, bookId).executeAsOneOrNull()?.let { excludedAt ->
                         sql.hardcoverBookExclusionsQueries.deleteExclusion(userId, bookId)
-                        if (connected) sql.queueCatchUp(userId, bookId, since = excludedAt, at = at) else 0
+                        if (connected) {
+                            sql.queueCatchUp(userId = userId, bookId = bookId, since = excludedAt, at = at)
+                        } else {
+                            0
+                        }
                     }
                 }
             } ?: return AppResult.Success(Unit)

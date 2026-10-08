@@ -103,9 +103,7 @@ data class JwtConfiguration(
             throw JwtVerificationException("signature mismatch")
         }
         val payloadJson = decodeB64OrReject(parts[1], "bad payload encoding").decodeToString()
-        val payload =
-            runCatching { JSON.decodeFromString(JwtPayload.serializer(), payloadJson) }
-                .getOrElse { throw JwtVerificationException("unparseable payload", it) }
+        val payload = decodePayload(payloadJson)
 
         if (payload.iss != issuer) throw JwtVerificationException("issuer mismatch")
         if (payload.aud != audience) throw JwtVerificationException("audience mismatch")
@@ -113,9 +111,7 @@ data class JwtConfiguration(
         val nowSec = clock.now().epochSeconds
         if (nowSec >= exp) throw JwtVerificationException("token expired")
         payload.nbf?.let { if (nowSec < it) throw JwtVerificationException("token not yet valid") }
-        val role =
-            runCatching { UserRole.valueOf(payload.role ?: error("missing role")) }
-                .getOrElse { throw JwtVerificationException("missing or invalid role claim", it) }
+        val role = roleOf(payload.role)
         return AccessTokenClaims(
             userId = UserId(payload.sub ?: throw JwtVerificationException("missing sub")),
             sessionId = SessionId(payload.jti ?: throw JwtVerificationException("missing jti")),
@@ -130,10 +126,27 @@ data class JwtConfiguration(
 
     private fun b64(bytes: ByteArray): String = URL_NO_PAD.encode(bytes)
 
+    private fun roleOf(claim: String?): UserRole =
+        UserRole.entries.firstOrNull { it.name == claim }
+            ?: throw JwtVerificationException("missing or invalid role claim")
+
+    private fun decodePayload(payloadJson: String): JwtPayload =
+        try {
+            JSON.decodeFromString(JwtPayload.serializer(), payloadJson)
+        } catch (e: IllegalArgumentException) {
+            // kotlinx.serialization's SerializationException is an IllegalArgumentException.
+            throw JwtVerificationException("unparseable payload", e)
+        }
+
     private fun decodeB64OrReject(
         s: String,
         reason: String,
-    ): ByteArray = runCatching { URL_NO_PAD.decode(s) }.getOrElse { throw JwtVerificationException(reason, it) }
+    ): ByteArray =
+        try {
+            URL_NO_PAD.decode(s)
+        } catch (e: IllegalArgumentException) {
+            throw JwtVerificationException(reason, e)
+        }
 
     private fun constantTimeEquals(
         a: ByteArray,

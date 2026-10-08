@@ -94,13 +94,45 @@ internal suspend fun firehoseGateReason(
     bookAccessPolicy: () -> BookAccessPolicy,
 ): String? =
     when {
-        isBookEventHidden(busEvent, userId, role, bookAccessPolicy) -> "book"
-        isActivityEventHidden(busEvent, userId, role, bookAccessPolicy) -> "activity"
-        isCollectionEventHidden(busEvent, userId, role, bookAccessPolicy) -> "collection"
-        isBookJunctionEventHidden(busEvent, userId, role, bookAccessPolicy) -> "bookJunction"
-        isEntityEventHidden(busEvent, userId, role, bookAccessPolicy) -> "entity"
+        isBookEventHidden(
+            busEvent = busEvent,
+            userId = userId,
+            role = role,
+            bookAccessPolicy = bookAccessPolicy,
+        ) -> "book"
+
+        isActivityEventHidden(
+            busEvent = busEvent,
+            userId = userId,
+            role = role,
+            bookAccessPolicy = bookAccessPolicy,
+        ) -> "activity"
+
+        isCollectionEventHidden(
+            busEvent = busEvent,
+            userId = userId,
+            role = role,
+            bookAccessPolicy = bookAccessPolicy,
+        ) -> "collection"
+
+        isBookJunctionEventHidden(
+            busEvent = busEvent,
+            userId = userId,
+            role = role,
+            bookAccessPolicy = bookAccessPolicy,
+        ) -> "bookJunction"
+
+        isEntityEventHidden(
+            busEvent = busEvent,
+            userId = userId,
+            role = role,
+            bookAccessPolicy = bookAccessPolicy,
+        ) -> "entity"
+
         isLibraryFolderEventHidden(busEvent, role) -> "libraryFolder"
+
         isAdminRosterEventHidden(busEvent, role) -> "adminRoster"
+
         else -> null
     }
 
@@ -207,8 +239,8 @@ private fun junctionPayloadBookId(payload: Any?): String? =
  */
 private fun activityBookIdOf(event: SyncEvent<*>): String? =
     when (event) {
-        is SyncEvent.Created<*> -> (event.payload as ActivitySyncPayload).bookId
-        is SyncEvent.Updated<*> -> (event.payload as ActivitySyncPayload).bookId
+        is SyncEvent.Created<*> -> (checkNotNull(event.payload) as ActivitySyncPayload).bookId
+        is SyncEvent.Updated<*> -> (checkNotNull(event.payload) as ActivitySyncPayload).bookId
         is SyncEvent.Deleted -> null
     }
 
@@ -227,11 +259,16 @@ private suspend fun isEntityEventHidden(
     if (role.isAdmin()) return false
     val payload =
         when (val event = busEvent.event) {
-            is SyncEvent.Created<*> -> event.payload as EntitySyncPayload
-            is SyncEvent.Updated<*> -> event.payload as EntitySyncPayload
+            is SyncEvent.Created<*> -> checkNotNull(event.payload) as EntitySyncPayload
+            is SyncEvent.Updated<*> -> checkNotNull(event.payload) as EntitySyncPayload
             is SyncEvent.Deleted -> return false
         }
-    return !bookAccessPolicy().canSeeEntityHome(userId, role, payload.homeSeriesId, payload.homeBookId)
+    return !bookAccessPolicy().canSeeEntityHome(
+        userId = userId,
+        role = role,
+        homeSeriesId = payload.homeSeriesId,
+        homeBookId = payload.homeBookId,
+    )
 }
 
 /**
@@ -320,8 +357,8 @@ private suspend fun isCollectionEventHidden(
  */
 private fun collectionBookPayloadOf(event: SyncEvent<*>): CollectionBookSyncPayload? =
     when (event) {
-        is SyncEvent.Created<*> -> event.payload as CollectionBookSyncPayload
-        is SyncEvent.Updated<*> -> event.payload as CollectionBookSyncPayload
+        is SyncEvent.Created<*> -> checkNotNull(event.payload) as CollectionBookSyncPayload
+        is SyncEvent.Updated<*> -> checkNotNull(event.payload) as CollectionBookSyncPayload
         is SyncEvent.Deleted -> null
     }
 
@@ -332,8 +369,8 @@ private fun collectionBookPayloadOf(event: SyncEvent<*>): CollectionBookSyncPayl
  */
 private fun sharePayloadOf(event: SyncEvent<*>): CollectionShareSyncPayload? =
     when (event) {
-        is SyncEvent.Created<*> -> event.payload as CollectionShareSyncPayload
-        is SyncEvent.Updated<*> -> event.payload as CollectionShareSyncPayload
+        is SyncEvent.Created<*> -> checkNotNull(event.payload) as CollectionShareSyncPayload
+        is SyncEvent.Updated<*> -> checkNotNull(event.payload) as CollectionShareSyncPayload
         is SyncEvent.Deleted -> null
     }
 

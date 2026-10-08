@@ -77,8 +77,12 @@ class OrganizePlanBuilder(
                     // the collision loop below — its own path is already in `occupiedTargets` from
                     // the seeding pass, so `add` would fail against ITSELF and suffix it to
                     // "Title (2)". It already owns this target; nothing to resolve.
-                    renameOnlyEntry(payloadsById[book.id], folderRoot, book.root_rel_path, book.id)
-                        ?.let { entries += it }
+                    renameOnlyEntry(
+                        payload = payloadsById[book.id],
+                        folderRoot = folderRoot,
+                        rootRelPath = book.root_rel_path,
+                        bookId = book.id,
+                    )?.let { entries += it }
                     continue
                 }
 
@@ -93,14 +97,20 @@ class OrganizePlanBuilder(
                 val fromDir = Path(folderRoot, book.root_rel_path)
                 val toDir = Path(folderRoot, candidate)
                 val files = filesToMove(fromDir, toDir)
-                val rename = audioRenameFor(payloadsById[book.id], fromDir, candidate, files)
+                val rename =
+                    audioRenameFor(
+                        payload = payloadsById[book.id],
+                        fromDir = fromDir,
+                        toRootRelPath = candidate,
+                        files = files,
+                    )
                 entries +=
                     MovePlanEntry(
                         bookId = book.id,
                         fromDir = fromDir,
                         toDir = toDir,
                         toRootRelPath = candidate,
-                        files = applyRename(files, fromDir, toDir, rename),
+                        files = applyRename(files = files, fromDir = fromDir, toDir = toDir, rename = rename),
                         collisionResolved = collisionResolved,
                         audioRename = rename,
                     )
@@ -180,7 +190,12 @@ class OrganizePlanBuilder(
 
             val planned = OrganizerPathPlanner.planFor(payload.toOrganizeFacts(), settings)
             if (planned == book.root_rel_path) {
-                return@suspendTransaction renameOnlyEntry(payload, folderRoot, book.root_rel_path, bookId.value)
+                return@suspendTransaction renameOnlyEntry(
+                    payload = payload,
+                    folderRoot = folderRoot,
+                    rootRelPath = book.root_rel_path,
+                    bookId = bookId.value,
+                )
             }
 
             var candidate = planned
@@ -194,13 +209,14 @@ class OrganizePlanBuilder(
             val fromDir = Path(folderRoot, book.root_rel_path)
             val toDir = Path(folderRoot, candidate)
             val files = filesToMove(fromDir, toDir)
-            val rename = audioRenameFor(payload, fromDir, candidate, files)
+            val rename =
+                audioRenameFor(payload = payload, fromDir = fromDir, toRootRelPath = candidate, files = files)
             MovePlanEntry(
                 bookId = bookId.value,
                 fromDir = fromDir,
                 toDir = toDir,
                 toRootRelPath = candidate,
-                files = applyRename(files, fromDir, toDir, rename),
+                files = applyRename(files = files, fromDir = fromDir, toDir = toDir, rename = rename),
                 collisionResolved = collisionResolved,
                 audioRename = rename,
             )
@@ -269,10 +285,8 @@ private fun audioRenameFor(
  */
 private fun BookSyncPayload?.singleAudioFilename(): String? =
     this
-        ?.audioFiles
-        ?.singleOrNull()
-        ?.filename
-        ?.takeUnless { it.contains('/') }
+        ?.run { audioFiles.singleOrNull() }
+        ?.run { filename.takeUnless { it.contains('/') } }
 
 /**
  * [current] renamed to match the folder leaf of [toRootRelPath], keeping its extension — or `null`

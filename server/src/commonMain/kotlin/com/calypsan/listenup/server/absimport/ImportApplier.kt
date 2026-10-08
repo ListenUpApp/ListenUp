@@ -123,7 +123,12 @@ class ImportApplier internal constructor(
                 // that aren't in this library. Computed once over the raw data — independent of the
                 // write loops, which simply skip the unresolvable rows.
                 val booksNotInLibrary =
-                    mappedUserBooksNotInLibrary(progress, sessions, mapping.userMappings, effectiveBooks)
+                    mappedUserBooksNotInLibrary(
+                        progress = progress,
+                        sessions = sessions,
+                        userMappings = mapping.userMappings,
+                        effectiveBooks = effectiveBooks,
+                    )
                 // Earliest imported session start per raw (ABS user, ABS item) — used to date the
                 // imported STARTED_BOOK activity strictly before the book's own sessions, so the
                 // activity feed doesn't show a start AFTER the listening it kicked off.
@@ -140,15 +145,21 @@ class ImportApplier internal constructor(
                     withContext(FirehoseSuppressed + StatsCascadeDeferred) {
                         val perUser =
                             recordAll(
-                                progress,
-                                mapping.userMappings,
-                                effectiveBooks,
-                                earliestSessionStartMs,
-                                affectedUsers,
-                                onEvent,
+                                progress = progress,
+                                userMappings = mapping.userMappings,
+                                effectiveBooks = effectiveBooks,
+                                earliestSessionStartMs = earliestSessionStartMs,
+                                affectedUsers = affectedUsers,
+                                onEvent = onEvent,
                             )
                         val sessionsImported =
-                            recordSessions(sessions, mapping.userMappings, effectiveBooks, affectedUsers, onEvent)
+                            recordSessions(
+                                sessions = sessions,
+                                userMappings = mapping.userMappings,
+                                effectiveBooks = effectiveBooks,
+                                affectedUsers = affectedUsers,
+                                onEvent = onEvent,
+                            )
                         ImportResult(
                             importedCount = perUser.values.sum(),
                             sessionsImported = sessionsImported,
@@ -201,7 +212,7 @@ class ImportApplier internal constructor(
      * and logged rather than propagated. [CancellationException] still needs to win — the coroutine
      * is being torn down, so nothing further should run.
      */
-    private suspend fun broadcastLibraryDataChangedBestEffort() {
+    private fun broadcastLibraryDataChangedBestEffort() {
         try {
             changeBus.broadcastControl(SyncControl.LibraryDataChanged)
         } catch (broadcastError: CancellationException) {
@@ -303,14 +314,14 @@ class ImportApplier internal constructor(
                 affectedUsers += targetUser.value
             }
             if ((index + 1) % APPLY_EVENT_INTERVAL == 0) {
-                onEvent(ImportEvent.Applying(done = index + 1, total = total, currentItem = lastItem ?: row.itemId))
+                onEvent(ImportEvent.Applying(done = index + 1, total = total, currentItem = lastItem))
             }
         }
 
         playbackPositionRepository.recordAllForImport(writes)
 
         if (total > 0) {
-            onEvent(ImportEvent.Applying(done = total, total = total, currentItem = lastItem ?: ""))
+            onEvent(ImportEvent.Applying(done = total, total = total, currentItem = lastItem.orEmpty()))
         }
         return perUser
     }
@@ -353,7 +364,7 @@ class ImportApplier internal constructor(
                     ImportEvent.Applying(
                         done = index + 1,
                         total = total,
-                        currentItem = lastItem ?: session.itemId,
+                        currentItem = lastItem,
                         sessionsWritten = writes.size,
                     ),
                 )
@@ -368,7 +379,7 @@ class ImportApplier internal constructor(
                 ImportEvent.Applying(
                     done = total,
                     total = total,
-                    currentItem = lastItem ?: "",
+                    currentItem = lastItem.orEmpty(),
                     sessionsWritten = imported,
                 ),
             )

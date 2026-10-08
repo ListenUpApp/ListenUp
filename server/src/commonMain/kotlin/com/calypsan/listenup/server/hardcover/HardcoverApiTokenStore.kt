@@ -10,7 +10,7 @@ import kotlin.time.Clock
  * The admin's API token as a catalogue read uses it: the token, and whose Hardcover account it is.
  * [toString] never prints the token.
  */
-class UsableApiToken(
+data class UsableApiToken(
     val token: String,
     val username: String,
 ) {

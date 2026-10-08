@@ -37,7 +37,10 @@ internal const val SPAWN_FAILED_EXIT_CODE = -1
  *
  * Lives in commonMain because both actuals need exactly this and the reasoning above is too subtle
  * to keep two copies of.
+ *
+ * The cancellation IS rethrown — after the kill, which is the whole point of this function.
  */
+@Suppress("SuspendFunSwallowedCancellation")
 internal suspend fun runKillingChildOnCancellation(
     killChild: () -> Unit,
     blockingWork: () -> Int,

@@ -48,12 +48,12 @@ internal class ProfileServiceImpl(
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : ProfileService {
     override suspend fun getMyProfile(): AppResult<Profile> {
-        val userId =
-            principal.current()?.userId?.value
+        val callerId =
+            principal.current()?.run { userId.value }
                 ?: return AppResult.Failure(AuthError.PermissionDenied())
         return suspendTransaction(sql) {
             val u =
-                sql.usersQueries.selectById(userId).executeAsOneOrNull()
+                sql.usersQueries.selectById(callerId).executeAsOneOrNull()
                     ?: return@suspendTransaction AppResult.Failure(AuthError.PermissionDenied())
             AppResult.Success(u.toProfile())
         }

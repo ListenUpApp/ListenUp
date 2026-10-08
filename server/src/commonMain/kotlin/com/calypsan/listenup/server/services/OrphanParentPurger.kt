@@ -13,7 +13,7 @@ import com.calypsan.listenup.server.sync.TagRepository
  * post-cascade orphan check knows which parents to re-evaluate, even on a crash-resume run where the
  * junctions are already tombstoned.
  */
-class LinkedParents(
+data class LinkedParents(
     val contributorIds: List<String>,
     val seriesIds: List<String>,
     val genreIds: List<String>,

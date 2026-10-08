@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.server.cover.StoredCoverInfo
-import com.calypsan.listenup.server.db.sqldelight.TransactionLocal
 import com.calypsan.listenup.server.db.sqldelight.currentTransactionLocal
 
 /**
@@ -15,7 +14,7 @@ import com.calypsan.listenup.server.db.sqldelight.currentTransactionLocal
  * carried value onto whatever thread the transaction body runs on (after the `sqlIoDispatcher` hop),
  * and `writePayload` reads it back via [current] with no suspension and no cross-coroutine race.
  */
-class BookWriteExtras(
+data class BookWriteExtras(
     val managedCover: StoredCoverInfo? = null,
     /**
      * The library's target system collection id (pure-union membership model), set only when a

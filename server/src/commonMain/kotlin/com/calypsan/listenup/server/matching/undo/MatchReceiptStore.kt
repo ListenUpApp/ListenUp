@@ -95,7 +95,13 @@ internal object MatchReceiptCodec {
         bookRevision: Long,
     ): LastMatch? =
         if (row.undone_at == null && row.revision_after == bookRevision) {
-            LastMatch(row.id, row.applied_at, row.applied_by, row.revision_after, decodeChanges(row.changes))
+            LastMatch(
+                receiptId = row.id,
+                appliedAt = row.applied_at,
+                appliedBy = row.applied_by,
+                revision = row.revision_after,
+                changes = decodeChanges(row.changes),
+            )
         } else {
             null
         }
@@ -125,17 +131,17 @@ internal class MatchReceiptStore(
 
     /** The receipt [id], or null. Inside an open transaction. */
     fun findInTransaction(id: String): MatchReceiptRow? =
-        db.matchReceiptsQueries.selectById(id).executeAsOneOrNull()?.let {
+        db.matchReceiptsQueries.selectById(id).executeAsOneOrNull()?.let { row ->
             MatchReceiptRow(
-                id = it.id,
-                entity = it.entity_kind,
-                entityId = it.entity_id,
-                appliedBy = it.applied_by,
-                appliedAt = it.applied_at,
-                revisionAfter = it.revision_after,
-                snapshotJson = it.snapshot,
-                changes = MatchReceiptCodec.decodeChanges(it.changes),
-                undoneAt = it.undone_at,
+                id = row.id,
+                entity = row.entity_kind,
+                entityId = row.entity_id,
+                appliedBy = row.applied_by,
+                appliedAt = row.applied_at,
+                revisionAfter = row.revision_after,
+                snapshotJson = row.snapshot,
+                changes = MatchReceiptCodec.decodeChanges(row.changes),
+                undoneAt = row.undone_at,
             )
         }
 

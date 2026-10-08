@@ -63,8 +63,20 @@ internal object Mp4ChapterExtractor {
         moovAtom: Atom,
         durationMs: Long,
     ): List<Chapter> {
-        val udta = AtomWalker.findChild(bytes, moovAtom.dataOffset, moovAtom.end, "udta") ?: return emptyList()
-        val chpl = AtomWalker.findChild(bytes, udta.dataOffset, udta.end, "chpl") ?: return emptyList()
+        val udta =
+            AtomWalker.findChild(
+                bytes = bytes,
+                start = moovAtom.dataOffset,
+                end = moovAtom.end,
+                type = "udta",
+            ) ?: return emptyList()
+        val chpl =
+            AtomWalker.findChild(
+                bytes = bytes,
+                start = udta.dataOffset,
+                end = udta.end,
+                type = "chpl",
+            ) ?: return emptyList()
 
         // chpl layout: version(1) + flags(3) + reserved(4) + count(1) + entries.
         var p = chpl.dataOffset
@@ -80,7 +92,7 @@ internal object Mp4ChapterExtractor {
         if (count == 0) return emptyList()
 
         val starts = mutableListOf<Pair<Long, String>>()
-        for (i in 0 until count) {
+        for (ignored in 0 until count) {
             if (p + 8 > end) break
             val start100ns = AtomWalker.readBeInt64(bytes, p)
             p += 8
@@ -121,7 +133,7 @@ internal object Mp4ChapterExtractor {
     ): List<Chapter> {
         val chapterTrackId = findChapterTrackRef(bytes, moovAtom) ?: return emptyList()
         val chapterTrak = findTrackById(bytes, moovAtom, chapterTrackId) ?: return emptyList()
-        return parseTextTrackChapters(bytes, chapterTrak, durationMs, source)
+        return parseTextTrackChapters(bytes = bytes, trakAtom = chapterTrak, durationMs = durationMs, source = source)
     }
 
     /** Walk every `trak` looking for one whose `tref.chap` carries a track id. */
@@ -132,8 +144,20 @@ internal object Mp4ChapterExtractor {
         var found: Int? = null
         AtomWalker.forEachChild(bytes, moovAtom.dataOffset, moovAtom.end) { atom ->
             if (atom.type != "trak" || found != null) return@forEachChild
-            val tref = AtomWalker.findChild(bytes, atom.dataOffset, atom.end, "tref") ?: return@forEachChild
-            val chap = AtomWalker.findChild(bytes, tref.dataOffset, tref.end, "chap") ?: return@forEachChild
+            val tref =
+                AtomWalker.findChild(
+                    bytes = bytes,
+                    start = atom.dataOffset,
+                    end = atom.end,
+                    type = "tref",
+                ) ?: return@forEachChild
+            val chap =
+                AtomWalker.findChild(
+                    bytes = bytes,
+                    start = tref.dataOffset,
+                    end = tref.end,
+                    type = "chap",
+                ) ?: return@forEachChild
             if (chap.dataSize < 4) return@forEachChild
             found = AtomWalker.readBeInt32(bytes, chap.dataOffset)
         }
@@ -149,7 +173,13 @@ internal object Mp4ChapterExtractor {
         var found: Atom? = null
         AtomWalker.forEachChild(bytes, moovAtom.dataOffset, moovAtom.end) { atom ->
             if (atom.type != "trak" || found != null) return@forEachChild
-            val tkhd = AtomWalker.findChild(bytes, atom.dataOffset, atom.end, "tkhd") ?: return@forEachChild
+            val tkhd =
+                AtomWalker.findChild(
+                    bytes = bytes,
+                    start = atom.dataOffset,
+                    end = atom.end,
+                    type = "tkhd",
+                ) ?: return@forEachChild
             // tkhd v0: version(1) + flags(3) + creation(4) + modification(4) + track_id(4)
             // tkhd v1: version(1) + flags(3) + creation(8) + modification(8) + track_id(4)
             // A box too short to hold even the v0 layout carries no readable track id — skip this
@@ -171,9 +201,27 @@ internal object Mp4ChapterExtractor {
         durationMs: Long,
         source: SeekableSource,
     ): List<Chapter> {
-        val mdia = AtomWalker.findChild(bytes, trakAtom.dataOffset, trakAtom.end, "mdia") ?: return emptyList()
-        val minf = AtomWalker.findChild(bytes, mdia.dataOffset, mdia.end, "minf") ?: return emptyList()
-        val stbl = AtomWalker.findChild(bytes, minf.dataOffset, minf.end, "stbl") ?: return emptyList()
+        val mdia =
+            AtomWalker.findChild(
+                bytes = bytes,
+                start = trakAtom.dataOffset,
+                end = trakAtom.end,
+                type = "mdia",
+            ) ?: return emptyList()
+        val minf =
+            AtomWalker.findChild(
+                bytes = bytes,
+                start = mdia.dataOffset,
+                end = mdia.end,
+                type = "minf",
+            ) ?: return emptyList()
+        val stbl =
+            AtomWalker.findChild(
+                bytes = bytes,
+                start = minf.dataOffset,
+                end = minf.end,
+                type = "stbl",
+            ) ?: return emptyList()
 
         val timescale = parseTrackTimescale(bytes, mdia)
         val sampleStartsMs = parseSampleStartsMs(bytes, stbl, timescale)
@@ -231,7 +279,13 @@ internal object Mp4ChapterExtractor {
         bytes: ByteArray,
         mdiaAtom: Atom,
     ): Int {
-        val mdhd = AtomWalker.findChild(bytes, mdiaAtom.dataOffset, mdiaAtom.end, "mdhd") ?: return 1000
+        val mdhd =
+            AtomWalker.findChild(
+                bytes = bytes,
+                start = mdiaAtom.dataOffset,
+                end = mdiaAtom.end,
+                type = "mdhd",
+            ) ?: return 1000
         // Too short to hold even the v0 layout — fall back to the default timescale exactly as a
         // missing mdhd does, rather than indexing a version byte the box does not carry.
         if (mdhd.dataOffset + MDHD_MIN_PAYLOAD_BYTES > mdhd.end) return 1000
@@ -248,7 +302,13 @@ internal object Mp4ChapterExtractor {
         stblAtom: Atom,
         timescale: Int,
     ): List<Long> {
-        val stts = AtomWalker.findChild(bytes, stblAtom.dataOffset, stblAtom.end, "stts") ?: return emptyList()
+        val stts =
+            AtomWalker.findChild(
+                bytes = bytes,
+                start = stblAtom.dataOffset,
+                end = stblAtom.end,
+                type = "stts",
+            ) ?: return emptyList()
         var p = stts.dataOffset + 4 // skip version+flags
         val end = stts.end
         if (p + 4 > end) return emptyList()
@@ -260,13 +320,13 @@ internal object Mp4ChapterExtractor {
         // ~4.3 billion) and doesn't consume any buffer bytes per unit — cap the TOTAL
         // number of starts produced across every entry against MAX_SAMPLE_ENTRIES so a
         // corrupt/malicious entry can't drive an unbounded `MutableList<Long>` append loop.
-        entryLoop@ for (i in 0 until entryCount) {
-            if (p + 8 > end) break
+        for (ignored in 0 until entryCount) {
+            if (starts.size >= MAX_SAMPLE_ENTRIES || p + 8 > end) break
             val sampleCount = AtomWalker.readBeUInt32(bytes, p)
             val sampleDelta = AtomWalker.readBeUInt32(bytes, p + 4)
             p += 8
-            for (j in 0 until sampleCount) {
-                if (starts.size >= MAX_SAMPLE_ENTRIES) break@entryLoop
+            val emitCount = minOf(sampleCount, (MAX_SAMPLE_ENTRIES - starts.size).toLong()).toInt()
+            repeat(emitCount) {
                 starts += (cursorTimescaleUnits * 1000L) / timescale.toLong()
                 cursorTimescaleUnits += sampleDelta
             }
@@ -278,7 +338,13 @@ internal object Mp4ChapterExtractor {
         bytes: ByteArray,
         stblAtom: Atom,
     ): IntArray {
-        val stsz = AtomWalker.findChild(bytes, stblAtom.dataOffset, stblAtom.end, "stsz") ?: return IntArray(0)
+        val stsz =
+            AtomWalker.findChild(
+                bytes = bytes,
+                start = stblAtom.dataOffset,
+                end = stblAtom.end,
+                type = "stsz",
+            ) ?: return IntArray(0)
         var p = stsz.dataOffset + 4 // skip version+flags
         val end = stsz.end
         if (p + 8 > end) return IntArray(0)
@@ -314,8 +380,18 @@ internal object Mp4ChapterExtractor {
         bytes: ByteArray,
         stblAtom: Atom,
     ): LongArray {
-        val stco = AtomWalker.findChild(bytes, stblAtom.dataOffset, stblAtom.end, "stco")
-        val co64 = if (stco == null) AtomWalker.findChild(bytes, stblAtom.dataOffset, stblAtom.end, "co64") else null
+        val stco = AtomWalker.findChild(bytes = bytes, start = stblAtom.dataOffset, end = stblAtom.end, type = "stco")
+        val co64 =
+            if (stco == null) {
+                AtomWalker.findChild(
+                    bytes = bytes,
+                    start = stblAtom.dataOffset,
+                    end = stblAtom.end,
+                    type = "co64",
+                )
+            } else {
+                null
+            }
         val (atom, is64) =
             when {
                 stco != null -> stco to false
@@ -394,7 +470,13 @@ internal fun extractMp4Chapters(
 ): Mp4ChapterResult {
     val nero = Mp4ChapterExtractor.readNeroChpl(bytes, moovAtom, durationMs)
     if (nero.isNotEmpty()) return Mp4ChapterResult(nero, ChapterSource.Mp4Chpl)
-    val apple = Mp4ChapterExtractor.readAppleTextTrack(bytes, moovAtom, durationMs, source)
+    val apple =
+        Mp4ChapterExtractor.readAppleTextTrack(
+            bytes = bytes,
+            moovAtom = moovAtom,
+            durationMs = durationMs,
+            source = source,
+        )
     if (apple.isNotEmpty()) return Mp4ChapterResult(apple, ChapterSource.Mp4TextTrack)
     return Mp4ChapterResult(emptyList(), ChapterSource.None)
 }

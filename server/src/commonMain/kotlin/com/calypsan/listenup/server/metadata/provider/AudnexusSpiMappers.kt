@@ -61,8 +61,7 @@ internal fun AudnexusBook.toBookCoreMeta(): BookCoreMeta =
  */
 private fun AudnexusBook.fullDescription(): String? =
     (summary?.takeIf { it.isNotBlank() } ?: description?.takeIf { it.isNotBlank() })
-        ?.let { HtmlToMarkdown.convert(it).trim() }
-        ?.takeIf { it.isNotBlank() }
+        ?.let { raw -> HtmlToMarkdown.convert(raw).trim().takeIf { it.isNotBlank() } }
 
 /** Maps an Audnexus author credit to a [BookContributorMeta] (its ASIN is the profile key). */
 internal fun AudnexusAuthor.toBookContributorMeta(): BookContributorMeta =
@@ -105,7 +104,7 @@ internal fun AudnexusChapter.toChapterMeta(): ChapterMeta =
 
 /** Selects the single Audnexus cover: its [AudnexusBook.image], keyed by ASIN. Empty when absent. */
 internal fun AudnexusBook.toCoverMetas(): List<CoverMeta> =
-    image?.takeIf { it.isNotBlank() }?.let { listOf(CoverMeta(url = it, sourceKey = asin)) } ?: emptyList()
+    image?.takeIf { it.isNotBlank() }?.let { listOf(CoverMeta(url = it, sourceKey = asin)) }.orEmpty()
 
 /**
  * Maps an Audnexus book's primary + secondary series placements to neutral [SeriesMeta]s, in that
@@ -116,13 +115,13 @@ internal fun AudnexusBook.toSeriesMetas(): List<SeriesMeta> =
 
 /** Maps an Audnexus series placement to a [SeriesMeta], or `null` when its name is blank. */
 internal fun AudnexusSeries.toSeriesMetaOrNull(): SeriesMeta? =
-    name.takeIf { it.isNotBlank() }?.let {
+    name.takeIf { it.isNotBlank() }?.let { title ->
         SeriesMeta(
             key =
                 asin?.takeIf { a ->
                     a.isNotBlank()
                 },
-            title = it,
+            title = title,
             sequence = position?.takeIf { p -> p.isNotBlank() },
         )
     }

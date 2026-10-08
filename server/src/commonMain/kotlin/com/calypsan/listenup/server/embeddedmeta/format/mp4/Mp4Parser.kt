@@ -100,7 +100,7 @@ internal class Mp4Parser : AudioFormatParser {
             )
 
         val mvhd =
-            AtomWalker.findChild(moovBytes, moov.dataOffset, moov.end, "mvhd")
+            AtomWalker.findChild(bytes = moovBytes, start = moov.dataOffset, end = moov.end, type = "mvhd")
                 ?: return AppResult.Failure(
                     AudioMetadataError.CorruptHeader(
                         pathString = "<source>",
@@ -118,7 +118,8 @@ internal class Mp4Parser : AudioFormatParser {
             val tags = ilstResult?.tags ?: emptyAudioTags()
             val artwork = ilstResult?.artwork
 
-            val chapterResult = extractMp4Chapters(moovBytes, moov, durationMs, source)
+            val chapterResult =
+                extractMp4Chapters(bytes = moovBytes, moovAtom = moov, durationMs = durationMs, source = source)
 
             val audioStream =
                 try {
@@ -193,11 +194,23 @@ internal class Mp4Parser : AudioFormatParser {
         bytes: ByteArray,
         moov: Atom,
     ): Atom? {
-        val udta = AtomWalker.findChild(bytes, moov.dataOffset, moov.end, "udta") ?: return null
-        val meta = AtomWalker.findChild(bytes, udta.dataOffset, udta.end, "meta") ?: return null
+        val udta =
+            AtomWalker.findChild(
+                bytes = bytes,
+                start = moov.dataOffset,
+                end = moov.end,
+                type = "udta",
+            ) ?: return null
+        val meta =
+            AtomWalker.findChild(
+                bytes = bytes,
+                start = udta.dataOffset,
+                end = udta.end,
+                type = "meta",
+            ) ?: return null
         // meta has a 4-byte version+flags prefix before its child atoms.
         val metaChildStart = meta.dataOffset + 4
-        return AtomWalker.findChild(bytes, metaChildStart, meta.end, "ilst")
+        return AtomWalker.findChild(bytes = bytes, start = metaChildStart, end = meta.end, type = "ilst")
     }
 
     /**

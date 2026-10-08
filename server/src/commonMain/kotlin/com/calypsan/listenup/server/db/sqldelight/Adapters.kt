@@ -1,7 +1,5 @@
 package com.calypsan.listenup.server.db.sqldelight
 
-import app.cash.sqldelight.ColumnAdapter
-
 /**
  * Column adapters for SQLDelight queries. Each aggregate adds its adapters here as it migrates
  * from Exposed to SQLDelight — the [ListenUpDatabase] constructor accepts them by name.

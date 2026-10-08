@@ -62,15 +62,15 @@ internal class AdminSettingsServiceImpl(
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): AdminSettingsServiceImpl =
         AdminSettingsServiceImpl(
-            settings,
-            changeBus,
-            libraryRegistry,
-            libraryRepository,
-            provider,
-            sourceSettings,
-            externalRatings,
-            providerRegistry,
-            hardcoverSource,
+            settings = settings,
+            changeBus = changeBus,
+            libraryRegistry = libraryRegistry,
+            libraryRepository = libraryRepository,
+            principal = provider,
+            sourceSettings = sourceSettings,
+            externalRatings = externalRatings,
+            providerRegistry = providerRegistry,
+            hardcoverSource = hardcoverSource,
         )
 
     override suspend fun getServerSettings(): AppResult<AdminServerSettings> {
@@ -81,7 +81,7 @@ internal class AdminSettingsServiceImpl(
     override suspend fun updateServerSettings(patch: AdminServerSettingsPatch): AppResult<AdminServerSettings> {
         requireAdmin()?.let { return it }
         // Validated before any write, so a refused store leaves every other field of the patch unapplied.
-        val region = patch.metadataRegion?.trim()?.lowercase()
+        val region = patch.metadataRegion?.run { trim().lowercase() }
         if (region != null && MetadataLocale.SUPPORTED.none { it.region == region }) {
             return AppResult.Failure(AdminError.InvalidInput())
         }
@@ -113,8 +113,8 @@ internal class AdminSettingsServiceImpl(
             settings.setValue(SIDECAR_WRITES_ENABLED_KEY, enabled.toString())
             changed = true
         }
-        region?.let {
-            when (val r = libraryRepository.setMetadataRegion(libraryRegistry.currentLibrary(), it)) {
+        region?.let { newRegion ->
+            when (val r = libraryRepository.setMetadataRegion(libraryRegistry.currentLibrary(), newRegion)) {
                 is AppResult.Failure -> return AppResult.Failure(r.error)
                 is AppResult.Success -> changed = true
             }
@@ -198,7 +198,7 @@ internal class AdminSettingsServiceImpl(
             holdNewBooksForReview = libraryRepository.readHoldNewBooksForReview(libraryRegistry.currentLibrary()),
             pushNotificationsEnabled = settings.pushNotificationsEnabled(),
             // Absent key = enabled (spec: sidecar writes are on by default).
-            sidecarWritesEnabled = settings.getValue(SIDECAR_WRITES_ENABLED_KEY)?.toBooleanStrictOrNull() ?: true,
+            sidecarWritesEnabled = settings.getValue(SIDECAR_WRITES_ENABLED_KEY)?.toBooleanStrictOrNull() != false,
             metadataRegion =
                 libraryRepository.readMetadataRegion(libraryRegistry.currentLibrary()) ?: MetadataLocale.DEFAULT.region,
         )

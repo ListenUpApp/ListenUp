@@ -114,19 +114,19 @@ class InviteServiceImpl(
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): InviteServiceImpl =
         InviteServiceImpl(
-            db,
-            codeGenerator,
-            hasher,
-            sessionIssuer,
-            serverName,
-            clock,
-            provider,
-            defaultGrantIssuer,
-            adminUserRosterMaintainer,
-            remoteHost,
-            inviteRateLimiter,
-            activityRecorder,
-            publicProfileMaintainer,
+            db = db,
+            codeGenerator = codeGenerator,
+            hasher = hasher,
+            sessionIssuer = sessionIssuer,
+            serverName = serverName,
+            clock = clock,
+            principal = provider,
+            defaultGrantIssuer = defaultGrantIssuer,
+            adminUserRosterMaintainer = adminUserRosterMaintainer,
+            remoteHost = remoteHost,
+            inviteRateLimiter = inviteRateLimiter,
+            activityRecorder = activityRecorder,
+            publicProfileMaintainer = publicProfileMaintainer,
         )
 
     /**
@@ -136,19 +136,19 @@ class InviteServiceImpl(
      */
     fun withRemoteHost(remoteHost: String): InviteServiceImpl =
         InviteServiceImpl(
-            db,
-            codeGenerator,
-            hasher,
-            sessionIssuer,
-            serverName,
-            clock,
-            principal,
-            defaultGrantIssuer,
-            adminUserRosterMaintainer,
-            remoteHost,
-            inviteRateLimiter,
-            activityRecorder,
-            publicProfileMaintainer,
+            db = db,
+            codeGenerator = codeGenerator,
+            hasher = hasher,
+            sessionIssuer = sessionIssuer,
+            serverName = serverName,
+            clock = clock,
+            principal = principal,
+            defaultGrantIssuer = defaultGrantIssuer,
+            adminUserRosterMaintainer = adminUserRosterMaintainer,
+            remoteHost = remoteHost,
+            inviteRateLimiter = inviteRateLimiter,
+            activityRecorder = activityRecorder,
+            publicProfileMaintainer = publicProfileMaintainer,
         )
 
     override suspend fun createInvite(
@@ -265,7 +265,15 @@ class InviteServiceImpl(
         // is hoisted OUT: it opens its own session transaction, and the SQLDelight transaction body is
         // non-suspending — exactly the boundary AuthServiceImpl.register draws between commit and issue.
         val user: AuthUser =
-            when (val claim = claimUserAtomically(code, passwordHashed, trimmedDisplayName, now)) {
+            when (
+                val claim =
+                    claimUserAtomically(
+                        code = code,
+                        passwordHashed = passwordHashed,
+                        displayName = trimmedDisplayName,
+                        now = now,
+                    )
+            ) {
                 is AppResult.Failure -> return claim
                 is AppResult.Success -> claim.data
             }

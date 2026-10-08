@@ -25,7 +25,7 @@ fun Application.module() {
     val applicationScope = CoroutineScope(coroutineContext + SupervisorJob())
     val resolvedLibraryPaths =
         resolveLibraryPaths().ifEmpty {
-            resolveDemoLibraryFallback(seedProfile)?.let { listOf(it) } ?: emptyList()
+            resolveDemoLibraryFallback(seedProfile)?.let { listOf(it) }.orEmpty()
         }
     val homeDir = resolveImageHome()
     acquireDataDirLockIfEnabled(homeDir)
@@ -37,16 +37,16 @@ fun Application.module() {
     val hardcoverApiBaseUrl = resolveHardcoverApiBaseUrl()
 
     installDependencies(
-        seedProfile,
-        applicationScope,
-        homeDir,
-        metadataPrecedence,
-        embeddedCoverCacheSize,
-        environment.config.watchEnabled(),
-        pushRelayUrl,
-        pushSenderToken,
-        hardcoverClientId,
-        hardcoverApiBaseUrl,
+        seedProfile = seedProfile,
+        applicationScope = applicationScope,
+        homeDir = homeDir,
+        metadataPrecedence = metadataPrecedence,
+        embeddedCoverCacheSize = embeddedCoverCacheSize,
+        watchEnabled = environment.config.watchEnabled(),
+        pushRelayUrl = pushRelayUrl,
+        pushSenderToken = pushSenderToken,
+        hardcoverClientId = hardcoverClientId,
+        hardcoverApiBaseUrl = hardcoverApiBaseUrl,
     )
 
     backfillPublicProfiles()

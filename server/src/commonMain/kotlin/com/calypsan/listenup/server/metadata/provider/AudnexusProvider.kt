@@ -104,7 +104,7 @@ internal class AudnexusProvider(
         locale: MetadataLocale,
     ): AppResult<List<GenreMeta>?> {
         val asin = book.asin ?: return AppResult.Success(null)
-        return fetchBook(asin, locale.region, refresh = false).map { it?.genres?.toGenreMetas() }
+        return fetchBook(asin, locale.region, refresh = false).map { it?.run { genres.toGenreMetas() } }
     }
 
     override suspend fun getSeries(
@@ -120,7 +120,7 @@ internal class AudnexusProvider(
         locale: MetadataLocale,
     ): AppResult<List<CoverMeta>> {
         val asin = book.asin ?: return AppResult.Success(emptyList())
-        return fetchBook(asin, locale.region, refresh = false).map { it?.toCoverMetas() ?: emptyList() }
+        return fetchBook(asin, locale.region, refresh = false).map { it?.toCoverMetas().orEmpty() }
     }
 
     override suspend fun getChapters(
@@ -130,11 +130,11 @@ internal class AudnexusProvider(
     ): AppResult<ChapterListMeta?> {
         val asin = book.asin ?: return AppResult.Success(null)
         return cachedNullable(
-            "chapters:$asin",
-            locale.region,
-            CHAPTER_TTL,
+            cacheKey = "chapters:$asin",
+            region = locale.region,
+            ttl = CHAPTER_TTL,
             refresh = refresh,
-            AudnexusChapters.serializer(),
+            serializer = AudnexusChapters.serializer(),
         ) {
             client.getChapters(asin, locale.region)
         }.map { it?.toChapterListMeta() }
@@ -145,10 +145,10 @@ internal class AudnexusProvider(
         locale: MetadataLocale,
     ): AppResult<List<ContributorHitMeta>> =
         cached(
-            "author-search:${name.trim().lowercase()}",
-            locale.region,
-            SEARCH_TTL,
-            ListSerializer(AudnexusAuthor.serializer()),
+            cacheKey = "author-search:${name.trim().lowercase()}",
+            region = locale.region,
+            ttl = SEARCH_TTL,
+            serializer = ListSerializer(AudnexusAuthor.serializer()),
         ) { client.searchAuthors(name, locale.region) }
             // Audnexus indexes an author once per catalogued region/edition, so a common name
             // returns the same ASIN several times over. One hit per author is the contract our
@@ -161,7 +161,13 @@ internal class AudnexusProvider(
         locale: MetadataLocale,
         refresh: Boolean,
     ): AppResult<ContributorMeta?> =
-        cachedNullable("author:$key", locale.region, AUTHOR_TTL, refresh, AudnexusAuthorProfile.serializer()) {
+        cachedNullable(
+            cacheKey = "author:$key",
+            region = locale.region,
+            ttl = AUTHOR_TTL,
+            refresh = refresh,
+            serializer = AudnexusAuthorProfile.serializer(),
+        ) {
             client.getAuthor(key, locale.region)
         }.map { it?.toContributorMeta() }
 
@@ -172,11 +178,11 @@ internal class AudnexusProvider(
         refresh: Boolean,
     ): AppResult<AudnexusBook?> =
         cachedNullable(
-            "book:$asin",
-            region,
-            BOOK_TTL,
-            refresh,
-            AudnexusBook.serializer(),
+            cacheKey = "book:$asin",
+            region = region,
+            ttl = BOOK_TTL,
+            refresh = refresh,
+            serializer = AudnexusBook.serializer(),
         ) { client.getBook(asin, region) }
 
     // ── Caching helpers (mirror MetadataService, provider-scoped to AUDNEXUS) ──
@@ -193,10 +199,10 @@ internal class AudnexusProvider(
             return try {
                 AppResult.Success(json.decodeFromString(serializer, cachedJson))
             } catch (_: SerializationException) {
-                fetchAndStore(cacheKey, region, ttl, serializer, fetch)
+                fetchAndStore(cacheKey = cacheKey, region = region, ttl = ttl, serializer = serializer, fetch = fetch)
             }
         }
-        return fetchAndStore(cacheKey, region, ttl, serializer, fetch)
+        return fetchAndStore(cacheKey = cacheKey, region = region, ttl = ttl, serializer = serializer, fetch = fetch)
     }
 
     /** Cache-through for a nullable value; a `null` result is stored as the sentinel `"null"`. */
@@ -217,11 +223,23 @@ internal class AudnexusProvider(
                         AppResult.Success(json.decodeFromString(serializer, cachedJson))
                     }
                 } catch (_: SerializationException) {
-                    fetchAndStoreNullable(cacheKey, region, ttl, serializer, fetch)
+                    fetchAndStoreNullable(
+                        cacheKey = cacheKey,
+                        region = region,
+                        ttl = ttl,
+                        serializer = serializer,
+                        fetch = fetch,
+                    )
                 }
             }
         }
-        return fetchAndStoreNullable(cacheKey, region, ttl, serializer, fetch)
+        return fetchAndStoreNullable(
+            cacheKey = cacheKey,
+            region = region,
+            ttl = ttl,
+            serializer = serializer,
+            fetch = fetch,
+        )
     }
 
     private suspend fun <T> fetchAndStore(
@@ -233,7 +251,13 @@ internal class AudnexusProvider(
     ): AppResult<T> {
         val result = fetch()
         if (result is AppResult.Success) {
-            cache.put(id, region, cacheKey, json.encodeToString(serializer, result.data), expiresAt(ttl))
+            cache.put(
+                provider = id,
+                region = region,
+                cacheKey = cacheKey,
+                payloadJson = json.encodeToString(serializer, result.data),
+                expiresAt = expiresAt(ttl),
+            )
         }
         return result
     }
@@ -248,7 +272,13 @@ internal class AudnexusProvider(
         val result = fetch()
         if (result is AppResult.Success) {
             val payload = result.data?.let { json.encodeToString(serializer, it) } ?: NULL_SENTINEL
-            cache.put(id, region, cacheKey, payload, expiresAt(ttl))
+            cache.put(
+                provider = id,
+                region = region,
+                cacheKey = cacheKey,
+                payloadJson = payload,
+                expiresAt = expiresAt(ttl),
+            )
         }
         return result
     }

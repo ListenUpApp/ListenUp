@@ -67,7 +67,7 @@ internal class WatcherSupervisor(
         watchersByFolder[folder.id] = handle
         foldersByLibrary.getOrPut(libraryId) { mutableSetOf() } += folder.id
         logger.info {
-            "Mounted watcher for library=${libraryId.value} folder=${folder.id.value} path=${folder.rootPath}"
+            "Mounted watcher for library=${libraryId.value} folder=${folder.id.value} path=${folder.rootPath ?: "(redacted)"}"
         }
     }
 

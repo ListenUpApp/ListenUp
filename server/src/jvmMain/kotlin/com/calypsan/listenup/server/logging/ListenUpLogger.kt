@@ -62,7 +62,7 @@ class ListenUpLogger(
     ) {
         val formattedMessage =
             if (arguments.isNullOrEmpty()) {
-                messagePattern ?: ""
+                messagePattern.orEmpty()
             } else {
                 MessageFormatter.arrayFormat(messagePattern, arguments).message
             }
@@ -73,9 +73,9 @@ class ListenUpLogger(
         val line =
             try {
                 if (factory.isJsonFormat) {
-                    formatJson(level, name, formattedMessage, throwable)
+                    formatJson(level = level, loggerName = name, message = formattedMessage, throwable = throwable)
                 } else {
-                    formatPlain(level, name, formattedMessage, throwable)
+                    formatPlain(level = level, loggerName = name, message = formattedMessage, throwable = throwable)
                 }
             } catch (e: CancellationException) {
                 throw e

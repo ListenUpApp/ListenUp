@@ -54,7 +54,16 @@ class HardcoverServiceImpl(
 ) : HardcoverService {
     /** Returns a copy scoped to [provider]. The RPC mount calls this per connection. */
     fun copyWith(provider: PrincipalProvider): HardcoverServiceImpl =
-        HardcoverServiceImpl(linker, clientIdConfigured, linking, pulls, preferences, history, keepOff, provider)
+        HardcoverServiceImpl(
+            linker = linker,
+            clientIdConfigured = clientIdConfigured,
+            linking = linking,
+            pulls = pulls,
+            preferences = preferences,
+            history = history,
+            keepOff = keepOff,
+            principal = provider,
+        )
 
     @OpenToAllMembers(reason = "the caller's own Hardcover link and history")
     override suspend fun startLink(): AppResult<HardcoverLinkPrompt> {
@@ -111,7 +120,13 @@ class HardcoverServiceImpl(
         hcEditionId: Long?,
     ): AppResult<Unit> {
         val caller = principal.current() ?: return permissionDenied()
-        return linking.link(caller.userId.value, caller.role, bookId.value, hcBookId, hcEditionId)
+        return linking.link(
+            userId = caller.userId.value,
+            role = caller.role,
+            bookId = bookId.value,
+            hcBookId = hcBookId,
+            hcEditionId = hcEditionId,
+        )
     }
 
     @OpenToAllMembers(reason = "the caller's own Hardcover link and history")
@@ -122,7 +137,14 @@ class HardcoverServiceImpl(
         method: HardcoverMatchMethod,
     ): AppResult<Unit> {
         val caller = principal.current() ?: return permissionDenied()
-        return linking.link(caller.userId.value, caller.role, bookId.value, hcBookId, hcEditionId, method)
+        return linking.link(
+            userId = caller.userId.value,
+            role = caller.role,
+            bookId = bookId.value,
+            hcBookId = hcBookId,
+            hcEditionId = hcEditionId,
+            method = method,
+        )
     }
 
     @OpenToAllMembers(reason = "the caller's own Hardcover link and history")
@@ -162,7 +184,12 @@ class HardcoverServiceImpl(
         synced: Boolean,
     ): AppResult<Unit> {
         val caller = principal.current() ?: return permissionDenied()
-        return keepOff.setSynced(caller.userId.value, caller.role, bookId.value, synced)
+        return keepOff.setSynced(
+            userId = caller.userId.value,
+            role = caller.role,
+            bookId = bookId.value,
+            synced = synced,
+        )
     }
 
     @OpenToAllMembers(reason = "a read of the caller's own Hardcover matches")
@@ -174,7 +201,7 @@ class HardcoverServiceImpl(
     private fun HardcoverConnection.offeredOrNot(): HardcoverConnection =
         if (!clientIdConfigured && this is HardcoverConnection.NotConnected) HardcoverConnection.NotOffered else this
 
-    private fun callerId(): String? = principal.current()?.userId?.value
+    private fun callerId(): String? = principal.current()?.run { userId.value }
 
     private fun permissionDenied(): AppResult.Failure = AppResult.Failure(AuthError.PermissionDenied())
 }

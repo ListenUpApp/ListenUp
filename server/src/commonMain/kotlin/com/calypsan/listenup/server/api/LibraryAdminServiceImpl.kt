@@ -162,7 +162,7 @@ internal class LibraryAdminServiceImpl(
             throw e
         } catch (e: Exception) {
             logger.warn(e) { "browseFilesystem: failed to read $path" }
-            AppResult.Failure(LibraryError.InvalidPath(debugInfo = "Error reading path $path: ${e.message}"))
+            AppResult.Failure(LibraryError.InvalidPath(debugInfo = "Error reading path $path: ${e.message.orEmpty()}"))
         }
     }
 
@@ -383,9 +383,9 @@ internal class LibraryAdminServiceImpl(
                 runCatching { AccessMode.valueOf(this.accessMode.uppercase()) }
                     .getOrDefault(AccessMode.SHARED),
             createdByUserId =
-                this.createdByUserId?.let {
+                this.createdByUserId?.let { userId ->
                     com.calypsan.listenup.api.dto.auth
-                        .UserId(it)
+                        .UserId(userId)
                 },
             createdAt = this.createdAt,
         )

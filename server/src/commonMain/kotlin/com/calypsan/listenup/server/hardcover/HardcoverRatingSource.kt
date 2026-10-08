@@ -113,10 +113,10 @@ class HardcoverRatingSource(
                     AppResult.Success(
                         result.candidates
                             .filter { it.count > 0 && it.average != null }
-                            .filter {
+                            .filter { candidate ->
                                 MatchScorer.isConfidentRatingMatch(
                                     book,
-                                    BookMatch(title = it.title, author = it.author, score = 0.0),
+                                    BookMatch(title = candidate.title, author = candidate.author, score = 0.0),
                                 )
                             }.maxByOrNull { it.count }
                             ?.let { ExternalRatingMeta(average = requireNotNull(it.average), count = it.count) },

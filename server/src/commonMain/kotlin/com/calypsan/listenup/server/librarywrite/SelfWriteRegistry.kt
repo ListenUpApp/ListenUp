@@ -27,8 +27,10 @@ class SelfWriteRegistry(
     fun register(
         path: Path,
         ttlMs: Long,
-    ) = synchronized(lock) {
-        claims[path.toString()] = clock() + ttlMs
+    ) {
+        synchronized(lock) {
+            claims[path.toString()] = clock() + ttlMs
+        }
     }
 
     /** True if [path] is currently claimed (registered and not yet expired). Does not consume the claim. */
@@ -55,9 +57,9 @@ class SelfWriteRegistry(
         }
 
     /** Clears a claim early — e.g. the write failed, so no matching filesystem event will ever arrive. */
-    fun release(path: Path) =
+    fun release(path: Path) {
         synchronized(lock) {
             claims.remove(path.toString())
-            Unit
         }
+    }
 }

@@ -49,7 +49,14 @@ class ImportServiceImpl(
 ) : ImportService {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): ImportServiceImpl =
-        ImportServiceImpl(store, analyzer, applier, validator, eventBus, provider)
+        ImportServiceImpl(
+            store = store,
+            analyzer = analyzer,
+            applier = applier,
+            validator = validator,
+            eventBus = eventBus,
+            principal = provider,
+        )
 
     override suspend fun analyze(importId: ImportId): AppResult<ImportAnalysis> {
         requireAdmin()?.let { return it }
@@ -109,7 +116,7 @@ class ImportServiceImpl(
      * is sufficient for v1.
      */
     override fun observeProgress(importId: ImportId): Flow<RpcEvent<ImportEvent>> =
-        if (principal.current()?.role?.isAdmin() == true) {
+        if (principal.current()?.run { role.isAdmin() } == true) {
             eventBus.map { RpcEvent.Data(it) }
         } else {
             emptyFlow()

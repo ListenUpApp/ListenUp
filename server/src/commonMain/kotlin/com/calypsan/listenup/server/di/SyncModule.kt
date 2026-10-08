@@ -63,19 +63,39 @@ fun syncModule(): Module =
         // Tag + BookTag + Mood + BookMood are SQLDelight conversions (the cutover template):
         // they resolve [ListenUpDatabase], not the Exposed [Database] the other repos use.
         single(createdAtStart = true) { TagRepository(get<ListenUpDatabase>(), get(), get()) }
-        single(
-            createdAtStart = true,
-        ) { BookTagRepository(get<ListenUpDatabase>(), get(), get(), driver = get<SqlDriver>()) }
+        single(createdAtStart = true) {
+            BookTagRepository(
+                db = get<ListenUpDatabase>(),
+                bus = get(),
+                registry = get(),
+                driver = get<SqlDriver>(),
+            )
+        }
         single(createdAtStart = true) { MoodRepository(get<ListenUpDatabase>(), get(), get()) }
-        single(
-            createdAtStart = true,
-        ) { BookMoodRepository(get<ListenUpDatabase>(), get(), get(), driver = get<SqlDriver>()) }
-        single(
-            createdAtStart = true,
-        ) { BookRatingRepository(get<ListenUpDatabase>(), get(), get(), driver = get<SqlDriver>()) }
-        single(
-            createdAtStart = true,
-        ) { BookExternalRatingRepository(get<ListenUpDatabase>(), get(), get(), driver = get<SqlDriver>()) }
+        single(createdAtStart = true) {
+            BookMoodRepository(
+                db = get<ListenUpDatabase>(),
+                bus = get(),
+                registry = get(),
+                driver = get<SqlDriver>(),
+            )
+        }
+        single(createdAtStart = true) {
+            BookRatingRepository(
+                db = get<ListenUpDatabase>(),
+                bus = get(),
+                registry = get(),
+                driver = get<SqlDriver>(),
+            )
+        }
+        single(createdAtStart = true) {
+            BookExternalRatingRepository(
+                db = get<ListenUpDatabase>(),
+                bus = get(),
+                registry = get(),
+                driver = get<SqlDriver>(),
+            )
+        }
         // Orphan-purge collaborator, co-located with the tag/mood/junction repos it reads: when a
         // book removal leaves a parent (contributor/series/genre/tag/mood) with zero live children,
         // BookRepository.softDelete captures the parents, then this tombstones the orphaned ones.
@@ -94,12 +114,27 @@ fun syncModule(): Module =
         // `extraWhere` subquery carries plain raw args; see each repo's pullSince override), so
         // these repos no longer hold an Exposed [Database].
         single(createdAtStart = true) {
-            CollectionRepository(get<ListenUpDatabase>(), get(), get(), driver = get<SqlDriver>())
+            CollectionRepository(
+                db = get<ListenUpDatabase>(),
+                bus = get(),
+                registry = get(),
+                driver = get<SqlDriver>(),
+            )
         }
         single(createdAtStart = true) {
-            CollectionBookRepository(get<ListenUpDatabase>(), get(), get(), driver = get<SqlDriver>())
+            CollectionBookRepository(
+                db = get<ListenUpDatabase>(),
+                bus = get(),
+                registry = get(),
+                driver = get<SqlDriver>(),
+            )
         }
         single(createdAtStart = true) {
-            CollectionGrantRepository(get<ListenUpDatabase>(), get(), get(), driver = get<SqlDriver>())
+            CollectionGrantRepository(
+                db = get<ListenUpDatabase>(),
+                bus = get(),
+                registry = get(),
+                driver = get<SqlDriver>(),
+            )
         }
     }

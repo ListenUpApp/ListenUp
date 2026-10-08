@@ -150,17 +150,17 @@ internal class Analyzer(
                     emptyMap()
                 }
             compose(
-                candidate,
-                shape,
-                parsed,
-                tracks,
-                cover,
-                embedded,
-                embeddedStatus,
-                metadata,
-                sidecar,
-                listenUp,
-                perTrackMetadata,
+                candidate = candidate,
+                shape = shape,
+                parsed = parsed,
+                tracks = tracks,
+                cover = cover,
+                embedded = embedded,
+                embeddedStatus = embeddedStatus,
+                metadata = metadata,
+                sidecar = sidecar,
+                listenUp = listenUp,
+                perTrackMetadata = perTrackMetadata,
             )
         }
 
@@ -249,7 +249,7 @@ internal class Analyzer(
 
             is AppResult.Failure -> {
                 logger.warn {
-                    "embeddedmeta parse failed path=$absolutePath err=${result.error.code} corr=${result.error.correlationId}"
+                    "embeddedmeta parse failed path=$absolutePath err=${result.error.code} corr=${result.error.correlationId ?: "none"}"
                 }
                 val status =
                     when (val err = result.error) {
@@ -296,7 +296,7 @@ internal class Analyzer(
                 logger.warn {
                     "synthesis per-track parse failed " +
                         "path=$absolutePath err=${result.error.code} " +
-                        "corr=${result.error.correlationId}"
+                        "corr=${result.error.correlationId ?: "none"}"
                 }
                 null
             }
@@ -356,7 +356,9 @@ internal class Analyzer(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            logger.warn(e) { "sidecar parser ${parser::class.simpleName} threw on ${file.relPath}; treating as null" }
+            logger.warn(
+                e,
+            ) { "sidecar parser ${parser::class.simpleName.orEmpty()} threw on ${file.relPath}; treating as null" }
             null
         }
     }
@@ -383,7 +385,16 @@ internal class Analyzer(
         sidecar: SidecarMetadata?,
         listenUp: ListenUpSidecar?,
     ): ResolvedTitle {
-        val titleSourced = pickTitle(candidate, shape, parsed, embedded, metadata, sidecar, listenUp)
+        val titleSourced =
+            pickTitle(
+                candidate = candidate,
+                shape = shape,
+                parsed = parsed,
+                embedded = embedded,
+                metadata = metadata,
+                sidecar = sidecar,
+                listenUp = listenUp,
+            )
         // A title always resolves; the rootRelPath fallback is path-derived, so its source is FOLDER.
         val titleProvenance = titleSourced?.provenance ?: FieldProvenance(FieldSourceKind.FOLDER)
         val rawTitle = titleSourced?.value ?: candidate.rootRelPath
@@ -398,30 +409,42 @@ internal class Analyzer(
             listenUpSourced(listenUp, BookField.SUBTITLE) { it.metadata.subtitle }
                 ?: firstSourced(
                     FieldSourceKind.ABS_METADATA to metadata?.subtitle,
-                    FieldSourceKind.EMBEDDED to embedded?.tags?.subtitle,
+                    FieldSourceKind.EMBEDDED to embedded?.run { this.tags.subtitle },
                     FieldSourceKind.SIDECAR to sidecar?.subtitle,
                     FieldSourceKind.FILENAME to parsed.subtitle,
                 )?.takeUnless { SeriesSuffixMatcher.isSeriesReference(it.value) }
         return when {
             explicitSubtitle != null -> {
                 ResolvedTitle(
-                    cleanedTitle,
-                    explicitSubtitle.value,
-                    titleAbridged,
-                    titleProvenance,
-                    explicitSubtitle.provenance,
+                    title = cleanedTitle,
+                    subtitle = explicitSubtitle.value,
+                    titleAbridged = titleAbridged,
+                    titleProvenance = titleProvenance,
+                    subtitleProvenance = explicitSubtitle.provenance,
                 )
             }
 
             // Never split a user-curated title.
             curatedTitleWins -> {
-                ResolvedTitle(cleanedTitle, null, titleAbridged, titleProvenance, null)
+                ResolvedTitle(
+                    title = cleanedTitle,
+                    subtitle = null,
+                    titleAbridged = titleAbridged,
+                    titleProvenance = titleProvenance,
+                    subtitleProvenance = null,
+                )
             }
 
             else -> {
                 TitleSubtitleSplitter.split(cleanedTitle).let { (t, sub) ->
                     // A subtitle split out of the title shares the title's provenance.
-                    ResolvedTitle(t, sub, titleAbridged, titleProvenance, titleProvenance.takeIf { sub != null })
+                    ResolvedTitle(
+                        title = t,
+                        subtitle = sub,
+                        titleAbridged = titleAbridged,
+                        titleProvenance = titleProvenance,
+                        subtitleProvenance = titleProvenance.takeIf { sub != null },
+                    )
                 }
             }
         }
@@ -454,44 +477,66 @@ internal class Analyzer(
         listenUp: ListenUpSidecar?,
         perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?>,
     ): AnalyzedBook {
-        val resolved = resolveTitleSubtitle(candidate, shape, parsed, embedded, metadata, sidecar, listenUp)
-        val title = resolved.title
-        val subtitle = resolved.subtitle
-        val titleAbridged = resolved.titleAbridged
+        val resolved =
+            resolveTitleSubtitle(
+                candidate = candidate,
+                shape = shape,
+                parsed = parsed,
+                embedded = embedded,
+                metadata = metadata,
+                sidecar = sidecar,
+                listenUp = listenUp,
+            )
+        val embeddedTags = embedded?.tags
 
-        val authors = pickAuthors(shape, embedded, metadata, sidecar, listenUp)
-        val narrators = pickNarrators(parsed, embedded, metadata, sidecar, listenUp)
-        val seriesEntries = pickSeries(shape, parsed, embedded, metadata, sidecar, listenUp)
+        val authors =
+            pickAuthors(shape = shape, embedded = embedded, metadata = metadata, sidecar = sidecar, listenUp = listenUp)
+        val narrators =
+            pickNarrators(
+                parsed = parsed,
+                embedded = embedded,
+                metadata = metadata,
+                sidecar = sidecar,
+                listenUp = listenUp,
+            )
+        val seriesEntries =
+            pickSeries(
+                shape = shape,
+                parsed = parsed,
+                embedded = embedded,
+                metadata = metadata,
+                sidecar = sidecar,
+                listenUp = listenUp,
+            )
         val publishedYear =
             firstSourced(
                 FieldSourceKind.ABS_METADATA to metadata?.publishedYear,
-                FieldSourceKind.EMBEDDED to embedded?.tags?.publishedYear,
+                FieldSourceKind.EMBEDDED to embeddedTags?.publishedYear,
                 FieldSourceKind.SIDECAR to sidecar?.publishYear,
                 FieldSourceKind.FILENAME to parsed.publishedYear,
             )
-        val description =
-            (
-                listenUpSourced(listenUp, BookField.DESCRIPTION) { it.metadata.description }
-                    ?: firstSourced(
-                        FieldSourceKind.ABS_METADATA to metadata?.description,
-                        FieldSourceKind.EMBEDDED to embedded?.tags?.description,
-                        FieldSourceKind.EMBEDDED to embedded?.tags?.custom?.get(AudioTags.COMMENT_KEY),
-                        FieldSourceKind.SIDECAR to sidecar?.description,
-                    )
-            )?.let { Sourced(HtmlToMarkdown.convert(it.value), it.provenance) }
+        val rawDescription =
+            listenUpSourced(listenUp, BookField.DESCRIPTION) { it.metadata.description }
+                ?: firstSourced(
+                    FieldSourceKind.ABS_METADATA to metadata?.description,
+                    FieldSourceKind.EMBEDDED to embeddedTags?.description,
+                    FieldSourceKind.EMBEDDED to embeddedTags?.let { tags -> tags.custom[AudioTags.COMMENT_KEY] },
+                    FieldSourceKind.SIDECAR to sidecar?.description,
+                )
+        val description = rawDescription?.let { Sourced(HtmlToMarkdown.convert(it.value), it.provenance) }
         val publisher =
             firstSourced(
                 FieldSourceKind.ABS_METADATA to metadata?.publisher,
-                FieldSourceKind.EMBEDDED to embedded?.tags?.publisher,
+                FieldSourceKind.EMBEDDED to embeddedTags?.publisher,
                 FieldSourceKind.SIDECAR to sidecar?.publisher,
             )
         val language =
             firstSourced(
                 FieldSourceKind.ABS_METADATA to metadata?.language,
-                FieldSourceKind.EMBEDDED to embedded?.tags?.language,
+                FieldSourceKind.EMBEDDED to embeddedTags?.language,
                 FieldSourceKind.SIDECAR to sidecar?.language,
             )?.let { Sourced(LanguageNormalizer.normalize(it.value), it.provenance) }
-        val genres = pickGenres(embedded, metadata, sidecar, listenUp)
+        val genres = pickGenres(embedded = embedded, metadata = metadata, sidecar = sidecar, listenUp = listenUp)
 
         // Per-field provenance: one entry per resolved field, tagged with the authority that won it.
         // Scan sources are all tier 0 and ties between them are already resolved by MetadataPrecedence
@@ -512,23 +557,30 @@ internal class Analyzer(
                 genres?.let { put(BookField.GENRES, it.provenance) }
             }
 
-        val (resolvedChapters, chaptersSource) = pickChapters(embedded, metadata, tracks, perTrackMetadata, title)
+        val (resolvedChapters, chaptersSource) =
+            pickChapters(
+                embedded = embedded,
+                metadata = metadata,
+                tracks = tracks,
+                perTrackMetadata = perTrackMetadata,
+                bookTitle = resolved.title,
+            )
         return AnalyzedBook(
             candidate = candidate,
-            title = title,
-            subtitle = subtitle,
+            title = resolved.title,
+            subtitle = resolved.subtitle,
             authors = authors?.value.orEmpty(),
             narrators = narrators?.value.orEmpty(),
             series = seriesEntries?.value.orEmpty(),
             publishedYear = publishedYear?.value,
-            asin = metadata?.asin ?: embedded?.tags?.asin ?: sidecar?.asin ?: parsed.asin,
-            isbn = metadata?.isbn ?: embedded?.tags?.isbn ?: sidecar?.isbn,
+            asin = metadata?.asin ?: embeddedTags?.asin ?: sidecar?.asin ?: parsed.asin,
+            isbn = metadata?.isbn ?: embeddedTags?.isbn ?: sidecar?.isbn,
             description = description?.value,
             publisher = publisher?.value,
             language = language?.value,
             genres = genres?.value.orEmpty(),
-            tags = listenUp?.metadata?.tags?.takeIf { it.isNotEmpty() } ?: metadata?.tags.orEmpty(),
-            abridged = metadata?.abridged ?: titleAbridged,
+            tags = listenUp?.run { this.metadata.tags.takeIf { it.isNotEmpty() } } ?: metadata?.tags.orEmpty(),
+            abridged = metadata?.abridged ?: resolved.titleAbridged,
             explicit = metadata?.explicit,
             cover = cover,
             tracks = tracks,
@@ -536,7 +588,7 @@ internal class Analyzer(
             chaptersSource = chaptersSource,
             embedded = embedded,
             embeddedStatus = embeddedStatus,
-            normalizationGainDb = embedded?.tags?.normalizationGainDb,
+            normalizationGainDb = embeddedTags?.normalizationGainDb,
             fieldProvenance = fieldProvenance,
             // A ParseError / UnsupportedFormat status means a file the scanner could
             // not fully read. MetadataStatus.Available and a null status (no audio
@@ -559,134 +611,6 @@ internal class Analyzer(
             sidecarCuration = listenUp?.toCuration(),
         )
     }
-
-    /**
-     * Chapter precedence:
-     *   metadata.json (non-empty) → embedded (non-empty) → OverDrive markers →
-     *   synthesized (multi-file) → empty.
-     *
-     * The sidecar wins when present so user-curated chapter titles in ABS survive
-     * a rescan. OverDrive markers sit above synthesis: they carry real chapter
-     * boundaries (even inside a single file, where synthesis produces nothing),
-     * so they beat the one-chapter-per-track fallback. Synthesis activates only
-     * when no higher source exists AND the book is multi-file.
-     *
-     * Deliberate divergence from ABS: ABS checks OverDrive markers *before* embedded
-     * chapters; we rank explicit embedded chapter atoms (Nero `chpl`, ID3 `CHAP`,
-     * MP4 chapter tracks) higher, because they are the standard, purpose-built chapter
-     * representation and OverDrive markers are a vendor-specific fallback. Pure
-     * OverDrive books carry no embedded chapters, so they are unaffected. The only
-     * case this changes is a hybrid file that carries both — rare, and if a real one
-     * with an *incomplete* embedded set surfaces we revisit (see followups.md).
-     *
-     * `embedded.chapters` continues to surface verbatim on
-     * [AnalyzedBook.embedded] regardless of which won — the resolved view is
-     * additive, not destructive.
-     */
-    private fun pickChapters(
-        embedded: EmbeddedAudioMetadata?,
-        metadata: AbsMetadata?,
-        tracks: List<TrackEntry>,
-        perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?>,
-        bookTitle: String,
-    ): Pair<List<Chapter>, BookChapterSource> {
-        val sidecar = metadata?.chapters.orEmpty()
-        if (sidecar.isNotEmpty()) {
-            return sidecar.toDomainChapters() to BookChapterSource.AbsMetadata
-        }
-        if (embedded != null && embedded.chapters.isNotEmpty()) {
-            // Clamp against the file's own duration ONLY for a single-file book, where
-            // `embedded.durationMs` is the authoritative end-of-book. For a multi-file book the
-            // primary file's duration is not the book's, so a valid whole-book chapter set would be
-            // wrongly truncated — there we only drop structurally-impossible chapters (null bound).
-            val clampBound = if (tracks.size <= 1) embedded.durationMs else null
-            return clampEmbeddedChapters(embedded.chapters, clampBound) to
-                BookChapterSource.Embedded(embedded.chaptersSource)
-        }
-        // OverDrive/Libby marker chapters. Single-file books read the primary parse directly;
-        // multi-file books reuse the per-track parses already captured for synthesis.
-        val overdriveMetadata: (TrackEntry) -> EmbeddedAudioMetadata? =
-            if (tracks.size <= 1) {
-                { embedded }
-            } else {
-                { track -> perTrackMetadata[track] }
-            }
-        OverdriveChapters.parse(tracks, overdriveMetadata)?.let { chapters ->
-            return chapters to BookChapterSource.Overdrive
-        }
-        if (tracks.size >= 2) {
-            // Synthesis can come back empty if every track's duration parse failed (all ghosts
-            // dropped); report that honestly as None rather than a synthesized-but-empty source.
-            val synthesized = synthesizeChapters(tracks, perTrackMetadata, bookTitle)
-            return if (synthesized.isEmpty()) {
-                emptyList<Chapter>() to BookChapterSource.None
-            } else {
-                synthesized to BookChapterSource.SynthesizedFromTracks
-            }
-        }
-        return emptyList<Chapter>() to BookChapterSource.None
-    }
-
-    /**
-     * Synthesis is eligible when no higher-precedence chapter source exists
-     * AND the book is multi-file. Spec §3.
-     */
-    private fun shouldSynthesizeChapters(
-        metadata: AbsMetadata?,
-        embedded: EmbeddedAudioMetadata?,
-        tracks: List<TrackEntry>,
-    ): Boolean {
-        if (metadata?.chapters?.isNotEmpty() == true) return false
-        if (embedded != null && embedded.chapters.isNotEmpty()) return false
-        return tracks.size >= 2
-    }
-
-    /** A resolved scan value paired with the [FieldProvenance] of the source that won it. */
-    private data class Sourced<out T>(
-        val value: T,
-        val provenance: FieldProvenance,
-    )
-
-    /**
-     * The provenance a precedence source confers on [field].
-     *
-     * Every on-disk source is tier 0 — they differ only in *which* file won, and the winner is
-     * never sticky across scans. [MetadataPrecedenceSource.LISTENUP] is different in kind: the
-     * value came from a `listenup.json` this server wrote, so the provenance it restores is the
-     * one the sidecar *recorded* for that field, `provider` and `at` intact. A sidecar carrying a
-     * value but no recorded provenance for it is read as a user edit — curation is the only reason
-     * a value reaches the sidecar at all.
-     */
-    private fun MetadataPrecedenceSource.provenanceFor(
-        field: BookField,
-        listenUp: ListenUpSidecar?,
-    ): FieldProvenance =
-        when (this) {
-            MetadataPrecedenceSource.LISTENUP -> listenUp.recordedProvenance(field)
-            MetadataPrecedenceSource.ABS_METADATA -> FieldProvenance(FieldSourceKind.ABS_METADATA)
-            MetadataPrecedenceSource.EMBEDDED -> FieldProvenance(FieldSourceKind.EMBEDDED)
-            MetadataPrecedenceSource.SIDECAR -> FieldProvenance(FieldSourceKind.SIDECAR)
-            MetadataPrecedenceSource.FILENAME -> FieldProvenance(FieldSourceKind.FILENAME)
-            MetadataPrecedenceSource.FOLDER -> FieldProvenance(FieldSourceKind.FOLDER)
-        }
-
-    /**
-     * The ListenUp sidecar's value for [field] (via [select]) paired with the provenance the
-     * sidecar recorded for it — the [MetadataPrecedenceSource.LISTENUP] slot for the fields whose
-     * precedence is a fixed `?:` chain rather than the configurable [precedence] order.
-     */
-    private fun <T : Any> listenUpSourced(
-        listenUp: ListenUpSidecar?,
-        field: BookField,
-        select: (ListenUpSidecar) -> T?,
-    ): Sourced<T>? = listenUp?.let { sc -> select(sc)?.let { Sourced(it, listenUp.recordedProvenance(field)) } }
-
-    /**
-     * The first non-null value across [options] in the given order, tagged with its scan source. Mirrors
-     * the fixed `?:` fallback chains for fields whose precedence isn't library-configurable.
-     */
-    private fun <T : Any> firstSourced(vararg options: Pair<FieldSourceKind, T?>): Sourced<T>? =
-        options.firstNotNullOfOrNull { (kind, v) -> v?.let { Sourced(it, FieldProvenance(kind)) } }
 
     private fun pickTitle(
         candidate: CandidateBook,
@@ -744,11 +668,11 @@ internal class Analyzer(
                 }
 
                 MetadataPrecedenceSource.ABS_METADATA -> {
-                    metadata?.authors?.takeIf { it.isNotEmpty() }
+                    metadata?.run { this.authors.takeIf { it.isNotEmpty() } }
                 }
 
                 MetadataPrecedenceSource.EMBEDDED -> {
-                    embedded?.tags?.authors?.takeIf { it.isNotEmpty() }
+                    embedded?.run { this.tags.authors.takeIf { it.isNotEmpty() } }
                 }
 
                 MetadataPrecedenceSource.SIDECAR -> {
@@ -779,18 +703,17 @@ internal class Analyzer(
                 }
 
                 MetadataPrecedenceSource.ABS_METADATA -> {
-                    metadata?.narrators?.takeIf { it.isNotEmpty() }
+                    metadata?.run { this.narrators.takeIf { it.isNotEmpty() } }
                 }
 
                 MetadataPrecedenceSource.EMBEDDED -> {
-                    embedded?.tags?.narrators?.takeIf { it.isNotEmpty() }
+                    embedded?.run { this.tags.narrators.takeIf { it.isNotEmpty() } }
                 }
 
                 MetadataPrecedenceSource.SIDECAR -> {
                     sidecar
-                        .contributorNames(
-                            role = "narrator",
-                        ).takeIf { it.isNotEmpty() }
+                        .contributorNames(role = "narrator")
+                        .takeIf { it.isNotEmpty() }
                 }
 
                 MetadataPrecedenceSource.FILENAME -> {
@@ -815,8 +738,7 @@ internal class Analyzer(
             when (source) {
                 MetadataPrecedenceSource.LISTENUP -> {
                     listenUp
-                        ?.metadata
-                        ?.series
+                        ?.run { this.metadata.series }
                         .orEmpty()
                         .map { SeriesEntry(name = it.name, sequence = it.sequence) }
                         .takeIf { it.isNotEmpty() }
@@ -828,15 +750,14 @@ internal class Analyzer(
 
                 MetadataPrecedenceSource.EMBEDDED -> {
                     embedded
-                        ?.tags
-                        ?.series
+                        ?.run { this.tags.series }
                         .orEmpty()
                         .map(EmbeddedSeriesEntry::toContract)
                         .takeIf { it.isNotEmpty() }
                 }
 
                 MetadataPrecedenceSource.SIDECAR -> {
-                    sidecar?.series?.takeIf { it.isNotEmpty() }
+                    sidecar?.run { series.takeIf { it.isNotEmpty() } }
                 }
 
                 MetadataPrecedenceSource.FILENAME -> {
@@ -857,12 +778,29 @@ internal class Analyzer(
     ): Sourced<List<String>>? =
         precedence.order.firstNotNullOfOrNull { source ->
             when (source) {
-                MetadataPrecedenceSource.LISTENUP -> listenUp?.metadata?.genres?.takeIf { it.isNotEmpty() }
-                MetadataPrecedenceSource.ABS_METADATA -> metadata?.genres?.takeIf { it.isNotEmpty() }
-                MetadataPrecedenceSource.EMBEDDED -> embedded?.tags?.genres?.takeIf { it.isNotEmpty() }
-                MetadataPrecedenceSource.SIDECAR -> sidecar?.genres?.takeIf { it.isNotEmpty() }
-                MetadataPrecedenceSource.FILENAME -> null
-                MetadataPrecedenceSource.FOLDER -> null
+                MetadataPrecedenceSource.LISTENUP -> {
+                    listenUp?.run { this.metadata.genres.takeIf { it.isNotEmpty() } }
+                }
+
+                MetadataPrecedenceSource.ABS_METADATA -> {
+                    metadata?.run { this.genres.takeIf { it.isNotEmpty() } }
+                }
+
+                MetadataPrecedenceSource.EMBEDDED -> {
+                    embedded?.run { this.tags.genres.takeIf { it.isNotEmpty() } }
+                }
+
+                MetadataPrecedenceSource.SIDECAR -> {
+                    sidecar?.run { this.genres.takeIf { it.isNotEmpty() } }
+                }
+
+                MetadataPrecedenceSource.FILENAME -> {
+                    null
+                }
+
+                MetadataPrecedenceSource.FOLDER -> {
+                    null
+                }
             }?.let { Sourced(it, source.provenanceFor(BookField.GENRES, listenUp)) }
         }
 
@@ -911,18 +849,19 @@ private fun ListenUpSidecar.toCuration(): SidecarCuration =
         userChapters =
             chapters
                 ?.takeIf { it.source.equals("USER", ignoreCase = true) }
-                ?.entries
-                ?.map {
-                    SidecarCurationChapter(
-                        title = it.title,
-                        startMs = it.startMs,
-                        // Blank-to-null here, not deeper: a sidecar is a file on disk that anyone
-                        // may hand-edit, so unlike the RPC path (where `ChapterInput` refuses a
-                        // blank outright) this reader has to normalize rather than reject — losing
-                        // the whole book's curation over one empty string would be the worse answer.
-                        partTitle = it.partTitle?.takeIf(String::isNotBlank),
-                        bookTitle = it.bookTitle?.takeIf(String::isNotBlank),
-                    )
+                ?.run {
+                    entries.map { entry ->
+                        SidecarCurationChapter(
+                            title = entry.title,
+                            startMs = entry.startMs,
+                            // Blank-to-null here, not deeper: a sidecar is a file on disk that anyone
+                            // may hand-edit, so unlike the RPC path (where `ChapterInput` refuses a
+                            // blank outright) this reader has to normalize rather than reject — losing
+                            // the whole book's curation over one empty string would be the worse answer.
+                            partTitle = entry.partTitle?.takeIf(String::isNotBlank),
+                            bookTitle = entry.bookTitle?.takeIf(String::isNotBlank),
+                        )
+                    }
                 },
         bookTierLabel = chapters?.bookTierLabel?.takeIf(String::isNotBlank),
         partTierLabel = chapters?.partTierLabel?.takeIf(String::isNotBlank),
@@ -934,16 +873,15 @@ private fun ListenUpSidecar.toCuration(): SidecarCuration =
  * total function keeps the caller branch-free). Unknown field names on disk are ignored.
  */
 private fun ListenUpSidecar?.recordedProvenance(field: BookField): FieldProvenance =
-    this?.fieldProvenance?.get(field.name) ?: FieldProvenance(FieldSourceKind.USER)
+    this?.fieldProvenance.orEmpty()[field.name] ?: FieldProvenance(FieldSourceKind.USER)
 
 /** Names of ListenUp-sidecar contributors with the given [role] (case-insensitive). */
-private fun ListenUpSidecar?.contributorNames(role: String): List<String> =
-    this
-        ?.metadata
-        ?.contributors
-        .orEmpty()
+private fun ListenUpSidecar?.contributorNames(role: String): List<String> {
+    if (this == null) return emptyList()
+    return metadata.contributors
         .filter { it.role.equals(role, ignoreCase = true) }
         .map { it.name }
+}
 
 /** Names of sidecar contributors with the given [role] (case-insensitive). */
 private fun SidecarMetadata?.contributorNames(role: String): List<String> =
@@ -1013,13 +951,9 @@ internal fun durationScanWarning(
 /** The number of distinct non-blank album tags across a multi-file book's per-track metadata. */
 private fun distinctAlbumTagCount(perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?>): Int =
     perTrackMetadata.values
-        .mapNotNull {
-            it
-                ?.tags
-                ?.custom
-                ?.get(AudioTags.ALBUM_KEY)
-                ?.takeUnless(String::isBlank)
-        }.distinct()
+        .filterNotNull()
+        .mapNotNull { trackMetadata -> trackMetadata.tags.custom[AudioTags.ALBUM_KEY]?.takeUnless(String::isBlank) }
+        .distinct()
         .size
 
 /**
@@ -1142,3 +1076,135 @@ private suspend fun <T> safeRun(
     } catch (e: Throwable) {
         Result.failure(BookAnalysisFailure(rootRelPath, e))
     }
+
+/**
+ * Chapter precedence:
+ *   metadata.json (non-empty) → embedded (non-empty) → OverDrive markers →
+ *   synthesized (multi-file) → empty.
+ *
+ * The sidecar wins when present so user-curated chapter titles in ABS survive
+ * a rescan. OverDrive markers sit above synthesis: they carry real chapter
+ * boundaries (even inside a single file, where synthesis produces nothing),
+ * so they beat the one-chapter-per-track fallback. Synthesis activates only
+ * when no higher source exists AND the book is multi-file.
+ *
+ * Deliberate divergence from ABS: ABS checks OverDrive markers *before* embedded
+ * chapters; we rank explicit embedded chapter atoms (Nero `chpl`, ID3 `CHAP`,
+ * MP4 chapter tracks) higher, because they are the standard, purpose-built chapter
+ * representation and OverDrive markers are a vendor-specific fallback. Pure
+ * OverDrive books carry no embedded chapters, so they are unaffected. The only
+ * case this changes is a hybrid file that carries both — rare, and if a real one
+ * with an *incomplete* embedded set surfaces we revisit (see followups.md).
+ *
+ * `embedded.chapters` continues to surface verbatim on
+ * [AnalyzedBook.embedded] regardless of which won — the resolved view is
+ * additive, not destructive.
+ */
+private fun pickChapters(
+    embedded: EmbeddedAudioMetadata?,
+    metadata: AbsMetadata?,
+    tracks: List<TrackEntry>,
+    perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?>,
+    bookTitle: String,
+): Pair<List<Chapter>, BookChapterSource> {
+    val sidecar = metadata?.chapters.orEmpty()
+    if (sidecar.isNotEmpty()) {
+        return sidecar.toDomainChapters() to BookChapterSource.AbsMetadata
+    }
+    if (embedded != null && embedded.chapters.isNotEmpty()) {
+        // Clamp against the file's own duration ONLY for a single-file book, where
+        // `embedded.durationMs` is the authoritative end-of-book. For a multi-file book the
+        // primary file's duration is not the book's, so a valid whole-book chapter set would be
+        // wrongly truncated — there we only drop structurally-impossible chapters (null bound).
+        val clampBound = if (tracks.size <= 1) embedded.durationMs else null
+        return clampEmbeddedChapters(embedded.chapters, clampBound) to
+            BookChapterSource.Embedded(embedded.chaptersSource)
+    }
+    // OverDrive/Libby marker chapters. Single-file books read the primary parse directly;
+    // multi-file books reuse the per-track parses already captured for synthesis.
+    val overdriveMetadata: (TrackEntry) -> EmbeddedAudioMetadata? =
+        if (tracks.size <= 1) {
+            { embedded }
+        } else {
+            { track -> perTrackMetadata[track] }
+        }
+    OverdriveChapters.parse(tracks, overdriveMetadata)?.let { chapters ->
+        return chapters to BookChapterSource.Overdrive
+    }
+    if (tracks.size >= 2) {
+        // Synthesis can come back empty if every track's duration parse failed (all ghosts
+        // dropped); report that honestly as None rather than a synthesized-but-empty source.
+        val synthesized = synthesizeChapters(tracks, perTrackMetadata, bookTitle)
+        return if (synthesized.isEmpty()) {
+            emptyList<Chapter>() to BookChapterSource.None
+        } else {
+            synthesized to BookChapterSource.SynthesizedFromTracks
+        }
+    }
+    return emptyList<Chapter>() to BookChapterSource.None
+}
+
+/**
+ * Synthesis is eligible when no higher-precedence chapter source exists
+ * AND the book is multi-file. Spec §3.
+ */
+private fun shouldSynthesizeChapters(
+    metadata: AbsMetadata?,
+    embedded: EmbeddedAudioMetadata?,
+    tracks: List<TrackEntry>,
+): Boolean {
+    if (metadata != null && metadata.chapters.isNotEmpty()) return false
+    if (embedded != null && embedded.chapters.isNotEmpty()) return false
+    return tracks.size >= 2
+}
+
+/** A resolved scan value paired with the [FieldProvenance] of the source that won it. */
+private data class Sourced<out T>(
+    val value: T,
+    val provenance: FieldProvenance,
+)
+
+/**
+ * The provenance a precedence source confers on [field].
+ *
+ * Every on-disk source is tier 0 — they differ only in *which* file won, and the winner is
+ * never sticky across scans. [MetadataPrecedenceSource.LISTENUP] is different in kind: the
+ * value came from a `listenup.json` this server wrote, so the provenance it restores is the
+ * one the sidecar *recorded* for that field, `provider` and `at` intact. A sidecar carrying a
+ * value but no recorded provenance for it is read as a user edit — curation is the only reason
+ * a value reaches the sidecar at all.
+ */
+private fun MetadataPrecedenceSource.provenanceFor(
+    field: BookField,
+    listenUp: ListenUpSidecar?,
+): FieldProvenance =
+    when (this) {
+        MetadataPrecedenceSource.LISTENUP -> listenUp.recordedProvenance(field)
+        MetadataPrecedenceSource.ABS_METADATA -> FieldProvenance(FieldSourceKind.ABS_METADATA)
+        MetadataPrecedenceSource.EMBEDDED -> FieldProvenance(FieldSourceKind.EMBEDDED)
+        MetadataPrecedenceSource.SIDECAR -> FieldProvenance(FieldSourceKind.SIDECAR)
+        MetadataPrecedenceSource.FILENAME -> FieldProvenance(FieldSourceKind.FILENAME)
+        MetadataPrecedenceSource.FOLDER -> FieldProvenance(FieldSourceKind.FOLDER)
+    }
+
+/**
+ * The ListenUp sidecar's value for [field] (via [select]) paired with the provenance the
+ * sidecar recorded for it — the [MetadataPrecedenceSource.LISTENUP] slot for the fields whose
+ * precedence is a fixed `?:` chain rather than the configurable precedence order.
+ */
+private fun <T : Any> listenUpSourced(
+    listenUp: ListenUpSidecar?,
+    field: BookField,
+    select: (ListenUpSidecar) -> T?,
+): Sourced<T>? {
+    if (listenUp == null) return null
+    val value = select(listenUp) ?: return null
+    return Sourced(value, listenUp.recordedProvenance(field))
+}
+
+/**
+ * The first non-null value across [options] in the given order, tagged with its scan source. Mirrors
+ * the fixed `?:` fallback chains for fields whose precedence isn't library-configurable.
+ */
+private fun <T : Any> firstSourced(vararg options: Pair<FieldSourceKind, T?>): Sourced<T>? =
+    options.firstNotNullOfOrNull { (kind, v) -> v?.let { Sourced(it, FieldProvenance(kind)) } }

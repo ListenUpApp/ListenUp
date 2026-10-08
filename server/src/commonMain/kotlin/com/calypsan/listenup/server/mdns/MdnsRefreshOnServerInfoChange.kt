@@ -2,8 +2,8 @@ package com.calypsan.listenup.server.mdns
 
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.util.runCatchingCancellable
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -27,9 +27,8 @@ fun CoroutineScope.launchMdnsRefreshOnServerInfoChange(
     launch {
         changeBus.subscribeControl().collect { frame ->
             if (frame.control != SyncControl.ServerInfoChanged) return@collect
-            runCatching { advertiser.refresh() }
+            runCatchingCancellable { advertiser.refresh() }
                 .onFailure { e ->
-                    if (e is CancellationException) throw e
                     log.warn(e) { "mDNS: failed to re-announce after a server-info change" }
                 }
         }

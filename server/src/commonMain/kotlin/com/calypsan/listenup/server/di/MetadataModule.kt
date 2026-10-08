@@ -208,8 +208,10 @@ fun metadataModule(imageHome: Path): Module =
                             title = b.title,
                             author =
                                 b.contributors.firstOrNull { it.role.equals("author", ignoreCase = true) }?.name
-                                    ?: b.contributors.firstOrNull()?.name
-                                    ?: "",
+                                    ?: b.contributors
+                                        .firstOrNull()
+                                        ?.name
+                                        .orEmpty(),
                         )
                     }
                 },
@@ -290,8 +292,8 @@ private fun Module.ratingsBindings() {
             lastTried = { bookId -> ratings.attemptedAt(bookId, ExternalRatingSource.HARDCOVER) },
             fetch = { bookId ->
                 fetcher.fetch(
-                    bookId,
-                    ratings.localeFor(bookId.value),
+                    bookId = bookId,
+                    locale = ratings.localeFor(bookId.value),
                     refresh = false,
                     sources = setOf(ExternalRatingSource.HARDCOVER),
                 )
@@ -391,12 +393,13 @@ private fun Module.matchingBindings(imageHome: Path) {
 private fun Module.metadataCleanupBindings(imageHome: Path) {
     single { MetadataCacheCleanupTask(cache = get(), settings = get()) }
     single {
+        val receipts = get<MatchReceiptStore>()
         OrphanImageCleanupTask(
             contributorRepository = get(),
             seriesRepository = get(),
             imageHome = imageHome,
-            coverReferences = BookCoverReferences(get(), get<MatchReceiptStore>()),
-            photoPins = get<MatchReceiptStore>().let { receipts -> PhotoPins { receipts.pinnedPhotoPaths() } },
+            coverReferences = BookCoverReferences(get(), receipts),
+            photoPins = PhotoPins { receipts.pinnedPhotoPaths() },
             settings = get(),
         )
     }

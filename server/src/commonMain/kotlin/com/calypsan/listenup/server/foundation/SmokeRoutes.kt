@@ -29,8 +29,7 @@ internal fun Application.mountSmokeRoutes() {
                 call.respondText(
                     call
                         .userPrincipalOrNull()
-                        ?.userId
-                        ?.value
+                        ?.run { userId.value }
                         .orEmpty(),
                 )
             }

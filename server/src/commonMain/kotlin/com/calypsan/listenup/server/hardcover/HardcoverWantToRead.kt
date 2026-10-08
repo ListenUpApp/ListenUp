@@ -30,7 +30,7 @@ internal const val WANT_TO_READ_SHELF_NAME = "Want to Read"
  * Hardcover's book looking hand-added, and Hardcover could never take it off.
  */
 class HardcoverWantToRead(
-    private val sql: ListenUpDatabase,
+    sql: ListenUpDatabase,
     private val entries: HardcoverShelfEntryStore,
     private val shelves: ShelfRepository,
     private val shelfBooks: ShelfBookRepository,
@@ -64,7 +64,7 @@ class HardcoverWantToRead(
         val target = TargetShelf(userId)
         for (book in wanted) {
             if (!access.canAccess(userId, role, book.bookId)) continue
-            val placed = place(userId, book, target, seenAt)
+            val placed = place(userId = userId, book = book, target = target, seenAt = seenAt)
             if (placed is AppResult.Failure) return placed
         }
         return AppResult.Success(Unit)
@@ -129,7 +129,12 @@ class HardcoverWantToRead(
             // Taken off by hand, or Hardcover's and where it should be: only note that Want to Read still has it.
             record?.state == HardcoverShelfEntryState.USER_REMOVED ||
                 (record != null && record.shelfId == shelfId && sighting.isOnTarget) -> {
-                entries.markSeen(userId, book.bookId, book.hcUserBookId, seenAt)
+                entries.markSeen(
+                    userId = userId,
+                    bookId = book.bookId,
+                    hcUserBookId = book.hcUserBookId,
+                    seenAt = seenAt,
+                )
                 AppResult.Success(Unit)
             }
 
@@ -146,7 +151,7 @@ class HardcoverWantToRead(
 
             // New; or Hardcover's but missing (a crash between record and add); or its shelf has gone.
             else -> {
-                add(userId, book, target, seenAt)
+                add(userId = userId, book = book, target = target, seenAt = seenAt)
             }
         }
     }
@@ -162,7 +167,13 @@ class HardcoverWantToRead(
                 is AppResult.Success -> made.data
                 is AppResult.Failure -> return made
             }
-        entries.putOnShelf(userId, book.bookId, shelfId, book.hcUserBookId, seenAt)
+        entries.putOnShelf(
+            userId = userId,
+            bookId = book.bookId,
+            shelfId = shelfId,
+            hcUserBookId = book.hcUserBookId,
+            seenAt = seenAt,
+        )
         return when (val added = shelfBooks.addBook(shelfId, book.bookId, userId)) {
             is AppResult.Success -> AppResult.Success(Unit)
             is AppResult.Failure -> added

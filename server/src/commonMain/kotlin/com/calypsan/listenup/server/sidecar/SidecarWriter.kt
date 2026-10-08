@@ -195,7 +195,7 @@ class SidecarWriter(
     }
 
     private suspend fun writesEnabled(): Boolean =
-        settings.getValue(SIDECAR_WRITES_ENABLED_KEY)?.toBooleanStrictOrNull() ?: true
+        settings.getValue(SIDECAR_WRITES_ENABLED_KEY)?.toBooleanStrictOrNull() != false
 
     private suspend fun readBook(bookId: String): BookSyncPayload? =
         suspendTransaction(db) { db.readBookPayloads(listOf(bookId)).firstOrNull() }

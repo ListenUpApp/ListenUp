@@ -38,19 +38,32 @@ internal class MatchUndoer(
             val snapshot = MatchReceiptCodec.decodeSnapshot(receipt.snapshotJson)
             val bookId = receipt.entityId
             receipts.markUndoneInTransaction(receiptId, now())
-            snapshot.moodsLinked.forEach { moods.unlinkInTransaction(this, bookId, it, suppressed, capture) }
-            snapshot.moodsUnlinked.forEach { moods.linkInTransaction(this, bookId, it, suppressed, capture) }
+            snapshot.moodsLinked.forEach { moodId ->
+                moods.unlinkInTransaction(
+                    tx = this,
+                    bookId = bookId,
+                    moodId = moodId,
+                    suppressed = suppressed,
+                    capture = capture,
+                )
+            }
+            snapshot.moodsUnlinked.forEach { moodId ->
+                moods.linkInTransaction(
+                    tx = this,
+                    bookId = bookId,
+                    moodId = moodId,
+                    suppressed = suppressed,
+                    capture = capture,
+                )
+            }
             books.writeMatchInTransaction(
                 tx = this,
                 value = snapshot.book,
                 cover =
                     MatchCoverColumns(
                         source =
-                            CoverSource.entries.firstOrNull {
-                                it.name.equals(
-                                    snapshot.cover.source,
-                                    ignoreCase = true,
-                                )
+                            CoverSource.entries.firstOrNull { entry ->
+                                entry.name.equals(snapshot.cover.source, ignoreCase = true)
                             },
                         path = snapshot.cover.path,
                         hash = snapshot.cover.hash,

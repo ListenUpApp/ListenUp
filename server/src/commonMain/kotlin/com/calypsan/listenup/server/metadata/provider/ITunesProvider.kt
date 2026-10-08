@@ -58,12 +58,12 @@ internal class ITunesProvider(
                 books =
                     hits
                         .filter { it.sourceId.isNotBlank() && it.title.isNotBlank() && it.maxSizeUrl.isNotBlank() }
-                        .map {
+                        .map { hit ->
                             FoundBook(
-                                key = it.sourceId,
-                                title = it.title,
-                                authors = listOfNotNull(it.author.takeIf(String::isNotBlank)),
-                                coverUrl = it.maxSizeUrl,
+                                key = hit.sourceId,
+                                title = hit.title,
+                                authors = listOfNotNull(hit.author.takeIf(String::isNotBlank)),
+                                coverUrl = hit.maxSizeUrl,
                             )
                         },
                 steps = setOf(FindStep.TEXT),

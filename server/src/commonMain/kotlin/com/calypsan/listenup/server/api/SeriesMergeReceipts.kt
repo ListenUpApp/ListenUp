@@ -258,7 +258,12 @@ internal class SeriesMergeReceipts(
                 .selectRestorableChildren(receipt_id = receipt.id, target_id = receipt.target_id)
                 .executeAsList()
                 .map { RestorableChild(SeriesId(it.child_id), it.position?.toInt()) }
-        entityUndo?.restore(this, receipt.id, SeriesId(receipt.source_id), SeriesId(receipt.target_id))
+        entityUndo?.restore(
+            transaction = this,
+            receiptId = receipt.id,
+            source = SeriesId(receipt.source_id),
+            target = SeriesId(receipt.target_id),
+        )
         return SeriesUndoClaim.Granted(
             sourceId = SeriesId(receipt.source_id),
             targetId = SeriesId(receipt.target_id),

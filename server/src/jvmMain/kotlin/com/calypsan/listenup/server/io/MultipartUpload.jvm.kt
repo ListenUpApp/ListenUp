@@ -5,7 +5,7 @@ import io.ktor.http.content.forEachPart
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveMultipart
 import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.readRemaining
+import io.ktor.utils.io.readBuffer
 import kotlinx.io.Buffer
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
@@ -15,12 +15,13 @@ import kotlinx.io.readByteArray
 /** Bounded read size for streaming an upload to disk — never holds the whole body in memory. */
 private const val UPLOAD_CHUNK_BYTES: Long = 64L * 1024
 
-internal actual suspend fun ApplicationCall.streamFirstFilePartTo(
+internal actual suspend fun streamFirstFilePartTo(
+    call: ApplicationCall,
     dest: Path,
     formFieldLimit: Long,
 ): Boolean {
     var received = false
-    receiveMultipart(formFieldLimit = formFieldLimit).forEachPart { part ->
+    call.receiveMultipart(formFieldLimit = formFieldLimit).forEachPart { part ->
         if (part is PartData.FileItem && !received) {
             received = true
             part.provider().writeTo(dest)
@@ -30,12 +31,15 @@ internal actual suspend fun ApplicationCall.streamFirstFilePartTo(
     return received
 }
 
-internal actual suspend fun ApplicationCall.receiveFirstFilePartBytes(formFieldLimit: Long): ByteArray? {
+internal actual suspend fun receiveFirstFilePartBytes(
+    call: ApplicationCall,
+    formFieldLimit: Long,
+): ByteArray? {
     var bytes: ByteArray? = null
     // Ktor's default formFieldLimit (50 MiB) governs the transform; our own cap is enforced by
     // readCappedBytes so it fires deterministically as MultipartPartTooLargeException regardless of
     // how the engine treats file-part limits (matching the native decoder's contract).
-    receiveMultipart().forEachPart { part ->
+    call.receiveMultipart().forEachPart { part ->
         if (part is PartData.FileItem && bytes == null) {
             bytes = part.provider().readCappedBytes(formFieldLimit)
         }
@@ -49,7 +53,7 @@ private suspend fun ByteReadChannel.readCappedBytes(limit: Long): ByteArray {
     val buffer = Buffer()
     var total = 0L
     while (true) {
-        val chunk = readRemaining(UPLOAD_CHUNK_BYTES)
+        val chunk = readBuffer(UPLOAD_CHUNK_BYTES)
         if (chunk.exhausted()) break
         total += buffer.transferFrom(chunk)
         if (total > limit) throw MultipartPartTooLargeException(limit)
@@ -61,7 +65,7 @@ private suspend fun ByteReadChannel.readCappedBytes(limit: Long): ByteArray {
 private suspend fun ByteReadChannel.writeTo(dest: Path) {
     SystemFileSystem.sink(dest).buffered().use { sink ->
         while (true) {
-            val chunk = readRemaining(UPLOAD_CHUNK_BYTES)
+            val chunk = readBuffer(UPLOAD_CHUNK_BYTES)
             if (chunk.exhausted()) break
             sink.transferFrom(chunk)
         }

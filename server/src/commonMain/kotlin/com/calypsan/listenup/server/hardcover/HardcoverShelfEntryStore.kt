@@ -111,7 +111,14 @@ class HardcoverShelfEntryStore(
         seenAt: Long,
     ) {
         suspendTransaction(sql) {
-            queries.putOnShelf(userId, bookId, shelfId, hcUserBookId, seenAt, clock.now().toEpochMilliseconds())
+            queries.putOnShelf(
+                user_id = userId,
+                book_id = bookId,
+                shelf_id = shelfId,
+                hc_user_book_id = hcUserBookId,
+                seen_at = seenAt,
+                updated_at = clock.now().toEpochMilliseconds(),
+            )
         }
     }
 
@@ -179,5 +186,10 @@ class HardcoverShelfEntryStore(
     ): Boolean = sql.shelfBooksQueries.selectLiveByShelfAndBook(shelfId, bookId).executeAsOneOrNull() != null
 
     private fun Hardcover_shelf_entries.toRecord(): HardcoverShelfEntryRecord =
-        HardcoverShelfEntryRecord(book_id, shelf_id, hc_user_book_id, HardcoverShelfEntryState.valueOf(state))
+        HardcoverShelfEntryRecord(
+            bookId = book_id,
+            shelfId = shelf_id,
+            hcUserBookId = hc_user_book_id,
+            state = HardcoverShelfEntryState.valueOf(state),
+        )
 }

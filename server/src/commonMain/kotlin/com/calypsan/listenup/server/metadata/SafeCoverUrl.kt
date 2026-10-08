@@ -23,6 +23,11 @@ import io.ktor.http.Url
  */
 object SafeCoverUrl {
     private const val REJECTION_REASON = "cover URL rejected: must be a public HTTPS destination"
+    private const val BITS_PER_OCTET = 8
+    private const val MAX_IPV4_OCTET = 255u
+    private const val HEX_RADIX = 16
+    private const val GLOBAL_UNICAST_IPV6_LOW = 0x2000
+    private const val GLOBAL_UNICAST_IPV6_HIGH = 0x3FFF
 
     /** Returns `null` when [url] is safe to fetch, or a typed [AppError] describing the rejection. */
     fun validate(url: String): AppError? {
@@ -66,6 +71,12 @@ object SafeCoverUrl {
         val prefixBits: Int,
     )
 
+    /** A block from a dotted-quad literal; the literals below are constants, so a bad one is a programming error. */
+    private fun cidr4(
+        network: String,
+        prefixBits: Int,
+    ): Cidr4 = Cidr4(checkNotNull(parseIPv4(network)) { "bad IPv4 literal $network" }, prefixBits)
+
     /**
      * IPv4 blocks that are never a legitimate public cover host: loopback, link-local (including
      * the 169.254.169.254 cloud-metadata endpoint), RFC 1918 private space, CGNAT, IETF/
@@ -74,20 +85,20 @@ object SafeCoverUrl {
      */
     private val RESERVED_IPV4_BLOCKS =
         listOf(
-            Cidr4(parseIPv4("0.0.0.0")!!, 8),
-            Cidr4(parseIPv4("10.0.0.0")!!, 8),
-            Cidr4(parseIPv4("100.64.0.0")!!, 10),
-            Cidr4(parseIPv4("127.0.0.0")!!, 8),
-            Cidr4(parseIPv4("169.254.0.0")!!, 16),
-            Cidr4(parseIPv4("172.16.0.0")!!, 12),
-            Cidr4(parseIPv4("192.0.0.0")!!, 24),
-            Cidr4(parseIPv4("192.0.2.0")!!, 24),
-            Cidr4(parseIPv4("192.168.0.0")!!, 16),
-            Cidr4(parseIPv4("198.18.0.0")!!, 15),
-            Cidr4(parseIPv4("198.51.100.0")!!, 24),
-            Cidr4(parseIPv4("203.0.113.0")!!, 24),
-            Cidr4(parseIPv4("224.0.0.0")!!, 4),
-            Cidr4(parseIPv4("240.0.0.0")!!, 4),
+            cidr4("0.0.0.0", 8),
+            cidr4("10.0.0.0", 8),
+            cidr4("100.64.0.0", 10),
+            cidr4("127.0.0.0", 8),
+            cidr4("169.254.0.0", 16),
+            cidr4("172.16.0.0", 12),
+            cidr4("192.0.0.0", 24),
+            cidr4("192.0.2.0", 24),
+            cidr4("192.168.0.0", 16),
+            cidr4("198.18.0.0", 15),
+            cidr4("198.51.100.0", 24),
+            cidr4("203.0.113.0", 24),
+            cidr4("224.0.0.0", 4),
+            cidr4("240.0.0.0", 4),
         )
 
     private fun isReservedIPv4(addr: UInt): Boolean =
@@ -109,10 +120,4 @@ object SafeCoverUrl {
         val value = firstGroup.toIntOrNull(HEX_RADIX) ?: return false
         return value in GLOBAL_UNICAST_IPV6_LOW..GLOBAL_UNICAST_IPV6_HIGH
     }
-
-    private const val BITS_PER_OCTET = 8
-    private const val MAX_IPV4_OCTET = 255u
-    private const val HEX_RADIX = 16
-    private const val GLOBAL_UNICAST_IPV6_LOW = 0x2000
-    private const val GLOBAL_UNICAST_IPV6_HIGH = 0x3FFF
 }

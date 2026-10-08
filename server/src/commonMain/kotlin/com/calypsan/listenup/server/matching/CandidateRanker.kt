@@ -76,7 +76,7 @@ internal object CandidateRanker {
                 authors = authors,
                 narrators = narrators,
                 durationMs = durationMs,
-                year = books.firstNotNullOfOrNull { it.releaseDate?.take(YEAR_DIGITS)?.toIntOrNull() },
+                year = books.firstNotNullOfOrNull { it.releaseDate?.run { take(YEAR_DIGITS).toIntOrNull() } },
                 format = books.firstNotNullOfOrNull { it.format },
                 chapterCount = books.firstNotNullOfOrNull { it.chapterCount },
                 coverUrl = everyone.firstNotNullOfOrNull { it.book.coverUrl?.takeIf(String::isNotBlank) },

@@ -48,8 +48,7 @@ internal object MatchPlanner {
             val option =
                 model.fields
                     .firstOrNull { it.review.field == decision.field }
-                    ?.options
-                    ?.firstOrNull { it.option.optionId == choice.optionId }
+                    ?.run { options.firstOrNull { it.option.optionId == choice.optionId } }
                     ?: return outdated("option ${choice.optionId} for ${decision.field} is no longer offered")
             draft.field(decision.field, option.write, option.providers.first())
         }

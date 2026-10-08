@@ -44,7 +44,7 @@ internal fun Route.audioRoutes(
         val sig = call.request.queryParameters["sig"]
         val userId = call.request.queryParameters["u"]
         if (exp == null || sig == null || userId == null ||
-            !signer.verify(userId, bookId, fileId, exp, sig)
+            !signer.verify(userId = userId, bookId = bookId, fileId = fileId, exp = exp, sig = sig)
         ) {
             return@get call.respond(HttpStatusCode.Forbidden)
         }
@@ -66,7 +66,7 @@ internal fun Route.audioRoutes(
         // container bytes regardless, which is why Android was unaffected. `respondSeekable` streams
         // from the native SeekableSource and cooperates with `PartialContent`/`AutoHeadResponse`
         // (and answers 404 when the file is missing).
-        call.respondSeekable(location.path, audioContentType(location.format))
+        respondSeekable(call, location.path, audioContentType(location.format))
     }
 }
 

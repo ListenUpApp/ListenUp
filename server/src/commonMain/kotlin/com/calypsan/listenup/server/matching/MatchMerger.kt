@@ -105,10 +105,11 @@ internal object MatchMerger {
     }
 
     private fun FoundBook.isbnDigits(): String? =
-        isbn
-            ?.filter { it.isDigit() || it == 'X' || it == 'x' }
-            ?.uppercase()
-            ?.takeIf { it.isNotEmpty() }
+        isbn?.run {
+            filter { it.isDigit() || it == 'X' || it == 'x' }
+                .uppercase()
+                .takeIf { it.isNotEmpty() }
+        }
 
     /** The same entry found twice stays one hit: it remembers either was the link, and prefers the searched store. */
     private fun SourcedHit.absorb(other: SourcedHit): SourcedHit =

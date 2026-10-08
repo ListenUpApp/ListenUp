@@ -47,7 +47,7 @@ class LibraryRegistry(
             }
 
         cachedId.compareAndSet(expect = null, update = id)
-        return LibraryId(cachedId.value!!)
+        return LibraryId(cachedId.value ?: id)
     }
 
     private fun bootstrapLibrary(): String {

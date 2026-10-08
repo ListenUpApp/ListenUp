@@ -164,9 +164,7 @@ class LibraryRepository(
         suspendTransaction(db) {
             db.librariesQueries
                 .selectHoldNewBooksForReview(libraryId.value)
-                .executeAsOneOrNull()
-                ?.let { it == 1L }
-                ?: false
+                .executeAsOneOrNull() == 1L
         }
 
     /**

@@ -30,6 +30,13 @@ internal data class Id3v2ReadResult(
 // masks are fixed by the ID3v2 spec (https://id3.org/id3v2.3.0, id3v2.4.0-structure).
 @Suppress("MagicNumber")
 internal object Id3v2Reader {
+    private const val ID3V2_HEADER_SIZE = 10
+    private const val ID3V2_FRAME_HEADER_SIZE = 10
+    private const val APIC_FRONT_COVER = 3
+
+    /** Non-T-prefixed frame IDs that are still dispatched as text frames. */
+    private val TEXT_FRAME_IDS = setOf("MVNM", "MVIN", "GRP1")
+
     fun hasId3v2Prefix(bytes: ByteArray): Boolean =
         bytes.size >= 3 &&
             bytes[0] == 0x49.toByte() &&
@@ -49,7 +56,7 @@ internal object Id3v2Reader {
         if (!hasId3v2Prefix(header)) return null
         val version = header[3].toInt() and 0xFF
         if (version != 3 && version != 4) return null
-        val bodySize = decodeSyncSafe(header[6], header[7], header[8], header[9])
+        val bodySize = decodeSyncSafe(b0 = header[6], b1 = header[7], b2 = header[8], b3 = header[9])
         if (bodySize < 0) return null
         return ID3V2_HEADER_SIZE + bodySize
     }
@@ -59,7 +66,7 @@ internal object Id3v2Reader {
         val version = bytes[3].toInt() and 0xFF
         if (version != 3 && version != 4) return null
         val flags = bytes[5].toInt() and 0xFF
-        val bodySize = decodeSyncSafe(bytes[6], bytes[7], bytes[8], bytes[9])
+        val bodySize = decodeSyncSafe(b0 = bytes[6], b1 = bytes[7], b2 = bytes[8], b3 = bytes[9])
         val totalSize = ID3V2_HEADER_SIZE + bodySize
         if (totalSize > bytes.size) {
             // Truncated tag — bail to caller's fallback.
@@ -71,9 +78,19 @@ internal object Id3v2Reader {
         if ((flags and 0x40) != 0 && offset + 4 <= bytes.size) {
             val extSize =
                 if (version == 4) {
-                    decodeSyncSafe(bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3])
+                    decodeSyncSafe(
+                        b0 = bytes[offset],
+                        b1 = bytes[offset + 1],
+                        b2 = bytes[offset + 2],
+                        b3 = bytes[offset + 3],
+                    )
                 } else {
-                    decodeBigEndian32(bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3])
+                    decodeBigEndian32(
+                        b0 = bytes[offset],
+                        b1 = bytes[offset + 1],
+                        b2 = bytes[offset + 2],
+                        b3 = bytes[offset + 3],
+                    )
                 }
             // ID3v2.3's extSize is a plain (non-sync-safe) 32-bit field, so a corrupt tag can
             // declare a value near Int.MIN_VALUE or Int.MAX_VALUE. Validate the resulting skip
@@ -99,9 +116,19 @@ internal object Id3v2Reader {
             val frameId = TextDecoding.decodeLatin1(bytes, offset, 4)
             val frameSize =
                 if (version == 4) {
-                    decodeSyncSafe(bytes[offset + 4], bytes[offset + 5], bytes[offset + 6], bytes[offset + 7])
+                    decodeSyncSafe(
+                        b0 = bytes[offset + 4],
+                        b1 = bytes[offset + 5],
+                        b2 = bytes[offset + 6],
+                        b3 = bytes[offset + 7],
+                    )
                 } else {
-                    decodeBigEndian32(bytes[offset + 4], bytes[offset + 5], bytes[offset + 6], bytes[offset + 7])
+                    decodeBigEndian32(
+                        b0 = bytes[offset + 4],
+                        b1 = bytes[offset + 5],
+                        b2 = bytes[offset + 6],
+                        b3 = bytes[offset + 7],
+                    )
                 }
             // Skip flags at offset+8, offset+9
             val frameDataStart = offset + ID3V2_FRAME_HEADER_SIZE
@@ -318,9 +345,9 @@ internal object Id3v2Reader {
         if (subId != "TIT2") return null
         val subSize =
             if (version == 4) {
-                decodeSyncSafe(subframes[4], subframes[5], subframes[6], subframes[7])
+                decodeSyncSafe(b0 = subframes[4], b1 = subframes[5], b2 = subframes[6], b3 = subframes[7])
             } else {
-                decodeBigEndian32(subframes[4], subframes[5], subframes[6], subframes[7])
+                decodeBigEndian32(b0 = subframes[4], b1 = subframes[5], b2 = subframes[6], b3 = subframes[7])
             }
         val dataStart = ID3V2_FRAME_HEADER_SIZE
         val dataEnd = dataStart + subSize
@@ -400,9 +427,27 @@ internal object Id3v2Reader {
         val b0 = data[0].toInt() and 0xFF
         val b1 = data[1].toInt() and 0xFF
         return when {
-            b0 == 0xFE && b1 == 0xFF -> TextDecoding.decodeUtf16(data, 2, data.size - 2, bigEndian = true)
-            b0 == 0xFF && b1 == 0xFE -> TextDecoding.decodeUtf16(data, 2, data.size - 2, bigEndian = false)
-            else -> TextDecoding.decodeUtf16(data, bigEndian = true)
+            b0 == 0xFE && b1 == 0xFF -> {
+                TextDecoding.decodeUtf16(
+                    bytes = data,
+                    offset = 2,
+                    length = data.size - 2,
+                    bigEndian = true,
+                )
+            }
+
+            b0 == 0xFF && b1 == 0xFE -> {
+                TextDecoding.decodeUtf16(
+                    bytes = data,
+                    offset = 2,
+                    length = data.size - 2,
+                    bigEndian = false,
+                )
+            }
+
+            else -> {
+                TextDecoding.decodeUtf16(data, bigEndian = true)
+            }
         }
     }
 
@@ -481,7 +526,7 @@ internal object Id3v2Reader {
     private fun readBigEndian32(
         data: ByteArray,
         offset: Int,
-    ): Int = decodeBigEndian32(data[offset], data[offset + 1], data[offset + 2], data[offset + 3])
+    ): Int = decodeBigEndian32(b0 = data[offset], b1 = data[offset + 1], b2 = data[offset + 2], b3 = data[offset + 3])
 
     /**
      * Strip leading/trailing null characters (encoder-emitted terminators).
@@ -490,11 +535,4 @@ internal object Id3v2Reader {
      * title/description field and must round-trip.
      */
     private fun String.trimNulls(): String = this.trim { it == '\u0000' }
-
-    private const val ID3V2_HEADER_SIZE = 10
-    private const val ID3V2_FRAME_HEADER_SIZE = 10
-    private const val APIC_FRONT_COVER = 3
-
-    /** Non-T-prefixed frame IDs that are still dispatched as text frames. */
-    private val TEXT_FRAME_IDS = setOf("MVNM", "MVIN", "GRP1")
 }

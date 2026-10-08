@@ -36,7 +36,7 @@ class RatingSourceSettings(
 
     /** Whether [source] is currently enabled — `true` when the admin has never set it either way. */
     suspend fun isEnabled(source: ExternalRatingSource): Boolean =
-        settings.getValue(key(source, "enabled"))?.toBooleanStrictOrNull() ?: true
+        settings.getValue(key(source, "enabled"))?.toBooleanStrictOrNull() != false
 
     /** Flips the admin's on/off switch for [source]. */
     suspend fun setEnabled(

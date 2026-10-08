@@ -2,7 +2,7 @@ package com.calypsan.listenup.server.scanner.watcher
 
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import com.calypsan.listenup.server.io.fileIoDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
@@ -75,7 +75,7 @@ internal class RecursiveDirectoryWatcher(
     }
 
     private fun startLoop(): Job =
-        scope.launch(Dispatchers.IO) {
+        scope.launch(fileIoDispatcher) {
             while (isActive) {
                 val key =
                     try {

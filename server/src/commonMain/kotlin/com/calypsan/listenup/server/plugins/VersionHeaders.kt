@@ -21,7 +21,9 @@ internal fun Application.installVersionHeaders() {
     intercept(ApplicationCallPipeline.Plugins) {
         call.response.headers.append(VersionHeaders.SERVER_VERSION, ServerIdentity.VERSION)
         call.response.headers.append(VersionHeaders.SERVER_API, ServerIdentity.API_VERSION)
-        call.request.headers[VersionHeaders.CLIENT_VERSION]?.let { ClientVersionMetrics.record(it) }
+        call.request.headers[VersionHeaders.CLIENT_VERSION]?.let { clientVersion ->
+            ClientVersionMetrics.record(clientVersion)
+        }
     }
 }
 

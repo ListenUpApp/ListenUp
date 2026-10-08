@@ -73,7 +73,7 @@ class HardcoverBookLinking(
                     hcBookId = hit.bookId,
                     hcEditionId = book?.defaultAudioEditionId,
                     title = book?.title ?: hit.title,
-                    authors = book?.authors?.takeIf { it.isNotEmpty() } ?: hit.authors,
+                    authors = book?.run { authors.takeIf { it.isNotEmpty() } } ?: hit.authors,
                     releaseYear = book?.releaseYear ?: hit.releaseYear,
                     ratingsCount = book?.count,
                 )
@@ -105,7 +105,13 @@ class HardcoverBookLinking(
             return AppResult.Failure(BookError.NotFound(debugInfo = "bookId=$bookId"))
         }
         if (!connections.hasConnection(userId)) return AppResult.Failure(HardcoverError.NotConnected())
-        links.linkManually(userId, bookId, hcBookId, hcEditionId, method)
+        links.linkManually(
+            userId = userId,
+            bookId = bookId,
+            hcBookId = hcBookId,
+            hcEditionId = hcEditionId,
+            method = method,
+        )
         outbox.unpark(userId, bookId)
         nudge.nudge(userId)
         pulls.onMatchChanged(userId, bookId)
@@ -219,7 +225,7 @@ class HardcoverBookLinking(
                     )
                 }
 
-                else -> {
+                is HardcoverCall.Ok, is HardcoverCall.Throttled, is HardcoverCall.Failed -> {
                     HardcoverError.Unavailable(debugInfo = "$what: $this")
                 }
             },

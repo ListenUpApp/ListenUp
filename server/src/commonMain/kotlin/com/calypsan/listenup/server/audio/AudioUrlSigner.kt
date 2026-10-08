@@ -47,7 +47,7 @@ class AudioUrlSigner(
         fileId: String,
     ): String {
         val exp = (clock.now() + ttl).epochSeconds
-        val sig = hmacHex(payload(userId, bookId, fileId, exp))
+        val sig = hmacHex(payload(userId = userId, bookId = bookId, fileId = fileId, exp = exp))
         return "u=${userId.encodeURLParameter()}&exp=$exp&sig=$sig"
     }
 
@@ -67,7 +67,7 @@ class AudioUrlSigner(
         sig: String,
     ): Boolean {
         if (exp <= clock.now().epochSeconds) return false
-        val expectedBytes = hmacBytes(payload(userId, bookId, fileId, exp))
+        val expectedBytes = hmacBytes(payload(userId = userId, bookId = bookId, fileId = fileId, exp = exp))
         val actualBytes = hexToBytes(sig) ?: return false
         return constantTimeEquals(expectedBytes, actualBytes)
     }

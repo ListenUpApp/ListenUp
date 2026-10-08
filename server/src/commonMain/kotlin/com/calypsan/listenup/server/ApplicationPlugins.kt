@@ -134,7 +134,15 @@ internal fun Application.installDependencies(
     // it removes the global `on(ApplicationStopped){ stopKoin() }` whose late async firing could rip
     // the live context out of the next test spec (the BookAccessPolicy NoDefinitionFound E2E flake).
     install(KoinIsolated) {
-        val modules = mutableListOf(authModule(environment.config, pushRelayUrl, applicationScope, pushSenderToken))
+        val modules =
+            mutableListOf(
+                authModule(
+                    config = environment.config,
+                    pushRelayUrl = pushRelayUrl,
+                    applicationScope = applicationScope,
+                    pushSenderToken = pushSenderToken,
+                ),
+            )
         modules += scannerModule(applicationScope, metadataPrecedence, watchEnabled)
         modules += booksModule(metadataPrecedence, embeddedCoverCacheSize, homeDir)
         modules += metadataModule(homeDir)
@@ -156,8 +164,7 @@ internal fun Application.installDependencies(
         val httpPort =
             environment.config
                 .propertyOrNull("ktor.deployment.port")
-                ?.getString()
-                ?.toIntOrNull() ?: 8080
+                ?.run { getString().toIntOrNull() } ?: 8080
         modules += mdnsModule(applicationScope, httpPort)
         modules += profileModule(Path(homeDir, "avatars"))
         modules += userPreferencesModule()
@@ -215,11 +222,11 @@ internal fun Application.installGracefulShutdown(applicationScope: CoroutineScop
         // Best-effort, sequential shutdown (real stop + every testApplication teardown). Each step
         // re-throws CancellationException via logShutdownFailure (honest-over-silent) — see its doc.
         runCatching { runBlocking { watcherSupervisor.unmountAll() } }
-            .onFailure { logShutdownFailure(it, "watcher unmount on shutdown failed") }
+            .onFailure { failure -> logShutdownFailure(failure, "watcher unmount on shutdown failed") }
         runCatching { applicationScope.cancel("application stopped") }
-            .onFailure { logShutdownFailure(it, "background-scope cancel on shutdown failed") }
+            .onFailure { failure -> logShutdownFailure(failure, "background-scope cancel on shutdown failed") }
         runCatching { databaseHandle.close() }
-            .onFailure { logShutdownFailure(it, "db pool close on shutdown failed") }
+            .onFailure { failure -> logShutdownFailure(failure, "db pool close on shutdown failed") }
     }
 }
 

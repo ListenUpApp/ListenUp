@@ -22,6 +22,12 @@ private val logger = loggerFor<OpfParser>()
  */
 private val YEAR_PATTERN = Regex("""^\s*(\d{4})""")
 
+/** The four-digit year a `dc:date` value starts with, or null when it does not start with one. */
+private fun leadingYearOf(date: String): Int? {
+    val match = YEAR_PATTERN.find(date) ?: return null
+    return match.groupValues[1].toIntOrNull()
+}
+
 /**
  * Parses OPF / Dublin Core XML metadata sidecars (`.opf`).
  *
@@ -70,17 +76,7 @@ internal class OpfParser : SidecarParser {
                 title = root.firstText("dc:title"),
                 subtitle = root.firstText("dc:subtitle"),
                 description = root.firstText("dc:description"),
-                publishYear =
-                    root
-                        .firstText(
-                            "dc:date",
-                        )?.let {
-                            YEAR_PATTERN
-                                .find(it)
-                                ?.groupValues
-                                ?.get(1)
-                                ?.toIntOrNull()
-                        },
+                publishYear = root.firstText("dc:date")?.let(::leadingYearOf),
                 publisher = root.firstText("dc:publisher"),
                 language = root.firstText("dc:language"),
                 series =
@@ -94,8 +90,7 @@ internal class OpfParser : SidecarParser {
                                     sequence = root.metaContent("calibre:series_index"),
                                 ),
                             )
-                        }
-                        ?: emptyList(),
+                        }.orEmpty(),
                 genres = root.allText("dc:subject"),
                 isbn = ids.isbn,
                 asin = ids.asin,

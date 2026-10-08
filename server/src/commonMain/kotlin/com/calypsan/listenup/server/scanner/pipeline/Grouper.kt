@@ -74,7 +74,7 @@ private class GroupingAccumulator(
             when (entry.fileType) {
                 FileType.AUDIO -> rootAudioFiles += entry
                 FileType.IMAGE -> rootImages += entry
-                else -> Unit
+                FileType.EBOOK, FileType.METADATA, FileType.TEXT, FileType.UNKNOWN -> Unit
             }
             return
         }

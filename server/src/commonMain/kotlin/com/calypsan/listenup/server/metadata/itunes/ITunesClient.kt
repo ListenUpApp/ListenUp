@@ -191,7 +191,7 @@ class ITunesClient(
      * [artworkUrl60] is used as a fallback when [artworkUrl100] is absent.
      */
     private fun toCoverHit(result: ITunesSearchResult): ITunesCoverHit {
-        val sourceId = result.collectionId?.toString() ?: ""
+        val sourceId = result.collectionId?.toString().orEmpty()
         val original =
             result.artworkUrl100?.ifEmpty { null }
                 ?: result.artworkUrl60?.ifEmpty { null }

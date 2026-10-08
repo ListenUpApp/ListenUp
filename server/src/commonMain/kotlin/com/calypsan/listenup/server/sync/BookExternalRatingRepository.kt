@@ -359,7 +359,7 @@ class BookExternalRatingRepository(
  * field is on [ExternalRatingSyncPayload]: both are server-side bookkeeping that never crosses
  * the wire (see that payload's KDoc).
  */
-internal class ExternalRatingWrite(
+internal data class ExternalRatingWrite(
     val region: String?,
     val fetchedAt: Long,
 ) {

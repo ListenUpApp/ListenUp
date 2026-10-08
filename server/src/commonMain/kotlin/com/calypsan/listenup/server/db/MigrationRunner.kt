@@ -41,7 +41,7 @@ internal class MigrationRunner(
     private fun appliedVersions(conn: SqlAdminConnection): Map<Int, String> =
         conn
             .query("SELECT version, checksum FROM schema_migrations") { row ->
-                row.getInt("version") to (row.getString("checksum") ?: "")
+                row.getInt("version") to row.getString("checksum").orEmpty()
             }.toMap()
 
     private fun verifyChecksums(applied: Map<Int, String>) {

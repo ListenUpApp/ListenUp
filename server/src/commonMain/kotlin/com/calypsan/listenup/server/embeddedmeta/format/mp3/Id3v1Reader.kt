@@ -15,6 +15,8 @@ import com.calypsan.listenup.server.embeddedmeta.decode.TextDecoding
  * — fields the v1 footer doesn't carry are left null/empty.
  */
 internal object Id3v1Reader {
+    private const val ID3V1_LEN = 128
+
     fun read(bytes: ByteArray): AudioTags? {
         if (bytes.size < ID3V1_LEN) return null
         val start = bytes.size - ID3V1_LEN
@@ -66,6 +68,4 @@ internal object Id3v1Reader {
         }
         return TextDecoding.decodeLatin1(bytes, offset, end - offset)
     }
-
-    private const val ID3V1_LEN = 128
 }

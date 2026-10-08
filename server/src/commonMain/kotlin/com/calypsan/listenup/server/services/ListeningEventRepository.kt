@@ -160,8 +160,13 @@ class ListeningEventRepository(
                     }
                     for (chunk in userEvents.chunked(PERSIST_CHUNK_SIZE)) {
                         suspendTransaction<Unit>(db) {
-                            chunk.forEach {
-                                upsertInOpenTransaction(it.event, suppressed, clientOpId = null, userId = userId)
+                            chunk.forEach { write ->
+                                upsertInOpenTransaction(
+                                    value = write.event,
+                                    suppressed = suppressed,
+                                    clientOpId = null,
+                                    userId = userId,
+                                )
                             }
                         }
                     }

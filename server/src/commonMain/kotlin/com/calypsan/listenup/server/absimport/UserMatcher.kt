@@ -61,7 +61,7 @@ internal class UserMatcher {
         absUser: AbsUser,
         listenupUsers: List<MatchableUser>,
     ): TierResult? {
-        val email = absUser.email?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        val email = absUser.email?.run { trim().takeIf { it.isNotEmpty() } } ?: return null
         return resolve(listenupUsers.filter { it.email.equals(email, ignoreCase = true) })
     }
 

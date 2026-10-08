@@ -16,7 +16,7 @@ import io.ktor.server.websocket.WebSockets
 import kotlinx.rpc.krpc.ktor.server.Krpc
 
 /** The minimal collaborators the foundation smoke routes need — no full DI graph. */
-class FoundationDeps(
+data class FoundationDeps(
     val jwt: JwtConfiguration,
     val sessionLiveness: SessionLiveness,
     /**

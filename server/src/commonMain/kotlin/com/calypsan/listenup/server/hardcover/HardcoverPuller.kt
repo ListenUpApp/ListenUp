@@ -88,11 +88,16 @@ class HardcoverPuller(
         rateLimiter.await()
         val page =
             userBooks
-                .changedSince(accessToken, state.cursor ?: PULL_EPOCH, state.cursorId ?: 0L, PULL_PAGE_SIZE)
-                .valueOr { return it }
+                .changedSince(
+                    accessToken = accessToken,
+                    after = state.cursor ?: PULL_EPOCH,
+                    afterId = state.cursorId ?: 0L,
+                    limit = PULL_PAGE_SIZE,
+                ).valueOr { return it }
         if (page.isNotEmpty()) commit(userId, page, now)?.let { return it }
         if (page.size < PULL_PAGE_SIZE) {
-            state.fullPullStartedAt?.let { startedAt ->
+            val startedAt = state.fullPullStartedAt
+            if (startedAt != null) {
                 wantToRead.sweep(userId, startedAt).asPullFailure()?.let { return it }
                 store.finishFullPull(userId, startedAt = startedAt, at = now)
             }
@@ -108,7 +113,10 @@ class HardcoverPuller(
         now: Long,
     ): HardcoverCall.Failed? {
         val resolved = resolver.resolve(userId, page)
-        wantToRead.applyPage(userId, page, resolved, seenAt = now).asPullFailure()?.let { return it }
+        wantToRead
+            .applyPage(userId = userId, page = page, resolved = resolved, seenAt = now)
+            .asPullFailure()
+            ?.let { return it }
         val listenUpsOwn = links.pushedReadsAmong(userId, page.flatMap { entry -> entry.finishedReads.map { it.id } })
         val zone = sql.homeTimeZone(userId)
         val today = Instant.fromEpochMilliseconds(now).toLocalDateTime(zone).date
@@ -125,7 +133,13 @@ class HardcoverPuller(
                 )
             }
         val last = page.last()
-        store.commitPage(userId, books, cursor = last.updatedAt, cursorId = last.userBookId, seenAt = now)
+        store.commitPage(
+            userId = userId,
+            books = books,
+            cursor = last.updatedAt,
+            cursorId = last.userBookId,
+            seenAt = now,
+        )
         return null
     }
 

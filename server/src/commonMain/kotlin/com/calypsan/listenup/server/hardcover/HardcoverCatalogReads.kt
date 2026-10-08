@@ -65,7 +65,12 @@ suspend fun HardcoverGraphQlClient.bookDetails(
     accessToken: String,
     hcBookId: Long,
 ): HardcoverCall<HardcoverBookDetails?> =
-    fetch(accessToken, BOOK_DETAILS_QUERY, buildJsonObject { put("id", hcBookId) }, "bookDetails") { body ->
+    fetch(
+        accessToken = accessToken,
+        query = BOOK_DETAILS_QUERY,
+        variables = buildJsonObject { put("id", hcBookId) },
+        label = "bookDetails",
+    ) { body ->
         hardcoverJson
             .decodeFromString<BookDetailsResponse>(body)
             .data
@@ -79,7 +84,12 @@ suspend fun HardcoverGraphQlClient.authorsNamed(
     accessToken: String,
     name: String,
 ): HardcoverCall<List<HardcoverAuthorProfile>> =
-    fetch(accessToken, AUTHORS_NAMED_QUERY, buildJsonObject { put("name", name) }, "authorsNamed") { body ->
+    fetch(
+        accessToken = accessToken,
+        query = AUTHORS_NAMED_QUERY,
+        variables = buildJsonObject { put("name", name) },
+        label = "authorsNamed",
+    ) { body ->
         hardcoverJson
             .decodeFromString<AuthorsResponse>(body)
             .data
@@ -93,7 +103,12 @@ suspend fun HardcoverGraphQlClient.authorById(
     accessToken: String,
     authorId: Long,
 ): HardcoverCall<HardcoverAuthorProfile?> =
-    fetch(accessToken, AUTHOR_BY_ID_QUERY, buildJsonObject { put("id", authorId) }, "authorById") { body ->
+    fetch(
+        accessToken = accessToken,
+        query = AUTHOR_BY_ID_QUERY,
+        variables = buildJsonObject { put("id", authorId) },
+        label = "authorById",
+    ) { body ->
         hardcoverJson
             .decodeFromString<AuthorsResponse>(body)
             .data
@@ -105,7 +120,7 @@ suspend fun HardcoverGraphQlClient.authorById(
 internal fun BookDetailsWire.toDetails(): HardcoverBookDetails =
     HardcoverBookDetails(
         hcBookId = id,
-        description = description?.trim()?.takeIf { it.isNotEmpty() },
+        description = description?.run { trim().takeIf { it.isNotEmpty() } },
         genres = cachedTagsIn(cachedTags, GENRE_CATEGORY),
         moods = cachedTagsIn(cachedTags, MOOD_CATEGORY),
         series =
@@ -124,7 +139,7 @@ internal fun AuthorProfileWire.toProfile(): HardcoverAuthorProfile =
     HardcoverAuthorProfile(
         id = id,
         name = name,
-        bio = bio?.trim()?.takeIf { it.isNotEmpty() },
+        bio = bio?.run { trim().takeIf { it.isNotEmpty() } },
         imageUrl = image?.url?.takeIf { it.isNotBlank() },
     )
 
@@ -140,15 +155,14 @@ internal fun cachedTagsIn(
         when (element) {
             is JsonObject -> element
             is JsonPrimitive -> element.contentOrNull?.let(::objectOrNull)
-            else -> null
+            is JsonArray, null -> null
         } ?: return emptyList()
     return (tags[category] as? JsonArray).orEmpty().mapNotNull { entry ->
         val tag = entry as? JsonObject ?: return@mapNotNull null
         val label =
             (tag[TAG_LABEL_KEY] as? JsonPrimitive)
                 ?.contentOrNull
-                ?.trim()
-                ?.takeIf { it.isNotEmpty() }
+                ?.run { trim().takeIf { it.isNotEmpty() } }
                 ?: return@mapNotNull null
         HardcoverTag(label, (tag[TAG_COUNT_KEY] as? JsonPrimitive)?.intOrNull ?: 0)
     }

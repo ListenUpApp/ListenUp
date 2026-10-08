@@ -61,7 +61,7 @@ class CoverStorage(
                 ),
             )
         if (result is AppResult.Failure) {
-            logger.warn { "CoverStorage.delete failed for path=$path: ${result.error.debugInfo}" }
+            logger.warn { "CoverStorage.delete failed for path=$path: ${result.error.debugInfo ?: result.error.code}" }
         }
     }
 }

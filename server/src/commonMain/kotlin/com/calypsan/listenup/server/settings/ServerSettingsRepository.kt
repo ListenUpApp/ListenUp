@@ -57,21 +57,26 @@ class ServerSettingsRepository(
     suspend fun serverName(): String = getValue(KEY_SERVER_NAME) ?: ServerIdentity.NAME
 
     /** Replaces the server name. */
-    suspend fun setServerName(name: String) = setValue(KEY_SERVER_NAME, name)
+    suspend fun setServerName(name: String) {
+        setValue(KEY_SERVER_NAME, name)
+    }
 
     /** The operator-set public remote URL, or null when unset/blank. */
     suspend fun remoteUrl(): String? = getValue(KEY_REMOTE_URL)?.takeIf { it.isNotBlank() }
 
     /** Replaces the remote URL; an empty/blank [url] clears it. */
-    suspend fun setRemoteUrl(url: String) = setValue(KEY_REMOTE_URL, url.trim())
+    suspend fun setRemoteUrl(url: String) {
+        setValue(KEY_REMOTE_URL, url.trim())
+    }
 
     /** Whether push notifications are enabled for this instance, defaulting to `true` when unset/unrecognised. */
     suspend fun pushNotificationsEnabled(): Boolean =
-        getValue(KEY_PUSH_NOTIFICATIONS_ENABLED)?.toBooleanStrictOrNull() ?: true
+        getValue(KEY_PUSH_NOTIFICATIONS_ENABLED)?.toBooleanStrictOrNull() != false
 
     /** Replaces the push-notifications admin toggle. */
-    suspend fun setPushNotificationsEnabled(enabled: Boolean) =
+    suspend fun setPushNotificationsEnabled(enabled: Boolean) {
         setValue(KEY_PUSH_NOTIFICATIONS_ENABLED, enabled.toString())
+    }
 
     private companion object {
         const val KEY_REGISTRATION_POLICY = "registration_policy"

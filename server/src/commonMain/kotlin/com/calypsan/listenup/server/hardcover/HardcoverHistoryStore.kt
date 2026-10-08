@@ -69,8 +69,8 @@ private fun ListenUpDatabase.historyOf(
 ): HardcoverHistory {
     val queries = hardcoverHistoryQueries
     val row = queries.selectHistory(userId).executeAsOneOrNull()
-    val state = row?.state?.let(::hardcoverHistoryState)
-    val total = row?.total_books?.toInt() ?: 0
+    val state = row?.run { hardcoverHistoryState(state) }
+    val total = row?.run { total_books.toInt() } ?: 0
     if (state == HardcoverHistoryState.SENDING) {
         val waiting = queries.countBooksWithHistoryRows(userId).executeAsOne().toInt()
         return HardcoverHistory.Sending(sentBooks = (total - waiting).coerceIn(0, total), totalBooks = total)
@@ -189,7 +189,9 @@ internal suspend fun ListenUpDatabase.ownReadsThrough(
     readId: String,
 ): Long =
     suspendTransaction(this) {
-        hardcoverHistoryQueries.countOwnReadsThrough(userId, bookId, finishedAt, readId).executeAsOne()
+        hardcoverHistoryQueries
+            .countOwnReadsThrough(user_id = userId, book_id = bookId, finished_at = finishedAt, read_id = readId)
+            .executeAsOne()
     }
 
 /**

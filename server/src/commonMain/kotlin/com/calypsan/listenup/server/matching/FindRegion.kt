@@ -90,21 +90,25 @@ internal fun suggestStores(
             ?.let(::add)
         add(UNITED_STATES)
         addAll(STORES_BY_LANGUAGE[languageCode(subject.language)].orEmpty())
-    }.map { it.lowercase() }
+    }.asSequence()
+        .map { it.lowercase() }
         .filter { it != here && it in supported }
         .distinct()
         .take(MAX_SUGGESTED_STORES)
         .map(::MetadataLocale)
+        .toList()
 }
 
 private fun languageCode(language: String?): String? {
     val raw =
         language
-            ?.trim()
-            ?.lowercase()
-            ?.substringBefore('-')
-            ?.substringBefore('_')
-            ?.takeIf { it.isNotEmpty() }
+            ?.run {
+                trim()
+                    .lowercase()
+                    .substringBefore('-')
+                    .substringBefore('_')
+                    .takeIf { it.isNotEmpty() }
+            }
             ?: return null
     return LANGUAGE_CODES[raw] ?: raw.takeIf { it.length == 2 }
 }

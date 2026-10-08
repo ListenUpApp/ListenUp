@@ -82,8 +82,7 @@ internal fun Application.acquireDataDirLockIfEnabled(homeDir: Path) {
     val enabled =
         environment.config
             .propertyOrNull("server.dataDirLock")
-            ?.getString()
-            ?.toBooleanStrictOrNull() ?: false
+            ?.run { getString().toBooleanStrictOrNull() } == true
     if (!enabled) return
     val lock = DataDirLock.forDataHome(homeDir)
     check(lock.tryAcquire()) {
@@ -112,8 +111,7 @@ internal fun Application.installForwardedHeadersIfTrusted() {
     val trusted =
         environment.config
             .propertyOrNull("server.trustProxy")
-            ?.getString()
-            ?.toBooleanStrictOrNull() ?: false
+            ?.run { getString().toBooleanStrictOrNull() } == true
     if (!trusted) return
     install(XForwardedHeaders)
     logger.warn {
@@ -152,8 +150,7 @@ internal fun Application.resolveEmbeddedCoverCacheSize(): Int {
     val raw =
         environment.config
             .propertyOrNull("scanner.embeddedCoverCacheSize")
-            ?.getString()
-            ?.trim()
+            ?.run { getString().trim() }
             .orEmpty()
     if (raw.isBlank()) return DEFAULT_EMBEDDED_COVER_CACHE_SIZE
     return raw.toInt()
@@ -168,8 +165,7 @@ internal fun Application.resolveSeedProfile(): String? {
     val raw =
         environment.config
             .propertyOrNull("seed.profile")
-            ?.getString()
-            ?.trim()
+            ?.run { getString().trim() }
             .orEmpty()
     if (raw.isBlank()) return null
     if (raw != SEED_PROFILE_DEMO) {
@@ -207,7 +203,7 @@ internal fun Application.resolveDemoLibraryFallback(seedProfile: String?): Path?
 internal fun Application.resolvePushRelayUrl(): String {
     val fromConfig = environment.config.propertyOrNull("push.relayUrl")?.getString()
     val fromEnv = readEnv("LISTENUP_PUSH_RELAY_URL")
-    return (fromConfig ?: fromEnv)?.trim()?.takeIf { it.isNotEmpty() } ?: PushConfig.DEFAULT_RELAY_URL
+    return (fromConfig ?: fromEnv)?.run { trim().takeIf { it.isNotEmpty() } } ?: PushConfig.DEFAULT_RELAY_URL
 }
 
 /**
@@ -221,7 +217,7 @@ internal fun Application.resolvePushRelayUrl(): String {
 internal fun Application.resolvePushSenderToken(): String? {
     val fromConfig = environment.config.propertyOrNull("push.senderToken")?.getString()
     val fromEnv = readEnv("LISTENUP_PUSH_SENDER_TOKEN")
-    return (fromConfig ?: fromEnv)?.trim()?.takeIf { it.isNotEmpty() }
+    return (fromConfig ?: fromEnv)?.run { trim().takeIf { it.isNotEmpty() } }
 }
 
 /**
@@ -232,7 +228,7 @@ internal fun Application.resolvePushSenderToken(): String? {
 internal fun Application.resolveHardcoverClientId(): String? {
     val fromConfig = environment.config.propertyOrNull("hardcover.clientId")?.getString()
     val fromEnv = readEnv("LISTENUP_HARDCOVER_CLIENT_ID")
-    return (fromConfig ?: fromEnv)?.trim()?.takeIf { it.isNotEmpty() }
+    return (fromConfig ?: fromEnv)?.run { trim().takeIf { it.isNotEmpty() } }
 }
 
 /**
@@ -242,14 +238,11 @@ internal fun Application.resolveHardcoverClientId(): String? {
 internal fun Application.resolveHardcoverApiBaseUrl(): String =
     environment.config
         .propertyOrNull("hardcover.apiBaseUrl")
-        ?.getString()
-        ?.trim()
-        ?.trimEnd('/')
-        ?.takeIf { it.isNotEmpty() }
+        ?.run { getString().trim().trimEnd('/').takeIf { it.isNotEmpty() } }
         ?: HARDCOVER_API_BASE_URL
 
 internal fun ApplicationConfig.rescanOnStartup(): Boolean =
-    propertyOrNull("scan.rescanOnStartup")?.getString()?.toBoolean() ?: true
+    propertyOrNull("scan.rescanOnStartup")?.run { getString().toBoolean() } != false
 
 /**
  * Whether to probe for FFmpeg at boot. Defaults to true.
@@ -259,7 +252,7 @@ internal fun ApplicationConfig.rescanOnStartup(): Boolean =
  * publishes its own availability races the probe overwriting it.
  */
 internal fun ApplicationConfig.transcodeProbeOnStartup(): Boolean =
-    propertyOrNull("transcode.probeOnStartup")?.getString()?.toBoolean() ?: true
+    propertyOrNull("transcode.probeOnStartup")?.run { getString().toBoolean() } != false
 
 /**
  * The operator's transcoding limits — `transcode.cacheCapBytes`, `transcode.maxConcurrentSessions`,
@@ -271,13 +264,13 @@ internal fun ApplicationConfig.transcodeProbeOnStartup(): Boolean =
 internal fun ApplicationConfig.transcodeSettings(): TranscodeSettings =
     TranscodeSettings(
         cacheCapBytes =
-            propertyOrNull("transcode.cacheCapBytes")?.getString()?.toLongOrNull()
+            propertyOrNull("transcode.cacheCapBytes")?.run { getString().toLongOrNull() }
                 ?: TranscodeSettings.DEFAULT_CACHE_CAP_BYTES,
         maxConcurrentSessions =
-            propertyOrNull("transcode.maxConcurrentSessions")?.getString()?.toIntOrNull()
+            propertyOrNull("transcode.maxConcurrentSessions")?.run { getString().toIntOrNull() }
                 ?: TranscodeSettings.DEFAULT_MAX_CONCURRENT,
         bitrateKbps =
-            propertyOrNull("transcode.bitrateKbps")?.getString()?.toIntOrNull()
+            propertyOrNull("transcode.bitrateKbps")?.run { getString().toIntOrNull() }
                 ?: TranscodeSettings.DEFAULT_BITRATE_KBPS,
     )
 
@@ -288,7 +281,7 @@ internal fun ApplicationConfig.transcodeSettings(): TranscodeSettings =
  * root can't trigger a scan that races the seed (mirrors the `mdns.enabled` gate).
  */
 internal fun ApplicationConfig.watchEnabled(): Boolean =
-    propertyOrNull("scanner.watchEnabled")?.getString()?.toBoolean() ?: true
+    propertyOrNull("scanner.watchEnabled")?.run { getString().toBoolean() } != false
 
 internal fun ApplicationConfig.periodicRescanInterval(): Duration =
     propertyOrNull("scan.periodicRescanInterval")
@@ -314,7 +307,7 @@ internal fun ApplicationConfig.periodicRescanInterval(): Duration =
  * hatch.
  */
 internal fun resolveRootResetToken(clock: Clock): RootResetToken {
-    val enabled = readEnv("LISTENUP_ROOT_RESET")?.toBooleanStrictOrNull() ?: false
+    val enabled = readEnv("LISTENUP_ROOT_RESET")?.toBooleanStrictOrNull() == true
     if (!enabled) return RootResetToken.disarmed()
 
     val armed = RootResetToken.armed(clock)
@@ -348,8 +341,7 @@ internal fun Application.resolveWebRoot(): Path? {
     val raw =
         environment.config
             .propertyOrNull("web.root")
-            ?.getString()
-            ?.trim()
+            ?.run { getString().trim() }
             .orEmpty()
     if (raw.isBlank()) return null
     val candidate = Path(raw)

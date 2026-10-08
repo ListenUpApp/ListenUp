@@ -13,7 +13,12 @@ import kotlinx.io.files.SystemFileSystem
 
 private val log = loggerFor<CoverContentResolver>()
 
-/** A cover's full-size bytes paired with the content type they should be served under. */
+/**
+ * A cover's full-size bytes paired with the content type they should be served under.
+ *
+ * Holds a ByteArray: a data class's equals/hashCode would compare it by reference, a false promise.
+ */
+@Suppress("UseDataClass")
 class CoverContent(
     val bytes: ByteArray,
     val contentType: ContentType,

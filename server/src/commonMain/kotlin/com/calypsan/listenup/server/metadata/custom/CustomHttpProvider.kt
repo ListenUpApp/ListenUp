@@ -53,7 +53,9 @@ internal class CustomHttpProvider(
         refresh: Boolean,
     ): AppResult<BookCoreMeta?> {
         if (!serves(MetadataDomain.BOOK_CORE)) return AppResult.Success(null)
-        return client.getBook(book.asin, book.title, book.primaryAuthor, locale.region).map { it?.toBookCoreMeta() }
+        return client
+            .getBook(asin = book.asin, title = book.title, author = book.primaryAuthor, region = locale.region)
+            .map { it?.toBookCoreMeta() }
     }
 
     override suspend fun getCharacters(
@@ -69,10 +71,9 @@ internal class CustomHttpProvider(
         locale: MetadataLocale,
     ): AppResult<List<CoverMeta>> {
         if (!serves(MetadataDomain.COVER)) return AppResult.Success(emptyList())
-        return client.getCovers(book.asin, book.title, book.primaryAuthor, locale.region).map {
-            it?.toCoverMetas()
-                ?: emptyList()
-        }
+        return client
+            .getCovers(asin = book.asin, title = book.title, author = book.primaryAuthor, region = locale.region)
+            .map { it?.toCoverMetas().orEmpty() }
     }
 
     override suspend fun getGenres(

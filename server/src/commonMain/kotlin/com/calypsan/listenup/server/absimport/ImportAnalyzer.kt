@@ -64,10 +64,10 @@ class ImportAnalyzer internal constructor(
                         .open(canonicalize(absDb).toString())
                         .use { handle ->
                             AbsReadResult(
-                                handle.users(),
-                                handle.bookItems(),
-                                handle.progress(),
-                                handle.playbackSessions(),
+                                users = handle.users(),
+                                items = handle.bookItems(),
+                                progress = handle.progress(),
+                                sessions = handle.playbackSessions(),
                             )
                         }
 
@@ -78,14 +78,21 @@ class ImportAnalyzer internal constructor(
                 val usersMatched = userMatches.count { it.confidence == MatchTier.STRONG }
 
                 val itemsWithProgress = itemsWithProgress(absData.items, absData.progress)
-                val matches = matchItems(itemsWithProgress, libraryId, usersMatched, onEvent)
+                val matches =
+                    matchItems(
+                        items = itemsWithProgress,
+                        libraryId = libraryId,
+                        usersMatched = usersMatched,
+                        onEvent = onEvent,
+                    )
 
                 val importableSessionCount = importableSessionCount(absData.sessions, matches)
                 val analysis = assembleAnalysis(userMatches, matches, importableSessionCount)
                 store.writeAnalysis(importId, analysis)
                 store.writeMatches(importId, resolvedFrom(userMatches, matches))
 
-                onEvent(ImportEvent.Analyzed(store.getImport(importId)!!))
+                val analyzed = checkNotNull(store.getImport(importId)) { "import $importId vanished mid-analysis" }
+                onEvent(ImportEvent.Analyzed(analyzed))
                 AppResult.Success(analysis)
             } catch (e: CancellationException) {
                 throw e
@@ -101,11 +108,11 @@ class ImportAnalyzer internal constructor(
     /** Loads the non-deleted ListenUp users once, reduced to the matcher's fields. */
     private suspend fun loadMatchableUsers(): List<MatchableUser> =
         suspendTransaction(sql) {
-            sql.usersQueries.selectMatchableLiveUsers().executeAsList().map {
+            sql.usersQueries.selectMatchableLiveUsers().executeAsList().map { row ->
                 MatchableUser(
-                    id = UserId(it.id),
-                    email = it.email,
-                    displayName = it.display_name,
+                    id = UserId(row.id),
+                    email = row.email,
+                    displayName = row.display_name,
                 )
             }
         }

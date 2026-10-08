@@ -89,7 +89,9 @@ class OrganizeOnEditRelocator(
                 }
 
                 is AppResult.Failure -> {
-                    logger.warn { "organizer edit-relocation failed for ${bookId.value}: ${result.error.debugInfo}" }
+                    logger.warn {
+                        "organizer edit-relocation failed for ${bookId.value}: ${result.error.debugInfo ?: result.error.code}"
+                    }
                 }
             }
         } catch (e: CancellationException) {

@@ -5,7 +5,6 @@ import com.calypsan.listenup.api.sync.AdminUserRosterSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.server.db.sqldelight.Admin_user_roster
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import app.cash.sqldelight.db.SqlDriver
 import kotlin.time.Clock
 
@@ -118,10 +117,10 @@ class AdminUserRosterRepository(
                 role = value.role,
                 status = value.status,
                 can_edit = value.canEdit.toDbLong(),
-                can_curate_library = (value.permissions?.canCurateLibrary ?: false).toDbLong(),
-                can_contribute_story_world = (value.permissions?.canContributeStoryWorld ?: true).toDbLong(),
-                can_curate_story_world = (value.permissions?.canCurateStoryWorld ?: false).toDbLong(),
-                can_make_reading_orders = (value.permissions?.canMakeReadingOrders ?: true).toDbLong(),
+                can_curate_library = (value.permissions?.canCurateLibrary == true).toDbLong(),
+                can_contribute_story_world = (value.permissions?.canContributeStoryWorld != false).toDbLong(),
+                can_curate_story_world = (value.permissions?.canCurateStoryWorld == true).toDbLong(),
+                can_make_reading_orders = (value.permissions?.canMakeReadingOrders != false).toDbLong(),
                 account_created_at = value.accountCreatedAt,
                 revision = rev,
                 updated_at = now,
@@ -137,10 +136,10 @@ class AdminUserRosterRepository(
                 role = value.role,
                 status = value.status,
                 can_edit = value.canEdit.toDbLong(),
-                can_curate_library = (value.permissions?.canCurateLibrary ?: false).toDbLong(),
-                can_contribute_story_world = (value.permissions?.canContributeStoryWorld ?: true).toDbLong(),
-                can_curate_story_world = (value.permissions?.canCurateStoryWorld ?: false).toDbLong(),
-                can_make_reading_orders = (value.permissions?.canMakeReadingOrders ?: true).toDbLong(),
+                can_curate_library = (value.permissions?.canCurateLibrary == true).toDbLong(),
+                can_contribute_story_world = (value.permissions?.canContributeStoryWorld != false).toDbLong(),
+                can_curate_story_world = (value.permissions?.canCurateStoryWorld == true).toDbLong(),
+                can_make_reading_orders = (value.permissions?.canMakeReadingOrders != false).toDbLong(),
                 account_created_at = value.accountCreatedAt,
                 created_at = now,
                 updated_at = now,

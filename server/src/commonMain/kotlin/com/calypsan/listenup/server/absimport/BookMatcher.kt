@@ -85,7 +85,7 @@ internal class BookMatcher(
     ): BookMatch? {
         val targetTitle = normalizeText(item.title)
         if (targetTitle.isEmpty()) return null
-        val targetAuthor = item.authorName?.let(::normalizeText)?.takeIf { it.isNotEmpty() }
+        val targetAuthor = item.authorName?.let { name -> normalizeText(name).takeIf { it.isNotEmpty() } }
         val ids =
             sql.booksQueries
                 .selectLiveIdsAndTitlesForLibrary(libraryId.value)

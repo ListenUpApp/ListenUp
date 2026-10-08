@@ -29,7 +29,7 @@ internal object ChapterNamesReviewer {
         if (local.size != remote.size) {
             return ChapterNamesReview.CountMismatch(source, local.size, remote.size) to null
         }
-        val names = remote.map { it.title?.trim()?.takeIf(String::isNotEmpty) }
+        val names = remote.map { it.title?.run { trim().takeIf(String::isNotEmpty) } }
         val rows =
             local.mapIndexedNotNull { ordinal, chapter ->
                 val theirs = names[ordinal] ?: return@mapIndexedNotNull null
