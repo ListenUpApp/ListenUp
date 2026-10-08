@@ -38,7 +38,10 @@ internal class AdminUserRosterMirrorApply(
                 displayName = payload.displayName,
                 role = payload.role,
                 status = payload.status,
-                canEdit = payload.canEdit,
+                // The nested permissions are the truth; an older server sends only the flat canEdit
+                // and no curate flag, which reads as off.
+                canEdit = payload.permissions?.canEditMetadata ?: payload.canEdit,
+                canCurateLibrary = payload.permissions?.canCurateLibrary ?: false,
                 accountCreatedAt = payload.accountCreatedAt,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,

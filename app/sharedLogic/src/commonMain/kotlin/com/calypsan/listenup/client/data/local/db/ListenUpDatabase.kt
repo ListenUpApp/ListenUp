@@ -15,7 +15,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at **v17** — the Room 3 baseline (v1) plus the [MIGRATION_1_2] volume-boost columns, the
+ * Schema is at **v19** — the Room 3 baseline (v1) plus the [MIGRATION_1_2] volume-boost columns, the
  * [MIGRATION_2_3] `books.normalizationGainDb` tag-fallback column, the [MIGRATION_3_4] per-user
  * permission flags (`admin_user_roster.canEdit`, `users.canEdit`/`canShare`), the
  * [MIGRATION_4_5] presence-cache columns (`cached_active_sessions.lastActiveAtMs`/`isLive`), the
@@ -33,6 +33,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  * [MIGRATION_15_16] adds the series tree, `series.parentId` and `series.parentPosition`.
  * [MIGRATION_16_17] adds `libraries.metadataRegion`, the library's Audible store.
  * [MIGRATION_17_18] adds `books.lastMatch`, the book's live metadata match for "Undo last match".
+ * [MIGRATION_18_19] adds `users.canCurateLibrary` and `admin_user_roster.canCurateLibrary`, backfilled from `canEdit`.
  * **v1** was the squashed starting point: the pre-1.0 chain (old v1 → v2 → v3) was squashed to a
  * single starting point alongside the Room 2.8.4 → Room 3 migration, while the app was still
  * pre-production and no install base held a database worth preserving. Everything those migrations
@@ -50,10 +51,10 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  * silently recreating the DB. That matters because the local DB holds the **unsynced outbox**
  * (`PendingOperationV2Entity`) plus `syncedAt`-pending playback/listening rows — data the "re-syncs
  * from the server" story does NOT cover, because it never reached the server. **Every future
- * schema-version bump MUST ship a hand-written [androidx.room3.migration.Migration]** (register it on
- * all three builders) that preserves the outbox and other pending rows; the guard
+ * schema-version bump MUST ship a hand-written [androidx.room3.migration.Migration]** (register it in
+ * `buildConfigured` (DatabaseBuilder.kt)) that preserves the outbox and other pending rows; the guard
  * `DatabaseMigrationPolicyTest` fails the build if the destructive fallback is ever re-added. The
- * `@Database.exportSchema` on-disk JSON (`schemas/…/5.json`) is the authoritative baseline.
+ * `@Database.exportSchema` on-disk JSON (`schemas/…/<version>.json`) is the authoritative baseline.
  */
 @Database(
     entities = [
@@ -97,7 +98,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         BookRatingEntity::class,
         BookExternalRatingEntity::class,
     ],
-    version = 18,
+    version = 19,
     exportSchema = true,
 )
 @ColumnTypeConverters(

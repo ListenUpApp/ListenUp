@@ -57,4 +57,13 @@ class ContractUserMapperTest :
             contractUser(role = UserRole.ADMIN).toDomain().isAdmin shouldBe true
             contractUser(role = UserRole.MEMBER).toDomain().isAdmin shouldBe false
         }
+
+        test("carries both permission flags across") {
+            val domain =
+                contractUser()
+                    .copy(permissions = ContractUserPermissions(canEditMetadata = false, canCurateLibrary = true))
+                    .toDomain()
+            domain.permissions.canEditMetadata shouldBe false
+            domain.permissions.canCurateLibrary shouldBe true
+        }
     })

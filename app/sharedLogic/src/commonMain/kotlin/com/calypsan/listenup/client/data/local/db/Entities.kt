@@ -60,6 +60,12 @@ internal data class UserEntity(
      * `UserPermissions`, so a row written before the flags existed reads as it always behaved.
      */
     val canEdit: Boolean = true,
+    /**
+     * Whether this user may curate the library: merge, unmerge and delete catalogue entries, and undo
+     * those merges. Mirrors the contract `UserPermissions.canCurateLibrary`. Defaults to `false`, the
+     * defaults rule's value for destructive work; MIGRATION_18_19 backfills existing rows from [canEdit].
+     */
+    val canCurateLibrary: Boolean = false,
 )
 
 /**

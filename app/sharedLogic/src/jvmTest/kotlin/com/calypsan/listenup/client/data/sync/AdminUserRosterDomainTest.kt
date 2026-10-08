@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.dto.auth.UserPermissions
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.AdminUserRosterSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
@@ -142,6 +143,27 @@ class AdminUserRosterDomainTest :
             }
         }
 
+        test("a roster payload's nested permissions land in Room; an older server's flat canEdit alone reads curate off") {
+            withHandler { handler, db ->
+                handler.onEvent(
+                    created(
+                        payload(
+                            "u-new",
+                            canEdit = true,
+                            permissions = UserPermissions(canEditMetadata = false, canCurateLibrary = true),
+                        ),
+                    ),
+                )
+                handler.onEvent(created(payload("u-old", canEdit = true, permissions = null)))
+
+                val rows = db.adminUserRosterDao().observeAll().first().associateBy { it.id }
+                rows.getValue("u-new").canEdit shouldBe false
+                rows.getValue("u-new").canCurateLibrary shouldBe true
+                rows.getValue("u-old").canEdit shouldBe true
+                rows.getValue("u-old").canCurateLibrary shouldBe false
+            }
+        }
+
         test("handler self-registers under domainName 'admin_user_roster'") {
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
@@ -198,6 +220,7 @@ private fun payload(
     canEdit: Boolean = true,
     revision: Long = 1L,
     deletedAt: Long? = null,
+    permissions: UserPermissions? = null,
 ) = AdminUserRosterSyncPayload(
     id = id,
     email = "$id@example.com",
@@ -205,6 +228,7 @@ private fun payload(
     role = role,
     status = status,
     canEdit = canEdit,
+    permissions = permissions,
     accountCreatedAt = 50L,
     revision = revision,
     updatedAt = 200L,

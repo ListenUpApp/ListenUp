@@ -32,6 +32,8 @@ internal data class AdminUserRosterEntity(
      * server column default, so a roster row synced before `V60` reads as it behaved.
      */
     val canEdit: Boolean = true,
+    /** Whether the user may curate the library (merge and delete catalogue entries). See `UserEntity.canCurateLibrary`. */
+    val canCurateLibrary: Boolean = false,
     /** Epoch-ms account creation timestamp. */
     val accountCreatedAt: Long,
     /** Monotonic server revision; 0 until the server has confirmed the row. */
