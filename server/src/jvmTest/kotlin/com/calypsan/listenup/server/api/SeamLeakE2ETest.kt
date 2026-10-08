@@ -406,14 +406,12 @@ private suspend fun ApplicationTestBuilder.getBook(
     bookId: String,
 ): AppResult<BookSyncPayload> = authedService<BookService>(token).getBook(BookId(bookId))
 
-@Suppress("SuspendFunWithCoroutineScopeReceiver") // A Ktor CoroutineScope only incidentally; nothing launches.
 private suspend fun HttpClient.audio(
     query: String,
     bookId: String,
     fileId: String,
 ): HttpResponse = get("/api/v1/audio/$bookId/$fileId?$query")
 
-@Suppress("SuspendFunWithCoroutineScopeReceiver") // A Ktor CoroutineScope only incidentally; nothing launches.
 private suspend fun HttpClient.cover(
     token: String,
     bookId: String,

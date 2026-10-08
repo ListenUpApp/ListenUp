@@ -96,6 +96,8 @@ coroutines:
     active: true
   SuspendFunWithCoroutineScopeReceiver:
     active: true
+    # Production code only: test helpers extend Ktor's HttpClient/HttpResponse, CoroutineScopes only incidentally.
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
   SuspendFunWithFlowReturnType:
     active: true
 
