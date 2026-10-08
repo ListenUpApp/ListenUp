@@ -193,6 +193,7 @@ class AdminUserServiceRosterPublishTest :
                 runTest {
                     maintainer.refresh("m1")
                     val svc = makeAdminUserService(maintainer).copyWith(principalFor("root1", UserRole.ROOT))
+
                     fun rosterRow() =
                         rosterRepo
                             .pullSince(userId = null, cursor = 0, limit = 100)

@@ -35,7 +35,10 @@ class PermissionsVersionSkewTest :
                     AdminUserPatch(permissions = UserPermissionsPatch(canMakeReadingOrders = false)),
                 )
             wire shouldBe """{"permissions":{"canMakeReadingOrders":false}}"""
-            contractJson.decodeFromString<JsonObject>(wire).getValue("permissions").jsonObject.keys shouldBe
+            contractJson
+                .decodeFromString<JsonObject>(wire)
+                .getValue("permissions")
+                .jsonObject.keys shouldBe
                 setOf("canMakeReadingOrders")
         }
 
