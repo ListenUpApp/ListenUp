@@ -189,8 +189,7 @@ class ImportRoutesTest :
         }
     })
 
-// Ktor clients and responses are CoroutineScopes only incidentally; this helper never launches into one.
-@Suppress("SuspendFunWithCoroutineScopeReceiver")
+@Suppress("SuspendFunWithCoroutineScopeReceiver") // A Ktor CoroutineScope only incidentally; nothing launches.
 private suspend fun HttpClient.uploadAbsBackup(
     token: String,
     zipBytes: ByteArray,
@@ -217,8 +216,7 @@ private suspend fun HttpClient.uploadAbsBackup(
  * [ByteArray] is allocated. The channel is backed by a [ZeroInputStream] wrapped in a
  * [kotlinx.io.Source], so nothing is buffered in memory beyond the read-side chunk window.
  */
-// Ktor clients and responses are CoroutineScopes only incidentally; this helper never launches into one.
-@Suppress("SuspendFunWithCoroutineScopeReceiver")
+@Suppress("SuspendFunWithCoroutineScopeReceiver") // A Ktor CoroutineScope only incidentally; nothing launches.
 private suspend fun HttpClient.uploadAbsBackupStreamed(
     token: String,
     sizeBytes: Long,
