@@ -63,8 +63,10 @@ private val logger = loggerFor<SeriesServiceImpl>()
  * is access-filtered: a non-admin caller receives only the sibling books they can reach
  * (via [BookAccessPolicy]), so a quarantined or private-collection-only book in the series
  * never leaks its metadata; ROOT/ADMIN see every book.
- * Series-metadata mutations ([updateSeries], [deleteSeries], [mergeSeries]) are gated on
- * [Permission.EDIT_METADATA] via [permissionPolicy]: ROOT/ADMIN pass implicitly, a MEMBER
+ * Edits ([updateSeries] and the other non-curate mutations) are gated on [Permission.EDIT_METADATA];
+ * merge, delete and merge-undo ([mergeSeries], [deleteSeries], [undoSeriesMerge], and the
+ * [listMergeReceipts] that feeds undo) on [Permission.CURATE_LIBRARY] — both via
+ * [permissionPolicy]: ROOT/ADMIN pass implicitly, a MEMBER
  * passes iff their flag is set (fresh DB lookup per call). The authenticated caller is
  * resolved from [principal] — route handlers call [copyWith] to bind it per-request; the
  * Koin singleton carries an unscoped placeholder that yields no principal, so an absent
@@ -140,7 +142,7 @@ internal class SeriesServiceImpl(
         source: SeriesId,
         target: SeriesId,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         val mergedBy = principal.current()?.userId?.value ?: return AppResult.Failure(AuthError.PermissionDenied())
         if (source.value == target.value) {
             return AppResult.Failure(SeriesError.MergeSelfTarget())
@@ -213,12 +215,12 @@ internal class SeriesServiceImpl(
     }
 
     override suspend fun listMergeReceipts(target: SeriesId): AppResult<List<MergeReceipt>> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         return AppResult.Success(mergeReceipts.openFor(target))
     }
 
     override suspend fun undoSeriesMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         return mergeReceipts.undo(receiptId)
     }
 
@@ -247,7 +249,7 @@ internal class SeriesServiceImpl(
     }
 
     override suspend fun deleteSeries(id: SeriesId): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         val result = deleteCore(id)
         return result
     }

@@ -61,9 +61,10 @@ private const val MAX_BROWSE_LIMIT = 1000
  * open to any authenticated user; [browseBooks] is access-filtered so a non-admin caller
  * receives only the ids of books they can reach (via [BookAccessPolicy]) — a browse can't
  * enumerate a quarantined or private-collection-only book; ROOT/ADMIN see every book.
- * Genre-taxonomy mutations
- * ([createGenre], [updateGenre], [deleteGenre], [moveGenre], [mergeGenres],
- * [mapUnmappedToGenre]) are gated on [Permission.EDIT_METADATA] via [permissionPolicy]:
+ * Edits ([createGenre], [updateGenre], [moveGenre], [mapUnmappedToGenre]) are gated on
+ * [Permission.EDIT_METADATA]; merge, delete and merge-undo ([mergeGenres], [deleteGenre],
+ * [undoGenreMerge], and the [listMergeReceipts] that feeds undo) on
+ * [Permission.CURATE_LIBRARY] — both via [permissionPolicy]:
  * ROOT/ADMIN pass implicitly, a MEMBER passes iff their flag is set (fresh DB lookup per
  * call). The authenticated caller is resolved from [principal] — route handlers call
  * [copyWith] to bind it per-request; the Koin singleton carries an unscoped placeholder
@@ -297,7 +298,7 @@ internal class GenreServiceImpl(
     }
 
     override suspend fun deleteGenre(id: GenreId): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         // Sequential single-engine cutover: the synchronous junction-delete + alias-removal commit
         // first, then the genre soft-delete runs through the substrate (its own transaction, bumping
         // revision + publishing), then the affected books are re-upserted through BookRepository. All
@@ -358,7 +359,7 @@ internal class GenreServiceImpl(
         source: GenreId,
         target: GenreId,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         val mergedBy = principal.current()?.userId?.value ?: return AppResult.Failure(AuthError.PermissionDenied())
         // Sequential single-engine cutover (see deleteGenre): synchronous relink + alias-repoint
         // commit first, the source genre soft-delete runs through the substrate, then the affected
@@ -394,12 +395,12 @@ internal class GenreServiceImpl(
     }
 
     override suspend fun listMergeReceipts(target: GenreId): AppResult<List<MergeReceipt>> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         return AppResult.Success(mergeReceipts.openFor(target))
     }
 
     override suspend fun undoGenreMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         return mergeReceipts.undo(receiptId)
     }
 

@@ -90,9 +90,9 @@ private val logger = loggerFor<ContributorServiceImpl>()
  * [listBooksByContributor] is access-filtered: a non-admin caller receives only the books
  * they can reach (via [BookAccessPolicy]), so a quarantined or private-collection-only book
  * by the contributor never leaks its metadata; ROOT/ADMIN see every book.
- * Contributor-metadata mutations ([updateContributor],
- * [deleteContributor], [mergeContributors], [unmergeContributor]) are gated on the
- * [Permission.EDIT_METADATA] via [permissionPolicy]: ROOT/ADMIN pass implicitly, a MEMBER
+ * Edits ([updateContributor]) are gated on [Permission.EDIT_METADATA]; merge, unmerge and
+ * delete ([mergeContributors], [unmergeContributor], [deleteContributor]) on
+ * [Permission.CURATE_LIBRARY] — both via [permissionPolicy]: ROOT/ADMIN pass implicitly, a MEMBER
  * passes iff their flag is set (fresh DB lookup per call). The authenticated caller is
  * resolved from [principal] — route handlers call [copyWith] to bind it per-request; the
  * Koin singleton carries an unscoped placeholder that yields no principal, so an absent
@@ -173,7 +173,7 @@ internal class ContributorServiceImpl(
         source: ContributorId,
         target: ContributorId,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         if (source.value == target.value) {
             return AppResult.Failure(ContributorError.MergeSelfTarget())
         }
@@ -266,7 +266,7 @@ internal class ContributorServiceImpl(
         contributorId: ContributorId,
         aliasName: String,
     ): AppResult<ContributorId> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         val result = unmergeCore(contributorId, aliasName)
         return result
     }
@@ -341,7 +341,7 @@ internal class ContributorServiceImpl(
     }
 
     override suspend fun deleteContributor(id: ContributorId): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         val result = deleteCore(id)
         return result
     }

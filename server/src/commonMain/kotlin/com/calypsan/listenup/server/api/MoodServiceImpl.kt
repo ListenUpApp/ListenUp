@@ -38,8 +38,9 @@ private const val MIN_LIMIT = 1
  * Renames therefore cannot produce a slug conflict; the slug stays the same.
  *
  * Mood reads ([listMoods], [getMoodBySlug], [listBooksForMood], [listMoodsForBook]) are open
- * to any authenticated user. Mood mutations ([addMoodToBook], [removeMoodFromBook],
- * [renameMood], [deleteMood]) are gated on [Permission.EDIT_METADATA] via [permissionPolicy]:
+ * to any authenticated user. Edits ([addMoodToBook], [removeMoodFromBook], [renameMood]) are
+ * gated on [Permission.EDIT_METADATA]; [deleteMood] on [Permission.CURATE_LIBRARY] — both via
+ * [permissionPolicy]:
  * ROOT/ADMIN pass implicitly, a MEMBER passes iff their flag is set (fresh DB lookup per call).
  * The authenticated caller is resolved from [principal] — route handlers call [copyWith] to
  * bind it per-request; the Koin singleton carries an unscoped placeholder that yields no
@@ -232,7 +233,7 @@ internal class MoodServiceImpl(
     }
 
     override suspend fun deleteMood(moodId: MoodId): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         if (moodRepository.findById(moodId.value) == null) {
             return AppResult.Failure(MoodError.NotFound())
         }

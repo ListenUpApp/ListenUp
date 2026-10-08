@@ -36,8 +36,9 @@ private const val MIN_LIMIT = 1
  * Renames therefore cannot produce a slug conflict; the slug stays the same.
  *
  * Tag reads ([listTags], [getTagBySlug], [listBooksForTag], [listTagsForBook]) are open to
- * any authenticated user. Tag mutations ([addTagToBook], [removeTagFromBook], [renameTag],
- * [deleteTag]) are gated on [Permission.EDIT_METADATA] via [permissionPolicy]: ROOT/ADMIN
+ * any authenticated user. Edits ([addTagToBook], [removeTagFromBook], [renameTag]) are gated
+ * on [Permission.EDIT_METADATA]; [deleteTag] on [Permission.CURATE_LIBRARY] — both via
+ * [permissionPolicy]: ROOT/ADMIN
  * pass implicitly, a MEMBER passes iff their flag is set (fresh DB lookup per call). The
  * authenticated caller is resolved from [principal] — route handlers call [copyWith] to bind
  * it per-request; the Koin singleton carries an unscoped placeholder that yields no
@@ -241,7 +242,7 @@ internal class TagServiceImpl(
     }
 
     override suspend fun deleteTag(tagId: TagId): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         if (tagRepository.findById(tagId.value) == null) {
             return AppResult.Failure(TagError.NotFound())
         }
