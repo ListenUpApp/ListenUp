@@ -49,7 +49,7 @@ private const val COUNTDOWN_TICK_MS = 1_000L
 class PersonMatchViewModel internal constructor(
     private val contributorId: String,
     private val matchingRepository: MatchingRepository,
-    private val contributorRepository: ContributorRepository,
+    contributorRepository: ContributorRepository,
     private val receiptStore: MatchReceiptStore,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
@@ -66,13 +66,13 @@ class PersonMatchViewModel internal constructor(
         contributorRepository.observeRolesWithCountForContributor(contributorId).flatMapLatest { roles ->
             val credits = roles.toCredits()
             if (credits.isEmpty()) {
-                flowOf(InLibraryUi(emptyList(), 0, emptyList(), emptyList()))
+                flowOf(InLibraryUi(credits = emptyList(), bookCount = 0, titles = emptyList(), covers = emptyList()))
             } else {
                 combine(
-                    credits.map {
+                    credits.map { credit ->
                         contributorRepository.observeBooksForContributorRole(
                             contributorId,
-                            it.role.apiValue,
+                            credit.role.apiValue,
                         )
                     },
                 ) { byRole ->
@@ -82,7 +82,15 @@ class PersonMatchViewModel internal constructor(
                         credits = credits,
                         bookCount = books.size,
                         titles = shown.map { it.title },
-                        covers = shown.map { LibraryCoverUi(it.id.value, it.title, it.coverPath, it.coverHash) },
+                        covers =
+                            shown.map { book ->
+                                LibraryCoverUi(
+                                    bookId = book.id.value,
+                                    title = book.title,
+                                    coverPath = book.coverPath,
+                                    coverHash = book.coverHash,
+                                )
+                            },
                     )
                 }
             }
@@ -99,7 +107,7 @@ class PersonMatchViewModel internal constructor(
             .stateIn(
                 viewModelScope,
                 SharingStarted.WhileSubscribed(5_000),
-                PersonFindUiState.Searching(null, null, "", null),
+                PersonFindUiState.Searching(header = null, inLibrary = null, query = "", previous = null),
             )
 
     /** The Review step. */
@@ -121,7 +129,7 @@ class PersonMatchViewModel internal constructor(
     /** Re-runs Find; sources that already answered come back from the server's cache. */
     fun retry() {
         val failed = session.value.find as? FindPhase.Failed
-        if ((failed?.failure as? FindFailure.RateLimited)?.secondsRemaining?.let { it > 0 } == true) return
+        if ((failed?.failure as? FindFailure.RateLimited)?.run { secondsRemaining > 0 } == true) return
         runFind()
     }
 
@@ -149,17 +157,24 @@ class PersonMatchViewModel internal constructor(
     }
 
     /** Ticks or unticks the photo. Unticking keeps yours; re-ticking restores the last photo chosen. */
-    fun setPhotoTicked(ticked: Boolean) = updateChoices { choices, review -> choices.setPhotoTicked(review, ticked) }
+    fun setPhotoTicked(ticked: Boolean) {
+        updateChoices { choices, review -> choices.setPhotoTicked(review, ticked) }
+    }
 
     /** Picks the photo Apply writes: Keep current, or one source's. */
-    fun choosePhoto(choice: ImageChoice) = updateChoices { choices, _ -> choices.choosePhoto(choice) }
+    fun choosePhoto(choice: ImageChoice) {
+        updateChoices { choices, _ -> choices.choosePhoto(choice) }
+    }
 
     /** Ticks or unticks the biography. Unticking keeps yours; re-ticking restores the last source chosen. */
-    fun setBiographyTicked(ticked: Boolean) =
+    fun setBiographyTicked(ticked: Boolean) {
         updateChoices { choices, review -> choices.setBiographyTicked(review, ticked) }
+    }
 
     /** Picks the biography's source, or Keep yours. */
-    fun chooseBiographySource(choice: FieldChoice) = updateChoices { choices, _ -> choices.chooseBiography(choice) }
+    fun chooseBiographySource(choice: FieldChoice) {
+        updateChoices { choices, _ -> choices.chooseBiography(choice) }
+    }
 
     /**
      * Applies the photo and the biography in one request. On `ReviewOutdated` the Review reloads with the choices
@@ -194,7 +209,17 @@ class PersonMatchViewModel internal constructor(
     private suspend fun reloadAfterOutdated(candidate: PersonCandidateUi) {
         when (val reloaded = review(candidate)) {
             is AppResult.Success -> {
-                session.update { it.copy(review = ReviewPhase.Ready(candidate, reloaded.data, false, null)) }
+                session.update { current ->
+                    current.copy(
+                        review =
+                            ReviewPhase.Ready(
+                                candidate = candidate,
+                                review = reloaded.data,
+                                applying = false,
+                                applyError = null,
+                            ),
+                    )
+                }
                 eventChannel.send(PersonMatchEvent.ReviewReloaded)
             }
 
@@ -278,7 +303,17 @@ class PersonMatchViewModel internal constructor(
             viewModelScope.launch {
                 when (val result = review(candidate)) {
                     is AppResult.Success -> {
-                        session.update { it.copy(review = ReviewPhase.Ready(candidate, result.data, false, null)) }
+                        session.update { current ->
+                            current.copy(
+                                review =
+                                    ReviewPhase.Ready(
+                                        candidate = candidate,
+                                        review = result.data,
+                                        applying = false,
+                                        applyError = null,
+                                    ),
+                            )
+                        }
                     }
 
                     is AppResult.Failure -> {
@@ -375,15 +410,23 @@ class PersonMatchViewModel internal constructor(
             return when (val find = find) {
                 is FindPhase.Searching -> {
                     PersonFindUiState.Searching(
-                        header,
-                        library,
-                        shownQuery,
-                        find.previous?.let { resultsOf(it, header, library, shownQuery) },
+                        header = header,
+                        inLibrary = library,
+                        query = shownQuery,
+                        previous =
+                            find.previous?.let { previousResults ->
+                                resultsOf(
+                                    loaded = previousResults,
+                                    header = header,
+                                    library = library,
+                                    shownQuery = shownQuery,
+                                )
+                            },
                     )
                 }
 
                 is FindPhase.Loaded -> {
-                    resultsOf(find, header, library, shownQuery)
+                    resultsOf(loaded = find, header = header, library = library, shownQuery = shownQuery)
                 }
 
                 FindPhase.NoProfiles -> {
@@ -391,7 +434,12 @@ class PersonMatchViewModel internal constructor(
                 }
 
                 is FindPhase.Failed -> {
-                    PersonFindUiState.Failed(header, library, shownQuery, find.failure)
+                    PersonFindUiState.Failed(
+                        header = header,
+                        inLibrary = library,
+                        query = shownQuery,
+                        failure = find.failure,
+                    )
                 }
             }
         }

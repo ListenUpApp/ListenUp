@@ -47,11 +47,11 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SeriesDetailViewModel(
-    private val seriesRepository: SeriesRepository,
+    seriesRepository: SeriesRepository,
     private val imageRepository: ImageRepository,
-    private val playbackPositionRepository: PlaybackPositionRepository,
-    private val permissionsRepository: PermissionsRepository,
-    private val networkMonitor: NetworkMonitor,
+    playbackPositionRepository: PlaybackPositionRepository,
+    permissionsRepository: PermissionsRepository,
+    networkMonitor: NetworkMonitor,
     seriesEditRepository: SeriesEditRepository,
     errorBus: ErrorBus,
 ) : ViewModel() {
@@ -74,15 +74,20 @@ class SeriesDetailViewModel(
                     flowOf(SeriesDetailUiState.Idle)
                 } else {
                     combine(
-                        seriesRepository.observeSeriesWithBooks(id),
-                        seriesRepository.observeSeriesLineage(id),
-                        playbackPositionRepository.observeAll(),
-                        expandOverrides,
-                        hierarchyAccess,
+                        flow = seriesRepository.observeSeriesWithBooks(id),
+                        flow2 = seriesRepository.observeSeriesLineage(id),
+                        flow3 = playbackPositionRepository.observeAll(),
+                        flow4 = expandOverrides,
+                        flow5 = hierarchyAccess,
                     ) { seriesWithBooks, lineage, positions, overrides, (canEdit, online) ->
                         if (seriesWithBooks != null) {
-                            buildReadyState(id, seriesWithBooks, lineage, positions, overrides)
-                                .copy(canEditMetadata = canEdit, isOnline = online)
+                            buildReadyState(
+                                seriesId = id,
+                                seriesWithBooks = seriesWithBooks,
+                                lineage = lineage,
+                                positions = positions,
+                                overrides = overrides,
+                            ).copy(canEditMetadata = canEdit, isOnline = online)
                         } else {
                             SeriesDetailUiState.Error("Series not found")
                         }
@@ -106,9 +111,8 @@ class SeriesDetailViewModel(
      */
     fun toggleSection(seriesId: String) {
         val current =
-            (state.value as? SeriesDetailUiState.Ready)?.bookSections?.firstOrNull {
-                it.seriesId == seriesId &&
-                    it.isCollapsible
+            (state.value as? SeriesDetailUiState.Ready)?.run {
+                bookSections.firstOrNull { section -> section.seriesId == seriesId && section.isCollapsible }
             }
         val expandedNow = current?.isCollapsed == false
         expandOverrides.update { it + (seriesId to !expandedNow) }
@@ -128,7 +132,9 @@ class SeriesDetailViewModel(
     val addSubSeries: StateFlow<AddSubSeriesUiState> = subSeries.state
 
     /** Handle the "Add sub-series" sheet's events. */
-    fun onAddSubSeriesEvent(event: AddSubSeriesEvent) = subSeries.onEvent(event)
+    fun onAddSubSeriesEvent(event: AddSubSeriesEvent) {
+        subSeries.onEvent(event)
+    }
 
     /**
      * Builds the [SeriesDetailUiState.Ready] projection, folding live playback
@@ -200,11 +206,10 @@ class SeriesDetailViewModel(
             seriesNarrator =
                 books
                     .firstOrNull()
-                    ?.narrators
-                    ?.firstOrNull()
+                    ?.run { narrators.firstOrNull() }
                     ?.name,
             coverPath = resolveCoverPath(seriesWithBooks.series, seriesId, books),
-            featuredBookId = books.firstOrNull()?.id?.value,
+            featuredBookId = books.firstOrNull()?.run { id.value },
             totalDuration = totalDuration,
             books = books,
             bookProgress = bookProgress,
@@ -403,9 +408,9 @@ data class SeriesResumeUi(
 /** Every series id below the page, for opening every group at once. */
 private fun SeriesLineage.allSeriesIds(): List<String> {
     fun walk(children: List<SeriesChild>): List<String> =
-        children.flatMap {
-            listOf(it.series.id.value) +
-                walk(it.children)
+        children.flatMap { child ->
+            listOf(child.series.id.value) +
+                walk(child.children)
         }
     return walk(children)
 }

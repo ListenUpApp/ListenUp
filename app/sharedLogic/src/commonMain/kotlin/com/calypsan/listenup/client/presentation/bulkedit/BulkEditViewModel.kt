@@ -80,8 +80,8 @@ class BulkEditViewModel internal constructor(
     private val bookRepository: BookRepository,
     private val applier: BulkEditApplier,
     private val errorBus: ErrorBus,
-    private val seriesRepository: SeriesRepository,
-    private val contributorRepository: ContributorRepository,
+    seriesRepository: SeriesRepository,
+    contributorRepository: ContributorRepository,
     genreRepository: GenreRepository,
     tagRepository: TagRepository,
     moodRepository: MoodRepository,
@@ -237,12 +237,14 @@ class BulkEditViewModel internal constructor(
      * [names] are display names, not slugs: the repository slugifies server-side, so a slug passed
      * here would mint a tag literally called `found-family`.
      */
-    fun setTags(names: List<String>) =
+    fun setTags(names: List<String>) {
         replace<BulkEdit.AddTags>(names.takeIf { it.isNotEmpty() }?.let { BulkEdit.AddTags(it) })
+    }
 
     /** Replaces the mood instruction. An empty list removes it. [names] are display names, as in [setTags]. */
-    fun setMoods(names: List<String>) =
+    fun setMoods(names: List<String>) {
         replace<BulkEdit.AddMoods>(names.takeIf { it.isNotEmpty() }?.let { BulkEdit.AddMoods(it) })
+    }
 
     /**
      * Replaces the series instruction. Null removes it.
@@ -251,7 +253,9 @@ class BulkEditViewModel internal constructor(
      * whatever it holds — a single sequence number across forty books would make every one of them
      * Book 1.
      */
-    fun setSeries(series: BookSeriesInput?) = replace<BulkEdit.AddToSeries>(series?.let { BulkEdit.AddToSeries(it) })
+    fun setSeries(series: BookSeriesInput?) {
+        replace<BulkEdit.AddToSeries>(series?.let { BulkEdit.AddToSeries(it) })
+    }
 
     /**
      * Replaces the contributor instruction. An empty list removes it.
@@ -259,14 +263,16 @@ class BulkEditViewModel internal constructor(
      * Each entry carries its own role, because one bulk edit may well be crediting an author and a
      * narrator at once. Positions are ignored — the planner renumbers each book's credits.
      */
-    fun setContributors(contributors: List<BookContributorInput>) =
+    fun setContributors(contributors: List<BookContributorInput>) {
         replace<BulkEdit.AddContributors>(
             contributors.takeIf { it.isNotEmpty() }?.let { BulkEdit.AddContributors(it) },
         )
+    }
 
     /** Replaces the genre instruction. An empty list removes it. */
-    fun setGenres(genres: List<BookGenreInput>) =
+    fun setGenres(genres: List<BookGenreInput>) {
         replace<BulkEdit.AddGenres>(genres.takeIf { it.isNotEmpty() }?.let { BulkEdit.AddGenres(it) })
+    }
 
     /**
      * Applies every instruction to every selected book.

@@ -62,9 +62,9 @@ sealed interface DeleteConfirmation {
  * Allows deleting individual downloads or clearing all.
  */
 class StorageViewModel(
-    private val downloadRepository: DownloadRepository,
+    downloadRepository: DownloadRepository,
     private val downloadService: DownloadService,
-    private val storageSpaceProvider: StorageSpaceProvider,
+    storageSpaceProvider: StorageSpaceProvider,
     private val errorBus: ErrorBus,
     private val playbackStateProvider: PlaybackStateProvider,
     inboxRepository: InboxRepository,
@@ -75,7 +75,7 @@ class StorageViewModel(
      * raced every assertion against it; [com.calypsan.listenup.client.presentation.library.LibraryViewModel]
      * already injects its `backgroundDispatcher` for the same reason.
      */
-    private val backgroundDispatcher: CoroutineDispatcher = IODispatcher,
+    backgroundDispatcher: CoroutineDispatcher = IODispatcher,
 ) : ViewModel() {
     private val internalState = MutableStateFlow(StorageUiState())
 

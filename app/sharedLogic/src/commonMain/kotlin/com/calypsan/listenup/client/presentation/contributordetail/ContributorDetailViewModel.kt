@@ -6,7 +6,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.core.DurationFormatter
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.model.ContributorRole
@@ -27,7 +26,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -57,7 +55,7 @@ class ContributorDetailViewModel(
     private val playbackPositionRepository: PlaybackPositionRepository,
     private val seriesRepository: SeriesRepository,
     private val deleteContributorUseCase: DeleteContributorUseCase,
-    private val permissionsRepository: PermissionsRepository,
+    permissionsRepository: PermissionsRepository,
 ) : ViewModel() {
     private val contributorIdFlow = MutableStateFlow<String?>(null)
     private val deleteOverlay = MutableStateFlow<DeleteOverlay>(DeleteOverlay.None)
@@ -165,10 +163,10 @@ class ContributorDetailViewModel(
 
     val state: StateFlow<ContributorDetailUiState> =
         combine(
-            dataState,
-            deleteOverlay,
-            permissionsRepository.observeCan(Permission.EDIT_METADATA),
-            permissionsRepository.observeCan(Permission.CURATE_LIBRARY),
+            flow = dataState,
+            flow2 = deleteOverlay,
+            flow3 = permissionsRepository.observeCan(Permission.EDIT_METADATA),
+            flow4 = permissionsRepository.observeCan(Permission.CURATE_LIBRARY),
         ) { data, overlay, canEdit, canCurate ->
             if (data is ContributorDetailUiState.Ready) {
                 data.copy(

@@ -52,8 +52,8 @@ private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DiscoverViewModel(
-    private val bookRepository: BookRepository,
-    private val activeSessionRepository: ActiveSessionRepository,
+    bookRepository: BookRepository,
+    activeSessionRepository: ActiveSessionRepository,
     private val authSession: AuthSession,
     private val shelfRepository: ShelfRepository,
     private val errorBus: ErrorBus,

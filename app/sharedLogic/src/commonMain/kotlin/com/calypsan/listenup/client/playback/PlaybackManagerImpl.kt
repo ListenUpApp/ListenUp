@@ -54,23 +54,23 @@ private const val POSITION_PERSIST_INTERVAL_MS = 10_000L
  */
 @Suppress("LongParameterList")
 internal class PlaybackManagerImpl(
-    private val serverConfig: ServerConfig,
-    private val playbackPreferences: PlaybackPreferences,
-    private val bookDao: BookDao,
-    private val audioFileDao: AudioFileDao,
-    private val chapterDao: ChapterDao,
-    private val imageStorage: ImageStorage,
-    private val progressTracker: ProgressTracker,
+    serverConfig: ServerConfig,
+    playbackPreferences: PlaybackPreferences,
+    bookDao: BookDao,
+    audioFileDao: AudioFileDao,
+    chapterDao: ChapterDao,
+    imageStorage: ImageStorage,
+    progressTracker: ProgressTracker,
     private val reporter: PlaybackProgressReporter,
-    private val tokenProvider: AudioTokenProvider,
-    private val deviceContext: DeviceContext,
-    private val downloadService: DownloadService,
-    private val prepareRepository: PlaybackPrepareRepository,
-    private val channel: RpcChannel<BookService>,
+    tokenProvider: AudioTokenProvider,
+    deviceContext: DeviceContext,
+    downloadService: DownloadService,
+    prepareRepository: PlaybackPrepareRepository,
+    channel: RpcChannel<BookService>,
     private val scope: CoroutineScope,
-    private val bookSyncDomainHandler: SyncDomainHandler<BookSyncPayload>,
+    bookSyncDomainHandler: SyncDomainHandler<BookSyncPayload>,
     private val playbackBandwidthCoordinator: PlaybackBandwidthCoordinator,
-    private val localPreferences: LocalPreferences,
+    localPreferences: LocalPreferences,
     /**
      * When true, this instance is the reporter-based persistence owner: [setPlaybackState]
      * routes Playing/Paused transitions through [reporter] (position + listening span), and
@@ -118,6 +118,7 @@ internal class PlaybackManagerImpl(
     override val currentTimeline: StateFlow<PlaybackTimeline?>
         field = MutableStateFlow<PlaybackTimeline?>(null)
 
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
     override val isPlaying: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
@@ -138,6 +139,7 @@ internal class PlaybackManagerImpl(
     override val playbackError: StateFlow<PlaybackManager.PlaybackErrorUiState?>
         field = MutableStateFlow<PlaybackManager.PlaybackErrorUiState?>(null)
 
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
     override val isBuffering: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
@@ -466,9 +468,9 @@ internal class PlaybackManagerImpl(
                 if (persistTransitionsViaReporter) {
                     currentBookId.value?.let { activeBookId ->
                         reporter.onPlaybackStarted(
-                            activeBookId,
-                            currentPositionMs.value,
-                            playbackSpeed.value,
+                            bookId = activeBookId,
+                            positionMs = currentPositionMs.value,
+                            speed = playbackSpeed.value,
                             durationMs = totalDurationMs.value,
                         )
                     }
@@ -479,16 +481,20 @@ internal class PlaybackManagerImpl(
                 if (persistTransitionsViaReporter) {
                     currentBookId.value?.let { activeBookId ->
                         reporter.onPlaybackPaused(
-                            activeBookId,
-                            currentPositionMs.value,
-                            playbackSpeed.value,
+                            bookId = activeBookId,
+                            positionMs = currentPositionMs.value,
+                            speed = playbackSpeed.value,
                             durationMs = totalDurationMs.value,
                         )
                     }
                 }
             }
 
-            else -> {}
+            PlaybackState.Idle,
+            PlaybackState.Buffering,
+            PlaybackState.Ended,
+            is PlaybackState.Error,
+            -> {}
         }
     }
 

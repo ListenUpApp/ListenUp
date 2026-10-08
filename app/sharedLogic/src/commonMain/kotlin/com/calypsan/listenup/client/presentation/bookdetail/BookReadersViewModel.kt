@@ -52,7 +52,7 @@ sealed interface BookReadersUiState {
  * @param bookId The book whose readers this ViewModel tracks.
  */
 class BookReadersViewModel(
-    private val repo: BookReadersRepository,
+    repo: BookReadersRepository,
     private val bookId: String,
 ) : ViewModel() {
     /** Current UI state derived from the RPC-backed readers observation. */
