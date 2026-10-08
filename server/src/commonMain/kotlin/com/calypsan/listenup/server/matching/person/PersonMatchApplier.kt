@@ -65,7 +65,7 @@ internal class PersonMatchApplier(
     ): AppResult<MatchReceipt> {
         if (contributor.revision != request.basedOnRevision) return outdated("person moved since the review")
         val model =
-            when (val reviewed = reviewer.review(contributor, request.candidate, request.role, locale)) {
+            when (val reviewed = reviewer.review(contributor, request.candidate, locale)) {
                 is AppResult.Success -> reviewed.data
                 is AppResult.Failure -> return reviewed
             }

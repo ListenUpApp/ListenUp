@@ -2,8 +2,8 @@ package com.calypsan.listenup.client.features.match
 
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.dto.ContributorRole
+import com.calypsan.listenup.api.dto.match.LibraryCredit
 import com.calypsan.listenup.api.dto.match.PersonSearchStep
-import com.calypsan.listenup.client.presentation.match.CoverageNote
 import com.calypsan.listenup.client.presentation.match.InLibraryUi
 import com.calypsan.listenup.client.presentation.match.MatchReceiptUi
 import com.calypsan.listenup.client.presentation.match.PersonApplySummary
@@ -21,14 +21,21 @@ import listenup.composeapp.generated.resources.match_bar_biography
 import listenup.composeapp.generated.resources.match_bar_nothing
 import listenup.composeapp.generated.resources.match_bar_photo
 import listenup.composeapp.generated.resources.match_bar_photo_and_biography
-import listenup.composeapp.generated.resources.match_coverage_note_author
-import listenup.composeapp.generated.resources.match_coverage_note_narrator
+import listenup.composeapp.generated.resources.match_credit_adapter
+import listenup.composeapp.generated.resources.match_credit_afterword
+import listenup.composeapp.generated.resources.match_credit_author
+import listenup.composeapp.generated.resources.match_credit_editor
+import listenup.composeapp.generated.resources.match_credit_foreword
+import listenup.composeapp.generated.resources.match_credit_illustrator
+import listenup.composeapp.generated.resources.match_credit_introduction
+import listenup.composeapp.generated.resources.match_credit_narrator
+import listenup.composeapp.generated.resources.match_credit_of_your_books
+import listenup.composeapp.generated.resources.match_credit_producer
+import listenup.composeapp.generated.resources.match_credit_translator
+import listenup.composeapp.generated.resources.match_step_via_books
+import listenup.composeapp.generated.resources.match_step_via_books_one
 import listenup.composeapp.generated.resources.match_in_library_titles
-import listenup.composeapp.generated.resources.match_narrated_in_library
-import listenup.composeapp.generated.resources.match_narrated_in_library_one
 import listenup.composeapp.generated.resources.match_no_books_in_library
-import listenup.composeapp.generated.resources.match_not_a_narrator
-import listenup.composeapp.generated.resources.match_not_an_author
 import listenup.composeapp.generated.resources.match_people_count
 import listenup.composeapp.generated.resources.match_people_count_one
 import listenup.composeapp.generated.resources.match_receipt_person_biography
@@ -39,18 +46,10 @@ import listenup.composeapp.generated.resources.match_role_author
 import listenup.composeapp.generated.resources.match_role_narrator
 import listenup.composeapp.generated.resources.match_step_by_name
 import listenup.composeapp.generated.resources.match_step_existing_link
-import listenup.composeapp.generated.resources.match_step_via_books_author
-import listenup.composeapp.generated.resources.match_step_via_books_author_one
-import listenup.composeapp.generated.resources.match_step_via_books_narrator
-import listenup.composeapp.generated.resources.match_step_via_books_narrator_one
 import listenup.composeapp.generated.resources.match_steps_join
 import listenup.composeapp.generated.resources.match_steps_started_from
-import listenup.composeapp.generated.resources.match_subtitle_author
-import listenup.composeapp.generated.resources.match_subtitle_narrator
 import listenup.composeapp.generated.resources.match_works_count
 import listenup.composeapp.generated.resources.match_works_count_one
-import listenup.composeapp.generated.resources.match_wrote_in_library
-import listenup.composeapp.generated.resources.match_wrote_in_library_one
 import org.jetbrains.compose.resources.stringResource
 
 /** Known works a person row names before it stops: "Narrator · Project Hail Mary, Bobiverse". */
@@ -74,38 +73,43 @@ internal fun roleName(role: ContributorRole): String =
         },
     )
 
-/** "Ray Porter · narrator" — the person and the role this Match details is for. */
+/** One role's evidence: "Narrated 3", "Translated 1", "Wrote the foreword for 2". */
 @Composable
-internal fun personSubtitle(
-    name: String,
-    role: ContributorRole,
-): String =
-    if (role == ContributorRole.NARRATOR) {
-        stringResource(Res.string.match_subtitle_narrator, name)
-    } else {
-        stringResource(Res.string.match_subtitle_author, name)
-    }
-
-/** "Narrated 5 books in your library" / "Wrote 1 book in your library". */
-@Composable
-internal fun inLibraryLine(
-    role: ContributorRole,
-    count: Int,
-): String =
-    when {
-        role == ContributorRole.NARRATOR && count == 1 -> stringResource(Res.string.match_narrated_in_library_one)
-        role == ContributorRole.NARRATOR -> stringResource(Res.string.match_narrated_in_library, count)
-        count == 1 -> stringResource(Res.string.match_wrote_in_library_one)
-        else -> stringResource(Res.string.match_wrote_in_library, count)
-    }
+private fun creditPhrase(credit: LibraryCredit): String =
+    stringResource(
+        when (credit.role) {
+            ContributorRole.AUTHOR -> Res.string.match_credit_author
+            ContributorRole.NARRATOR -> Res.string.match_credit_narrator
+            ContributorRole.EDITOR -> Res.string.match_credit_editor
+            ContributorRole.TRANSLATOR -> Res.string.match_credit_translator
+            ContributorRole.FOREWORD -> Res.string.match_credit_foreword
+            ContributorRole.INTRODUCTION -> Res.string.match_credit_introduction
+            ContributorRole.AFTERWORD -> Res.string.match_credit_afterword
+            ContributorRole.PRODUCER -> Res.string.match_credit_producer
+            ContributorRole.ADAPTER -> Res.string.match_credit_adapter
+            ContributorRole.ILLUSTRATOR -> Res.string.match_credit_illustrator
+        },
+        credit.bookCount,
+    )
 
 /**
- * "Wrote 3 books in your library: Project Hail Mary, The Martian, Artemis". The titles are a sample of at most
- * three, so they're listed, never joined with "and" as if they were all of them.
+ * What someone did in your library, every role, most first: "Narrated 3 of your books · Translated 1". Null when
+ * they did nothing here.
+ */
+@Composable
+internal fun creditsLine(credits: List<LibraryCredit>): String? {
+    if (credits.isEmpty()) return null
+    val lead = stringResource(Res.string.match_credit_of_your_books, creditPhrase(credits.first()))
+    return (listOf(lead) + credits.drop(1).map { creditPhrase(it) }).joinToString(DOT)
+}
+
+/**
+ * "Narrated 5 of your books · Wrote 1: Project Hail Mary, The Martian, Artemis". The titles are a sample of at
+ * most three, so they're listed, never joined with "and" as if they were all of them.
  */
 @Composable
 internal fun InLibraryUi.sentence(): String {
-    val line = inLibraryLine(role, bookCount)
+    val line = creditsLine(credits) ?: stringResource(Res.string.match_no_books_in_library)
     return if (titles.isEmpty()) {
         line
     } else {
@@ -117,50 +121,31 @@ internal fun InLibraryUi.sentence(): String {
     }
 }
 
-/** "Atlas has no narrator profiles, so this search uses Beacon." */
-@Composable
-internal fun CoverageNote.text(role: ContributorRole): String =
-    stringResource(
-        if (role == ContributorRole.NARRATOR) {
-            Res.string.match_coverage_note_narrator
-        } else {
-            Res.string.match_coverage_note_author
-        },
-        sourcesPhrase(withoutProfiles),
-        sourcesPhrase(using),
-    )
-
-/** "Started from the 5 books Ray Porter narrates in your library." — null when Find took no steps. */
+/** "Started from the 5 books crediting Ray Porter in your library." — null when Find took no steps. */
 @Composable
 internal fun personStepsLine(
     steps: List<PersonSearchStep>,
     name: String,
-    role: ContributorRole,
 ): String? {
     if (steps.isEmpty()) return null
-    val phrases = steps.map { it.phrase(name, role) }
+    val phrases = steps.map { it.phrase(name) }
     var sentence = phrases.first()
     phrases.drop(1).forEach { next -> sentence = stringResource(Res.string.match_steps_join, sentence, next) }
     return stringResource(Res.string.match_steps_started_from, sentence)
 }
 
 @Composable
-private fun PersonSearchStep.phrase(
-    name: String,
-    role: ContributorRole,
-): String =
+private fun PersonSearchStep.phrase(name: String): String =
     when (this) {
         is PersonSearchStep.ExistingLink -> {
             stringResource(Res.string.match_step_existing_link, source.label)
         }
 
         is PersonSearchStep.ViaYourBooks -> {
-            val narrator = role == ContributorRole.NARRATOR
-            when {
-                bookCount == 1 && narrator -> stringResource(Res.string.match_step_via_books_narrator_one, name)
-                bookCount == 1 -> stringResource(Res.string.match_step_via_books_author_one, name)
-                narrator -> stringResource(Res.string.match_step_via_books_narrator, bookCount, name)
-                else -> stringResource(Res.string.match_step_via_books_author, bookCount, name)
+            if (bookCount == 1) {
+                stringResource(Res.string.match_step_via_books_one, name)
+            } else {
+                stringResource(Res.string.match_step_via_books, bookCount, name)
             }
         }
 
@@ -180,12 +165,9 @@ internal fun peopleCount(count: Int): String =
         stringResource(Res.string.match_people_count, count)
     }
 
-/**
- * A person row's second line: "Narrator · Project Hail Mary, Bobiverse", "Author · 1 book", and on a row in the
- * wrong role "Author · 1 book · Not a narrator".
- */
+/** A person row's second line: "Narrator · Project Hail Mary, Bobiverse", "Author · 1 book". */
 @Composable
-internal fun PersonCandidateUi.roleLine(searched: ContributorRole): String {
+internal fun PersonCandidateUi.roleLine(): String {
     val works =
         knownWorks.takeIf { it.isNotEmpty() }?.take(KNOWN_WORKS_SHOWN)?.joinToString(", ")
             ?: worksCount?.let {
@@ -197,31 +179,14 @@ internal fun PersonCandidateUi.roleLine(searched: ContributorRole): String {
                     stringResource(Res.string.match_works_count, it)
                 }
             }
-    val notInRole =
-        if (isDifferentRole) {
-            stringResource(
-                if (searched ==
-                    ContributorRole.NARRATOR
-                ) {
-                    Res.string.match_not_a_narrator
-                } else {
-                    Res.string.match_not_an_author
-                },
-            )
-        } else {
-            null
-        }
-    return listOfNotNull(shownRole?.let { roleName(it) }, works, notInRole).joinToString(DOT)
+    return listOfNotNull(shownRole?.let { roleName(it) }, works).joinToString(DOT)
 }
 
-/** "Narrated 5 books in your library", "No books in your library", or nothing to say. */
+/** "Narrated 3 of your books · Translated 1", "No books in your library", or nothing to say. */
 @Composable
-internal fun PersonCandidateUi.libraryLine(searched: ContributorRole): String? =
-    when {
-        libraryCount > 0 -> inLibraryLine(searched, libraryCount)
-        noBooksInLibrary -> stringResource(Res.string.match_no_books_in_library)
-        else -> null
-    }
+internal fun PersonCandidateUi.libraryLine(): String? =
+    creditsLine(libraryCredits)
+        ?: if (noBooksInLibrary) stringResource(Res.string.match_no_books_in_library) else null
 
 /** The person Apply bar: "Photo · biography", "Photo", "Biography", or "Nothing selected". */
 @Composable

@@ -5,13 +5,14 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * What a people Find asks: the [role] to find the person in (authors and narrators have separate searches and
- * sources), and [query] when the person typed one, replacing the contributor's own name.
+ * What a people Find asks: [query] when the person typed one, replacing the contributor's own name. A Find looks
+ * for the person in every role a source knows — a role on one book doesn't say who someone is. [role] is what a
+ * client from before that change still sends (As author | As narrator); the server ignores it and echoes it back.
  */
 @Serializable
 @SerialName("PersonFindRequest")
 data class PersonFindRequest(
-    @SerialName("role") val role: ContributorRole,
+    @SerialName("role") val role: ContributorRole? = null,
     @SerialName("query") val query: String? = null,
 )
 
@@ -40,7 +41,7 @@ sealed interface PersonSearchStep {
     ) : PersonSearchStep
 }
 
-/** How many of this library's books credit the person in the role searched, and up to three of their titles. */
+/** How many of this library's books credit the person, in any role, and up to three of their titles. */
 @Serializable
 @SerialName("InLibrary")
 data class InLibrary(
@@ -48,7 +49,10 @@ data class InLibrary(
     @SerialName("titles") val titles: List<String>,
 )
 
-/** Whether [source] has profiles for the role searched — so clients can say which source a search used. */
+/**
+ * Whether [source] was asked. Every people source is asked now, so [hasProfiles] is always true; the list stays
+ * because clients from before role-free matching require it.
+ */
 @Serializable
 @SerialName("RoleCoverage")
 data class RoleCoverage(
@@ -70,24 +74,25 @@ data class PersonCandidateKey(
 /** Why a person candidate ranks where it does. Clients phrase them. */
 @Serializable
 sealed interface PersonReason {
-    /** The source doesn't credit them in the role searched; it credits them as [theirRoles]. */
-    @Serializable
-    @SerialName("PersonReason.DifferentRole")
-    data class DifferentRole(
-        @SerialName("theirRoles") val theirRoles: List<ContributorRole>,
-    ) : PersonReason
-
     /** The source credits them on none of the books they're credited on in your library. */
     @Serializable
     @SerialName("PersonReason.NoBooksInLibrary")
     data object NoBooksInLibrary : PersonReason
 }
 
+/** "Narrated 3 of your books": how many of this library's books credit the person in [role]. */
+@Serializable
+@SerialName("LibraryCredit")
+data class LibraryCredit(
+    @SerialName("role") val role: ContributorRole,
+    @SerialName("bookCount") val bookCount: Int,
+)
+
 /**
  * One person Find found, merged across the sources that agree it is the same person. [roles] are the roles the
  * sources credit them in; [knownWorks] up to two titles and [worksCount] how many books a source credits them on;
- * [libraryCount] how many of this library's books crediting the contributor in the role the sources credit to
- * this person. [key] is what Review takes back.
+ * [libraryCount] how many of this library's books the sources credit to this person, in any role, and
+ * [libraryCredits] what the contributor did on those books here — most first. [key] is what Review takes back.
  */
 @Serializable
 @SerialName("PersonCandidate")
@@ -104,20 +109,22 @@ data class PersonCandidate(
     @SerialName("isBest") val isBest: Boolean,
     @SerialName("isCurrentLink") val isCurrentLink: Boolean,
     @SerialName("reasons") val reasons: List<PersonReason>,
+    @SerialName("libraryCredits") val libraryCredits: List<LibraryCredit> = emptyList(),
 )
 
 /**
- * A people Find's answer for [role]: the [steps] it took, the person's books [inLibrary], each source's
- * [coverage] of the role, the [candidates] best first, and how every source fared. No candidates, with no
- * source covering the role or every covering source empty, is "No source has a profile for this narrator".
+ * A people Find's answer: the [steps] it took, the person's books [inLibrary], the [candidates] best first, and how
+ * every source fared. No candidates with every source answering empty is "No source has a profile for this
+ * person". [role] and [coverage] are for clients from before role-free matching, which require them: [role]
+ * echoes the role such a client sent, so a new client — which sends none — never sees one.
  */
 @Serializable
 @SerialName("PersonFindResult")
 data class PersonFindResult(
-    @SerialName("role") val role: ContributorRole,
     @SerialName("steps") val steps: List<PersonSearchStep>,
     @SerialName("inLibrary") val inLibrary: InLibrary,
     @SerialName("coverage") val coverage: List<RoleCoverage>,
     @SerialName("candidates") val candidates: List<PersonCandidate>,
     @SerialName("sources") val sources: List<SourceStatus>,
+    @SerialName("role") val role: ContributorRole? = null,
 )

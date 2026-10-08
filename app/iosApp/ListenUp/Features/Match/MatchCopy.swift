@@ -405,62 +405,68 @@ enum MatchCopy {
 // MARK: - People
 
 extension MatchCopy {
-    /// "Author", "Narrator"; nil for a role matching never searches.
+    /// "Author", "Narrator", "Translator" — the word a row names a role by; nil for none.
     static func roleWord(_ role: ContributorRole?) -> String? {
-        switch role.flatMap(PersonMatchRole.init) {
+        guard let role else { return nil }
+        return switch role {
         case .author: String(localized: "match.role_author")
         case .narrator: String(localized: "match.role_narrator")
-        case nil: nil
+        case .editor: String(localized: "book.role_editor")
+        case .translator: String(localized: "book.role_translator")
+        case .foreword: String(localized: "book.role_foreword")
+        case .introduction: String(localized: "book.role_introduction")
+        case .afterword: String(localized: "book.role_afterword")
+        case .producer: String(localized: "book.role_producer")
+        case .adapter: String(localized: "book.role_adapter")
+        case .illustrator: String(localized: "book.role_illustrator")
         }
     }
 
-    /// "Ray Porter · narrator".
-    static func personSubtitle(name: String, role: PersonMatchRole) -> String {
-        switch role {
-        case .author: String(format: String(localized: "match.subtitle_author"), name)
-        case .narrator: String(format: String(localized: "match.subtitle_narrator"), name)
+    /// One role's evidence: "Narrated 3", "Translated 1", "Wrote the foreword for 2".
+    private static func creditPhrase(_ credit: LibraryCredit) -> String {
+        let format = switch credit.role {
+        case .author: String(localized: "match.credit_author")
+        case .narrator: String(localized: "match.credit_narrator")
+        case .editor: String(localized: "match.credit_editor")
+        case .translator: String(localized: "match.credit_translator")
+        case .foreword: String(localized: "match.credit_foreword")
+        case .introduction: String(localized: "match.credit_introduction")
+        case .afterword: String(localized: "match.credit_afterword")
+        case .producer: String(localized: "match.credit_producer")
+        case .adapter: String(localized: "match.credit_adapter")
+        case .illustrator: String(localized: "match.credit_illustrator")
         }
+        return String(format: format, Int(credit.bookCount))
     }
 
-    /// "Search for a person", "Search for a narrator".
-    static func personSearchPrompt(_ role: PersonMatchRole) -> String {
-        switch role {
-        case .author: String(localized: "match.search_person_label")
-        case .narrator: String(localized: "match.search_narrator_label")
-        }
+    /// What someone did in your library, every role, most first: "Narrated 3 of your books · Translated 1".
+    /// Nil when they did nothing here.
+    static func creditsLine(_ credits: [LibraryCredit]) -> String? {
+        guard let first = credits.first else { return nil }
+        let lead = String(format: String(localized: "match.credit_of_your_books"), creditPhrase(first))
+        return ([lead] + credits.dropFirst().map(creditPhrase)).joined(separator: " · ")
     }
 
-    /// "Audible has no narrator profiles, so this search uses Hardcover."
-    static func coverageNote(_ note: CoverageNote, role: PersonMatchRole) -> String {
-        let without = list(sourceLabels(note.withoutProfiles))
-        let using = list(sourceLabels(note.`using`))
-        return switch role {
-        case .author: String(format: String(localized: "match.coverage_note_author"), without, using)
-        case .narrator: String(format: String(localized: "match.coverage_note_narrator"), without, using)
-        }
-    }
-
-    /// "Wrote 3 books in your library", "Narrated 1 book in your library", or "No books in your library".
-    static func libraryLine(count: Int, role: PersonMatchRole) -> String {
-        switch (role, count) {
-        case (_, ...0): String(localized: "match.no_books_in_library")
-        case (.author, 1): String(localized: "match.wrote_in_library_one")
-        case (.author, _): String(format: String(localized: "match.wrote_in_library"), count)
-        case (.narrator, 1): String(localized: "match.narrated_in_library_one")
-        case (.narrator, _): String(format: String(localized: "match.narrated_in_library"), count)
-        }
-    }
-
-    /// "Wrote 3 books in your library: Project Hail Mary, The Martian, Artemis".
-    static func libraryStripLine(count: Int, titles: [String], role: PersonMatchRole) -> String {
-        let line = libraryLine(count: count, role: role)
+    /// "Narrated 5 of your books · Wrote 1: Project Hail Mary, The Martian, Artemis".
+    static func libraryStripLine(credits: [LibraryCredit], titles: [String]) -> String {
+        let line = creditsLine(credits) ?? String(localized: "match.no_books_in_library")
         guard !titles.isEmpty else { return line }
         return String(format: String(localized: "match.in_library_titles"), line, titles.joined(separator: ", "))
     }
 
+    /// "Narrator · from Hardcover", "From Hardcover" when the sources name no role, or just the role.
+    static func personHeaderFrom(role: String?, sources: String) -> String {
+        switch (role, sources.isEmpty) {
+        case (let role?, false): String(format: String(localized: "match.person_header_from"), role, sources)
+        case (let role?, true): role
+        case (nil, false): String(format: String(localized: "match.person_header_found_in"), sources)
+        case (nil, true): ""
+        }
+    }
+
     /// "Started from your Audible link, then a search for “Ray Porter”."
-    static func personStepsLine(_ steps: [any PersonSearchStep], name: String, role: PersonMatchRole) -> String? {
-        let phrases = steps.map { personStep($0, name: name, role: role) }
+    static func personStepsLine(_ steps: [any PersonSearchStep], name: String) -> String? {
+        let phrases = steps.map { personStep($0, name: name) }
         guard var joined = phrases.first else { return nil }
         for next in phrases.dropFirst() {
             joined = String(format: String(localized: "match.steps_join"), joined, next)
@@ -468,18 +474,15 @@ extension MatchCopy {
         return String(format: String(localized: "match.steps_started_from"), joined)
     }
 
-    private static func personStep(_ step: any PersonSearchStep, name: String, role: PersonMatchRole) -> String {
+    private static func personStep(_ step: any PersonSearchStep, name: String) -> String {
         switch step.sealedType() {
         case .existingLink(let linkType):
             return String(format: String(localized: "match.step_existing_link"), linkType.value.source.label)
         case .viaYourBooks(let viaType):
             let count = Int(viaType.value.bookCount)
-            return switch (role, count == 1) {
-            case (.author, true): String(format: String(localized: "match.step_via_books_author_one"), name)
-            case (.author, false): String(format: String(localized: "match.step_via_books_author"), count, name)
-            case (.narrator, true): String(format: String(localized: "match.step_via_books_narrator_one"), name)
-            case (.narrator, false): String(format: String(localized: "match.step_via_books_narrator"), count, name)
-            }
+            return count == 1
+                ? String(format: String(localized: "match.step_via_books_one"), name)
+                : String(format: String(localized: "match.step_via_books"), count, name)
         case .byName(let byNameType):
             return String(format: String(localized: "match.step_by_name"), byNameType.value.query)
         }
@@ -492,14 +495,6 @@ extension MatchCopy {
         return worksCount == 1
             ? String(localized: "match.works_count_one")
             : String(format: String(localized: "match.works_count"), worksCount)
-    }
-
-    /// "Not a narrator" on a person found in another role than the one searched.
-    static func notInRole(_ searched: PersonMatchRole) -> String {
-        switch searched {
-        case .author: String(localized: "match.not_an_author")
-        case .narrator: String(localized: "match.not_a_narrator")
-        }
     }
 
     /// "Photo · biography", "Photo", "Biography", or "Nothing selected".

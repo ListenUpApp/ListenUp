@@ -70,7 +70,7 @@ private fun author(
     name: String = "Andy Weir",
     keys: List<String> = emptyList(),
     books: List<PersonLibraryBook> = emptyList(),
-) = PersonLookup(name, ContributorRole.AUTHOR, keys, books)
+) = PersonLookup(name, keys, books)
 
 private fun audnexusPeopleTest(
     api: PeopleAudnexus,
@@ -85,10 +85,6 @@ private suspend fun AudnexusProvider.answer(lookup: PersonLookup): PersonAnswer 
 /** Audible authors in a people Find: by name, by your books' Audible credits, and by the person's own ASIN. */
 class AudnexusPeopleTest :
     FunSpec({
-        test("Audnexus has author profiles only") {
-            audnexusPeopleTest(PeopleAudnexus()) { it.profileRoles shouldBe setOf(ContributorRole.AUTHOR) }
-        }
-
         test("a name search finds the author with the photo from their profile") {
             audnexusPeopleTest(PeopleAudnexus(profiles = mapOf(WEIR.asin to WEIR))) { provider ->
                 val answer = provider.answer(author())
@@ -102,10 +98,18 @@ class AudnexusPeopleTest :
             }
         }
 
-        test("your books' Audible credits name the author and count the books") {
+        test("your books' Audible credits name the author and count the books, whatever your credit says") {
             val api = PeopleAudnexus(books = mapOf(PHM.asin to PHM), profiles = mapOf(WEIR.asin to WEIR, TAYLOR.asin to TAYLOR))
             audnexusPeopleTest(api) { provider ->
-                val book = PersonLibraryBook("b-phm", "Project Hail Mary", asin = PHM.asin, isbn = null, refs = emptyList())
+                val book =
+                    PersonLibraryBook(
+                        "b-phm",
+                        "Project Hail Mary",
+                        asin = PHM.asin,
+                        isbn = null,
+                        refs = emptyList(),
+                        roles = setOf(ContributorRole.TRANSLATOR),
+                    )
                 val answer = provider.answer(author(name = "", books = listOf(book)))
 
                 answer.steps shouldBe setOf(PersonStep.VIA_BOOKS)

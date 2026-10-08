@@ -72,28 +72,26 @@ struct PersonMatchAccessibilityTests {
 
     // MARK: - Find
 
-    /// "Ray Porter. Author, 1 book. Not a narrator. Different role. …" — one stop for the whole row.
+    /// "Ray Porter. Narrator, … Narrated 4 of your books · Translated 1. …" — one stop for the whole row.
     @Test func aPersonRowIsOneStopThatSaysItAll() async throws {
         let row = PersonMatchMapping.candidate(
-            Fixture.candidate(
-                shownRole: .author, knownWorks: [], worksCount: 1, libraryCount: 0, isStrong: false, isBest: false,
-                isDifferentRole: true, noBooksInLibrary: true
-            ),
-            searched: .narrator
+            Fixture.candidate(libraryCredits: [
+                LibraryCredit(role: .narrator, bookCount: 4), LibraryCredit(role: .translator, bookCount: 1)
+            ])
         )
         let hosted = await HostedView(List { PersonCandidateRowView(row: row) })
         defer { hosted.close() }
         #expect(hosted.stop(labelled: row.accessibilityLabel) != nil, "\(hosted.tree)")
-        #expect(hosted.stops(labelContaining: "Different role").count == 1, "\(hosted.tree)")
+        #expect(hosted.stops(labelContaining: "Translated 1").count == 1, "\(hosted.tree)")
     }
 
     /// No profiles anywhere: what happened, and Edit by Hand as a full target.
     @Test func noProfilesOffersEditByHand() async throws {
         let hosted = await HostedView(
-            PersonNoProfilesView(noProfiles: PersonMatchMapping.noProfiles(.narrator), onEditByHand: {})
+            PersonNoProfilesView(noProfiles: PersonMatchMapping.noProfiles(), onEditByHand: {})
         )
         defer { hosted.close() }
-        #expect(!hosted.stops(labelContaining: "No source has a profile for this narrator").isEmpty, "\(hosted.tree)")
+        #expect(!hosted.stops(labelContaining: "No source has a profile for this person").isEmpty, "\(hosted.tree)")
         let edit = try #require(hosted.stop(labelled: "Edit by Hand"), "\(hosted.tree)")
         #expect(edit.isButton)
         #expect(edit.frame.height >= TapTarget.minimum - 0.5, "\(edit)")
@@ -109,12 +107,20 @@ struct PersonMatchAccessibilityTests {
         #expect(retry.frame.height >= TapTarget.minimum - 0.5, "\(retry)")
     }
 
-    @Test func asAuthorAndAsNarratorAreBothOffered() async throws {
-        let hosted = await HostedView(List { PersonRolePicker(role: .narrator, onChoose: { _ in }) })
+    /// Find has no role to choose: its sections offer no As author, no As narrator.
+    @Test func findOffersNoRoleToChoose() async throws {
+        let find = PersonMatchMapping.find(from: Fixture.results())
+        let hosted = await HostedView(
+            List {
+                PersonFindSections(
+                    find: find, onRetrySource: {}, onFailureAction: { _ in }, onEditByHand: {}
+                ) { PersonCandidateRowView(row: $0) }
+            }
+        )
         defer { hosted.close() }
-        let author = try #require(hosted.stop(labelled: "As author"), "\(hosted.tree)")
-        let narrator = try #require(hosted.stop(labelled: "As narrator"), "\(hosted.tree)")
-        #expect(narrator.isSelected && !author.isSelected)
+        #expect(hosted.stops(labelContaining: "As author").isEmpty, "\(hosted.tree)")
+        #expect(hosted.stops(labelContaining: "As narrator").isEmpty, "\(hosted.tree)")
+        #expect(!hosted.stops(labelContaining: "Narrated 5 of your books").isEmpty, "\(hosted.tree)")
     }
 
     // MARK: - Apply tray (lesson M8)

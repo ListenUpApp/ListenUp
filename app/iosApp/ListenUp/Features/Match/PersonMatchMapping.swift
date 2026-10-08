@@ -7,59 +7,47 @@ enum PersonMatchMapping {
     // MARK: - Find
 
     static func find(from state: any PersonFindUiState) -> PersonFind {
-        let role = PersonMatchRole(state.role) ?? .author
         let name = state.header?.name ?? ""
-        func make(coverage: CoverageNote?, steps: [any PersonSearchStep], phase: PersonFindPhase) -> PersonFind {
+        func make(steps: [any PersonSearchStep], phase: PersonFindPhase) -> PersonFind {
             PersonFind(
-                role: role,
                 name: name,
-                subtitle: name.isEmpty ? "" : MatchCopy.personSubtitle(name: name, role: role),
-                searchPrompt: MatchCopy.personSearchPrompt(role),
+                subtitle: name,
+                searchPrompt: String(localized: "match.search_person_label"),
                 query: state.query,
-                library: state.inLibrary.flatMap { library($0, role: role) },
-                coverageNote: coverage.map { MatchCopy.coverageNote($0, role: role) },
-                stepsLine: MatchCopy.personStepsLine(steps, name: name, role: role),
+                library: state.inLibrary.flatMap(library),
+                stepsLine: MatchCopy.personStepsLine(steps, name: name),
                 phase: phase
             )
         }
         switch state.sealedType() {
         case .searching(let searchingType):
             let previous = searchingType.value.previous
-            return make(
-                coverage: previous?.coverageNote,
-                steps: previous?.steps ?? [],
-                phase: .searching(previous: previous.map { results($0, role: role) })
-            )
+            return make(steps: previous?.steps ?? [], phase: .searching(previous: previous.map(results)))
         case .results(let resultsType):
             let loaded = resultsType.value
-            return make(
-                coverage: loaded.coverageNote, steps: loaded.steps, phase: .results(results(loaded, role: role))
-            )
-        case .noProfiles(let noProfilesType):
-            return make(
-                coverage: noProfilesType.value.coverageNote, steps: [], phase: .noProfiles(noProfiles(role))
-            )
+            return make(steps: loaded.steps, phase: .results(results(loaded)))
+        case .noProfiles:
+            return make(steps: [], phase: .noProfiles(noProfiles()))
         case .failed(let failedType):
-            return make(coverage: nil, steps: [], phase: .failed(failure(failedType.value.failure)))
+            return make(steps: [], phase: .failed(failure(failedType.value.failure)))
         }
     }
 
-    /// The Your-library strip, or nil when the person has no books here in this role.
-    static func library(_ library: InLibraryUi, role: PersonMatchRole) -> PersonLibraryStrip? {
-        let count = Int(library.bookCount)
-        guard count > 0 else { return nil }
+    /// The Your-library strip — what they did here, every role — or nil when the person has no books here.
+    static func library(_ library: InLibraryUi) -> PersonLibraryStrip? {
+        guard library.bookCount > 0 else { return nil }
         return PersonLibraryStrip(
-            line: MatchCopy.libraryStripLine(count: count, titles: library.titles, role: role),
+            line: MatchCopy.libraryStripLine(credits: library.credits, titles: library.titles),
             covers: library.covers.map {
                 PersonLibraryCover(id: $0.bookId, title: $0.title, coverPath: $0.coverPath, coverHash: $0.coverHash)
             }
         )
     }
 
-    static func results(_ results: PersonFindUiStateResults, role: PersonMatchRole) -> PersonResults {
+    static func results(_ results: PersonFindUiStateResults) -> PersonResults {
         PersonResults(
-            strong: results.strong.map { candidate($0, searched: role) },
-            maybe: results.maybe.map { candidate($0, searched: role) },
+            strong: results.strong.map(candidate),
+            maybe: results.maybe.map(candidate),
             partial: results.partialFailure.map(MatchCopy.partialBanner),
             pickedId: results.pickedKey.flatMap { key in results.all.first { sameKey($0.key, key) }?.id }
         )
@@ -74,23 +62,16 @@ enum PersonMatchMapping {
         return refs(lhs) == refs(rhs)
     }
 
-    static func candidate(_ candidate: PersonCandidateUi, searched: PersonMatchRole) -> PersonCandidateRow {
+    static func candidate(_ candidate: PersonCandidateUi) -> PersonCandidateRow {
         let sources = MatchCopy.sourceLabels(candidate.foundIn)
         let roleWord = MatchCopy.roleWord(candidate.shownRole)
         let works = MatchCopy.works(knownWorks: candidate.knownWorks, worksCount: candidate.worksCount.map { Int($0) })
-        let notInRole = candidate.isDifferentRole ? MatchCopy.notInRole(searched) : nil
-        let libraryLine = candidate.noBooksInLibrary
-            ? String(localized: "match.no_books_in_library")
-            : MatchCopy.libraryLine(count: Int(candidate.libraryCount), role: searched)
-        let differentRole = candidate.isDifferentRole ? String(localized: "match.different_role") : nil
+        let libraryLine = MatchCopy.creditsLine(candidate.libraryCredits)
+            ?? (candidate.noBooksInLibrary ? String(localized: "match.no_books_in_library") : "")
 
-        // "Author, The Martian and Artemis. Not a narrator. Different role" — the role and works as a sentence.
+        // "Author, The Martian and Artemis" — the role and works as a sentence.
         let worksSentence = candidate.knownWorks.isEmpty ? works : MatchCopy.list(candidate.knownWorks)
-        let roleAndWorks = [roleWord, worksSentence].compactMap { $0 }.joined(separator: ", ")
-        let roleSentence = [roleAndWorks, notInRole, differentRole]
-            .compactMap { $0 }
-            .filter { !$0.isEmpty }
-            .joined(separator: ". ")
+        let roleSentence = [roleWord, worksSentence].compactMap { $0 }.joined(separator: ", ")
         let parts = [candidate.name, roleSentence, libraryLine, MatchCopy.list(sources)].filter { !$0.isEmpty }
         let spoken = parts.count == 4
             ? String(format: String(localized: "match.person_row_a11y"), parts[0], parts[1], parts[2], parts[3])
@@ -107,9 +88,8 @@ enum PersonMatchMapping {
             isStrong: candidate.tier == .strong,
             isBest: candidate.isBest,
             isCurrentLink: candidate.isCurrentLink,
-            roleLine: [roleWord, works, notInRole].compactMap { $0 }.joined(separator: " · "),
+            roleLine: [roleWord, works].compactMap { $0 }.joined(separator: " · "),
             libraryLine: libraryLine,
-            differentRole: differentRole,
             sourcesLine: sources.joined(separator: " · "),
             sourcesList: MatchCopy.list(sources),
             shownRole: roleWord,
@@ -117,11 +97,9 @@ enum PersonMatchMapping {
         )
     }
 
-    static func noProfiles(_ role: PersonMatchRole) -> PersonNoProfiles {
+    static func noProfiles() -> PersonNoProfiles {
         PersonNoProfiles(
-            title: role == .author
-                ? String(localized: "match.no_profiles_author_title")
-                : String(localized: "match.no_profiles_narrator_title"),
+            title: String(localized: "match.no_profiles_title"),
             message: String(localized: "match.no_profiles_body"),
             editTitle: String(localized: "match.edit_by_hand_title")
         )
@@ -163,9 +141,7 @@ enum PersonMatchMapping {
     }
 
     static func review(_ ready: PersonReviewUiStateReady, viewerId: String?) -> PersonReview {
-        let searched = PersonMatchRole(ready.role) ?? .author
-        let row = candidate(ready.candidate, searched: searched)
-        let roleWord = row.shownRole ?? MatchCopy.roleWord(searched.contributorRole) ?? ""
+        let row = candidate(ready.candidate)
         return PersonReview(
             candidateId: row.id,
             header: PersonReviewHeader(
@@ -174,9 +150,7 @@ enum PersonMatchMapping {
                 isStrong: row.isStrong,
                 isBest: row.isBest,
                 isCurrentLink: row.isCurrentLink,
-                roleLine: row.sourcesList.isEmpty
-                    ? roleWord
-                    : String(format: String(localized: "match.person_header_from"), roleWord, row.sourcesList),
+                roleLine: MatchCopy.personHeaderFrom(role: row.shownRole, sources: row.sourcesList),
                 libraryLine: row.libraryLine
             ),
             whatWillChange: MatchCopy.personWhatWillChange(ready.applyBar),

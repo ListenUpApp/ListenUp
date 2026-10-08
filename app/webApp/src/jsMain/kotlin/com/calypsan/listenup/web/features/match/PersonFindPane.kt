@@ -5,8 +5,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.calypsan.listenup.api.dto.ContributorRole
-import com.calypsan.listenup.client.presentation.match.CoverageNote
 import com.calypsan.listenup.client.presentation.match.InLibraryUi
 import com.calypsan.listenup.client.presentation.match.PersonCandidateUi
 import com.calypsan.listenup.client.presentation.match.PersonFindUiState
@@ -34,10 +32,11 @@ import org.jetbrains.compose.web.dom.Ul
 import org.jetbrains.compose.web.dom.Button as DomButton
 
 /**
- * Person Find (W-06, W-07): the coverage note, Your library, the search, the steps Find took, and the people in
- * Strong match and Maybe — or that no source has a profile for this role, with Edit by hand, or why Find failed.
+ * Person Find (W-06, W-07): Your library — what they did here, every role — the search, the steps Find took, and
+ * the people in Strong match and Maybe — or that no source has a profile for them, with Edit by hand, or why Find
+ * failed. There is no role to choose.
  *
- * A search in flight keeps the role's last results on screen, marked busy. Each row is one `<button
+ * A search in flight keeps the last results on screen, marked busy. Each row is one `<button
  * aria-pressed>` whose accessible name says who the person is; [onPick] moves the focus.
  */
 @Composable
@@ -53,7 +52,6 @@ internal fun PersonFindPane(
             is PersonFindUiState.Searching -> find.previous
             is PersonFindUiState.NoProfiles, is PersonFindUiState.Failed -> null
         }
-    val coverage: CoverageNote? = if (find is PersonFindUiState.NoProfiles) find.coverageNote else shown?.coverageNote
     val name = find.header?.name.orEmpty()
 
     Div(attrs = { classes("bmx-pane-h") }) {
@@ -65,9 +63,8 @@ internal fun PersonFindPane(
         shown?.let { Span(attrs = { classes("bmx-count") }) { Text(peopleCountText(it.all.size)) } }
     }
 
-    coverage?.let { CoverageNoteLine(it, find.role) }
     find.inLibrary?.let { InLibraryStrip(it) }
-    PersonSearchForm(query = find.query, role = find.role, onSearch = session.search)
+    PersonSearchForm(query = find.query, onSearch = session.search)
 
     if (find is PersonFindUiState.Searching) {
         P(attrs = {
@@ -80,7 +77,7 @@ internal fun PersonFindPane(
         if (shown == null) Div(attrs = { classes("skel", "bmx-skel") })
     }
 
-    shown?.let { personStepsText(it.steps, name, find.role) }?.let { P(attrs = { classes("bmx-note") }) { Text(it) } }
+    shown?.let { personStepsText(it.steps, name) }?.let { P(attrs = { classes("bmx-note") }) { Text(it) } }
     shown?.partialFailure?.let { PartialBanner(it, session.retry) }
     shown?.let { results ->
         val busy = find is PersonFindUiState.Searching
@@ -91,7 +88,7 @@ internal fun PersonFindPane(
     when (find) {
         is PersonFindUiState.NoProfiles -> {
             EmptyState(
-                title = noProfilesTitle(find.role),
+                title = NO_PROFILES_TITLE,
                 body = NO_PROFILES_BODY,
                 look = EmptyLook.Inset,
                 action = {
@@ -112,19 +109,7 @@ internal fun PersonFindPane(
     }
 }
 
-/** "Audible has no narrator profiles, so this search uses Hardcover." */
-@Composable
-private fun CoverageNoteLine(
-    note: CoverageNote,
-    role: ContributorRole,
-) {
-    P(attrs = { classes("pmx-coverage") }) {
-        Icon(WebIcon.Info, size = SMALL_ICON)
-        Text(coverageNoteText(note, role))
-    }
-}
-
-/** Your library: up to three covers and "Wrote 3 books in your library: …", read from this device. */
+/** Your library: up to three covers and "Narrated 5 of your books · Wrote 1: …", read from this device. */
 @Composable
 private fun InLibraryStrip(inLibrary: InLibraryUi) {
     Div(attrs = { classes("bmx-copy", "pmx-lib") }) {
@@ -150,7 +135,6 @@ private fun InLibraryStrip(inLibrary: InLibraryUi) {
 @Composable
 private fun PersonSearchForm(
     query: String,
-    role: ContributorRole,
     onSearch: (String) -> Unit,
 ) {
     var text by remember(query) { mutableStateOf(query) }
@@ -167,7 +151,7 @@ private fun PersonSearchForm(
             focusLanding(priority = 2)
         }) {
             Field(
-                label = personSearchLabel(role),
+                label = PERSON_SEARCH_LABEL,
                 value = text,
                 onInput = { text = it },
                 leading = WebIcon.Search,
@@ -198,18 +182,17 @@ private fun PersonGroup(
         }) {
             people.forEach { person ->
                 Li {
-                    PersonRow(person, results.role, picked = person.key == results.pickedKey, onPick = onPick)
+                    PersonRow(person, picked = person.key == results.pickedKey, onPick = onPick)
                 }
             }
         }
     }
 }
 
-/** One person: their photo or initials, name, role and works, your library (or Different role), sources. */
+/** One person: their photo or initials, name, role and works, what they did in your library, sources. */
 @Composable
 private fun PersonRow(
     person: PersonCandidateUi,
-    searched: ContributorRole,
     picked: Boolean,
     onPick: (PersonCandidateUi) -> Unit,
 ) {
@@ -218,21 +201,15 @@ private fun PersonRow(
         attr("type", "button")
         attr("id", rowIdOf(person.id))
         attr("aria-pressed", picked.toString())
-        attr("aria-label", personRowName(person, searched))
+        attr("aria-label", personRowName(person))
         onClick { onPick(person) }
     }) {
         Portrait(url = person.photoUrl, name = person.name)
         Span(attrs = { classes("bmx-row-m") }) {
             RowBadges(isBest = person.isBest, isCurrentLink = person.isCurrentLink)
             Span(attrs = { classes("bmx-row-t") }) { Text(person.name) }
-            Span(attrs = { classes("bmx-row-meta") }) { Text(personMetaText(person, searched)) }
-            if (person.isDifferentRole) {
-                Span(attrs = { classes("bmx-badges") }) {
-                    Span(attrs = { classes("bmx-badge", "pmx-role-chip") }) { Text(DIFFERENT_ROLE) }
-                }
-            } else {
-                LibraryLine(person, searched)
-            }
+            Span(attrs = { classes("bmx-row-meta") }) { Text(personMetaText(person)) }
+            LibraryLine(person)
             if (person.foundIn.isNotEmpty()) {
                 Span(attrs = { classes("bmx-row-found") }) { Text("Found in ${sourcesText(person.foundIn)}") }
             }
@@ -240,19 +217,17 @@ private fun PersonRow(
     }
 }
 
-/** "Wrote 3 books in your library", with a check when there are some; "No books in your library" otherwise. */
+/** "Narrated 3 of your books · Translated 1", with a check; "No books in your library" for none; else nothing. */
 @Composable
-internal fun LibraryLine(
-    person: PersonCandidateUi,
-    searched: ContributorRole,
-) {
-    val some = !person.noBooksInLibrary && person.libraryCount > 0
+internal fun LibraryLine(person: PersonCandidateUi) {
+    val text = personLibraryText(person) ?: return
+    val some = person.libraryCredits.isNotEmpty()
     Span(attrs = {
         classes("pmx-lib-line")
         if (some) classes("is-some")
     }) {
         if (some) Icon(WebIcon.Check, size = SMALL_ICON)
-        Text(personLibraryText(person, searched))
+        Text(text)
     }
 }
 

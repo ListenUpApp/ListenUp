@@ -12,7 +12,6 @@ private val KEY = PersonCandidateKey(listOf(ExternalRef("audible", "B001"), Exte
 private val REVIEW =
     PersonMatchReview(
         candidate = KEY,
-        role = ContributorRole.NARRATOR,
         basedOnRevision = 42,
         photo =
             PhotoReview(
@@ -31,12 +30,32 @@ private val REVIEW =
             ),
     )
 
+private val APPLY =
+    PersonMatchApply(
+        candidate = KEY,
+        basedOnRevision = 42,
+        photo = ImageChoice.Candidate("hardcover:1234"),
+        biography = FieldChoice.KeepCurrent,
+    )
+
 /** Every person Review and Apply type crosses the wire intact. */
 class PersonReviewContractTest :
     FunSpec({
         test("a person Review round-trips") {
             val json = contractJson.encodeToString(PersonMatchReview.serializer(), REVIEW)
             contractJson.decodeFromString(PersonMatchReview.serializer(), json) shouldBe REVIEW
+        }
+
+        test("a Review for an older client echoes the role it named; a new client's names none") {
+            contractJson
+                .encodeToString(PersonMatchReview.serializer(), REVIEW.copy(role = ContributorRole.NARRATOR))
+                .contains(""""role":"NARRATOR"""") shouldBe true
+            contractJson.encodeToString(PersonMatchReview.serializer(), REVIEW).contains(""""role"""") shouldBe false
+        }
+
+        test("an older client's Apply, which names a role, still decodes") {
+            val json = contractJson.encodeToString(PersonMatchApply.serializer(), APPLY).replaceFirst("{", """{"role":"AUTHOR",""")
+            contractJson.decodeFromString(PersonMatchApply.serializer(), json).role shouldBe ContributorRole.AUTHOR
         }
 
         test("a person Review with no biography from any source round-trips") {
@@ -48,14 +67,7 @@ class PersonReviewContractTest :
         }
 
         test("a person Apply round-trips, with photo and biography chosen separately") {
-            val apply =
-                PersonMatchApply(
-                    candidate = KEY,
-                    role = ContributorRole.AUTHOR,
-                    basedOnRevision = 42,
-                    photo = ImageChoice.Candidate("hardcover:1234"),
-                    biography = FieldChoice.KeepCurrent,
-                )
+            val apply = APPLY
             contractJson.decodeFromString(
                 PersonMatchApply.serializer(),
                 contractJson.encodeToString(PersonMatchApply.serializer(), apply),

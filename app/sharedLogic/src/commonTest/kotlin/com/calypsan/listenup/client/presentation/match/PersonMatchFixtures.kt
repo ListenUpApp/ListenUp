@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.dto.match.FieldState
 import com.calypsan.listenup.api.dto.match.HandEdit
 import com.calypsan.listenup.api.dto.match.ImageChoice
 import com.calypsan.listenup.api.dto.match.InLibrary
+import com.calypsan.listenup.api.dto.match.LibraryCredit
 import com.calypsan.listenup.api.dto.match.MatchReceipt
 import com.calypsan.listenup.api.dto.match.MatchTier
 import com.calypsan.listenup.api.dto.match.PersonCandidate
@@ -53,6 +54,7 @@ internal fun personCandidate(
     isBest: Boolean = false,
     libraryCount: Int = 5,
     reasons: List<PersonReason> = emptyList(),
+    libraryCredits: List<LibraryCredit> = listOf(LibraryCredit(ContributorRole.NARRATOR, libraryCount)),
 ): PersonCandidate =
     PersonCandidate(
         key = key,
@@ -67,11 +69,11 @@ internal fun personCandidate(
         isBest = isBest,
         isCurrentLink = false,
         reasons = reasons,
+        libraryCredits = libraryCredits,
     )
 
-/** Ray Porter as a narrator: one Strong narrator, one Maybe who is an author at Hardcover. */
+/** Ray Porter: one Strong match who narrated five of your books, one Maybe — an author at Hardcover — on none. */
 internal fun personFindResult(
-    role: ContributorRole = ContributorRole.NARRATOR,
     candidates: List<PersonCandidate> =
         listOf(
             personCandidate(isBest = true),
@@ -80,28 +82,17 @@ internal fun personFindResult(
                 roles = listOf(ContributorRole.AUTHOR),
                 tier = MatchTier.MAYBE,
                 libraryCount = 0,
-                reasons =
-                    listOf(
-                        PersonReason.DifferentRole(listOf(ContributorRole.AUTHOR)),
-                        PersonReason.NoBooksInLibrary,
-                    ),
+                libraryCredits = emptyList(),
+                reasons = listOf(PersonReason.NoBooksInLibrary),
             ),
         ),
-    coverage: List<RoleCoverage> = listOf(RoleCoverage(AUDIBLE, false), RoleCoverage(HARDCOVER, true)),
     sources: List<SourceStatus> =
-        listOf(
-            SourceStatus.Unavailable(
-                AUDIBLE,
-                com.calypsan.listenup.api.dto.match.UnavailableReason.NO_PROFILES_FOR_ROLE,
-            ),
-            SourceStatus.Answered(HARDCOVER, candidates.size),
-        ),
+        listOf(SourceStatus.Answered(AUDIBLE, 0), SourceStatus.Answered(HARDCOVER, candidates.size)),
 ): PersonFindResult =
     PersonFindResult(
-        role = role,
         steps = listOf(PersonSearchStep.ViaYourBooks(5), PersonSearchStep.ByName("Ray Porter")),
         inLibrary = InLibrary(5, listOf("Project Hail Mary")),
-        coverage = coverage,
+        coverage = listOf(RoleCoverage(AUDIBLE, true), RoleCoverage(HARDCOVER, true)),
         candidates = candidates,
         sources = sources,
     )
@@ -115,7 +106,6 @@ internal fun bioOption(
 /** Ray Porter has no photo and no biography; Hardcover has both. */
 internal fun personReview(
     key: PersonCandidateKey = personKey(),
-    role: ContributorRole = ContributorRole.NARRATOR,
     currentPhoto: String? = null,
     photoSetByHand: Boolean = false,
     photoOptions: List<PhotoCandidate> = listOf(PhotoCandidate("p-hc", HARDCOVER, "https://img/hc.jpg")),
@@ -132,7 +122,6 @@ internal fun personReview(
 ): PersonMatchReview =
     PersonMatchReview(
         candidate = key,
-        role = role,
         basedOnRevision = revision,
         photo = PhotoReview(currentPhoto, photoSetByHand, photoOptions, photoDefault),
         biography = biography,

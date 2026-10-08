@@ -56,7 +56,7 @@ private fun MatchRig.service(): MatchingServiceImpl {
         permissionPolicy = UserPermissionPolicy(db.sql),
         bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
         peopleFinder = PeopleFinder(MetadataProviderRegistry(emptyList()), EnrichmentRoutes.DEFAULT),
-        loadPeople = { _, _, _ -> null },
+        loadPeople = { _, _ -> null },
         peopleRegion = { com.calypsan.listenup.api.metadata.MetadataLocale.DEFAULT },
         details = details(),
     )

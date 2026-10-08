@@ -23,6 +23,8 @@ import kotlinx.coroutines.test.runTest
 private val WEIR = FakeHardcoverCatalog.Author(123_645L, "Andy Weir", bio = "Space nerd.", imageUrl = "https://hc/weir.jpg")
 private val PORTER = FakeHardcoverCatalog.Author(250_716L, "Ray Porter", imageUrl = "https://hc/porter.jpg")
 private val TAYLOR = FakeHardcoverCatalog.Author(233_077L, "Dennis E. Taylor")
+private val LIU = FakeHardcoverCatalog.Author(301_002L, "Ken Liu", imageUrl = "https://hc/liu.jpg")
+private val CIXIN = FakeHardcoverCatalog.Author(301_001L, "Cixin Liu")
 
 private val PHM =
     FakeHardcoverCatalog.Book(
@@ -42,6 +44,14 @@ private val HEAVENS_RIVER =
         narrators = listOf(PORTER),
         asin = "B088C51F5H",
     )
+private val THREE_BODY =
+    FakeHardcoverCatalog.Book(
+        id = 431_000L,
+        title = "The Three-Body Problem",
+        authors = listOf(CIXIN),
+        translators = listOf(LIU),
+        asin = "B00P0RZ3A8",
+    )
 
 private class PeopleRig(
     val rig: HardcoverCatalogRig,
@@ -50,6 +60,7 @@ private class PeopleRig(
         FakeHardcoverCatalog().apply {
             add(PHM)
             add(HEAVENS_RIVER)
+            add(THREE_BODY)
         }
     val source =
         HardcoverMetadataSource(
@@ -88,32 +99,33 @@ private fun book(
     asin: String? = null,
     isbn: String? = null,
     refs: List<ExternalRef> = emptyList(),
-) = PersonLibraryBook(bookId = id, title = id, asin = asin, isbn = isbn, refs = refs)
+) = PersonLibraryBook(bookId = id, title = id, asin = asin, isbn = isbn, refs = refs, roles = setOf(ContributorRole.NARRATOR))
 
-private fun narrator(
+private fun lookup(
     name: String = "Ray Porter",
     keys: List<String> = emptyList(),
     books: List<PersonLibraryBook> = emptyList(),
-) = PersonLookup(name = name, role = ContributorRole.NARRATOR, keys = keys, books = books)
+) = PersonLookup(name = name, keys = keys, books = books)
 
 /**
- * Hardcover finds narrators (matching redesign PR 4): a narrator is a Hardcover author credited on editions with a
- * narrator role. Two calls at most — the author index, then one batched read of the people and of your books'
- * credits.
+ * Hardcover finds anyone credited there (matching redesign PR 4, role-free since 2026-10-07): narrators,
+ * translators and the rest are Hardcover authors credited in another role. Two calls at most — the author index,
+ * then one batched read of the people and of your books' credits, whatever role those credits carry.
  */
 class HardcoverPeopleTest :
     FunSpec({
-        test("Hardcover has profiles for authors and narrators") {
-            peopleTest { source.profileRoles shouldBe setOf(ContributorRole.AUTHOR, ContributorRole.NARRATOR) }
-        }
-
-        test("a narrator search finds the narrator with roles, photo, works, and your books he narrates") {
+        test("a search finds the narrator with roles, photo, works, and your books he narrates") {
             peopleTest {
-                val answer = answer(narrator(books = listOf(book("b-phm", asin = "B08G9RZBTT"), book("b-hr", asin = "B088C51F5H"))))
+                val answer = answer(lookup(books = listOf(book("b-phm", asin = "B08G9RZBTT"), book("b-hr", asin = "B088C51F5H"))))
 
                 hardcover.operations shouldBe listOf("people_search", "people_details")
                 answer.steps shouldBe setOf(PersonStep.NAME, PersonStep.VIA_BOOKS)
-                val porter = answer.people.single()
+                // The books' authors come back as co-credits, never found by name; the ranker drops them by name.
+                answer.people
+                    .filterNot { it.foundByName }
+                    .map { it.key }
+                    .toSet() shouldBe setOf("123645", "233077")
+                val porter = answer.people.single { it.foundByName }
                 porter.key shouldBe "250716"
                 porter.name shouldBe "Ray Porter"
                 porter.roles shouldBe setOf(ContributorRole.NARRATOR)
@@ -126,29 +138,29 @@ class HardcoverPeopleTest :
             }
         }
 
-        test("credits in another role never count: the author of your book isn't credited as its narrator") {
+        test("a credit in any role on your book counts: its author and its narrator are both credited on it") {
             peopleTest {
-                val answer = answer(narrator(name = "Andy Weir", books = listOf(book("b-phm", asin = "B08G9RZBTT"))))
+                val answer = answer(lookup(name = "Andy Weir", books = listOf(book("b-phm", asin = "B08G9RZBTT"))))
 
                 val weir = answer.people.first { it.key == "123645" }
                 weir.roles shouldBe setOf(ContributorRole.AUTHOR)
-                weir.creditedBookIds shouldBe emptySet()
+                weir.creditedBookIds shouldBe setOf("b-phm")
                 // Ray Porter narrates that book, so he comes back as a co-credit candidate, not found by name.
-                answer.people.first { it.key == "250716" }.foundByName shouldBe false
+                val porter = answer.people.first { it.key == "250716" }
+                porter.foundByName shouldBe false
+                porter.creditedBookIds shouldBe setOf("b-phm")
             }
         }
 
-        test("an author search counts book credits, never the narrator's") {
+        test("a translator is found by name, credited on your book, in the role Hardcover gives them") {
             peopleTest {
-                val answer =
-                    source
-                        .findPeople(
-                            PersonLookup("Andy Weir", ContributorRole.AUTHOR, emptyList(), listOf(book("b-phm", asin = "B08G9RZBTT"))),
-                            MetadataLocale.DEFAULT,
-                        ).shouldBeInstanceOf<AppResult.Success<PersonAnswer>>()
-                        .data
+                val answer = answer(lookup(name = "Ken Liu", books = listOf(book("b-3bp", asin = "B00P0RZ3A8"))))
 
-                answer.people.map { it.key to it.creditedBookIds } shouldBe listOf("123645" to setOf("b-phm"))
+                val liu = answer.people.first { it.key == "301002" }
+                liu.foundByName shouldBe true
+                liu.roles shouldBe setOf(ContributorRole.TRANSLATOR)
+                liu.creditedBookIds shouldBe setOf("b-3bp")
+                liu.photoUrl shouldBe "https://hc/liu.jpg"
             }
         }
 
@@ -156,7 +168,7 @@ class HardcoverPeopleTest :
             peopleTest {
                 val answer =
                     answer(
-                        narrator(
+                        lookup(
                             name = "",
                             books =
                                 listOf(
@@ -168,13 +180,14 @@ class HardcoverPeopleTest :
 
                 hardcover.operations shouldBe listOf("people_details")
                 answer.steps shouldBe setOf(PersonStep.VIA_BOOKS)
-                answer.people.single().creditedBookIds shouldBe setOf("b-phm", "b-hr")
+                answer.people.single { it.key == "250716" }.creditedBookIds shouldBe setOf("b-phm", "b-hr")
+                answer.people.single { it.key == "123645" }.creditedBookIds shouldBe setOf("b-phm")
             }
         }
 
         test("the person's own ref is read in the same batch and marked as the current link") {
             peopleTest {
-                val answer = answer(narrator(name = "Ray", keys = listOf("250716")))
+                val answer = answer(lookup(name = "Ray", keys = listOf("250716")))
 
                 hardcover.operations shouldBe listOf("people_search", "people_details")
                 answer.steps shouldContainExactly setOf(PersonStep.LINK, PersonStep.NAME)
@@ -185,7 +198,7 @@ class HardcoverPeopleTest :
 
         test("nothing to ask means no call at all") {
             peopleTest {
-                answer(narrator(name = " ")).people shouldBe emptyList()
+                answer(lookup(name = " ")).people shouldBe emptyList()
                 hardcover.operations shouldBe emptyList()
             }
         }
@@ -197,7 +210,7 @@ class HardcoverPeopleTest :
             peopleTest {
                 hardcover.throttleAfterMs = 12_000L
                 source
-                    .findPeople(narrator(), MetadataLocale.DEFAULT)
+                    .findPeople(lookup(), MetadataLocale.DEFAULT)
                     .shouldBeInstanceOf<AppResult.Failure>()
                     .error shouldBe MetadataError.ExternalRateLimited(retryAfterSeconds = 12)
             }

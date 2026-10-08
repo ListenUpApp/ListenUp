@@ -37,7 +37,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.MatchTier
 import com.calypsan.listenup.client.design.components.ContributorCoverImage
 import com.calypsan.listenup.client.design.components.SectionGroup
@@ -51,7 +50,6 @@ import com.calypsan.listenup.client.presentation.match.PersonCandidateUi
 import com.calypsan.listenup.client.presentation.match.PersonFindUiState
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.match_best_match
-import listenup.composeapp.generated.resources.match_different_role
 import listenup.composeapp.generated.resources.match_maybe
 import listenup.composeapp.generated.resources.match_review_this_match_a11y
 import listenup.composeapp.generated.resources.match_strong_match
@@ -83,7 +81,6 @@ internal fun LazyListScope.personGroups(
                     people.forEach { person ->
                         PersonRow(
                             person = person,
-                            searched = results.role,
                             picked = highlightPicked && person.key == results.pickedKey,
                             onPick = { onPick(person) },
                         )
@@ -101,17 +98,15 @@ internal fun LazyListScope.personGroups(
 @Composable
 private fun PersonRow(
     person: PersonCandidateUi,
-    searched: ContributorRole,
     picked: Boolean,
     onPick: () -> Unit,
 ) {
     val haptics = LocalHaptics.current
     val sources = sourcesPhrase(person.foundIn)
-    val roleLine = person.roleLine(searched)
-    val libraryLine = person.libraryLine(searched)
-    val differentRole = stringResource(Res.string.match_different_role).takeIf { person.isDifferentRole }
+    val roleLine = person.roleLine()
+    val libraryLine = person.libraryLine()
     val accessibleName =
-        listOfNotNull(listOfNotNull(person.name, differentRole).joinToString(", "), roleLine, libraryLine, sources)
+        listOfNotNull(person.name, roleLine, libraryLine, sources)
             .filter { it.isNotEmpty() }
             .joinToString(". ", postfix = ".")
     val reviewLabel = stringResource(Res.string.match_review_this_match_a11y, person.name, sources)
@@ -143,7 +138,7 @@ private fun PersonRow(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = if (person.tier == MatchTier.STRONG) FontWeight.Bold else FontWeight.SemiBold,
                     )
-                    PersonBadges(person = person, differentRole = differentRole)
+                    PersonBadges(person = person)
                 }
                 if (roleLine.isNotEmpty()) {
                     Text(
@@ -176,12 +171,9 @@ private fun PersonRow(
     }
 }
 
-/** Best match, Your current link, and Different role — each a label, never colour alone. */
+/** Best match and Your current link — each a label, never colour alone. */
 @Composable
-private fun PersonBadges(
-    person: PersonCandidateUi,
-    differentRole: String?,
-) {
+private fun PersonBadges(person: PersonCandidateUi) {
     if (person.isBest) {
         TonalLabel(
             label = stringResource(Res.string.match_best_match),
@@ -192,13 +184,6 @@ private fun PersonBadges(
     }
     if (person.isCurrentLink) {
         TonalLabel(label = stringResource(Res.string.match_your_current_link), icon = Icons.Outlined.Link)
-    }
-    differentRole?.let {
-        TonalLabel(
-            label = it,
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-        )
     }
 }
 

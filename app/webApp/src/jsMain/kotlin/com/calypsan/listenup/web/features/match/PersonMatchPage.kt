@@ -8,7 +8,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.client.presentation.match.FindFailure
 import com.calypsan.listenup.client.presentation.match.PersonFindUiState
 import com.calypsan.listenup.client.presentation.match.PersonMatchEvent
@@ -18,8 +17,6 @@ import com.calypsan.listenup.web.design.FocusHold
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.focusAsLanding
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.Fieldset
-import org.jetbrains.compose.web.dom.Legend
 import org.jetbrains.compose.web.dom.Section
 import org.jetbrains.compose.web.dom.Text
 import org.w3c.dom.HTMLElement
@@ -31,7 +28,7 @@ import org.w3c.dom.HTMLElement
  * under the 1024px line one column, and Review replaces Find while a person is open (W-08). The page reports
  * one pane or two to the session ([PersonMatchSession.useTwoPane]), so a desktop opens the best match at once.
  *
- * Above both panes, Match as — As author | As narrator — one radio group that switches the role searched.
+ * There is no role to choose: Find looks for the person in every role any source knows.
  *
  * **The keyboard path**: picking a person moves focus to the Review heading; Back returns it to their row;
  * Skip to Apply follows the heading. Focus never drops to `<body>` — each pane is a [FocusHold].
@@ -103,8 +100,7 @@ fun PersonMatchPage(
         )
         PageHeader(
             title = TITLE,
-            subtitle = name?.let { personSubtitle(it, find.role) },
-            actions = { RoleSwitch(find.role, session.switchRole) },
+            subtitle = name,
         )
         Div(attrs = { classes("bmx-panes") }) {
             Section(attrs = {
@@ -130,7 +126,6 @@ fun PersonMatchPage(
                 FocusHold(key = personReviewKey(review)) {
                     PersonReviewPane(
                         review = review,
-                        searched = find.role,
                         personName = name.orEmpty(),
                         contributorId = contributorId,
                         viewerId = viewerId,
@@ -160,31 +155,6 @@ fun PersonMatchPage(
     }
 }
 
-/** Match as: As author | As narrator, one radio group. Choosing a role searches it, or shows its results again. */
-@Composable
-private fun RoleSwitch(
-    role: ContributorRole,
-    onSwitch: (ContributorRole) -> Unit,
-) {
-    Fieldset(attrs = { classes("bmx-fieldset", "pmx-role") }) {
-        Legend(attrs = { classes("sr-only") }) { Text("Match as") }
-        Div(attrs = { classes("bmx-src") }) {
-            Segment(
-                group = ROLE_GROUP,
-                checked = role == ContributorRole.AUTHOR,
-                text = "As author",
-                onChoose = { onSwitch(ContributorRole.AUTHOR) },
-            )
-            Segment(
-                group = ROLE_GROUP,
-                checked = role == ContributorRole.NARRATOR,
-                text = "As narrator",
-                onChoose = { onSwitch(ContributorRole.NARRATOR) },
-            )
-        }
-    }
-}
-
 /** Feeds the live region, keyed on what each announcement says so a ticking countdown stays silent. */
 @Composable
 private fun PersonAnnouncements(
@@ -201,15 +171,15 @@ private fun PersonAnnouncements(
 private fun personFindAnnouncementKey(find: PersonFindUiState): String =
     when (find) {
         is PersonFindUiState.Searching -> {
-            "searching:${find.role}"
+            "searching"
         }
 
         is PersonFindUiState.Results -> {
-            "results:${find.role}:${find.all.joinToString { it.id }}"
+            "results:${find.all.joinToString { it.id }}"
         }
 
         is PersonFindUiState.NoProfiles -> {
-            "none:${find.role}"
+            "none"
         }
 
         is PersonFindUiState.Failed -> {
@@ -223,7 +193,7 @@ internal fun personFindAnnouncement(find: PersonFindUiState): String? =
     when (find) {
         is PersonFindUiState.Searching -> SEARCHING
         is PersonFindUiState.Results -> peopleCountText(find.all.size)
-        is PersonFindUiState.NoProfiles -> noProfilesTitle(find.role)
+        is PersonFindUiState.NoProfiles -> NO_PROFILES_TITLE
         is PersonFindUiState.Failed -> failureAnnouncement(find.failure)
     }
 
@@ -277,4 +247,3 @@ private fun personReviewKey(review: PersonReviewUiState): String =
 
 internal const val APPLIED = "Applied"
 internal const val LOADING_MATCH = "Loading this match…"
-private const val ROLE_GROUP = "pmx-role"

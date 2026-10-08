@@ -193,7 +193,7 @@ import com.calypsan.listenup.web.features.match.PersonMatchPage
 import com.calypsan.listenup.web.features.match.ReceiptSubject
 import com.calypsan.listenup.web.features.match.biography
 import com.calypsan.listenup.web.features.match.fixedPersonMatch
-import com.calypsan.listenup.web.features.match.narratorResults
+import com.calypsan.listenup.web.features.match.rayResults
 import com.calypsan.listenup.web.features.match.noProfiles
 import com.calypsan.listenup.web.features.match.person
 import com.calypsan.listenup.web.features.match.personFailed
@@ -720,13 +720,13 @@ class ClassContractTest :
                             onDismiss = {},
                         )
                         MatchReceiptRegion(state = MatchReceiptUiState.Undone, onUndo = {}, onDismiss = {})
-                        // Person Match details: narrator Find with the coverage note and a Different role
-                        // row, Review with a hand-edited biography; No profiles; a failure with Review
-                        // loading; the person receipt.
+                        // Person Match details: Find with every role's evidence on the strip and the rows,
+                        // Review with a hand-edited biography; No profiles; a failure with Review loading;
+                        // the person receipt.
                         PersonMatchPage(
                             session =
                                 fixedPersonMatch(
-                                    findState = MutableStateFlow(narratorResults()),
+                                    findState = MutableStateFlow(rayResults()),
                                     reviewState =
                                         MutableStateFlow(
                                             personReady(

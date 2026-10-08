@@ -4,7 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
@@ -25,7 +25,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** Person Find on a phone, from fixed state: author and narrator results, no profiles, a failure, a search. */
+/** Person Find on a phone, from fixed state: results with every role's evidence, no profiles, a failure, a search. */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = Windows.PHONE)
 class PersonMatchFindTest {
@@ -56,15 +56,13 @@ class PersonMatchFindTest {
     }
 
     @Test
-    fun `an author Find names the person, the role, their books here and the people found`() {
-        setFind(PersonMatchFixtures.authorResults)
+    fun `a Find names the person, what they did in your library, and the people found`() {
+        setFind(PersonMatchFixtures.andyResults)
 
         composeRule.onNodeWithText("Match details").assertIsDisplayed()
-        composeRule.onNodeWithText("Andy Weir · author").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("As author").assertIsOn()
         composeRule.onNodeWithContentDescription("Search for a person").assertIsDisplayed()
         composeRule
-            .onNodeWithText("Wrote 3 books in your library: Project Hail Mary, The Martian, Artemis")
+            .onNodeWithText("Wrote 3 of your books: Project Hail Mary, The Martian, Artemis")
             .assertIsDisplayed()
         scrollTo("Strong match")
         composeRule.onNode(hasText("Strong match") and isHeading()).assertIsDisplayed()
@@ -76,15 +74,25 @@ class PersonMatchFindTest {
     }
 
     @Test
-    fun `a row's accessible name says who, what, how many here and where it was found, and opens Review`() {
-        setFind(PersonMatchFixtures.authorResults)
+    fun `there is no role to choose, no As author and no As narrator`() {
+        setFind(PersonMatchFixtures.rayResults)
+
+        composeRule.onAllNodes(hasText("As author") or hasContentDescription("As author")).assertCountEquals(0)
+        composeRule.onAllNodes(hasText("As narrator") or hasContentDescription("As narrator")).assertCountEquals(0)
+        composeRule.onAllNodes(hasText("Match as") or hasContentDescription("Match as")).assertCountEquals(0)
+        actions.calls shouldBe emptyList()
+    }
+
+    @Test
+    fun `a row's accessible name says who, what, what they did here and where it was found, and opens Review`() {
+        setFind(PersonMatchFixtures.andyResults)
         scrollTo("Author · The Martian, Artemis")
 
         composeRule
             .onNode(
                 hasClickAction() and
                     hasContentDescription(
-                        "Andy Weir. Author · The Martian, Artemis. Wrote 3 books in your library. Atlas and Beacon.",
+                        "Andy Weir. Author · The Martian, Artemis. Wrote 3 of your books. Atlas and Beacon.",
                     ),
             ).performClick()
 
@@ -92,42 +100,30 @@ class PersonMatchFindTest {
     }
 
     @Test
-    fun `As narrator switches the role`() {
-        setFind(PersonMatchFixtures.authorResults)
+    fun `every role they hold here is evidence, on the strip and on the row`() {
+        setFind(PersonMatchFixtures.rayResults)
 
-        composeRule.onNodeWithContentDescription("As narrator").performClick()
-
-        actions.calls shouldContain "role:narrator"
-    }
-
-    @Test
-    fun `a narrator Find explains the coverage, starts from your books, and flags a different role`() {
-        setFind(PersonMatchFixtures.narratorResults)
-
-        composeRule.onNodeWithText("Ray Porter · narrator").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("As narrator").assertIsOn()
-        composeRule.onNodeWithContentDescription("Search for a narrator").assertIsDisplayed()
-        composeRule.onNodeWithText("Atlas has no narrator profiles, so this search uses Beacon.").assertIsDisplayed()
-        composeRule.onNodeWithText("Started from the 5 books Ray Porter narrates in your library.").assertIsDisplayed()
-        scrollTo("Narrated 5 books in your library")
+        composeRule
+            .onNodeWithText(
+                "Narrated 5 of your books · Translated 1: Project Hail Mary, We Are Legion, For We Are Many",
+            ).assertIsDisplayed()
+        composeRule.onNodeWithText("Started from the 5 books crediting Ray Porter in your library.").assertIsDisplayed()
+        scrollTo("Narrated 4 of your books · Translated 1")
         composeRule.onNodeWithText("Narrator · Project Hail Mary, Bobiverse").assertIsDisplayed()
-        scrollTo("Different role")
-        composeRule.onNodeWithText("Different role").assertIsDisplayed()
-        composeRule.onNodeWithText("Author · 1 book · Not a narrator").assertIsDisplayed()
+        composeRule.onNodeWithText("Narrated 4 of your books · Translated 1").assertIsDisplayed()
+        scrollTo("Author · 1 book")
+        composeRule.onNodeWithText("Author · 1 book").assertIsDisplayed()
     }
 
     @Test
-    fun `no profiles anywhere says so and offers Edit by hand, with the role switch still there`() {
+    fun `no profiles anywhere says so, for a person not a role, and offers Edit by hand`() {
         setFind(PersonMatchFixtures.noProfiles)
 
         scrollTo("No source has a profile")
-        composeRule.onNode(hasText("No source has a profile for this narrator") and isHeading()).assertIsDisplayed()
+        composeRule.onNode(hasText("No source has a profile for this person") and isHeading()).assertIsDisplayed()
         composeRule.onNodeWithText("You can add their photo and biography yourself.").assertIsDisplayed()
         composeRule.onNodeWithText("Edit by hand").performClick()
         editedByHand shouldBe 1
-
-        composeRule.onNodeWithContentDescription("As author").performClick()
-        actions.calls shouldContain "role:author"
     }
 
     @Test

@@ -44,7 +44,7 @@ private class ServiceRig(
             permissionPolicy = UserPermissionPolicy(db.sql),
             bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
             peopleFinder = PeopleFinder(MetadataProviderRegistry(emptyList()), EnrichmentRoutes.DEFAULT),
-            loadPeople = { _, _, _ -> null },
+            loadPeople = { _, _ -> null },
             peopleRegion = { MetadataLocale.DEFAULT },
             details =
                 com.calypsan.listenup.server.matching.apply

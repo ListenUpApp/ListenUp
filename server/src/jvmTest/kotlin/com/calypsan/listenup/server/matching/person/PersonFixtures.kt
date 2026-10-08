@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.matching.person
 
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.ExternalRef
 import com.calypsan.listenup.api.dto.match.PersonCandidateKey
 import com.calypsan.listenup.api.metadata.MetadataLocale
@@ -26,7 +25,6 @@ internal class FakeProfileSource(
     override val id: MetadataProviderId,
     var profiles: Map<String, AppResult<ContributorMeta?>> = emptyMap(),
     var slow: Duration = Duration.ZERO,
-    override val profileRoles: Set<ContributorRole> = setOf(ContributorRole.AUTHOR, ContributorRole.NARRATOR),
 ) : ContributorSource {
     val asked = mutableListOf<String>()
 

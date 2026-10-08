@@ -14921,26 +14921,6 @@
         }
       }
     },
-    "match.as_author": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "As author"
-          }
-        }
-      }
-    },
-    "match.as_narrator": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "As narrator"
-          }
-        }
-      }
-    },
     "match.back_to_results": {
       "localizations": {
         "en": {
@@ -15281,32 +15261,112 @@
         }
       }
     },
-    "match.coverage_note_author": {
+    "match.credit_adapter": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ has no author profiles, so this search uses %2$@."
+            "value": "Adapted %1$d"
           }
         }
       }
     },
-    "match.coverage_note_narrator": {
+    "match.credit_afterword": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ has no narrator profiles, so this search uses %2$@."
+            "value": "Wrote the afterword for %1$d"
           }
         }
       }
     },
-    "match.different_role": {
+    "match.credit_author": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Different role"
+            "value": "Wrote %1$d"
+          }
+        }
+      }
+    },
+    "match.credit_editor": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edited %1$d"
+          }
+        }
+      }
+    },
+    "match.credit_foreword": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wrote the foreword for %1$d"
+          }
+        }
+      }
+    },
+    "match.credit_illustrator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Illustrated %1$d"
+          }
+        }
+      }
+    },
+    "match.credit_introduction": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wrote the introduction for %1$d"
+          }
+        }
+      }
+    },
+    "match.credit_narrator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narrated %1$d"
+          }
+        }
+      }
+    },
+    "match.credit_of_your_books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ of your books"
+          }
+        }
+      }
+    },
+    "match.credit_producer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Produced %1$d"
+          }
+        }
+      }
+    },
+    "match.credit_translator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translated %1$d"
           }
         }
       }
@@ -15721,16 +15781,6 @@
         }
       }
     },
-    "match.match_as": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Match as"
-          }
-        }
-      }
-    },
     "match.matches_announcement": {
       "localizations": {
         "en": {
@@ -15771,42 +15821,12 @@
         }
       }
     },
-    "match.narrated_in_library": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Narrated %1$d books in your library"
-          }
-        }
-      }
-    },
-    "match.narrated_in_library_one": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Narrated 1 book in your library"
-          }
-        }
-      }
-    },
     "match.no_books_in_library": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "No books in your library"
-          }
-        }
-      }
-    },
-    "match.no_profiles_author_title": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No source has a profile for this author"
           }
         }
       }
@@ -15821,12 +15841,12 @@
         }
       }
     },
-    "match.no_profiles_narrator_title": {
+    "match.no_profiles_title": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No source has a profile for this narrator"
+            "value": "No source has a profile for this person"
           }
         }
       }
@@ -15837,26 +15857,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pick a match to review it."
-          }
-        }
-      }
-    },
-    "match.not_a_narrator": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Not a narrator"
-          }
-        }
-      }
-    },
-    "match.not_an_author": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Not an author"
           }
         }
       }
@@ -15977,6 +15977,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "1 person"
+          }
+        }
+      }
+    },
+    "match.person_header_found_in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From %1$@"
           }
         }
       }
@@ -16601,16 +16611,6 @@
         }
       }
     },
-    "match.search_narrator_label": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Search for a narrator"
-          }
-        }
-      }
-    },
     "match.search_person_label": {
       "localizations": {
         "en": {
@@ -16871,42 +16871,22 @@
         }
       }
     },
-    "match.step_via_books_author": {
+    "match.step_via_books": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "the %1$d books %2$@ wrote in your library"
+            "value": "the %1$d books crediting %2$@ in your library"
           }
         }
       }
     },
-    "match.step_via_books_author_one": {
+    "match.step_via_books_one": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "the book %1$@ wrote in your library"
-          }
-        }
-      }
-    },
-    "match.step_via_books_narrator": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "the %1$d books %2$@ narrates in your library"
-          }
-        }
-      }
-    },
-    "match.step_via_books_narrator_one": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "the book %1$@ narrates in your library"
+            "value": "the book crediting %1$@ in your library"
           }
         }
       }
@@ -16967,26 +16947,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Strong match"
-          }
-        }
-      }
-    },
-    "match.subtitle_author": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ · author"
-          }
-        }
-      }
-    },
-    "match.subtitle_narrator": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ · narrator"
           }
         }
       }
@@ -17337,26 +17297,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Worldwide"
-          }
-        }
-      }
-    },
-    "match.wrote_in_library": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wrote %1$d books in your library"
-          }
-        }
-      }
-    },
-    "match.wrote_in_library_one": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wrote 1 book in your library"
           }
         }
       }

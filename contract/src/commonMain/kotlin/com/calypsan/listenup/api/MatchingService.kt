@@ -43,11 +43,11 @@ interface MatchingService {
     ): AppResult<BookFindResult>
 
     /**
-     * Finds [contributorId] in every catalogue with profiles for [PersonFindRequest.role] — authors at Audible and
-     * Hardcover, narrators at Hardcover — starting from their own refs, then the books they're credited on in this
-     * library, then their name, and ranks what it finds by those books. Gated like [findBookMatches]: the caller
-     * needs `canEdit`; an unknown contributor is `MetadataError.NotFound`. Every source failing, or none having
-     * profiles for the role, is still a success: [PersonFindResult.sources] and [PersonFindResult.coverage] say why.
+     * Finds [contributorId] in every people catalogue, in every role it knows — Audible's author pages, everyone
+     * Hardcover credits — starting from their own refs, then the books they're credited on in this library in any
+     * role, then their name, and ranks what it finds by those books. Gated like [findBookMatches]: the caller
+     * needs `canEdit`; an unknown contributor is `MetadataError.NotFound`. Every source failing is still a
+     * success: [PersonFindResult.sources] says why.
      */
     suspend fun findPeople(
         contributorId: ContributorId,
@@ -78,15 +78,16 @@ interface MatchingService {
     ): AppResult<Mutated<MatchReceipt>>
 
     /**
-     * Reviews [candidate] (a people Find candidate's key) against [contributorId] for [role]: the photo and the
-     * biography, Yours → Proposed per source. Never the name. Gated like [findPeople]. A source that didn't answer
+     * Reviews [candidate] (a people Find candidate's key) against [contributorId]: the photo and the biography,
+     * Yours → Proposed per source. [role] is what a client from before role-free matching still sends; it is
+     * echoed in the Review and otherwise ignored; new clients send null. Never the name. Gated like [findPeople]. A source that didn't answer
      * in time is `MetadataError.ExternalTimeout`; every source failing is `MetadataError.ExternalUnavailable`; no
      * source having a photo or a biography is `MetadataError.NotFound`.
      */
     suspend fun reviewPersonMatch(
         contributorId: ContributorId,
         candidate: PersonCandidateKey,
-        role: ContributorRole,
+        role: ContributorRole?,
     ): AppResult<PersonMatchReview>
 
     /**

@@ -5,37 +5,6 @@ import Shared
 // views, their `ForEach`es and the accessibility harness only ever see these, never a bridged Kotlin object.
 // Everything a row says is already a sentence here, so a view is layout and nothing else.
 
-/// The two roles a person is matched in: the segments of As author | As narrator.
-enum PersonMatchRole: String, CaseIterable, Hashable, Identifiable {
-    case author, narrator
-
-    var id: String { rawValue }
-
-    /// The matchable role a shared role names, or nil for the roles matching never searches.
-    init?(_ role: ContributorRole) {
-        switch role {
-        case .author: self = .author
-        case .narrator: self = .narrator
-        default: return nil
-        }
-    }
-
-    var contributorRole: ContributorRole {
-        switch self {
-        case .author: .author
-        case .narrator: .narrator
-        }
-    }
-
-    /// "As author", "As narrator".
-    var segmentTitle: String {
-        switch self {
-        case .author: String(localized: "match.as_author")
-        case .narrator: String(localized: "match.as_narrator")
-        }
-    }
-}
-
 /// One of the person's books in the Your-library strip.
 struct PersonLibraryCover: Identifiable, Equatable {
     let id: String
@@ -44,7 +13,7 @@ struct PersonLibraryCover: Identifiable, Equatable {
     let coverHash: String?
 }
 
-/// "Wrote 3 books in your library: Project Hail Mary, The Martian, Artemis", with up to three covers.
+/// "Narrated 5 of your books · Wrote 1: Project Hail Mary, The Martian, Artemis", with up to three covers.
 struct PersonLibraryStrip: Equatable {
     let line: String
     let covers: [PersonLibraryCover]
@@ -58,19 +27,17 @@ struct PersonCandidateRow: Identifiable, Equatable {
     let isStrong: Bool
     let isBest: Bool
     let isCurrentLink: Bool
-    /// "Narrator · Project Hail Mary, Bobiverse", "Author · 1 book · Not a narrator".
+    /// "Narrator · Project Hail Mary, Bobiverse", "Author · 1 book".
     let roleLine: String
-    /// "Narrated 5 books in your library", or "No books in your library".
+    /// "Narrated 4 of your books · Translated 1", "No books in your library", or "" with nothing to say.
     let libraryLine: String
-    /// "Different role" — set only on a person the sources credit in another role.
-    let differentRole: String?
     /// "Audible · Hardcover".
     let sourcesLine: String
     /// "Audible and Hardcover" — for sentences ("Narrator · from Hardcover").
     let sourcesList: String
-    /// "Narrator", or nil when the sources name no role matching searches.
+    /// "Narrator", or nil when the sources name no role.
     let shownRole: String?
-    /// The whole row in one sentence: "Ray Porter. Author, 1 book. Not a narrator. Different role. Hardcover."
+    /// The whole row in one sentence: "Ray Porter. Author, 1 book. No books in your library. Hardcover."
     let accessibilityLabel: String
 }
 
@@ -84,7 +51,7 @@ struct PersonResults: Equatable {
     var all: [PersonCandidateRow] { strong + maybe }
 }
 
-/// "No source has a profile for this narrator", and Edit by Hand.
+/// "No source has a profile for this person", and Edit by Hand.
 struct PersonNoProfiles: Equatable {
     let title: String
     let message: String
@@ -93,7 +60,7 @@ struct PersonNoProfiles: Equatable {
 
 /// The person Find step.
 enum PersonFindPhase: Equatable {
-    /// A search is running; the last results for this role stay on screen.
+    /// A search is running; the last results stay on screen.
     case searching(previous: PersonResults?)
     case results(PersonResults)
     case noProfiles(PersonNoProfiles)
@@ -109,26 +76,23 @@ enum PersonFindPhase: Equatable {
     }
 }
 
-/// Everything person Find shows.
+/// Everything person Find shows. There is no role: Find looks for the person in every role any source knows.
 struct PersonFind: Equatable {
-    let role: PersonMatchRole
     /// The person's name from this device, or "" for the instant before it answers.
     let name: String
-    /// "Ray Porter · narrator".
+    /// "Ray Porter" under the title.
     let subtitle: String
-    /// "Search for a narrator".
+    /// "Search for a person".
     let searchPrompt: String
     let query: String
     let library: PersonLibraryStrip?
-    /// "Audible has no narrator profiles, so this search uses Hardcover."
-    let coverageNote: String?
-    /// "Started from the 5 books Ray Porter narrates in your library."
+    /// "Started from the 5 books crediting Ray Porter in your library."
     let stepsLine: String?
     let phase: PersonFindPhase
 
     static let initial = PersonFind(
-        role: .author, name: "", subtitle: "", searchPrompt: String(localized: "match.search_person_label"),
-        query: "", library: nil, coverageNote: nil, stepsLine: nil, phase: .searching(previous: nil)
+        name: "", subtitle: "", searchPrompt: String(localized: "match.search_person_label"),
+        query: "", library: nil, stepsLine: nil, phase: .searching(previous: nil)
     )
 }
 
@@ -178,7 +142,7 @@ struct PersonReviewHeader: Equatable {
     let isStrong: Bool
     let isBest: Bool
     let isCurrentLink: Bool
-    /// "Narrator · from Hardcover".
+    /// "Narrator · from Hardcover", or "From Hardcover" when the sources name no role.
     let roleLine: String
     let libraryLine: String
 }

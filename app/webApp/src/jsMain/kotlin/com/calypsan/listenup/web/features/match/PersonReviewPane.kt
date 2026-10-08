@@ -1,7 +1,6 @@
 package com.calypsan.listenup.web.features.match
 
 import androidx.compose.runtime.Composable
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.FieldChoice
 import com.calypsan.listenup.api.dto.match.FieldState
 import com.calypsan.listenup.api.dto.match.ImageChoice
@@ -40,7 +39,6 @@ import org.jetbrains.compose.web.dom.Text
 @Composable
 internal fun PersonReviewPane(
     review: PersonReviewUiState,
-    searched: ContributorRole,
     personName: String,
     contributorId: String,
     viewerId: String?,
@@ -61,7 +59,7 @@ internal fun PersonReviewPane(
         }
 
         is PersonReviewUiState.Loading -> {
-            PersonReviewHeader(review.candidate, searched, onBack)
+            PersonReviewHeader(review.candidate, onBack)
             Div(attrs = {
                 classes("skel", "bmx-skel")
                 attr("aria-hidden", "true")
@@ -70,7 +68,7 @@ internal fun PersonReviewPane(
         }
 
         is PersonReviewUiState.Failed -> {
-            PersonReviewHeader(review.candidate, searched, onBack)
+            PersonReviewHeader(review.candidate, onBack)
             EmptyState(
                 title = "Couldn't load this match",
                 body = review.error.message,
@@ -85,7 +83,7 @@ internal fun PersonReviewPane(
 
         is PersonReviewUiState.Ready -> {
             SkipToApply()
-            PersonReviewHeader(review.candidate, review.role, onBack)
+            PersonReviewHeader(review.candidate, onBack)
             if (reloaded) P(attrs = { classes("bmx-err") }) { Text(REVIEW_RELOADED_PERSON) }
             P(attrs = { classes(NOTE, "pmx-apart") }) { Text("Photo and biography, chosen separately.") }
             review.photo?.let { PhotoSection(it, personName, contributorId, session) }
@@ -106,7 +104,6 @@ internal fun PersonReviewPane(
 @Composable
 private fun PersonReviewHeader(
     candidate: PersonCandidateUi,
-    searched: ContributorRole,
     onBack: (PersonCandidateUi) -> Unit,
 ) {
     Div(attrs = { classes("bmx-head") }) {
@@ -114,14 +111,8 @@ private fun PersonReviewHeader(
         Div(attrs = { classes("bmx-head-m") }) {
             RowBadges(isBest = candidate.isBest, isCurrentLink = candidate.isCurrentLink)
             Span(attrs = { classes("bmx-head-t") }) { Text(candidate.name) }
-            Span(attrs = { classes("bmx-row-meta", "pmx-from") }) { Text(personHeaderFromText(candidate, searched)) }
-            if (candidate.isDifferentRole) {
-                Span(attrs = { classes("bmx-badges") }) {
-                    Span(attrs = { classes("bmx-badge", "pmx-role-chip") }) { Text(DIFFERENT_ROLE) }
-                }
-            } else {
-                LibraryLine(candidate, searched)
-            }
+            Span(attrs = { classes("bmx-row-meta", "pmx-from") }) { Text(personHeaderFromText(candidate)) }
+            LibraryLine(candidate)
         }
         Button(kind = ButtonKind.Ghost, onClick = { onBack(candidate) }) { Text("Back to results") }
     }

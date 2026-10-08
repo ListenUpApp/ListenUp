@@ -44,28 +44,29 @@ data class BiographyReview(
 /**
  * A person Review for one Find candidate: the photo and the biography, each its own decision. [biography] is null
  * when no source has one. The name is never offered — matching a person never renames them. Apply sends
- * [basedOnRevision] back.
+ * [basedOnRevision] back. [role] echoes the role a client from before role-free matching named; null otherwise.
  */
 @Serializable
 @SerialName("PersonMatchReview")
 data class PersonMatchReview(
     @SerialName("candidate") val candidate: PersonCandidateKey,
-    @SerialName("role") val role: ContributorRole,
     @SerialName("basedOnRevision") val basedOnRevision: Long,
     @SerialName("photo") val photo: PhotoReview,
     @SerialName("biography") val biography: BiographyReview?,
+    @SerialName("role") val role: ContributorRole? = null,
 )
 
 /**
  * What one person Apply writes, in one transaction: the [photo] and the [biography], chosen separately, plus the
- * candidate's refs. Both kept is still a match: it links the person to the candidate.
+ * candidate's refs. Both kept is still a match: it links the person to the candidate. [role] is what a client
+ * from before role-free matching still sends; it is ignored.
  */
 @Serializable
 @SerialName("PersonMatchApply")
 data class PersonMatchApply(
     @SerialName("candidate") val candidate: PersonCandidateKey,
-    @SerialName("role") val role: ContributorRole,
     @SerialName("basedOnRevision") val basedOnRevision: Long,
     @SerialName("photo") val photo: ImageChoice,
     @SerialName("biography") val biography: FieldChoice,
+    @SerialName("role") val role: ContributorRole? = null,
 )

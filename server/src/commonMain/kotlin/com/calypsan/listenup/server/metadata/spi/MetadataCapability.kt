@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.metadata.spi
 
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ExternalRatingSource
@@ -78,12 +77,6 @@ interface BookCoreSource : MetadataCapability {
  * no standalone profile endpoint.
  */
 interface ContributorSource : MetadataCapability {
-    /**
-     * The roles this catalogue has *profiles* for — a person search for any other role never asks it. Author
-     * catalogues by default; Hardcover adds narrators.
-     */
-    val profileRoles: Set<ContributorRole> get() = setOf(ContributorRole.AUTHOR)
-
     /**
      * Searches contributor profiles by [name] in [locale]. `Success(emptyList())`
      * for no hits; [AppResult.Failure] only on a provider error.

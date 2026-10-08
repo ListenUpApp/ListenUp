@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.match.FieldState
 import com.calypsan.listenup.api.dto.match.FieldValue
 import com.calypsan.listenup.api.dto.match.HandEdit
 import com.calypsan.listenup.api.dto.match.ImageChoice
+import com.calypsan.listenup.api.dto.match.LibraryCredit
 import com.calypsan.listenup.api.dto.match.MatchTier
 import com.calypsan.listenup.api.dto.match.PersonCandidateKey
 import com.calypsan.listenup.api.dto.match.PersonSearchStep
@@ -15,7 +16,6 @@ import com.calypsan.listenup.client.features.match.MatchFixtures.ATLAS
 import com.calypsan.listenup.client.features.match.MatchFixtures.BEACON
 import com.calypsan.listenup.client.features.match.MatchFixtures.LOCAL_COVER
 import com.calypsan.listenup.client.presentation.match.BiographyUi
-import com.calypsan.listenup.client.presentation.match.CoverageNote
 import com.calypsan.listenup.client.presentation.match.FieldOptionUi
 import com.calypsan.listenup.client.presentation.match.FindFailure
 import com.calypsan.listenup.client.presentation.match.InLibraryUi
@@ -30,8 +30,8 @@ import com.calypsan.listenup.client.presentation.match.PhotoOptionUi
 import com.calypsan.listenup.client.presentation.match.PhotoUi
 
 /**
- * Fixed person Match details state for content tests: an author Find, a narrator Find whose first source has no
- * narrator profiles, and a narrator Review. Source labels are invented — the UI treats them as opaque.
+ * Fixed person Match details state for content tests: Andy Weir's Find, Ray Porter's — who narrated five books here
+ * and translated one — and Ray's Review. Source labels are invented — the UI treats them as opaque.
  */
 internal object PersonMatchFixtures {
     const val CONTRIBUTOR_ID = "contributor-1"
@@ -49,7 +49,7 @@ internal object PersonMatchFixtures {
 
     val andyLibrary =
         InLibraryUi(
-            role = ContributorRole.AUTHOR,
+            credits = listOf(LibraryCredit(ContributorRole.AUTHOR, 3)),
             bookCount = 3,
             titles = listOf("Project Hail Mary", "The Martian", "Artemis"),
             covers = listOf(cover("b1", "Project Hail Mary"), cover("b2", "The Martian"), cover("b3", "Artemis")),
@@ -65,7 +65,7 @@ internal object PersonMatchFixtures {
         libraryCount: Int = 0,
         foundIn: List<com.calypsan.listenup.api.dto.match.MetadataSource> = listOf(BEACON),
         isBest: Boolean = false,
-        isDifferentRole: Boolean = false,
+        libraryCredits: List<LibraryCredit> = emptyList(),
         noBooksInLibrary: Boolean = false,
     ) = PersonCandidateUi(
         id = "beacon:$id",
@@ -80,7 +80,7 @@ internal object PersonMatchFixtures {
         tier = tier,
         isBest = isBest,
         isCurrentLink = false,
-        isDifferentRole = isDifferentRole,
+        libraryCredits = libraryCredits,
         noBooksInLibrary = noBooksInLibrary,
     )
 
@@ -93,6 +93,7 @@ internal object PersonMatchFixtures {
             libraryCount = 3,
             foundIn = listOf(ATLAS, BEACON),
             isBest = true,
+            libraryCredits = listOf(LibraryCredit(ContributorRole.AUTHOR, 3)),
         )
 
     val localHistorian =
@@ -107,28 +108,26 @@ internal object PersonMatchFixtures {
     val andrewWeir =
         person(id = "andrew", name = "Andrew Weir", tier = MatchTier.MAYBE, worksCount = 1, foundIn = listOf(ATLAS))
 
-    val authorResults =
+    val andyResults =
         PersonFindUiState.Results(
-            role = ContributorRole.AUTHOR,
             header = andy,
             inLibrary = andyLibrary,
             query = "Andy Weir",
             steps = listOf(PersonSearchStep.ViaYourBooks(bookCount = 3)),
-            coverageNote = null,
             strong = listOf(andyWeir),
             maybe = listOf(localHistorian, andrewWeir),
             partialFailure = null,
             pickedKey = null,
         )
 
-    // Narrator: Ray Porter.
+    // Ray Porter: narrated five books here, and translated one.
 
     val ray = PersonHeaderUi(name = "Ray Porter", imagePath = null)
 
     val rayLibrary =
         InLibraryUi(
-            role = ContributorRole.NARRATOR,
-            bookCount = 5,
+            credits = listOf(LibraryCredit(ContributorRole.NARRATOR, 5), LibraryCredit(ContributorRole.TRANSLATOR, 1)),
+            bookCount = 6,
             titles = listOf("Project Hail Mary", "We Are Legion", "For We Are Many"),
             covers = listOf(cover("b1", "Project Hail Mary")),
         )
@@ -142,6 +141,11 @@ internal object PersonMatchFixtures {
             knownWorks = listOf("Project Hail Mary", "Bobiverse"),
             libraryCount = 5,
             isBest = true,
+            libraryCredits =
+                listOf(
+                    LibraryCredit(ContributorRole.NARRATOR, 4),
+                    LibraryCredit(ContributorRole.TRANSLATOR, 1),
+                ),
         )
 
     val rayTheAuthor =
@@ -151,19 +155,15 @@ internal object PersonMatchFixtures {
             tier = MatchTier.MAYBE,
             shownRole = ContributorRole.AUTHOR,
             worksCount = 1,
-            isDifferentRole = true,
+            noBooksInLibrary = true,
         )
 
-    val coverage = CoverageNote(withoutProfiles = listOf(ATLAS), using = listOf(BEACON))
-
-    val narratorResults =
+    val rayResults =
         PersonFindUiState.Results(
-            role = ContributorRole.NARRATOR,
             header = ray,
             inLibrary = rayLibrary,
             query = "Ray Porter",
             steps = listOf(PersonSearchStep.ViaYourBooks(bookCount = 5)),
-            coverageNote = coverage,
             strong = listOf(rayPorter),
             maybe = listOf(rayTheAuthor),
             partialFailure = null,
@@ -172,16 +172,13 @@ internal object PersonMatchFixtures {
 
     val noProfiles =
         PersonFindUiState.NoProfiles(
-            role = ContributorRole.NARRATOR,
             header = ray,
             inLibrary = rayLibrary,
             query = "Ray Porter",
-            coverageNote = null,
         )
 
     val timedOut =
         PersonFindUiState.Failed(
-            role = ContributorRole.NARRATOR,
             header = ray,
             inLibrary = rayLibrary,
             query = "Ray Porter",
@@ -190,7 +187,6 @@ internal object PersonMatchFixtures {
 
     val searching =
         PersonFindUiState.Searching(
-            role = ContributorRole.NARRATOR,
             header = ray,
             inLibrary = rayLibrary,
             query = "Ray Porter",
@@ -231,7 +227,6 @@ internal object PersonMatchFixtures {
     val ready =
         PersonReviewUiState.Ready(
             candidate = rayPorter,
-            role = ContributorRole.NARRATOR,
             photo = photo,
             biography = biography,
             applyBar = PersonApplySummary(photo = true, biography = true, sources = listOf(BEACON)),
@@ -269,10 +264,6 @@ internal class RecordingPersonMatchActions : PersonMatchActions {
 
     override fun search(query: String) {
         calls += "search:$query"
-    }
-
-    override fun switchRole(role: ContributorRole) {
-        calls += "role:${role.apiValue}"
     }
 
     override fun retry() {

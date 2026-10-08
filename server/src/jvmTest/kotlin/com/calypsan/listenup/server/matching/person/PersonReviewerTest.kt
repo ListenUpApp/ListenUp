@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.matching.person
 
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.ExternalRef
 import com.calypsan.listenup.api.dto.match.FieldChoice
 import com.calypsan.listenup.api.dto.match.FieldState
@@ -45,7 +44,7 @@ private class Rig {
     suspend fun review(
         you: ContributorSyncPayload = yourRay(),
         key: PersonCandidateKey = PERSON_KEY,
-    ) = reviewer.review(you, key, ContributorRole.NARRATOR, US)
+    ) = reviewer.review(you, key, US)
 }
 
 private fun AppResult<*>.error() = (this as AppResult.Failure).error
@@ -212,7 +211,7 @@ class PersonReviewerTest :
                 rig.audnexus.profiles = mapOf("B0RAY" to ray("B0RAY", bio = "Bio."))
                 val review = rig.review().shouldSucceed().review
                 review.basedOnRevision shouldBe 9
-                review.role shouldBe ContributorRole.NARRATOR
+                review.role shouldBe null
                 review.candidate shouldBe PERSON_KEY
             }
         }

@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.presentation.match
 
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.FieldChoice
 import com.calypsan.listenup.api.dto.match.FieldState
 import com.calypsan.listenup.api.dto.match.ImageChoice
@@ -23,7 +22,6 @@ class PersonReviewChoicesTest :
 
         test("the server's defaults: a missing photo and a missing biography both fill a gap, ticked") {
             val ready = PersonReviewChoices().ready()
-            ready.role shouldBe ContributorRole.NARRATOR
             val photo = ready.photo.shouldNotBeNull()
             photo.state shouldBe FieldState.FILLS_GAP
             photo.isTicked shouldBe true
@@ -44,7 +42,7 @@ class PersonReviewChoicesTest :
             request.photo shouldBe ImageChoice.KeepCurrent
             request.biography shouldBe FieldChoice.Option("b-hc")
             request.basedOnRevision shouldBe 7L
-            request.role shouldBe ContributorRole.NARRATOR
+            request.role shouldBe null
         }
 
         test("unticking the biography leaves the photo ticked") {

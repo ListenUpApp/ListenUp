@@ -27,7 +27,6 @@ import com.calypsan.listenup.api.dto.match.MatchReason
 import com.calypsan.listenup.api.dto.match.MatchReceipt
 import com.calypsan.listenup.api.dto.match.MatchTier
 import com.calypsan.listenup.api.dto.match.MetadataSource
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.PersonCandidateKey
 import com.calypsan.listenup.api.dto.match.PersonFindRequest
 import com.calypsan.listenup.api.dto.match.PersonMatchApply
@@ -252,16 +251,13 @@ internal class FakeMatchingRepository : MatchingRepository {
     var undoReply: suspend (String) -> AppResult<UndoResult> = { AppResult.Success(UndoResult(it, emptyList())) }
 
     val personFindRequests = mutableListOf<PersonFindRequest>()
-    val personReviewRequests = mutableListOf<Pair<PersonCandidateKey, ContributorRole>>()
+    val personReviewRequests = mutableListOf<PersonCandidateKey>()
     val personApplyRequests = mutableListOf<PersonMatchApply>()
     var personFindReply: suspend (PersonFindRequest) -> AppResult<PersonFindResult> = {
-        AppResult.Success(personFindResult(role = it.role))
+        AppResult.Success(personFindResult())
     }
-    var personReviewReply: suspend (
-        PersonCandidateKey,
-        ContributorRole,
-    ) -> AppResult<PersonMatchReview> = { key, role ->
-        AppResult.Success(personReview(key, role = role))
+    var personReviewReply: suspend (PersonCandidateKey) -> AppResult<PersonMatchReview> = { key ->
+        AppResult.Success(personReview(key))
     }
     var personApplyReply: suspend (PersonMatchApply) -> AppResult<MatchReceipt> = { AppResult.Success(personReceipt()) }
 
@@ -289,10 +285,9 @@ internal class FakeMatchingRepository : MatchingRepository {
     override suspend fun reviewPersonMatch(
         contributorId: ContributorId,
         candidate: PersonCandidateKey,
-        role: ContributorRole,
     ): AppResult<PersonMatchReview> {
-        personReviewRequests += candidate to role
-        return personReviewReply(candidate, role)
+        personReviewRequests += candidate
+        return personReviewReply(candidate)
     }
 
     override suspend fun applyPersonMatch(
