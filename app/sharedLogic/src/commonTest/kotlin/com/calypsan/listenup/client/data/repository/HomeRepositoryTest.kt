@@ -473,8 +473,6 @@ class HomeRepositoryTest :
                 repository.observeContinueListening(10).first()
 
                 // Then: observeBookListItems was called once (batched — all ids in one subscription)
-                // Mokkery's verify records the call; the mock's Flow is never meant to be collected.
-                @Suppress("IgnoredReturnValue")
                 verify(VerifyMode.exactly(1)) { fixture.bookRepository.observeBookListItems(any()) }
             }
         }

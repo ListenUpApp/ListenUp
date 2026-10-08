@@ -321,6 +321,8 @@ potential-bugs:
     active: true
   IgnoredReturnValue:
     active: true
+    # Production code only: in tests a Mokkery `verify {}` names a Flow-returning call it never collects.
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
   ImplicitDefaultLocale:
     active: true
   ImplicitUnitReturnType:

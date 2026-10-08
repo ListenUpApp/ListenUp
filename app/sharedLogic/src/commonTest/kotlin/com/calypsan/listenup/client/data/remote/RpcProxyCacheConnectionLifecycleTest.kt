@@ -427,7 +427,6 @@ class RpcProxyCacheConnectionLifecycleTest :
                 val cache = ledgerCache(ledger, FakeProxy())
 
                 // Built and dropped on purpose: an uncollected stream must open nothing.
-                @Suppress("IgnoredReturnValue")
                 cache.streaming { it.events() }
 
                 ledger.opened shouldBe 0
