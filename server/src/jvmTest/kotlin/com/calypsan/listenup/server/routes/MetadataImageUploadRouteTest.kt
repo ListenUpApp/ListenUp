@@ -57,7 +57,7 @@ import com.calypsan.listenup.server.testing.authedService
  * routes write content-addressed images under `homeDir/contributors/` and `homeDir/series/`. Covers:
  *  - ROOT uploads a valid JPEG → 204; the row's imagePath/coverPath is set (content-addressed),
  *    the file lands under homeDir, and the sibling GET route serves the bytes back.
- *  - A MEMBER without canEdit → 403 (the service's internal requireCanEdit gate).
+ *  - A MEMBER without canEdit → 403 (the service's internal requirePermission(Permission.EDIT_METADATA) gate).
  *  - Missing file part → 400. Oversized declared part (> 10 MiB) → 413.
  */
 class MetadataImageUploadRouteTest :

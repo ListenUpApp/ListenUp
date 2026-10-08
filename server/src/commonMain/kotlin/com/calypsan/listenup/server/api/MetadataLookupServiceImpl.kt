@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.metadata.FieldProvenance
@@ -26,7 +27,7 @@ import com.calypsan.listenup.server.auth.MetadataRateBucket
 import com.calypsan.listenup.server.auth.MetadataRateLimiter
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.RateDecision
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.metadata.audible.toAudibleRegion
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.ComposedBook
@@ -69,7 +70,7 @@ private val logger = loggerFor<MetadataLookupServiceImpl>()
  * user. The state-changing / privileged operations — [applyBookMetadata],
  * [applyContributorMetadata] (write through the syncable substrate) and
  * [refreshBookMetadata] (force a fresh, rate-limited external fetch, bypassing the cache) —
- * are gated on the per-user `canEdit` flag via [permissionPolicy]: ROOT/ADMIN pass
+ * are gated on [Permission.EDIT_METADATA] via [permissionPolicy]: ROOT/ADMIN pass
  * implicitly, a MEMBER passes iff their flag is set (fresh DB lookup per call). The
  * authenticated caller is resolved from [principal] — route handlers call [copyWith] to bind
  * it per-request; the Koin singleton carries an unscoped placeholder that yields no
@@ -84,7 +85,7 @@ internal class MetadataLookupServiceImpl(
     private val seriesRepository: SeriesRepository,
     private val imageDeps: MetadataImageDeps,
     private val enrichmentDeps: MetadataEnrichmentDeps,
-    private val permissionPolicy: UserPermissionPolicy,
+    private val permissionPolicy: PermissionPolicy,
     private val bookAccessPolicy: BookAccessPolicy,
     private val sqlDb: ListenUpDatabase,
     private val genreRepository: GenreRepository,
@@ -125,14 +126,13 @@ internal class MetadataLookupServiceImpl(
         )
 
     /**
-     * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
-     * implicitly; a MEMBER passes iff their flag is set (fresh DB lookup per call). An
-     * absent principal — a wiring bug, since route handlers always [copyWith] the
-     * authenticated caller — is denied. Returns null when permitted; the denial otherwise.
+     * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
+     * principal — a wiring bug, since route handlers always [copyWith] the authenticated caller — is
+     * denied. Returns null when permitted; the denial otherwise.
      */
-    private suspend fun requireCanEdit(): AppError? {
+    private suspend fun requirePermission(permission: Permission): AppError? {
         val p = principal.current() ?: return AuthError.PermissionDenied()
-        return permissionPolicy.requireCanEdit(p.userId, p.role)
+        return permissionPolicy.require(p, permission)
     }
 
     /**
@@ -164,7 +164,7 @@ internal class MetadataLookupServiceImpl(
      * [MetadataError.NotFound], matching the absent-book answer, so the two cannot be told apart.
      */
     private suspend fun requireEditableBook(bookId: BookId): AppError? {
-        requireCanEdit()?.let { return it }
+        requirePermission(Permission.EDIT_METADATA)?.let { return it }
         val p = principal.current() ?: return AuthError.PermissionDenied()
         if (!bookAccessPolicy.canAccess(p.userId.value, p.role, bookId.value)) {
             return MetadataError.NotFound(debugInfo = "no book for id ${bookId.value}")
@@ -252,7 +252,7 @@ internal class MetadataLookupServiceImpl(
         asin: String,
         region: MetadataLocale,
     ): AppResult<MetadataBook?> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         return when (val composed = composeBook(asin, region, refresh = true)) {
             is AppResult.Success -> AppResult.Success(composed.data?.toMetadataBookWithProvenance())
             is AppResult.Failure -> composed
@@ -353,7 +353,7 @@ internal class MetadataLookupServiceImpl(
         asin: String,
         region: MetadataLocale,
     ): AppResult<Mutated<Unit>> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         // Echo-in-response: withCapturedFrames collects the contributor's own upsert frame so the
         // originating device applies its result read-your-writes, instead of waiting on the firehose.
         return withCapturedFrames {
@@ -370,7 +370,7 @@ internal class MetadataLookupServiceImpl(
         bookId: BookId,
         region: MetadataLocale?,
     ): AppResult<CoverSearchResults> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         return coverSearchService.searchCovers(bookId, region).map { CoverSearchResults(options = it) }
     }
 

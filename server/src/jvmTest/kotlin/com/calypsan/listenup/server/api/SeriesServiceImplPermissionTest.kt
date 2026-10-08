@@ -4,7 +4,7 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -29,7 +29,7 @@ import kotlinx.coroutines.test.runTest
  *
  * `updateSeries` is the representative mutation; every series mutation
  * (`updateSeries`/`deleteSeries`/`mergeSeries`) shares the identical first-statement
- * `requireCanEdit()` guard, so proving the gate fires on one proves the wiring. Reads stay
+ * `requirePermission(Permission.EDIT_METADATA)` guard, so proving the gate fires on one proves the wiring. Reads stay
  * open and are covered by the existing [SeriesServiceImplTest].
  */
 class SeriesServiceImplPermissionTest :
@@ -112,7 +112,7 @@ private fun makeService(dbs: SqlTestDatabases): PermServiceDeps {
             bookRepo = bookRepo,
             sqlDb = dbs.sql,
             accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
-            permissionPolicy = UserPermissionPolicy(dbs.sql),
+            permissionPolicy = PermissionPolicy(dbs.sql),
         )
     return PermServiceDeps(service, seriesRepo)
 }

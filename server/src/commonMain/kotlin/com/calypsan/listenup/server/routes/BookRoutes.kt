@@ -120,7 +120,7 @@ internal fun Route.bookBlobWriteRoutes(bookService: BookService) {
 /**
  * Scopes [service] to the authenticated caller for this request and returns the
  * principal-bound [BookServiceImpl]. Book-domain service methods read
- * `principal.current()` (`requireCanEdit`, access gates); the DI singleton holds a
+ * `principal.current()` (`requirePermission(Permission.EDIT_METADATA)`, access gates); the DI singleton holds a
  * throwing `unscopedPlaceholder`, so every handler that calls a principal-reading
  * method must scope first or it 500s. Mirrors the `scoped()` helper in the sibling
  * route files (SeriesRoutes, GenreRoutes, ContributorRoutes, TagRoutes).
@@ -137,7 +137,7 @@ private fun ApplicationCall.scoped(service: BookService): BookServiceImpl {
  * unauthorized request), 413 when the declared part size exceeds the cap, 400 when no file part
  * is found, 422 when the bytes fail image validation, and 204 on success.
  *
- * [BookServiceImpl.setBookCover] retains its own `requireCanEdit()` call as defense-in-depth —
+ * [BookServiceImpl.setBookCover] retains its own `requirePermission(Permission.EDIT_METADATA)` call as defense-in-depth —
  * the early check here short-circuits before any body buffering occurs.
  *
  * Extracted from the [bookBlobWriteRoutes] function body to keep cyclomatic complexity within the project

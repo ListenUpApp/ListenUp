@@ -5,7 +5,7 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -30,7 +30,7 @@ import kotlinx.coroutines.test.runTest
  *
  * `updateContributor` is the representative mutation; every contributor mutation
  * (`updateContributor`/`deleteContributor`/`mergeContributors`/`unmergeContributor`) shares
- * the identical first-statement `requireCanEdit()` guard. Reads stay open and are covered by
+ * the identical first-statement `requirePermission(Permission.EDIT_METADATA)` guard. Reads stay open and are covered by
  * the existing [ContributorServiceImplTest].
  */
 class ContributorServiceImplPermissionTest :
@@ -116,7 +116,7 @@ private fun makeContributorPermService(db: SqlTestDatabases): ContributorPermDep
             bookRepo = bookRepo,
             sqlDb = db.sql,
             accessPolicy = BookAccessPolicy(db.sql, db.driver),
-            permissionPolicy = UserPermissionPolicy(db.sql),
+            permissionPolicy = PermissionPolicy(db.sql),
         )
     return ContributorPermDeps(service, contributorRepo)
 }

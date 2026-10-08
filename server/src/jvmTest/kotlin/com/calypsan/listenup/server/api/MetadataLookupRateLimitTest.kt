@@ -8,7 +8,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.auth.MetadataRateBucket
 import com.calypsan.listenup.server.auth.MetadataRateLimiter
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.ImageStorage
@@ -241,7 +241,7 @@ private fun SqlTestDatabases.rateLimitedService(
                 imageHome = Path(tempDir.toString()),
             ),
         enrichmentDeps = testEnrichmentDeps(sql, driver, bus, syncRegistry),
-        permissionPolicy = UserPermissionPolicy(sql),
+        permissionPolicy = PermissionPolicy(sql),
         sqlDb = sql,
         genreRepository = genreRepo,
         rateLimiter = limiter,

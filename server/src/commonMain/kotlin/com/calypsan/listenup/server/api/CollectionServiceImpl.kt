@@ -20,7 +20,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.toColumn
 import com.calypsan.listenup.server.auth.toContract
 import com.calypsan.listenup.server.db.UserRoleColumn
@@ -304,7 +304,7 @@ internal class CollectionServiceImpl(
     private val grantRepo: CollectionGrantRepository,
     private val accessPolicy: CollectionAccessPolicy,
     private val bookAccessPolicy: BookAccessPolicy,
-    private val permissionPolicy: UserPermissionPolicy,
+    private val permissionPolicy: PermissionPolicy,
     private val bus: ChangeBus,
     private val sql: ListenUpDatabase,
     private val clock: Clock = Clock.System,
@@ -1316,7 +1316,7 @@ fun createCollectionService(
         grantRepo = grantRepo,
         accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
         bookAccessPolicy = BookAccessPolicy(sql, driver),
-        permissionPolicy = UserPermissionPolicy(sql),
+        permissionPolicy = PermissionPolicy(sql),
         bus = bus,
         sql = sql,
         clock = clock,

@@ -2,7 +2,7 @@
 -- metadata-edit permission the server has gated on since V26 (#1270).
 --
 -- The projection previously carried only can_share, which is why no client UI could ever reach
--- canEdit: the flag existed on `users`, UserPermissionPolicy enforced it on every metadata
+-- canEdit: the flag existed on `users`, PermissionPolicy enforced it on every metadata
 -- mutation, and nothing between the two ever showed it to an admin.
 --
 -- DEFAULT 1 matches the `users` default and UserPermissions' own default — every existing row is

@@ -5,7 +5,7 @@ package com.calypsan.listenup.server.api
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.BookRepository
@@ -30,7 +30,7 @@ import kotlinx.coroutines.test.runTest
  *
  * `createGenre` is the representative mutation; every genre mutation
  * (`createGenre`/`updateGenre`/`deleteGenre`/`moveGenre`/`mergeGenres`/`mapUnmappedToGenre`)
- * shares the identical first-statement `requireCanEdit()` guard. Reads stay open and are
+ * shares the identical first-statement `requirePermission(Permission.EDIT_METADATA)` guard. Reads stay open and are
  * covered by the existing genre read tests.
  */
 class GenreServiceImplPermissionTest :
@@ -102,6 +102,6 @@ private fun makeGenrePermService(
         bookRepository = bookRepo,
         sqlDb = sql,
         accessPolicy = BookAccessPolicy(sql, driver),
-        permissionPolicy = UserPermissionPolicy(sql),
+        permissionPolicy = PermissionPolicy(sql),
     )
 }

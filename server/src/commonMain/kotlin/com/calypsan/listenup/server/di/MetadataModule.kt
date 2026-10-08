@@ -11,7 +11,7 @@ import com.calypsan.listenup.server.api.MetadataImageDeps
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
 import com.calypsan.listenup.server.auth.MetadataRateLimiter
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.io.readEnv
@@ -239,7 +239,7 @@ fun metadataModule(imageHome: Path): Module =
                         imageHome = imageHome,
                     ),
                 enrichmentDeps = get<MetadataEnrichmentDeps>(),
-                permissionPolicy = get<UserPermissionPolicy>(),
+                permissionPolicy = get<PermissionPolicy>(),
                 bookAccessPolicy = get<BookAccessPolicy>(),
                 sqlDb = get<ListenUpDatabase>(),
                 genreRepository = get<GenreRepository>(),
@@ -368,7 +368,7 @@ private fun Module.matchingBindings(imageHome: Path) {
             finder = get<BookFinder>(),
             loadBook = books::findById,
             libraryRegion = libraries::readMetadataRegion,
-            permissionPolicy = get<UserPermissionPolicy>(),
+            permissionPolicy = get<PermissionPolicy>(),
             bookAccessPolicy = get<BookAccessPolicy>(),
             peopleFinder = get<PeopleFinder>(),
             loadPeople = get<PeopleSubjectLoader>()::load,

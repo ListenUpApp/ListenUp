@@ -19,7 +19,7 @@ import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.MetadataImageDeps
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.media.ImageStore
@@ -188,7 +188,7 @@ private fun wire(
                     imageHome = Path(tempDir.toString()),
                 ),
             enrichmentDeps = testEnrichmentDeps(dbs.sql, dbs.driver, bus, registry),
-            permissionPolicy = UserPermissionPolicy(dbs.sql),
+            permissionPolicy = PermissionPolicy(dbs.sql),
             bookAccessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
             sqlDb = dbs.sql,
             genreRepository = genreRepo,

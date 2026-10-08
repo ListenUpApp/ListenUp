@@ -10,7 +10,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.ContributorId
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.matching.BookFinder
 import com.calypsan.listenup.server.matching.FakePeopleSource
@@ -49,7 +49,7 @@ private class PeopleServiceRig(
             finder = BookFinder(MetadataProviderRegistry(emptyList()), EnrichmentRoutes.DEFAULT),
             loadBook = { null },
             libraryRegion = { null },
-            permissionPolicy = UserPermissionPolicy(db.sql),
+            permissionPolicy = PermissionPolicy(db.sql),
             bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
             peopleFinder = PeopleFinder(MetadataProviderRegistry(listOf(hardcover)), EnrichmentRoutes.DEFAULT),
             loadPeople = loader::load,

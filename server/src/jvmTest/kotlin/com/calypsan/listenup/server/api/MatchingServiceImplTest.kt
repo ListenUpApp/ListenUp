@@ -9,7 +9,7 @@ import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.matching.BookFinder
 import com.calypsan.listenup.server.matching.FakeRegionalFindSource
@@ -41,7 +41,7 @@ private class ServiceRig(
             finder = BookFinder(MetadataProviderRegistry(listOf(audible)), EnrichmentRoutes.DEFAULT),
             loadBook = { id -> book?.takeIf { it.id == id.value } },
             libraryRegion = { libraryRegion },
-            permissionPolicy = UserPermissionPolicy(db.sql),
+            permissionPolicy = PermissionPolicy(db.sql),
             bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
             peopleFinder = PeopleFinder(MetadataProviderRegistry(emptyList()), EnrichmentRoutes.DEFAULT),
             loadPeople = { _, _ -> null },
@@ -53,7 +53,7 @@ private class ServiceRig(
         )
 }
 
-/** Find's gate (spec: `requireCanEdit` on the book), its input checks, and the store it starts in. */
+/** Find's gate (spec: `requirePermission(Permission.EDIT_METADATA)` on the book), its input checks, and the store it starts in. */
 class MatchingServiceImplTest :
     FunSpec({
         test("a member who can't edit is refused before any catalogue is asked") {

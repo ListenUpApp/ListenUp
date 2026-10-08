@@ -21,7 +21,7 @@ import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.ContributorServiceImpl
 import com.calypsan.listenup.server.api.SeriesServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.cover.CoverStorage
@@ -199,7 +199,7 @@ internal fun makeBookServiceAndRepo(
             sql = db.sql,
             genreRepo = genreRepo,
             accessPolicy = BookAccessPolicy(db.sql, db.driver),
-            permissionPolicy = UserPermissionPolicy(db.sql),
+            permissionPolicy = PermissionPolicy(db.sql),
             principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
         )
     return service to repo

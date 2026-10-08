@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.dto.ChapterInput
+import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
@@ -27,7 +28,7 @@ import com.calypsan.listenup.api.sync.ChapterSource
 import com.calypsan.listenup.api.error.CoverError
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.organize.OrganizeOnEditRelocator
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.server.cover.CoverImageStore
@@ -99,7 +100,7 @@ internal class BookServiceImpl(
     private val sql: ListenUpDatabase,
     private val genreRepo: com.calypsan.listenup.server.services.GenreRepository,
     private val accessPolicy: BookAccessPolicy,
-    private val permissionPolicy: UserPermissionPolicy,
+    private val permissionPolicy: PermissionPolicy,
     private val principal: PrincipalProvider,
     private val coverImageStore: CoverImageStore? = null,
     private val sidecarWriter: SidecarWriter? = null,
@@ -129,7 +130,7 @@ internal class BookServiceImpl(
      * the multipart body — `setBookCover` also re-gates internally as defense-in-depth, and that inner
      * gate additionally requires the caller to be able to see the book.
      */
-    internal suspend fun checkCanEdit(): AppError? = requireCanEdit()
+    internal suspend fun checkCanEdit(): AppError? = requirePermission(Permission.EDIT_METADATA)
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): BookServiceImpl =
@@ -150,15 +151,13 @@ internal class BookServiceImpl(
         )
 
     /**
-     * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
-     * implicitly; a MEMBER passes iff their flag is set (fresh DB lookup per call). An
-     * absent principal — a wiring bug, since route handlers always [copyWith] the
-     * authenticated caller — is denied with [AuthError.PermissionDenied][com.calypsan.listenup.api.error.AuthError.PermissionDenied].
-     * Returns null when the edit is permitted; the denial to surface otherwise.
+     * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
+     * principal — a wiring bug, since route handlers always [copyWith] the authenticated caller — is
+     * denied. Returns null when permitted; the denial otherwise.
      */
-    private suspend fun requireCanEdit(): AppError? {
+    private suspend fun requirePermission(permission: Permission): AppError? {
         val p = principal.current() ?: return AuthError.PermissionDenied()
-        return permissionPolicy.requireCanEdit(p.userId, p.role)
+        return permissionPolicy.require(p, permission)
     }
 
     /**
@@ -172,7 +171,7 @@ internal class BookServiceImpl(
      * Returns null when the edit is permitted; the denial to surface otherwise.
      */
     private suspend fun requireEditableBook(id: BookId): AppError? {
-        requireCanEdit()?.let { return it }
+        requirePermission(Permission.EDIT_METADATA)?.let { return it }
         val p = principal.current() ?: return AuthError.PermissionDenied()
         if (!accessPolicy.canAccess(p.userId.value, p.role, id.value)) {
             return BookError.NotFound(debugInfo = "bookId=${id.value}")
@@ -506,7 +505,7 @@ internal class BookServiceImpl(
      * Validates and stores [bytes] as the book's managed cover, then records the path + hash in
      * [BookRepository.setManagedCover] with [CoverSource.UPLOADED].
      *
-     * Gated on [requireCanEdit] — only ROOT/ADMIN or a MEMBER with the `canEdit` flag may
+     * Gated on [requirePermission] — only ROOT/ADMIN or a MEMBER with the `canEdit` flag may
      * upload a cover. Returns [AppResult.Failure] with [AuthError.PermissionDenied] when denied.
      *
      * The stored relative path follows the shape `covers/<bookId>.<ext>` (e.g. `covers/abc123.png`),
@@ -631,7 +630,7 @@ fun createBookService(
         sql,
         genreRepo,
         BookAccessPolicy(db = sql, driver = driver),
-        UserPermissionPolicy(sql),
+        PermissionPolicy(sql),
         principal,
     )
 

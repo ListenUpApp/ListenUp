@@ -5,7 +5,7 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -27,7 +27,7 @@ import kotlinx.coroutines.test.runTest
  *
  * `addTagToBook` is the representative mutation; every tag mutation
  * (`addTagToBook`/`removeTagFromBook`/`renameTag`/`deleteTag`) shares the identical
- * first-statement `requireCanEdit()` guard. Reads stay open and are covered by the existing
+ * first-statement `requirePermission(Permission.EDIT_METADATA)` guard. Reads stay open and are covered by the existing
  * [TagServiceImplTest].
  */
 class TagServiceImplPermissionTest :
@@ -86,6 +86,6 @@ private fun makeTagPermService(dbs: SqlTestDatabases): TagServiceImpl {
         bookTagRepository = bookTagRepo,
         sql = dbs.sql,
         accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
-        permissionPolicy = UserPermissionPolicy(dbs.sql),
+        permissionPolicy = PermissionPolicy(dbs.sql),
     )
 }

@@ -9,7 +9,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -98,7 +98,7 @@ class CollectionSyncCatchUpE2ETest :
                 grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
                 bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
-                permissionPolicy = UserPermissionPolicy(db.sql),
+                permissionPolicy = PermissionPolicy(db.sql),
                 bus = bus,
                 sql = db.sql,
                 clock = fixedClock,

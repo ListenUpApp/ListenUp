@@ -57,7 +57,7 @@ class AdminUserRosterMaintainerTest :
 
         test("refresh projects a revoked canEdit flag") {
             // The projection did not carry can_edit until #1270, which is why no admin UI could
-            // ever reach canEdit — UserPermissionPolicy gated every metadata mutation on a flag
+            // ever reach canEdit — PermissionPolicy gated every metadata mutation on a flag
             // that existed on `users` and stopped there. A user who may NOT edit is the case a
             // projection that hardcoded the flag would fail.
             withSqlDatabase {

@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.MatchingService
 import com.calypsan.listenup.api.dto.ContributorRole
+import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.dto.match.BookCandidateKey
 import com.calypsan.listenup.api.dto.match.BookFindRequest
 import com.calypsan.listenup.api.dto.match.BookMatchApply
@@ -40,7 +41,7 @@ import com.calypsan.listenup.server.auth.MetadataRateBucket
 import com.calypsan.listenup.server.auth.MetadataRateLimiter
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.RateDecision
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.matching.BookFinder
 import com.calypsan.listenup.server.matching.PeopleFinder
@@ -78,7 +79,7 @@ internal class MatchingServiceImpl(
     private val finder: BookFinder,
     private val loadBook: suspend (BookId) -> BookSyncPayload?,
     private val libraryRegion: suspend (LibraryId) -> String?,
-    private val permissionPolicy: UserPermissionPolicy,
+    private val permissionPolicy: PermissionPolicy,
     private val bookAccessPolicy: BookAccessPolicy,
     private val peopleFinder: PeopleFinder,
     private val loadPeople: suspend (ContributorId, UserPrincipal) -> PeopleSubject?,
@@ -121,7 +122,7 @@ internal class MatchingServiceImpl(
     ): AppResult<PersonFindResult> {
         enforceRate()?.let { return AppResult.Failure(it) }
         val caller = principal.current() ?: return AppResult.Failure(AuthError.PermissionDenied())
-        permissionPolicy.requireCanEdit(caller.userId, caller.role)?.let { return AppResult.Failure(it) }
+        permissionPolicy.require(caller, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         rejectUnusable(request)?.let { return AppResult.Failure(it) }
         val subject =
             loadPeople(contributorId, caller)
@@ -210,7 +211,7 @@ internal class MatchingServiceImpl(
     /** People have no per-book visibility: editing them needs only `canEdit`. */
     private suspend fun requireEditor(): AppError? {
         val caller = principal.current() ?: return AuthError.PermissionDenied()
-        return permissionPolicy.requireCanEdit(caller.userId, caller.role)
+        return permissionPolicy.require(caller, Permission.EDIT_METADATA)
     }
 
     /** The store a person Review reads: the Audible ref's own, else the library's. */
@@ -245,7 +246,7 @@ internal class MatchingServiceImpl(
 
     private suspend fun requireEditableBook(bookId: BookId): AppError? {
         val caller = principal.current() ?: return AuthError.PermissionDenied()
-        permissionPolicy.requireCanEdit(caller.userId, caller.role)?.let { return it }
+        permissionPolicy.require(caller, Permission.EDIT_METADATA)?.let { return it }
         val canSee = bookAccessPolicy.canAccess(caller.userId.value, caller.role, bookId.value)
         return if (canSee) null else notFound(bookId)
     }

@@ -13,7 +13,7 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.media.ImageStore
@@ -226,7 +226,7 @@ private fun withApplyCoverFixture(
                             imageHome = Path(tempDir.toString()),
                         ),
                     enrichmentDeps = testEnrichmentDeps(db.sql, db.driver, bus, registry),
-                    permissionPolicy = UserPermissionPolicy(db.sql),
+                    permissionPolicy = PermissionPolicy(db.sql),
                     sqlDb = db.sql,
                     genreRepository = genreRepo,
                     principal =

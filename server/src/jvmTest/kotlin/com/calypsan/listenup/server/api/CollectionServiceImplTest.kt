@@ -14,7 +14,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -72,7 +72,7 @@ class CollectionServiceImplTest :
                 grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
                 bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
-                permissionPolicy = UserPermissionPolicy(db.sql),
+                permissionPolicy = PermissionPolicy(db.sql),
                 bus = bus,
                 sql = db.sql,
                 clock = fixedClock,

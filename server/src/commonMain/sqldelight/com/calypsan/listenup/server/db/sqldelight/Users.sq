@@ -92,11 +92,6 @@ SELECT role FROM users WHERE id = :id AND deleted_at IS NULL;
 selectFirstByRole:
 SELECT id FROM users WHERE role = :role LIMIT 1;
 
--- Permission flags for a LIVE (non-tombstoned) user — the per-operation canEdit gate
--- (UserPermissionPolicy). A tombstoned or absent user yields no row → denied.
-selectPermissionsLiveById:
-SELECT can_edit FROM users WHERE id = :id AND deleted_at IS NULL;
-
 -- Both permission flags for a LIVE (non-tombstoned) user — the per-operation gate (PermissionPolicy).
 -- A tombstoned or absent user yields no row → denied.
 selectPermissionFlagsLiveById:
