@@ -21,6 +21,7 @@ import io.kotest.property.arbitrary.list
 import io.kotest.property.arbitrary.string
 import io.kotest.property.checkAll
 import kotlinx.coroutines.runBlocking
+import io.kotest.matchers.nulls.shouldNotBeNull
 
 /**
  * Property tests for [Mp3Parser]: build random MP3 fixtures via [buildMp3File]
@@ -210,8 +211,9 @@ class Mp3ParserPropertyTest :
                     require(result is AppResult.Success<EmbeddedAudioMetadata>)
                     if (include) {
                         result.data.artwork
-                            ?.bytes
-                            ?.toList() shouldBe image.toList()
+                            .shouldNotBeNull()
+                            .bytes
+                            .toList() shouldBe image.toList()
                     } else {
                         result.data.artwork shouldBe null
                     }

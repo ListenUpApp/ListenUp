@@ -35,11 +35,9 @@ import io.ktor.client.request.forms.formData
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.readRawBytes
-import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
 import io.ktor.utils.io.ByteReadChannel
@@ -191,6 +189,7 @@ class ImportRoutesTest :
         }
     })
 
+@Suppress("SuspendFunWithCoroutineScopeReceiver") // A Ktor CoroutineScope only incidentally; nothing launches.
 private suspend fun HttpClient.uploadAbsBackup(
     token: String,
     zipBytes: ByteArray,
@@ -217,6 +216,7 @@ private suspend fun HttpClient.uploadAbsBackup(
  * [ByteArray] is allocated. The channel is backed by a [ZeroInputStream] wrapped in a
  * [kotlinx.io.Source], so nothing is buffered in memory beyond the read-side chunk window.
  */
+@Suppress("SuspendFunWithCoroutineScopeReceiver") // A Ktor CoroutineScope only incidentally; nothing launches.
 private suspend fun HttpClient.uploadAbsBackupStreamed(
     token: String,
     sizeBytes: Long,
@@ -242,7 +242,7 @@ private suspend fun HttpClient.uploadAbsBackupStreamed(
 
 /** An [InputStream] that produces exactly [totalBytes] zero bytes and then signals EOF. */
 private class ZeroInputStream(
-    private val totalBytes: Long,
+    totalBytes: Long,
 ) : InputStream() {
     private var remaining = totalBytes
 

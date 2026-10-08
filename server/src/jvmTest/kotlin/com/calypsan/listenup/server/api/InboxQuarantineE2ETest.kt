@@ -380,7 +380,7 @@ private fun ApplicationTestBuilder.collectionServiceAs(
     )
 }
 
-private suspend fun <T> AppResult<T>.requireSuccess(): T {
+private fun <T> AppResult<T>.requireSuccess(): T {
     require(this is AppResult.Success) { "expected Success but got $this" }
     return data
 }

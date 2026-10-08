@@ -82,6 +82,11 @@ internal class AuthEndToEndFixture private constructor(
     }
 
     companion object {
+        /** The version the fixture's client reports on refresh. */
+        const val E2E_CLIENT_VERSION = "9.9.9-e2e"
+        private const val JWT_SECRET_LENGTH = 32
+        private const val REFRESH_PEPPER_LENGTH = 32
+
         /**
          * Boot a fresh server + client graph. Caller is responsible for [close]
          * (or use Kotest's `autoClose`). Each call gets its own SQLite file +
@@ -160,10 +165,5 @@ internal class AuthEndToEndFixture private constructor(
                 // never resolve the use cases, so omitting these bindings
                 // keeps the test surface minimal.
             }
-
-        /** The version the fixture's client reports on refresh. */
-        const val E2E_CLIENT_VERSION = "9.9.9-e2e"
-        private const val JWT_SECRET_LENGTH = 32
-        private const val REFRESH_PEPPER_LENGTH = 32
     }
 }

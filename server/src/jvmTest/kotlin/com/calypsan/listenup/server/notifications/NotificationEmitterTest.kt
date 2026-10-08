@@ -236,7 +236,7 @@ private class ThrowingPushNotifier : PushNotifier {
     override suspend fun notify(
         userId: String,
         payload: PushPayload,
-    ): Unit = throw IllegalStateException("relay exploded")
+    ): Unit = error("relay exploded")
 
     override suspend fun notifyWatch(
         kind: PushWatchKind,

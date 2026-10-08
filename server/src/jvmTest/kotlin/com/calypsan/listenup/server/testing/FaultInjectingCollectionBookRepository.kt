@@ -47,7 +47,7 @@ class FaultInjectingCollectionBookRepository(
         existed: Boolean,
     ) {
         if (value.collectionId to value.bookId in throwingPairs) {
-            throw IllegalStateException("injected write fault for ${value.collectionId}:${value.bookId}")
+            error("injected write fault for ${value.collectionId}:${value.bookId}")
         }
         super.writePayload(value, rev, now, clientOpId, userId, existed)
     }

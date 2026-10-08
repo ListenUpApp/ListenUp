@@ -43,6 +43,7 @@ class NoSymbolDerivedLoggerNamesRule :
                 Konsist
                     .scopeFromProduction()
                     .files
+                    .asSequence()
                     .filter { serverProduction.containsMatchIn(it.path) }
                     .flatMap { file ->
                         val strippedText = stripComments(file.text)
@@ -52,6 +53,7 @@ class NoSymbolDerivedLoggerNamesRule :
                             .toList()
                     }.filterNot { (_, name) -> name.startsWith("com.calypsan.listenup.server") }
                     .map { (file, name) -> "${file.path}: \"$name\"" }
+                    .toList()
 
             offenders.shouldBeEmpty()
         }

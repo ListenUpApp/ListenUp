@@ -18,7 +18,6 @@ import io.ktor.server.testing.testApplication
 import java.nio.file.Files
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
-import kotlinx.serialization.Serializable
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.server.testing.authedService
@@ -52,7 +51,7 @@ class LibraryLessOnboardingE2ETest :
             // A temp library dir with one real (placeholder) book the scanner can ingest.
             // The scanner E2E proves zero-byte placeholder tracks group into a book.
             val libraryDir = Files.createTempDirectory("listenup-onboarding-e2e-lib-")
-            AudioLibraryFixture(libraryDir).apply {
+            AudioLibraryFixture(libraryDir).run {
                 book("Brandon Sanderson/The Way of Kings") {
                     tracks(count = 2)
                     cover()

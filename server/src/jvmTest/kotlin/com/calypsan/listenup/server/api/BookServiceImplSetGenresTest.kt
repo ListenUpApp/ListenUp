@@ -165,7 +165,7 @@ class BookServiceImplSetGenresTest :
                         )
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     val error = result.error.shouldBeInstanceOf<BookError.InvalidInput>()
-                    (error.debugInfo ?: "") shouldContain "unknownGenre=missing"
+                    error.debugInfo.orEmpty() shouldContain "unknownGenre=missing"
                 }
             }
         }

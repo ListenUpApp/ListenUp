@@ -17,6 +17,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.runBlocking
 import java.io.IOException
+import io.kotest.matchers.nulls.shouldNotBeNull
 
 /**
  * End-to-end fixture-driven tests for [Mp4Parser]. The DSL builds a synthetic
@@ -142,8 +143,9 @@ class Mp4ParserTest :
             require(result is AppResult.Success<EmbeddedAudioMetadata>)
             result.data.artwork?.mime shouldBe "image/jpeg"
             result.data.artwork
-                ?.bytes
-                ?.toList() shouldBe fakeJpeg.toList()
+                .shouldNotBeNull()
+                .bytes
+                .toList() shouldBe fakeJpeg.toList()
         }
 
         test("parse extracts cover artwork (PNG, sniffed MIME)") {
@@ -167,8 +169,9 @@ class Mp4ParserTest :
             require(result is AppResult.Success<EmbeddedAudioMetadata>)
             result.data.artwork?.mime shouldBe "image/png"
             result.data.artwork
-                ?.bytes
-                ?.toList() shouldBe fakePng.toList()
+                .shouldNotBeNull()
+                .bytes
+                .toList() shouldBe fakePng.toList()
         }
 
         test("parse maps com.apple.iTunes/Narrator (---- atom) to tags.narrators") {

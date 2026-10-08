@@ -2,8 +2,6 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.server.testing.publicAuthService
 
-import com.calypsan.listenup.api.AuthServicePublic
-import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -17,26 +15,11 @@ import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.websocket.WebSockets
-import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.withTimeout
-import kotlinx.rpc.krpc.ktor.client.installKrpc
-import kotlinx.rpc.krpc.ktor.client.rpc
-import kotlinx.rpc.krpc.ktor.client.rpcConfig
-import kotlinx.rpc.krpc.serialization.json.json
-import kotlinx.rpc.withService
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -66,7 +49,6 @@ class RegistrationStatusRpcTest :
                 useIsolatedTestConfig(registrationPolicy = "APPROVAL_QUEUE")
                 application { module() }
 
-                val rest = createClient { install(ContentNegotiation) { json(contractJson) } }
                 val rootToken = setupRoot()
                 val pendingId = registerPending("darlene")
                 val service = publicAuthService()
@@ -97,7 +79,6 @@ class RegistrationStatusRpcTest :
                 useIsolatedTestConfig(registrationPolicy = "APPROVAL_QUEUE")
                 application { module() }
 
-                val rest = createClient { install(ContentNegotiation) { json(contractJson) } }
                 val rootToken = setupRoot()
                 val pendingId = registerPending("darlene")
                 // Decide BEFORE subscribing — no SSE/RPC connection is live when the admin approves.

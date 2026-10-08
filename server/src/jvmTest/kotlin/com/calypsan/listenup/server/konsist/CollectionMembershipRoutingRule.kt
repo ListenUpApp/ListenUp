@@ -77,8 +77,8 @@ class CollectionMembershipRoutingRule :
                 mutators
                     .filterNot { it.name in ALLOWLIST }
                     .filterNot { "reconcileSystemMembership(" in stripComments(it.text) }
-                    .map {
-                        "${it.name} @ ${it.path} — mutates collection_books without reconcileSystemMembership; " +
+                    .map { mutator ->
+                        "${mutator.name} @ ${mutator.path} — mutates collection_books without reconcileSystemMembership; " +
                             "ALL_BOOKS exclusivity (#680) must be maintained by every membership mutation, " +
                             "or allowlist with a reason"
                     }

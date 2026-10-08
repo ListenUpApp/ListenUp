@@ -27,7 +27,6 @@ import com.calypsan.listenup.server.testing.withSqlDatabase
 import com.calypsan.listenup.api.sync.BookMoodSyncPayload
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
 import com.calypsan.listenup.api.sync.Mood
-import com.calypsan.listenup.api.sync.ShelfBookSyncPayload
 import com.calypsan.listenup.api.sync.ShelfSyncPayload
 import com.calypsan.listenup.api.sync.Tag
 import io.kotest.core.spec.style.FunSpec

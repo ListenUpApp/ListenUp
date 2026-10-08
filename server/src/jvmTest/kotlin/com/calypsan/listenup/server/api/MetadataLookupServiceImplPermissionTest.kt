@@ -136,7 +136,7 @@ private val ALL_SELECTED =
     )
 
 /** A book-scoped apply, invoked against a scoped service for one book. */
-private class BookScopedApply(
+private data class BookScopedApply(
     val name: String,
     val call: suspend MetadataLookupServiceImpl.(BookId) -> AppResult<Mutated<Unit>>,
 )

@@ -13,6 +13,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
+import java.util.Locale
 
 class DifferTest :
     FunSpec({
@@ -189,8 +190,8 @@ private fun book(
     val files =
         (1..trackCount).map { i ->
             FileEntry(
-                relPath = "$rootRelPath/%02d.mp3".format(i),
-                name = "%02d.mp3".format(i),
+                relPath = "$rootRelPath/%02d.mp3".format(Locale.ROOT, i),
+                name = "%02d.mp3".format(Locale.ROOT, i),
                 ext = "mp3",
                 size = 0,
                 mtimeMs = 0,

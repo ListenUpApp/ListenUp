@@ -209,8 +209,8 @@ class AuthEndToEndTest :
                 bootstrap(fix)
                 val heldToken = requireNotNull(fix.authSession.getRefreshToken())
                 val heldAccess = requireNotNull(fix.authSession.getAccessToken())
-                val sessionId = fix.authSession.getSessionId() ?: ""
-                val userId = fix.authSession.getUserId() ?: ""
+                val sessionId = fix.authSession.getSessionId().orEmpty()
+                val userId = fix.authSession.getUserId().orEmpty()
 
                 fix.authRepository.refreshAccessToken().shouldBeInstanceOf<AppResult.Success<*>>()
                 // The reply is "lost": the app still holds what it had before the rotation.
@@ -270,8 +270,8 @@ class AuthEndToEndTest :
                         secondFix.authSession.getAccessToken()
                             ?: error("access token missing"),
                     refresh = originalRefresh,
-                    sessionId = secondFix.authSession.getSessionId() ?: "",
-                    userId = secondFix.authSession.getUserId() ?: "",
+                    sessionId = secondFix.authSession.getSessionId().orEmpty(),
+                    userId = secondFix.authSession.getUserId().orEmpty(),
                 )
 
                 val replay = secondFix.authRepository.refreshAccessToken()

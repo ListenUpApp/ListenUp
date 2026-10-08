@@ -44,18 +44,18 @@ internal data class LiveCorpusReport(
             appendLine("  Total files: $totalFiles")
             byFormat.forEach { (format, report) ->
                 appendLine(
-                    "  ${format::class.simpleName}: ${report.parsed} parsed, " +
+                    "  $format: ${report.parsed} parsed, " +
                         "${report.withChapters} with chapters, ${report.withArtwork} with artwork",
                 )
             }
             if (unsupportedByFormat.isNotEmpty()) {
                 appendLine("  Detected-but-deferred (parser not registered):")
-                unsupportedByFormat.forEach { (f, n) -> appendLine("    ${f::class.simpleName}: $n files") }
+                unsupportedByFormat.forEach { (f, n) -> appendLine("    $f: $n files") }
             }
             if (crashed.isNotEmpty()) {
                 appendLine("  CRASHES (${crashed.size}):")
                 crashed.take(LOG_PREVIEW_LIMIT).forEach { (path, t) ->
-                    appendLine("    $path: ${t::class.simpleName}: ${t.message}")
+                    appendLine("    $path: $t")
                 }
             }
             if (typedErrors.isNotEmpty()) {

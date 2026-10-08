@@ -55,7 +55,7 @@ internal fun ApplicationTestBuilder.gatedRoute(
         installJwtAuth(testJwt, SessionLiveness { _, _ -> true }, socketTickets)
         routing {
             authenticate(provider) {
-                get("/gated") { call.respondText(call.userPrincipalOrNull()?.userId?.value ?: "none") }
+                get("/gated") { call.respondText(call.userPrincipalOrNull()?.run { userId.value } ?: "none") }
             }
         }
     }

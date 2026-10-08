@@ -475,9 +475,9 @@ class CollectionMembershipWriteFailureTest :
                     ) shouldBe AppResult.Success(Unit)
 
                     // The batch continues past the failed write: the other collection's add commits.
-                    h.junctionDiagnostic("book1").let {
-                        it shouldContain okId
-                        it shouldNotContain failId
+                    h.junctionDiagnostic("book1").let { collectionIds ->
+                        collectionIds shouldContain okId
+                        collectionIds shouldNotContain failId
                     }
                 }
             }
@@ -520,9 +520,9 @@ class CollectionMembershipWriteFailureTest :
 
                     // The ALL_BOOKS write failed, so the book stays exactly where it was left by the
                     // removal — orphaned, not re-homed — rather than a reconcile that half-applied.
-                    h.junctionDiagnostic("book1").let {
-                        it shouldNotContain allBooksId
-                        it shouldNotContain c.data.id.value
+                    h.junctionDiagnostic("book1").let { collectionIds ->
+                        collectionIds shouldNotContain allBooksId
+                        collectionIds shouldNotContain c.data.id.value
                     }
                     h.bookAccessPolicy.canAccess("member", UserRole.MEMBER, "book1").shouldBeFalse()
                     // removeBookFromCollection bumps the revision once for the removal itself; the

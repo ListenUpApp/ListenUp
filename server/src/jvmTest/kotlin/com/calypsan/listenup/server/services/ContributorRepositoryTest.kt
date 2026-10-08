@@ -579,7 +579,7 @@ class ContributorRepositoryTest :
                             rowling.value,
                             survivor.value,
                             purged.value,
-                            resolved[keyOf("Brand New Author")]!!.value,
+                            resolved.getValue(keyOf("Brand New Author")).value,
                         )
                 }
             }

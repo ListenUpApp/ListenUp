@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import kotlin.coroutines.cancellation.CancellationException
+import io.kotest.assertions.throwables.shouldThrow
 
 class RunCatchingCancellableTest :
     FunSpec({
@@ -20,13 +21,9 @@ class RunCatchingCancellableTest :
 
         test("rethrows CancellationException instead of capturing it") {
             runTest {
-                var rethrown = false
-                try {
+                shouldThrow<CancellationException> {
                     runCatchingCancellable { throw CancellationException("cancelled") }
-                } catch (e: CancellationException) {
-                    rethrown = true
                 }
-                rethrown shouldBe true
             }
         }
     })

@@ -63,7 +63,6 @@ class StarterShelfTest :
                 // First user must be the root (setup), then we register a normal user.
                 val rootResult = authSvc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
                 rootResult.shouldBeInstanceOf<AppResult.Success<*>>()
-                val rootSession = (rootResult as AppResult.Success).data
 
                 val memberResult = authSvc.register(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
                 val authed =

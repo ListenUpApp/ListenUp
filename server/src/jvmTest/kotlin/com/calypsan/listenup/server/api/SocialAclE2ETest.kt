@@ -32,16 +32,8 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
@@ -115,7 +107,7 @@ class SocialAclE2ETest :
         }
 
         /** Opens an authed [SocialService] proxy bound to [token]'s principal. */
-        suspend fun ApplicationTestBuilder.socialServiceFor(token: String): SocialService =
+        fun ApplicationTestBuilder.socialServiceFor(token: String): SocialService =
             createClient {
                 install(WebSockets)
                 installKrpc()
@@ -166,7 +158,6 @@ class SocialAclE2ETest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
 
-                    val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val alice = setupRoot()
                     val bob = registerMember()
 
@@ -234,11 +225,6 @@ class SocialAclE2ETest :
                     )
 
                     // ── Drive the reads as B over the real authed RPC surface. ────────────────
-                    val rpcClient =
-                        createClient {
-                            install(WebSockets)
-                            installKrpc()
-                        }
                     val social = socialServiceFor(bob.token)
 
                     // currentlyListening: only the public-book session; the private one is omitted.

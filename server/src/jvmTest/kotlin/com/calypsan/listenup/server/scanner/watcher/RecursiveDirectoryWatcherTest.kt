@@ -14,6 +14,7 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.div
 import kotlin.io.path.writeBytes
 import kotlin.time.Duration.Companion.seconds
+import java.util.Locale
 
 /**
  * Real-filesystem tests for the JVM-native recursive watcher. Linux-only in CI
@@ -55,7 +56,7 @@ class RecursiveDirectoryWatcherTest :
                     val tmp = Files.createTempDirectory("rdw-cap-")
                     try {
                         withWatcher { watcher ->
-                            val dirs = (1..100).map { (tmp / "dir-%03d".format(it)).apply { createDirectories() } }
+                            val dirs = (1..100).map { (tmp / "dir-%03d".format(Locale.ROOT, it)).apply { createDirectories() } }
                             dirs.forEach { watcher.add(it.toString()) }
                             val target = dirs.last()
                             watcher.onEventFlow.test(timeout = 5.seconds) {

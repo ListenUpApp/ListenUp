@@ -81,7 +81,7 @@ private fun AppResult<IngestOutcome>.resolved(): BookId =
         is AppResult.Failure -> error("resolveOrInsert failed: ${error.message}")
     }
 
-private class RescanFixture(
+private data class RescanFixture(
     val books: BookRepository,
     val series: SeriesRepository,
     val libraries: LibraryRegistry,

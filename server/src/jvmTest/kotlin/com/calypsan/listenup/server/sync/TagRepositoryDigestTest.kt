@@ -6,6 +6,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldStartWith
 import kotlinx.coroutines.test.runTest
+import java.util.Locale
 
 class TagRepositoryDigestTest :
     FunSpec({
@@ -94,7 +95,7 @@ class TagRepositoryDigestTest :
                     val expectedHex =
                         md
                             .digest(expectedInput.toByteArray(Charsets.UTF_8))
-                            .joinToString("") { "%02x".format(it) }
+                            .joinToString("") { "%02x".format(Locale.ROOT, it) }
                     val actual = repo.digest(userId = null, cursor = Long.MAX_VALUE)
                     actual.hash shouldBe "sha256:$expectedHex"
                 }

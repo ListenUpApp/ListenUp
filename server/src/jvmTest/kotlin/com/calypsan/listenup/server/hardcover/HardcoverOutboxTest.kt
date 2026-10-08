@@ -145,10 +145,10 @@ class HardcoverOutboxTest :
 
                 outbox.enqueueHistory(USER, read)
 
-                outbox.pendingFor(USER).single().let {
-                    it.bookId shouldBe "book-1"
-                    it.listenThrough shouldBe T0 - 5_000L
-                    it.payload shouldBe HardcoverPushPayload.History(startedAt = T0 - 5_000L, finishedAt = T0 - 1_000L, readId = "r1")
+                outbox.pendingFor(USER).single().let { pending ->
+                    pending.bookId shouldBe "book-1"
+                    pending.listenThrough shouldBe T0 - 5_000L
+                    pending.payload shouldBe HardcoverPushPayload.History(startedAt = T0 - 5_000L, finishedAt = T0 - 1_000L, readId = "r1")
                 }
                 sql.unsentHardcoverHistory(USER, connectedAt = T0) shouldBe emptyList()
             }

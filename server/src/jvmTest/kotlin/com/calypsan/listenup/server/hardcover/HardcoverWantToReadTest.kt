@@ -106,9 +106,9 @@ class HardcoverWantToReadTest :
                 pullAll()
 
                 booksOn(starter) shouldBe listOf(BOOK)
-                shelfEntries.recordFor(USER, BOOK)!!.let {
-                    it.shelfId shouldBe starter
-                    it.state shouldBe HardcoverShelfEntryState.ON_SHELF
+                shelfEntries.recordFor(USER, BOOK)!!.let { entry ->
+                    entry.shelfId shouldBe starter
+                    entry.state shouldBe HardcoverShelfEntryState.ON_SHELF
                 }
                 links.linkFor(USER, BOOK)!!.method shouldBe HardcoverMatchMethod.ASIN
             }

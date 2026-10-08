@@ -18,7 +18,6 @@ import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
-import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.StatsRecorder
 import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.services.UserStatsRepository
@@ -270,7 +269,7 @@ class ImportApplierTest :
                         applier.apply(staged.importId) { event ->
                             if (event is ImportEvent.Applying && !thrown) {
                                 thrown = true
-                                throw IllegalStateException("simulated crash mid-apply")
+                                error("simulated crash mid-apply")
                             }
                         }
                     repeat(8) { yield() }
@@ -404,9 +403,9 @@ class ImportApplierTest :
                     applyingEvents.size shouldBe 2
 
                     // Every emitted frame is a final frame: done == total for its pass, currentItem non-null.
-                    applyingEvents.forEach {
-                        it.currentItem.shouldNotBeNull()
-                        it.done shouldBe it.total
+                    applyingEvents.forEach { event ->
+                        event.currentItem.shouldNotBeNull()
+                        event.done shouldBe event.total
                     }
 
                     // The final Applying event of the sessions pass reflects the cumulative
@@ -594,7 +593,7 @@ class ImportApplierTest :
                         applier.apply(staged.importId) { event ->
                             if (event is ImportEvent.Applying && !thrown) {
                                 thrown = true
-                                throw IllegalStateException("simulated crash mid-apply")
+                                error("simulated crash mid-apply")
                             }
                         }
                     result.shouldBeInstanceOf<AppResult.Failure>()
@@ -651,7 +650,7 @@ class ImportApplierTest :
                     applier.apply(staged.importId) { event ->
                         if (event is ImportEvent.Applying && !thrown) {
                             thrown = true
-                            throw IllegalStateException("boom")
+                            error("boom")
                         }
                     }
                     store.hasInterruptedApply(staged.importId) shouldBe true

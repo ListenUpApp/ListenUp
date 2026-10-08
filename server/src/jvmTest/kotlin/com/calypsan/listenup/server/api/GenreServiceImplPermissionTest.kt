@@ -14,10 +14,8 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.testing.memberPrincipal
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -141,8 +139,6 @@ private fun makeGenrePermService(
             seriesRepository = seriesRepo,
             genreRepository = genreRepo,
         )
-    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
     return GenreServiceImpl(
         genreRepository = genreRepo,
         bookRepository = bookRepo,

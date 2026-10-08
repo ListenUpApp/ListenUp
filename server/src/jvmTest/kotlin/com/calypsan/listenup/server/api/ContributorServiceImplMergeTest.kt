@@ -2,7 +2,6 @@
 
 package com.calypsan.listenup.server.api
 
-import app.cash.sqldelight.db.QueryResult
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
@@ -18,10 +17,8 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -596,8 +593,6 @@ private fun makeServiceAndDeps(db: SqlTestDatabases): MergeServiceDeps {
             seriesRepository = seriesRepo,
             genreRepository = GenreRepository(db.sql, bus, syncRegistry),
         )
-    val tagRepo = TagRepository(db = db.sql, bus = bus, registry = syncRegistry)
-    val bookTagRepo = BookTagRepository(db = db.sql, bus = bus, registry = syncRegistry, driver = db.driver)
     val service =
         ContributorServiceImpl(
             contributorRepo = contributorRepo,
@@ -801,63 +796,3 @@ private suspend fun creditedAsFor(
             .executeAsOneOrNull()
             ?.credited_as
     }
-
-/**
- * Returns true if a MATCH on `book_search.contributor_names` for [searchTerm] finds
- * the FTS row for [bookId] (resolved via `book_search_map`). Column-scoped so it
- * doesn't false-positive on cross-column hits (title, series, etc.).
- */
-private suspend fun ftsBookContributorMatch(
-    db: SqlTestDatabases,
-    bookId: String,
-    searchTerm: String,
-): Boolean {
-    val dq = '"'
-    val quotedTerm = "$dq${searchTerm.replace("$dq", "$dq$dq")}$dq"
-    return withContext(Dispatchers.IO) {
-        db.driver
-            .executeQuery(
-                identifier = null,
-                sql =
-                    "SELECT bs.rowid FROM book_search bs " +
-                        "JOIN book_search_map m ON m.rowid = bs.rowid " +
-                        "WHERE bs.contributor_names MATCH ? AND m.book_id = ?",
-                mapper = { cursor -> QueryResult.Value(cursor.next().value) },
-                parameters = 2,
-                binders = {
-                    bindString(0, quotedTerm)
-                    bindString(1, bookId)
-                },
-            ).value
-    }
-}
-
-/**
- * Returns true if a MATCH on `contributor_search.aliases` for [searchTerm] finds
- * the FTS row for [contributorId]. Column-scoped to the `aliases` column only —
- * never matches on name/sort_name/description.
- */
-private suspend fun ftsAliasesMatch(
-    db: SqlTestDatabases,
-    contributorId: String,
-    searchTerm: String,
-): Boolean {
-    val dq = '"'
-    val quotedTerm = "$dq${searchTerm.replace("$dq", "$dq$dq")}$dq"
-    return withContext(Dispatchers.IO) {
-        db.driver
-            .executeQuery(
-                identifier = null,
-                sql =
-                    "SELECT c.id FROM contributor_search cs " +
-                        "JOIN contributors c ON c.rowid = cs.rowid " +
-                        "WHERE cs.aliases MATCH ? AND c.id = ?",
-                mapper = { cursor -> QueryResult.Value(cursor.next().value) },
-                parameters = 2,
-                binders = {
-                    bindString(0, quotedTerm)
-                    bindString(1, contributorId)
-                },
-            ).value
-    }
-}

@@ -3,8 +3,6 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.server.sync.ReadingOrderRepository
-import app.cash.sqldelight.db.QueryResult
-
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
@@ -19,10 +17,8 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withSqlDatabase
@@ -280,8 +276,6 @@ private fun makeMergeSeriesServiceAndDeps(dbs: SqlTestDatabases): MergeSeriesSer
             seriesRepository = seriesRepo,
             genreRepository = GenreRepository(db = dbs.sql, bus = bus, registry = syncRegistry),
         )
-    val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
-    val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = syncRegistry, driver = dbs.driver)
     val service =
         SeriesServiceImpl(
             seriesRepo = seriesRepo,
@@ -419,32 +413,3 @@ private suspend fun bookIdsForSeriesInTest(
             .bookIdsForSeries(seriesId)
             .executeAsList()
     }.sorted()
-
-/**
- * Returns true if a column-scoped MATCH on `book_search.series_names` for [searchTerm]
- * finds the FTS row mapped to [bookId] via `book_search_map`.
- */
-private suspend fun ftsSeriesNamesMatchForBook(
-    dbs: SqlTestDatabases,
-    bookId: String,
-    searchTerm: String,
-): Boolean {
-    val dq = '"'
-    val quotedTerm = "$dq${searchTerm.replace("$dq", "$dq$dq")}$dq"
-    return withContext(Dispatchers.IO) {
-        dbs.driver
-            .executeQuery(
-                identifier = null,
-                sql =
-                    "SELECT bs.rowid FROM book_search bs " +
-                        "JOIN book_search_map m ON m.rowid = bs.rowid " +
-                        "WHERE bs.series_names MATCH ? AND m.book_id = ?",
-                mapper = { cursor -> QueryResult.Value(cursor.next().value) },
-                parameters = 2,
-                binders = {
-                    bindString(0, quotedTerm)
-                    bindString(1, bookId)
-                },
-            ).value
-    }
-}

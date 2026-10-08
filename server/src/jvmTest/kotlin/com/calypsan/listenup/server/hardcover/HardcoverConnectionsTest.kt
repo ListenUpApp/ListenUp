@@ -82,7 +82,7 @@ private data class Reply(
  * queue is empty (a poll keeps saying `authorization_pending`, a revoke succeeds, the rest fail).
  */
 private class FakeHardcover(
-    private val virtualNowMs: () -> Long,
+    virtualNowMs: () -> Long,
 ) {
     val seen = CopyOnWriteArrayList<Seen>()
     private val queues = HashMap<String, ArrayDeque<Reply>>()
@@ -100,7 +100,7 @@ private class FakeHardcover(
 
     val handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData = { req ->
         val form =
-            (req.body as? FormDataContent)?.formData?.let { p -> p.names().associateWith { p[it] } }.orEmpty()
+            (req.body as? FormDataContent)?.run { formData.names().associateWith { formData[it] } }.orEmpty()
         val endpoint =
             when (req.url.encodedPath) {
                 "/oauth2/device" -> DEVICE
@@ -443,8 +443,8 @@ class HardcoverConnectionsTest :
                 fake.enqueue(FakeHardcover.REFRESH, HttpStatusCode.OK, tokenJson("hc_at_2", "hc_rt_2"))
                 val refreshInFlight = CompletableDeferred<Unit>()
                 val releaseRefresh = CompletableDeferred<Unit>()
-                fake.beforeAnswer = {
-                    if (it.endpoint == FakeHardcover.REFRESH) {
+                fake.beforeAnswer = { request ->
+                    if (request.endpoint == FakeHardcover.REFRESH) {
                         refreshInFlight.complete(Unit)
                         releaseRefresh.await()
                     }

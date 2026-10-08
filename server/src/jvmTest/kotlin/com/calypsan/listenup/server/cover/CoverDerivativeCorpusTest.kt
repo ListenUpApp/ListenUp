@@ -12,6 +12,10 @@ import kotlinx.io.files.SystemFileSystem
 import java.nio.file.Files
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.TimeSource
+import kotlin.coroutines.cancellation.CancellationException
+import com.calypsan.listenup.server.logging.loggerFor
+
+private val logger = loggerFor<CoverDerivativeCorpusTest>()
 
 /**
  * The whole production path over a **real** cover library: decode at scale, resize, re-encode, cache.
@@ -66,6 +70,8 @@ class CoverDerivativeCorpusTest :
                         val outcome =
                             try {
                                 derivatives.warm(key, rung) { bytes }
+                            } catch (e: CancellationException) {
+                                throw e
                             } catch (_: Throwable) {
                                 escaped += "${file.name}@$rung"
                                 continue
@@ -81,7 +87,7 @@ class CoverDerivativeCorpusTest :
                         .list(cacheDir)
                         .sumOf { SystemFileSystem.metadataOrNull(it)?.size ?: 0L }
 
-                println(
+                logger.info {
                     buildString {
                         appendLine("cover derivative corpus: ${files.size} covers in $elapsed")
                         derivatives.rungs.forEach { rung ->
@@ -89,8 +95,8 @@ class CoverDerivativeCorpusTest :
                         }
                         appendLine("  originals ${sourceBytes / MB}MB -> derivatives ${cachedBytes / MB}MB")
                         appendLine("  ${elapsed.inWholeMilliseconds / files.size.coerceAtLeast(1)}ms per cover")
-                    },
-                )
+                    }
+                }
                 deleteRecursively(cacheDir)
 
                 // An escape is a bug: an underivable cover must leave the original serving.

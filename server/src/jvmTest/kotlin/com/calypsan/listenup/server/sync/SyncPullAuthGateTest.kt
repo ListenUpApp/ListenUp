@@ -62,7 +62,7 @@ class SyncPullAuthGateTest :
     })
 
 /** A [SyncStreamService] proxy on the authed mount carrying no bearer token. */
-private suspend fun ApplicationTestBuilder.syncServiceWithoutToken(): SyncStreamService =
+private fun ApplicationTestBuilder.syncServiceWithoutToken(): SyncStreamService =
     createClient {
         install(WebSockets)
         installKrpc()

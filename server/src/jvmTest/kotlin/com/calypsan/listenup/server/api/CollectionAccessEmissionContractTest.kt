@@ -108,7 +108,7 @@ class CollectionAccessEmissionContractTest :
                     h.shareTo(c.value, "s1")
 
                     h.revisionTouch.touched.clear()
-                    val recipients = captureAccessChanged(h.bus) { admin.addBookToCollection(c, BookId("B")) }
+                    val recipients = captureAccessChanged(this, h.bus) { admin.addBookToCollection(c, BookId("B")) }
 
                     recipients shouldBe setOf("admin", "s1", "m1", "m2")
                     h.revisionTouch.touched shouldContain "B"
@@ -133,7 +133,7 @@ class CollectionAccessEmissionContractTest :
                     admin.addBookToCollection(c, BookId("B")) // B now curated out of ALL_BOOKS
 
                     h.revisionTouch.touched.clear()
-                    val recipients = captureAccessChanged(h.bus) { admin.removeBookFromCollection(c, BookId("B")) }
+                    val recipients = captureAccessChanged(this, h.bus) { admin.removeBookFromCollection(c, BookId("B")) }
 
                     recipients shouldBe setOf("admin", "s1", "m1", "m2")
                     h.revisionTouch.touched shouldContain "B"
@@ -157,7 +157,7 @@ class CollectionAccessEmissionContractTest :
                     admin.addBookToCollection(c1, BookId("B"))
 
                     h.revisionTouch.touched.clear()
-                    val recipients = captureAccessChanged(h.bus) { admin.setBookCollections(BookId("B"), listOf(c2)) }
+                    val recipients = captureAccessChanged(this, h.bus) { admin.setBookCollections(BookId("B"), listOf(c2)) }
 
                     recipients shouldBe setOf("admin", "s1", "s2")
                     h.revisionTouch.touched shouldContain "B"
@@ -175,7 +175,7 @@ class CollectionAccessEmissionContractTest :
                     val admin = h.service.actAs("admin", UserRole.ADMIN)
                     val c = admin.newCollection("C")
 
-                    val recipients = captureAccessChanged(h.bus) { admin.shareCollection(c, "s3", SharePermission.Read) }
+                    val recipients = captureAccessChanged(this, h.bus) { admin.shareCollection(c, "s3", SharePermission.Read) }
 
                     recipients shouldBe setOf("s3")
                 }
@@ -193,7 +193,7 @@ class CollectionAccessEmissionContractTest :
                     val c = admin.newCollection("C")
                     admin.shareCollection(c, "s4", SharePermission.Read)
 
-                    val recipients = captureAccessChanged(h.bus) { admin.updateShare(c, "s4", SharePermission.Write) }
+                    val recipients = captureAccessChanged(this, h.bus) { admin.updateShare(c, "s4", SharePermission.Write) }
 
                     recipients shouldBe setOf("s4")
                 }
@@ -211,7 +211,7 @@ class CollectionAccessEmissionContractTest :
                     val c = admin.newCollection("C")
                     admin.shareCollection(c, "s5", SharePermission.Read)
 
-                    val recipients = captureAccessChanged(h.bus) { admin.revokeShare(c, "s5") }
+                    val recipients = captureAccessChanged(this, h.bus) { admin.revokeShare(c, "s5") }
 
                     recipients shouldBe setOf("s5")
                 }
@@ -235,7 +235,7 @@ class CollectionAccessEmissionContractTest :
                     admin.addBookToCollection(c, BookId("B")) // sole membership → will re-home to ALL_BOOKS
 
                     h.revisionTouch.touched.clear()
-                    val recipients = captureAccessChanged(h.bus) { admin.deleteCollection(c) }
+                    val recipients = captureAccessChanged(this, h.bus) { admin.deleteCollection(c) }
 
                     // s6 is present ONLY because the audience was captured while the grant was still live (S2).
                     recipients shouldBe setOf("admin", "s6", "m1", "m2")
@@ -265,7 +265,7 @@ class CollectionAccessEmissionContractTest :
 
                     h.revisionTouch.touched.clear()
                     val recipients =
-                        captureAccessChanged(h.bus) {
+                        captureAccessChanged(this, h.bus) {
                             admin.releaseBooks(LibraryId("test-library"), mapOf(BookId("B") to listOf(c), BookId("U") to emptyList()))
                         }
 
@@ -291,6 +291,7 @@ class CollectionAccessEmissionContractTest :
 
             val uncovered =
                 serviceFns
+                    .asSequence()
                     .filter { fn ->
                         val body = stripComments(fn.text)
                         "collectionBookRepo.upsert(" in body ||
@@ -301,6 +302,7 @@ class CollectionAccessEmissionContractTest :
                     .distinct()
                     .filterNot { it in EMISSION_CASE_FUNCTIONS || it in EMISSION_ALLOWLIST }
                     .map { "$it mutates collection_books/grants but has no emission contract case — add a case or allowlist it" }
+                    .toList()
             uncovered.shouldBeEmpty()
         }
     }) {
@@ -332,19 +334,20 @@ class CollectionAccessEmissionContractTest :
  * an [SyncControl.AccessChanged] frame. The collector starts UNDISPATCHED so it is subscribed before
  * [action] emits (the control channel has no replay); [runCurrent] then drains the buffered frames.
  */
-private suspend fun TestScope.captureAccessChanged(
+private suspend fun captureAccessChanged(
+    testScope: TestScope,
     bus: ChangeBus,
     action: suspend () -> Unit,
 ): Set<String> {
     val recipients = mutableListOf<String>()
     val collector =
-        launch(start = CoroutineStart.UNDISPATCHED) {
+        testScope.launch(start = CoroutineStart.UNDISPATCHED) {
             bus.subscribeControl().collect { frame ->
                 if (frame.control is SyncControl.AccessChanged) recipients += frame.userId
             }
         }
     action()
-    runCurrent()
+    testScope.runCurrent()
     collector.cancel()
     return recipients.toSet()
 }

@@ -187,9 +187,9 @@ class RelayPushNotifierTest :
                 tokens shouldHaveSize 2
                 val sentTokens =
                     tokens
-                        .map {
-                            it.jsonObject["token"]!!.jsonPrimitive.content to
-                                it.jsonObject["platform"]!!.jsonPrimitive.content
+                        .map { token ->
+                            token.jsonObject["token"]!!.jsonPrimitive.content to
+                                token.jsonObject["platform"]!!.jsonPrimitive.content
                         }.toSet()
                 // The relay wire protocol speaks lowercase platform tags (validate.ts:
                 // "platform must be android|ios"); rows store the PushPlatform enum name.
@@ -380,9 +380,9 @@ class RelayPushNotifierTest :
                 tokens shouldHaveSize 2
                 val sentTokens =
                     tokens
-                        .map {
-                            it.jsonObject["token"]!!.jsonPrimitive.content to
-                                it.jsonObject["platform"]!!.jsonPrimitive.content
+                        .map { token ->
+                            token.jsonObject["token"]!!.jsonPrimitive.content to
+                                token.jsonObject["platform"]!!.jsonPrimitive.content
                         }.toSet()
                 sentTokens shouldBe setOf("watch-android" to "android", "watch-ios" to "ios")
                 body["payload"] shouldBe contractJson.encodeToJsonElement(PushPayload.serializer(), payload)

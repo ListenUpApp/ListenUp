@@ -444,17 +444,17 @@ private class SingleBookFakeAudibleApi(
     ): AppResult<List<AudibleSearchResult>> =
         AppResult.Success(
             book
-                ?.let {
+                ?.let { match ->
                     listOf(
                         AudibleSearchResult(
-                            asin = it.asin,
-                            title = it.title,
-                            subtitle = it.subtitle,
-                            authors = it.authors,
-                            narrators = it.narrators,
-                            coverUrl = it.coverUrl,
-                            runtimeMinutes = it.runtimeMinutes,
-                            releaseDate = it.releaseDate,
+                            asin = match.asin,
+                            title = match.title,
+                            subtitle = match.subtitle,
+                            authors = match.authors,
+                            narrators = match.narrators,
+                            coverUrl = match.coverUrl,
+                            runtimeMinutes = match.runtimeMinutes,
+                            releaseDate = match.releaseDate,
                         ),
                     )
                 }.orEmpty(),

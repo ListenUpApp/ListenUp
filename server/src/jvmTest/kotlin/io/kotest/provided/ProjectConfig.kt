@@ -15,6 +15,9 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
+import com.calypsan.listenup.server.logging.loggerFor
+
+private val logger = loggerFor<ProjectConfig>()
 
 /**
  * Kotest project configuration for the **`:server`** JVM test run (auto-discovered by Kotest as
@@ -172,10 +175,10 @@ private object FlakyServerSpecRetryExtension :
                 } else {
                     "failed transiently"
                 }
-            println(
-                "[FLAKY-RETRY] ${testCase.spec::class.simpleName} › ${testCase.name.name} " +
-                    "$cause; retry $attempt/$MAX_ATTEMPTS",
-            )
+            logger.warn {
+                "[FLAKY-RETRY] ${testCase.spec::class.simpleName ?: "UnknownSpec"} › ${testCase.name.name} " +
+                    "$cause; retry $attempt/$MAX_ATTEMPTS"
+            }
             delay(RETRY_DELAY_MS)
             result = execute(testCase)
         }
@@ -192,7 +195,7 @@ private object FlakyServerSpecRetryExtension :
         val testName = testCase.name.name.singleLine()
         val error =
             failed.errorOrNull
-                ?.let { "${it::class.simpleName}: ${it.message}" }
+                ?.let { "${it::class.simpleName ?: "Throwable"}: ${it.message.orEmpty()}" }
                 .orEmpty()
                 .ifBlank { "unknown error" }
                 .singleLine()

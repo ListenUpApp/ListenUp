@@ -32,17 +32,11 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsBytes
-import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.async
@@ -597,7 +591,6 @@ class BookPersistCoverTest :
                     Files.write(bookDir.resolve("01.mp3"), mp3)
 
                     val repo by application.inject<BookRepository>()
-                    val coverStore by application.inject<CoverImageStore>()
                     val registry by application.inject<LibraryRegistry>()
                     val libId = registry.currentLibrary()
 

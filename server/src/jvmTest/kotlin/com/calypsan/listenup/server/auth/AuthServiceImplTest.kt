@@ -562,7 +562,7 @@ class AuthServiceImplTest :
 
                 repeat(AuthRateBucket.OBSERVE_REGISTRATION_STATUS.perMinuteLimit) {
                     val events = svc.observeRegistrationStatus("whatever").toList()
-                    events.none { it is RpcEvent.Error && it.error is AuthError.RateLimited } shouldBe true
+                    events.none { event -> event is RpcEvent.Error && event.error is AuthError.RateLimited } shouldBe true
                 }
 
                 val throttled = svc.observeRegistrationStatus("whatever").toList()

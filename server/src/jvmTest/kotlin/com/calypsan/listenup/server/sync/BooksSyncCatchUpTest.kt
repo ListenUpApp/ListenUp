@@ -214,21 +214,23 @@ private fun bookSyncFixture(
         inode = null,
         scannedAt = 1_730_000_000_000L,
         contributors =
-            contributorId?.let {
-                listOf(
-                    BookContributorPayload(
-                        id = it,
-                        name = "Brandon Sanderson",
-                        sortName = "Sanderson, Brandon",
-                        role = "author",
-                        creditedAs = null,
-                    ),
-                )
-            } ?: emptyList(),
+            contributorId
+                ?.let { creditedId ->
+                    listOf(
+                        BookContributorPayload(
+                            id = creditedId,
+                            name = "Brandon Sanderson",
+                            sortName = "Sanderson, Brandon",
+                            role = "author",
+                            creditedAs = null,
+                        ),
+                    )
+                }.orEmpty(),
         series =
-            seriesId?.let {
-                listOf(BookSeriesPayload(id = it, name = "Stormlight Archive", sequence = 1.0))
-            } ?: emptyList(),
+            seriesId
+                ?.let {
+                    listOf(BookSeriesPayload(id = it, name = "Stormlight Archive", sequence = 1.0))
+                }.orEmpty(),
         audioFiles =
             listOf(
                 BookAudioFilePayload(

@@ -100,6 +100,7 @@ class MutatingRpcsAreGatedRule :
                 .flatMap { cls ->
                     cls
                         .functions()
+                        .asSequence()
                         .filter { it.hasOverrideModifier }
                         .filterNot { fn ->
                             isReadName(fn.name) && WRITE_MARKERS.none { it.containsMatchIn(stripComments(fn.text)) }
@@ -108,6 +109,7 @@ class MutatingRpcsAreGatedRule :
                             val body = stripComments(fn.text)
                             GATE_CALLS.any { it in body } || ADMIN_DENIAL_SHAPE.containsMatchIn(body)
                         }.map { fn -> "${cls.name}.${fn.name} @ ${cls.path}" }
+                        .toList()
                 }
     }
 }

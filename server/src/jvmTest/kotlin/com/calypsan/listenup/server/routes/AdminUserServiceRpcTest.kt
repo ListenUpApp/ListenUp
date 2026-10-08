@@ -18,16 +18,8 @@ import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
@@ -70,7 +62,6 @@ class AdminUserServiceRpcTest :
                 useIsolatedTestConfig(registrationPolicy = "APPROVAL_QUEUE")
                 application { module() }
 
-                val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
                 val token = mintRootToken()
                 val pendingId = registerPending("pending")
 
@@ -101,7 +92,6 @@ class AdminUserServiceRpcTest :
                 useIsolatedTestConfig(registrationPolicy = "APPROVAL_QUEUE")
                 application { module() }
 
-                val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
                 val token = mintRootToken()
                 val pendingId = registerPending("pending")
 

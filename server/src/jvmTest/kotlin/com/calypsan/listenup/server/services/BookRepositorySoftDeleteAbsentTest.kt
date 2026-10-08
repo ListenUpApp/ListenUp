@@ -126,7 +126,7 @@ class BookRepositorySoftDeleteAbsentTest :
                 val (repo, registry) = repository(sql, driver, bus)
                 runTest {
                     val libId = registry.currentLibrary()
-                    val a = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("a", inode = 1L)).resolved()
+                    repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("a", inode = 1L))
                     repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("b", inode = 2L))
 
                     val received = mutableListOf<BusEvent<*>>()
@@ -151,7 +151,7 @@ class BookRepositorySoftDeleteAbsentTest :
                 val (repo, registry) = repository(sql, driver, bus)
                 runTest {
                     val libId = registry.currentLibrary()
-                    val a = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("a", inode = 1L)).resolved()
+                    repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("a", inode = 1L))
                     val b = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("b", inode = 2L)).resolved()
 
                     repo.softDeleteAbsentByPaths(libId, seen = setOf(FolderScopedPath(TEST_FOLDER_ID, "a")))

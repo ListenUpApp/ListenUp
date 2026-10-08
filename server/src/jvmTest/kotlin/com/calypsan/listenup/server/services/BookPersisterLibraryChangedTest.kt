@@ -11,13 +11,12 @@ import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.collections.shouldNotContain
-import io.kotest.matchers.shouldBe
-import io.kotest.matchers.types.instanceOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
+import io.kotest.assertions.throwables.shouldThrow
 
 /**
  * #16 recently-added: a `FirehoseSuppressed` bulk write that CHANGED rows must be followed by exactly
@@ -177,24 +176,22 @@ class BookPersisterLibraryChangedTest :
                     bus.subscribeControl().onEach { frames += it }.launchIn(backgroundScope)
                     repeat(8) { yield() }
 
-                    val thrown =
-                        runCatching {
-                            persister.persist(
-                                scanResult(
-                                    books = listOf(analyzedBook("a"), analyzedBook("b")),
-                                    changes =
-                                        listOf(
-                                            ChangeEventDto.Added(analyzedBook("a")),
-                                            ChangeEventDto.Added(analyzedBook("b")),
-                                        ),
-                                    scope = ScanScope.Full,
-                                ),
-                            )
-                        }
+                    // The OOM still propagates — the broadcast is best-effort and must never mask it.
+                    shouldThrow<OutOfMemoryError> {
+                        persister.persist(
+                            scanResult(
+                                books = listOf(analyzedBook("a"), analyzedBook("b")),
+                                changes =
+                                    listOf(
+                                        ChangeEventDto.Added(analyzedBook("a")),
+                                        ChangeEventDto.Added(analyzedBook("b")),
+                                    ),
+                                scope = ScanScope.Full,
+                            ),
+                        )
+                    }
                     repeat(8) { yield() }
 
-                    // The OOM still propagates — the broadcast is best-effort and must never mask it.
-                    thrown.exceptionOrNull() shouldBe instanceOf(OutOfMemoryError::class)
                     frames.map { it.control }.filter { it == SyncControl.LibraryDataChanged } shouldHaveSize 1
                 }
             }

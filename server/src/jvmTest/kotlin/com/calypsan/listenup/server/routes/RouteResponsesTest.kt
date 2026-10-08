@@ -10,7 +10,6 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.ktor.client.request.get
 import io.ktor.server.routing.get
-import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import org.slf4j.event.Level
 

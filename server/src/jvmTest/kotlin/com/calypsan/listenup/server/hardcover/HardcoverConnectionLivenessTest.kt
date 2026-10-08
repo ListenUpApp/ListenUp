@@ -61,7 +61,8 @@ class HardcoverConnectionLivenessTest :
         test("a push landing republishes Connected with its time") {
             livenessTest {
                 connect()
-                linker.observe(USER)
+                // Seeds the live state this test then watches change.
+                linker.observe(USER).value.shouldBeInstanceOf<HardcoverConnection.Connected>()
                 store.markSynced(USER, T0 + 5_000)
                 awaitState { (it as? HardcoverConnection.Connected)?.lastSyncedAt == T0 + 5_000 }
             }
@@ -70,7 +71,8 @@ class HardcoverConnectionLivenessTest :
         test("a push stalled past its cap shows as PUSH_STALLED until a push lands") {
             livenessTest {
                 connect()
-                linker.observe(USER)
+                // Seeds the live state this test then watches change.
+                linker.observe(USER).value.shouldBeInstanceOf<HardcoverConnection.Connected>()
                 store.recordPushError(USER, "HTTP 500: boom")
                 awaitState { (it as? HardcoverConnection.Connected)?.syncProblem == HardcoverSyncProblem.PUSH_STALLED }
                 store.markSynced(USER, T0 + 1)
@@ -81,7 +83,8 @@ class HardcoverConnectionLivenessTest :
         test("a stalled pull shows as PULL_STALLED, and a stalled push outranks it") {
             livenessTest {
                 connect()
-                linker.observe(USER)
+                // Seeds the live state this test then watches change.
+                linker.observe(USER).value.shouldBeInstanceOf<HardcoverConnection.Connected>()
                 store.recordPullError(USER, "HTTP 503")
                 awaitState { (it as? HardcoverConnection.Connected)?.syncProblem == HardcoverSyncProblem.PULL_STALLED }
                 store.recordPushError(USER, "HTTP 500")
@@ -93,13 +96,14 @@ class HardcoverConnectionLivenessTest :
             livenessTest {
                 connect()
                 store.recordPushError(USER, "HTTP 500")
-                linker.observe(USER)
+                // Seeds the live state this test then watches change.
+                linker.observe(USER).value.shouldBeInstanceOf<HardcoverConnection.Connected>()
                 activity.syncRequested(USER)
                 awaitState { (it as? HardcoverConnection.Connected)?.isSyncing == true }
                 activity.pullFailed(USER, served = activity.generation(USER))
-                awaitState {
-                    it is HardcoverConnection.Connected && !it.isSyncing &&
-                        it.syncProblem == HardcoverSyncProblem.SYNC_NOW_FAILED
+                awaitState { state ->
+                    state is HardcoverConnection.Connected && !state.isSyncing &&
+                        state.syncProblem == HardcoverSyncProblem.SYNC_NOW_FAILED
                 }
             }
         }
@@ -118,7 +122,8 @@ class HardcoverConnectionLivenessTest :
         test("a republish never turns a broken connection back into a connected one") {
             livenessTest {
                 connect()
-                linker.observe(USER)
+                // Seeds the live state this test then watches change.
+                linker.observe(USER).value.shouldBeInstanceOf<HardcoverConnection.Connected>()
                 linker.breakIfConnected(USER, HardcoverBrokenReason.REVOKED) shouldBe true
                 activity.healthChanged(USER)
                 awaitState { it is HardcoverConnection.Broken }

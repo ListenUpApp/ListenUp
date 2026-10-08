@@ -152,7 +152,7 @@ internal class MatchRig(
         )
     val writer = BookMatchWriter(db.sql, books, bookMoods, receipts, { 1_000L }, beforeCommit = { fault() })
     val applier = BookMatchApplier(reviewer, coordinator, preparer, writer)
-    val undoer = MatchUndoer(db.sql, books, bookMoods, receipts, { 2_000L })
+    val undoer = MatchUndoer(db.sql, books, bookMoods, receipts) { 2_000L }
 
     /** Project Hail Mary as you have it: an old description, two authors, Fantasy, Hopeful, a Heist tag. */
     suspend fun seedBook(): BookSyncPayload {

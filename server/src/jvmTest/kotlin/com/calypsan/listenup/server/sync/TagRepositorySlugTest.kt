@@ -7,6 +7,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
+import io.kotest.assertions.throwables.shouldThrowAny
 
 class TagRepositorySlugTest :
     FunSpec({
@@ -54,11 +55,9 @@ class TagRepositorySlugTest :
                 runTest {
                     repo.upsert(Tag(id = "t1", name = "Sci-Fi", slug = "sci-fi", revision = 0, updatedAt = 0))
                     // Inserting a different id with the same slug violates the partial unique index
-                    val ex =
-                        runCatching {
-                            repo.upsert(Tag(id = "t2", name = "Science Fiction", slug = "sci-fi", revision = 0, updatedAt = 0))
-                        }
-                    ex.isFailure shouldBe true
+                    shouldThrowAny {
+                        repo.upsert(Tag(id = "t2", name = "Science Fiction", slug = "sci-fi", revision = 0, updatedAt = 0))
+                    }
                 }
             }
         }

@@ -37,6 +37,7 @@ import io.ktor.serialization.kotlinx.json.json
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.exists
+import java.util.Locale
 
 /**
  * The upload REST surface end to end through the real [module]: session lifecycle, the admin
@@ -185,8 +186,10 @@ private fun withUploadServer(block: suspend ApplicationTestBuilder.(HttpClient, 
     }
 }
 
+@Suppress("SuspendFunWithCoroutineScopeReceiver") // A Ktor CoroutineScope only incidentally; nothing launches.
 private suspend fun HttpClient.createSession(token: String) = post(UploadRoutePaths.SESSIONS) { bearerAuth(token) }
 
+@Suppress("SuspendFunWithCoroutineScopeReceiver") // A Ktor CoroutineScope only incidentally; nothing launches.
 private suspend fun HttpClient.uploadFile(
     token: String,
     sessionId: String,
@@ -226,7 +229,7 @@ private fun String.urlEncoded(): String =
             if (c.isLetterOrDigit() || c in "-._~%") {
                 append(c)
             } else {
-                c.toString().encodeToByteArray().forEach { b -> append('%').append("%02X".format(b)) }
+                c.toString().encodeToByteArray().forEach { b -> append('%').append("%02X".format(Locale.ROOT, b)) }
             }
         }
     }
@@ -239,6 +242,7 @@ private fun Path.filesUnder(): List<String> {
     }
 }
 
+@Suppress("SuspendFunWithCoroutineScopeReceiver") // A Ktor CoroutineScope only incidentally; nothing launches.
 private suspend fun HttpResponse.decodeError(): AppError = contractJson.decodeFromString<AppError>(readRawBytes().decodeToString())
 
 /** Runs first-user setup and returns the ROOT access token. */

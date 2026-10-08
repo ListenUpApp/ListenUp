@@ -67,6 +67,6 @@ private inline fun shouldThrowInvalid(block: () -> Unit) {
         block()
         throw AssertionError("expected ImageStore.InvalidImageException")
     } catch (e: ImageStore.InvalidImageException) {
-        check(e.message != null) { "InvalidImageException must carry a message" }
+        checkNotNull(e.message) { "InvalidImageException must carry a message" }
     }
 }

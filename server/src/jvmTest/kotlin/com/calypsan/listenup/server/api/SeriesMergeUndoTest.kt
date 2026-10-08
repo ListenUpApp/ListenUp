@@ -168,9 +168,9 @@ class SeriesMergeUndoTest :
 
                     val result = f.service.undoSeriesMerge(f.onlyReceiptInto(t))
 
-                    result.shouldBeInstanceOf<AppResult.Success<MergeUndoResult>>().data.let {
-                        it.booksRestored shouldBe 1
-                        it.booksSkipped shouldBe 1
+                    result.shouldBeInstanceOf<AppResult.Success<MergeUndoResult>>().data.let { undo ->
+                        undo.booksRestored shouldBe 1
+                        undo.booksSkipped shouldBe 1
                     }
                     f.membershipsOf("b1") shouldBe listOf(s.value to 1.0)
                     f.membershipsOf("b2").shouldBeEmpty()

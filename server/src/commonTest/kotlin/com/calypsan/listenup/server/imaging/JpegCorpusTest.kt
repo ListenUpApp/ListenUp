@@ -10,6 +10,9 @@ import io.kotest.matchers.shouldBe
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlin.time.Duration.Companion.minutes
+import com.calypsan.listenup.server.logging.loggerFor
+
+private val logger = loggerFor<JpegCorpusTest>()
 
 /**
  * The gate that matters: every JPEG in a **real** cover library, decoded.
@@ -90,11 +93,11 @@ class JpegCorpusTest :
                     }
                 }
 
-                println(
+                logger.info {
                     "cover corpus: ${files.size} files, $jpegs JPEG — $decoded decoded " +
                         "($coarseOnly only at 1/8), ${undecodable.size} undecodable, ${escaped.size} escaped, " +
-                        "${otherFormats.size} not JPEG",
-                )
+                        "${otherFormats.size} not JPEG"
+                }
 
                 // An escape is a bug, full stop: an undecodable cover must leave the original serving.
                 withClue("threw instead of declining: ${escaped.take(REPORTED_FAILURES)}") { escaped.shouldBeEmpty() }

@@ -35,7 +35,7 @@ internal fun Route.rogueRoutes() {
     }
 
     post("/rogue/bare-is-admin") {
-        val wasAdmin = call.userPrincipalOrNull()?.role?.isAdmin() == true
+        val wasAdmin = call.userPrincipalOrNull()?.run { role.isAdmin() } == true
         call.respond(if (wasAdmin) HttpStatusCode.OK else HttpStatusCode.Accepted)
     }
 
@@ -60,6 +60,6 @@ internal fun Route.rogueRoutes() {
     }
 }
 
-private fun ApplicationCall.requireFixtureAdmin(): Boolean = userPrincipalOrNull()?.role?.isAdmin() == true
+private fun ApplicationCall.requireFixtureAdmin(): Boolean = userPrincipalOrNull()?.run { role.isAdmin() } == true
 
 private fun ApplicationCall.scoped(service: String): String = service

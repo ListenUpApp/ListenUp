@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.embeddedmeta.format.mp4
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.nulls.shouldNotBeNull
 
 class EsdsParserTest :
     FunSpec({
@@ -35,8 +36,9 @@ class EsdsParserTest :
             val info = parseEsds(esds(oti = 0x40, avgBitrate = 128000, asc = asc))
             info.objectTypeIndication shouldBe 0x40
             info.avgBitrate shouldBe 128000
-            info.audioSpecificConfig!!.size shouldBe asc.size
-            info.audioSpecificConfig!![0] shouldBe asc[0]
+            val config = info.audioSpecificConfig.shouldNotBeNull()
+            config.size shouldBe asc.size
+            config[0] shouldBe asc[0]
         }
         test("returns null ASC when DecoderSpecificInfo absent") {
             val info = parseEsds(byteArrayOf(0, 0, 0, 0, 0x03, 5, 0, 1, 0, 0x04, 0))

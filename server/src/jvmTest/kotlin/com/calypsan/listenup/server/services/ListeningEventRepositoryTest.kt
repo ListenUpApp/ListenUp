@@ -24,6 +24,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import io.kotest.assertions.throwables.shouldThrowAny
 
 class ListeningEventRepositoryTest :
     FunSpec({
@@ -117,8 +118,7 @@ class ListeningEventRepositoryTest :
             withSqlDatabase {
                 val repo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
-                    val threw = runCatching { repo.pullSince(userId = null, cursor = 0L, limit = 50) }
-                    threw.isFailure shouldBe true
+                    shouldThrowAny { repo.pullSince(userId = null, cursor = 0L, limit = 50) }
                 }
             }
         }

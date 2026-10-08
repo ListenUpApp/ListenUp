@@ -88,14 +88,14 @@ internal fun SqlTestDatabases.collectionAccessHarness(
     val bus = ChangeBus()
     val registry = SyncRegistry()
     val collectionRepo = CollectionRepository(db = sql, bus = bus, registry = registry, driver = driver)
-    val collectionBookRepo = collectionBookRepo(bus, registry)
+    val membershipRepo = collectionBookRepo(bus, registry)
     val grantRepo = CollectionGrantRepository(db = sql, bus = bus, registry = registry, driver = driver)
     val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
     val revisionTouch = FakeBookRevisionTouch()
     val service =
         CollectionServiceImpl(
             collectionRepo = collectionRepo,
-            collectionBookRepo = collectionBookRepo,
+            collectionBookRepo = membershipRepo,
             grantRepo = grantRepo,
             accessPolicy = accessPolicy,
             bookAccessPolicy = BookAccessPolicy(sql, driver),
@@ -114,14 +114,14 @@ internal fun SqlTestDatabases.collectionAccessHarness(
             contributorRepository = ContributorRepository(sql, bus, registry),
             seriesRepository = SeriesRepository(sql, bus, registry),
             genreRepository = GenreRepository(sql, bus, registry),
-            collectionBookRepository = collectionBookRepo,
+            collectionBookRepository = membershipRepo,
             bookTagRepository = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver),
             bookMoodRepository = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver),
         )
     return CollectionAccessHarness(
         service = service,
         collectionRepo = collectionRepo,
-        collectionBookRepo = collectionBookRepo,
+        collectionBookRepo = membershipRepo,
         grantRepo = grantRepo,
         bookAccessPolicy = BookAccessPolicy(sql, driver),
         bookRepo = bookRepo,
