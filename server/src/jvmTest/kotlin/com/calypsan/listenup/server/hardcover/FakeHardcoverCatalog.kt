@@ -229,18 +229,18 @@ class FakeHardcoverCatalog {
                         putJsonArray("books") { books.filter { it.id in ids }.forEach { add(findBookJson(it)) } }
                         variables["asin"]?.let { asin ->
                             putJsonArray("byAsin") {
-                                books.firstOrNull { it.asin == asin.jsonPrimitive.content }?.let {
+                                books.firstOrNull { it.asin == asin.jsonPrimitive.content }?.let { book ->
                                     add(
-                                        findEditionJson(it, 2, nestBook = true),
+                                        findEditionJson(book, 2, nestBook = true),
                                     )
                                 }
                             }
                         }
                         variables["isbn"]?.let { isbn ->
                             putJsonArray("byIsbn") {
-                                books.firstOrNull { it.isbn13 == isbn.jsonPrimitive.content }?.let {
+                                books.firstOrNull { it.isbn13 == isbn.jsonPrimitive.content }?.let { book ->
                                     add(
-                                        findEditionJson(it, 1, nestBook = true),
+                                        findEditionJson(book, 1, nestBook = true),
                                     )
                                 }
                             }

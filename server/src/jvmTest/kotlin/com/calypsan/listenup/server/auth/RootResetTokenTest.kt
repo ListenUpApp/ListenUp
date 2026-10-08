@@ -89,10 +89,10 @@ class RootResetTokenTest :
                             results += armed.consume(armed.token, start)
                         }
                     }
-                threads.forEach { it.start() }
-                threads.forEach { it.join() }
+                threads.forEach { thread -> thread.start() }
+                threads.forEach { thread -> thread.join() }
 
-                results.count { it is ConsumeOutcome.Consumed } shouldBe 1
+                results.count { outcome -> outcome is ConsumeOutcome.Consumed } shouldBe 1
             }
         }
     })

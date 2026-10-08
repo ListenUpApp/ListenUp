@@ -214,10 +214,10 @@ private fun bookSyncFixture(
         inode = null,
         scannedAt = 1_730_000_000_000L,
         contributors =
-            contributorId?.let {
+            contributorId?.let { creditedId ->
                 listOf(
                     BookContributorPayload(
-                        id = it,
+                        id = creditedId,
                         name = "Brandon Sanderson",
                         sortName = "Sanderson, Brandon",
                         role = "author",

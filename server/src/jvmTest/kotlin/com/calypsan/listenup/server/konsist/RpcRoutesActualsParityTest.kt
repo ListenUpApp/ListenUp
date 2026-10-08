@@ -19,8 +19,8 @@ class RpcRoutesActualsParityTest :
                 Konsist
                     .scopeFromProduction()
                     .files
-                    .first {
-                        it.path.endsWith(
+                    .first { file ->
+                        file.path.endsWith(
                             "/server/src/jvmMain/kotlin/com/calypsan/listenup/server/routes/RpcRoutes.jvm.kt",
                         )
                     }

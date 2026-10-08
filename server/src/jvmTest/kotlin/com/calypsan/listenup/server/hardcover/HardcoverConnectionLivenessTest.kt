@@ -97,9 +97,9 @@ class HardcoverConnectionLivenessTest :
                 activity.syncRequested(USER)
                 awaitState { (it as? HardcoverConnection.Connected)?.isSyncing == true }
                 activity.pullFailed(USER, served = activity.generation(USER))
-                awaitState {
-                    it is HardcoverConnection.Connected && !it.isSyncing &&
-                        it.syncProblem == HardcoverSyncProblem.SYNC_NOW_FAILED
+                awaitState { state ->
+                    state is HardcoverConnection.Connected && !state.isSyncing &&
+                        state.syncProblem == HardcoverSyncProblem.SYNC_NOW_FAILED
                 }
             }
         }

@@ -272,7 +272,7 @@ private fun analyzedWith(
         authors = authors,
         tracks = listOf(TrackEntry(file = file)),
         embedded =
-            authorsSort?.let {
+            authorsSort?.let { sort ->
                 EmbeddedAudioMetadata(
                     format = AudioFormat.Mp3,
                     durationMs = 0L,
@@ -294,7 +294,7 @@ private fun analyzedWith(
                             discNumber = null,
                             custom = emptyMap(),
                             titleSort = null,
-                            authorsSort = it,
+                            authorsSort = sort,
                         ),
                     chapters = emptyList(),
                     chaptersSource = ChapterSource.None,

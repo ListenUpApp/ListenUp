@@ -67,17 +67,17 @@ class CollectionAccessModelExclusivityTest :
                     admin.addBookToCollection(c.data.id, BookId("B")) shouldBe AppResult.Success(Unit)
                     h.bookAccessPolicy.canAccess("m", UserRole.MEMBER, "B").shouldBeFalse()
                     // mechanism diagnostic — not the invariant this test asserts.
-                    h.junctionDiagnostic("B").let {
-                        it shouldContain c.data.id.value
-                        it shouldNotContain allBooksId
+                    h.junctionDiagnostic("B").let { collectionIds ->
+                        collectionIds shouldContain c.data.id.value
+                        collectionIds shouldNotContain allBooksId
                     }
 
                     // Last real membership removed ⇒ auto-RETURN to ALL_BOOKS ⇒ access restored.
                     admin.removeBookFromCollection(c.data.id, BookId("B")) shouldBe AppResult.Success(Unit)
                     h.bookAccessPolicy.canAccess("m", UserRole.MEMBER, "B").shouldBeTrue()
-                    h.junctionDiagnostic("B").let {
-                        it shouldContain allBooksId
-                        it shouldNotContain c.data.id.value
+                    h.junctionDiagnostic("B").let { collectionIds ->
+                        collectionIds shouldContain allBooksId
+                        collectionIds shouldNotContain c.data.id.value
                     }
                 }
             }
@@ -104,17 +104,17 @@ class CollectionAccessModelExclusivityTest :
 
                     admin.setBookCollections(BookId("B"), listOf(c.data.id)) shouldBe AppResult.Success(Unit)
                     h.bookAccessPolicy.canAccess("m", UserRole.MEMBER, "B").shouldBeFalse()
-                    h.junctionDiagnostic("B").let {
-                        it shouldContain c.data.id.value
-                        it shouldNotContain allBooksId
+                    h.junctionDiagnostic("B").let { collectionIds ->
+                        collectionIds shouldContain c.data.id.value
+                        collectionIds shouldNotContain allBooksId
                     }
 
                     // Empty target set: the book must NOT be orphaned — it returns to ALL_BOOKS and access returns.
                     admin.setBookCollections(BookId("B"), emptyList()) shouldBe AppResult.Success(Unit)
                     h.bookAccessPolicy.canAccess("m", UserRole.MEMBER, "B").shouldBeTrue()
-                    h.junctionDiagnostic("B").let {
-                        it shouldContain allBooksId
-                        it shouldNotContain c.data.id.value
+                    h.junctionDiagnostic("B").let { collectionIds ->
+                        collectionIds shouldContain allBooksId
+                        collectionIds shouldNotContain c.data.id.value
                     }
                 }
             }
@@ -154,14 +154,14 @@ class CollectionAccessModelExclusivityTest :
                     h.bookAccessPolicy.canAccess("m", UserRole.MEMBER, "sorted").shouldBeFalse()
                     h.bookAccessPolicy.canAccess("m", UserRole.MEMBER, "unsorted").shouldBeTrue()
 
-                    h.junctionDiagnostic("sorted").let {
-                        it shouldContain c.data.id.value
-                        it shouldNotContain inboxId
-                        it shouldNotContain allBooksId
+                    h.junctionDiagnostic("sorted").let { collectionIds ->
+                        collectionIds shouldContain c.data.id.value
+                        collectionIds shouldNotContain inboxId
+                        collectionIds shouldNotContain allBooksId
                     }
-                    h.junctionDiagnostic("unsorted").let {
-                        it shouldContain allBooksId
-                        it shouldNotContain inboxId
+                    h.junctionDiagnostic("unsorted").let { collectionIds ->
+                        collectionIds shouldContain allBooksId
+                        collectionIds shouldNotContain inboxId
                     }
                 }
             }
@@ -191,9 +191,9 @@ class CollectionAccessModelExclusivityTest :
                     // Deleting C removes B's only real membership → B must not be stranded → access returns.
                     admin.deleteCollection(c.data.id) shouldBe AppResult.Success(Unit)
                     h.bookAccessPolicy.canAccess("m", UserRole.MEMBER, "B").shouldBeTrue()
-                    h.junctionDiagnostic("B").let {
-                        it shouldContain allBooksId
-                        it shouldNotContain c.data.id.value
+                    h.junctionDiagnostic("B").let { collectionIds ->
+                        collectionIds shouldContain allBooksId
+                        collectionIds shouldNotContain c.data.id.value
                     }
                 }
             }
@@ -273,9 +273,9 @@ class CollectionAccessModelExclusivityTest :
                     // The invariant: B is no longer held.
                     admin.listInbox(LibraryId("test-library")) shouldBe AppResult.Success(emptyList())
                     // mechanism diagnostic — not the invariant this test asserts.
-                    h.junctionDiagnostic("B").let {
-                        it shouldContain c.data.id.value
-                        it shouldNotContain inboxId
+                    h.junctionDiagnostic("B").let { collectionIds ->
+                        collectionIds shouldContain c.data.id.value
+                        collectionIds shouldNotContain inboxId
                     }
                 }
             }

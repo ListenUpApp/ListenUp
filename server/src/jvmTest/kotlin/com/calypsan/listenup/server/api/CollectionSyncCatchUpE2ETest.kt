@@ -138,19 +138,19 @@ class CollectionSyncCatchUpE2ETest :
                     val ownerView = owner.listCollections()
                     require(ownerView is AppResult.Success)
                     ownerView.data shouldHaveSize 1
-                    ownerView.data.first().let {
-                        it.id shouldBe collectionId
-                        it.isOwner shouldBe true
-                        it.callerPermission shouldBe SharePermission.Write
+                    ownerView.data.first().let { collection ->
+                        collection.id shouldBe collectionId
+                        collection.isOwner shouldBe true
+                        collection.callerPermission shouldBe SharePermission.Write
                     }
 
                     val sharedView = service.actAs("u2").listCollections()
                     require(sharedView is AppResult.Success)
                     sharedView.data shouldHaveSize 1
-                    sharedView.data.first().let {
-                        it.id shouldBe collectionId
-                        it.isOwner shouldBe false
-                        it.callerPermission shouldBe SharePermission.Read
+                    sharedView.data.first().let { collection ->
+                        collection.id shouldBe collectionId
+                        collection.isOwner shouldBe false
+                        collection.callerPermission shouldBe SharePermission.Read
                     }
 
                     // ---- Sync catch-up seam: each domain replays from cursor 0 ----
@@ -182,9 +182,9 @@ class CollectionSyncCatchUpE2ETest :
 
                     val collectionsPage = collectionRepo.pullSince(userId = null, cursor = 0, limit = SYNC_PULL_LIMIT)
                     collectionsPage.items.map { it.id } shouldContain collectionId.value
-                    collectionsPage.items.first { it.id == collectionId.value }.let {
-                        it.name shouldBe "Reading List"
-                        it.ownerId shouldBe "u1"
+                    collectionsPage.items.first { it.id == collectionId.value }.let { collection ->
+                        collection.name shouldBe "Reading List"
+                        collection.ownerId shouldBe "u1"
                     }
 
                     val booksPage = collectionBookRepo.pullSince(userId = null, cursor = 0, limit = SYNC_PULL_LIMIT)
@@ -196,9 +196,9 @@ class CollectionSyncCatchUpE2ETest :
                     sharesPage.items
                         .first {
                             it.collectionId == collectionId.value && it.sharedWithUserId == "u2" && it.deletedAt == null
-                        }.let {
-                            it.sharedByUserId shouldBe "u1"
-                            it.permission shouldBe SharePermission.Read
+                        }.let { share ->
+                            share.sharedByUserId shouldBe "u1"
+                            share.permission shouldBe SharePermission.Read
                         }
                 }
             }

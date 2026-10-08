@@ -153,7 +153,7 @@ private class EvictionFixture(
     ) {
         repeat(MTIME_ATTEMPTS) {
             writeSegment(bookId, fileId, bytes)
-            val listed = cache.listCachedFiles().associateBy { it.bookId to it.fileId }
+            val listed = cache.listCachedFiles().associateBy { file -> file.bookId to file.fileId }
             val newer = checkNotNull(listed[bookId to fileId]).lastTouchedMs
             val older = checkNotNull(listed[olderBookId to olderFileId]).lastTouchedMs
             if (newer > older) return

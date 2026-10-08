@@ -97,7 +97,7 @@ class CookieCarrierScopeTest :
                 val blobReadMounts = application.plugin(RoutingRoot).authSubtreesFor(BLOB_READ_PROVIDER)
                 blobReadMounts.shouldNotBeEmpty()
 
-                val methods = blobReadMounts.flatMap { it.methodsBelow() }
+                val methods = blobReadMounts.flatMap { mount -> mount.methodsBelow() }
                 methods.shouldNotBeEmpty()
                 methods.forEach { method ->
                     withClue("$method is mounted behind $BLOB_READ_PROVIDER") {

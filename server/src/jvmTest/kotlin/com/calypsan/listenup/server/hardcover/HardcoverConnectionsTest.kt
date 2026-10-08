@@ -443,8 +443,8 @@ class HardcoverConnectionsTest :
                 fake.enqueue(FakeHardcover.REFRESH, HttpStatusCode.OK, tokenJson("hc_at_2", "hc_rt_2"))
                 val refreshInFlight = CompletableDeferred<Unit>()
                 val releaseRefresh = CompletableDeferred<Unit>()
-                fake.beforeAnswer = {
-                    if (it.endpoint == FakeHardcover.REFRESH) {
+                fake.beforeAnswer = { request ->
+                    if (request.endpoint == FakeHardcover.REFRESH) {
                         refreshInFlight.complete(Unit)
                         releaseRefresh.await()
                     }

@@ -403,9 +403,9 @@ class ImportApplierTest :
                     applyingEvents.size shouldBe 2
 
                     // Every emitted frame is a final frame: done == total for its pass, currentItem non-null.
-                    applyingEvents.forEach {
-                        it.currentItem.shouldNotBeNull()
-                        it.done shouldBe it.total
+                    applyingEvents.forEach { event ->
+                        event.currentItem.shouldNotBeNull()
+                        event.done shouldBe event.total
                     }
 
                     // The final Applying event of the sessions pass reflects the cumulative

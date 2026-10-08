@@ -173,9 +173,9 @@ class EntityRepositoryWritesTest :
                         .shouldNotBeNull()
                         .deletedAt
                         .shouldNotBeNull()
-                    repo.findById(EntityId("e1")).shouldNotBeNull().let {
-                        it.deletedAt.shouldBeNull()
-                        it.name shouldBe "Mustang"
+                    repo.findById(EntityId("e1")).shouldNotBeNull().let { entity ->
+                        entity.deletedAt.shouldBeNull()
+                        entity.name shouldBe "Mustang"
                     }
                 }
             }

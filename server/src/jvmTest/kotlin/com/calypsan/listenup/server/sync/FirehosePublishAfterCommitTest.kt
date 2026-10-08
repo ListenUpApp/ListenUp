@@ -39,11 +39,11 @@ class FirehosePublishAfterCommitTest :
                 val frame =
                     rpcFirehose(bus, rootPrincipal("test-user"))
                         .domainFrames()
-                        .first {
-                            it.domain == "tags" &&
+                        .first { candidate ->
+                            candidate.domain == "tags" &&
                                 (
-                                    it.json.contains(""""name":"real"""") ||
-                                        it.json.contains(""""name":"ghost"""")
+                                    candidate.json.contains(""""name":"real"""") ||
+                                        candidate.json.contains(""""name":"ghost"""")
                                 )
                         }
                 frame.json.contains(""""name":"real"""") shouldBe true

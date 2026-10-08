@@ -189,8 +189,8 @@ class FakeHardcoverLibrary(
         synchronized(lock) {
             val shelf = shelves.first { it.bookId == hcBookId }
             Read(nextId++, startedAt, finishedAt, null)
-                .also {
-                    shelf.reads += it
+                .also { read ->
+                    shelf.reads += read
                     touchForRead(shelf)
                 }.id
         }
@@ -490,9 +490,9 @@ class FakeHardcoverLibrary(
                     addJsonObject {
                         putJsonArray("user_books") {
                             shelves
-                                .filter {
-                                    val at = instantOf(it.updatedAt)
-                                    at > cursor || (at == cursor && it.id > afterId)
+                                .filter { entry ->
+                                    val at = instantOf(entry.updatedAt)
+                                    at > cursor || (at == cursor && entry.id > afterId)
                                 }.sortedWith(compareBy<Shelf>({ instantOf(it.updatedAt) }, { it.id }))
                                 .take(limit)
                                 .forEach { shelf -> add(changedShelfJson(shelf)) }

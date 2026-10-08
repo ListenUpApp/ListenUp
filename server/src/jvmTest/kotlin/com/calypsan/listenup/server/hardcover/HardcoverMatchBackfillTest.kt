@@ -115,8 +115,8 @@ class HardcoverMatchBackfillTest :
                     FakeHardcoverLibrary.Edition(9_001L, 427_578L, "Project Hail Mary", listOf("Andy Weir"), asin = "B08G9RZBTT"),
                 )
                 val (backfill, connections) =
-                    backfillFor(this, hardcover) {
-                        if (it ==
+                    backfillFor(this, hardcover) { bookId ->
+                        if (bookId ==
                             "book-b"
                         ) {
                             BookIdentity(asin = "B08G9RZBTT", title = "Project Hail Mary")

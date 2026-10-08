@@ -136,8 +136,8 @@ internal class PersonRig(
     /** The rig's person Review, Apply and Undo, as the matching service takes them. */
     fun people() =
         PersonMatchDetails(reviewer, applier, undoer) { id ->
-            contributors.findById(id.value)?.takeIf {
-                it.deletedAt ==
+            contributors.findById(id.value)?.takeIf { contributor ->
+                contributor.deletedAt ==
                     null
             }
         }

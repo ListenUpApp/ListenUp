@@ -281,8 +281,8 @@ class BookRatingServiceImplTest :
                 val onOpen =
                     HardcoverRatingOnOpen(
                         lastTried = { null },
-                        fetch = {
-                            asked += it.value
+                        fetch = { bookId ->
+                            asked += bookId.value
                             gate.await()
                         },
                         scope = CoroutineScope(Dispatchers.Unconfined),
