@@ -45,6 +45,10 @@ complexity:
   NamedArguments:
     active: true
     allowedArguments: 3
+    # Production code only. In tests the bulk is fixture construction (`payload("u1", true, …)`), where
+    # naming every argument buried the case under labels: 3,513 hits once type resolution switched the
+    # rule on (2026-10-08), most of them there.
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
   NestedBlockDepth:
     active: true
     allowedDepth: 4
@@ -81,6 +85,9 @@ coroutines:
     active: true
   InjectDispatcher:
     active: true
+    # Production code only: a test that runs on a real dispatcher chose it on purpose, and has no graph to
+    # inject one from.
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
   RedundantSuspendModifier:
     active: true
   SleepInsteadOfDelay:
@@ -188,8 +195,11 @@ exceptions:
 
 naming:
   active: true
+  # Off: it only ever ran once type resolution reached it (2026-10-08), and then flagged 869 properties,
+  # most of them @Serializable wire fields (`setupRequired`, `hidden`) whose Kotlin names mirror the
+  # contract on every platform. Renaming them is churn across Swift and web for no reader's benefit.
   BooleanPropertyNaming:
-    active: true
+    active: false
     allowedPattern: '^(is|has|are|can|should|may|will)'
   ClassNaming:
     active: true
