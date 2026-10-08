@@ -58,6 +58,15 @@ class DiscoverViewModel(
     private val shelfRepository: ShelfRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
+    // === Discover Shelves State (on-demand RPC) ===
+
+    /**
+     * Discovered shelves are an on-demand RPC read (other users' shelves never enter Room).
+     * Loaded on init and refreshed via [refresh]; the latest result is held here.
+     */
+    val discoverShelvesState: StateFlow<DiscoverShelvesUiState>
+        field = MutableStateFlow<DiscoverShelvesUiState>(DiscoverShelvesUiState.Loading)
+
     init {
         // Load discovered shelves on screen open (on-demand RPC, not Room-backed).
         loadDiscoverShelves()
@@ -208,15 +217,6 @@ class DiscoverViewModel(
             coverHash = coverHash,
             createdAt = createdAt,
         )
-
-    // === Discover Shelves State (on-demand RPC) ===
-
-    /**
-     * Discovered shelves are an on-demand RPC read (other users' shelves never enter Room).
-     * Loaded on init and refreshed via [refresh]; the latest result is held here.
-     */
-    val discoverShelvesState: StateFlow<DiscoverShelvesUiState>
-        field = MutableStateFlow<DiscoverShelvesUiState>(DiscoverShelvesUiState.Loading)
 
     /**
      * Convert Shelf domain model to UI model.
