@@ -25,6 +25,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.compose.KoinApplication
 import org.koin.core.context.stopKoin
+import org.koin.dsl.koinConfiguration
 import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -59,7 +60,7 @@ class UserProfileRestrictedTest {
                 single { mock<AuthSession>(MockMode.autofill) }
             }
         composeRule.setContent {
-            KoinApplication(application = { modules(avatars) }) {
+            KoinApplication(configuration = koinConfiguration { modules(avatars) }) {
                 MaterialTheme {
                     CompositionLocalProvider(LocalRestrictedBookIds provides setOf("restricted")) {
                         ProfileContent(

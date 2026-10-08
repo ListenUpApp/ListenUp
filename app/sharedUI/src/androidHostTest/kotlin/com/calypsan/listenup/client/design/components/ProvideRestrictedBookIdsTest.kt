@@ -16,6 +16,7 @@ import org.junit.runner.RunWith
 import org.koin.compose.KoinApplication
 import org.koin.core.context.stopKoin
 import org.koin.core.module.dsl.viewModel
+import org.koin.dsl.koinConfiguration
 import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
 
@@ -39,7 +40,7 @@ class ProvideRestrictedBookIdsTest {
                 override fun observeBookVisibility(bookId: BookId): Flow<BookVisibility?> = flowOf(null)
             }
         composeRule.setContent {
-            KoinApplication(application = { modules(module { viewModel { RestrictedBooksViewModel(repository) } }) }) {
+            KoinApplication(configuration = koinConfiguration { modules(module { viewModel { RestrictedBooksViewModel(repository) } }) }) {
                 ProvideRestrictedBookIds {
                     Text(LocalRestrictedBookIds.current.sorted().joinToString())
                 }

@@ -17,6 +17,7 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import org.koin.compose.KoinApplication
 import org.koin.core.module.Module
+import org.koin.dsl.koinConfiguration
 
 /**
  * Navigation boundary test harness. Composes a NavDisplay with both standard entry decorators
@@ -75,7 +76,7 @@ class NavDisplayTestHarness(
                 )
             }
             if (koinModule != null) {
-                KoinApplication(application = { modules(koinModule) }) {
+                KoinApplication(configuration = koinConfiguration { modules(koinModule) }) {
                     display()
                 }
             } else {

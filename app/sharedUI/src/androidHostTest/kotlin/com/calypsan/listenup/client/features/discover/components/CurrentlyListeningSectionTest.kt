@@ -25,6 +25,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.compose.KoinApplication
 import org.koin.core.context.stopKoin
+import org.koin.dsl.koinConfiguration
 import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -101,15 +102,16 @@ class CurrentlyListeningSectionTest {
                 everySuspend { downloadUserAvatar(any(), any()) } returns AppResult.Success(false)
             }
         KoinApplication(
-            application = {
-                modules(
-                    module {
-                        single { profiles }
-                        single { storage }
-                        single { images }
-                    },
-                )
-            },
+            configuration =
+                koinConfiguration {
+                    modules(
+                        module {
+                            single { profiles }
+                            single { storage }
+                            single { images }
+                        },
+                    )
+                },
         ) {
             MaterialTheme { content() }
         }
