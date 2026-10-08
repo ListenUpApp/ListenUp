@@ -47,6 +47,9 @@ import org.jetbrains.compose.resources.stringResource
  * affordance — aliases appear only as a side effect of `mergeContributors`. The
  * [onMergeClick] button opens the merge flow; when [aliases] is empty, a hint
  * replaces the chip row so the section still reads as a field.
+ *
+ * Merging and unmerging are Curate library's: without [canCurate] the chips are read-only and the merge
+ * button is gone.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -54,6 +57,7 @@ fun AliasesSection(
     aliases: List<String>,
     onUnmerge: (String) -> Unit,
     onMergeClick: () -> Unit,
+    canCurate: Boolean,
 ) {
     ContributorStudioCard(title = stringResource(Res.string.contributor_also_known_as)) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -69,17 +73,19 @@ fun AliasesSection(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     aliases.forEach { alias ->
-                        AliasChip(alias = alias, onUnmerge = { onUnmerge(alias) })
+                        AliasChip(alias = alias, onUnmerge = { onUnmerge(alias) }.takeIf { canCurate })
                     }
                 }
             }
-            ListenUpButton(
-                text = stringResource(Res.string.contributor_merge_button),
-                onClick = onMergeClick,
-                filled = false,
-                fillMaxWidth = false,
-                leadingIcon = Icons.AutoMirrored.Filled.CallMerge,
-            )
+            if (canCurate) {
+                ListenUpButton(
+                    text = stringResource(Res.string.contributor_merge_button),
+                    onClick = onMergeClick,
+                    filled = false,
+                    fillMaxWidth = false,
+                    leadingIcon = Icons.AutoMirrored.Filled.CallMerge,
+                )
+            }
         }
     }
 }
@@ -87,7 +93,7 @@ fun AliasesSection(
 @Composable
 private fun AliasChip(
     alias: String,
-    onUnmerge: () -> Unit,
+    onUnmerge: (() -> Unit)?,
 ) {
     var showConfirm by remember { mutableStateOf(false) }
 
@@ -95,19 +101,23 @@ private fun AliasChip(
         selected = false,
         onClick = { },
         label = { Text(alias) },
-        trailingIcon = {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = stringResource(Res.string.contributor_remove_aliasname, alias),
-                modifier =
-                    Modifier
-                        .size(InputChipDefaults.AvatarSize)
-                        .clickable { showConfirm = true },
-            )
-        },
+        // Without an unmerge (no Curate library) the chip is read-only: no trailing remove.
+        trailingIcon =
+            onUnmerge?.let {
+                {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(Res.string.contributor_remove_aliasname, alias),
+                        modifier =
+                            Modifier
+                                .size(InputChipDefaults.AvatarSize)
+                                .clickable { showConfirm = true },
+                    )
+                }
+            },
     )
 
-    if (showConfirm) {
+    if (showConfirm && onUnmerge != null) {
         ListenUpAlertDialog(
             onDismissRequest = { showConfirm = false },
             title = stringResource(Res.string.contributor_unmerge_aliasname, alias),

@@ -44,6 +44,7 @@ import org.jetbrains.compose.resources.stringResource
  * @param isComplete Whether the book is marked as complete
  * @param hasProgress Whether the book has any playback progress
  * @param isAdmin Whether the current user is an admin
+ * @param canEditMetadata Whether the user may edit this book's metadata — Edit book, Find Metadata and Edit chapters
  * @param onEditClick Called when Edit Book is clicked
  * @param onFindMetadataClick Called when Find Metadata is clicked
  * @param onMarkCompleteClick Called when Mark as Complete is clicked (shown only when not complete)
@@ -62,6 +63,7 @@ fun BookActionsMenu(
     isComplete: Boolean,
     hasProgress: Boolean,
     isAdmin: Boolean,
+    canEditMetadata: Boolean,
     onEditClick: () -> Unit,
     onFindMetadataClick: () -> Unit,
     onEditChaptersClick: () -> Unit,
@@ -78,33 +80,33 @@ fun BookActionsMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
     ) {
-        // Edit Book
-        ActionMenuItem(
-            label = stringResource(Res.string.book_detail_edit_book),
-            icon = Icons.Outlined.Edit,
-            onClick = onEditClick,
-            enabled = actionsEnabled,
-        )
+        if (canEditMetadata) {
+            // Edit Book
+            ActionMenuItem(
+                label = stringResource(Res.string.book_detail_edit_book),
+                icon = Icons.Outlined.Edit,
+                onClick = onEditClick,
+                enabled = actionsEnabled,
+            )
 
-        // Find Metadata
-        ActionMenuItem(
-            label = stringResource(Res.string.match_menu_item),
-            icon = Icons.Outlined.Search,
-            onClick = onFindMetadataClick,
-            enabled = actionsEnabled,
-        )
+            // Find Metadata
+            ActionMenuItem(
+                label = stringResource(Res.string.match_menu_item),
+                icon = Icons.Outlined.Search,
+                onClick = onFindMetadataClick,
+                enabled = actionsEnabled,
+            )
 
-        // Edit chapters — admin-only, like every other action that rewrites the library's own data.
-        if (isAdmin) {
+            // Edit chapters — Edit metadata's, like Edit book and Match.
             ActionMenuItem(
                 label = stringResource(Res.string.chapter_editor_title),
                 icon = Icons.Outlined.FormatListNumbered,
                 onClick = onEditChaptersClick,
                 enabled = actionsEnabled,
             )
-        }
 
-        HorizontalDivider()
+            HorizontalDivider()
+        }
 
         // Mark as Complete (only when not already complete)
         if (!isComplete) {

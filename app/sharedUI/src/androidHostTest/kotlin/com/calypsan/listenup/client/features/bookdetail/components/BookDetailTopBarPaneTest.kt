@@ -53,6 +53,7 @@ class BookDetailTopBarPaneTest {
                         isComplete = false,
                         hasProgress = false,
                         isAdmin = false,
+                        canEditMetadata = true,
                         onBackClick = onBack,
                         onEditClick = {},
                         onFindMetadataClick = {},

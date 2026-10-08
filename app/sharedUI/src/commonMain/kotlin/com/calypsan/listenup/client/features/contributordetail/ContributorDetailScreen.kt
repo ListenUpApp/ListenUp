@@ -392,6 +392,8 @@ private fun WideHeroHeader(
                 onEditClick = onEditClick,
                 onMatchDetails = onMatchDetails,
                 onDeleteClick = onDeleteClick,
+                canEditMetadata = state.canEditMetadata,
+                canCurateLibrary = state.canCurateLibrary,
                 applyStatusBarInset = false,
             )
 
@@ -693,6 +695,8 @@ private fun NarrowColorHero(
                 onEditClick = onEditClick,
                 onMatchDetails = onMatchDetails,
                 onDeleteClick = onDeleteClick,
+                canEditMetadata = state.canEditMetadata,
+                canCurateLibrary = state.canCurateLibrary,
             )
             Column(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
@@ -796,7 +800,8 @@ private fun NarrowWorkSection(
 // =============================================================================
 
 /**
- * Floating back button and overflow menu.
+ * Floating back button and overflow menu. The menu offers only what the user may do — Edit and Match
+ * details under Edit metadata, Delete under Curate library — and is absent when that is nothing.
  */
 @Composable
 private fun NavigationBar(
@@ -804,6 +809,8 @@ private fun NavigationBar(
     onEditClick: () -> Unit,
     onMatchDetails: () -> Unit,
     onDeleteClick: () -> Unit,
+    canEditMetadata: Boolean,
+    canCurateLibrary: Boolean,
     applyStatusBarInset: Boolean = true,
     actionsEnabled: Boolean = true,
 ) {
@@ -811,11 +818,13 @@ private fun NavigationBar(
         onBack = onBackClick,
         applyStatusBarInset = applyStatusBarInset,
     ) {
-        if (!LocalDeviceContext.current.isLeanback) {
+        if (!LocalDeviceContext.current.isLeanback && (canEditMetadata || canCurateLibrary)) {
             OverflowMenu(
                 onEditClick = onEditClick,
                 onMatchDetails = onMatchDetails,
                 onDeleteClick = onDeleteClick,
+                canEditMetadata = canEditMetadata,
+                canCurateLibrary = canCurateLibrary,
                 actionsEnabled = actionsEnabled,
             )
         }
@@ -830,6 +839,8 @@ private fun OverflowMenu(
     onEditClick: () -> Unit,
     onMatchDetails: () -> Unit,
     onDeleteClick: () -> Unit,
+    canEditMetadata: Boolean,
+    canCurateLibrary: Boolean,
     actionsEnabled: Boolean = true,
 ) {
     val haptics = LocalHaptics.current
@@ -860,48 +871,52 @@ private fun OverflowMenu(
             expanded = showMenu,
             onDismissRequest = { showMenu = false },
         ) {
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.common_edit)) },
-                leadingIcon = { Icon(Icons.Default.Edit, null) },
-                onClick = {
-                    haptics.press()
-                    showMenu = false
-                    onEditClick()
-                },
-                enabled = actionsEnabled,
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.match_menu_item)) },
-                leadingIcon = { Icon(Icons.Default.Search, null) },
-                onClick = {
-                    haptics.press()
-                    showMenu = false
-                    onMatchDetails()
-                },
-                enabled = actionsEnabled,
-            )
-            HorizontalDivider()
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        stringResource(Res.string.common_delete),
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        Icons.Default.Delete,
-                        null,
-                        tint = MaterialTheme.colorScheme.error,
-                    )
-                },
-                onClick = {
-                    haptics.press()
-                    showMenu = false
-                    onDeleteClick()
-                },
-                enabled = actionsEnabled,
-            )
+            if (canEditMetadata) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.common_edit)) },
+                    leadingIcon = { Icon(Icons.Default.Edit, null) },
+                    onClick = {
+                        haptics.press()
+                        showMenu = false
+                        onEditClick()
+                    },
+                    enabled = actionsEnabled,
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.match_menu_item)) },
+                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    onClick = {
+                        haptics.press()
+                        showMenu = false
+                        onMatchDetails()
+                    },
+                    enabled = actionsEnabled,
+                )
+            }
+            if (canCurateLibrary) {
+                if (canEditMetadata) HorizontalDivider()
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            stringResource(Res.string.common_delete),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Delete,
+                            null,
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                    },
+                    onClick = {
+                        haptics.press()
+                        showMenu = false
+                        onDeleteClick()
+                    },
+                    enabled = actionsEnabled,
+                )
+            }
         }
     }
 }
@@ -1051,6 +1066,8 @@ private fun ContributorDetailLoadingFrame(
                 onEditClick = {},
                 onMatchDetails = {},
                 onDeleteClick = {},
+                canEditMetadata = false,
+                canCurateLibrary = false,
                 // Stub callbacks while the contributor loads: disable the rows so none of
                 // them confirms a tap that does nothing.
                 actionsEnabled = false,
