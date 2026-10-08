@@ -627,9 +627,9 @@ private fun DetailScreen(
                 onCategoriesClick = { navigateTo(DetailDestination.AdminCategories) },
                 onInboxClick = { navigateTo(DetailDestination.AdminInbox) },
                 onUserClick = { navigateTo(DetailDestination.UserDetail(it)) },
-                serverName = readySettings?.serverName ?: "",
+                serverName = readySettings?.serverName.orEmpty(),
                 onServerNameChange = { settingsViewModel.setServerName(it) },
-                remoteUrl = readySettings?.remoteUrl ?: "",
+                remoteUrl = readySettings?.remoteUrl.orEmpty(),
                 onRemoteUrlChange = { settingsViewModel.setRemoteUrl(it) },
                 isDirty = readySettings?.isDirty == true,
                 onSave = { settingsViewModel.saveAll() },
@@ -723,7 +723,12 @@ private fun DetailScreen(
                             navigateTo(DetailDestination.Admin)
                         }
 
-                        else -> {
+                        ShortcutAction.Resume,
+                        is ShortcutAction.PlayBook,
+                        ShortcutAction.Search,
+                        is ShortcutAction.SleepTimer,
+                        is ShortcutAction.NavigateToAbsImport,
+                        -> {
                             // Playback/launcher shortcuts never come from a notification tap.
                         }
                     }
